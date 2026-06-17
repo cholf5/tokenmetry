@@ -1,0 +1,6 @@
+  后续可优化项：
+
+  - 🔄 切换到真实 CCUsageCliDataSource（需要本地有 ccusage 数据）
+  - 🎨 添加图标资源
+  - 🔔 实现真实的 Windows Toast 通知
+  - 📈 后续页面：Breakdown 明细、Settings 设置、Reports 报表、趋势图
