@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2026-01-09",
+    "totalCostUsd": 1.23,
+    "totalTokens": 1000,
+    "inputTokens": 500,
+    "outputTokens": 300,
+    "cacheCreationTokens": 50,
+    "cacheReadTokens": 150,
+    "agents": [{"agent": "claude", "costUsd": 1.23, "totalTokens": 1000}],
+    "models": [{"model": "claude-sonnet-4-20250514", "costUsd": 1.23, "totalTokens": 1000}],
+    "projects": [{"project": "project-alpha", "displayName": "project-alpha", "costUsd": 1.23, "totalTokens": 1000}]
+  }
+]

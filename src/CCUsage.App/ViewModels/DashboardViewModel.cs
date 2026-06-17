@@ -1,0 +1,119 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CCUsage.Core.Models;
+using CCUsage.Core.Services;
+using CCUsage.Core.Abstractions;
+
+namespace CCUsage.App.ViewModels;
+
+public partial class DashboardViewModel : ViewModelBase
+{
+    private readonly DashboardService _dashboardService;
+    private readonly CacheService _cacheService;
+    private readonly IUsageDataSource _dataSource;
+    private readonly AnomalyDetector _anomalyDetector;
+    private readonly DateRangeService _dateService;
+    private readonly ISystemNotification _notification;
+
+    [ObservableProperty]
+    private decimal _todayCostUsd;
+
+    [ObservableProperty]
+    private decimal _weekCostUsd;
+
+    [ObservableProperty]
+    private decimal _monthCostUsd;
+
+    [ObservableProperty]
+    private long _todayTokens;
+
+    [ObservableProperty]
+    private string _status = "loading";
+
+    [ObservableProperty]
+    private bool _isLoading;
+
+    [ObservableProperty]
+    private bool _hasData;
+
+    public DashboardViewModel(
+        DashboardService dashboardService,
+        CacheService cacheService,
+        IUsageDataSource dataSource,
+        AnomalyDetector anomalyDetector,
+        DateRangeService dateService,
+        ISystemNotification notification)
+    {
+        _dashboardService = dashboardService;
+        _cacheService = cacheService;
+        _dataSource = dataSource;
+        _anomalyDetector = anomalyDetector;
+        _dateService = dateService;
+        _notification = notification;
+        _ = LoadFromCacheAsync();
+    }
+
+    private async Task LoadFromCacheAsync()
+    {
+        var dashboard = await _cacheService.GetLatestDashboardAsync();
+        if (dashboard != null)
+        {
+            UpdateFromDashboard(dashboard);
+        }
+    }
+
+    private void UpdateFromDashboard(DashboardSummary summary)
+    {
+        TodayCostUsd = summary.TodayCostUsd;
+        WeekCostUsd = summary.WeekCostUsd;
+        MonthCostUsd = summary.MonthCostUsd;
+        TodayTokens = summary.TodayTokens;
+        Status = summary.Status;
+        HasData = TodayCostUsd > 0 || WeekCostUsd > 0 || MonthCostUsd > 0;
+    }
+
+    [RelayCommand]
+    public async Task RefreshAsync()
+    {
+        IsLoading = true;
+        Status = "refreshing";
+        try
+        {
+            var rows = await _dataSource.GetDailyUsageAsync();
+            if (rows.Any())
+            {
+                var dashboard = _dashboardService.BuildDashboard(rows);
+                await _cacheService.SaveDashboardAsync(dashboard);
+                await _cacheService.SaveDailyRowsAsync(rows);
+                UpdateFromDashboard(dashboard);
+
+                // 检测异常
+                var today = rows.FirstOrDefault(r => r.Date == _dateService.Today()) ?? new DailyUsageSummary();
+                var anomalies = _anomalyDetector.DetectAnomalies(today, rows.Take(7).ToList(), minAbsoluteCost: 0.05m);
+
+                if (anomalies.Any())
+                {
+                    foreach (var anomaly in anomalies)
+                    {
+                        await _notification.ShowAsync("AI 成本异常提醒", anomaly.Message);
+                    }
+                }
+            }
+            else
+            {
+                Status = "no data";
+            }
+        }
+        catch (Exception ex)
+        {
+            Status = "error: " + ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}

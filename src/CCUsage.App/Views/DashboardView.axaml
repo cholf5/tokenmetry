@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCUsage.App.ViewModels"
+             xmlns:views="using:CCUsage.App.Views"
+             x:Class="CCUsage.App.Views.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+    <Grid>
+        <!-- 有数据时显示 Dashboard -->
+        <Grid IsVisible="{Binding HasData}" RowDefinitions="Auto, Auto, *" Margin="20">
+            <TextBlock Grid.Row="0" Text="Dashboard" FontSize="24" FontWeight="Bold" Margin="0 0 0 20"/>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*, *, *, *" Margin="0 0 0 20">
+                <Border Grid.Column="0" Background="#f8f9fa" CornerRadius="8" Padding="15" Margin="0 0 10 0">
+                    <StackPanel>
+                        <TextBlock Text="今日成本" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="{Binding TodayCostUsd, StringFormat=${0:F2}}" FontSize="24" FontWeight="Bold" Margin="0 5 0 0"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Background="#f8f9fa" CornerRadius="8" Padding="15" Margin="0 0 10 0">
+                    <StackPanel>
+                        <TextBlock Text="本周成本" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="{Binding WeekCostUsd, StringFormat=${0:F2}}" FontSize="24" FontWeight="Bold" Margin="0 5 0 0"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Background="#f8f9fa" CornerRadius="8" Padding="15" Margin="0 0 10 0">
+                    <StackPanel>
+                        <TextBlock Text="本月成本" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="{Binding MonthCostUsd, StringFormat=${0:F2}}" FontSize="24" FontWeight="Bold" Margin="0 5 0 0"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="3" Background="#f8f9fa" CornerRadius="8" Padding="15">
+                    <StackPanel>
+                        <TextBlock Text="今日 Tokens" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="{Binding TodayTokens, StringFormat={}{0:N0}}" FontSize="24" FontWeight="Bold" Margin="0 5 0 0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
+                <Button Command="{Binding RefreshCommand}" Content="刷新数据" IsEnabled="{Binding !IsLoading}"/>
+                <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="#888"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- 无数据时显示空状态 -->
+        <Grid IsVisible="{Binding !HasData}" Margin="20">
+            <views:EmptyStateView DataContext="{Binding}"/>
+        </Grid>
+    </Grid>
+</UserControl>

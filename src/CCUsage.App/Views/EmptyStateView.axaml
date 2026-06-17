@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCUsage.App.ViewModels"
+             x:Class="CCUsage.App.Views.EmptyStateView"
+             x:DataType="vm:DashboardViewModel">
+    <Grid Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="20" HorizontalAlignment="Center">
+            <TextBlock Text="📊" FontSize="64" HorizontalAlignment="Center"/>
+            <TextBlock Text="尚未找到 AI 编程使用记录" FontSize="20" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+            <TextBlock Text="请确保已安装 ccusage CLI，并且本地有 Claude Code 或 Codex 数据"
+                       Foreground="#666" TextWrapping="Wrap" MaxWidth="400" HorizontalAlignment="Center"/>
+            <Button Content="重新扫描" Command="{Binding RefreshCommand}" HorizontalAlignment="Center" Classes="Accent"/>
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                <TextBlock Text="提示：也可以在开发模式下使用模拟数据测试" Foreground="#888" FontSize="12"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

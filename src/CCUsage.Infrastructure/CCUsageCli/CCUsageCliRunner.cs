@@ -1,0 +1,40 @@
+using System.Diagnostics;
+
+namespace CCUsage.Infrastructure.CCUsageCli;
+
+public class CCUsageCliRunner
+{
+    private readonly string _command;
+    private readonly string _arguments;
+
+    public CCUsageCliRunner(string command, string arguments)
+    {
+        _command = command;
+        _arguments = arguments;
+    }
+
+    public async Task<string> GetOutputAsync(CancellationToken ct = default)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = _command,
+            Arguments = _arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start process");
+        var output = await process.StandardOutput.ReadToEndAsync(ct);
+        var error = await process.StandardError.ReadToEndAsync(ct);
+        await process.WaitForExitAsync(ct);
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Process exited with code {process.ExitCode}: {error}");
+        }
+
+        return output;
+    }
+}
