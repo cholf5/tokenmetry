@@ -17,7 +17,7 @@ public class CCUsageCliParserTests
         row.Date.Should().Be("2026-01-09");
         row.TotalCostUsd.Should().Be(1.23m);
         row.TotalTokens.Should().Be(1000);
-        row.Agents.Single().Agent.Should().Be("claude");
+        row.Agents.Single().Agent.Should().Be("codex");
     }
 
     [Fact]

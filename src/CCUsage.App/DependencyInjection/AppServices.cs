@@ -23,8 +23,8 @@ public static class AppServices
         services.AddSingleton<DashboardService>();
         services.AddSingleton<AnomalyDetector>();
 
-        // Data sources - 默认使用模拟数据以便于测试，生产环境可切换到 CCUsageCliDataSource
-        services.AddSingleton<IUsageDataSource>(new MockUsageDataSource(generateAnomalies: true));
+        // Data sources - 使用真实的 ccusage CLI 数据源
+        services.AddSingleton<IUsageDataSource, CCUsageCliDataSource>();
 
         // Cache
         var dbPath = Path.Combine(

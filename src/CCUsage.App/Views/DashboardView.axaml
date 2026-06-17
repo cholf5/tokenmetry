@@ -39,12 +39,18 @@
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
                 <Button Command="{Binding RefreshCommand}" Content="刷新数据" IsEnabled="{Binding !IsLoading}"/>
                 <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="#888"/>
+                <TextBlock Text="{Binding DebugInfo}" VerticalAlignment="Center" Foreground="#666" FontSize="12"/>
             </StackPanel>
         </Grid>
 
         <!-- 无数据时显示空状态 -->
-        <Grid IsVisible="{Binding !HasData}" Margin="20">
-            <views:EmptyStateView DataContext="{Binding}"/>
+        <Grid IsVisible="{Binding !HasData}" Margin="20" RowDefinitions="Auto,*">
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="20,0,0,0">
+                <Button Command="{Binding RefreshCommand}" Content="刷新数据" IsEnabled="{Binding !IsLoading}"/>
+                <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="#888"/>
+                <TextBlock Text="{Binding DebugInfo}" VerticalAlignment="Center" Foreground="Red" FontSize="12" TextWrapping="Wrap"/>
+            </StackPanel>
+            <views:EmptyStateView Grid.Row="1" DataContext="{Binding}"/>
         </Grid>
     </Grid>
 </UserControl>

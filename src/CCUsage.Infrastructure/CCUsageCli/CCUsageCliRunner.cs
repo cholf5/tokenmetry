@@ -6,11 +6,13 @@ public class CCUsageCliRunner
 {
     private readonly string _command;
     private readonly string _arguments;
+    private readonly string? _workingDirectory;
 
-    public CCUsageCliRunner(string command, string arguments)
+    public CCUsageCliRunner(string command, string arguments, string? workingDirectory = null)
     {
         _command = command;
         _arguments = arguments;
+        _workingDirectory = workingDirectory;
     }
 
     public async Task<string> GetOutputAsync(CancellationToken ct = default)
@@ -24,6 +26,11 @@ public class CCUsageCliRunner
             UseShellExecute = false,
             CreateNoWindow = true
         };
+
+        if (!string.IsNullOrEmpty(_workingDirectory))
+        {
+            startInfo.WorkingDirectory = _workingDirectory;
+        }
 
         using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start process");
         var output = await process.StandardOutput.ReadToEndAsync(ct);

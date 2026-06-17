@@ -39,6 +39,12 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     private bool _hasData;
 
+    [ObservableProperty]
+    private string _latestDataDate = string.Empty;
+
+    [ObservableProperty]
+    private string _debugInfo = string.Empty;
+
     public DashboardViewModel(
         DashboardService dashboardService,
         CacheService cacheService,
@@ -72,7 +78,8 @@ public partial class DashboardViewModel : ViewModelBase
         MonthCostUsd = summary.MonthCostUsd;
         TodayTokens = summary.TodayTokens;
         Status = summary.Status;
-        HasData = TodayCostUsd > 0 || WeekCostUsd > 0 || MonthCostUsd > 0;
+        // 只要 Dashboard 被正常创建就认为有数据（即使都是历史数据）
+        HasData = true;
     }
 
     [RelayCommand]
@@ -80,9 +87,12 @@ public partial class DashboardViewModel : ViewModelBase
     {
         IsLoading = true;
         Status = "refreshing";
+        DebugInfo = string.Empty;
         try
         {
             var rows = await _dataSource.GetDailyUsageAsync();
+            DebugInfo = $"获取到 {rows.Count} 条数据记录";
+
             if (rows.Any())
             {
                 var dashboard = _dashboardService.BuildDashboard(rows);
@@ -105,11 +115,14 @@ public partial class DashboardViewModel : ViewModelBase
             else
             {
                 Status = "no data";
+                HasData = false;
             }
         }
         catch (Exception ex)
         {
-            Status = "error: " + ex.Message;
+            Status = "error";
+            DebugInfo = $"错误: {ex.Message}";
+            HasData = false;
         }
         finally
         {
