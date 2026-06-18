@@ -3,7 +3,7 @@
 **关联计划**: .docs/plans/2026-06-17-ccusage-gui-avalonia-implementation.md
 **开始时间**: 2026-06-17 23:41:21 +08:00
 
-## 预期修改文件（全部在新仓库 ../ccusage-gui 中）
+## 预期修改文件（全部在新仓库 ccusage-gui 中）
 
 ### 解决方案和项目文件
 - CCUsage.sln
@@ -68,4 +68,4 @@
 
 ---
 
-**注意：** 本项目是独立仓库，不在当前 `ccusage` monorepo 内。所有代码都应该在平行目录 `../ccusage-gui` 中创建。
+**注意：** 本项目是独立仓库，不在当前 `ccusage` monorepo 内。所有代码都应该在平行目录 `ccusage-gui` 中创建。

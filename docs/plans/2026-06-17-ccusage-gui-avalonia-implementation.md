@@ -12,7 +12,7 @@
 
 ## 重要前置约束
 
-- 项目根目录：`../ccusage-gui`（与当前上游 ccusage repo 平级）
+- 项目根目录：`ccusage-gui`（与当前上游 ccusage repo 平级）
 - 不修改上游 `ccusage` repo 代码；上游只读参考
 - Core 层绝对不能引用任何 Avalonia 或 UI 相关包
 - 默认离线定价，MVP 阶段不做联网刷新
@@ -28,16 +28,16 @@
 ### 任务 0.1：创建解决方案和项目结构
 
 **文件：**
-- 创建：`../ccusage-gui/CCUsage.sln`
-- 创建：`../ccusage-gui/src/CCUsage.Core/CCUsage.Core.csproj`
-- 创建：`../ccusage-gui/src/CCUsage.Infrastructure/CCUsage.Infrastructure.csproj`
-- 创建：`../ccusage-gui/src/CCUsage.App/CCUsage.App.csproj`
-- 创建：`../ccusage-gui/tests/CCUsage.Core.Tests/CCUsage.Core.Tests.csproj`
-- 创建：`../ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj`
+- 创建：`ccusage-gui/CCUsage.sln`
+- 创建：`ccusage-gui/src/CCUsage.Core/CCUsage.Core.csproj`
+- 创建：`ccusage-gui/src/CCUsage.Infrastructure/CCUsage.Infrastructure.csproj`
+- 创建：`ccusage-gui/src/CCUsage.App/CCUsage.App.csproj`
+- 创建：`ccusage-gui/tests/CCUsage.Core.Tests/CCUsage.Core.Tests.csproj`
+- 创建：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj`
 
 **步骤 1：创建解决方案和项目文件**
 
-在 `../ccusage-gui` 目录运行：
+在 `ccusage-gui` 目录运行：
 
 ```powershell
 dotnet new sln -n CCUsage
@@ -91,10 +91,10 @@ dotnet build
 ### 任务 0.2：配置测试框架和基础包
 
 **文件：**
-- 修改：`../ccusage-gui/tests/CCUsage.Core.Tests/CCUsage.Core.Tests.csproj`
-- 修改：`../ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj`
-- 创建：`../ccusage-gui/tests/CCUsage.Core.Tests/Usings.cs`
-- 创建：`../ccusage-gui/tests/CCUsage.Infrastructure.Tests/Usings.cs`
+- 修改：`ccusage-gui/tests/CCUsage.Core.Tests/CCUsage.Core.Tests.csproj`
+- 修改：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj`
+- 创建：`ccusage-gui/tests/CCUsage.Core.Tests/Usings.cs`
+- 创建：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/Usings.cs`
 
 **步骤 1：添加 FluentAssertions 包**
 
@@ -134,8 +134,8 @@ dotnet test
 ### 任务 0.3：Core 层第一个失败测试和最小模型
 
 **文件：**
-- 创建：`../ccusage-gui/tests/CCUsage.Core.Tests/Models/DailyUsageSummaryTests.cs`
-- 创建：`../ccusage-gui/src/CCUsage.Core/Models/DailyUsageSummary.cs`
+- 创建：`ccusage-gui/tests/CCUsage.Core.Tests/Models/DailyUsageSummaryTests.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Models/DailyUsageSummary.cs`
 
 **步骤 1：编写失败的测试**
 
@@ -257,10 +257,10 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 0.4：Core 层剩余基础数据模型
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.Core/Models/DashboardSummary.cs`
-- 创建：`../ccusage-gui/src/CCUsage.Core/Models/AppSettings.cs`
-- 创建：`../ccusage-gui/src/CCUsage.Core/Models/AnomalyNotice.cs`
-- 测试：`../ccusage-gui/tests/CCUsage.Core.Tests/Models/DashboardSummaryTests.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Models/DashboardSummary.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Models/AppSettings.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Models/AnomalyNotice.cs`
+- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Models/DashboardSummaryTests.cs`
 
 **步骤 1：编写失败的测试**
 
@@ -378,9 +378,9 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 1.1：定义数据源接口和测试用数据
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.Core/Abstractions/IUsageDataSource.cs`
-- 创建：`../ccusage-gui/src/CCUsage.Core/Services/DateRangeService.cs`
-- 测试：`../ccusage-gui/tests/CCUsage.Core.Tests/Services/DateRangeServiceTests.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Abstractions/IUsageDataSource.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Services/DateRangeService.cs`
+- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Services/DateRangeServiceTests.cs`
 
 **步骤 1：编写失败的测试**
 
@@ -474,8 +474,8 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 1.2：实现 Dashboard 汇总逻辑
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.Core/Services/DashboardService.cs`
-- 测试：`../ccusage-gui/tests/CCUsage.Core.Tests/Services/DashboardServiceTests.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Services/DashboardService.cs`
+- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Services/DashboardServiceTests.cs`
 
 **步骤 1：编写失败的测试**
 
@@ -593,8 +593,8 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 1.3：实现异常检测规则引擎
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.Core/Services/AnomalyDetector.cs`
-- 测试：`../ccusage-gui/tests/CCUsage.Core.Tests/Services/AnomalyDetectorTests.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Services/AnomalyDetector.cs`
+- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Services/AnomalyDetectorTests.cs`
 
 **步骤 1：编写失败的测试**
 
@@ -725,9 +725,9 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 1.4：实现本地缓存接口
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.Core/Abstractions/IUsageCache.cs`
-- 创建：`../ccusage-gui/src/CCUsage.Core/Services/CacheService.cs`
-- 测试：`../ccusage-gui/tests/CCUsage.Core.Tests/Services/CacheServiceTests.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Abstractions/IUsageCache.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Services/CacheService.cs`
+- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Services/CacheServiceTests.cs`
 
 **步骤 1：编写失败的测试**
 
@@ -877,9 +877,9 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 2.1：实现 ccusage CLI JSON 输出解析器
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliParser.cs`
-- 创建：`../ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsageCliParserTests.cs`
-- 测试数据：`../ccusage-gui/tests/CCUsage.Infrastructure.Tests/fixtures/sample-daily.json`
+- 创建：`ccusage-gui/src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliParser.cs`
+- 创建：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsageCliParserTests.cs`
+- 测试数据：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/fixtures/sample-daily.json`
 
 **步骤 1：准备测试 JSON fixture**
 
@@ -995,9 +995,9 @@ dotnet test tests/CCUsage.Infrastructure.Tests
 ### 任务 2.2：实现 CLI 进程调用包装器
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliRunner.cs`
-- 创建：`../ccusage-gui/src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`
-- 测试：`../ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsageCliRunnerTests.cs`
+- 创建：`ccusage-gui/src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliRunner.cs`
+- 创建：`ccusage-gui/src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`
+- 测试：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsageCliRunnerTests.cs`
 
 **步骤 1：编写失败的测试**
 
@@ -1124,9 +1124,9 @@ dotnet test tests/CCUsage.Infrastructure.Tests
 ### 任务 2.3：实现 SQLite 持久化缓存
 
 **文件：**
-- 修改：`../ccusage-gui/src/CCUsage.Infrastructure/CCUsage.Infrastructure.csproj`
-- 创建：`../ccusage-gui/src/CCUsage.Infrastructure/Cache/SqliteUsageCache.cs`
-- 测试：`../ccusage-gui/tests/CCUsage.Infrastructure.Tests/Cache/SqliteUsageCacheTests.cs`
+- 修改：`ccusage-gui/src/CCUsage.Infrastructure/CCUsage.Infrastructure.csproj`
+- 创建：`ccusage-gui/src/CCUsage.Infrastructure/Cache/SqliteUsageCache.cs`
+- 测试：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/Cache/SqliteUsageCacheTests.cs`
 
 **步骤 1：添加 SQLite 包**
 
@@ -1355,9 +1355,9 @@ dotnet test tests/CCUsage.Infrastructure.Tests
 ### 任务 2.4：实现跨平台系统通知抽象
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.Core/Abstractions/ISystemNotification.cs`
-- 创建：`../ccusage-gui/src/CCUsage.Infrastructure/Notifications/NullSystemNotification.cs`
-- 测试：`../ccusage-gui/tests/CCUsage.Core.Tests/Notifications/NullSystemNotificationTests.cs`
+- 创建：`ccusage-gui/src/CCUsage.Core/Abstractions/ISystemNotification.cs`
+- 创建：`ccusage-gui/src/CCUsage.Infrastructure/Notifications/NullSystemNotification.cs`
+- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Notifications/NullSystemNotificationTests.cs`
 
 **步骤 1：编写失败的测试**
 
@@ -1432,13 +1432,13 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 3.1：初始化 Avalonia App 基础结构
 
 **文件：**
-- 修改：`../ccusage-gui/src/CCUsage.App/CCUsage.App.csproj`
-- 创建：`../ccusage-gui/src/CCUsage.App/App.axaml`
-- 创建：`../ccusage-gui/src/CCUsage.App/App.axaml.cs`
-- 创建：`../ccusage-gui/src/CCUsage.App/ViewModels/ViewModelBase.cs`
-- 创建：`../ccusage-gui/src/CCUsage.App/ViewModels/MainWindowViewModel.cs`
-- 创建：`../ccusage-gui/src/CCUsage.App/Views/MainWindow.axaml`
-- 创建：`../ccusage-gui/src/CCUsage.App/Views/MainWindow.axaml.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/CCUsage.App.csproj`
+- 创建：`ccusage-gui/src/CCUsage.App/App.axaml`
+- 创建：`ccusage-gui/src/CCUsage.App/App.axaml.cs`
+- 创建：`ccusage-gui/src/CCUsage.App/ViewModels/ViewModelBase.cs`
+- 创建：`ccusage-gui/src/CCUsage.App/ViewModels/MainWindowViewModel.cs`
+- 创建：`ccusage-gui/src/CCUsage.App/Views/MainWindow.axaml`
+- 创建：`ccusage-gui/src/CCUsage.App/Views/MainWindow.axaml.cs`
 
 **步骤 1：添加必要的 NuGet 包**
 
@@ -1581,8 +1581,8 @@ dotnet run --project src/CCUsage.App
 ### 任务 3.2：实现依赖注入配置和服务定位器
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.App/DependencyInjection/AppServices.cs`
-- 修改：`../ccusage-gui/src/CCUsage.App/App.axaml.cs`
+- 创建：`ccusage-gui/src/CCUsage.App/DependencyInjection/AppServices.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/App.axaml.cs`
 
 **步骤 1：编写最少实现**
 
@@ -1684,10 +1684,10 @@ dotnet run --project src/CCUsage.App
 ### 任务 3.3：实现 Dashboard ViewModel 绑定
 
 **文件：**
-- 修改：`../ccusage-gui/src/CCUsage.App/ViewModels/MainWindowViewModel.cs`
-- 创建：`../ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
-- 修改：`../ccusage-gui/src/CCUsage.App/Views/MainWindow.axaml`
-- 创建：`../ccusage-gui/src/CCUsage.App/Views/DashboardView.axaml`
+- 修改：`ccusage-gui/src/CCUsage.App/ViewModels/MainWindowViewModel.cs`
+- 创建：`ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/Views/MainWindow.axaml`
+- 创建：`ccusage-gui/src/CCUsage.App/Views/DashboardView.axaml`
 
 **步骤 1：创建 DashboardViewModel**
 
@@ -1872,8 +1872,8 @@ dotnet run --project src/CCUsage.App
 ### 任务 3.4：实现托盘图标和菜单
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.App/Tray/TrayService.cs`
-- 修改：`../ccusage-gui/src/CCUsage.App/App.axaml.cs`
+- 创建：`ccusage-gui/src/CCUsage.App/Tray/TrayService.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/App.axaml.cs`
 
 **步骤 1：创建 TrayService**
 
@@ -1977,8 +1977,8 @@ dotnet run --project src/CCUsage.App
 ### 任务 4.1：连接 CLI 数据源到 Dashboard 刷新
 
 **文件：**
-- 修改：`../ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
-- 修改：`../ccusage-gui/src/CCUsage.App/DependencyInjection/AppServices.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/DependencyInjection/AppServices.cs`
 
 **步骤 1：修改 DashboardViewModel 接入真实数据源**
 
@@ -2042,8 +2042,8 @@ dotnet run --project src/CCUsage.App
 ### 任务 4.2：实现后台定时刷新服务
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.App/Services/BackgroundRefreshService.cs`
-- 修改：`../ccusage-gui/src/CCUsage.App/App.axaml.cs`
+- 创建：`ccusage-gui/src/CCUsage.App/Services/BackgroundRefreshService.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/App.axaml.cs`
 
 **步骤 1：实现后台刷新服务**
 
@@ -2123,9 +2123,9 @@ dotnet run --project src/CCUsage.App
 ### 任务 4.3：实现无数据引导和空状态
 
 **文件：**
-- 创建：`../ccusage-gui/src/CCUsage.App/Views/EmptyStateView.axaml`
-- 修改：`../ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
-- 修改：`../ccusage-gui/src/CCUsage.App/Views/DashboardView.axaml`
+- 创建：`ccusage-gui/src/CCUsage.App/Views/EmptyStateView.axaml`
+- 修改：`ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/Views/DashboardView.axaml`
 
 **步骤 1：创建 EmptyStateView**
 
@@ -2163,8 +2163,8 @@ dotnet run --project src/CCUsage.App
 ### 任务 4.4：实现异常通知触发
 
 **文件：**
-- 修改：`../ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
-- 修改：`../ccusage-gui/src/CCUsage.App/DependencyInjection/AppServices.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
+- 修改：`ccusage-gui/src/CCUsage.App/DependencyInjection/AppServices.cs`
 
 **步骤 1：在 Refresh 后检测异常并通知**
 
