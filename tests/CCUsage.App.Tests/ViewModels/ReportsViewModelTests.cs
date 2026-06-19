@@ -75,6 +75,138 @@ public class ReportsViewModelTests
         viewModel.Status.Should().Be("no data");
     }
 
+    [Fact]
+    public void ApplyReportQuery_SortsByCostDescending()
+    {
+        var result = ReportsViewModel.ApplyReportQuery(CreateReportRows(), new ReportsQuery(null, null, string.Empty, ReportsViewModel.SortByCost, true)).ToList();
+
+        result.Select(row => row.Cost).Should().Equal(5m, 3m, 1m);
+    }
+
+    [Fact]
+    public void ApplyReportQuery_SortsByTotalTokensDescending()
+    {
+        var result = ReportsViewModel.ApplyReportQuery(CreateReportRows(), new ReportsQuery(null, null, string.Empty, ReportsViewModel.SortByTotalTokens, true)).ToList();
+
+        result.Select(row => row.TotalTokens).Should().Equal(500, 300, 100);
+    }
+
+    [Fact]
+    public void ApplyReportQuery_SortsByDateAscendingAndDescending()
+    {
+        var ascending = ReportsViewModel.ApplyReportQuery(CreateReportRows(), new ReportsQuery(null, null, string.Empty, ReportsViewModel.SortByDate, false)).ToList();
+        var descending = ReportsViewModel.ApplyReportQuery(CreateReportRows(), new ReportsQuery(null, null, string.Empty, ReportsViewModel.SortByDate, true)).ToList();
+
+        ascending.Select(row => row.Date).Should().Equal("2026-06-17", "2026-06-18", "2026-06-19");
+        descending.Select(row => row.Date).Should().Equal("2026-06-19", "2026-06-18", "2026-06-17");
+    }
+
+    [Fact]
+    public void ApplyReportQuery_FiltersByDateRange()
+    {
+        var result = ReportsViewModel.ApplyReportQuery(
+            CreateReportRows(),
+            new ReportsQuery(new DateOnly(2026, 6, 18), new DateOnly(2026, 6, 19), string.Empty, ReportsViewModel.SortByDate, true)).ToList();
+
+        result.Select(row => row.Date).Should().Equal("2026-06-19", "2026-06-18");
+        result.Sum(row => row.Cost).Should().Be(8m);
+    }
+
+    [Fact]
+    public void ApplyReportQuery_FiltersByAgentOrModelTextCaseInsensitive()
+    {
+        var agentResult = ReportsViewModel.ApplyReportQuery(CreateReportRows(), new ReportsQuery(null, null, "ZCODE", ReportsViewModel.SortByDate, true)).ToList();
+        var modelResult = ReportsViewModel.ApplyReportQuery(CreateReportRows(), new ReportsQuery(null, null, "opus", ReportsViewModel.SortByDate, true)).ToList();
+
+        agentResult.Select(row => row.Date).Should().Equal("2026-06-18");
+        modelResult.Select(row => row.Date).Should().Equal("2026-06-17");
+    }
+
+    [Fact]
+    public async Task ApplyFilters_UpdatesFilteredCountAndTotalCost()
+    {
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())));
+        await viewModel.LoadAsync();
+
+        viewModel.SearchText = "sonnet";
+        viewModel.ApplyFilters();
+
+        viewModel.Rows.Should().HaveCount(2);
+        viewModel.FilteredCount.Should().Be(2);
+        viewModel.FilteredTotalCost.Should().Be(8m);
+        viewModel.FilteredTotalCostText.Should().Be("$8.00");
+    }
+
+    [Fact]
+    public async Task ClearFilters_RestoresFullListAndDefaultDateDescendingSort()
+    {
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())));
+        await viewModel.LoadAsync();
+
+        viewModel.SearchText = "opus";
+        viewModel.SelectedSort = ReportsViewModel.SortByCost;
+        viewModel.IsDescending = false;
+        viewModel.ApplyFilters();
+
+        viewModel.ClearFilters();
+
+        viewModel.Rows.Select(row => row.Date).Should().Equal("2026-06-19", "2026-06-18", "2026-06-17");
+        viewModel.SearchText.Should().BeEmpty();
+        viewModel.SelectedSort.Should().Be(ReportsViewModel.SortByDate);
+        viewModel.IsDescending.Should().BeTrue();
+        viewModel.FilteredCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task ApplyFilters_WithInvalidDate_DoesNotThrowAndPreservesRows()
+    {
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())));
+        await viewModel.LoadAsync();
+
+        var originalDates = viewModel.Rows.Select(row => row.Date).ToList();
+        viewModel.StartDateText = "not-a-date";
+        viewModel.ApplyFilters();
+
+        viewModel.Rows.Select(row => row.Date).Should().Equal(originalDates);
+        viewModel.Status.Should().Be("invalid start date, use yyyy-MM-dd");
+    }
+
+    private static List<DailyUsageSummary> CreateDailyRows()
+    {
+        return new List<DailyUsageSummary>
+        {
+            new()
+            {
+                Date = "2026-06-17",
+                TotalCostUsd = 1m,
+                TotalTokens = 100,
+                Agents = new List<AgentBreakdown> { new() { Agent = "claude-code" } },
+                Models = new List<ModelBreakdown> { new() { Model = "claude-opus-4" } }
+            },
+            new()
+            {
+                Date = "2026-06-19",
+                TotalCostUsd = 5m,
+                TotalTokens = 500,
+                Agents = new List<AgentBreakdown> { new() { Agent = "claude-code" } },
+                Models = new List<ModelBreakdown> { new() { Model = "claude-sonnet-4" } }
+            },
+            new()
+            {
+                Date = "2026-06-18",
+                TotalCostUsd = 3m,
+                TotalTokens = 300,
+                Agents = new List<AgentBreakdown> { new() { Agent = "zcode" } },
+                Models = new List<ModelBreakdown> { new() { Model = "claude-sonnet-4" } }
+            }
+        };
+    }
+
+    private static List<ReportsDailyRow> CreateReportRows()
+    {
+        return ReportsViewModel.MapRows(CreateDailyRows()).ToList();
+    }
+
     private sealed class FakeUsageCache : IUsageCache
     {
         private readonly List<DailyUsageSummary> _rows;
