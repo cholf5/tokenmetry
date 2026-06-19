@@ -17,6 +17,7 @@ public partial class DashboardViewModel : ViewModelBase
     private readonly AnomalyDetector _anomalyDetector;
     private readonly DateRangeService _dateService;
     private readonly ISystemNotification _notification;
+    private readonly AppSettings _settings;
 
     [ObservableProperty]
     private decimal _todayCostUsd;
@@ -67,7 +68,10 @@ public partial class DashboardViewModel : ViewModelBase
     private string _historicalOnlyHint = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDebugInfoVisible))]
     private string _debugInfo = string.Empty;
+
+    public bool IsDebugInfoVisible => _settings.ShowDebugInfo && !string.IsNullOrWhiteSpace(DebugInfo);
 
     public DashboardViewModel(
         DashboardService dashboardService,
@@ -75,7 +79,8 @@ public partial class DashboardViewModel : ViewModelBase
         IUsageDataSource dataSource,
         AnomalyDetector anomalyDetector,
         DateRangeService dateService,
-        ISystemNotification notification)
+        ISystemNotification notification,
+        AppSettings settings)
     {
         _dashboardService = dashboardService;
         _cacheService = cacheService;
@@ -83,6 +88,7 @@ public partial class DashboardViewModel : ViewModelBase
         _anomalyDetector = anomalyDetector;
         _dateService = dateService;
         _notification = notification;
+        _settings = settings;
         _ = InitializeAsync();
     }
 
@@ -163,7 +169,7 @@ public partial class DashboardViewModel : ViewModelBase
                 var today = rows.FirstOrDefault(r => r.Date == _dateService.Today()) ?? new DailyUsageSummary();
                 var anomalies = _anomalyDetector.DetectAnomalies(today, rows.Take(7).ToList(), minAbsoluteCost: 0.05m);
 
-                if (anomalies.Any())
+                if (_settings.AnomalyNotificationsEnabled && anomalies.Any())
                 {
                     foreach (var anomaly in anomalies)
                     {

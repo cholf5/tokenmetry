@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCUsage.App.ViewModels"
+             x:Class="CCUsage.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+    <ScrollViewer>
+        <StackPanel Margin="20" Spacing="20">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="Settings" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBlock Text="本地配置" Foreground="#666" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <Border Background="#f8f9fa" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="ccusage" FontSize="16" FontWeight="Bold"/>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="命令或路径" Foreground="#666" FontSize="12"/>
+                        <TextBox Text="{Binding CcusageCommand}" PlaceholderText="ccusage"/>
+                        <TextBlock Text="保存后将在下次启动时用于调用 ccusage CLI。" Foreground="#888" FontSize="12" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#f8f9fa" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="刷新与提示" FontSize="16" FontWeight="Bold"/>
+                    <StackPanel Width="180" HorizontalAlignment="Left" Spacing="4">
+                        <TextBlock Text="刷新间隔（分钟）" Foreground="#666" FontSize="12"/>
+                        <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="15"/>
+                    </StackPanel>
+                    <CheckBox Content="启用异常通知" IsChecked="{Binding AnomalyNotificationsEnabled}"/>
+                    <CheckBox Content="显示调试信息" IsChecked="{Binding ShowDebugInfo}"/>
+                    <TextBlock Text="刷新间隔保存后将在下次启动后台刷新服务时生效。" Foreground="#888" FontSize="12" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#f8f9fa" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="本地路径" FontSize="16" FontWeight="Bold"/>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="缓存数据库" Foreground="#666" FontSize="12"/>
+                        <TextBox Text="{Binding CacheDbPath}" IsReadOnly="True"/>
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="设置文件" Foreground="#666" FontSize="12"/>
+                        <TextBox Text="{Binding SettingsFilePath}" IsReadOnly="True"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Command="{Binding SaveCommand}" Content="保存设置" IsEnabled="{Binding !IsSaving}"/>
+                <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="#888"/>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

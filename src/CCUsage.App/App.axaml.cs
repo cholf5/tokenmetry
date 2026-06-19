@@ -5,6 +5,7 @@ using CCUsage.App.ViewModels;
 using CCUsage.App.Views;
 using CCUsage.App.Tray;
 using CCUsage.App.Services;
+using CCUsage.Core.Models;
 
 namespace CCUsage.App;
 
@@ -31,9 +32,10 @@ public partial class App : Application
             trayService.Initialize();
 
             var vm = (MainWindowViewModel)desktop.MainWindow.DataContext;
+            var settings = DependencyInjection.AppServices.Get<AppSettings>();
             var refreshService = new BackgroundRefreshService(
                 () => vm.Dashboard.RefreshCommand.ExecuteAsync(null),
-                15);
+                settings.RefreshMinutes);
             refreshService.Start();
         }
 

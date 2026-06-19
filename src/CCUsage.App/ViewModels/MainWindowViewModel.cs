@@ -11,10 +11,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public DashboardViewModel Dashboard { get; }
     public ReportsViewModel Reports { get; }
+    public SettingsViewModel Settings { get; }
 
-    public MainWindowViewModel(DashboardViewModel dashboard, ReportsViewModel reports)
+    public MainWindowViewModel(DashboardViewModel dashboard, ReportsViewModel reports, SettingsViewModel settings)
     {
         Dashboard = dashboard;
         Reports = reports;
+        Settings = settings;
     }
 }

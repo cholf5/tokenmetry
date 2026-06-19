@@ -18,7 +18,7 @@
                 <views:ReportsView DataContext="{Binding Reports}"/>
             </TabItem>
             <TabItem Header="Settings">
-                <TextBlock Text="Settings page coming soon" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <views:SettingsView DataContext="{Binding Settings}"/>
             </TabItem>
         </TabControl>
     </Grid>
