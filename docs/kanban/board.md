@@ -6,7 +6,6 @@ This board tracks project requirements and implementation tasks. Detailed task c
 
 | ID | Title | Priority | Size | Owner | Milestone | Dependencies |
 |---|---|---|---|---|---|---|
-| P-001 | Windows 打包发布 | P1 | M | ZCode | v0.1 | 建议 R-001 完成后发布 |
 | R-002 | Reports 排序和筛选 | P2 | M | ZCode | v0.2 | R-001 |
 | R-003 | Reports 导出 CSV | P2 | S | ZCode | v0.2 | R-001 |
 | S-001 | Settings 基础页面 | P2 | M | ZCode | v0.2 | AppSettings / AppServices |
@@ -26,6 +25,7 @@ This board tracks project requirements and implementation tasks. Detailed task c
 
 | ID | Title | Priority | Size | Developer | Reviewer | Review Status |
 |---|---|---|---|---|---|---|
+| P-001 | Windows 打包发布 | P1 | M | ZCode | ZCode (simulated) | Ready for review |
 | D-001 | Dashboard 卡片布局优化 | P1 | S | ZCode | ZCode (simulated) | Ready for review |
 | R-001 | Reports 每日数据表格 | P1 | M | ZCode | ZCode (simulated) | Ready for review |
 
