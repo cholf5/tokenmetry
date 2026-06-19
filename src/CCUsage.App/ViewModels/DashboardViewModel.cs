@@ -31,6 +31,21 @@ public partial class DashboardViewModel : ViewModelBase
     private long _todayTokens;
 
     [ObservableProperty]
+    private string _latestDataDate = string.Empty;
+
+    [ObservableProperty]
+    private decimal _latestDayCostUsd;
+
+    [ObservableProperty]
+    private long _latestDayTokens;
+
+    [ObservableProperty]
+    private decimal _allTimeCostUsd;
+
+    [ObservableProperty]
+    private long _allTimeTokens;
+
+    [ObservableProperty]
     private string _status = "loading";
 
     [ObservableProperty]
@@ -40,7 +55,16 @@ public partial class DashboardViewModel : ViewModelBase
     private bool _hasData;
 
     [ObservableProperty]
-    private string _latestDataDate = string.Empty;
+    private bool _hasHistoricalData;
+
+    [ObservableProperty]
+    private bool _hasCurrentPeriodData;
+
+    [ObservableProperty]
+    private bool _shouldShowHistoricalOnlyHint;
+
+    [ObservableProperty]
+    private string _historicalOnlyHint = string.Empty;
 
     [ObservableProperty]
     private string _debugInfo = string.Empty;
@@ -59,7 +83,17 @@ public partial class DashboardViewModel : ViewModelBase
         _anomalyDetector = anomalyDetector;
         _dateService = dateService;
         _notification = notification;
-        _ = LoadFromCacheAsync();
+        _ = InitializeAsync();
+    }
+
+    private async Task InitializeAsync()
+    {
+        await LoadFromCacheAsync();
+
+        if (!HasData)
+        {
+            await RefreshAsync();
+        }
     }
 
     private async Task LoadFromCacheAsync()
@@ -77,9 +111,34 @@ public partial class DashboardViewModel : ViewModelBase
         WeekCostUsd = summary.WeekCostUsd;
         MonthCostUsd = summary.MonthCostUsd;
         TodayTokens = summary.TodayTokens;
+        LatestDataDate = summary.LatestDataDate;
+        LatestDayCostUsd = summary.LatestDayCostUsd;
+        LatestDayTokens = summary.LatestDayTokens;
+        AllTimeCostUsd = summary.AllTimeCostUsd;
+        AllTimeTokens = summary.AllTimeTokens;
         Status = summary.Status;
-        // 只要 Dashboard 被正常创建就认为有数据（即使都是历史数据）
-        HasData = true;
+        HasHistoricalData = HasHistoricalDataAvailable(summary);
+        HasCurrentPeriodData = HasCurrentPeriodDataAvailable(summary);
+        ShouldShowHistoricalOnlyHint = ShouldShowHistoricalOnlyHintFor(summary);
+        HistoricalOnlyHint = ShouldShowHistoricalOnlyHint
+            ? "当前周期暂无用量，但缓存中存在历史记录。请查看下方最近一天和历史累计数据。"
+            : string.Empty;
+        HasData = HasHistoricalData || HasCurrentPeriodData;
+    }
+
+    public static bool HasHistoricalDataAvailable(DashboardSummary summary)
+    {
+        return !string.IsNullOrWhiteSpace(summary.LatestDataDate) || summary.AllTimeCostUsd > 0 || summary.AllTimeTokens > 0;
+    }
+
+    public static bool HasCurrentPeriodDataAvailable(DashboardSummary summary)
+    {
+        return summary.TodayCostUsd > 0 || summary.WeekCostUsd > 0 || summary.MonthCostUsd > 0 || summary.TodayTokens > 0;
+    }
+
+    public static bool ShouldShowHistoricalOnlyHintFor(DashboardSummary summary)
+    {
+        return HasHistoricalDataAvailable(summary) && !HasCurrentPeriodDataAvailable(summary);
     }
 
     [RelayCommand]

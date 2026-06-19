@@ -8,9 +8,10 @@ public class DateRangeService
 
     public IEnumerable<string> GetLastNDays(int days)
     {
+        var today = DateTime.Parse(Today());
         for (var i = 0; i < days; i++)
         {
-            yield return DateTime.Now.AddDays(-i).ToString("yyyy-MM-dd");
+            yield return today.AddDays(-i).ToString("yyyy-MM-dd");
         }
     }
 }
