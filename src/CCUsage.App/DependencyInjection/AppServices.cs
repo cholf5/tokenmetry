@@ -43,6 +43,7 @@ public static class AppServices
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<DashboardViewModel>();
+        services.AddTransient<ReportsViewModel>();
 
         _provider = services.BuildServiceProvider();
     }

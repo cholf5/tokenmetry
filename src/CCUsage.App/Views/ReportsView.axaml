@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCUsage.App.ViewModels"
+             x:Class="CCUsage.App.Views.ReportsView"
+             x:DataType="vm:ReportsViewModel">
+    <Grid Margin="20" RowDefinitions="Auto, Auto, *">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0 0 0 20">
+            <TextBlock Text="Reports" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Button Command="{Binding LoadCommand}" Content="刷新列表" IsEnabled="{Binding !IsLoading}"/>
+            <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="#888"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" IsVisible="{Binding !HasData}" Background="#f8f9fa" CornerRadius="8" Padding="24" Margin="0 0 0 20">
+            <StackPanel Spacing="8" HorizontalAlignment="Center">
+                <TextBlock Text="暂无每日用量数据" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center"/>
+                <TextBlock Text="请先在 Dashboard 刷新数据，然后回到 Reports 点击刷新列表。" Foreground="#666" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" IsVisible="{Binding HasData}" BorderBrush="#ddd" BorderThickness="1" CornerRadius="6">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <StackPanel MinWidth="1160">
+                    <Grid ColumnDefinitions="110,90,120,100,100,130,110,160,240" Background="#f8f9fa">
+                        <TextBlock Grid.Column="0" Text="Date" FontWeight="Bold" Margin="8"/>
+                        <TextBlock Grid.Column="1" Text="Cost" FontWeight="Bold" Margin="8"/>
+                        <TextBlock Grid.Column="2" Text="Total Tokens" FontWeight="Bold" Margin="8"/>
+                        <TextBlock Grid.Column="3" Text="Input" FontWeight="Bold" Margin="8"/>
+                        <TextBlock Grid.Column="4" Text="Output" FontWeight="Bold" Margin="8"/>
+                        <TextBlock Grid.Column="5" Text="Cache Creation" FontWeight="Bold" Margin="8"/>
+                        <TextBlock Grid.Column="6" Text="Cache Read" FontWeight="Bold" Margin="8"/>
+                        <TextBlock Grid.Column="7" Text="Agents" FontWeight="Bold" Margin="8"/>
+                        <TextBlock Grid.Column="8" Text="Models" FontWeight="Bold" Margin="8"/>
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ReportsDailyRow">
+                                <Border BorderBrush="#eee" BorderThickness="0,1,0,0">
+                                    <Grid ColumnDefinitions="110,90,120,100,100,130,110,160,240">
+                                        <TextBlock Grid.Column="0" Text="{Binding Date}" Margin="8"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding CostText}" Margin="8"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding TotalTokensText}" Margin="8"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding InputTokensText}" Margin="8"/>
+                                        <TextBlock Grid.Column="4" Text="{Binding OutputTokensText}" Margin="8"/>
+                                        <TextBlock Grid.Column="5" Text="{Binding CacheCreationTokensText}" Margin="8"/>
+                                        <TextBlock Grid.Column="6" Text="{Binding CacheReadTokensText}" Margin="8"/>
+                                        <TextBlock Grid.Column="7" Text="{Binding AgentsText}" Margin="8" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="8" Text="{Binding ModelsText}" Margin="8" TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

@@ -14,6 +14,9 @@
             <TabItem Header="Dashboard">
                 <views:DashboardView DataContext="{Binding Dashboard}"/>
             </TabItem>
+            <TabItem Header="Reports">
+                <views:ReportsView DataContext="{Binding Reports}"/>
+            </TabItem>
             <TabItem Header="Settings">
                 <TextBlock Text="Settings page coming soon" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </TabItem>
