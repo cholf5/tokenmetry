@@ -1,3 +1,4 @@
+using CCUsage.App.Services;
 using CCUsage.App.ViewModels;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -73,6 +74,63 @@ public class ReportsViewModelTests
         viewModel.Rows.Should().BeEmpty();
         viewModel.HasData.Should().BeFalse();
         viewModel.Status.Should().Be("no data");
+    }
+
+    [Fact]
+    public async Task ExportCsvAsync_ExportsCurrentFilteredRows()
+    {
+        var exporter = new FakeReportCsvExporter(ReportCsvExportResult.Exported(2));
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())), exporter);
+        await viewModel.LoadAsync();
+        viewModel.SearchText = "sonnet";
+        viewModel.ApplyFilters();
+
+        await viewModel.ExportCsvAsync();
+
+        exporter.ExportCalls.Should().Be(1);
+        exporter.ExportedRows.Select(row => row.Date).Should().Equal("2026-06-19", "2026-06-18");
+        viewModel.Status.Should().Be("exported 2 rows");
+        viewModel.IsExporting.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExportCsvAsync_WithNoRows_DoesNotCallExporter()
+    {
+        var exporter = new FakeReportCsvExporter(ReportCsvExportResult.Exported(0));
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(new List<DailyUsageSummary>())), exporter);
+        await viewModel.LoadAsync();
+
+        await viewModel.ExportCsvAsync();
+
+        exporter.ExportCalls.Should().Be(0);
+        viewModel.Status.Should().Be("no rows to export");
+    }
+
+    [Fact]
+    public async Task ExportCsvAsync_WhenExporterFails_PreservesRowsAndShowsError()
+    {
+        var exporter = new FakeReportCsvExporter(ReportCsvExportResult.Failed("disk full"));
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())), exporter);
+        await viewModel.LoadAsync();
+        var originalDates = viewModel.Rows.Select(row => row.Date).ToList();
+
+        await viewModel.ExportCsvAsync();
+
+        viewModel.Rows.Select(row => row.Date).Should().Equal(originalDates);
+        viewModel.Status.Should().Be("error: disk full");
+        viewModel.IsExporting.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExportCsvAsync_WhenUserCancels_ShowsCanceledStatus()
+    {
+        var exporter = new FakeReportCsvExporter(ReportCsvExportResult.CanceledByUser());
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())), exporter);
+        await viewModel.LoadAsync();
+
+        await viewModel.ExportCsvAsync();
+
+        viewModel.Status.Should().Be("export canceled");
     }
 
     [Fact]
@@ -205,6 +263,27 @@ public class ReportsViewModelTests
     private static List<ReportsDailyRow> CreateReportRows()
     {
         return ReportsViewModel.MapRows(CreateDailyRows()).ToList();
+    }
+
+    private sealed class FakeReportCsvExporter : IReportCsvExporter
+    {
+        private readonly ReportCsvExportResult _result;
+
+        public FakeReportCsvExporter(ReportCsvExportResult result)
+        {
+            _result = result;
+        }
+
+        public int ExportCalls { get; private set; }
+        public List<ReportsDailyRow> ExportedRows { get; } = new();
+
+        public Task<ReportCsvExportResult> ExportAsync(IReadOnlyList<ReportsDailyRow> rows, CancellationToken ct = default)
+        {
+            ExportCalls++;
+            ExportedRows.Clear();
+            ExportedRows.AddRange(rows);
+            return Task.FromResult(_result);
+        }
     }
 
     private sealed class FakeUsageCache : IUsageCache

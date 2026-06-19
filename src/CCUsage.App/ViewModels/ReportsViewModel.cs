@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CCUsage.App.Services;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 
@@ -18,12 +19,19 @@ public partial class ReportsViewModel : ViewModelBase
     public const string SortByTotalTokens = "Total Tokens";
 
     private readonly CacheService _cacheService;
+    private readonly IReportCsvExporter _csvExporter;
     private readonly List<ReportsDailyRow> _allRows = new();
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanExport))]
     private bool _isLoading;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanExport))]
+    private bool _isExporting;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanExport))]
     private bool _hasData;
 
     [ObservableProperty]
@@ -55,10 +63,17 @@ public partial class ReportsViewModel : ViewModelBase
 
     public ObservableCollection<ReportsDailyRow> Rows { get; } = new();
     public IReadOnlyList<string> SortOptions { get; } = new[] { SortByDate, SortByCost, SortByTotalTokens };
+    public bool CanExport => HasData && !IsLoading && !IsExporting;
 
     public ReportsViewModel(CacheService cacheService)
+        : this(cacheService, new DisabledReportCsvExporter())
+    {
+    }
+
+    public ReportsViewModel(CacheService cacheService, IReportCsvExporter csvExporter)
     {
         _cacheService = cacheService;
+        _csvExporter = csvExporter;
         _ = LoadAsync();
     }
 
@@ -116,6 +131,44 @@ public partial class ReportsViewModel : ViewModelBase
         SelectedSort = SortByDate;
         IsDescending = true;
         ApplyFilters();
+    }
+
+    [RelayCommand]
+    public async Task ExportCsvAsync()
+    {
+        if (Rows.Count == 0)
+        {
+            Status = "no rows to export";
+            return;
+        }
+
+        IsExporting = true;
+        Status = "exporting CSV";
+
+        try
+        {
+            var result = await _csvExporter.ExportAsync(Rows.ToList());
+            if (result.Success)
+            {
+                Status = $"exported {result.RowCount} rows";
+            }
+            else if (result.Canceled)
+            {
+                Status = "export canceled";
+            }
+            else
+            {
+                Status = $"error: {result.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Status = $"error: {ex.Message}";
+        }
+        finally
+        {
+            IsExporting = false;
+        }
     }
 
     public static IEnumerable<ReportsDailyRow> MapRows(IEnumerable<DailyUsageSummary> rows)

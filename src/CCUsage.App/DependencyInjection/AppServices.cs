@@ -6,6 +6,7 @@ using CCUsage.Core.Services;
 using CCUsage.Infrastructure.CCUsageCli;
 using CCUsage.Infrastructure.Cache;
 using CCUsage.Infrastructure.Notifications;
+using CCUsage.App.Services;
 using CCUsage.App.ViewModels;
 
 namespace CCUsage.App.DependencyInjection;
@@ -39,6 +40,10 @@ public static class AppServices
 
         // Notifications
         services.AddSingleton<ISystemNotification, NullSystemNotification>();
+
+        // Export
+        services.AddSingleton<ReportCsvFormatter>();
+        services.AddSingleton<IReportCsvExporter, ReportCsvExporter>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
