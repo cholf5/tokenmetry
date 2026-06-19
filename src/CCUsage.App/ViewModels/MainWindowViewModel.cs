@@ -11,12 +11,18 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public DashboardViewModel Dashboard { get; }
     public ReportsViewModel Reports { get; }
+    public ModelBreakdownViewModel ModelBreakdown { get; }
     public SettingsViewModel Settings { get; }
 
-    public MainWindowViewModel(DashboardViewModel dashboard, ReportsViewModel reports, SettingsViewModel settings)
+    public MainWindowViewModel(
+        DashboardViewModel dashboard,
+        ReportsViewModel reports,
+        ModelBreakdownViewModel modelBreakdown,
+        SettingsViewModel settings)
     {
         Dashboard = dashboard;
         Reports = reports;
+        ModelBreakdown = modelBreakdown;
         Settings = settings;
     }
 }

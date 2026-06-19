@@ -53,6 +53,7 @@ public static class AppServices
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<ReportsViewModel>();
+        services.AddTransient<ModelBreakdownViewModel>();
         services.AddTransient<SettingsViewModel>();
 
         _provider = services.BuildServiceProvider();

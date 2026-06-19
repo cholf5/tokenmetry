@@ -90,9 +90,19 @@ public class CCUsageCliParser
                 {
                     Model = m.ModelName ?? string.Empty,
                     CostUsd = m.Cost,
-                    TotalTokens = m.TotalTokens
+                    TotalTokens = GetModelTotalTokens(m)
                 }).ToList(),
             Projects = new List<ProjectBreakdown>() // ccusage CLI 暂不提供项目拆分
         }).ToList();
+    }
+
+    private static long GetModelTotalTokens(CliModelBreakdown model)
+    {
+        if (model.TotalTokens != 0)
+        {
+            return model.TotalTokens;
+        }
+
+        return model.InputTokens + model.OutputTokens + model.CacheCreationTokens + model.CacheReadTokens;
     }
 }

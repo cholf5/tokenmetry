@@ -66,7 +66,16 @@ public class SqliteUsageCacheTests : IAsyncLifetime
     {
         var rows = new List<DailyUsageSummary>
         {
-            new() { Date = "2026-01-09", TotalCostUsd = 1.23m, TotalTokens = 1000 },
+            new()
+            {
+                Date = "2026-01-09",
+                TotalCostUsd = 1.23m,
+                TotalTokens = 1000,
+                Models = new List<ModelBreakdown>
+                {
+                    new() { Model = "gpt-5.2-codex", CostUsd = 1.23m, TotalTokens = 1000 }
+                }
+            },
             new() { Date = "2026-01-10", TotalCostUsd = 2.34m, TotalTokens = 2000 }
         };
 
@@ -74,6 +83,12 @@ public class SqliteUsageCacheTests : IAsyncLifetime
         var result = await _cache.GetDailyRowsAsync();
 
         result.Count.Should().Be(2);
-        result.First(r => r.Date == "2026-01-09").TotalCostUsd.Should().Be(1.23m);
+        var firstRow = result.First(r => r.Date == "2026-01-09");
+        firstRow.TotalCostUsd.Should().Be(1.23m);
+        firstRow.Models.Should().ContainSingle();
+        var model = firstRow.Models.Single();
+        model.Model.Should().Be("gpt-5.2-codex");
+        model.CostUsd.Should().Be(1.23m);
+        model.TotalTokens.Should().Be(1000);
     }
 }

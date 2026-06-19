@@ -6,7 +6,6 @@ This board tracks project requirements and implementation tasks. Detailed task c
 
 | ID | Title | Priority | Size | Owner | Milestone | Dependencies |
 |---|---|---|---|---|---|---|
-| R-004 | Model Breakdown 页面 | P2 | M | ZCode | v0.2 | 建议 R-001 完成后复用加载模式 |
 
 ## To Do
 
@@ -22,6 +21,7 @@ This board tracks project requirements and implementation tasks. Detailed task c
 
 | ID | Title | Priority | Size | Developer | Reviewer | Review Status |
 |---|---|---|---|---|---|---|
+| R-004 | Model Breakdown 页面 | P2 | M | ZCode | ZCode (simulated) | Ready for review |
 | S-001 | Settings 基础页面 | P2 | M | ZCode | ZCode (simulated) | Ready for review |
 | R-003 | Reports 导出 CSV | P2 | S | ZCode | ZCode (simulated) | Ready for review |
 | R-002 | Reports 排序和筛选 | P2 | M | ZCode | ZCode (simulated) | Ready for review |

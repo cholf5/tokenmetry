@@ -17,6 +17,9 @@
             <TabItem Header="Reports">
                 <views:ReportsView DataContext="{Binding Reports}"/>
             </TabItem>
+            <TabItem Header="Model Breakdown">
+                <views:ModelBreakdownView DataContext="{Binding ModelBreakdown}"/>
+            </TabItem>
             <TabItem Header="Settings">
                 <views:SettingsView DataContext="{Binding Settings}"/>
             </TabItem>

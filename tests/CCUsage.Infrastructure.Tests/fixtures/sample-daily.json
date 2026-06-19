@@ -12,7 +12,6 @@
         {
           "modelName": "gpt-5.2-codex",
           "cost": 1.23,
-          "totalTokens": 1000,
           "inputTokens": 500,
           "outputTokens": 300,
           "cacheReadTokens": 200

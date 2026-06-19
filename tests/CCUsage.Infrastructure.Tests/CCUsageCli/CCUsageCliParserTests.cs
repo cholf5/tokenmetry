@@ -18,6 +18,40 @@ public class CCUsageCliParserTests
         row.TotalCostUsd.Should().Be(1.23m);
         row.TotalTokens.Should().Be(1000);
         row.Agents.Single().Agent.Should().Be("codex");
+        row.Models.Should().ContainSingle();
+        var model = row.Models.Single();
+        model.Model.Should().Be("gpt-5.2-codex");
+        model.CostUsd.Should().Be(1.23m);
+        model.TotalTokens.Should().Be(1000);
+    }
+
+    [Fact]
+    public void Parses_model_total_tokens_when_present()
+    {
+        var json = """
+        {
+          "daily": [
+            {
+              "period": "2026-01-09",
+              "modelBreakdowns": [
+                {
+                  "modelName": "sonnet",
+                  "cost": 1.23,
+                  "totalTokens": 1234,
+                  "inputTokens": 500,
+                  "outputTokens": 300,
+                  "cacheCreationTokens": 100,
+                  "cacheReadTokens": 200
+                }
+              ]
+            }
+          ]
+        }
+        """;
+
+        var row = _parser.ParseDailyJson(json).Single();
+
+        row.Models.Single().TotalTokens.Should().Be(1234);
     }
 
     [Fact]
