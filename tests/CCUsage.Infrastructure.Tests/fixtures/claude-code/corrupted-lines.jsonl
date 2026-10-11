@@ -1,0 +1,5 @@
+not json
+{"type":"summary"}
+{"usage":{ definitely not valid json
+{"sessionId":"","timestamp":"2026-06-20T10:12:30.000Z","message":{"id":"msg-empty-session","model":"claude","usage":{"input_tokens":1,"output_tokens":1}},"requestId":"req-empty-session"}
+{"sessionId":"session-a","timestamp":"2026-06-20T10:12:30.000Z","version":"1.2.3","message":{"id":"msg-ok","model":"claude","usage":{"input_tokens":1,"output_tokens":2}},"requestId":"req-ok"}
