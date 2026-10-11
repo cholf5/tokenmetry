@@ -27,6 +27,14 @@ public static class CcusageGoldenFiles
 
     public static GoldenReport LoadClaude(string path) => LoadClaudeText(File.ReadAllText(path));
 
+    /// <summary>
+    /// zcode daily JSON（I-006）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 自定义 provider 的模型 cost 为 0 且 missingPricing=true——0 值经同一 DTO 读出，比较口径不变），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadZcode(string path) => LoadZcodeText(File.ReadAllText(path));
+
+    public static GoldenReport LoadZcodeText(string json) => LoadClaudeText(json);
+
     public static GoldenReport LoadClaudeText(string json)
     {
         var response = JsonSerializer.Deserialize<GoldenClaudeResponse>(

@@ -3,6 +3,7 @@ using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
+using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Reconciliation.Tests.CCUsageCli;
 using CCUsage.Reconciliation.Tests.Comparison;
 
@@ -56,6 +57,13 @@ public static class UsageChainAggregator
     public static async Task<ChainAggregation> AggregateCodexAsync(string? codexHome = null, CancellationToken ct = default)
     {
         var adapter = new CodexJsonlAdapter(configuredHome: codexHome);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredHome：走 ZCODE_HOME / ~/.zcode 自动探测（本机真实数据对账用，I-006）。</summary>
+    public static async Task<ChainAggregation> AggregateZcodeAsync(string? configuredHome = null, CancellationToken ct = default)
+    {
+        var adapter = new ZCodeSqliteAdapter(configuredHome: configuredHome);
         return Aggregate(await adapter.ScanAsync(ct));
     }
 

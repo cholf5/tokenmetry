@@ -116,6 +116,10 @@ Expected:
   - **[P2] ProviderRank 大小写敏感**：与蓝本一致（parity），models.dev id 全小写无实际影响，记录备查不修。
 - 验证：全解决方案 181 通过 / 3 跳过 / 0 失败（含新增回归测试）。
 
+### 2026-10-11（I-006 联动扩充）
+
+- 内置快照新增 `zai` 段 22 条 GLM 价格（取自 ccusage 蓝本 models-dev-pricing.json 的 zai/* 键；input/output 缺失的条目丢弃，cache 两档缺失省略键走与 pricing.rs 相同的缺省乘数 write=×1.25 / read=×0.1），支撑 ZCode 适配器 Z.ai 限定行的离线计价。快照其余部分与解析器未动。
+
 ## Bugs
 
 | ID | Severity | Description | Status | Resolution |

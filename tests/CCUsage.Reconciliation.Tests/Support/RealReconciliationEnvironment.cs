@@ -1,5 +1,6 @@
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
+using CCUsage.Infrastructure.ZCodeSqlite;
 
 namespace CCUsage.Reconciliation.Tests.Support;
 
@@ -25,4 +26,7 @@ public static class RealReconciliationEnvironment
 
     public static bool HasClaudeData()
         => new ClaudeCodeLogLocator().ResolveRoots(configuredRoot: null).Count > 0;
+
+    public static bool HasZcodeData()
+        => new ZCodeLogLocator().ResolveDatabases(configuredHome: null).Databases.Count > 0;
 }
