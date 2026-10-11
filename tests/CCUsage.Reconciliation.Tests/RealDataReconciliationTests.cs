@@ -72,6 +72,29 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// I-008：本机 Copilot CLI session-state 数据对账。CLI 口径 vs 自研聚合（AggregateCopilotAsync），
+    /// tokens 精确一致。按数据存在性门控：本机 ~/.copilot 实测无 session-state/otel 用量数据
+    /// （2026-10-11 CLI golden daily=[]、totals 全 0），本机 Skip；有数据的机器上全链路对账。
+    /// 两侧读同一套 COPILOT_HOME / ~/.copilot 探测逻辑。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_copilot_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasCopilotData(),
+            "本机没有 Copilot CLI session-state 数据（~/.copilot/session-state/*/events.jsonl 或 COPILOT_HOME）");
+
+        var goldenJson = RunCli("copilot");
+        var golden = CcusageGoldenFiles.LoadCopilotText(goldenJson);
+
+        // 适配器不带 configuredHome：与 CLI 进程读同一套 COPILOT_HOME / ~/.copilot 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateCopilotAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Copilot CLI");
+    }
+
+    /// <summary>
     /// I-007：本机 DSH 会话日志对账。golden 由 dsh-usage-stats 蓝本库直读原始 zstd 字节计算
     /// （Support/DshBlueprintGolden.mjs，foldUsage / estimateTokenCost 均为蓝本库代码），
     /// 自研侧走 DshSessionAdapter 全链路。两侧按 本地日历日（蓝本 dayKey 口径）分桶：

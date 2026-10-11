@@ -8,10 +8,13 @@
 
 - 录制日期：2026-10-11
 - CLI 版本：ccusage 20.0.29（`npx --yes ccusage@20.0.29`）
-- fixture：本目录上一级的 `claude/`（CLAUDE_CONFIG_DIR 指向）与 `codex/`（CODEX_HOME 指向），
-  内容为合成数据（脱敏：无真实 token、路径、用户名），覆盖多日 / 多模型 / cache_creation 5m+1h 细分、
-  costUSD 内建与缺失（走计算价）两条路径、重复消息去重、cumulative 快照守卫、agent progress 包装行、
-  `<synthetic>` 记录。
+- fixture：本目录上一级的 `claude/`（CLAUDE_CONFIG_DIR 指向）、`codex/`（CODEX_HOME 指向）与
+  `copilot/`（COPILOT_HOME 指向，I-008），内容为合成数据（脱敏：无真实 token、路径、用户名），
+  覆盖多日 / 多模型 / cache_creation 5m+1h 细分、costUSD 内建与缺失（走计算价）两条路径、
+  重复消息去重、cumulative 快照守卫、agent progress 包装行、`<synthetic>` 记录。
+  Copilot fixture 覆盖：shutdown 累计快照差分（resume 跨日不重复出账）、同 id 重复 shutdown 去重、
+  uncached input 拆分（inputTokens 含缓存读写）、usage_checkpoint 行跳过、全零模型条目跳过、
+  -1m 内部后缀剥离归并、session-state 嵌套目录不发现（非递归口径）。
 
 ## 录制命令（在仓库根目录执行）
 
@@ -25,6 +28,10 @@ CLAUDE_CONFIG_DIR="$PWD/$FX/claude" \
 CODEX_HOME="$PWD/$FX/codex" \
   npx --yes ccusage@20.0.29 codex daily --json --offline --timezone UTC \
   > $FX/golden/codex-fixture-daily-v20.0.29.json
+
+COPILOT_HOME="$PWD/$FX/copilot" \
+  npx --yes ccusage@20.0.29 copilot daily --json --offline --timezone UTC \
+  > $FX/golden/copilot-fixture-daily-v20.0.29.json
 ```
 
 说明：

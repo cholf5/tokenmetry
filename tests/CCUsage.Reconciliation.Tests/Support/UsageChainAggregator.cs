@@ -3,6 +3,7 @@ using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
+using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Reconciliation.Tests.CCUsageCli;
@@ -80,6 +81,13 @@ public static class UsageChainAggregator
     {
         var adapter = new DshSessionAdapter(configuredHome: configuredHome);
         return Aggregate(await adapter.ScanAsync(ct), LocalDay);
+    }
+
+    /// <summary>无 configuredHome：走 COPILOT_HOME / ~/.copilot 自动探测（本机真实数据对账用，I-008）。</summary>
+    public static async Task<ChainAggregation> AggregateCopilotAsync(string? configuredHome = null, CancellationToken ct = default)
+    {
+        var adapter = new CopilotSessionAdapter(configuredHome: configuredHome);
+        return Aggregate(await adapter.ScanAsync(ct));
     }
 
     private static ChainAggregation Aggregate(JsonlScanResult scan)

@@ -1,5 +1,6 @@
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
+using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
@@ -39,6 +40,10 @@ public static class RealReconciliationEnvironment
 
     public static bool HasDshData()
         => new DshLogLocator().CollectSessionArtifacts(configuredHome: null).Count > 0;
+
+    /// <summary>Copilot CLI 数据存在性（I-008）：session-state 下有会话 events.jsonl（COPILOT_HOME → ~/.copilot）。</summary>
+    public static bool HasCopilotData()
+        => new CopilotLogLocator().CollectSessionStateFiles(configuredHome: null).Count > 0;
 
     /// <summary>
     /// dsh-usage-stats 蓝本目录（含 lib/usage.js）：CCUSAGE_DSH_BLUEPRINT 优先，

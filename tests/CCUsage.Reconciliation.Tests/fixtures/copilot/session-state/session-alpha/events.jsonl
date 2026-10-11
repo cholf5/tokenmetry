@@ -1,0 +1,6 @@
+{"type":"session.started","timestamp":"2026-09-14T09:00:00.000Z","data":{}}
+{"type":"session.shutdown","timestamp":"2026-09-14T09:30:00.000Z
+{"type":"session.shutdown","id":"resume-1","timestamp":"2026-09-14T10:00:00.000Z","data":{"modelMetrics":{"claude-sonnet-4":{"usage":{"inputTokens":16000,"outputTokens":1000,"cacheReadTokens":4000,"cacheWriteTokens":2000,"reasoningTokens":100},"requests":{"count":2,"cost":999}}}}}
+{"type":"session.shutdown","id":"resume-1","timestamp":"2026-09-14T10:00:00.000Z","data":{"modelMetrics":{"claude-sonnet-4":{"usage":{"inputTokens":16000,"outputTokens":1000,"cacheReadTokens":4000,"cacheWriteTokens":2000,"reasoningTokens":100},"requests":{"count":2,"cost":999}}}}}
+{"type":"session.usage_checkpoint","id":"cp-1","timestamp":"2026-09-14T10:30:00.000Z","data":{"totalNanoAiu":123000000}}
+{"type":"session.shutdown","id":"resume-2","timestamp":"2026-09-15T11:00:00.000Z","data":{"modelMetrics":{"claude-sonnet-4":{"usage":{"inputTokens":30000,"outputTokens":2200,"cacheReadTokens":7000,"cacheWriteTokens":2500,"reasoningTokens":200},"requests":{"count":4}},"gpt-5.1":{"usage":{"inputTokens":5000,"outputTokens":800},"requests":{"count":1}},"zero-model":{"usage":{"inputTokens":0,"outputTokens":0}}}}}
