@@ -11,4 +11,7 @@ public class AppSettings
     public int RefreshMinutes { get; set; } = 15;
     public decimal? DailyBudgetUsd { get; set; }
     public decimal? MonthlyBudgetUsd { get; set; }
+
+    /// <summary>用户价格覆盖规则（I-003，exact 模型名匹配，优先级高于远程数据与内置快照）。</summary>
+    public List<ModelPricingOverride> PricingOverrides { get; set; } = new();
 }

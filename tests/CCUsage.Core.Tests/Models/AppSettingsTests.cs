@@ -18,5 +18,6 @@ public class AppSettingsTests
         settings.RefreshMinutes.Should().Be(15);
         settings.DailyBudgetUsd.Should().BeNull();
         settings.MonthlyBudgetUsd.Should().BeNull();
+        settings.PricingOverrides.Should().BeEmpty();
     }
 }

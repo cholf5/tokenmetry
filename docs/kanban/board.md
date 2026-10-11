@@ -19,6 +19,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-003 | 自有定价引擎（内置快照 + models.dev + 用户覆盖） | P1 | 2026-10-11 |
 | I-002 | SQLite facts 存储 + migration runner | P1 | 2026-10-11 |
 | I-001 | Claude Code JSONL 直读适配器 | P1 | 2026-10-11 |
 | R-001 | Reports 每日数据表格 | P1 | 2026-06-19 |

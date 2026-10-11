@@ -47,6 +47,39 @@ public class JsonAppSettingsStoreTests : IDisposable
         File.Exists(Path.Combine(_tempDirectory, "settings.json")).Should().BeTrue();
     }
 
+    [Fact]
+    public async Task SaveAsync_RoundTripsPricingOverrides()
+    {
+        var store = new JsonAppSettingsStore(new AppPaths(_tempDirectory));
+        var settings = new AppSettings();
+        settings.PricingOverrides.Add(new ModelPricingOverride
+        {
+            Model = "claude-sonnet-4-6",
+            InputPerMillion = 9m,
+            OutputPerMillion = 90m,
+            CacheWritePerMillion = 11.25m,
+            CacheReadPerMillion = 0.9m
+        });
+        settings.PricingOverrides.Add(new ModelPricingOverride
+        {
+            Model = "my-model",
+            InputPerMillion = 1m,
+            OutputPerMillion = 2m
+        });
+
+        await store.SaveAsync(settings);
+        var loaded = await store.LoadAsync();
+
+        loaded.PricingOverrides.Should().HaveCount(2);
+        loaded.PricingOverrides[0].Model.Should().Be("claude-sonnet-4-6");
+        loaded.PricingOverrides[0].InputPerMillion.Should().Be(9m);
+        loaded.PricingOverrides[0].OutputPerMillion.Should().Be(90m);
+        loaded.PricingOverrides[0].CacheWritePerMillion.Should().Be(11.25m);
+        loaded.PricingOverrides[0].CacheReadPerMillion.Should().Be(0.9m);
+        loaded.PricingOverrides[1].CacheWritePerMillion.Should().BeNull();
+        loaded.PricingOverrides[1].CacheReadPerMillion.Should().BeNull();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))

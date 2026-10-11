@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Pricing\model-pricing-snapshot.json" LogicalName="CCUsage.Core.Pricing.model-pricing-snapshot.json" />
+  </ItemGroup>
+
 </Project>
