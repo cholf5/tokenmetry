@@ -104,10 +104,10 @@ public partial class DashboardViewModel : ViewModelBase
 
     private async Task LoadFromCacheAsync()
     {
-        var dashboard = await _cacheService.GetLatestDashboardAsync();
-        if (dashboard != null)
+        var rows = await _cacheService.GetDailyRowsAsync();
+        if (rows.Count > 0)
         {
-            UpdateFromDashboard(dashboard);
+            UpdateFromDashboard(_dashboardService.BuildDashboard(rows));
         }
     }
 
@@ -160,9 +160,8 @@ public partial class DashboardViewModel : ViewModelBase
 
             if (rows.Any())
             {
-                var dashboard = _dashboardService.BuildDashboard(rows);
-                await _cacheService.SaveDashboardAsync(dashboard);
                 await _cacheService.SaveDailyRowsAsync(rows);
+                var dashboard = _dashboardService.BuildDashboard(rows);
                 UpdateFromDashboard(dashboard);
 
                 // 检测异常

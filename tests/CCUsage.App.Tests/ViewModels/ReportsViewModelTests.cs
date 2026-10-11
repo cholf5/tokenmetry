@@ -67,7 +67,7 @@ public class ReportsViewModelTests
     [Fact]
     public async Task LoadAsync_WithEmptyCache_ShowsEmptyState()
     {
-        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(new List<DailyUsageSummary>())));
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageStore(new List<DailyUsageSummary>())));
 
         await viewModel.LoadAsync();
 
@@ -80,7 +80,7 @@ public class ReportsViewModelTests
     public async Task ExportCsvAsync_ExportsCurrentFilteredRows()
     {
         var exporter = new FakeReportCsvExporter(ReportCsvExportResult.Exported(2));
-        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())), exporter);
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageStore(CreateDailyRows())), exporter);
         await viewModel.LoadAsync();
         viewModel.SearchText = "sonnet";
         viewModel.ApplyFilters();
@@ -97,7 +97,7 @@ public class ReportsViewModelTests
     public async Task ExportCsvAsync_WithNoRows_DoesNotCallExporter()
     {
         var exporter = new FakeReportCsvExporter(ReportCsvExportResult.Exported(0));
-        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(new List<DailyUsageSummary>())), exporter);
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageStore(new List<DailyUsageSummary>())), exporter);
         await viewModel.LoadAsync();
 
         await viewModel.ExportCsvAsync();
@@ -110,7 +110,7 @@ public class ReportsViewModelTests
     public async Task ExportCsvAsync_WhenExporterFails_PreservesRowsAndShowsError()
     {
         var exporter = new FakeReportCsvExporter(ReportCsvExportResult.Failed("disk full"));
-        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())), exporter);
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageStore(CreateDailyRows())), exporter);
         await viewModel.LoadAsync();
         var originalDates = viewModel.Rows.Select(row => row.Date).ToList();
 
@@ -125,7 +125,7 @@ public class ReportsViewModelTests
     public async Task ExportCsvAsync_WhenUserCancels_ShowsCanceledStatus()
     {
         var exporter = new FakeReportCsvExporter(ReportCsvExportResult.CanceledByUser());
-        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())), exporter);
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageStore(CreateDailyRows())), exporter);
         await viewModel.LoadAsync();
 
         await viewModel.ExportCsvAsync();
@@ -183,7 +183,7 @@ public class ReportsViewModelTests
     [Fact]
     public async Task ApplyFilters_UpdatesFilteredCountAndTotalCost()
     {
-        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())));
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageStore(CreateDailyRows())));
         await viewModel.LoadAsync();
 
         viewModel.SearchText = "sonnet";
@@ -198,7 +198,7 @@ public class ReportsViewModelTests
     [Fact]
     public async Task ClearFilters_RestoresFullListAndDefaultDateDescendingSort()
     {
-        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())));
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageStore(CreateDailyRows())));
         await viewModel.LoadAsync();
 
         viewModel.SearchText = "opus";
@@ -218,7 +218,7 @@ public class ReportsViewModelTests
     [Fact]
     public async Task ApplyFilters_WithInvalidDate_DoesNotThrowAndPreservesRows()
     {
-        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageCache(CreateDailyRows())));
+        var viewModel = new ReportsViewModel(new CacheService(new FakeUsageStore(CreateDailyRows())));
         await viewModel.LoadAsync();
 
         var originalDates = viewModel.Rows.Select(row => row.Date).ToList();
@@ -286,35 +286,39 @@ public class ReportsViewModelTests
         }
     }
 
-    private sealed class FakeUsageCache : IUsageCache
+    private sealed class FakeUsageStore : IUsageStore
     {
-        private readonly List<DailyUsageSummary> _rows;
+        private readonly List<UsageFact> _facts;
 
-        public FakeUsageCache(List<DailyUsageSummary> rows)
+        public FakeUsageStore(List<DailyUsageSummary> rows)
         {
-            _rows = rows;
+            _facts = UsageFactsMapper.FromDailySummaries(rows);
         }
 
-        public Task SaveDashboardAsync(DashboardSummary summary, CancellationToken ct = default)
+        public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
+        {
+            _facts.AddRange(facts);
+            return Task.CompletedTask;
+        }
+
+        public Task ReplaceUsageFactsByDayAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
+        {
+            return UpsertUsageFactsAsync(facts, ct);
+        }
+
+        public Task<IReadOnlyList<UsageFact>> GetUsageFactsAsync(CancellationToken ct = default)
+        {
+            return Task.FromResult<IReadOnlyList<UsageFact>>(_facts.ToList());
+        }
+
+        public Task UpsertSessionFactsAsync(IReadOnlyList<SessionFact> facts, CancellationToken ct = default)
         {
             return Task.CompletedTask;
         }
 
-        public Task<DashboardSummary?> GetLatestDashboardAsync(CancellationToken ct = default)
+        public Task<IReadOnlyList<SessionFact>> GetSessionFactsAsync(CancellationToken ct = default)
         {
-            return Task.FromResult<DashboardSummary?>(null);
-        }
-
-        public Task SaveDailyRowsAsync(List<DailyUsageSummary> rows, CancellationToken ct = default)
-        {
-            _rows.Clear();
-            _rows.AddRange(rows);
-            return Task.CompletedTask;
-        }
-
-        public Task<List<DailyUsageSummary>> GetDailyRowsAsync(CancellationToken ct = default)
-        {
-            return Task.FromResult(_rows);
+            return Task.FromResult<IReadOnlyList<SessionFact>>(new List<SessionFact>());
         }
     }
 }

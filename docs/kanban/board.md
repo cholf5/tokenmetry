@@ -9,7 +9,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| I-002 | SQLite facts 存储 + migration runner | P1 | M | none | I-001 |
 | I-003 | 自有定价引擎（内置快照 + models.dev + 用户覆盖） | P1 | M | none | none |
 | Q-001 | 与 ccusage CLI 的对账测试 | P1 | M | none | I-001, I-002, I-003 |
 | I-004 | Codex JSONL 适配器 | P2 | M | none | I-001, I-003 |
@@ -20,6 +19,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-002 | SQLite facts 存储 + migration runner | P1 | 2026-10-11 |
 | I-001 | Claude Code JSONL 直读适配器 | P1 | 2026-10-11 |
 | R-001 | Reports 每日数据表格 | P1 | 2026-06-19 |
 | D-001 | Dashboard 卡片布局优化 | P1 | 2026-06-19 |

@@ -35,11 +35,11 @@ public static class AppServices
         // Data sources - 使用真实的 ccusage CLI 数据源
         services.AddSingleton<IUsageDataSource>(_ => new CCUsageCliDataSource(settings.CcusageCommand));
 
-        // Cache
+        // Facts 存储（I-002）：启动时执行顺序迁移
         Directory.CreateDirectory(paths.AppDataDirectory);
-        var cache = new SqliteUsageCache(paths.CacheDbPath);
-        cache.InitializeAsync().GetAwaiter().GetResult();
-        services.AddSingleton<IUsageCache>(cache);
+        var store = new SqliteUsageStore(paths.CacheDbPath);
+        store.InitializeAsync().GetAwaiter().GetResult();
+        services.AddSingleton<IUsageStore>(store);
         services.AddSingleton<CacheService>();
 
         // Notifications

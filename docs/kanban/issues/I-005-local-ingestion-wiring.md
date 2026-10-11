@@ -32,6 +32,7 @@ blocked: none
 - [ ] DI 与 BackgroundRefreshService 接线
 - [ ] Settings 与空态文案更新
 - [ ] 回归：全量测试 + 本机冒烟
+- [ ] 数据源切换时清理旧 facts（I-002 转记：混源日的旧分解行 / full 行清理；JSONL 源的 `ToUsageFacts/ToSessionFacts` 需填 `ProjectDisplayName`，否则项目展示名恒为空串）
 
 ## Dependencies
 

@@ -123,7 +123,7 @@ public class DashboardViewModelTests
     {
         return new DashboardViewModel(
             new DashboardService(dateRangeService),
-            new CacheService(new FakeUsageCache()),
+            new CacheService(new FakeUsageStore()),
             new FakeUsageDataSource(rows.ToList()),
             new AnomalyDetector(),
             dateRangeService,
@@ -169,26 +169,34 @@ public class DashboardViewModelTests
         }
     }
 
-    private sealed class FakeUsageCache : IUsageCache
+    private sealed class FakeUsageStore : IUsageStore
     {
-        public Task SaveDashboardAsync(DashboardSummary summary, CancellationToken ct = default)
+        private readonly List<UsageFact> _facts = new();
+
+        public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
+        {
+            _facts.AddRange(facts);
+            return Task.CompletedTask;
+        }
+
+        public Task ReplaceUsageFactsByDayAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
+        {
+            return UpsertUsageFactsAsync(facts, ct);
+        }
+
+        public Task<IReadOnlyList<UsageFact>> GetUsageFactsAsync(CancellationToken ct = default)
+        {
+            return Task.FromResult<IReadOnlyList<UsageFact>>(_facts.ToList());
+        }
+
+        public Task UpsertSessionFactsAsync(IReadOnlyList<SessionFact> facts, CancellationToken ct = default)
         {
             return Task.CompletedTask;
         }
 
-        public Task<DashboardSummary?> GetLatestDashboardAsync(CancellationToken ct = default)
+        public Task<IReadOnlyList<SessionFact>> GetSessionFactsAsync(CancellationToken ct = default)
         {
-            return Task.FromResult<DashboardSummary?>(null);
-        }
-
-        public Task SaveDailyRowsAsync(List<DailyUsageSummary> rows, CancellationToken ct = default)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task<List<DailyUsageSummary>> GetDailyRowsAsync(CancellationToken ct = default)
-        {
-            return Task.FromResult(new List<DailyUsageSummary>());
+            return Task.FromResult<IReadOnlyList<SessionFact>>(new List<SessionFact>());
         }
     }
 }

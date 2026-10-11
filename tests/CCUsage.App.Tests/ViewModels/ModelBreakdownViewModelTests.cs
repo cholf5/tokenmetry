@@ -136,7 +136,7 @@ public class ModelBreakdownViewModelTests
     [Fact]
     public async Task LoadAsync_WithNoModelData_ShowsEmptyState()
     {
-        var viewModel = new ModelBreakdownViewModel(new CacheService(new FakeUsageCache(new List<DailyUsageSummary>
+        var viewModel = new ModelBreakdownViewModel(new CacheService(new FakeUsageStore(new List<DailyUsageSummary>
         {
             new() { Date = "2026-06-19", TotalCostUsd = 1m, TotalTokens = 1000 }
         })));
@@ -156,7 +156,7 @@ public class ModelBreakdownViewModelTests
     [Fact]
     public async Task LoadAsync_WithModelData_UpdatesSummary()
     {
-        var viewModel = new ModelBreakdownViewModel(new CacheService(new FakeUsageCache(new List<DailyUsageSummary>
+        var viewModel = new ModelBreakdownViewModel(new CacheService(new FakeUsageStore(new List<DailyUsageSummary>
         {
             new()
             {
@@ -181,35 +181,39 @@ public class ModelBreakdownViewModelTests
         viewModel.TotalTokensText.Should().Be("3,000");
     }
 
-    private sealed class FakeUsageCache : IUsageCache
+    private sealed class FakeUsageStore : IUsageStore
     {
-        private readonly List<DailyUsageSummary> _rows;
+        private readonly List<UsageFact> _facts;
 
-        public FakeUsageCache(List<DailyUsageSummary> rows)
+        public FakeUsageStore(List<DailyUsageSummary> rows)
         {
-            _rows = rows;
+            _facts = UsageFactsMapper.FromDailySummaries(rows);
         }
 
-        public Task SaveDashboardAsync(DashboardSummary summary, CancellationToken ct = default)
+        public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
+        {
+            _facts.AddRange(facts);
+            return Task.CompletedTask;
+        }
+
+        public Task ReplaceUsageFactsByDayAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
+        {
+            return UpsertUsageFactsAsync(facts, ct);
+        }
+
+        public Task<IReadOnlyList<UsageFact>> GetUsageFactsAsync(CancellationToken ct = default)
+        {
+            return Task.FromResult<IReadOnlyList<UsageFact>>(_facts.ToList());
+        }
+
+        public Task UpsertSessionFactsAsync(IReadOnlyList<SessionFact> facts, CancellationToken ct = default)
         {
             return Task.CompletedTask;
         }
 
-        public Task<DashboardSummary?> GetLatestDashboardAsync(CancellationToken ct = default)
+        public Task<IReadOnlyList<SessionFact>> GetSessionFactsAsync(CancellationToken ct = default)
         {
-            return Task.FromResult<DashboardSummary?>(null);
-        }
-
-        public Task SaveDailyRowsAsync(List<DailyUsageSummary> rows, CancellationToken ct = default)
-        {
-            _rows.Clear();
-            _rows.AddRange(rows);
-            return Task.CompletedTask;
-        }
-
-        public Task<List<DailyUsageSummary>> GetDailyRowsAsync(CancellationToken ct = default)
-        {
-            return Task.FromResult(_rows);
+            return Task.FromResult<IReadOnlyList<SessionFact>>(new List<SessionFact>());
         }
     }
 }
