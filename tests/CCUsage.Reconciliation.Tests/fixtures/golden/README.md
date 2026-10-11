@@ -34,6 +34,14 @@
   totalTokens 兜底）、user 行跳过。
   Droid fixture 覆盖（I-015）：settings.model 归一化（剥 [Anthropic] 段）、侧车 .jsonl "Model:" 提取回退、
   archive 旧快照 latest-wins 去重、全零 tokenUsage 跳过、非 settings 的 .json 不发现。
+  Qwen fixture 覆盖（I-011）：projects/&lt;p&gt;/chats/&lt;f&gt;.jsonl 三段布局过滤（transcripts/ 与 chats/deep/
+  不发现）、user 行与无 usageMetadata 标记行预过滤、坏 JSON 行、usageMetadata null / 非对象 / 全零拒绝、
+  totalTokenCount 恰等四桶和（no-op 兜底边界）、output 为 0 时 total 缺口补 output、同内容键跨文件
+  first-wins 去重、双项目双日。
+  Kimi fixture 覆盖（I-013）：wire.jsonl 新旧双格式（3/5 段布局发现，4 段与 non-wire 不发现）、
+  旧格式 StatusUpdate token_usage 五桶（cache_creation 计价、cache_write 按 input×1.25 推导与 CLI
+  同式）、total 兜底 output 补齐、同 message_id 同刻 first-wins 去重、config.json 模型显示名、
+  新格式 usage.record 仅取 turn 级（session 级与全零拒绝）、kimi-code/ 前缀剥离、秒级时间戳毫秒截断。
 
 ## 录制命令（在仓库根目录执行）
 
@@ -79,6 +87,14 @@ AMP_DATA_DIR="$PWD/$FX/amp" \
 DROID_SESSIONS_DIR="$PWD/$FX/droid" \
   npx --yes ccusage@20.0.29 droid daily --json --offline --timezone UTC \
   > $FX/golden/droid-fixture-daily-v20.0.29.json
+
+QWEN_DATA_DIR="$PWD/$FX/qwen" \
+  npx --yes ccusage@20.0.29 qwen daily --json --offline --timezone UTC \
+  > $FX/golden/qwen-fixture-daily-v20.0.29.json
+
+KIMI_DATA_DIR="$PWD/$FX/kimi" \
+  npx --yes ccusage@20.0.29 kimi daily --json --offline --timezone UTC \
+  > $FX/golden/kimi-fixture-daily-v20.0.29.json
 ```
 
 说明：

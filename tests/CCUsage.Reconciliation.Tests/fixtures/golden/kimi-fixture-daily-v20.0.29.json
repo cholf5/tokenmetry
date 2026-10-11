@@ -1,0 +1,56 @@
+{
+  "daily": [
+    {
+      "cacheCreationTokens": 20,
+      "cacheReadTokens": 10,
+      "date": "2026-02-13",
+      "inputTokens": 100,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 20,
+          "cacheReadTokens": 10,
+          "cost": 0.0015220000000000001,
+          "inputTokens": 100,
+          "modelName": "kimi-k2.5",
+          "outputTokens": 482
+        }
+      ],
+      "modelsUsed": [
+        "kimi-k2.5"
+      ],
+      "outputTokens": 482,
+      "totalCost": 0.0015220000000000001,
+      "totalTokens": 612
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 14848,
+      "date": "2026-06-22",
+      "inputTokens": 3064,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 14848,
+          "cost": 0.0035512,
+          "inputTokens": 3064,
+          "modelName": "kimi-k2.5",
+          "outputTokens": 76
+        }
+      ],
+      "modelsUsed": [
+        "kimi-k2.5"
+      ],
+      "outputTokens": 76,
+      "totalCost": 0.0035512,
+      "totalTokens": 17988
+    }
+  ],
+  "totals": {
+    "cacheCreationTokens": 20,
+    "cacheReadTokens": 14858,
+    "inputTokens": 3164,
+    "outputTokens": 558,
+    "totalCost": 0.0050732,
+    "totalTokens": 18600
+  }
+}

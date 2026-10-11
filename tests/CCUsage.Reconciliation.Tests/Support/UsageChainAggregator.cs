@@ -12,6 +12,8 @@ using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.OpenCodeSqlite;
+using CCUsage.Infrastructure.KimiCode;
+using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Reconciliation.Tests.CCUsageCli;
 using CCUsage.Reconciliation.Tests.Comparison;
@@ -143,6 +145,20 @@ public static class UsageChainAggregator
     public static async Task<ChainAggregation> AggregateDroidAsync(string? configuredDataDir = null, CancellationToken ct = default)
     {
         var adapter = new DroidAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 QWEN_DATA_DIR / ~/.qwen 自动探测（本机真实数据对账用，I-011）。</summary>
+    public static async Task<ChainAggregation> AggregateQwenAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new QwenCodeAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 KIMI_DATA_DIR / ~/.kimi 与 ~/.kimi-code 自动探测（本机真实数据对账用，I-013）。</summary>
+    public static async Task<ChainAggregation> AggregateKimiAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new KimiCodeAdapter(configuredDataDir: configuredDataDir);
         return Aggregate(await adapter.ScanAsync(ct));
     }
 

@@ -264,6 +264,56 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// I-011：本机 Qwen Code chats 数据对账。CLI 口径 vs 自研聚合（AggregateQwenAsync），
+    /// tokens 精确一致。按数据存在性门控（QWEN_DATA_DIR / ~/.qwen 的 projects/ 下有聊天 .jsonl），
+    /// 本机无数据 Skip；有数据的机器上全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-011 卡 Dev Log）：CLI 的 outputTokens 不含 thoughts/total 缺口（extra 单列），
+    /// 自研把 extra 并入 output——含 thoughts 或 total 缺口（output 已知时）的真实数据在 output 分量上
+    /// 会以差异形式响亮失败（fail-loud）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_qwen_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasQwenData(),
+            "本机没有 Qwen Code 数据（QWEN_DATA_DIR 或 ~/.qwen/projects 下无 chats/*.jsonl）");
+
+        var goldenJson = RunCli("qwen");
+        var golden = CcusageGoldenFiles.LoadQwenText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 QWEN_DATA_DIR / ~/.qwen 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateQwenAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Qwen Code");
+    }
+
+    /// <summary>
+    /// I-013：本机 Kimi Code wire 数据对账。CLI 口径 vs 自研聚合（AggregateKimiAsync），
+    /// tokens 精确一致。按数据存在性门控（KIMI_DATA_DIR / ~/.kimi 与 ~/.kimi-code 的 sessions/ 下有
+    /// wire.jsonl），本机无数据 Skip；有数据的机器上全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-013 卡 Dev Log）：CLI 的 outputTokens 不含 extra（单列），自研把 extra 并入
+    /// output——含 total 缺口（output 已知时）的真实数据在 output 分量上会以差异形式响亮失败
+    /// （fail-loud）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_kimi_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasKimiData(),
+            "本机没有 Kimi 数据（KIMI_DATA_DIR 或 ~/.kimi、~/.kimi-code 下无 sessions/**/wire.jsonl）");
+
+        var goldenJson = RunCli("kimi");
+        var golden = CcusageGoldenFiles.LoadKimiText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 KIMI_DATA_DIR / 双默认目录探测逻辑。
+        var ours = await UsageChainAggregator.AggregateKimiAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Kimi");
+    }
+
+    /// <summary>
     /// I-007：本机 DSH 会话日志对账。golden 由 dsh-usage-stats 蓝本库直读原始 zstd 字节计算
     /// （Support/DshBlueprintGolden.mjs，foldUsage / estimateTokenCost 均为蓝本库代码），
     /// 自研侧走 DshSessionAdapter 全链路。两侧按 本地日历日（蓝本 dayKey 口径）分桶：
