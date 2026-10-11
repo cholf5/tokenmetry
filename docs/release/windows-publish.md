@@ -5,8 +5,8 @@ This document records the manual Windows release flow for `ccusage-gui` v0.1.
 ## Prerequisites
 
 - Windows 10 or later.
-- .NET 8 SDK for publishing.
-- For the default framework-dependent package, target machines need the .NET 8 Desktop Runtime.
+- .NET 10 SDK for publishing.
+- For the default framework-dependent package, target machines need the .NET 10 Desktop Runtime.
 - `ccusage` CLI must be installed on the target machine and available on `PATH`.
   - npm/pnpm/yarn installations commonly expose `ccusage.cmd` on Windows.
   - The app resolves extensionless `ccusage` commands against `PATHEXT` so published builds can launch those shims with `UseShellExecute=false`.
@@ -22,13 +22,13 @@ dotnet publish src\CCUsage.App\CCUsage.App.csproj -c Release -r win-x64 --self-c
 Output directory:
 
 ```text
-src\CCUsage.App\bin\Release\net8.0\win-x64\publish\
+src\CCUsage.App\bin\Release\net10.0\win-x64\publish\
 ```
 
 Start the app with:
 
 ```bat
-src\CCUsage.App\bin\Release\net8.0\win-x64\publish\CCUsage.App.exe
+src\CCUsage.App\bin\Release\net10.0\win-x64\publish\CCUsage.App.exe
 ```
 
 ## Optional self-contained publish
@@ -60,6 +60,6 @@ After publishing, verify these items on a Windows machine:
 - No installer is produced in v0.1.
 - No code signing is configured.
 - No auto-update flow is configured.
-- The default package is framework-dependent and requires the .NET 8 Desktop Runtime on target machines.
+- The default package is framework-dependent and requires the .NET 10 Desktop Runtime on target machines.
 - Refresh depends on a working local `ccusage` CLI installation and readable local usage logs.
 - Tray icon behavior may vary by Windows shell and Avalonia platform support.
