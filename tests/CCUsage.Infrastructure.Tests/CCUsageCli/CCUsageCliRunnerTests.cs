@@ -2,12 +2,25 @@ namespace CCUsage.Infrastructure.Tests.CCUsageCli;
 
 using CCUsage.Infrastructure.CCUsageCli;
 
+public sealed class WindowsOnlyFactAttribute : FactAttribute
+{
+    public WindowsOnlyFactAttribute()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Skip = "Windows-only: executes cmd.exe / .cmd shims";
+        }
+    }
+}
+
 public class CCUsageCliRunnerTests
 {
     [Fact]
     public async Task Echo_output_is_captured_correctly()
     {
-        var runner = new CCUsageCliRunner("cmd", "/c echo hello world");
+        var runner = OperatingSystem.IsWindows()
+            ? new CCUsageCliRunner("cmd", "/c echo hello world")
+            : new CCUsageCliRunner("echo", "hello world");
         var output = await runner.GetOutputAsync();
 
         output.Trim().Should().Be("hello world");
@@ -16,12 +29,14 @@ public class CCUsageCliRunnerTests
     [Fact]
     public async Task Non_zero_exit_code_throws_exception()
     {
-        var runner = new CCUsageCliRunner("cmd", "/c exit 1");
+        var runner = OperatingSystem.IsWindows()
+            ? new CCUsageCliRunner("cmd", "/c exit 1")
+            : new CCUsageCliRunner("false", string.Empty);
         var action = () => runner.GetOutputAsync();
         await action.Should().ThrowAsync<Exception>();
     }
 
-    [Fact]
+    [WindowsOnlyFact]
     public async Task Extensionless_command_resolves_to_cmd_shim_on_windows()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), $"ccusage-runner-{Guid.NewGuid()}");
@@ -53,7 +68,7 @@ public class CCUsageCliRunnerTests
         }
     }
 
-    [Fact]
+    [WindowsOnlyFact]
     public async Task Command_with_explicit_extension_runs_without_path_shim_resolution()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), $"ccusage-runner-{Guid.NewGuid()}");
@@ -75,7 +90,7 @@ public class CCUsageCliRunnerTests
         }
     }
 
-    [Fact]
+    [WindowsOnlyFact]
     public async Task Extensionless_path_command_resolves_sibling_cmd_shim_on_windows()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), $"ccusage-runner-{Guid.NewGuid()}");
