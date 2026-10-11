@@ -1,0 +1,16 @@
+{
+  "id": "T-thread-b",
+  "messages": [
+    {"role": "user", "content": "hello"},
+    {"role": "assistant", "messageId": 21, "usage": {
+      "model": "claude-haiku-4-5-20251001", "inputTokens": 10, "outputTokens": 178,
+      "cacheCreationInputTokens": 986, "cacheReadInputTokens": 11372,
+      "totalInputTokens": 12368, "timestamp": "2026-01-19T11:42:10.652Z"}},
+    {"role": "assistant", "messageId": 22, "usage": {
+      "model": "claude-haiku-4-5-20251001", "inputTokens": 5, "outputTokens": 42,
+      "cacheCreationInputTokens": 0, "cacheReadInputTokens": 12000,
+      "timestamp": "2026-01-19T11:43:00.000Z"}},
+    {"role": "assistant", "messageId": 23, "usage": {
+      "model": "gpt-5", "totalTokens": 500, "timestamp": "2026-01-20T10:00:00.000Z"}}
+  ]
+}

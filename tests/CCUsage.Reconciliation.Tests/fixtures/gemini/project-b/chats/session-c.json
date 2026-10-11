@@ -1,0 +1,10 @@
+{
+  "sessionId": "session-c",
+  "timestamp": "2026-05-18T09:30:00.000Z",
+  "stats": {
+    "models": {
+      "gemini-2.5-pro": {"tokens": {"input": 2000, "output": 100, "cached": 400, "thoughts": 0, "tool": 0}},
+      "gemini-2.5-flash": {"tokens": {"input": 500, "output": 30, "cached": 0, "thoughts": 0, "tool": 0}}
+    }
+  }
+}

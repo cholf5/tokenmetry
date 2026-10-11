@@ -17,6 +17,12 @@ public static class FixturePaths
 
     private const string KiloGoldenFileName = "kilo-fixture-daily-v20.0.29.json";
 
+    private const string GeminiGoldenFileName = "gemini-fixture-daily-v20.0.29.json";
+
+    private const string AmpGoldenFileName = "amp-fixture-daily-v20.0.29.json";
+
+    private const string DroidGoldenFileName = "droid-fixture-daily-v20.0.29.json";
+
     public static string Root { get; } = Path.Combine(AppContext.BaseDirectory, "fixtures");
 
     /// <summary>Claude fixture 配置目录（内含 projects/），供 CLAUDE_CONFIG_DIR 等价使用。</summary>
@@ -40,6 +46,15 @@ public static class FixturePaths
     /// <summary>Kilo fixture 数据目录（内含 kilo.db），供 KILO_DATA_DIR 等价使用（I-017）。</summary>
     public static string KiloRoot => Path.Combine(Root, "kilo");
 
+    /// <summary>Gemini fixture 数据目录（内含 project-*/chats 日志），供 GEMINI_DATA_DIR 等价使用（I-010）。</summary>
+    public static string GeminiRoot => Path.Combine(Root, "gemini");
+
+    /// <summary>Amp fixture 数据目录（内含 threads/T-*.json），供 AMP_DATA_DIR 等价使用（I-014）。</summary>
+    public static string AmpRoot => Path.Combine(Root, "amp");
+
+    /// <summary>Droid fixture 会话目录（内含 *.settings.json），供 DROID_SESSIONS_DIR 等价使用（I-015）。</summary>
+    public static string DroidRoot => Path.Combine(Root, "droid");
+
     public static string GoldenDir => Path.Combine(Root, "golden");
 
     public static string ClaudeGoldenPath => Path.Combine(GoldenDir, ClaudeGoldenFileName);
@@ -55,4 +70,10 @@ public static class FixturePaths
     public static string HermesGoldenPath => Path.Combine(GoldenDir, HermesGoldenFileName);
 
     public static string KiloGoldenPath => Path.Combine(GoldenDir, KiloGoldenFileName);
+
+    public static string GeminiGoldenPath => Path.Combine(GoldenDir, GeminiGoldenFileName);
+
+    public static string AmpGoldenPath => Path.Combine(GoldenDir, AmpGoldenFileName);
+
+    public static string DroidGoldenPath => Path.Combine(GoldenDir, DroidGoldenFileName);
 }

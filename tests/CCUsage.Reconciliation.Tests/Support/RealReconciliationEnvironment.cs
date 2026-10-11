@@ -1,7 +1,10 @@
+using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
+using CCUsage.Infrastructure.Droid;
+using CCUsage.Infrastructure.GeminiCli;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
@@ -79,6 +82,27 @@ public static class RealReconciliationEnvironment
         var directories = new KiloDataLocator().ResolveDataDirectories(configuredDataDir: null);
         return directories.Any(directory => File.Exists(Path.Combine(directory, KiloDataLocator.DatabaseFileName)));
     }
+
+    /// <summary>
+    /// Gemini CLI 数据存在性（I-010）：GEMINI_DATA_DIR / ~/.gemini/tmp 下发现 .json/.jsonl 日志
+    /// （与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasGeminiData()
+        => new GeminiLogLocator().CollectLogFiles(configuredDataDir: null).Count > 0;
+
+    /// <summary>
+    /// Amp 数据存在性（I-014）：AMP_DATA_DIR / ~/.local/share/amp 的 threads/ 下有 .json 线程文件
+    /// （与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasAmpData()
+        => new AmpLogLocator().CollectThreadFiles(configuredDataDir: null).Count > 0;
+
+    /// <summary>
+    /// Droid 数据存在性（I-015）：DROID_SESSIONS_DIR / ~/.factory/sessions 下有 *.settings.json
+    /// （与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasDroidData()
+        => new DroidLogLocator().CollectSettingsFiles(configuredDataDir: null).Count > 0;
 
     /// <summary>
     /// dsh-usage-stats 蓝本目录（含 lib/usage.js）：CCUSAGE_DSH_BLUEPRINT 优先，

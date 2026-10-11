@@ -1,10 +1,13 @@
 using System.Globalization;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
+using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
+using CCUsage.Infrastructure.Droid;
+using CCUsage.Infrastructure.GeminiCli;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
@@ -119,6 +122,27 @@ public static class UsageChainAggregator
     public static async Task<ChainAggregation> AggregateKiloAsync(string? configuredDataDir = null, CancellationToken ct = default)
     {
         var adapter = new KiloSqliteAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 GEMINI_DATA_DIR / ~/.gemini/tmp 自动探测（本机真实数据对账用，I-010）。</summary>
+    public static async Task<ChainAggregation> AggregateGeminiAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new GeminiCliAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 AMP_DATA_DIR / ~/.local/share/amp 自动探测（本机真实数据对账用，I-014）。</summary>
+    public static async Task<ChainAggregation> AggregateAmpAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new AmpAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 DROID_SESSIONS_DIR / ~/.factory/sessions 自动探测（本机真实数据对账用，I-015）。</summary>
+    public static async Task<ChainAggregation> AggregateDroidAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new DroidAdapter(configuredDataDir: configuredDataDir);
         return Aggregate(await adapter.ScanAsync(ct));
     }
 

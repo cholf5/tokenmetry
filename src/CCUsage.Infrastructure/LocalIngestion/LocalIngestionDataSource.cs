@@ -1,10 +1,13 @@
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
+using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
+using CCUsage.Infrastructure.Droid;
+using CCUsage.Infrastructure.GeminiCli;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
@@ -16,7 +19,8 @@ namespace CCUsage.Infrastructure.LocalIngestion;
 
 /// <summary>
 /// 本地采集数据源（I-005，I-006 起含 ZCode，I-007 起含 DSH，I-008 起含 Copilot CLI，
-/// I-009 起含 OpenCode，I-012 起含 Goose，I-016 起含 Hermes，I-017 起含 Kilo）：
+/// I-009 起含 OpenCode，I-012 起含 Goose，I-016 起含 Hermes，I-017 起含 Kilo，I-010 起含 Gemini CLI，
+/// I-014 起含 Amp，I-015 起含 Droid）：
 /// 直读适配器扫描 → 定价 → facts 落库 → 从 facts 读回每日汇总。刷新流程：各适配器扫描
 /// （JSONL 增量 / SQLite 账本全量）→
 /// <see cref="PricingEngine"/> 为无 costUSD 的记录补价（补价结果进侧表、不写回记录实例——增量扫描
@@ -39,6 +43,9 @@ public class LocalIngestionDataSource : IUsageDataSource
     private readonly IGooseSqliteAdapter _gooseAdapter;
     private readonly IHermesSqliteAdapter _hermesAdapter;
     private readonly IKiloSqliteAdapter _kiloAdapter;
+    private readonly IGeminiCliAdapter _geminiAdapter;
+    private readonly IAmpAdapter _ampAdapter;
+    private readonly IDroidAdapter _droidAdapter;
     private readonly PricingEngine _pricingEngine;
     private readonly ModelsDevPricingClient? _pricingClient;
     private readonly IUsageStore _store;
@@ -58,6 +65,9 @@ public class LocalIngestionDataSource : IUsageDataSource
         IGooseSqliteAdapter gooseAdapter,
         IHermesSqliteAdapter hermesAdapter,
         IKiloSqliteAdapter kiloAdapter,
+        IGeminiCliAdapter geminiAdapter,
+        IAmpAdapter ampAdapter,
+        IDroidAdapter droidAdapter,
         PricingEngine pricingEngine,
         IUsageStore store,
         ModelsDevPricingClient? pricingClient = null,
@@ -72,6 +82,9 @@ public class LocalIngestionDataSource : IUsageDataSource
         _gooseAdapter = gooseAdapter ?? throw new ArgumentNullException(nameof(gooseAdapter));
         _hermesAdapter = hermesAdapter ?? throw new ArgumentNullException(nameof(hermesAdapter));
         _kiloAdapter = kiloAdapter ?? throw new ArgumentNullException(nameof(kiloAdapter));
+        _geminiAdapter = geminiAdapter ?? throw new ArgumentNullException(nameof(geminiAdapter));
+        _ampAdapter = ampAdapter ?? throw new ArgumentNullException(nameof(ampAdapter));
+        _droidAdapter = droidAdapter ?? throw new ArgumentNullException(nameof(droidAdapter));
         _pricingEngine = pricingEngine ?? throw new ArgumentNullException(nameof(pricingEngine));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _pricingClient = pricingClient;
@@ -99,9 +112,13 @@ public class LocalIngestionDataSource : IUsageDataSource
             var goose = await _gooseAdapter.ScanAsync(ct);
             var hermes = await _hermesAdapter.ScanAsync(ct);
             var kilo = await _kiloAdapter.ScanAsync(ct);
+            var gemini = await _geminiAdapter.ScanAsync(ct);
+            var amp = await _ampAdapter.ScanAsync(ct);
+            var droid = await _droidAdapter.ScanAsync(ct);
             var records = claude.Records.Concat(codex.Records).Concat(zcode.Records).Concat(dsh.Records)
                 .Concat(copilot.Records).Concat(openCode.Records).Concat(goose.Records)
-                .Concat(hermes.Records).Concat(kilo.Records).ToList();
+                .Concat(hermes.Records).Concat(kilo.Records).Concat(gemini.Records).Concat(amp.Records)
+                .Concat(droid.Records).ToList();
             if (records.Count == 0)
             {
                 // 无记录（日志目录不存在 / 全空）时不动存储：保留既有数据（含旧 CLI 行），

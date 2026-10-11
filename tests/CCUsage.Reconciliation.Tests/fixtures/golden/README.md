@@ -26,6 +26,14 @@
   （CLI 20.0.29 只认 actual cost——蓝本 HEAD 另回退 estimated，fixture 不含 estimated-only 行，见卡片 Dev Log）。
   Kilo fixture 覆盖（I-017）：assistant 行过滤、五桶 tokens 映射、载荷 cost 直采（含 0——Auto 对 Some(0.0)
   记 0 不再计价）、stored cost LogCost、非 assistant 行跳过、坏 JSON 载荷跳过。
+  Gemini fixture 覆盖（I-010）：.json/.jsonl 双格式、messages 数组路径（user 行跳过、cached 按 total 自洽性
+  拆分、tool 并入 input）、JSONL sessionId/model 跨行滚动与同 id 事件就地替换、非 gemini 行的 stats
+  （models 明细 overlap 扣减）、无 models 的整块 stats 回退（模型缺省 unknown，CLI missingPricing 双侧 0 成本）。
+  Amp fixture 覆盖（I-014）：usageLedger.events 优先（toMessageId 缓存四桶 attach、total 缺口补 output、
+  缺 model 事件跳过）、events 存在但不回退 messages、messages 回退路径（usage 级字段缺省回退消息级、
+  totalTokens 兜底）、user 行跳过。
+  Droid fixture 覆盖（I-015）：settings.model 归一化（剥 [Anthropic] 段）、侧车 .jsonl "Model:" 提取回退、
+  archive 旧快照 latest-wins 去重、全零 tokenUsage 跳过、非 settings 的 .json 不发现。
 
 ## 录制命令（在仓库根目录执行）
 
@@ -59,6 +67,18 @@ HERMES_HOME="$PWD/$FX/hermes" \
 KILO_DATA_DIR="$PWD/$FX/kilo" \
   npx --yes ccusage@20.0.29 kilo daily --json --offline --timezone UTC \
   > $FX/golden/kilo-fixture-daily-v20.0.29.json
+
+GEMINI_DATA_DIR="$PWD/$FX/gemini" \
+  npx --yes ccusage@20.0.29 gemini daily --json --offline --timezone UTC \
+  > $FX/golden/gemini-fixture-daily-v20.0.29.json
+
+AMP_DATA_DIR="$PWD/$FX/amp" \
+  npx --yes ccusage@20.0.29 amp daily --json --offline --timezone UTC \
+  > $FX/golden/amp-fixture-daily-v20.0.29.json
+
+DROID_SESSIONS_DIR="$PWD/$FX/droid" \
+  npx --yes ccusage@20.0.29 droid daily --json --offline --timezone UTC \
+  > $FX/golden/droid-fixture-daily-v20.0.29.json
 ```
 
 说明：

@@ -1,0 +1,12 @@
+{
+  "sessionId": "session-a",
+  "projectHash": "project-a",
+  "startTime": "2026-05-17T11:07:00.000Z",
+  "messages": [
+    {"type": "user", "content": "hello"},
+    {"id": "msg-a1", "timestamp": "2026-05-17T11:07:32.000Z", "type": "gemini", "model": "gemini-2.5-pro",
+     "tokens": {"input": 1000, "output": 20, "cached": 500, "thoughts": 0, "tool": 5, "total": 1025}},
+    {"id": "msg-a2", "timestamp": "2026-05-17T11:08:10.000Z", "type": "gemini", "model": "gemini-2.5-flash",
+     "tokens": {"input": 150, "output": 10, "cached": 0, "thoughts": 0, "tool": 0, "total": 160}}
+  ]
+}

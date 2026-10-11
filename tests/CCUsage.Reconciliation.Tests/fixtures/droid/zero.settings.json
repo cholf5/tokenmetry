@@ -1,0 +1,6 @@
+{
+  "model": "gpt-5",
+  "providerLock": "openai",
+  "providerLockTimestamp": "2026-05-02T07:00:00.000Z",
+  "tokenUsage": {"inputTokens": 0}
+}
