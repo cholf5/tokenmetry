@@ -32,35 +32,35 @@ Dashboard 真实数据 + Reports 每日表格 + Windows 发布文档。卡片：
 
 Reports 排序 / 筛选 / CSV 导出、Settings 基础页、Model Breakdown。卡片：R-002、R-003、S-001、R-004（已归档）。
 
-### v0.3 - 自主采集引擎 🔨（当前迭代）
+### v0.3 - 自主采集引擎 ✅（2026-10-11）
 
 Goal:
 - App 不依赖 `ccusage` CLI 也能产出可信数据：直读 Claude Code / Codex JSONL，自有 facts 存储与定价引擎。
 - 成本数字与 CLI 对账通过——这是产品的信任锚。
 
-Candidate tasks:
-- `I-001` Claude Code JSONL 直读适配器
-- `I-002` SQLite facts 存储 + migration runner
-- `I-003` 自有定价引擎（内置快照 + models.dev + 用户覆盖）
-- `Q-001` 与 ccusage CLI 的对账测试
-- `I-004` Codex JSONL 适配器
-- `I-005` 本地采集数据源接线，CLI 降级为对账工具
+Delivered cards:
+- `I-001` Claude Code JSONL 直读适配器 ✅
+- `I-002` SQLite facts 存储 + migration runner ✅
+- `I-003` 自有定价引擎（内置快照 + models.dev + 用户覆盖）✅
+- `Q-001` 与 ccusage CLI 的对账测试 ✅
+- `I-004` Codex JSONL 适配器 ✅
+- `I-005` 本地采集数据源接线，CLI 降级为对账工具 ✅
 
-Exit criteria:
-- 断网且无 CLI 的环境下刷新出真实数据。
-- 对账测试在本机真实数据上容差内通过（cost 相对误差 ≤ 0.5%，tokens 精确一致）。
-- 全部单元测试通过。
+Exit criteria 证据：
+- 断网且无 CLI 环境刷新出真实数据：`I-005` 探针冒烟（本机真实 Codex 日志 19 文件 / 2931 记录，快照定价 0 未命中，全程不 spawn 进程）。
+- 对账测试容差内通过：fixture 对账零差异；本机真实 Codex 数据 tokens 全等、cost 与 ccusage v20.0.29 逐分钱一致（$101.3856438）。证据与逐日明细：`docs/reconciliation/2026-10-11-reconciliation.md`。
+- 全部单元测试通过：`dotnet test CCUsage.sln` 242 通过 / 5 跳过（跳过为 Windows 专属 CLI runner 测试 ×3 与真实数据对账门控测试 ×2，门控开时后者实跑通过）。
 
-### v0.4 - 固定可视化
+### v0.4 - 固定可视化 🔨（当前迭代）
 
 Goal:
 - 用 ScottPlot 补齐趋势可视化；Dashboard 重构为 KPI 行 + 30 天趋势 + TopN 的固定视图；Reports 增加 Monthly / Session 维度。
 
 Candidate tasks:
-- `D-002` ScottPlot.Avalonia 集成 spike（前置验证）
-- ScottPlot 正式集成：30 天趋势图（cost / tokens 切换）
+- `D-002` ScottPlot.Avalonia 集成 spike ✅（2026-10-11）：5.1.59 在 Avalonia 12 + net10.0 实测可用，缩放/平移零配置、tooltip 成本可控（对齐翻转有坑已记录），正式集成估 1–2 天；结论见任务卡 Development Log
+- ScottPlot 正式集成：30 天趋势图（cost / tokens 切换）——需先定日历窗口语义（空日补零 / 断线 / 仅画实际日，spike 观察到的产品决策点）与 hover helper（含右缘裁剪处理）
 - Dashboard 重构为固定视图（KPI 行 + 趋势 + Top Model / Agent / Project）
-- Reports Monthly / Session tab（依赖 I-002 的 session facts）
+- Reports Monthly / Session tab（依赖 I-002 的 session_facts，表结构已就绪）
 
 ### v0.5 - 常驻体验
 

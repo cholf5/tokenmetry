@@ -23,6 +23,10 @@
             <TabItem Header="Settings">
                 <views:SettingsView DataContext="{Binding Settings}"/>
             </TabItem>
+            <!-- [SPIKE D-002] ScottPlot.Avalonia 集成 spike 临时页，v0.4 正式集成时移除 -->
+            <TabItem Header="Trend Spike (D-002)">
+                <views:TrendSpikeView/>
+            </TabItem>
         </TabControl>
     </Grid>
 </Window>
