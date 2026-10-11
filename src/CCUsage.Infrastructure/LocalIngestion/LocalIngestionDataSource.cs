@@ -3,16 +3,18 @@ using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
+using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.ModelsDev;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
 namespace CCUsage.Infrastructure.LocalIngestion;
 
 /// <summary>
-/// 本地采集数据源（I-005，I-006 起含 ZCode）：直读适配器扫描 → 定价 → facts 落库 → 从 facts 读回每日汇总。
-/// 刷新流程：各适配器扫描（JSONL 增量 / ZCode 账本全量）→ <see cref="PricingEngine"/> 为无 costUSD 的记录补价
-/// （补价结果进侧表、不写回记录实例——增量扫描跨刷新复用记录，写回会被 LogCost 短路锁死旧价；
-/// 日志自带 costUSD 的记录直接采用原值，含 ZCode 自定义 provider 行的 0 成本）→
+/// 本地采集数据源（I-005，I-006 起含 ZCode，I-007 起含 DSH）：直读适配器扫描 → 定价 → facts 落库 →
+/// 从 facts 读回每日汇总。刷新流程：各适配器扫描（JSONL 增量 / ZCode 账本全量）→
+/// <see cref="PricingEngine"/> 为无 costUSD 的记录补价（补价结果进侧表、不写回记录实例——增量扫描
+/// 跨刷新复用记录，写回会被 LogCost 短路锁死旧价；日志自带 costUSD 的记录直接采用原值，含
+/// ZCode 自定义 provider 行与 DSH 不可计价路由行的 0 成本）→
 /// <see cref="UsageFactsMapper.ToUsageFacts"/> / <see cref="UsageFactsMapper.ToSessionFacts"/> 聚合 →
 /// <see cref="IUsageStore"/> upsert（幂等，最新值生效）→ 删除旧 CLI 分解行 → 读回。
 /// 读取走 facts 存储而非内存聚合：facts 是页面查询的唯一数据面，读回即验证了页面将看到的形状。
@@ -24,6 +26,7 @@ public class LocalIngestionDataSource : IUsageDataSource
     private readonly IClaudeCodeJsonlAdapter _claudeAdapter;
     private readonly ICodexJsonlAdapter _codexAdapter;
     private readonly IZCodeSqliteAdapter _zcodeAdapter;
+    private readonly IDshSessionAdapter _dshAdapter;
     private readonly PricingEngine _pricingEngine;
     private readonly ModelsDevPricingClient? _pricingClient;
     private readonly IUsageStore _store;
@@ -37,6 +40,7 @@ public class LocalIngestionDataSource : IUsageDataSource
         IClaudeCodeJsonlAdapter claudeAdapter,
         ICodexJsonlAdapter codexAdapter,
         IZCodeSqliteAdapter zcodeAdapter,
+        IDshSessionAdapter dshAdapter,
         PricingEngine pricingEngine,
         IUsageStore store,
         ModelsDevPricingClient? pricingClient = null,
@@ -45,6 +49,7 @@ public class LocalIngestionDataSource : IUsageDataSource
         _claudeAdapter = claudeAdapter ?? throw new ArgumentNullException(nameof(claudeAdapter));
         _codexAdapter = codexAdapter ?? throw new ArgumentNullException(nameof(codexAdapter));
         _zcodeAdapter = zcodeAdapter ?? throw new ArgumentNullException(nameof(zcodeAdapter));
+        _dshAdapter = dshAdapter ?? throw new ArgumentNullException(nameof(dshAdapter));
         _pricingEngine = pricingEngine ?? throw new ArgumentNullException(nameof(pricingEngine));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _pricingClient = pricingClient;
@@ -66,7 +71,8 @@ public class LocalIngestionDataSource : IUsageDataSource
             var claude = await _claudeAdapter.ScanAsync(ct);
             var codex = await _codexAdapter.ScanAsync(ct);
             var zcode = await _zcodeAdapter.ScanAsync(ct);
-            var records = claude.Records.Concat(codex.Records).Concat(zcode.Records).ToList();
+            var dsh = await _dshAdapter.ScanAsync(ct);
+            var records = claude.Records.Concat(codex.Records).Concat(zcode.Records).Concat(dsh.Records).ToList();
             if (records.Count == 0)
             {
                 // 无记录（日志目录不存在 / 全空）时不动存储：保留既有数据（含旧 CLI 行），

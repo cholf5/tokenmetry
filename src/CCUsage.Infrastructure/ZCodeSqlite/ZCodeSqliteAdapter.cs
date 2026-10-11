@@ -61,7 +61,8 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
 
                 // 去重发生在映射成功之后（蓝本先 row_to_entry 再按 id 去重）：
                 // 同 id 的无效首现行不占用去重名额，另一库的有效行得以保留。
-                if (!seenIds.Add(record.MessageId))
+                // MessageId 取自已通过身份校验的 row.Id（Map 保证非 null），此处非空断言仅为可空标注。
+                if (!seenIds.Add(record.MessageId!))
                 {
                     diagnostics.DuplicateRecords++;
                     continue;

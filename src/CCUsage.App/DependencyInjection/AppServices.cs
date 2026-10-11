@@ -8,6 +8,7 @@ using CCUsage.Infrastructure.CCUsageCli;
 using CCUsage.Infrastructure.Cache;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
+using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.LocalIngestion;
 using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Infrastructure.ModelsDev;
@@ -45,7 +46,8 @@ public static class AppServices
         services.AddSingleton(_ => new PricingEngine(pricingClient, settings.PricingOverrides));
 
         // 本地采集适配器（I-005 接线）：单例——JSONL 适配器实例持有增量扫描状态（文件 mtime/大小记账 + 消息级
-        // 去重），跨刷新只重解析变更文件；ZCode SQLite 适配器无扫描状态（账本单文件持续变化，每次全量重读）。
+        // 去重），跨刷新只重解析变更文件；ZCode SQLite 适配器无扫描状态（账本单文件持续变化，每次全量重读）；
+        // DSH 会话适配器（I-007）持有与 Claude/Codex 同一套增量记账状态（变更的 zstd 日志整文件重解析）。
         // 并发进入由 LocalIngestionDataSource 的管道信号量串行化。
         services.AddSingleton<ClaudeCodeJsonlAdapter>();
         services.AddSingleton<IClaudeCodeJsonlAdapter>(sp => sp.GetRequiredService<ClaudeCodeJsonlAdapter>());
@@ -53,6 +55,8 @@ public static class AppServices
         services.AddSingleton<ICodexJsonlAdapter>(sp => sp.GetRequiredService<CodexJsonlAdapter>());
         services.AddSingleton<ZCodeSqliteAdapter>();
         services.AddSingleton<IZCodeSqliteAdapter>(sp => sp.GetRequiredService<ZCodeSqliteAdapter>());
+        services.AddSingleton<DshSessionAdapter>();
+        services.AddSingleton<IDshSessionAdapter>(sp => sp.GetRequiredService<DshSessionAdapter>());
 
         // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）；
         // CLI 数据源保留注册用于对账与手动导入（Reconciliation 测试套件 / 后续接线），不再是默认。

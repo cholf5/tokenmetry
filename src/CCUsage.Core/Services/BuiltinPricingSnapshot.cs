@@ -33,7 +33,11 @@ public static class BuiltinPricingSnapshot
             out matchedKey);
     }
 
-    private static IReadOnlyList<ModelPriceEntry> LoadEntries()
+    /// <summary>
+    /// 读取内嵌快照原始 JSON（I-007：供 <see cref="DeepSeekPricingCatalog"/> 解析 deepseek 定价规则段）；
+    /// 资源缺失 / 读取失败返回 null。
+    /// </summary>
+    public static string? LoadSnapshotJson()
     {
         try
         {
@@ -41,11 +45,28 @@ public static class BuiltinPricingSnapshot
             using var stream = assembly.GetManifestResourceStream(ResourceName);
             if (stream is null)
             {
-                return Array.Empty<ModelPriceEntry>();
+                return null;
             }
 
             using var reader = new StreamReader(stream);
-            return ModelsDevPricingParser.Parse(reader.ReadToEnd());
+            return reader.ReadToEnd();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static IReadOnlyList<ModelPriceEntry> LoadEntries()
+    {
+        try
+        {
+            if (LoadSnapshotJson() is not { } json)
+            {
+                return Array.Empty<ModelPriceEntry>();
+            }
+
+            return ModelsDevPricingParser.Parse(json);
         }
         catch (Exception)
         {

@@ -9,7 +9,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| I-007 | DSH 会话适配器 | P1 | M | none | I-003, I-005 |
 | I-008 | GitHub Copilot CLI 适配器 | P2 | L | none | I-003, I-005 |
 | I-009 | OpenCode 适配器 | P2 | M | none | I-006 |
 | I-010 | Gemini CLI 适配器 | P2 | M | none | I-003, I-005 |
@@ -32,6 +31,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-007 | DSH 会话适配器 | P1 | 2026-10-11 |
 | I-006 | ZCode SQLite 适配器 | P1 | 2026-10-11 |
 | D-002 | ScottPlot.Avalonia 集成 spike | P2 | 2026-10-11 |
 | I-005 | 本地采集数据源接线，CLI 降级为对账工具 | P1 | 2026-10-11 |

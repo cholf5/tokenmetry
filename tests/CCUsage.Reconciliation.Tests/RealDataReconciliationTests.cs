@@ -1,4 +1,5 @@
 using CCUsage.Infrastructure.CCUsageCli;
+using CCUsage.Infrastructure.DshSession;
 using CCUsage.Reconciliation.Tests.CCUsageCli;
 using CCUsage.Reconciliation.Tests.Comparison;
 using CCUsage.Reconciliation.Tests.Support;
@@ -68,6 +69,111 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
         var ours = await UsageChainAggregator.AggregateZcodeAsync();
 
         ReconcileAndAssert(golden, ours, agent: "ZCode");
+    }
+
+    /// <summary>
+    /// I-007：本机 DSH 会话日志对账。golden 由 dsh-usage-stats 蓝本库直读原始 zstd 字节计算
+    /// （Support/DshBlueprintGolden.mjs，foldUsage / estimateTokenCost 均为蓝本库代码），
+    /// 自研侧走 DshSessionAdapter 全链路。两侧按 本地日历日（蓝本 dayKey 口径）分桶：
+    /// 日期 × 模型、每日总计、全期总计、全局 per-model 四个粒度 tokens 精确一致；
+    /// 成本按 fail-closed 口径比对：蓝本可计价样本成本合计 ≈ 自研 CostUsd 合计（deepseek 目录价，
+    /// 不可计价样本两侧都不贡献），且自研 0 成本记录数 = 蓝本 incompleteSamples 数。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_dsh_data_reconciles_with_blueprint()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasDshData(), "本机没有 DSH 会话日志（~/.dsh/sessions 或 DSH_HOME）");
+        var blueprint = RealReconciliationEnvironment.FindBlueprintDirectory();
+        Skip.IfNot(blueprint is not null, $"未找到 dsh-usage-stats 蓝本（设 {RealReconciliationEnvironment.BlueprintVariable} 指向检出目录）");
+
+        var goldenJson = RunNodeGolden(blueprint!);
+        var golden = DshBlueprintGolden.Load(goldenJson);
+        output.WriteLine($"[DSH] 蓝本 golden：{golden.Summarize()}");
+        golden.Providers.Should().NotBeEmpty();
+
+        // 适配器不带 configuredHome：与蓝本脚本读同一套 DSH_HOME / ~/.dsh 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateDshAsync();
+        output.WriteLine($"[DSH] 自研链路诊断：status={ours.Diagnostics.Status} "
+            + $"files={ours.Diagnostics.FilesDiscovered} records={ours.RecordCount} "
+            + $"malformed={ours.Diagnostics.MalformedLines} invalid={ours.Diagnostics.InvalidRecords} "
+            + $"linesSkipped={ours.Diagnostics.LinesSkipped}");
+        output.WriteLine($"[DSH] 自研链路全期汇总：{ours.Summarize()}");
+
+        // 自研侧按蓝本同样的四个粒度聚合（本地日历日；DSH 记录模型恒非空）。
+        var oursDayModel = ours.ModelEntries;
+        var oursGlobalModels = ours.ModelEntries
+            .GroupBy(entry => entry.Model!, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => new ReconciliationEntry(
+                "(all-days)", group.Key,
+                group.Sum(entry => entry.InputTokens),
+                group.Sum(entry => entry.OutputTokens),
+                group.Sum(entry => entry.CacheCreationTokens),
+                group.Sum(entry => entry.CacheReadTokens),
+                group.Sum(entry => entry.TotalTokens),
+                group.Sum(entry => entry.CostUsd ?? 0m)))
+            .ToList();
+
+        var dayModelReport = ReconciliationComparator.Compare(golden.DayModelEntries, oursDayModel,
+            goldenLabel: "dsh-usage-stats 蓝本", oursLabel: "自研链路");
+        var dayTotalReport = ReconciliationComparator.Compare(DshBlueprintGolden.BuildTotalEntries(golden), ours.TotalEntries,
+            goldenLabel: "dsh-usage-stats 蓝本", oursLabel: "自研链路");
+        var globalModelReport = ReconciliationComparator.Compare(golden.ModelEntries, oursGlobalModels,
+            goldenLabel: "dsh-usage-stats 蓝本", oursLabel: "自研链路");
+        output.WriteLine($"[DSH] 日期×模型 对账：{dayModelReport.Render()}");
+        output.WriteLine($"[DSH] 每日/全期总计对账：{dayTotalReport.Render()}");
+        output.WriteLine($"[DSH] 全局 per-model 对账：{globalModelReport.Render()}");
+
+        dayModelReport.HasDifferences.Should().BeFalse(dayModelReport.Render());
+        dayTotalReport.HasDifferences.Should().BeFalse(dayTotalReport.Render());
+        globalModelReport.HasDifferences.Should().BeFalse(globalModelReport.Render());
+
+        // 全期四桶直接断言（tokens 必须精确一致——I-007 验收口径）。
+        var oursGrand = ours.TotalEntries.Single(entry => entry.Date == GoldenReport.GrandTotalDate);
+        oursGrand.InputTokens.Should().Be(golden.GrandTotal.InputTokens);
+        oursGrand.OutputTokens.Should().Be(golden.GrandTotal.OutputTokens);
+        oursGrand.CacheCreationTokens.Should().Be(golden.GrandTotal.CacheCreationTokens);
+        oursGrand.CacheReadTokens.Should().Be(golden.GrandTotal.CacheReadTokens);
+        oursGrand.TotalTokens.Should().Be(golden.GrandTotal.TotalTokens);
+
+        // 成本口径（fail-closed）：蓝本可计价样本合计 ≈ 自研合计；自研 0 成本记录数 = 蓝本不可计价样本数。
+        var oursCost = ours.TotalEntries.Sum(entry => entry.CostUsd ?? 0m);
+        var costAbsolute = Math.Abs(oursCost - golden.PricedCost);
+        var costWithin = costAbsolute < ReconciliationTolerance.Default.CostAbsoluteToleranceUsd
+                         || (golden.PricedCost != 0m && costAbsolute / Math.Abs(golden.PricedCost) <= ReconciliationTolerance.Default.CostRelativeTolerance);
+        costWithin.Should().BeTrue($"自研成本 {oursCost} vs 蓝本可计价合计 {golden.PricedCost}");
+        ours.ZeroCostRecordCount.Should().Be(golden.IncompleteSamples,
+            "自研记 0 的记录（目录外路由 / 目录未覆盖模型）应与蓝本 fail-closed 样本一一对应");
+        output.WriteLine($"[DSH] 成本口径：自研合计={oursCost} 蓝本可计价合计={golden.PricedCost} "
+            + $"（自研 0 成本记录 {ours.ZeroCostRecordCount} = 蓝本 incompleteSamples {golden.IncompleteSamples}）");
+    }
+
+    /// <summary>运行 Node 蓝本 golden 脚本（直读原始 zstd 字节），返回其 stdout JSON。</summary>
+    private string RunNodeGolden(string blueprintDirectory)
+    {
+        var scriptPath = Path.Combine(AppContext.BaseDirectory, "Support", "DshBlueprintGolden.mjs");
+        Skip.IfNot(File.Exists(scriptPath), $"golden 脚本未随测试输出：{scriptPath}");
+        var dshHome = new DshLogLocator().ResolveHome(configuredHome: null);
+        Skip.IfNot(dshHome is not null, "无法解析 DSH home（无 DSH_HOME 且无用户目录）");
+
+        var arguments = $"\"{scriptPath}\" \"{dshHome}\" \"{blueprintDirectory}\"";
+        var runner = new CCUsageCliRunner("node", arguments);
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+            var json = runner.GetOutputAsync(timeout.Token).GetAwaiter().GetResult();
+            output.WriteLine($"golden 命令：node {arguments}");
+            return json;
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException
+            or OperationCanceledException
+            or System.ComponentModel.Win32Exception)
+        {
+            throw new SkipException($"Node / 蓝本 golden 不可用（node 缺失或脚本失败）：{exception.Message}");
+        }
     }
 
     private void ReconcileAndAssert(GoldenReport golden, ChainAggregation ours, string agent)
