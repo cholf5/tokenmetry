@@ -1,96 +1,60 @@
-# <ID>: <Title>
-
-## Metadata
-
-- ID: <ID>
-- Title: <Title>
-- Type: Feature | Bug | Refactor | Test | Docs | Release | Chore
-- Priority: P0 | P1 | P2 | P3
-- Status: Backlog | To Do | In Progress | In Review | Testing / QA | Blocked | Done
-- Size: S | M | L
-- Milestone: <milestone>
-- Developer: <name or TBD>
-- Reviewer: <name or TBD>
-- QA: <name or TBD>
-- Maintainer: <name or TBD>
-- Created: YYYY-MM-DD
-- Updated: YYYY-MM-DD
+---
+id: <ID>
+title: <title>
+type: feature          # feature | bug | refactor | test | docs | release | chore
+priority: P1           # P0 | P1 | P2 | P3
+size: M                # S | M | L
+status: todo           # todo | done
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+blocked: none          # none, or a mapping: reason / unblock / owner
+---
 
 ## Goal
 
-Describe the user-visible or engineering goal in one or two paragraphs.
+<The user-visible or engineering outcome, one or two sentences.>
 
 ## Background
 
-Explain why this task exists, what problem it solves, and any relevant context.
-
-## Scope
-
-### In Scope
-
-- [ ] <included work>
-
-### Out of Scope
-
-- <explicitly excluded work>
-
-## Subtasks
-
-- [ ] <subtask 1>
-- [ ] <subtask 2>
+<Optional. Why this task exists and relevant context.>
 
 ## Acceptance Criteria
 
-- [ ] <criterion 1>
-- [ ] <criterion 2>
+- [ ] <outcome-focused criterion>
+
+## Subtasks
+
+- [ ] <subtask>
+
+## Dependencies
+
+- <dependency or `none`>
 
 ## Test Cases
 
-### TC-001: <test case name>
+### TC-001: <name>
 
 Steps:
 1. <step>
-2. <step>
 
 Expected:
 - <expected result>
 
-## Related Files
-
-- `<path/to/file>`
-
-## Dependencies
-
-- <dependency or `None`>
+<!-- If tests do not apply, replace this section with a one-line reason. -->
 
 ## Development Log
 
 ### YYYY-MM-DD
 
-- <implementation note, problem encountered, or decision made>
-
-## Review Notes
-
-- Status: Not Reviewed | Approved | Request Changes
-- Reviewer: <name>
-- Notes:
-  - <note>
-
-## QA Notes
-
-- Status: Not Started | In Progress | QA Passed | QA Failed
-- QA: <name>
-- Results:
-  - <result>
+- <what was done, decisions, where it stopped, next step>
 
 ## Bugs
 
 | ID | Severity | Description | Status | Resolution |
 |---|---|---|---|---|
 
-## Acceptance Notes
+## Verification
 
-- Status: Not Accepted | Accepted | Rejected
-- Maintainer: <name>
-- Notes:
-  - <note>
+- Related files: `<path/to/file>`
+- How to run/verify: <commands or steps>
+- Results: <actual results, or reason not run>

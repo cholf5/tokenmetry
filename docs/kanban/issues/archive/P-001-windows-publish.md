@@ -6,7 +6,7 @@
 - Title: Windows 打包发布
 - Type: Release
 - Priority: P1
-- Status: In Review
+- Status: Done (migrated to markdown-kanban board 2026-10-11)
 - Size: M
 - Milestone: v0.1
 - Developer: ZCode
@@ -14,7 +14,7 @@
 - QA: ZCode (simulated)
 - Maintainer: User / ZCode (simulated)
 - Created: 2026-06-19
-- Updated: 2026-06-19
+- Updated: 2026-10-11
 
 ## Goal
 

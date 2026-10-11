@@ -6,7 +6,7 @@
 - Title: Reports 导出 CSV
 - Type: Feature
 - Priority: P2
-- Status: In Review
+- Status: Done (migrated to markdown-kanban board 2026-10-11)
 - Size: S
 - Milestone: v0.2
 - Developer: ZCode
@@ -14,7 +14,7 @@
 - QA: ZCode (simulated)
 - Maintainer: User / ZCode (simulated)
 - Created: 2026-06-19
-- Updated: 2026-06-19
+- Updated: 2026-10-11
 
 ## Goal
 
