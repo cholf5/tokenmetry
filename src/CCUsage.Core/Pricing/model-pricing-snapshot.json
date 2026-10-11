@@ -280,6 +280,182 @@
       }
     }
   },
+  "deepseek": {
+    "id": "deepseek",
+    "name": "DeepSeek",
+    "pricingRules": [
+      {
+        "id": "deepseek-v4-flash-usd-flat-before-2026-08-16",
+        "model": "deepseek-v4-flash",
+        "effectiveTo": "2026-08-16T16:00:00.000Z",
+        "prices": {
+          "input": 0.14,
+          "cacheRead": 0.0028,
+          "output": 0.28
+        }
+      },
+      {
+        "id": "deepseek-v4-pro-usd-flat-before-2026-08-16",
+        "model": "deepseek-v4-pro",
+        "effectiveTo": "2026-08-16T16:00:00.000Z",
+        "prices": {
+          "input": 0.435,
+          "cacheRead": 0.003625,
+          "output": 0.87
+        }
+      },
+      {
+        "id": "deepseek-v4-flash-usd-time-band-v1",
+        "model": "deepseek-v4-flash",
+        "effectiveFrom": "2026-08-16T16:00:00.000Z",
+        "effectiveTo": "2026-08-22T16:00:00.000Z",
+        "schedule": {
+          "timezone": "Asia/Shanghai",
+          "peakDays": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "peakWindows": [
+            [
+              "09:00",
+              "12:00"
+            ],
+            [
+              "14:00",
+              "18:00"
+            ]
+          ],
+          "otherwise": "offPeak"
+        },
+        "offPeak": {
+          "input": 0.22,
+          "cacheRead": 0.007,
+          "output": 0.66
+        },
+        "peak": {
+          "input": 0.44,
+          "cacheRead": 0.014,
+          "output": 1.32
+        }
+      },
+      {
+        "id": "deepseek-v4-pro-usd-time-band-v1",
+        "model": "deepseek-v4-pro",
+        "effectiveFrom": "2026-08-16T16:00:00.000Z",
+        "effectiveTo": "2026-08-22T16:00:00.000Z",
+        "schedule": {
+          "timezone": "Asia/Shanghai",
+          "peakDays": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "peakWindows": [
+            [
+              "09:00",
+              "12:00"
+            ],
+            [
+              "14:00",
+              "18:00"
+            ]
+          ],
+          "otherwise": "offPeak"
+        },
+        "offPeak": {
+          "input": 0.66,
+          "cacheRead": 0.022,
+          "output": 1.98
+        },
+        "peak": {
+          "input": 1.32,
+          "cacheRead": 0.044,
+          "output": 3.96
+        }
+      },
+      {
+        "id": "deepseek-v4-flash-usd-weekday-schedule",
+        "model": "deepseek-v4-flash",
+        "effectiveFrom": "2026-08-22T16:00:00.000Z",
+        "schedule": {
+          "timezone": "Asia/Shanghai",
+          "peakDays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "peakWindows": [
+            [
+              "09:00",
+              "12:00"
+            ],
+            [
+              "14:00",
+              "18:00"
+            ]
+          ],
+          "otherwise": "offPeak"
+        },
+        "offPeak": {
+          "input": 0.22,
+          "cacheRead": 0.007,
+          "output": 0.66
+        },
+        "peak": {
+          "input": 0.44,
+          "cacheRead": 0.014,
+          "output": 1.32
+        }
+      },
+      {
+        "id": "deepseek-v4-pro-usd-weekday-schedule",
+        "model": "deepseek-v4-pro",
+        "effectiveFrom": "2026-08-22T16:00:00.000Z",
+        "schedule": {
+          "timezone": "Asia/Shanghai",
+          "peakDays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "peakWindows": [
+            [
+              "09:00",
+              "12:00"
+            ],
+            [
+              "14:00",
+              "18:00"
+            ]
+          ],
+          "otherwise": "offPeak"
+        },
+        "offPeak": {
+          "input": 0.66,
+          "cacheRead": 0.022,
+          "output": 1.98
+        },
+        "peak": {
+          "input": 1.32,
+          "cacheRead": 0.044,
+          "output": 3.96
+        }
+      }
+    ]
+  },
   "openai": {
     "id": "openai",
     "name": "OpenAI",

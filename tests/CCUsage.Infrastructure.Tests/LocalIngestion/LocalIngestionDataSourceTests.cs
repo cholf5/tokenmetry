@@ -5,6 +5,7 @@ using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
+using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.LocalIngestion;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
@@ -224,6 +225,7 @@ public class LocalIngestionDataSourceTests : IDisposable
             new ClaudeCodeJsonlAdapter(configuredRoot: claudeRoot),
             new CodexJsonlAdapter(configuredHome: codexHome),
             new ZCodeSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "zcode-missing")),
+            new DshSessionAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "dsh-missing")),
             pricingEngine,
             store,
             pricingClient: null,

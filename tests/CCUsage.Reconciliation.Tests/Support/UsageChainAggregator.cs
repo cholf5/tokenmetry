@@ -3,6 +3,7 @@ using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
+using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Reconciliation.Tests.CCUsageCli;
 using CCUsage.Reconciliation.Tests.Comparison;
@@ -24,6 +25,9 @@ public sealed class ChainAggregation
     public required IReadOnlyList<ReconciliationEntry> TotalEntries { get; init; }
 
     public required IReadOnlyList<UnpricedModelInfo> UnpricedModels { get; init; }
+
+    /// <summary>CostUsd 显式为 0 的记录数（I-007 DSH：目录外路由 fail-closed 记 0；I-006 ZCode：自定义 provider 行）。</summary>
+    public int ZeroCostRecordCount { get; init; }
 
     public string Summarize()
     {
@@ -67,21 +71,35 @@ public static class UsageChainAggregator
         return Aggregate(await adapter.ScanAsync(ct));
     }
 
+    /// <summary>
+    /// 无 configuredHome：走 DSH_HOME / ~/.dsh 自动探测（本机真实数据对账用，I-007）。
+    /// 日期按本地日历日分桶——DSH 蓝本（lib/usage.js dayKey）把事件时间归到本地日历日，
+    /// 与 CLI 对账口径（--timezone UTC）不同，故 DSH 链路不走 UTC 分桶。
+    /// </summary>
+    public static async Task<ChainAggregation> AggregateDshAsync(string? configuredHome = null, CancellationToken ct = default)
+    {
+        var adapter = new DshSessionAdapter(configuredHome: configuredHome);
+        return Aggregate(await adapter.ScanAsync(ct), LocalDay);
+    }
+
     private static ChainAggregation Aggregate(JsonlScanResult scan)
+        => Aggregate(scan, UtcDay);
+
+    private static ChainAggregation Aggregate(JsonlScanResult scan, Func<DateTimeOffset, string> daySelector)
     {
         // 每次新建引擎：未命中清单随本次聚合隔离，不受测试间共享状态影响。
         var engine = new PricingEngine();
 
         var modelEntries = scan.Records
             .Where(record => record.Model is not null)
-            .GroupBy(record => (Date: UtcDay(record.Timestamp), Model: record.Model!))
+            .GroupBy(record => (Date: daySelector(record.Timestamp), Model: record.Model!))
             .OrderBy(group => group.Key.Date, StringComparer.Ordinal)
             .ThenBy(group => group.Key.Model, StringComparer.Ordinal)
             .Select(group => BuildEntry(group.Key.Date, group.Key.Model, group, engine))
             .ToList();
 
         var dayEntries = scan.Records
-            .GroupBy(record => UtcDay(record.Timestamp), StringComparer.Ordinal)
+            .GroupBy(record => daySelector(record.Timestamp), StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.Ordinal)
             .Select(group => BuildEntry(group.Key, null, group, engine))
             .ToList();
@@ -107,6 +125,7 @@ public static class UsageChainAggregator
             ModelEntries = modelEntries,
             TotalEntries = totalEntries,
             UnpricedModels = engine.GetUnpricedModels(),
+            ZeroCostRecordCount = scan.Records.Count(record => record.CostUsd == 0m),
         };
     }
 
@@ -141,4 +160,8 @@ public static class UsageChainAggregator
     /// <summary>UTC 自然日（golden 录制命令带 --timezone UTC，两侧分桶口径一致）。</summary>
     private static string UtcDay(DateTimeOffset timestamp)
         => timestamp.ToUniversalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    /// <summary>本地日历日（DSH 蓝本 dayKey 口径，I-007）。</summary>
+    private static string LocalDay(DateTimeOffset timestamp)
+        => TimeZoneInfo.ConvertTime(timestamp, TimeZoneInfo.Local).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 }
