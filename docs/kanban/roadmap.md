@@ -51,6 +51,22 @@ Exit criteria 证据：
 - 对账测试容差内通过：fixture 对账零差异；本机真实 Codex 数据 tokens 全等、cost 与 ccusage v20.0.29 逐分钱一致（$101.3856438）。证据与逐日明细：`docs/reconciliation/2026-10-11-reconciliation.md`。
 - 全部单元测试通过：`dotnet test CCUsage.sln` 242 通过 / 5 跳过（跳过为 Windows 专属 CLI runner 测试 ×3 与真实数据对账门控测试 ×2，门控开时后者实跑通过）。
 
+### v0.3.5 - 多源数据覆盖（2026-10-11 立项，批次穿插在 v0.4 执行）
+
+Goal:
+- 对齐 ccusage 的 18 源全景：把 `../ccusage`（Rust 版）各 agent 适配器逐个移植为本项目的统一 usage 记录源；DSH（不在 ccusage 支持列表，2026-10-11 核实）自研适配。
+- 每源一张卡（I-006～I-022），执行按优先级逐卡进行；本机有真实数据的源（ZCode / DSH / Copilot CLI）优先且必须过对账。
+
+Candidate tasks:
+- `I-006` ZCode SQLite 适配器 ✅（2026-10-11）：真实数据对账 tokens 两侧逐位一致（22,315 条 / total 2,418,223,974），自定义 provider 行成本口径与 CLI 一致；内置快照补 zai 段 22 条 GLM 价格
+- `I-007` DSH 会话适配器（P1，自研：~/.dsh/sessions zstd JSONL）
+- `I-008` GitHub Copilot CLI 适配器（P2，本机有数据：~/.copilot；shutdown 快照差分语义最复杂）
+- `I-009`～`I-022` OpenCode / Gemini CLI / Qwen Code / Goose / Kimi / Amp / Droid / Hermes / Kilo / Codebuff / pi-agent / OpenClaw / Antigravity / Grok（本机暂无数据，fixture 依蓝本合成；SQLite 源复用 I-006 骨架）
+
+Notes:
+- 逐源口径与蓝本路径见各卡 Background；ccusage 侧布局变更时以 `../ccusage/rust/adapters/<source>/README.md` 为准。
+- 已知口径：ccusage 对部分源（如 ZCode 自定义 provider 的 GLM 行）报 missingPricing/成本 0；本项目对账锚点是 CLI，保持同口径，缺价模型由用户覆盖补齐。
+
 ### v0.4 - 固定可视化 🔨（当前迭代）
 
 Goal:

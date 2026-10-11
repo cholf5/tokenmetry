@@ -50,6 +50,26 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
         ReconcileAndAssert(golden, ours, agent: "Claude Code");
     }
 
+    /// <summary>
+    /// I-006：本机 ZCode SQLite 账本对账。CLI 侧对自定义 provider 的模型（本机 GLM/Ark 行）
+    /// 报 missingPricing / cost 0；自研侧同口径（CostUsd=0），成本两侧同为 0，token 精确一致。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_zcode_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasZcodeData(), "本机没有 ZCode 账本（~/.zcode/cli/db/db.sqlite 或 ZCODE_HOME）");
+
+        var goldenJson = RunCli("zcode");
+        var golden = CcusageGoldenFiles.LoadZcodeText(goldenJson);
+
+        // 适配器不带 configuredHome：与 CLI 进程读同一套 ZCODE_HOME / ~/.zcode 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateZcodeAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "ZCode");
+    }
+
     private void ReconcileAndAssert(GoldenReport golden, ChainAggregation ours, string agent)
     {
         output.WriteLine($"[{agent}] 自研链路诊断：status={ours.Diagnostics.Status} "

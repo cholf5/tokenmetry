@@ -6,6 +6,7 @@ using CCUsage.Core.Services;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.LocalIngestion;
+using CCUsage.Infrastructure.ZCodeSqlite;
 
 /// <summary>
 /// I-005: 本地采集数据源管道测试（临时目录 fixtures + 内存 store）：
@@ -222,6 +223,7 @@ public class LocalIngestionDataSourceTests : IDisposable
         return new LocalIngestionDataSource(
             new ClaudeCodeJsonlAdapter(configuredRoot: claudeRoot),
             new CodexJsonlAdapter(configuredHome: codexHome),
+            new ZCodeSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "zcode-missing")),
             pricingEngine,
             store,
             pricingClient: null,

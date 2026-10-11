@@ -9,11 +9,30 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
+| I-007 | DSH 会话适配器 | P1 | M | none | I-003, I-005 |
+| I-008 | GitHub Copilot CLI 适配器 | P2 | L | none | I-003, I-005 |
+| I-009 | OpenCode 适配器 | P2 | M | none | I-006 |
+| I-010 | Gemini CLI 适配器 | P2 | M | none | I-003, I-005 |
+| I-011 | Qwen Code 适配器 | P2 | M | none | I-001 |
+| I-012 | Goose 适配器 | P2 | M | none | I-006 |
+| I-013 | Kimi Code 适配器 | P3 | S | none | I-001 |
+| I-014 | Amp 适配器 | P3 | S | none | I-003, I-005 |
+| I-015 | Droid (Factory) 适配器 | P3 | S | none | I-003, I-005 |
+| I-016 | Hermes Agent 适配器 | P3 | M | none | I-006 |
+| I-017 | Kilo 适配器 | P3 | M | none | I-006 |
+| I-018 | Codebuff 适配器 | P3 | S | none | I-003, I-005 |
+| I-019 | pi-agent 适配器 | P3 | M | none | I-003, I-005 |
+| I-020 | OpenClaw 适配器 | P3 | M | none | I-001, I-006 |
+| I-021 | Antigravity 适配器 | P3 | L | none | I-006 |
+| I-022 | Grok Build CLI 适配器 | P3 | M | none | I-003, I-005 |
+
+> 2026-10-11：按用户决定一次性建多源覆盖批次卡 I-006～I-022。蓝本为 ../ccusage/rust/adapters/（Rust 移植版，18 源清单见其 README「Supported Sources」）；DSH 不在 ccusage 支持列表（核实过，README 的 "trendshift" 含 "dsh" 是误匹配），I-007 为自研。与「看板保持 5–10 张」的常规策略有意偏离——本批是一次性全景规划，执行仍按优先级逐卡进行。
 
 ## Done
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-006 | ZCode SQLite 适配器 | P1 | 2026-10-11 |
 | D-002 | ScottPlot.Avalonia 集成 spike | P2 | 2026-10-11 |
 | I-005 | 本地采集数据源接线，CLI 降级为对账工具 | P1 | 2026-10-11 |
 | Q-001 | 与 ccusage CLI 的对账测试 | P1 | 2026-10-11 |
