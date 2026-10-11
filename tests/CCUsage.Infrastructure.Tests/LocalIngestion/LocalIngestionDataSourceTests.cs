@@ -7,7 +7,11 @@ using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
+using CCUsage.Infrastructure.GooseSqlite;
+using CCUsage.Infrastructure.HermesSqlite;
+using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.LocalIngestion;
+using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
 /// <summary>
@@ -228,6 +232,10 @@ public class LocalIngestionDataSourceTests : IDisposable
             new ZCodeSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "zcode-missing")),
             new DshSessionAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "dsh-missing")),
             new CopilotSessionAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "copilot-missing")),
+            new OpenCodeSqliteAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "opencode-missing")),
+            new GooseSqliteAdapter(configuredRoot: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "goose-missing")),
+            new HermesSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "hermes-missing")),
+            new KiloSqliteAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "kilo-missing")),
             pricingEngine,
             store,
             pricingClient: null,

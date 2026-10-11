@@ -95,6 +95,102 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// I-009：本机 OpenCode SQLite 数据对账。CLI 口径 vs 自研聚合（AggregateOpenCodeAsync），
+    /// tokens 精确一致。按数据存在性门控（OPENCODE_DATA_DIR → XDG 默认根下有库文件），本机无数据
+    /// Skip；有数据的机器上全链路对账。两侧读同一套目录探测逻辑。
+    /// 已知口径（见 I-009 卡 Dev Log）：CLI 的 outputTokens 不含 reasoning（extra 单列），自研把
+    /// reasoning 并入 output——含 reasoning 的真实数据在 output 分量上会以差异形式响亮失败（fail-loud）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_opencode_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasOpenCodeData(),
+            "本机没有 OpenCode 数据（OPENCODE_DATA_DIR 或 XDG 默认根下无 opencode*.db）");
+
+        var goldenJson = RunCli("opencode");
+        var golden = CcusageGoldenFiles.LoadOpenCodeText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 OPENCODE_DATA_DIR / XDG 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateOpenCodeAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "OpenCode");
+    }
+
+    /// <summary>
+    /// I-012：本机 Goose 会话库对账。CLI 口径 vs 自研聚合（AggregateGooseAsync），tokens 精确一致。
+    /// 按数据存在性门控（GOOSE_PATH_ROOT / 双默认根下有 sessions.db），本机无数据 Skip；有数据的机器上
+    /// 全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-012 卡 Dev Log）：CLI 的 outputTokens 不含 reasoning（extra 单列），自研把 reasoning
+    /// 并入 output——含 reasoning（accumulated_total > input+output）的真实数据在 output 分量上会以差异
+    /// 形式响亮失败（fail-loud）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_goose_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasGooseData(),
+            "本机没有 Goose 数据（GOOSE_PATH_ROOT 或 ~/.local/share/goose、~/Library/Application Support/goose、~/.local/share/Block/goose 下无 sessions.db）");
+
+        var goldenJson = RunCli("goose");
+        var golden = CcusageGoldenFiles.LoadGooseText(goldenJson);
+
+        // 适配器不带 configuredRoot：与 CLI 进程读同一套 GOOSE_PATH_ROOT / 默认根探测逻辑。
+        var ours = await UsageChainAggregator.AggregateGooseAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Goose");
+    }
+
+    /// <summary>
+    /// I-016：本机 Hermes state 库对账。CLI 口径 vs 自研聚合（AggregateHermesAsync），tokens 精确一致。
+    /// 按数据存在性门控（HERMES_HOME / ~/.hermes 下有 state.db），本机无数据 Skip；有数据的机器上全链路
+    /// 对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-016 卡 Dev Log）：reasoning 并入 output 的显示差异 fail-loud；CLI 20.0.29 只认
+    /// actual_cost_usd（蓝本 HEAD 另回退 estimated），含 estimated-only 成本的真实数据在 cost 上 fail-loud。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_hermes_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasHermesData(),
+            "本机没有 Hermes 数据（HERMES_HOME 或 ~/.hermes/state.db）");
+
+        var goldenJson = RunCli("hermes");
+        var golden = CcusageGoldenFiles.LoadHermesText(goldenJson);
+
+        // 适配器不带 configuredHome：与 CLI 进程读同一套 HERMES_HOME / ~/.hermes 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateHermesAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Hermes");
+    }
+
+    /// <summary>
+    /// I-017：本机 Kilo 数据对账。CLI 口径 vs 自研聚合（AggregateKiloAsync），tokens 精确一致。
+    /// 按数据存在性门控（KILO_DATA_DIR / 默认根下有 kilo.db），本机无数据 Skip；有数据的机器上全链路
+    /// 对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-017 卡 Dev Log）：reasoning/total 余量并入 output 的显示差异 fail-loud。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_kilo_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasKiloData(),
+            "本机没有 Kilo 数据（KILO_DATA_DIR 或 ~/.local/share/kilo/kilo.db）");
+
+        var goldenJson = RunCli("kilo");
+        var golden = CcusageGoldenFiles.LoadKiloText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 KILO_DATA_DIR / 默认根探测逻辑。
+        var ours = await UsageChainAggregator.AggregateKiloAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Kilo");
+    }
+
+    /// <summary>
     /// I-007：本机 DSH 会话日志对账。golden 由 dsh-usage-stats 蓝本库直读原始 zstd 字节计算
     /// （Support/DshBlueprintGolden.mjs，foldUsage / estimateTokenCost 均为蓝本库代码），
     /// 自研侧走 DshSessionAdapter 全链路。两侧按 本地日历日（蓝本 dayKey 口径）分桶：

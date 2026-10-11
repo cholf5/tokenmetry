@@ -1,5 +1,6 @@
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
+using CCUsage.Infrastructure.SqliteSource;
 using Microsoft.Data.Sqlite;
 
 namespace CCUsage.Infrastructure.ZCodeSqlite;
@@ -134,16 +135,8 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         return rows;
     }
 
-    private static SqliteConnection OpenReadOnly(string databasePath)
-    {
-        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = databasePath,
-            Mode = SqliteOpenMode.ReadOnly,
-        }.ToString());
-        connection.Open();
-        return connection;
-    }
+    /// <summary>只读打开（共享原语 <see cref="SqliteReadonly"/>，I-009 起与 OpenCode 适配器共用）。</summary>
+    private static SqliteConnection OpenReadOnly(string databasePath) => SqliteReadonly.Open(databasePath);
 
     /// <summary>
     /// 查询语句与蓝本 loader.rs 完全同构：completed 过滤 + LEFT JOIN session 取项目目录，

@@ -10,7 +10,11 @@ using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
+using CCUsage.Infrastructure.GooseSqlite;
+using CCUsage.Infrastructure.HermesSqlite;
+using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.LocalIngestion;
+using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Infrastructure.ModelsDev;
 using CCUsage.Infrastructure.Notifications;
@@ -61,6 +65,14 @@ public static class AppServices
         services.AddSingleton<IDshSessionAdapter>(sp => sp.GetRequiredService<DshSessionAdapter>());
         services.AddSingleton<CopilotSessionAdapter>();
         services.AddSingleton<ICopilotSessionAdapter>(sp => sp.GetRequiredService<CopilotSessionAdapter>());
+        services.AddSingleton<OpenCodeSqliteAdapter>();
+        services.AddSingleton<IOpenCodeSqliteAdapter>(sp => sp.GetRequiredService<OpenCodeSqliteAdapter>());
+        services.AddSingleton<GooseSqliteAdapter>();
+        services.AddSingleton<IGooseSqliteAdapter>(sp => sp.GetRequiredService<GooseSqliteAdapter>());
+        services.AddSingleton<HermesSqliteAdapter>();
+        services.AddSingleton<IHermesSqliteAdapter>(sp => sp.GetRequiredService<HermesSqliteAdapter>());
+        services.AddSingleton<KiloSqliteAdapter>();
+        services.AddSingleton<IKiloSqliteAdapter>(sp => sp.GetRequiredService<KiloSqliteAdapter>());
 
         // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）；
         // CLI 数据源保留注册用于对账与手动导入（Reconciliation 测试套件 / 后续接线），不再是默认。

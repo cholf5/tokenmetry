@@ -941,5 +941,35 @@
         }
       }
     }
+  },
+  "moonshot": {
+    "id": "moonshot",
+    "name": "Moonshot AI",
+    "models": {
+      "kimi-k2.6": {
+        "id": "kimi-k2.6",
+        "name": "Kimi K2.6",
+        "cost": {
+          "input": 0.95,
+          "output": 4,
+          "cache_read": 0.16
+        }
+      }
+    }
+  },
+  "xai": {
+    "id": "xai",
+    "name": "xAI",
+    "models": {
+      "grok-4.3": {
+        "id": "grok-4.3",
+        "name": "Grok 4.3",
+        "cost": {
+          "input": 1.25,
+          "output": 2.5,
+          "cache_read": 0.2
+        }
+      }
+    }
   }
 }

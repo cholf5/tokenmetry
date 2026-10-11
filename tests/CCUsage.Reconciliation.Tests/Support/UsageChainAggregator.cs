@@ -5,6 +5,10 @@ using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
+using CCUsage.Infrastructure.GooseSqlite;
+using CCUsage.Infrastructure.HermesSqlite;
+using CCUsage.Infrastructure.KiloSqlite;
+using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Reconciliation.Tests.CCUsageCli;
 using CCUsage.Reconciliation.Tests.Comparison;
@@ -87,6 +91,34 @@ public static class UsageChainAggregator
     public static async Task<ChainAggregation> AggregateCopilotAsync(string? configuredHome = null, CancellationToken ct = default)
     {
         var adapter = new CopilotSessionAdapter(configuredHome: configuredHome);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 OPENCODE_DATA_DIR / XDG 默认根自动探测（本机真实数据对账用，I-009）。</summary>
+    public static async Task<ChainAggregation> AggregateOpenCodeAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new OpenCodeSqliteAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredRoot：走 GOOSE_PATH_ROOT / 双默认根自动探测（本机真实数据对账用，I-012）。</summary>
+    public static async Task<ChainAggregation> AggregateGooseAsync(string? configuredRoot = null, CancellationToken ct = default)
+    {
+        var adapter = new GooseSqliteAdapter(configuredRoot: configuredRoot);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredHome：走 HERMES_HOME / ~/.hermes 自动探测（本机真实数据对账用，I-016）。</summary>
+    public static async Task<ChainAggregation> AggregateHermesAsync(string? configuredHome = null, CancellationToken ct = default)
+    {
+        var adapter = new HermesSqliteAdapter(configuredHome: configuredHome);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 KILO_DATA_DIR / 默认根自动探测（本机真实数据对账用，I-017）。</summary>
+    public static async Task<ChainAggregation> AggregateKiloAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new KiloSqliteAdapter(configuredDataDir: configuredDataDir);
         return Aggregate(await adapter.ScanAsync(ct));
     }
 

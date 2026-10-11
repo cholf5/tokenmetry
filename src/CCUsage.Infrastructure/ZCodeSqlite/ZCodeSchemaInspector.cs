@@ -1,4 +1,4 @@
-using CCUsage.Core.Models;
+using CCUsage.Infrastructure.SqliteSource;
 using Microsoft.Data.Sqlite;
 
 namespace CCUsage.Infrastructure.ZCodeSqlite;
@@ -33,8 +33,8 @@ public static class ZCodeSchemaInspector
         var modelColumns = ReadTableColumns(connection, "model_usage");
         var sessionColumns = ReadTableColumns(connection, "session");
 
-        var supported = ContainsAll(modelColumns, RequiredModelColumns)
-                        && ContainsAll(sessionColumns, RequiredSessionColumns);
+        var supported = SqliteTableSchema.ContainsAll(modelColumns, RequiredModelColumns)
+                        && SqliteTableSchema.ContainsAll(sessionColumns, RequiredSessionColumns);
         return new Schema(
             IsSupported: supported,
             HasCacheCreation: modelColumns.Contains("cache_creation_input_tokens"),
@@ -44,34 +44,5 @@ public static class ZCodeSchemaInspector
     }
 
     private static HashSet<string> ReadTableColumns(SqliteConnection connection, string table)
-    {
-        var columns = new HashSet<string>(StringComparer.Ordinal);
-        using var command = connection.CreateCommand();
-        command.CommandText = $"PRAGMA table_info({table});";
-        using var reader = command.ExecuteReader();
-        // PRAGMA table_info 行结构：(cid, name, type, notnull, dflt_value, pk)
-        var nameOrdinal = reader.GetOrdinal("name");
-        while (reader.Read())
-        {
-            if (!reader.IsDBNull(nameOrdinal))
-            {
-                columns.Add(reader.GetString(nameOrdinal));
-            }
-        }
-
-        return columns;
-    }
-
-    private static bool ContainsAll(HashSet<string> columns, IReadOnlyList<string> required)
-    {
-        foreach (var column in required)
-        {
-            if (!columns.Contains(column))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+        => SqliteTableSchema.ReadColumns(connection, table);
 }
