@@ -177,6 +177,15 @@ public class ClaudeCodeJsonlLineParserTests
             .Should().Be(("project-a", "Unknown Project"));
     }
 
+    [Fact]
+    public void Extracts_session_parts_from_windows_backslash_paths()
+    {
+        // I-005 回归：Split('/', '\\', options) 曾重载解析为 Split(char, int, options)，
+        // 反斜杠被隐式转成 int 当作最大段数，Windows 路径从未被拆分。
+        ClaudeCodeJsonlLineParser.ExtractSessionParts(@"C:\root\projects\project-a\session-a.jsonl")
+            .Should().Be(("session-a", "project-a"));
+    }
+
     private UsageRecord? ParseLine(string json)
     {
         using var document = JsonDocument.Parse(json);

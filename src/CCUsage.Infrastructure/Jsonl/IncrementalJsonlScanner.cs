@@ -7,7 +7,7 @@ namespace CCUsage.Infrastructure.Jsonl;
 /// JSONL 直读适配器共享的增量扫描引擎（I-001 claude / I-004 codex 共用）：
 /// 文件级增量记账（mtime/大小）→ 只重新解析新增或变更的文件 → 消息级去重 → 统一诊断与状态。
 /// 目录发现与行解析由各 agent 适配器注入（文件清单 + 逐文件解析委托），引擎不感知具体日志格式。
-/// 实例持有扫描状态，非线程安全；本卡不接入 App DI（接线为 I-005 范围）。
+/// 实例持有扫描状态，非线程安全；I-005 起随适配器以单例接入 App DI（并发由 LocalIngestionDataSource 串行化）。
 /// </summary>
 public sealed class IncrementalJsonlScanner
 {

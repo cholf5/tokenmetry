@@ -127,6 +127,35 @@ public class SqliteUsageStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Delete_decomposition_facts_removes_non_full_rows_and_preserves_full_rows_and_sessions()
+    {
+        // I-005 数据源切换清理：旧 CLI 源的分解粒度行清掉，full 行与 session facts 不受影响。
+        await _store.UpsertUsageFactsAsync(new List<UsageFact>
+        {
+            CreateFullFact("2026-06-19", costUsd: 1m),
+            new() { Day = "2026-06-19", Grain = UsageFactGrain.Day, TotalTokens = 500, CostUsd = 0.4m },
+            new() { Day = "2026-06-20", Grain = UsageFactGrain.Agent, Agent = "Claude Code", TotalTokens = 100 },
+            new() { Day = "2026-06-20", Grain = UsageFactGrain.Project, Project = "/p", ProjectDisplayName = "p", TotalTokens = 100 },
+        });
+        await _store.UpsertSessionFactsAsync(new List<SessionFact>
+        {
+            new() { SessionId = "session-1", FirstSeenAt = DateTimeOffset.UtcNow, LastSeenAt = DateTimeOffset.UtcNow }
+        });
+
+        await _store.DeleteDecompositionFactsAsync();
+
+        var stored = await _store.GetUsageFactsAsync();
+        stored.Should().ContainSingle();
+        stored.Single().Grain.Should().Be(UsageFactGrain.Full);
+        stored.Single().TotalTokens.Should().Be(180);
+        (await _store.GetSessionFactsAsync()).Should().ContainSingle();
+
+        // 幂等：重复删除为空操作。
+        await _store.DeleteDecompositionFactsAsync();
+        (await _store.GetUsageFactsAsync()).Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task Replace_usage_facts_by_day_cleans_stale_decomposition_rows()
     {
         var first = new List<UsageFact>

@@ -117,7 +117,11 @@ public class ClaudeCodeJsonlLineParser
     /// </summary>
     public static (string SessionId, string ProjectPath) ExtractSessionParts(string path)
     {
-        var parts = path.Split('/', '\\', StringSplitOptions.RemoveEmptyEntries);
+        // 显式 char[]：`Split('/', '\\', options)` 会重载解析为 Split(char, int, StringSplitOptions)，
+        // 第二个分隔符被隐式转成 int 当作最大段数（I-005 修正：Windows 反斜杠路径此前从未被拆分）。
+        var parts = path.Split(
+            new[] { '/', '\\' },
+            StringSplitOptions.RemoveEmptyEntries);
         var projectsIndex = Array.IndexOf(parts, "projects");
         var relative = projectsIndex >= 0 ? parts[(projectsIndex + 1)..] : parts;
 

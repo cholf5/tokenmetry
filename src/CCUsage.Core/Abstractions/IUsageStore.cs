@@ -23,4 +23,11 @@ public interface IUsageStore
     Task UpsertSessionFactsAsync(IReadOnlyList<SessionFact> facts, CancellationToken ct = default);
 
     Task<IReadOnlyList<SessionFact>> GetSessionFactsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// 删除全部分解粒度行（grain ≠ full 的 CLI 源行）；full 粒度行与 session_facts 不受影响。
+    /// 用于数据源从 CLI 切到本地采集后的清理（I-005）：本地采集写入的只有 full 粒度行，
+    /// 旧 CLI 分解行残留会在混源日干扰读取与诊断。
+    /// </summary>
+    Task DeleteDecompositionFactsAsync(CancellationToken ct = default);
 }

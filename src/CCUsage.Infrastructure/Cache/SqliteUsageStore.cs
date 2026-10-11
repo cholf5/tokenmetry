@@ -365,6 +365,15 @@ public class SqliteUsageStore : IUsageStore
         return facts;
     }
 
+    public async Task DeleteDecompositionFactsAsync(CancellationToken ct = default)
+    {
+        await InitializeAsync(ct);
+        using var connection = await OpenAsync(ct);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM usage_facts WHERE grain <> 'full'";
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     private async Task ApplyMigrationsAsync(CancellationToken ct)
     {
         using var connection = await OpenAsync(ct);

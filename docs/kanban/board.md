@@ -10,13 +10,13 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
 | I-003 | 自有定价引擎（内置快照 + models.dev + 用户覆盖） | P1 | M | none | none |
-| I-005 | 本地采集数据源接线，CLI 降级为对账工具 | P1 | S | none | I-002, I-004 |
 | D-002 | ScottPlot.Avalonia 集成 spike | P2 | S | none | none |
 
 ## Done
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-005 | 本地采集数据源接线，CLI 降级为对账工具 | P1 | 2026-10-11 |
 | Q-001 | 与 ccusage CLI 的对账测试 | P1 | 2026-10-11 |
 | I-004 | Codex JSONL 适配器 | P2 | 2026-10-11 |
 | I-003 | 自有定价引擎（内置快照 + models.dev + 用户覆盖） | P1 | 2026-10-11 |

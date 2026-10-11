@@ -115,16 +115,68 @@ public class DashboardViewModelTests
         DashboardViewModel.ShouldShowHistoricalOnlyHintFor(summary).Should().BeFalse();
     }
 
+    [Fact]
+    public async Task RefreshAsync_SavesCache_WhenDataSourceDoesNotPersistFacts()
+    {
+        // 预置缓存行：构造函数的初始化刷新只在无缓存时触发，保证计数确定性。
+        var store = new FakeUsageStore(new DailyUsageSummary { Date = "2026-06-18", TotalCostUsd = 1m });
+        var viewModel = CreateDashboardViewModel(
+            store,
+            new FakeUsageDataSource(new List<DailyUsageSummary> { new() { Date = "2026-06-19", TotalCostUsd = 1m } }),
+            new AppSettings(),
+            new FixedDateRangeService("2026-06-19"));
+
+        await viewModel.RefreshAsync();
+
+        store.ReplaceCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_SkipsCacheSave_WhenDataSourcePersistsFacts()
+    {
+        // I-005：本地采集源已在数据源内部写 facts 并读回，重复落库会把 full 行有损重分解。
+        var store = new FakeUsageStore(new DailyUsageSummary { Date = "2026-06-18", TotalCostUsd = 1m });
+        var viewModel = CreateDashboardViewModel(
+            store,
+            new FakeUsageDataSource(new List<DailyUsageSummary> { new() { Date = "2026-06-19", TotalCostUsd = 1m } }, persistsFacts: true),
+            new AppSettings(),
+            new FixedDateRangeService("2026-06-19"));
+
+        await viewModel.RefreshAsync();
+
+        store.ReplaceCalls.Should().Be(0);
+        viewModel.HasData.Should().BeTrue();
+    }
+
     private static DashboardViewModel CreateDashboardViewModel(
         ISystemNotification notification,
         AppSettings settings,
         DateRangeService dateRangeService,
         IEnumerable<DailyUsageSummary> rows)
     {
+        return CreateDashboardViewModel(notification, new FakeUsageStore(), new FakeUsageDataSource(rows.ToList()), settings, dateRangeService);
+    }
+
+    private static DashboardViewModel CreateDashboardViewModel(
+        FakeUsageStore store,
+        FakeUsageDataSource dataSource,
+        AppSettings settings,
+        DateRangeService dateRangeService)
+    {
+        return CreateDashboardViewModel(new FakeSystemNotification(), store, dataSource, settings, dateRangeService);
+    }
+
+    private static DashboardViewModel CreateDashboardViewModel(
+        ISystemNotification notification,
+        FakeUsageStore store,
+        FakeUsageDataSource dataSource,
+        AppSettings settings,
+        DateRangeService dateRangeService)
+    {
         return new DashboardViewModel(
             new DashboardService(dateRangeService),
-            new CacheService(new FakeUsageStore()),
-            new FakeUsageDataSource(rows.ToList()),
+            new CacheService(store),
+            dataSource,
             new AnomalyDetector(),
             dateRangeService,
             notification,
@@ -146,11 +198,15 @@ public class DashboardViewModelTests
     private sealed class FakeUsageDataSource : IUsageDataSource
     {
         private readonly List<DailyUsageSummary> _rows;
+        private readonly bool _persistsFacts;
 
-        public FakeUsageDataSource(List<DailyUsageSummary> rows)
+        public FakeUsageDataSource(List<DailyUsageSummary> rows, bool persistsFacts = false)
         {
             _rows = rows;
+            _persistsFacts = persistsFacts;
         }
+
+        public bool PersistsFacts => _persistsFacts;
 
         public Task<List<DailyUsageSummary>> GetDailyUsageAsync(CancellationToken ct = default)
         {
@@ -173,6 +229,13 @@ public class DashboardViewModelTests
     {
         private readonly List<UsageFact> _facts = new();
 
+        public FakeUsageStore(params DailyUsageSummary[] seededRows)
+        {
+            _facts.AddRange(UsageFactsMapper.FromDailySummaries(seededRows));
+        }
+
+        public int ReplaceCalls { get; private set; }
+
         public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
         {
             _facts.AddRange(facts);
@@ -181,6 +244,7 @@ public class DashboardViewModelTests
 
         public Task ReplaceUsageFactsByDayAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
         {
+            ReplaceCalls++;
             return UpsertUsageFactsAsync(facts, ct);
         }
 
@@ -197,6 +261,11 @@ public class DashboardViewModelTests
         public Task<IReadOnlyList<SessionFact>> GetSessionFactsAsync(CancellationToken ct = default)
         {
             return Task.FromResult<IReadOnlyList<SessionFact>>(new List<SessionFact>());
+        }
+
+        public Task DeleteDecompositionFactsAsync(CancellationToken ct = default)
+        {
+            return Task.CompletedTask;
         }
     }
 }

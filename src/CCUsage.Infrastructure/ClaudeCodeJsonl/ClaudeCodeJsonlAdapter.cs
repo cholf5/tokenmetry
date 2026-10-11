@@ -10,7 +10,7 @@ namespace CCUsage.Infrastructure.ClaudeCodeJsonl;
 /// 增量扫描、记账、去重与诊断状态由各 agent 适配器共享的 <see cref="IncrementalJsonlScanner"/> 承担
 /// （I-004 起与 Codex 适配器共用）；本类只保留 Claude 特有的目录定位与行解析规则。
 /// 重复运行同一目录不会产生重复记录；文件被删除后其记录随之移除。
-/// 实例持有扫描状态，非线程安全；本卡不接入 App DI（接线为 I-005 范围）。
+/// 实例持有扫描状态，非线程安全；I-005 起以单例接入 App DI（并发由 LocalIngestionDataSource 串行化）。
 /// </summary>
 public class ClaudeCodeJsonlAdapter : IClaudeCodeJsonlAdapter
 {

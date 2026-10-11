@@ -122,6 +122,43 @@ public class UsageFactsMapperTests
     }
 
     [Fact]
+    public void ToUsageFacts_FillsProjectDisplayNameFromPathLastSegment()
+    {
+        var facts = UsageFactsMapper.ToUsageFacts(new[]
+        {
+            CreateRecord(day: 19, hour: 8, project: "/Users/dev/project-a"),
+            CreateRecord(day: 19, hour: 9, project: "project-b\\sub"),
+            CreateRecord(day: 19, hour: 10, project: "encoded-project")
+        }, Utc);
+
+        facts.Single(fact => fact.Project == "/Users/dev/project-a").ProjectDisplayName.Should().Be("project-a");
+        facts.Single(fact => fact.Project == "project-b\\sub").ProjectDisplayName.Should().Be("sub");
+        facts.Single(fact => fact.Project == "encoded-project").ProjectDisplayName.Should().Be("encoded-project");
+    }
+
+    [Fact]
+    public void ToUsageFacts_BlankProjectKeepsEmptyDisplayName()
+    {
+        var facts = UsageFactsMapper.ToUsageFacts(new[]
+        {
+            CreateRecord(day: 19, hour: 8, project: "  ")
+        }, Utc);
+
+        facts.Single().ProjectDisplayName.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ToSessionFacts_FillsProjectDisplayNameFromPathLastSegment()
+    {
+        var facts = UsageFactsMapper.ToSessionFacts(new[]
+        {
+            CreateRecord(day: 19, hour: 8, sessionId: "session-1", project: "/Users/dev/project-a")
+        });
+
+        facts.Single().ProjectDisplayName.Should().Be("project-a");
+    }
+
+    [Fact]
     public void FromDailySummaries_DecomposesToGrainFacts()
     {
         var facts = UsageFactsMapper.FromDailySummaries(new[]

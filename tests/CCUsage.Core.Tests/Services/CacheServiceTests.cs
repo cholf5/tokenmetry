@@ -164,4 +164,10 @@ sealed class InMemoryUsageStore : IUsageStore
         IReadOnlyList<SessionFact> facts = SessionFacts.ToList();
         return Task.FromResult(facts);
     }
+
+    public Task DeleteDecompositionFactsAsync(CancellationToken ct = default)
+    {
+        Facts.RemoveAll(existing => existing.Grain != UsageFactGrain.Full);
+        return Task.CompletedTask;
+    }
 }

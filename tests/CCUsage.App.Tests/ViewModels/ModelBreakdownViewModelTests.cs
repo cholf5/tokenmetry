@@ -215,5 +215,10 @@ public class ModelBreakdownViewModelTests
         {
             return Task.FromResult<IReadOnlyList<SessionFact>>(new List<SessionFact>());
         }
+
+        public Task DeleteDecompositionFactsAsync(CancellationToken ct = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

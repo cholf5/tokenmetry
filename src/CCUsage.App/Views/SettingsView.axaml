@@ -12,11 +12,11 @@
 
             <Border Background="#f8f9fa" CornerRadius="8" Padding="16">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="ccusage" FontSize="16" FontWeight="Bold"/>
+                    <TextBlock Text="ccusage CLI（对账 / 手动导入）" FontSize="16" FontWeight="Bold"/>
                     <StackPanel Spacing="4">
                         <TextBlock Text="命令或路径" Foreground="#666" FontSize="12"/>
                         <TextBox Text="{Binding CcusageCommand}" PlaceholderText="ccusage"/>
-                        <TextBlock Text="保存后将在下次启动时用于调用 ccusage CLI。" Foreground="#888" FontSize="12" TextWrapping="Wrap"/>
+                        <TextBlock Text="应用默认直接读取本地 Claude Code / Codex 会话日志，无需安装 ccusage。此命令仅在需要对账或手动导入时使用，保存后于下次启动生效。" Foreground="#888" FontSize="12" TextWrapping="Wrap"/>
                     </StackPanel>
                 </StackPanel>
             </Border>

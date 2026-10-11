@@ -17,8 +17,14 @@ public static class UsageFactsMapper
     /// <summary>
     /// 把统一记录聚合为 full 粒度（day × agent × model × project）facts。
     /// cost 取已知 costUSD 之和，全部未知时为 null（缺口由 I-003 定价引擎补全）。
+    /// 项目展示名取 <see cref="UsageRecord.ProjectPath"/> 的末段（I-005）。
+    /// <paramref name="pricedCosts"/>：定价引擎的补价侧表（按记录引用）——记录实例可能被
+    /// 增量扫描器跨刷新复用，补价不得写回记录（否则下次刷新被 LogCost 短路锁死旧价）。
     /// </summary>
-    public static List<UsageFact> ToUsageFacts(IEnumerable<UsageRecord> records, TimeZoneInfo? timeZone = null)
+    public static List<UsageFact> ToUsageFacts(
+        IEnumerable<UsageRecord> records,
+        TimeZoneInfo? timeZone = null,
+        IReadOnlyDictionary<UsageRecord, decimal?>? pricedCosts = null)
     {
         var tz = timeZone ?? TimeZoneInfo.Local;
         return records
@@ -36,6 +42,7 @@ public static class UsageFactsMapper
                 Agent = group.Key.Agent,
                 Model = group.Key.Model,
                 Project = group.Key.Project,
+                ProjectDisplayName = DeriveProjectDisplayName(group.Key.Project),
                 InputTokens = group.Sum(record => record.InputTokens),
                 OutputTokens = group.Sum(record => record.OutputTokens),
                 CacheCreationTokens = group.Sum(record => record.CacheCreationTokens),
@@ -43,7 +50,7 @@ public static class UsageFactsMapper
                 CacheCreationEphemeral1hTokens = group.Sum(record => record.CacheCreationEphemeral1hTokens),
                 CacheReadTokens = group.Sum(record => record.CacheReadTokens),
                 TotalTokens = group.Sum(record => record.TotalTokens),
-                CostUsd = SumCosts(group.Select(record => record.CostUsd)),
+                CostUsd = SumCosts(group.Select(record => LookupCost(record, pricedCosts))),
             })
             .OrderBy(fact => fact.Day, StringComparer.Ordinal)
             .ThenBy(fact => fact.Agent, StringComparer.Ordinal)
@@ -52,8 +59,10 @@ public static class UsageFactsMapper
             .ToList();
     }
 
-    /// <summary>把统一记录聚合为 session 级 facts（session_id 为主键口径）。</summary>
-    public static List<SessionFact> ToSessionFacts(IEnumerable<UsageRecord> records)
+    /// <summary>把统一记录聚合为 session 级 facts（session_id 为主键口径）；项目展示名取 ProjectPath 末段。补价侧表语义同 <see cref="ToUsageFacts"/>。</summary>
+    public static List<SessionFact> ToSessionFacts(
+        IEnumerable<UsageRecord> records,
+        IReadOnlyDictionary<UsageRecord, decimal?>? pricedCosts = null)
     {
         return records
             .GroupBy(record => record.SessionId, StringComparer.Ordinal)
@@ -70,6 +79,7 @@ public static class UsageFactsMapper
                     SessionId = group.Key,
                     Agent = first.Agent ?? string.Empty,
                     Project = first.ProjectPath ?? string.Empty,
+                    ProjectDisplayName = DeriveProjectDisplayName(first.ProjectPath ?? string.Empty),
                     DominantModel = SelectDominantModel(group),
                     FirstSeenAt = first.Timestamp,
                     LastSeenAt = last.Timestamp,
@@ -80,12 +90,16 @@ public static class UsageFactsMapper
                     CacheCreationEphemeral1hTokens = group.Sum(record => record.CacheCreationEphemeral1hTokens),
                     CacheReadTokens = group.Sum(record => record.CacheReadTokens),
                     TotalTokens = group.Sum(record => record.TotalTokens),
-                    CostUsd = SumCosts(group.Select(record => record.CostUsd)),
+                    CostUsd = SumCosts(group.Select(record => LookupCost(record, pricedCosts))),
                 };
             })
             .OrderBy(fact => fact.SessionId, StringComparer.Ordinal)
             .ToList();
     }
+
+    /// <summary>补价侧表命中（按记录引用）用补价结果，否则用记录自带的 costUSD。</summary>
+    private static decimal? LookupCost(UsageRecord record, IReadOnlyDictionary<UsageRecord, decimal?>? pricedCosts) =>
+        pricedCosts is not null && pricedCosts.TryGetValue(record, out var priced) ? priced : record.CostUsd;
 
     /// <summary>
     /// 把 CLI 数据源的每日汇总分解为 facts：日合计（Day 粒度）+ agent / model / project 拆分行。
@@ -290,6 +304,22 @@ public static class UsageFactsMapper
             .OrderByDescending(group => group.Sum(record => record.TotalTokens))
             .ThenBy(group => group.Key, StringComparer.Ordinal)
             .First().Key;
+    }
+
+    /// <summary>
+    /// 项目展示名：ProjectPath 的最后一个非空路径段（'/' 与 '\' 均作分隔）。
+    /// 与蓝本口径的关系：ccusage-tauri claude.rs 不单独计算展示名（project_name 即日志目录推导的
+    /// project_path，Claude 源恒为 projects/ 下单个目录段，取末段与蓝本值一致）；Codex 源的
+    /// ProjectPath 是会话 cwd 绝对路径，取末段展示项目目录名（蓝本展示完整 cwd，此处取更短的末段）。
+    /// </summary>
+    private static string DeriveProjectDisplayName(string projectPath)
+    {
+        // 显式 char[]：`Split('/', '\\', options)` 会重载解析为 Split(char, int, StringSplitOptions)，
+        // 第二个分隔符被隐式转成 int 当作最大段数（隐蔽的行为bug）。
+        var segments = projectPath.Split(
+            new[] { '/', '\\' },
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return segments.Length > 0 ? segments[^1] : string.Empty;
     }
 
     private static string SelectDisplayName(IEnumerable<UsageFact> facts)

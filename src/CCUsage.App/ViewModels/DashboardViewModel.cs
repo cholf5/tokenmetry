@@ -160,7 +160,13 @@ public partial class DashboardViewModel : ViewModelBase
 
             if (rows.Any())
             {
-                await _cacheService.SaveDailyRowsAsync(rows);
+                // 本地采集源（I-005）已在数据源内部写 facts 并读回，再走 SaveDailyRowsAsync 会把
+                // full 粒度行有损重分解为 CLI 形状的分解行；仅自持持久化的源需要调用方落库。
+                if (!_dataSource.PersistsFacts)
+                {
+                    await _cacheService.SaveDailyRowsAsync(rows);
+                }
+
                 var dashboard = _dashboardService.BuildDashboard(rows);
                 UpdateFromDashboard(dashboard);
 
