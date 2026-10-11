@@ -26,8 +26,7 @@ public static class ZCodeSchemaInspector
         bool HasCacheCreation,
         bool HasCacheRead,
         bool HasComputedTotal,
-        bool HasProviderId,
-        bool HasSessionVersion);
+        bool HasProviderId);
 
     public static Schema Inspect(SqliteConnection connection)
     {
@@ -41,8 +40,7 @@ public static class ZCodeSchemaInspector
             HasCacheCreation: modelColumns.Contains("cache_creation_input_tokens"),
             HasCacheRead: modelColumns.Contains("cache_read_input_tokens"),
             HasComputedTotal: modelColumns.Contains("computed_total_tokens"),
-            HasProviderId: modelColumns.Contains("provider_id"),
-            HasSessionVersion: sessionColumns.Contains("version"));
+            HasProviderId: modelColumns.Contains("provider_id"));
     }
 
     private static HashSet<string> ReadTableColumns(SqliteConnection connection, string table)
