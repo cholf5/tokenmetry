@@ -19,7 +19,7 @@ public class PricingEngineTests
                  {
                      Sonnet46, "claude-sonnet-4-5", "claude-sonnet-5", Opus48, "claude-opus-4-5",
                      "claude-haiku-4-5", "claude-opus-5", "claude-fable-5",
-                     "gpt-5", "gpt-5-mini", "gpt-5-nano", "codex",
+                     "gpt-5", "gpt-5-mini", "gpt-5-nano", "codex", "gpt-5.6-terra",
                  })
         {
             BuiltinPricingSnapshot.TryMatch(model, out _, out _).Should()
@@ -112,6 +112,22 @@ public class PricingEngineTests
         engine.PriceTokens("gpt-4.1-nano", Tokens(1_000_000, 1_000_000)).CostUsd.Should().Be(0.1m + 0.4m);
         engine.PriceTokens("o3-mini", Tokens(1_000_000, 1_000_000)).CostUsd.Should().Be(1.1m + 4.4m);
         engine.PriceTokens("o4-mini", Tokens(1_000_000, 1_000_000)).CostUsd.Should().Be(1.1m + 4.4m);
+    }
+
+    [Fact]
+    public void Snapshot_PricesGpt56TerraAtOwnRateNotSolFamily()
+    {
+        // Q-001 真实数据对账发现的回归：快照缺 gpt-5.6-terra 条目时被 "gpt-5.6"（sol，2× 价）吞掉，
+        // 与 ccusage（LiteLLM 表 terra = $2/$12/$0.2）对账差 +96%。
+        // 价格取自 models.dev（openai/gpt-5.6-terra，2026-10-11 实测：2 / 12 / 0.2 / 2.5）。
+        var engine = new PricingEngine();
+
+        var terra = engine.PriceTokens("gpt-5.6-terra", Tokens(1_000_000, 1_000_000, cacheRead: 1_000_000));
+        terra.CostUsd.Should().Be(2m + 12m + 0.2m);
+        terra.MatchedKey.Should().Contain("gpt-5.6-terra");
+
+        // sol 家族兜底对其他 gpt-5.6* 变体仍生效。
+        engine.PriceTokens("gpt-5.6-codex", Tokens(1_000_000, 0)).CostUsd.Should().Be(4m);
     }
 
     [Fact]
