@@ -174,6 +174,106 @@ public class ZCodeSqliteAdapterTests : IDisposable
         result.Diagnostics.Status.Should().Be(JsonlScanStatus.NoData);
     }
 
+    /// <summary>
+    /// 负值 / 不可读 token 列按蓝本 read_token_column 钳 0 保留行（独立审查 P1 修复：
+    /// 蓝本对 token 列 i64→max(0)、f64 兜底、其余 0，无"整行跳过"路径）。
+    /// </summary>
+    [Fact]
+    public async Task Clamps_negative_or_unreadable_token_columns_instead_of_dropping_rows()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(home, legacy: false);
+        // 负值 input → 钳 0；output=5 保留行。
+        InsertRaw(db, "INSERT INTO model_usage (id, session_id, started_at, model_id, status, input_tokens, output_tokens) VALUES ('usage-neg', 's1', 1786909042666, 'm', 'completed', -50, 5);");
+        // input 为不可解析文本 → 0；output 保留行。
+        InsertRaw(db, "INSERT INTO model_usage (id, session_id, started_at, model_id, status, input_tokens, output_tokens) VALUES ('usage-text', 's1', 1786909042667, 'm', 'completed', 'abc', 6);");
+
+        var result = await CreateAdapter(home).ScanAsync();
+
+        result.Records.Should().HaveCount(2);
+        result.Records.Single(record => record.MessageId == "usage-neg").InputTokens.Should().Be(0);
+        result.Records.Single(record => record.MessageId == "usage-neg").OutputTokens.Should().Be(5);
+        result.Records.Single(record => record.MessageId == "usage-text").InputTokens.Should().Be(0);
+        result.Records.Single(record => record.MessageId == "usage-text").OutputTokens.Should().Be(6);
+        result.Diagnostics.InvalidRecords.Should().Be(0);
+        result.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+    }
+
+    /// <summary>时间列 f64 兜底（蓝本 read_timestamp_ms：i64 → 有限 f64 四舍五入 → 失败跳行）。</summary>
+    [Fact]
+    public async Task Falls_back_to_double_for_timestamp_column()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(home, legacy: false);
+        InsertRaw(db, "INSERT INTO model_usage (id, session_id, started_at, model_id, status, input_tokens, output_tokens) VALUES ('usage-f64', 's1', '1.786909042666e12', 'm', 'completed', 10, 1);");
+
+        var result = await CreateAdapter(home).ScanAsync();
+
+        result.Records.Should().ContainSingle();
+        result.Records[0].Timestamp.Should().Be(new DateTimeOffset(2026, 8, 16, 19, 37, 22, 666, TimeSpan.Zero));
+    }
+
+    /// <summary>身份列 NULL 静默跳过（蓝本 read::<String>.ok()? 语义），不计 InvalidRecords。</summary>
+    [Fact]
+    public async Task Null_identity_rows_are_skipped_silently()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(home, legacy: false);
+        InsertRaw(db, "INSERT INTO model_usage (id, session_id, started_at, model_id, status, input_tokens, output_tokens) VALUES (NULL, 's1', 1786909042666, 'm', 'completed', 10, 1);");
+        InsertRow(db, new ZCodeRow(
+            "usage-ok", "s1", 1_786_909_042_667, "m", "p", "completed", 10, 1, 0, 0, 11, "/w"));
+
+        var result = await CreateAdapter(home).ScanAsync();
+
+        result.Records.Should().ContainSingle();
+        result.Records[0].MessageId.Should().Be("usage-ok");
+        result.Diagnostics.InvalidRecords.Should().Be(0);
+        result.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+    }
+
+    /// <summary>
+    /// 去重发生在映射成功之后（独立审查 P2 修复）：库 A 的同 id 无效行不占用去重名额，
+    /// 库 B 的有效行保留（蓝本先 row_to_entry 再按 id 去重）。
+    /// </summary>
+    [Fact]
+    public async Task Dedup_happens_after_mapping_so_valid_row_survives_invalid_first_occurrence()
+    {
+        var homeA = CreateTempHome();
+        var homeB = CreateTempHome();
+        InsertRow(CreateDatabase(homeA, legacy: false), new ZCodeRow(
+            "usage-x", "s-a", 1_786_909_042_666, "m", "p", "completed", 0, 0, 0, 0, 0, "/a"));
+        InsertRow(CreateDatabase(homeB, legacy: false), new ZCodeRow(
+            "usage-x", "s-b", 1_786_909_042_666, "m", "p", "completed", 20, 2, 0, 0, 22, "/b"));
+
+        var adapter = new ZCodeSqliteAdapter(configuredHome: $"{homeA},{homeB}");
+
+        var result = await adapter.ScanAsync();
+
+        result.Records.Should().ContainSingle();
+        result.Records[0].SessionId.Should().Be("s-b");
+        result.Diagnostics.InvalidRecords.Should().Be(1);
+        result.Diagnostics.DuplicateRecords.Should().Be(0);
+    }
+
+    /// <summary>started_at 超出 DateTimeOffset 可表示范围按行级无效处理，不击穿扫描（独立审查 P2 修复）。</summary>
+    [Fact]
+    public async Task Rejects_started_at_beyond_datetimeoffset_range()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(home, legacy: false);
+        InsertRow(db, new ZCodeRow(
+            "usage-far-future", "s1", 253_402_300_800_000, "m", "p", "completed", 10, 1, 0, 0, 11, "/w"));
+        InsertRow(db, new ZCodeRow(
+            "usage-ok", "s1", 1_786_909_042_666, "m", "p", "completed", 10, 1, 0, 0, 11, "/w"));
+
+        var result = await CreateAdapter(home).ScanAsync();
+
+        result.Records.Should().ContainSingle();
+        result.Records[0].MessageId.Should().Be("usage-ok");
+        result.Diagnostics.InvalidRecords.Should().Be(1);
+        result.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial);
+    }
+
     /// <summary>legacy schema（无可选列）：常量占位查询 + computed_total 回退 input+output。</summary>
     [Fact]
     public async Task Reads_legacy_schema_without_optional_columns()
@@ -407,6 +507,16 @@ public class ZCodeSqliteAdapterTests : IDisposable
     }
 
     private ZCodeSqliteAdapter CreateAdapter(string home) => new(configuredHome: home);
+
+    /// <summary>绕过参数化 helper 的原始 SQL 插入（用于负值 / 文本进整数列 / NULL 身份等对抗性 fixture）。</summary>
+    private static void InsertRaw(string db, string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={db}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
 
     /// <summary>fixture 行参数（与生产 schema 列对应；legacy 库忽略可选列值）。</summary>
     private sealed record ZCodeRow(

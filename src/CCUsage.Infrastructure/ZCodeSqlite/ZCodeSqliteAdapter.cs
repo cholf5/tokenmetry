@@ -12,13 +12,21 @@ namespace CCUsage.Infrastructure.ZCodeSqlite;
 /// 与 JSONL 适配器不同，账本是随使用持续变化的单一库文件，mtime 增量不适用，每次全量重读
 /// （completed 行为万级，全读代价可忽略；库内 id 主键 + 去重保证重复扫描不产生重复记录）。
 /// 只读模式打开且不改 journal mode，兼容 ZCode 运行中的 WAL。
+/// 读取层的类型容错与蓝本 read_token_column / read_timestamp_ms 一致：token 列 i64 钳 0 →
+/// f64 兜底（有限正数四舍五入）→ 其余按 0，行永保留；身份列读取失败才整行静默跳过；
+/// provider / directory 列类型异常按"缺失"处理保留行。去重只对映射成功的记录生效
+/// （与蓝本"仅对成功条目按 message id 去重"一致）。
 /// 诊断字段沿用 <see cref="JsonlScanDiagnostics"/> 的最近口径：FilesDiscovered = 发现的库数、
-/// FilesRead = 成功打开且 schema 支持并完成查询的库数、InvalidRecords = 身份/时间/负值/全零被
-/// 拒绝的行数、DuplicateRecords = 按 id 折叠的跨库重复行；行级 malformed 概念不存在（Malformed/LinesSkipped 恒 0）。
+/// FilesRead = 成功打开且 schema 支持并完成查询的库数、InvalidRecords = 语义校验拒绝的行数
+/// （身份无效 / 时间无效 / 全零，经 <see cref="ZCodeRecordMapper.Map"/>）、DuplicateRecords =
+/// 按 id 折叠的重复记录；行级 malformed 概念不存在（Malformed/LinesSkipped 恒 0）。
 /// 实例无扫描状态（每次全量），线程安全；仍以单例接入 App DI 与既有接线保持一致。
 /// </summary>
 public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
 {
+    /// <summary>严格小于 2^63 的 double 才可安全 cast 到 long（2^63 本身可被 double 精确表示，cast 回绕）。</summary>
+    private const double MaxRepresentableDoubleForLong = 9223372036854775808.0;
+
     private readonly string? _configuredHome;
     private readonly ZCodeLogLocator _locator;
 
@@ -44,16 +52,18 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
             var rows = ReadDatabase(database, diagnostics, ref problems, ct);
             foreach (var row in rows)
             {
-                if (!seenIds.Add(row.Id))
-                {
-                    diagnostics.DuplicateRecords++;
-                    continue;
-                }
-
                 var record = ZCodeRecordMapper.Map(row);
                 if (record is null)
                 {
                     diagnostics.InvalidRecords++;
+                    continue;
+                }
+
+                // 去重发生在映射成功之后（蓝本先 row_to_entry 再按 id 去重）：
+                // 同 id 的无效首现行不占用去重名额，另一库的有效行得以保留。
+                if (!seenIds.Add(record.MessageId))
+                {
+                    diagnostics.DuplicateRecords++;
                     continue;
                 }
 
@@ -81,7 +91,8 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
 
     /// <summary>
     /// 打开单个库并读出 completed 行。打开失败 / schema 不支持 / 查询中断都记为问题
-    /// （状态降级 Partial）并返回已读到的行，与蓝本"读失败即断、保留已读条目"的语义一致。
+    /// （状态降级 Partial）并返回已读到的行，与蓝本"读失败即断、保留已读条目"的语义一致；
+    /// 行级读取失败（身份列 NULL / 类型异常）按蓝本静默跳过该行、继续读取。
     /// </summary>
     private List<ZCodeUsageRow> ReadDatabase(
         string databasePath,
@@ -106,15 +117,9 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
             while (reader.Read())
             {
                 ct.ThrowIfCancellationRequested();
-                // 行级读取失败（NULL 身份 / token 列类型异常）：与蓝本 read_usage_row 失败跳过该行、
-                // 继续读取一致；查询级错误（ExecuteReader / Read 抛出）才中断本库。
                 if (ReadRow(reader) is { } row)
                 {
                     rows.Add(row);
-                }
-                else
-                {
-                    diagnostics.InvalidRecords++;
                 }
             }
 
@@ -138,6 +143,7 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         connection.Open();
         return connection;
     }
+
     /// <summary>
     /// 查询语句与蓝本 loader.rs 完全同构：completed 过滤 + LEFT JOIN session 取项目目录，
     /// 可选列按 schema 拼接（缺失列以常量占位，保持列位固定）。
@@ -158,25 +164,21 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
     }
 
     /// <summary>
-    /// 行读取；列序与 <see cref="BuildQuery"/> 固定对应。token 列出现 NULL / 负值 / 非整数
-    /// 时返回 null（调用方记问题并停止本库），文本列 NULL 一律按可空处理。
+    /// 行读取；列序与 <see cref="BuildQuery"/> 固定对应。身份列（id / session_id / model_id）
+    /// 为 NULL 或类型异常时返回 null（静默跳过，蓝本 read::&lt;String&gt;.ok()? 语义）；
+    /// token / 时间列按蓝本容错转换永不失败；文本元数据列（provider / directory）类型异常按缺失处理。
     /// </summary>
     private static ZCodeUsageRow? ReadRow(SqliteDataReader reader)
     {
-        var id = reader.IsDBNull(0) ? null : reader.GetString(0);
-        var sessionId = reader.IsDBNull(1) ? null : reader.GetString(1);
-        var modelId = reader.IsDBNull(3) ? null : reader.GetString(3);
+        var id = TryReadText(reader, 0);
+        var sessionId = TryReadText(reader, 1);
+        var modelId = TryReadText(reader, 3);
         if (id is null || sessionId is null || modelId is null)
         {
             return null;
         }
 
-        if (!TryReadNonNegativeInt64(reader, 2, out var startedAt)
-            || !TryReadNonNegativeInt64(reader, 4, out var inputTokens)
-            || !TryReadNonNegativeInt64(reader, 5, out var outputTokens)
-            || !TryReadNonNegativeInt64(reader, 6, out var cacheCreation)
-            || !TryReadNonNegativeInt64(reader, 7, out var cacheRead)
-            || !TryReadNonNegativeInt64(reader, 8, out var computedTotal))
+        if (!TryReadTimestampMs(reader, 2, out var startedAt))
         {
             return null;
         }
@@ -186,31 +188,114 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
             SessionId: sessionId,
             StartedAt: startedAt,
             ModelId: modelId,
-            ProviderId: reader.IsDBNull(9) ? null : reader.GetString(9),
-            InputTokens: inputTokens,
-            OutputTokens: outputTokens,
-            CacheCreationInputTokens: cacheCreation,
-            CacheReadInputTokens: cacheRead,
-            ComputedTotalTokens: computedTotal,
-            Directory: reader.IsDBNull(10) ? null : reader.GetString(10));
+            ProviderId: TryReadOptionalText(reader, 9),
+            InputTokens: ReadTokenColumn(reader, 4),
+            OutputTokens: ReadTokenColumn(reader, 5),
+            CacheCreationInputTokens: ReadTokenColumn(reader, 6),
+            CacheReadInputTokens: ReadTokenColumn(reader, 7),
+            ComputedTotalTokens: ReadTokenColumn(reader, 8),
+            Directory: TryReadOptionalText(reader, 10));
     }
 
-    private static bool TryReadNonNegativeInt64(SqliteDataReader reader, int ordinal, out long value)
+    /// <summary>身份列：NULL 或类型异常视为整行跳过。</summary>
+    private static string? TryReadText(SqliteDataReader reader, int ordinal)
     {
-        value = 0;
         if (reader.IsDBNull(ordinal))
         {
-            return false;
+            return null;
         }
 
         try
         {
-            value = reader.GetInt64(ordinal);
-            return value >= 0;
+            return reader.GetString(ordinal);
         }
         catch (Exception exception) when (exception is FormatException or InvalidCastException)
         {
-            return false;
+            return null;
         }
+    }
+
+    /// <summary>元数据列：NULL 或类型异常按"缺失"处理，行保留（蓝本 read::&lt;Option&lt;String&gt;&gt;.ok().flatten()）。</summary>
+    private static string? TryReadOptionalText(SqliteDataReader reader, int ordinal)
+    {
+        return reader.IsDBNull(ordinal) ? null : TryReadText(reader, ordinal);
+    }
+
+    /// <summary>
+    /// token 列（蓝本 read_token_column）：i64 负值钳 0 → f64 有限正数四舍五入（钳 long 上限）→
+    /// 其余（NULL / 非数值文本）按 0，永不抛出、行保留。
+    /// </summary>
+    private static long ReadTokenColumn(SqliteDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return 0;
+        }
+
+        try
+        {
+            return Math.Max(0, reader.GetInt64(ordinal));
+        }
+        catch (Exception exception) when (exception is FormatException or InvalidCastException)
+        {
+            try
+            {
+                var value = reader.GetDouble(ordinal);
+                if (!double.IsFinite(value) || value <= 0)
+                {
+                    return 0;
+                }
+
+                // double 域钳到 long 可表示范围（2^63 恰为 double 可精确表示值，直接 cast 会溢出回绕）。
+                if (value >= MaxRepresentableDoubleForLong)
+                {
+                    return long.MaxValue;
+                }
+
+                var rounded = (long)Math.Round(value);
+                return rounded < 0 ? 0 : rounded;
+            }
+            catch (Exception fallbackException) when (fallbackException is FormatException or InvalidCastException)
+            {
+                return 0;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 时间列（蓝本 read_timestamp_ms）：i64 直读 → f64 有限且在 i64 域内四舍五入 → 其余失败
+    /// （返回 false，整行跳过）。
+    /// </summary>
+    private static bool TryReadTimestampMs(SqliteDataReader reader, int ordinal, out long value)
+    {
+        value = 0;
+        if (!reader.IsDBNull(ordinal))
+        {
+            try
+            {
+                value = reader.GetInt64(ordinal);
+                return true;
+            }
+            catch (Exception exception) when (exception is FormatException or InvalidCastException)
+            {
+                try
+                {
+                    var doubleValue = reader.GetDouble(ordinal);
+                    if (double.IsFinite(doubleValue)
+                        && doubleValue >= long.MinValue
+                        && doubleValue < MaxRepresentableDoubleForLong)
+                    {
+                        value = (long)Math.Round(doubleValue);
+                        return true;
+                    }
+                }
+                catch (Exception fallbackException) when (fallbackException is FormatException or InvalidCastException)
+                {
+                    // 落入最外层 return false：类型完全不可读，整行跳过。
+                }
+            }
+        }
+
+        return false;
     }
 }
