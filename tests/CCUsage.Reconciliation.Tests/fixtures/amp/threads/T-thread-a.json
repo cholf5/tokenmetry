@@ -1,0 +1,19 @@
+{
+  "id": "T-thread-a",
+  "usageLedger": {
+    "events": [
+      {"id": "event-a", "timestamp": "2026-01-19T10:00:00.000Z", "model": "gpt-5",
+       "tokens": {"input": 1000, "output": 200, "total": 1200}},
+      {"id": "event-b", "timestamp": "2026-01-19T10:05:00.000Z", "model": "gpt-5",
+       "tokens": {"input": 800, "output": 100, "total": 900}, "toMessageId": 11},
+      {"id": "event-c", "timestamp": "2026-01-20T09:00:00.000Z", "model": "gpt-5",
+       "tokens": {"total": 345}},
+      {"id": "event-d", "timestamp": "2026-01-20T09:30:00.000Z", "tokens": {"input": 50, "output": 50}}
+    ]
+  },
+  "messages": [
+    {"role": "user", "content": "hi"},
+    {"role": "assistant", "messageId": 11,
+     "usage": {"cacheCreationInputTokens": 986, "cacheReadInputTokens": 11372}}
+  ]
+}

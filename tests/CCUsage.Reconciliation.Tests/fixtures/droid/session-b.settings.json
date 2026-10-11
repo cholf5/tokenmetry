@@ -1,0 +1,5 @@
+{
+  "providerLock": "anthropic",
+  "providerLockTimestamp": "2026-05-02T01:02:03.000Z",
+  "tokenUsage": {"inputTokens": 10, "outputTokens": 20}
+}

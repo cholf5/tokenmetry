@@ -3,10 +3,13 @@ namespace CCUsage.Infrastructure.Tests.LocalIngestion;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
+using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
+using CCUsage.Infrastructure.Droid;
+using CCUsage.Infrastructure.GeminiCli;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
@@ -236,6 +239,9 @@ public class LocalIngestionDataSourceTests : IDisposable
             new GooseSqliteAdapter(configuredRoot: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "goose-missing")),
             new HermesSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "hermes-missing")),
             new KiloSqliteAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "kilo-missing")),
+            new GeminiCliAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "gemini-missing")),
+            new AmpAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "amp-missing")),
+            new DroidAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "droid-missing")),
             pricingEngine,
             store,
             pricingClient: null,

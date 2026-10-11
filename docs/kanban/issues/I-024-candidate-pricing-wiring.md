@@ -27,6 +27,13 @@ blocked: none
 
 真实影响示例：本机 OpenCode k2p6 行——record.Model="k2p6"，快照键是 moonshot/kimi-k2.6，按裸名不命中 → CostUsd 记 0（聚合侧）+ UnpricedModels 列出（fail-loud，非静默漂移）。
 
+**观察项（I-010 审查登记，非阻塞）**：内置定价快照格式无 **tiers 分档**支持——models.dev 部分模型带
+context 分档（例：google/gemini-2.5-pro 在 models-dev 带 &gt;200k context 档 input 2.5 / output 15 /
+cache_read 0.25，基础档 1.25/10/0.125；anthropic/claude-sonnet-4 同样有 200k+ 档），自研快照解析与
+`PricingModelMatcher` 按基础档计价。超阈值（如 &gt;200k context）的真实数据自研侧按基础档、CLI 按
+分档计价，成本 fail-loud。本卡接线时一并考虑（或注明需独立扩展：快照条目增加 tiers 段 + 匹配器按
+用量选档）；fixture 对账不受影响（用量远低于阈值）。
+
 ## Acceptance Criteria
 
 - [ ] 方案选型（开工时定，两案对比后择一，记录选型理由）：

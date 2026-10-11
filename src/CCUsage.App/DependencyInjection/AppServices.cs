@@ -4,12 +4,15 @@ using Microsoft.Extensions.DependencyInjection;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
+using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.CCUsageCli;
 using CCUsage.Infrastructure.Cache;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
+using CCUsage.Infrastructure.Droid;
+using CCUsage.Infrastructure.GeminiCli;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
@@ -73,6 +76,12 @@ public static class AppServices
         services.AddSingleton<IHermesSqliteAdapter>(sp => sp.GetRequiredService<HermesSqliteAdapter>());
         services.AddSingleton<KiloSqliteAdapter>();
         services.AddSingleton<IKiloSqliteAdapter>(sp => sp.GetRequiredService<KiloSqliteAdapter>());
+        services.AddSingleton<GeminiCliAdapter>();
+        services.AddSingleton<IGeminiCliAdapter>(sp => sp.GetRequiredService<GeminiCliAdapter>());
+        services.AddSingleton<AmpAdapter>();
+        services.AddSingleton<IAmpAdapter>(sp => sp.GetRequiredService<AmpAdapter>());
+        services.AddSingleton<DroidAdapter>();
+        services.AddSingleton<IDroidAdapter>(sp => sp.GetRequiredService<DroidAdapter>());
 
         // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）；
         // CLI 数据源保留注册用于对账与手动导入（Reconciliation 测试套件 / 后续接线），不再是默认。

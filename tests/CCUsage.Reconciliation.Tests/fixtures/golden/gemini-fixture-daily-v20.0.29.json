@@ -1,0 +1,87 @@
+{
+  "daily": [
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 800,
+      "date": "2026-05-17",
+      "inputTokens": 1557,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 800,
+          "cost": 0.00265875,
+          "inputTokens": 1407,
+          "modelName": "gemini-2.5-pro",
+          "outputTokens": 80
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.00007,
+          "inputTokens": 150,
+          "modelName": "gemini-2.5-flash",
+          "outputTokens": 10
+        }
+      ],
+      "modelsUsed": [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash"
+      ],
+      "outputTokens": 90,
+      "totalCost": 0.0027287500000000003,
+      "totalTokens": 2447
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 600,
+      "date": "2026-05-18",
+      "inputTokens": 2600,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 400,
+          "cost": 0.00305,
+          "inputTokens": 1600,
+          "modelName": "gemini-2.5-pro",
+          "outputTokens": 100
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 100,
+          "cost": 0.0003805,
+          "inputTokens": 800,
+          "modelName": "gemini-2.5-flash",
+          "outputTokens": 55
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 100,
+          "cost": 0.0,
+          "inputTokens": 200,
+          "missingPricing": true,
+          "modelName": "unknown",
+          "outputTokens": 40
+        }
+      ],
+      "modelsUsed": [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "unknown"
+      ],
+      "outputTokens": 195,
+      "totalCost": 0.0034305,
+      "totalTokens": 3395
+    }
+  ],
+  "totals": {
+    "cacheCreationTokens": 0,
+    "cacheReadTokens": 1400,
+    "inputTokens": 4157,
+    "outputTokens": 285,
+    "totalCost": 0.00615925,
+    "totalTokens": 5842,
+    "unpricedModels": [
+      "unknown"
+    ]
+  }
+}

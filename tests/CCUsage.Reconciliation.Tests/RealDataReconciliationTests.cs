@@ -191,6 +191,79 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// I-010：本机 Gemini CLI chats 数据对账。CLI 口径 vs 自研聚合（AggregateGeminiAsync），
+    /// tokens 精确一致。按数据存在性门控（GEMINI_DATA_DIR / ~/.gemini/tmp 下有 .json/.jsonl 日志），
+    /// 本机无数据 Skip；有数据的机器上全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-010 卡 Dev Log）：CLI 的 outputTokens 不含 thoughts/extra（单列），自研把 extra
+    /// 并入 output——含 thoughts 或 stats total 双计 cached 的真实数据在 output 分量上会以差异形式
+    /// 响亮失败（fail-loud）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_gemini_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasGeminiData(),
+            "本机没有 Gemini CLI 数据（GEMINI_DATA_DIR 或 ~/.gemini/tmp 下无 .json/.jsonl）");
+
+        var goldenJson = RunCli("gemini");
+        var golden = CcusageGoldenFiles.LoadGeminiText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 GEMINI_DATA_DIR / ~/.gemini/tmp 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateGeminiAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Gemini CLI");
+    }
+
+    /// <summary>
+    /// I-014：本机 Amp threads 数据对账。CLI 口径 vs 自研聚合（AggregateAmpAsync），tokens 精确一致。
+    /// 按数据存在性门控（AMP_DATA_DIR / ~/.local/share/amp 下有 threads/*.json），本机无数据 Skip；
+    /// 有数据的机器上全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-014 卡 Dev Log）：CLI 的 outputTokens 不含 extra（单列），自研把 extra 并入
+    /// output——含 total 缺口（output 已知时）的真实数据在 output 分量上会以差异形式响亮失败（fail-loud）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_amp_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasAmpData(),
+            "本机没有 Amp 数据（AMP_DATA_DIR 或 ~/.local/share/amp/threads 下无 .json）");
+
+        var goldenJson = RunCli("amp");
+        var golden = CcusageGoldenFiles.LoadAmpText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 AMP_DATA_DIR / ~/.local/share/amp 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateAmpAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Amp");
+    }
+
+    /// <summary>
+    /// I-015：本机 Droid (Factory) 会话快照对账。CLI 口径 vs 自研聚合（AggregateDroidAsync），
+    /// tokens 精确一致。按数据存在性门控（DROID_SESSIONS_DIR / ~/.factory/sessions 下有
+    /// *.settings.json），本机无数据 Skip；有数据的机器上全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-015 卡 Dev Log）：CLI 的 outputTokens 不含 thinkingTokens（extra 单列），自研把
+    /// extra 并入 output——含 thinkingTokens 的真实数据在 output 分量上会以差异形式响亮失败（fail-loud）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_droid_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasDroidData(),
+            "本机没有 Droid 数据（DROID_SESSIONS_DIR 或 ~/.factory/sessions 下无 *.settings.json）");
+
+        var goldenJson = RunCli("droid");
+        var golden = CcusageGoldenFiles.LoadDroidText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 DROID_SESSIONS_DIR / ~/.factory/sessions 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateDroidAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Droid");
+    }
+
+    /// <summary>
     /// I-007：本机 DSH 会话日志对账。golden 由 dsh-usage-stats 蓝本库直读原始 zstd 字节计算
     /// （Support/DshBlueprintGolden.mjs，foldUsage / estimateTokenCost 均为蓝本库代码），
     /// 自研侧走 DshSessionAdapter 全链路。两侧按 本地日历日（蓝本 dayKey 口径）分桶：

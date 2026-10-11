@@ -75,6 +75,30 @@ public static class CcusageGoldenFiles
 
     public static GoldenReport LoadKiloText(string json) => LoadClaudeText(json);
 
+    /// <summary>
+    /// gemini daily JSON（I-010）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 另有 modelsUsed 信息字段，DTO 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadGemini(string path) => LoadGeminiText(File.ReadAllText(path));
+
+    public static GoldenReport LoadGeminiText(string json) => LoadClaudeText(json);
+
+    /// <summary>
+    /// amp daily JSON（I-014）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 另有 modelsUsed 信息字段，DTO 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadAmp(string path) => LoadAmpText(File.ReadAllText(path));
+
+    public static GoldenReport LoadAmpText(string json) => LoadClaudeText(json);
+
+    /// <summary>
+    /// droid daily JSON（I-015）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 另有 modelsUsed 信息字段，DTO 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadDroid(string path) => LoadDroidText(File.ReadAllText(path));
+
+    public static GoldenReport LoadDroidText(string json) => LoadClaudeText(json);
+
     public static GoldenReport LoadClaudeText(string json)
     {
         var response = JsonSerializer.Deserialize<GoldenClaudeResponse>(

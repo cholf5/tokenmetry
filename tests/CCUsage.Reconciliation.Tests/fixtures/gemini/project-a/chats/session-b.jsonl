@@ -1,0 +1,4 @@
+{"sessionId":"session-b","projectHash":"project-b","startTime":"2026-05-17T15:00:00.000Z"}
+{"id":"msg-b1","timestamp":"2026-05-17T15:00:30.000Z","type":"gemini","model":"gemini-2.5-pro","tokens":{"input":800,"output":40,"cached":300,"thoughts":0,"tool":2,"total":1142}}
+{"id":"msg-b1","timestamp":"2026-05-17T15:01:00.000Z","type":"gemini","model":"gemini-2.5-pro","tokens":{"input":900,"output":60,"cached":300,"thoughts":0,"tool":2,"total":1262}}
+{"type":"response","timestamp":"2026-05-18T10:00:00.000Z","stats":{"models":{"gemini-2.5-flash":{"tokens":{"input":400,"output":25,"cached":100,"thoughts":0,"tool":0}}}}}
