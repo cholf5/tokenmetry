@@ -1,0 +1,6 @@
+{"type":"assistant","model":"qwen3-coder-plus","timestamp":"2026-02-23T15:24:56.857Z","sessionId":"session-json","usageMetadata":{"promptTokenCount":200,"candidatesTokenCount":100,"cachedContentTokenCount":20,"totalTokenCount":280}}
+{"usageMetadata": broken
+{"type":"assistant","usageMetadata":{"promptTokenCount":0,"candidatesTokenCount":0,"thoughtsTokenCount":0,"cachedContentTokenCount":0,"totalTokenCount":0}}
+{"type":"assistant","usageMetadata":null}
+{"type":"user","usageMetadata":{"promptTokenCount":1}}
+{"type":"assistant","usageMetadata":"oops"}

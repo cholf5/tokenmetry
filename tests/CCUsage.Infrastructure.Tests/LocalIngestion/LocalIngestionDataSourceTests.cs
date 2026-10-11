@@ -13,8 +13,10 @@ using CCUsage.Infrastructure.GeminiCli;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
+using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.LocalIngestion;
 using CCUsage.Infrastructure.OpenCodeSqlite;
+using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
 /// <summary>
@@ -242,6 +244,8 @@ public class LocalIngestionDataSourceTests : IDisposable
             new GeminiCliAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "gemini-missing")),
             new AmpAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "amp-missing")),
             new DroidAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "droid-missing")),
+            new QwenCodeAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "qwen-missing")),
+            new KimiCodeAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "kimi-missing")),
             pricingEngine,
             store,
             pricingClient: null,

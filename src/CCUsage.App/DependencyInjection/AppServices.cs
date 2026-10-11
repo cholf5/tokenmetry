@@ -16,8 +16,10 @@ using CCUsage.Infrastructure.GeminiCli;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
+using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.LocalIngestion;
 using CCUsage.Infrastructure.OpenCodeSqlite;
+using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Infrastructure.ModelsDev;
 using CCUsage.Infrastructure.Notifications;
@@ -82,6 +84,10 @@ public static class AppServices
         services.AddSingleton<IAmpAdapter>(sp => sp.GetRequiredService<AmpAdapter>());
         services.AddSingleton<DroidAdapter>();
         services.AddSingleton<IDroidAdapter>(sp => sp.GetRequiredService<DroidAdapter>());
+        services.AddSingleton<QwenCodeAdapter>();
+        services.AddSingleton<IQwenCodeAdapter>(sp => sp.GetRequiredService<QwenCodeAdapter>());
+        services.AddSingleton<KimiCodeAdapter>();
+        services.AddSingleton<IKimiCodeAdapter>(sp => sp.GetRequiredService<KimiCodeAdapter>());
 
         // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）；
         // CLI 数据源保留注册用于对账与手动导入（Reconciliation 测试套件 / 后续接线），不再是默认。

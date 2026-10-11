@@ -34,6 +34,13 @@ cache_read 0.25，基础档 1.25/10/0.125；anthropic/claude-sonnet-4 同样有 
 分档计价，成本 fail-loud。本卡接线时一并考虑（或注明需独立扩展：快照条目增加 tiers 段 + 匹配器按
 用量选档）；fixture 对账不受影响（用量远低于阈值）。
 
+**观察项（I-013 审查登记，非阻塞）：快照数据版本刷新**——快照部分条目为旧版 models.dev 数据，与
+ccusage 20.0.29 CLI 内嵌快照不同价。已实证一例：moonshot/kimi-k2.6 快照为 0.95/4/0.16（无
+cache_write），CLI 20.0.29 内嵌为 input 1 / output 4.16 / cache_read 0.18 + cache_write 1（来源
+../ccusage/rust/crates/ccusage-core/src/models-dev-pricing.json）。真实 kimi-k2.6 数据当前自研 cost
+分量 fail-loud（token 不受影响；I-013 fixture 已规避该模型）。随本卡候选计价接线一并做快照全量刷新
+（以录制日 CLI 内嵌 models-dev-pricing.json 为源），或拆独立小卡。
+
 ## Acceptance Criteria
 
 - [ ] 方案选型（开工时定，两案对比后择一，记录选型理由）：

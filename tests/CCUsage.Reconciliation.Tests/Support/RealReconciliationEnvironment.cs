@@ -9,6 +9,8 @@ using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.OpenCodeSqlite;
+using CCUsage.Infrastructure.KimiCode;
+using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
 namespace CCUsage.Reconciliation.Tests.Support;
@@ -103,6 +105,20 @@ public static class RealReconciliationEnvironment
     /// </summary>
     public static bool HasDroidData()
         => new DroidLogLocator().CollectSettingsFiles(configuredDataDir: null).Count > 0;
+
+    /// <summary>
+    /// Qwen Code 数据存在性（I-011）：QWEN_DATA_DIR / ~/.qwen 的 projects/ 下发现聊天 .jsonl
+    /// （与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasQwenData()
+        => new QwenLogLocator().CollectChatFiles(new QwenLogLocator().ResolveDataDirectories(configuredDataDir: null)).Count > 0;
+
+    /// <summary>
+    /// Kimi Code 数据存在性（I-013）：KIMI_DATA_DIR / ~/.kimi 与 ~/.kimi-code 的 sessions/ 下发现
+    /// wire.jsonl（与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasKimiData()
+        => new KimiLogLocator().CollectWireFiles(new KimiLogLocator().ResolveDataDirectories(configuredDataDir: null)).Count > 0;
 
     /// <summary>
     /// dsh-usage-stats 蓝本目录（含 lib/usage.js）：CCUSAGE_DSH_BLUEPRINT 优先，

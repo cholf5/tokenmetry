@@ -12,16 +12,26 @@ namespace CCUsage.Infrastructure.Jsonl;
 public sealed class IncrementalJsonlScanner
 {
     private readonly Func<string, TextReader> _readerFactory;
-    private readonly ClaudeUsageRecordDeduper _deduper;
+    private readonly Func<IEnumerable<UsageRecord>, IReadOnlyList<UsageRecord>> _dedupe;
     private readonly Dictionary<string, (DateTime ModifiedUtc, long Length)> _fileStates = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<UsageRecord>> _recordsByFile = new(StringComparer.Ordinal);
     // 按文件记忆"存在解析错误"，状态聚合时纳入未重新解析的历史文件，避免坏文件在第二次扫描后被误报为 Ok。
     private readonly HashSet<string> _filesWithParseErrors = new(StringComparer.Ordinal);
 
-    public IncrementalJsonlScanner(Func<string, TextReader>? readerFactory = null, ClaudeUsageRecordDeduper? deduper = null)
+    /// <summary>
+    /// <paramref name="dedupe"/> 为消息级去重策略（I-011 Qwen / I-013 Kimi 起开放注入：两蓝本无
+    /// message id，去重键为 (session, timestamp, model, token 计数) 的内容键 first-wins，与 Claude 的
+    /// MessageId 去重语义不同）。缺省用 <see cref="ClaudeUsageRecordDeduper"/>。
+    /// 优先级：<paramref name="dedupe"/> 非null 时<b>静默胜出</b>、<paramref name="deduper"/> 被忽略
+    /// （两者互斥使用，不同时传入；不抛异常，保持构造简单）。
+    /// </summary>
+    public IncrementalJsonlScanner(
+        Func<string, TextReader>? readerFactory = null,
+        ClaudeUsageRecordDeduper? deduper = null,
+        Func<IEnumerable<UsageRecord>, IReadOnlyList<UsageRecord>>? dedupe = null)
     {
         _readerFactory = readerFactory ?? (path => new StreamReader(path));
-        _deduper = deduper ?? new ClaudeUsageRecordDeduper();
+        _dedupe = dedupe ?? (records => (deduper ?? new ClaudeUsageRecordDeduper()).Dedupe(records));
     }
 
     /// <summary>
@@ -88,7 +98,7 @@ public sealed class IncrementalJsonlScanner
         }
 
         var accumulated = _recordsByFile.Values.SelectMany(records => records).ToList();
-        var deduped = _deduper.Dedupe(accumulated);
+        var deduped = _dedupe(accumulated).ToList();
         diagnostics.DuplicateRecords = accumulated.Count - deduped.Count;
         diagnostics.MissingCostRecords = deduped.Count(record => record.CostUsd is null);
         diagnostics.UnknownModelRecords = deduped.Count(record => record.Model is null);

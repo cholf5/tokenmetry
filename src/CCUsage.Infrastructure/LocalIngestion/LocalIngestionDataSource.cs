@@ -11,8 +11,10 @@ using CCUsage.Infrastructure.GeminiCli;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
+using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.ModelsDev;
 using CCUsage.Infrastructure.OpenCodeSqlite;
+using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
 namespace CCUsage.Infrastructure.LocalIngestion;
@@ -20,7 +22,7 @@ namespace CCUsage.Infrastructure.LocalIngestion;
 /// <summary>
 /// 本地采集数据源（I-005，I-006 起含 ZCode，I-007 起含 DSH，I-008 起含 Copilot CLI，
 /// I-009 起含 OpenCode，I-012 起含 Goose，I-016 起含 Hermes，I-017 起含 Kilo，I-010 起含 Gemini CLI，
-/// I-014 起含 Amp，I-015 起含 Droid）：
+/// I-014 起含 Amp，I-015 起含 Droid，I-011 起含 Qwen Code，I-013 起含 Kimi）：
 /// 直读适配器扫描 → 定价 → facts 落库 → 从 facts 读回每日汇总。刷新流程：各适配器扫描
 /// （JSONL 增量 / SQLite 账本全量）→
 /// <see cref="PricingEngine"/> 为无 costUSD 的记录补价（补价结果进侧表、不写回记录实例——增量扫描
@@ -46,6 +48,8 @@ public class LocalIngestionDataSource : IUsageDataSource
     private readonly IGeminiCliAdapter _geminiAdapter;
     private readonly IAmpAdapter _ampAdapter;
     private readonly IDroidAdapter _droidAdapter;
+    private readonly IQwenCodeAdapter _qwenAdapter;
+    private readonly IKimiCodeAdapter _kimiAdapter;
     private readonly PricingEngine _pricingEngine;
     private readonly ModelsDevPricingClient? _pricingClient;
     private readonly IUsageStore _store;
@@ -68,6 +72,8 @@ public class LocalIngestionDataSource : IUsageDataSource
         IGeminiCliAdapter geminiAdapter,
         IAmpAdapter ampAdapter,
         IDroidAdapter droidAdapter,
+        IQwenCodeAdapter qwenAdapter,
+        IKimiCodeAdapter kimiAdapter,
         PricingEngine pricingEngine,
         IUsageStore store,
         ModelsDevPricingClient? pricingClient = null,
@@ -85,6 +91,8 @@ public class LocalIngestionDataSource : IUsageDataSource
         _geminiAdapter = geminiAdapter ?? throw new ArgumentNullException(nameof(geminiAdapter));
         _ampAdapter = ampAdapter ?? throw new ArgumentNullException(nameof(ampAdapter));
         _droidAdapter = droidAdapter ?? throw new ArgumentNullException(nameof(droidAdapter));
+        _qwenAdapter = qwenAdapter ?? throw new ArgumentNullException(nameof(qwenAdapter));
+        _kimiAdapter = kimiAdapter ?? throw new ArgumentNullException(nameof(kimiAdapter));
         _pricingEngine = pricingEngine ?? throw new ArgumentNullException(nameof(pricingEngine));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _pricingClient = pricingClient;
@@ -115,10 +123,12 @@ public class LocalIngestionDataSource : IUsageDataSource
             var gemini = await _geminiAdapter.ScanAsync(ct);
             var amp = await _ampAdapter.ScanAsync(ct);
             var droid = await _droidAdapter.ScanAsync(ct);
+            var qwen = await _qwenAdapter.ScanAsync(ct);
+            var kimi = await _kimiAdapter.ScanAsync(ct);
             var records = claude.Records.Concat(codex.Records).Concat(zcode.Records).Concat(dsh.Records)
                 .Concat(copilot.Records).Concat(openCode.Records).Concat(goose.Records)
                 .Concat(hermes.Records).Concat(kilo.Records).Concat(gemini.Records).Concat(amp.Records)
-                .Concat(droid.Records).ToList();
+                .Concat(droid.Records).Concat(qwen.Records).Concat(kimi.Records).ToList();
             if (records.Count == 0)
             {
                 // 无记录（日志目录不存在 / 全空）时不动存储：保留既有数据（含旧 CLI 行），

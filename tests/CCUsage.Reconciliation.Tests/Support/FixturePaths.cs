@@ -23,6 +23,10 @@ public static class FixturePaths
 
     private const string DroidGoldenFileName = "droid-fixture-daily-v20.0.29.json";
 
+    private const string QwenGoldenFileName = "qwen-fixture-daily-v20.0.29.json";
+
+    private const string KimiGoldenFileName = "kimi-fixture-daily-v20.0.29.json";
+
     public static string Root { get; } = Path.Combine(AppContext.BaseDirectory, "fixtures");
 
     /// <summary>Claude fixture 配置目录（内含 projects/），供 CLAUDE_CONFIG_DIR 等价使用。</summary>
@@ -55,6 +59,12 @@ public static class FixturePaths
     /// <summary>Droid fixture 会话目录（内含 *.settings.json），供 DROID_SESSIONS_DIR 等价使用（I-015）。</summary>
     public static string DroidRoot => Path.Combine(Root, "droid");
 
+    /// <summary>Qwen fixture 数据目录（内含 projects/*/chats 日志），供 QWEN_DATA_DIR 等价使用（I-011）。</summary>
+    public static string QwenRoot => Path.Combine(Root, "qwen");
+
+    /// <summary>Kimi fixture 数据目录（内含 sessions/**/wire.jsonl 与 config.json），供 KIMI_DATA_DIR 等价使用（I-013）。</summary>
+    public static string KimiRoot => Path.Combine(Root, "kimi");
+
     public static string GoldenDir => Path.Combine(Root, "golden");
 
     public static string ClaudeGoldenPath => Path.Combine(GoldenDir, ClaudeGoldenFileName);
@@ -76,4 +86,8 @@ public static class FixturePaths
     public static string AmpGoldenPath => Path.Combine(GoldenDir, AmpGoldenFileName);
 
     public static string DroidGoldenPath => Path.Combine(GoldenDir, DroidGoldenFileName);
+
+    public static string QwenGoldenPath => Path.Combine(GoldenDir, QwenGoldenFileName);
+
+    public static string KimiGoldenPath => Path.Combine(GoldenDir, KimiGoldenFileName);
 }

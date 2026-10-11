@@ -1,0 +1,56 @@
+{
+  "daily": [
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 25,
+      "date": "2026-02-23",
+      "inputTokens": 300,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 25,
+          "cost": 0.0010525,
+          "inputTokens": 300,
+          "modelName": "qwen3-coder-plus",
+          "outputTokens": 150
+        }
+      ],
+      "modelsUsed": [
+        "qwen3-coder-plus"
+      ],
+      "outputTokens": 150,
+      "totalCost": 0.0010525,
+      "totalTokens": 475
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 100,
+      "date": "2026-02-24",
+      "inputTokens": 310,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 100,
+          "cost": 0.00122,
+          "inputTokens": 310,
+          "modelName": "qwen3-coder-plus",
+          "outputTokens": 180
+        }
+      ],
+      "modelsUsed": [
+        "qwen3-coder-plus"
+      ],
+      "outputTokens": 180,
+      "totalCost": 0.00122,
+      "totalTokens": 590
+    }
+  ],
+  "totals": {
+    "cacheCreationTokens": 0,
+    "cacheReadTokens": 125,
+    "inputTokens": 610,
+    "outputTokens": 330,
+    "totalCost": 0.0022725,
+    "totalTokens": 1065
+  }
+}
