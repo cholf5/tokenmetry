@@ -1,7 +1,7 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CCUsage.Core.Models;
+using CCUsage.Infrastructure.Jsonl;
 
 namespace CCUsage.Infrastructure.ClaudeCodeJsonl;
 
@@ -200,7 +200,8 @@ public class ClaudeCodeJsonlLineParser
 
         // claude.rs 保留原始 timestamp 字符串；这里统一解析为 DateTimeOffset 供 facts/定价直接消费，
         // 无法解析的时间戳无法参与按日聚合，按无效记录处理（Rust 端下游同样会丢弃这类记录）。
-        if (!TryParseTimestamp(timestampText, out var timestamp))
+        // 解析规则（InvariantCulture、未知时区按 UTC）与 Codex 适配器共用 JsonlTimestamp。
+        if (!JsonlTimestamp.TryParse(timestampText, out var timestamp))
         {
             return null;
         }
@@ -280,15 +281,6 @@ public class ClaudeCodeJsonlLineParser
             // 与 claude.rs 一致：DTO 反序列化失败（缺字段/类型不符/null 不符）按无效记录处理。
             return null;
         }
-    }
-
-    private static bool TryParseTimestamp(string timestamp, out DateTimeOffset value)
-    {
-        return DateTimeOffset.TryParse(
-            timestamp,
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
-            out value);
     }
 
     /// <summary>与 claude.rs looks_like_semver_prefix 一致：major.minor.patch 前缀，patch 首字符须为数字。</summary>

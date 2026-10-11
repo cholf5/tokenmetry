@@ -1,3 +1,5 @@
+using CCUsage.Infrastructure.Jsonl;
+
 namespace CCUsage.Infrastructure.ClaudeCodeJsonl;
 
 /// <summary>
@@ -6,6 +8,8 @@ namespace CCUsage.Infrastructure.ClaudeCodeJsonl;
 /// - 显式配置的根目录优先（须包含 projects 子目录，或本身即 projects 目录）；
 /// - 否则按 CLAUDE_CONFIG_DIR（逗号分隔，支持 ~ 前缀）→ XDG_CONFIG_HOME/claude → ~/.config/claude → ~/.claude 顺序探测；
 /// - 每个根目录下的 projects/ 子树递归收集 .jsonl（projects 下每个子目录是一个项目根）。
+/// 递归收集与 home 路径展开与 Codex 定位器共用（<see cref="JsonlFileCollector"/> / <see cref="JsonlHomePath"/>），
+/// Claude 特有的候选归一化与候选顺序保留在本类。
 /// 环境变量通过可注入的访问器读取，测试不依赖真实用户目录。
 /// </summary>
 public class ClaudeCodeLogLocator
@@ -101,54 +105,11 @@ public class ClaudeCodeLogLocator
         var files = new List<string>();
         foreach (var root in roots)
         {
-            CollectUsageFiles(Path.Combine(root, "projects"), files);
+            JsonlFileCollector.Collect(Path.Combine(root, "projects"), files);
         }
 
         files.Sort(StringComparer.Ordinal);
         return files;
-    }
-
-    private static void CollectUsageFiles(string directory, List<string> files)
-    {
-        var dir = new DirectoryInfo(directory);
-        if (!dir.Exists)
-        {
-            return;
-        }
-
-        CollectUsageFiles(dir, files);
-    }
-
-    private static void CollectUsageFiles(DirectoryInfo directory, List<string> files)
-    {
-        FileSystemInfo[] entries;
-        try
-        {
-            entries = directory.EnumerateFileSystemInfos().ToArray();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // 与 claude.rs 一致：读不了的目录静默跳过。
-            return;
-        }
-
-        foreach (var entry in entries)
-        {
-            if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
-            {
-                // 与 claude.rs 一致：符号链接不跟随。
-                continue;
-            }
-
-            if (entry is DirectoryInfo subdirectory)
-            {
-                CollectUsageFiles(subdirectory, files);
-            }
-            else if (entry is FileInfo file && string.Equals(file.Extension, ".jsonl", StringComparison.Ordinal))
-            {
-                files.Add(file.FullName);
-            }
-        }
     }
 
     private void PushRootCandidate(List<string> paths, HashSet<string> seen, string candidate)
@@ -159,20 +120,7 @@ public class ClaudeCodeLogLocator
         }
     }
 
-    private string ExpandHomePath(string raw)
-    {
-        if (raw == "~" && GetHomeDir() is { } homeOnly)
-        {
-            return homeOnly;
-        }
+    private string ExpandHomePath(string raw) => JsonlHomePath.ExpandHomePath(raw, _getEnvironmentVariable);
 
-        if (raw.StartsWith("~/", StringComparison.Ordinal) && GetHomeDir() is { } home)
-        {
-            return Path.Combine(home, raw[2..]);
-        }
-
-        return raw;
-    }
-
-    private string? GetHomeDir() => _getEnvironmentVariable("USERPROFILE") ?? _getEnvironmentVariable("HOME");
+    private string? GetHomeDir() => JsonlHomePath.GetHomeDir(_getEnvironmentVariable);
 }
