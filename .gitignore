@@ -213,3 +213,4 @@ FakesAssemblies/
 .vscode
 .DS_Store
 .VSCodeCounter
+.zcodeignore
