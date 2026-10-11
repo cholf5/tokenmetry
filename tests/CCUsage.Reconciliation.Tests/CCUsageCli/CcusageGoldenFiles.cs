@@ -43,6 +43,38 @@ public static class CcusageGoldenFiles
 
     public static GoldenReport LoadCopilotText(string json) => LoadClaudeText(json);
 
+    /// <summary>
+    /// opencode daily JSON（I-009）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 另有 modelsUsed 信息字段，DTO 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadOpenCode(string path) => LoadOpenCodeText(File.ReadAllText(path));
+
+    public static GoldenReport LoadOpenCodeText(string json) => LoadClaudeText(json);
+
+    /// <summary>
+    /// goose daily JSON（I-012）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 另有 modelsUsed 信息字段，DTO 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadGoose(string path) => LoadGooseText(File.ReadAllText(path));
+
+    public static GoldenReport LoadGooseText(string json) => LoadClaudeText(json);
+
+    /// <summary>
+    /// hermes daily JSON（I-016）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 另有 modelsUsed / messageCount 信息字段，DTO 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadHermes(string path) => LoadHermesText(File.ReadAllText(path));
+
+    public static GoldenReport LoadHermesText(string json) => LoadClaudeText(json);
+
+    /// <summary>
+    /// kilo daily JSON（I-017）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 另有 modelsUsed 信息字段，DTO 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadKilo(string path) => LoadKiloText(File.ReadAllText(path));
+
+    public static GoldenReport LoadKiloText(string json) => LoadClaudeText(json);
+
     public static GoldenReport LoadClaudeText(string json)
     {
         var response = JsonSerializer.Deserialize<GoldenClaudeResponse>(

@@ -2,6 +2,10 @@ using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
+using CCUsage.Infrastructure.GooseSqlite;
+using CCUsage.Infrastructure.HermesSqlite;
+using CCUsage.Infrastructure.KiloSqlite;
+using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
 namespace CCUsage.Reconciliation.Tests.Support;
@@ -44,6 +48,37 @@ public static class RealReconciliationEnvironment
     /// <summary>Copilot CLI 数据存在性（I-008）：session-state 下有会话 events.jsonl（COPILOT_HOME → ~/.copilot）。</summary>
     public static bool HasCopilotData()
         => new CopilotLogLocator().CollectSessionStateFiles(configuredHome: null).Count > 0;
+
+    /// <summary>
+    /// OpenCode 数据存在性（I-009）：至少一个数据目录下选出了库文件
+    /// （OPENCODE_DATA_DIR → XDG 默认根，与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasOpenCodeData()
+    {
+        var directories = new OpenCodeDataLocator().ResolveDataDirectories(configuredDataDir: null);
+        return directories.Any(directory => OpenCodeSqliteAdapter.SelectDatabase(directory) is not null);
+    }
+
+    /// <summary>
+    /// Goose 数据存在性（I-012）：GOOSE_PATH_ROOT / 双默认根下至少一个库文件
+    /// （与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasGooseData()
+        => new GooseLogLocator().ResolveDatabases(configuredRoot: null).Count > 0;
+
+    /// <summary>Hermes 数据存在性（I-016）：HERMES_HOME / ~/.hermes 下有 state.db（与 CLI 子进程同一套探测）。</summary>
+    public static bool HasHermesData()
+        => new HermesLogLocator().ResolveDatabases(configuredHome: null).Count > 0;
+
+    /// <summary>
+    /// Kilo 数据存在性（I-017）：KILO_DATA_DIR / 默认根下至少一个目录有 kilo.db
+    /// （与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasKiloData()
+    {
+        var directories = new KiloDataLocator().ResolveDataDirectories(configuredDataDir: null);
+        return directories.Any(directory => File.Exists(Path.Combine(directory, KiloDataLocator.DatabaseFileName)));
+    }
 
     /// <summary>
     /// dsh-usage-stats 蓝本目录（含 lib/usage.js）：CCUSAGE_DSH_BLUEPRINT 优先，

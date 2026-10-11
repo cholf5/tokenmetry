@@ -1,0 +1,58 @@
+{
+  "daily": [
+    {
+      "cacheCreationTokens": 20,
+      "cacheReadTokens": 50,
+      "date": "2026-09-14",
+      "inputTokens": 1230,
+      "messageCount": 45,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 20,
+          "cacheReadTokens": 50,
+          "cost": 0.008324999999999999,
+          "inputTokens": 1230,
+          "modelName": "claude-sonnet-4-5",
+          "outputTokens": 303
+        }
+      ],
+      "modelsUsed": [
+        "claude-sonnet-4-5"
+      ],
+      "outputTokens": 303,
+      "totalCost": 0.008324999999999999,
+      "totalTokens": 1603
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-09-15",
+      "inputTokens": 400,
+      "messageCount": 7,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.05,
+          "inputTokens": 400,
+          "modelName": "gpt-5.1",
+          "outputTokens": 40
+        }
+      ],
+      "modelsUsed": [
+        "gpt-5.1"
+      ],
+      "outputTokens": 40,
+      "totalCost": 0.05,
+      "totalTokens": 440
+    }
+  ],
+  "totals": {
+    "cacheCreationTokens": 20,
+    "cacheReadTokens": 50,
+    "inputTokens": 1630,
+    "outputTokens": 343,
+    "totalCost": 0.058325,
+    "totalTokens": 2043
+  }
+}
