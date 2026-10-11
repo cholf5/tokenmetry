@@ -1,0 +1,1 @@
+{"type":"session.shutdown","id":"only-1","timestamp":"2026-09-15T12:00:00.000Z","data":{"modelMetrics":{"gpt-5-mini":{"usage":{"inputTokens":1200,"outputTokens":300},"requests":{"count":1}},"gpt-5.1-1m":{"usage":{"inputTokens":2000,"outputTokens":100,"cacheReadTokens":500},"requests":{"count":1}}}}}
