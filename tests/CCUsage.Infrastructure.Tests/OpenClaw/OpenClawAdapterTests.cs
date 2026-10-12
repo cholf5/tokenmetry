@@ -3,6 +3,7 @@ using Microsoft.Data.Sqlite;
 namespace CCUsage.Infrastructure.Tests.OpenClaw;
 
 using CCUsage.Core.Models;
+using CCUsage.Core.Services;
 using CCUsage.Infrastructure.OpenClaw;
 
 /// <summary>
@@ -65,8 +66,7 @@ public class OpenClawAdapterTests : IDisposable
 
     [Fact]
     public async Task Falls_back_to_total_tokens_when_openclaw_parts_are_missing()
-    {
-        var root = CreateOpenClawRoot();
+    {        var root = CreateOpenClawRoot();
         WriteSession(root, "agents/main/sessions/session-a.jsonl",
             """{"type":"message","message":{"role":"assistant","model":"gpt-5.2","usage":{"totalTokens":222}}}""");
 
@@ -772,6 +772,49 @@ public class OpenClawAdapterTests : IDisposable
     {
         _environmentVariables.Add(name);
         Environment.SetEnvironmentVariable(name, value);
+    }
+
+    /// <summary>
+    /// I-024 接线（OC-1 两级链）：装饰名 "[openclaw] m" 仅精确参与（ExactThenFamily 走向的第一档），
+    /// 未命中回退裸模型名（raw pricing identity，蓝本 calculates_decorated_deepseek_models_with_the_
+    /// raw_pricing_identity 同构）——无内建成本的可计价模型行此前记 0 + UnpricedModels（欠账登记）。
+    /// </summary>
+    [Fact]
+    public async Task Prices_decorated_model_through_raw_identity_candidate()
+    {
+        var root = CreateOpenClawRoot();
+        WriteSession(root, "agents/main/sessions/session.jsonl",
+            SessionLine(1_700_000_000_000, input: 1_000_000, output: 0, model: "claude-sonnet-4-5"));
+
+        var result = await CreateAdapter(root).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        record.Model.Should().Be("[openclaw] claude-sonnet-4-5", "分组/显示保留装饰名（蓝本命中装饰名时保留装饰名分组）");
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.ModelCandidates.Should().Equal("[openclaw] claude-sonnet-4-5", "claude-sonnet-4-5");
+        record.Pricing.Walk.Should().Be(PricingCandidateWalk.ExactThenFamilyAcrossCandidates,
+            "装饰名仅精确参与，家族兜底只落在裸名档（蓝本装饰名走 find_exact）");
+
+        var priced = new PricingEngine().PriceRecord(record);
+        priced.CostUsd.Should().Be(3m, "裸名精确命中 anthropic/claude-sonnet-4-5（input 1M × $3/M）");
+        priced.MatchedKey.Should().Be("anthropic/claude-sonnet-4-5");
+    }
+
+    /// <summary>I-024 对齐锚点：真实未知模型（mystery-model-x 形态）在两级链下仍未命中，
+    /// 行为与接线前一致（Missing + UnpricedModels fail-loud）。</summary>
+    [Fact]
+    public async Task Truly_unknown_decorated_model_stays_unpriced()
+    {
+        var root = CreateOpenClawRoot();
+        WriteSession(root, "agents/main/sessions/session.jsonl",
+            SessionLine(1_700_000_000_000, input: 10, output: 5, model: "mystery-model-x"));
+
+        var result = await CreateAdapter(root).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        var engine = new PricingEngine();
+        engine.PriceRecord(record).IsPriced.Should().BeFalse("装饰名与裸名都未命中 → 与接线前同为 Missing");
+        engine.GetUnpricedModels().Should().ContainSingle(info => info.Model == "[openclaw] mystery-model-x");
     }
 
     private static string SessionLine(long timestampMillis, long input, long output = 1, string model = "gpt-5.2")

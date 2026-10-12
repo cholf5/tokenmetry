@@ -99,7 +99,14 @@ public class AntigravityAdapter : IAntigravityAdapter
         });
     }
 
-    /// <summary>统一记录映射（蓝本 event_to_loaded 的桌面等价：成本交引擎、reasoning 不落记录）。</summary>
+    /// <summary>
+    /// 统一记录映射（蓝本 event_to_loaded 的桌面等价：成本交引擎、reasoning 不落记录）。
+    /// I-024 接线 AG-1：计价走蓝本 model_candidates 候选链（effort 变体 → 基础名 → google 前缀组，
+    /// <see cref="AntigravityParser.BuildModelCandidates"/>）；flash 变体按蓝本 exact_lookup 走逐候选
+    /// 精确（ExactOnlyAcrossCandidates），其余逐候选完整匹配；计价 output 分量取蓝本 cost_usage 口径
+    /// total_output（含 reasoning，<see cref="AntigravityParser.UsageEvent.TotalOutputTokens"/>）——
+    /// 统一记录 OutputTokens 为 visible 口径，经 OutputTokenOverride 补差，不影响 token 展示/落库。
+    /// </summary>
     private static UsageRecord ToUsageRecord(AntigravityParser.UsageEvent @event)
     {
         return new UsageRecord
@@ -109,6 +116,12 @@ public class AntigravityAdapter : IAntigravityAdapter
             ProjectPath = "Antigravity",
             SessionId = @event.SessionId,
             Model = @event.Model,
+            Pricing = new UsagePricingPlan(
+                AntigravityParser.BuildModelCandidates(@event.Model, @event.Provider),
+                AntigravityParser.GeminiFlashPricingAlias(@event.Model) is not null
+                    ? PricingCandidateWalk.ExactOnlyAcrossCandidates
+                    : PricingCandidateWalk.PerCandidateFull,
+                OutputTokenOverride: @event.TotalOutputTokens),
             CostUsd = null,
             InputTokens = @event.InputTokens,
             OutputTokens = @event.OutputTokens,

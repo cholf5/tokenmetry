@@ -121,8 +121,11 @@ public class OpenCodeSqliteAdapterTests : IDisposable
     }
 
     /// <summary>
-    /// 蓝本 calculates_cost_for_k2p6_when_opencode_stores_zero_cost 的移植：k2p6 → kimi-k2.6 别名 +
-    /// 内置快照 moonshot/kimi-k2.6（cache_read 0.16）→ 100×0.95 + 10×4 + 50×0.16（每百万）= $0.000143。
+    /// 蓝本 calculates_cost_for_k2p6_when_opencode_stores_zero_cost 的移植 + I-024 接线：
+    /// k2p6 → kimi-k2.6 别名候选链随记录落 <see cref="UsageRecord.Pricing"/>，引擎逐候选命中
+    /// 内置快照 moonshot/kimi-k2.6。快照价目 2026-10-12 按 ccusage 20.0.29 CLI 内嵌 models-dev
+    /// 数据刷新（I-024 观察项）：input 1 / output 4.16 / cache_read 0.18 / cache_write 1（旧值
+    /// 0.95 / 4 / 0.16 为过期 models.dev 数据）→ 100×1 + 10×4.16 + 50×0.18（每百万）= $0.0001506。
     /// </summary>
     [Fact]
     public async Task Prices_k2p6_alias_through_snapshot_after_model_resolution()
@@ -137,11 +140,17 @@ public class OpenCodeSqliteAdapterTests : IDisposable
         var record = scan.Records.Should().ContainSingle().Subject;
         record.CostUsd.Should().BeNull("stored cost 为 0 → 走定价引擎");
 
+        // 接线断言：映射产物带蓝本 open_code_model_candidates 候选链（[别名解析名, 归一化名] +
+        // provider 前缀变体；蓝本 base 首项即 resolved，原始 "k2p6" 不在链中），引擎按记录计价
+        // 不再需要调用方手工解析别名。
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.ModelCandidates.Should().Equal("kimi-k2.6", "kimi_for_coding/kimi-k2.6");
+        record.Model.Should().Be("k2p6", "分组/显示仍用原始 modelID");
+
         OpenCodeMessageParser.ResolveModelName("k2p6").Should().Be("kimi-k2.6");
-        var priced = new PricingEngine().PriceTokens(
-            OpenCodeMessageParser.ResolveModelName(record.Model!),
-            TokenUsageDetail.FromRecord(record));
-        priced.CostUsd.Should().Be(0.000143m);
+        var priced = new PricingEngine().PriceRecord(record);
+        priced.CostUsd.Should().Be(0.0001506m);
+        priced.MatchedKey.Should().Be("moonshot/kimi-k2.6");
     }
 
     /// <summary>

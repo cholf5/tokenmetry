@@ -17,9 +17,9 @@ namespace CCUsage.Reconciliation.Tests;
 /// 文件内重复行内容键去重、非 message / 非 assistant / 全零行跳过、坏行（损坏 message 块与坏
 /// JSON 载荷行）跳过、<b>同一事件的迁移 SQLite 副本优先于 JSONL 遗留副本</b>（成本 0.50 → 0.51
 /// 逐位替换）、SQLite-only 会话、agents/empty/agent/not-a-database.sqlite 不发现。
-/// fixture 规避：无内建成本的可计价模型行（CLI 裸模型候选现算 vs 桌面装饰名不命中——I-024 欠账，
-/// 未定价模型行 mystery-model-x 双侧 0 成本覆盖之）、total 缺口走 extra 分支的行（CLI output 列
-/// 不含 extra——I-013 偏差②同款）。
+/// fixture 规避：无内建成本的可计价模型行（I-024 后桌面经 OC-1 两级候选链现算裸名价，与 CLI
+/// 口径一致——fixture 仍以带内建成本行覆盖之，未定价模型行 mystery-model-x 双侧 0 成本覆盖之）、
+/// total 缺口走 extra 分支的行（CLI output 列不含 extra——I-013 偏差②同款）。
 /// </summary>
 public class OpenClawFixtureReconciliationTests
 {

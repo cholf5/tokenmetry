@@ -36,7 +36,8 @@ public enum OpenCodeRowRejection
 /// 四桶与 extra 全零的行不是 usage 行（user 消息等）→ 跳过；有载荷但缺 modelID/providerID → 拒绝；
 /// time.created ≤ 0 或缺失 → epoch（蓝本 keeps_epoch 口径）；消息自带的正 cost 直接采用，
 /// 否则 CostUsd=null 交定价引擎（蓝本走 open_code_model_candidates 计价，见卡片偏差清单）。
-/// 模型候选机制（resolve / normalize / provider 前缀）逐条移植为纯函数，供移植测试与后续接入。
+/// 模型候选机制（resolve / normalize / provider 前缀）逐条移植为纯函数，I-024 起接入映射产物
+/// <see cref="UsageRecord.Pricing"/>（候选链只影响计价，分组/显示仍用原始 modelID）。
 /// </summary>
 public static class OpenCodeMessageParser
 {
@@ -174,6 +175,8 @@ public static class OpenCodeMessageParser
 
         // 统一记录无 extra_total_tokens 字段：reasoning 与 total 余量并入 output（I-006 口径）。
         // 蓝本 cost_usage 同样把 extra 按输出价计费，成本一致；显示口径偏差见卡片 Dev Log。
+        // 计价走蓝本 open_code_model_candidates 候选链（I-024 接线）：别名解析 → 归一化 →
+        // provider 前缀变体，逐候选首个命中生效；分组/显示仍用原始 modelId。
         return (new UsageRecord
         {
             Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(created > 0 ? created : 0),
@@ -181,6 +184,7 @@ public static class OpenCodeMessageParser
             ProjectPath = ProjectPath,
             SessionId = string.IsNullOrEmpty(sessionId) ? FallbackSessionId : sessionId,
             Model = modelId,
+            Pricing = new UsagePricingPlan(BuildModelCandidates(modelId, providerId!)),
             // 消息自带正 cost 直接采用（蓝本 cost_usd.filter(> 0)），否则交定价引擎（null）。
             CostUsd = ToDecimalCost(storedCost),
             InputTokens = inputTokens,

@@ -319,6 +319,13 @@ public sealed class OpenClawLogParser
             ProjectPath = ProjectPath,
             SessionId = sessionId,
             Model = $"{ModelPrefix}{model}",
+            // 计价走蓝本 OC-1 两级候选链（I-024 接线）：装饰名 "[openclaw] m" 仅精确参与（命中按
+            // 装饰名计价），未命中回退裸模型名（raw pricing identity）；匹配走向
+            // ExactThenFamilyAcrossCandidates——exact 全候选优先（裸名精确不高于装饰名精确），
+            // 家族兜底只落在裸名档（蓝本装饰名走 find_exact，从不家族/模糊命中）。
+            Pricing = new UsagePricingPlan(
+                [$"{ModelPrefix}{model}", model],
+                PricingCandidateWalk.ExactThenFamilyAcrossCandidates),
             // 蓝本 CostMode::Auto：cost 存在即采用（含 0），缺失才交定价引擎。
             CostUsd = cost,
             InputTokens = resolved.InputTokens,

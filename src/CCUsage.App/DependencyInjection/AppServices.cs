@@ -95,7 +95,8 @@ public static class AppServices
         services.AddSingleton<IKimiCodeAdapter>(sp => sp.GetRequiredService<KimiCodeAdapter>());
         services.AddSingleton<CodebuffAdapter>();
         services.AddSingleton<ICodebuffAdapter>(sp => sp.GetRequiredService<CodebuffAdapter>());
-        services.AddSingleton<PiAgentAdapter>();
+        services.AddSingleton<PiAgentAdapter>(sp => new PiAgentAdapter(
+            pricingEngine: sp.GetRequiredService<PricingEngine>())); // PI-3（I-024）：identity cost 与主管道同一引擎（用户覆盖 / 远程数据同源）。
         services.AddSingleton<IPiAgentAdapter>(sp => sp.GetRequiredService<PiAgentAdapter>());
         services.AddSingleton<GrokAdapter>();
         services.AddSingleton<IGrokAdapter>(sp => sp.GetRequiredService<GrokAdapter>());

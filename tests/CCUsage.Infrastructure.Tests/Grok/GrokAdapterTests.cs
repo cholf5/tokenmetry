@@ -533,6 +533,69 @@ public class GrokAdapterTests : IDisposable
     /// <summary>summary.json 内容标记（WriteSession 的 object 参数分支）。</summary>
     private sealed record Summary(string Content);
 
+    /// <summary>
+    /// 蓝本 pricing_candidates_strip_build_and_add_xai 移植锚点（I-024 接线 GK-1/GK-2）：
+    /// [grok] 前缀剥离、-build 后缀剥离、xai/ 与 x-ai/ 前缀补全、去重保序。
+    /// </summary>
+    [Fact]
+    public void Builds_pricing_candidates_with_build_strip_and_xai_prefixes()
+    {
+        GrokLogParser.BuildPricingCandidates("grok-4.5-build").Should().Equal(
+            "grok-4.5-build",
+            "xai/grok-4.5-build",
+            "x-ai/grok-4.5-build",
+            "grok-4.5",
+            "xai/grok-4.5",
+            "x-ai/grok-4.5");
+        GrokLogParser.BuildPricingCandidates("[grok] grok-4").Should().Equal(
+            "grok-4", "xai/grok-4", "x-ai/grok-4"); // 剥 [grok] 前缀后 stripped == normalized → 去重
+        GrokLogParser.BuildPricingCandidates("   ").Should().BeEmpty("剥前缀/去空白后为空串 → 无候选");
+    }
+
+    /// <summary>
+    /// I-024 接线端到端（GK-1 候选链 + exact 全候选优先）：无 ticks 的 "-build" 变体行剥后缀后
+    /// 经 xai/grok-4.5 精确命中（快照条目 2026-10-12 取自 CLI 20.0.29 内嵌 models-dev 数据）；
+    /// 此前记 0 + UnpricedModels fail-loud。
+    /// </summary>
+    [Fact]
+    public async Task Prices_build_suffix_model_through_xai_candidate()
+    {
+        var root = CreateGrokHome();
+        WriteSession(root, "proj/sess-1",
+            TurnLine("evt-price", "grok-4.5-build", 1000, 100, 0, 0, envelopeSeconds: 1_750_000_000, agentMs: null, ticks: 0));
+
+        var result = await CreateAdapter(root).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        record.Model.Should().Be("grok-4.5-build", "分组/显示仍用原始键");
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.Walk.Should().Be(PricingCandidateWalk.ExactThenFamilyAcrossCandidates,
+            "蓝本 calculate_grok_cost_at：exact 全候选优先、再 fuzzy（GK-1）");
+        record.Pricing.ModelCandidates.Should().HaveCount(6);
+
+        var priced = new PricingEngine().PriceRecord(record);
+        priced.CostUsd.Should().Be(0.002m + 0.0006m, "1000×$2/M + 100×$6/M（快照 xai/grok-4.5 基础档，剥 -build 后命中）");
+        priced.MatchedKey.Should().Be("xai/grok-4.5");
+    }
+
+    /// <summary>I-024 对齐锚点：真实未知模型（grokbuild-alpha-x1 形态）在候选链下仍未命中，
+    /// 行为与接线前一致（Missing + UnpricedModels fail-loud）。</summary>
+    [Fact]
+    public async Task Truly_unknown_grok_model_stays_unpriced_through_candidate_chain()
+    {
+        var root = CreateGrokHome();
+        WriteSession(root, "proj/sess-1",
+            TurnLine("evt-mystery", "grokbuild-alpha-x1", 100, 10, 0, 0, envelopeSeconds: 1_750_000_000, agentMs: null, ticks: 0));
+
+        var result = await CreateAdapter(root).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        var engine = new PricingEngine();
+        engine.PriceRecord(record).IsPriced.Should().BeFalse("候选链全未命中 → 与接线前同为 Missing");
+        engine.GetUnpricedModels().Should().ContainSingle(info => info.Model == "grokbuild-alpha-x1");
+    }
+
+
     private static void WriteSession(string grokHome, string relativeSessionPath, params object[] items)
     {
         var sessionDirectory = Path.Combine(grokHome, "sessions", relativeSessionPath);

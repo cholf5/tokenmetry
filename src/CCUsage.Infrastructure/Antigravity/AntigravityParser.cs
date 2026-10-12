@@ -723,6 +723,60 @@ public static class AntigravityParser
 
     // ---- 模型命名与归一化（蓝本 model_name_from_id / normalize_antigravity_model 逐字移植） ----
 
+    /// <summary>google 系 provider 枚举（蓝本 API_PROVIDER_*：计价候选补 google 前缀组的范围）。</summary>
+    public static readonly ulong[] GoogleProviders = [ApiProviderGoogleVertex, ApiProviderGoogleGemini, ApiProviderGoogleEvergreen];
+
+    /// <summary>google 前缀组（蓝本 PROVIDER_PREFIXES）。</summary>
+    public static readonly string[] ProviderPrefixes = ["google", "gemini", "vertex_ai", "openrouter/google"];
+
+    /// <summary>
+    /// gemini flash effort 变体的计价别名（蓝本 gemini_flash_pricing_alias 逐字移植，AG-1）：
+    /// gemini-3.x-flash-{high,medium,low} → 基础名 gemini-3.x-flash；其余 null。
+    /// </summary>
+    public static string? GeminiFlashPricingAlias(string model)
+    {
+        return model switch
+        {
+            "gemini-3.8-flash-high" or "gemini-3.8-flash-medium" or "gemini-3.8-flash-low" => "gemini-3.8-flash",
+            "gemini-3.7-flash-high" or "gemini-3.7-flash-medium" or "gemini-3.7-flash-low" => "gemini-3.7-flash",
+            "gemini-3.6-flash-high" or "gemini-3.6-flash-medium" or "gemini-3.6-flash-low" => "gemini-3.6-flash",
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// 计价模型候选（蓝本 model_candidates 逐字移植，AG-1）：[模型名] +（flash effort 变体时）[基础名]，
+    /// 每个名字在 provider ∈ {3=vertex_ai, 24=gemini, 30=evergreen} 时再展开 google/ · gemini/ ·
+    /// vertex_ai/ · openrouter/google/ 前缀变体（先裸名后前缀组、逐名展开），去重保序。
+    /// 匹配门槛（蓝本 calculate_antigravity_cost）：flash 变体（exact_lookup）走 exact-with-fallback
+    /// 逐候选精确（桌面口径 <see cref="PricingCandidateWalk.ExactOnlyAcrossCandidates"/>）；
+    /// 其余逐候选完整匹配（exact + 家族兜底）。
+    /// </summary>
+    public static IReadOnlyList<string> BuildModelCandidates(string model, ulong? provider)
+    {
+        var useGooglePrefixes = provider is { } value && Array.IndexOf(GoogleProviders, value) >= 0;
+        var models = new List<string> { model };
+        if (GeminiFlashPricingAlias(model) is { } alias)
+        {
+            models.Add(alias);
+        }
+
+        var candidates = new List<string>();
+        foreach (var candidateModel in models)
+        {
+            candidates.Add(candidateModel);
+            if (useGooglePrefixes)
+            {
+                foreach (var prefix in ProviderPrefixes)
+                {
+                    candidates.Add($"{prefix}/{candidateModel}");
+                }
+            }
+        }
+
+        return candidates.Distinct(StringComparer.Ordinal).ToList();
+    }
+
     public static string ModelNameFromId(ulong modelId)
     {
         return modelId switch

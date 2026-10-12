@@ -465,6 +465,77 @@ public class CodebuffAdapterTests : IDisposable
         engine.GetUnpricedModels().Should().ContainSingle().Which.Model.Should().Be("totally-unknown-model");
     }
 
+    /// <summary>
+    /// I-024 接线（CB-1 候选重试）：infer_provider 推断 provider 后拼 "{provider}/{model}" 候选，
+    /// 引擎逐候选定价——grok-4.5 裸名经新补快照条目 xai/grok-4.5（2026-10-12 取自 CLI 20.0.29
+    /// 内嵌 models-dev 数据）命中；此前快照无该模型 → 记 0 + UnpricedModels fail-loud。
+    /// </summary>
+    [Fact]
+    public async Task Carries_inferred_provider_candidates_and_prices_model()
+    {
+        var fixture = CreateFixtureRoot();
+        WriteChatFile(fixture, "projects/p/chats/2026-01-02T03-04-05.000Z/chat-messages.json",
+            """[{"role":"assistant","timestamp":"2026-01-02T03:04:06.000Z","metadata":{"model":"grok-4.5","usage":{"inputTokens":1000,"outputTokens":100}}}]""");
+
+        var result = await CreateAdapter(fixture).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        CodebuffChatParser.InferProvider("grok-4.5").Should().Be("xai");
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.ModelCandidates.Should().Equal("grok-4.5", "xai/grok-4.5");
+        record.Model.Should().Be("grok-4.5", "分组/显示仍用裸模型名");
+
+        var priced = new PricingEngine().PriceRecord(record);
+        priced.CostUsd.Should().Be(0.002m + 0.0006m, "1000×$2/M + 100×$6/M（快照 xai/grok-4.5 基础档）");
+        priced.MatchedKey.Should().Be("xai/grok-4.5");
+    }
+
+    /// <summary>
+    /// 蓝本 infer_provider 全分支移植锚点（I-024 接线）：前缀 → provider 映射逐字对齐
+    /// （claude-·anthropic/·anthropic. / gpt-·o1·o3·o4·openai/ / gemini·google/ / grok·xai/ /
+    /// openrouter/ / 其余 unknown），大小写不敏感（蓝本 to_ascii_lowercase）。
+    /// </summary>
+    [Fact]
+    public void Infers_provider_from_model_prefixes_per_blueprint()
+    {
+        CodebuffChatParser.InferProvider("claude-sonnet-4-5").Should().Be("anthropic");
+        CodebuffChatParser.InferProvider("anthropic/gpt-x").Should().Be("anthropic");
+        CodebuffChatParser.InferProvider("anthropic.claude").Should().Be("anthropic");
+        CodebuffChatParser.InferProvider("gpt-5.1").Should().Be("openai");
+        CodebuffChatParser.InferProvider("o1-mini").Should().Be("openai");
+        CodebuffChatParser.InferProvider("o3").Should().Be("openai");
+        CodebuffChatParser.InferProvider("o4-mini").Should().Be("openai");
+        CodebuffChatParser.InferProvider("openai/codex").Should().Be("openai");
+        CodebuffChatParser.InferProvider("gemini-2.5-pro").Should().Be("google");
+        CodebuffChatParser.InferProvider("google/gemini-x").Should().Be("google");
+        CodebuffChatParser.InferProvider("grok-4").Should().Be("xai");
+        CodebuffChatParser.InferProvider("xai/grok-4.5").Should().Be("xai");
+        CodebuffChatParser.InferProvider("openrouter/deepseek-v4").Should().Be("openrouter");
+        CodebuffChatParser.InferProvider("kimi-k2.6").Should().Be("unknown");
+        CodebuffChatParser.InferProvider("GPT-5").Should().Be("openai", "蓝本先 to_ascii_lowercase");
+        // 自带 "{provider}/" 前缀的模型不再拼重复限定键（蓝本 model.starts_with("{provider}/") 同式）。
+        CodebuffChatParser.BuildModelCandidates("xai/grok-4.5").Should().Equal("xai/grok-4.5");
+        CodebuffChatParser.BuildModelCandidates("kimi-k2.6").Should().Equal("kimi-k2.6"); // provider unknown → 不重试
+    }
+
+    /// <summary>I-024 对齐锚点：Codebuff 蓝本不做 "-build" 后缀剥离（那是 Grok GK-1 的链）——
+    /// grok-4.5-build 在 codebuff 候选链下未命中，行为与接线前一致（Missing fail-loud）。</summary>
+    [Fact]
+    public async Task Build_suffix_models_stay_unpriced_without_build_strip()
+    {
+        var fixture = CreateFixtureRoot();
+        WriteChatFile(fixture, "projects/p/chats/2026-01-02T03-04-05.000Z/chat-messages.json",
+            """[{"role":"assistant","timestamp":"2026-01-02T03:04:06.000Z","metadata":{"model":"grok-4.5-build","usage":{"inputTokens":100,"outputTokens":10}}}]""");
+
+        var result = await CreateAdapter(fixture).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        record.Pricing!.ModelCandidates.Should().Equal("grok-4.5-build", "xai/grok-4.5-build");
+        var engine = new PricingEngine();
+        engine.PriceRecord(record).IsPriced.Should().BeFalse("蓝本 codebuff 无 -build 剥离，两个候选都未命中");
+        engine.GetUnpricedModels().Should().ContainSingle(info => info.Model == "grok-4.5-build");
+    }
+
     // ---- 目录发现与环境变量（蓝本 paths.rs 语义） ----
 
     [Fact]

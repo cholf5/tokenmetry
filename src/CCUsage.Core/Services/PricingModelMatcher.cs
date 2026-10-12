@@ -16,6 +16,9 @@ public enum PricingMatchMode
 /// 并对每个候选补一个剥离 "-fast" 采集标记的变体；全部小写。
 /// 匹配顺序：provider 指定的精确匹配 → 任意 provider 的精确匹配（同名时按 provider rank 取优，
 /// anthropic/openai/google 最优）→（仅快照）最长家族模式包含匹配。
+/// 精确匹配含键归一化变体（I-024，蓝本 pricing.rs find_exact_with_fallback / normalized_pricing_key）：
+/// 每档先全部候选的原拼写、未命中再全部候选的归一化拼写（'.'/'@' → '-'，两侧归一——
+/// "google/gemini.3.pro" 命中 "google/gemini-3-pro"；原拼写命中优先，扩展前行为不变）。
 /// </summary>
 public static class PricingModelMatcher
 {
@@ -39,7 +42,28 @@ public static class PricingModelMatcher
             return false;
         }
 
-        // 1) 模型名带 provider 前缀时，优先在该 provider 内精确匹配。
+        // 候选名的键归一化拼写（蓝本 normalized_pricing_key：'.' / '@' → '-'，恒等变换原样返回）。
+        // 归一化趟只在原拼写未命中时运行（先原拼写、再归一化——原拼写命中优先，行为与
+        // 归一化扩展前一致）；条目侧归一化拼写惰性构建一次（点分/带 @ 条目才有别于原 id）。
+        var normalizedCandidates = candidates
+            .Select(NormalizePricingKey)
+            .ToArray();
+        string[]? normalizedEntryIds = null;
+        string[] NormalizedEntryIds()
+        {
+            if (normalizedEntryIds is null)
+            {
+                normalizedEntryIds = new string[entries.Count];
+                for (var index = 0; index < entries.Count; index++)
+                {
+                    normalizedEntryIds[index] = NormalizePricingKey(entries[index].ModelId);
+                }
+            }
+
+            return normalizedEntryIds;
+        }
+
+        // 1) 模型名带 provider 前缀时，优先在该 provider 内精确匹配（先原拼写、再归一化拼写）。
         var requestedProvider = ExtractRequestedProvider(model);
         if (requestedProvider is not null)
         {
@@ -59,15 +83,37 @@ public static class PricingModelMatcher
                     return true;
                 }
             }
+
+            for (var index = 0; index < candidates.Count; index++)
+            {
+                var normalized = normalizedCandidates[index];
+                var normalizedEntryIdsLocal = NormalizedEntryIds();
+                for (var entryIndex = 0; entryIndex < entries.Count; entryIndex++)
+                {
+                    var entry = entries[entryIndex];
+                    if (entry.MatchPattern is not null
+                        || !string.Equals(entry.Provider, requestedProvider, StringComparison.OrdinalIgnoreCase)
+                        || !string.Equals(normalizedEntryIdsLocal[entryIndex], normalized, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    match = entry;
+                    matchedKey = entry.ToKey();
+                    return true;
+                }
+            }
         }
 
-        // 2) 不限 provider 的精确匹配；多个 provider 提供同名模型时按 rank 取最优先。
+        // 2) 不限 provider 的精确匹配；多个 provider 提供同名模型时按 rank 取最优先
+        //    （先全部候选的原拼写，再归一化拼写——原拼写命中优先，行为与归一化扩展前一致）。
         ModelPriceEntry? best = null;
         var bestRank = int.MaxValue;
         foreach (var candidate in candidates)
         {
-            foreach (var entry in entries)
+            for (var entryIndex = 0; entryIndex < entries.Count; entryIndex++)
             {
+                var entry = entries[entryIndex];
                 if (entry.MatchPattern is not null
                     || !string.Equals(entry.ModelId, candidate, StringComparison.OrdinalIgnoreCase))
                 {
@@ -79,6 +125,31 @@ public static class PricingModelMatcher
                 {
                     best = entry;
                     bestRank = rank;
+                }
+            }
+        }
+
+        if (best is null)
+        {
+            var normalizedEntryIdsLocal = NormalizedEntryIds();
+            for (var index = 0; index < candidates.Count; index++)
+            {
+                var normalized = normalizedCandidates[index];
+                for (var entryIndex = 0; entryIndex < entries.Count; entryIndex++)
+                {
+                    var entry = entries[entryIndex];
+                    if (entry.MatchPattern is not null
+                        || !string.Equals(normalizedEntryIdsLocal[entryIndex], normalized, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var rank = ProviderRank(entry.Provider);
+                    if (rank < bestRank)
+                    {
+                        best = entry;
+                        bestRank = rank;
+                    }
                 }
             }
         }
@@ -187,6 +258,17 @@ public static class PricingModelMatcher
         var trimmed = model.Trim();
         var separator = trimmed.IndexOf('/');
         return separator <= 0 ? null : trimmed[..separator].Trim().ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// 键归一化（蓝本 pricing.rs normalized_pricing_key）：'.' / '@' → '-'；不含分隔符时原样返回
+    /// （恒等变换，蓝本 Cow::Borrowed 同式）。
+    /// </summary>
+    private static string NormalizePricingKey(string value)
+    {
+        return value.Contains('.') || value.Contains('@')
+            ? value.Replace('.', '-').Replace('@', '-')
+            : value;
     }
 
     private static int ProviderRank(string provider)

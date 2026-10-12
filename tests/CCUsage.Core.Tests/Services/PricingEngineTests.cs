@@ -60,10 +60,11 @@ public class PricingEngineTests
     {
         var engine = new PricingEngine();
 
-        // 蓝本 claude_pricing_preserves_ephemeral_1h_cache_cost：1M 1h tokens → 1M × 3 × 2 / 1M = 6
-        var result = engine.PriceTokens("claude-sonnet-4-20250514", Tokens(0, 0, cache1h: 1_000_000));
+        // 蓝本 claude_pricing_preserves_ephemeral_1h_cache_cost：100k 1h tokens → 100k × 3 × 2 / 1M = 0.6
+        //（claude-sonnet-4 家族条目带 200K 长上下文分档，请求上下文 100k 低于阈值走基础档——I-024）。
+        var result = engine.PriceTokens("claude-sonnet-4-20250514", Tokens(0, 0, cache1h: 100_000));
 
-        result.CostUsd.Should().Be(6m);
+        result.CostUsd.Should().Be(0.6m);
         result.MatchedKey.Should().Be("anthropic/claude-sonnet-4");
     }
 
@@ -122,12 +123,13 @@ public class PricingEngineTests
         // 价格取自 models.dev（openai/gpt-5.6-terra，2026-10-11 实测：2 / 12 / 0.2 / 2.5）。
         var engine = new PricingEngine();
 
-        var terra = engine.PriceTokens("gpt-5.6-terra", Tokens(1_000_000, 1_000_000, cacheRead: 1_000_000));
-        terra.CostUsd.Should().Be(2m + 12m + 0.2m);
+        // 请求上下文 100k 低于 272K 分档阈值（I-024 tiers），走 terra 基础档。
+        var terra = engine.PriceTokens("gpt-5.6-terra", Tokens(100_000, 100_000, cacheRead: 100_000));
+        terra.CostUsd.Should().Be(0.2m + 1.2m + 0.02m);
         terra.MatchedKey.Should().Contain("gpt-5.6-terra");
 
-        // sol 家族兜底对其他 gpt-5.6* 变体仍生效。
-        engine.PriceTokens("gpt-5.6-codex", Tokens(1_000_000, 0)).CostUsd.Should().Be(4m);
+        // sol 家族兜底对其他 gpt-5.6* 变体仍生效（100k 低于分档阈值）。
+        engine.PriceTokens("gpt-5.6-codex", Tokens(100_000, 0)).CostUsd.Should().Be(0.4m);
     }
 
     [Fact]
@@ -375,6 +377,114 @@ public class PricingEngineTests
 
         engine.TryResolveModelPrice("no-such-model", out _).Should().BeFalse();
         engine.TryResolveModelPrice(null, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Snapshot_AppliesLongContextTierAboveThreshold()
+    {
+        // I-024 tiers 观察项（蓝本 cost.rs 两段式）：claude-sonnet-4 带 200K context 分档
+        //（models.dev：6 / 22.5 / cache_read 0.6 / cache_write 7.5），请求上下文（input + cache 各桶）
+        // 超过阈值时全部桶整体切换分档单价。
+        var engine = new PricingEngine();
+
+        var tiered = engine.PriceTokens("claude-sonnet-4", Tokens(1_000_000, 1_000_000, cacheRead: 300_000));
+        tiered.CostUsd.Should().Be(6m + 22.5m + 0.18m, "上下文 1.3M > 200K → 全桶按分档价");
+
+        // 边界：上下文恰等于阈值不切档（蓝本 context_tokens > threshold 严格大于）。
+        var boundary = engine.PriceTokens("claude-sonnet-4", Tokens(200_000, 100_000, cacheRead: 0));
+        boundary.CostUsd.Should().Be(0.6m + 1.5m, "上下文 200K = 阈值 → 基础档 3/15");
+    }
+
+    [Fact]
+    public void Snapshot_TierMissingRateFallsBackToBaseRate()
+    {
+        // gemini-2.5-pro 分档段缺 cache_write（models.dev 同形）：超档后 cache_creation 仍按基础档价。
+        var engine = new PricingEngine();
+
+        var tiered = engine.PriceTokens("gemini-2.5-pro", Tokens(1_000_000, 0, cacheCreation: 100_000));
+        tiered.CostUsd.Should().Be(2.5m + 0.0375m, "input 走分档 2.5，cache_creation 回落基础档 0.375");
+    }
+
+    [Fact]
+    public void CandidatePlan_FirstHitWinsAcrossCandidates()
+    {
+        // I-024 方案 A：候选链逐候选尝试、首个命中生效（蓝本"首个正成本"口径的桌面化）。
+        var engine = new PricingEngine();
+        var plan = new UsagePricingPlan(["totally-unknown-model", "kimi-k2.6", "claude-sonnet-4"]);
+
+        var result = engine.PriceTokens(plan, displayModel: "k2p6", Tokens(1_000_000, 0));
+
+        result.IsPriced.Should().BeTrue();
+        result.MatchedKey.Should().Be("moonshot/kimi-k2.6", "首个命中的候选生效，后续候选不再尝试");
+        result.CostUsd.Should().Be(1m);
+        engine.GetUnpricedModels().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CandidatePlan_AllMissBehavesLikeSingleModelMissing()
+    {
+        var engine = new PricingEngine();
+        var plan = new UsagePricingPlan(["no-such-a", "no-such-b"]);
+
+        var result = engine.PriceTokens(plan, displayModel: "k2p6", Tokens(100, 200, cacheRead: 50));
+
+        result.IsPriced.Should().BeFalse();
+        result.Source.Should().Be(PricingSourceKind.Missing);
+        result.CostUsd.Should().BeNull();
+        engine.GetUnpricedModels().Should().ContainSingle(info => info.Model == "k2p6",
+            "未命中清单按显示模型名登记（fail-loud 口径与接线前一致）");
+    }
+
+    [Fact]
+    public void CandidatePlan_ExactThenFamilyWalkPrefersExactAcrossCandidates()
+    {
+        // 蓝本 grok calculate_grok_cost_at（GK-1）：exact 全候选优先、再 fuzzy——首候选的家族命中
+        // 不得遮蔽后续候选的精确条目。claude-sonnet-4.9-x 家族命中 claude-sonnet-4，
+        // grok-4.5 精确命中（无 match 模式的快照条目，exact 档可命中）——exact 优先走应选中后者。
+        var engine = new PricingEngine();
+        var grokStyleChain = new UsagePricingPlan(
+            ["claude-sonnet-4.9-x", "grok-4.5"],
+            PricingCandidateWalk.ExactThenFamilyAcrossCandidates);
+
+        var result = engine.PriceTokens(grokStyleChain, "claude-sonnet-4.9-x", Tokens(1_000_000, 0));
+
+        result.MatchedKey.Should().Be("xai/grok-4.5", "精确档全候选优先");
+
+        // 对照：逐候选完整匹配（默认走向）时首候选的家族命中先生效（蓝本 calculate_cost_for_usage_at
+        // 逐候选 find 口径）。
+        var perCandidate = new UsagePricingPlan(["claude-sonnet-4.9-x", "grok-4.5"]);
+        engine.PriceTokens(perCandidate, "claude-sonnet-4.9-x", Tokens(1_000_000, 0)).MatchedKey
+            .Should().Be("anthropic/claude-sonnet-4");
+    }
+
+    [Fact]
+    public void CandidatePlan_ExactOnlyWalkSkipsFamilyFallback()
+    {
+        // 蓝本 antigravity flash 变体（AG-1）：find_exact_pricing_with_alias 逐候选精确，不落家族模式。
+        var engine = new PricingEngine();
+        var plan = new UsagePricingPlan(
+            ["claude-sonnet-4.9-x"],
+            PricingCandidateWalk.ExactOnlyAcrossCandidates);
+
+        var result = engine.PriceTokens(plan, "claude-sonnet-4.9-x", Tokens(1_000_000, 0));
+
+        result.IsPriced.Should().BeFalse("精确-only 走向不落家族兜底");
+        engine.GetUnpricedModels().Should().ContainSingle(info => info.Model == "claude-sonnet-4.9-x");
+    }
+
+    [Fact]
+    public void CandidatePlan_OutputTokenOverridePricesOutputAtOverride()
+    {
+        // AG-1：计价 output 分量取 total_output（含 reasoning）——统一记录 OutputTokens 为 visible 口径，
+        // 经 OutputTokenOverride 补差（只影响成本，不影响 token 明细本身）。
+        var engine = new PricingEngine();
+        var plan = new UsagePricingPlan(
+            ["kimi-k2.6"],
+            OutputTokenOverride: 300);
+
+        var result = engine.PriceTokens(plan, "gemini-3.8-flash-medium", Tokens(0, 200, cacheRead: 0));
+
+        result.CostUsd.Should().Be(300 * 4.16m / 1_000_000m, "output 按覆盖值 300 计价（快照 output 4.16/M）");
     }
 
     private static TokenUsageDetail Tokens(

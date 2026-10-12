@@ -17,10 +17,10 @@ namespace CCUsage.Reconciliation.Tests;
 /// 的 trajectory blob 回退（首个有效候选）、非 token-bearing 零用量行跳过、0 字节未初始化库跳过、
 /// claude-4-sonnet 的 cache_creation 计价（两侧显式同价 3.75/M）、未定价模型行（missingPricing
 /// 双侧 0 成本）。
-/// fixture 规避（I-024 AG-1 欠账 + 计价 output 分量差异，见卡片偏差清单）：reasoning &gt; 0 的行
-/// （CLI daily totalTokens 含 extra 分量、计价 output 取 total_output——桌面统一记录无 extra 字段、
-/// 按 visible output 计价）、gemini 行 cache_creation &gt; 0（CLI cache_write 缺失按 input×1.25 推导，
-/// 与桌面快照 0.375 不同）、google 前缀候选才会命中的模型（桌面无候选链）。
+/// fixture 规避（I-021 登记；I-024 接线后桌面已带 AG-1 候选链与 total_output 计价口径，fixture
+/// 延续原规避以保持 golden 逐位稳定）：reasoning &gt; 0 的行（CLI daily totalTokens 含 extra 分量、
+/// 计价 output 取 total_output——桌面统一记录无 extra 字段、token 展示为 visible 口径）、
+/// gemini 行 cache_creation &gt; 0（CLI cache_write 缺失按 input×1.25 推导，与桌面快照 0.375 不同）。
 /// </summary>
 public class AntigravityFixtureReconciliationTests
 {
