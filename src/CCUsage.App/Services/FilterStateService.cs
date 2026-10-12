@@ -31,23 +31,16 @@ public sealed record TimeRangeOption(TimeRange Value, string Label)
     public override string ToString() => Label;
 }
 
-/// <summary>Agent 筛选选项。选项清单目前为占位（对齐原型 #agentTop），真实 Agent 清单由 D-008 接入。</summary>
+/// <summary>Agent 筛选选项。"所有 Agent" 是不过滤的固定 UI 语义项；真实 Agent 清单由
+/// D-008 的 AgentCatalogService 从 I-029 维度查询拉取并经 <see cref="FilterStateService.UpdateAgentOptions"/>
+/// 注入（单一真相源，全局下拉与右栏复选组共用）——不再使用原型占位清单。</summary>
 public sealed record AgentOption(string Id, string Label)
 {
     /// <summary>"所有 Agent"（不过滤）的固定标识。</summary>
     public const string AllId = "all";
 
-    public static IReadOnlyList<AgentOption> Options { get; } =
-    [
-        new(AllId, "所有 Agent"),
-        new("Claude Code", "Claude Code"),
-        new("Codex", "Codex"),
-        new("Cursor", "Cursor"),
-        new("GitHub Copilot", "GitHub Copilot"),
-        new("Cline", "Cline"),
-    ];
-
-    public static AgentOption All { get; } = Options[0];
+    /// <summary>"所有 Agent"（不过滤）选项（运行时默认值，也是选项清单首项）。</summary>
+    public static AgentOption All { get; } = new(AllId, "所有 Agent");
 
     public override string ToString() => Label;
 }
@@ -62,12 +55,17 @@ public sealed class FilterStateService : ObservableObject
 {
     private TimeRangeOption _timeRange = TimeRangeOption.Default;
     private AgentOption _agent = AgentOption.All;
+    private IReadOnlyList<AgentOption> _agentOptions = [AgentOption.All];
 
     /// <summary>时间范围选项（顶部栏 ComboBox 数据源）。</summary>
     public IReadOnlyList<TimeRangeOption> TimeRangeOptions => TimeRangeOption.Options;
 
-    /// <summary>Agent 选项（顶部栏 ComboBox 数据源，占位清单）。</summary>
-    public IReadOnlyList<AgentOption> AgentOptions => AgentOption.Options;
+    /// <summary>
+    /// Agent 选项（顶部栏 ComboBox 数据源）。初始仅 [所有 Agent]（诚实：真实清单未加载前
+    /// 不冒充选项），D-008 外壳启动时经 AgentCatalogService 异步拉取后由
+    /// <see cref="UpdateAgentOptions"/> 替换并通知（加载失败/无数据保持本值）。
+    /// </summary>
+    public IReadOnlyList<AgentOption> AgentOptions => _agentOptions;
 
     /// <summary>时间范围。默认最近 7 天。</summary>
     public TimeRangeOption TimeRange
@@ -85,6 +83,37 @@ public sealed class FilterStateService : ObservableObject
 
     /// <summary>筛选汇总展示串（如「最近 7 天 · 所有 Agent」），任一维度变化都会通知。</summary>
     public string Display => $"{TimeRange.Label} · {Agent.Label}";
+
+    /// <summary>
+    /// 替换 Agent 选项清单并通知（D-008：AgentCatalogService 从 I-029 维度查询拉到真实清单后调用，
+    /// 顶部栏 ComboBox 经 PropertyChanged(AgentOptions) 刷新；非 UI 线程调用时 marshal，同属性 setter 语义）。
+    /// 当前选中项（默认"所有 Agent"）不受清单替换影响。Display 不依赖本清单，不发 Display 通知。
+    /// 注意不走 SetProperty（其 CallerMemberName 在方法内会解析成方法名），显式给出属性名。
+    /// </summary>
+    public void UpdateAgentOptions(IReadOnlyList<AgentOption> options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        void Apply()
+        {
+            if (ReferenceEquals(_agentOptions, options))
+            {
+                return;
+            }
+
+            _agentOptions = options;
+            OnPropertyChanged(nameof(AgentOptions));
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Apply();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(Apply);
+        }
+    }
 
     private void SetOnUi(Func<bool> apply)
     {

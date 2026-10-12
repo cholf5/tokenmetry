@@ -1,0 +1,155 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using CCUsage.Core.Abstractions;
+using CCUsage.Core.Models;
+
+namespace CCUsage.App.Services;
+
+/// <summary>项目筛选下拉的单个选项：查询值 = 项目原始路径（I-029 SessionListQuery.Project 精确匹配），
+/// 展示名 = 归一化项目名（歧义守卫下可能是原始路径，见 DimensionUsageRow.DisplayName）。null 路径 = 全部项目。</summary>
+public sealed record ProjectFilterOption(string? Path, string Label)
+{
+    /// <summary>"全部项目"（不过滤）。单例复用：ComboBox 重建选项清单时按记录值相等保持选中态。</summary>
+    public static ProjectFilterOption All { get; } = new(null, "全部项目");
+
+    public override string ToString() => Label;
+}
+
+/// <summary>模型筛选下拉的单个选项：查询值 = 会话主模型（dominant_model 精确匹配）。null = 全部模型。</summary>
+public sealed record ModelFilterOption(string? Model, string Label)
+{
+    public static ModelFilterOption All { get; } = new(null, "全部模型");
+
+    public override string ToString() => Label;
+}
+
+/// <summary>
+/// 筛选选项目录服务（D-008 定案：Agent 清单接线）：从 I-029 维度聚合查询拉取真实的
+/// Agent / 模型 / 项目清单，供全局 Agent 下拉（FilterStateService.UpdateAgentOptions 单一真相源）
+/// 与右栏快速筛选（复选组 / 模型 / 项目下拉）共用。
+/// 缓存策略：首次请求时查询并缓存整个应用生命周期——页面/右栏每次导航初始化都调用，
+/// 但只有第一次真正打查询服务（避免每次导航重拉；facts 变化由后台刷新后的下次启动体现，
+/// 选项清单陈旧一个会话周期是可接受取舍，记录于 D-008 Dev Log）。
+/// 查询用无界 <see cref="UsageQueryFilter"/>（全部时间、全部 Agent）——选项清单描述数据全集，
+/// 不随当前筛选收窄；排序按 token 降序（防御性重排，不依赖服务排序契约）。
+/// 加载失败抛出给调用方（外壳把 Agent 清单失败处理为保持 [所有 Agent]，诚实不伪造）。
+/// </summary>
+public sealed class AgentCatalogService
+{
+    private readonly IUsageQueryService _query;
+    private readonly SemaphoreSlim _gate = new(1, 1);
+
+    private IReadOnlyList<AgentOption>? _agentOptions;
+    private IReadOnlyList<ModelFilterOption>? _modelOptions;
+    private IReadOnlyList<ProjectFilterOption>? _projectOptions;
+
+    public AgentCatalogService(IUsageQueryService query)
+    {
+        _query = query;
+    }
+
+    /// <summary>
+    /// Agent 选项清单：[所有 Agent, ...真实 Agent（token 降序）]。"所有 Agent"（不过滤）是
+    /// UI 语义选项（<see cref="AgentOption.AllId"/>），真实 Agent 键来自
+    /// <see cref="IUsageQueryService.GetAgentBreakdownAsync"/>。零 token 的 Agent 也保留
+    /// （facts 中存在即真实来源），排序键 token 降序、平局按 Key 序数。
+    /// </summary>
+    public async Task<IReadOnlyList<AgentOption>> GetAgentOptionsAsync(CancellationToken ct = default)
+    {
+        if (_agentOptions is { } cached)
+        {
+            return cached;
+        }
+
+        await _gate.WaitAsync(ct);
+        try
+        {
+            if (_agentOptions is { } again)
+            {
+                return again;
+            }
+
+            var rows = await _query.GetAgentBreakdownAsync(new UsageQueryFilter(), ct);
+            var agents = rows
+                .OrderByDescending(r => r.TotalTokens)
+                .ThenBy(r => r.Key, StringComparer.Ordinal)
+                .Select(r => new AgentOption(r.Key, r.Key))
+                .ToList();
+            _agentOptions = [AgentOption.All, .. agents];
+            return _agentOptions;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>模型选项清单：[全部模型, ...会话主模型（token 降序）]。</summary>
+    public async Task<IReadOnlyList<ModelFilterOption>> GetModelOptionsAsync(CancellationToken ct = default)
+    {
+        if (_modelOptions is { } cached)
+        {
+            return cached;
+        }
+
+        await _gate.WaitAsync(ct);
+        try
+        {
+            if (_modelOptions is { } again)
+            {
+                return again;
+            }
+
+            var rows = await _query.GetModelBreakdownAsync(new UsageQueryFilter(), ct);
+            _modelOptions =
+            [
+                ModelFilterOption.All,
+                .. rows
+                    .OrderByDescending(r => r.TotalTokens)
+                    .ThenBy(r => r.Key, StringComparer.Ordinal)
+                    .Select(r => new ModelFilterOption(r.Key, r.Key)),
+            ];
+            return _modelOptions;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>项目选项清单：[全部项目, ...项目（token 降序；展示归一化名、查询用原始路径）]。</summary>
+    public async Task<IReadOnlyList<ProjectFilterOption>> GetProjectOptionsAsync(CancellationToken ct = default)
+    {
+        if (_projectOptions is { } cached)
+        {
+            return cached;
+        }
+
+        await _gate.WaitAsync(ct);
+        try
+        {
+            if (_projectOptions is { } again)
+            {
+                return again;
+            }
+
+            var rows = await _query.GetProjectBreakdownAsync(new UsageQueryFilter(), ct);
+            _projectOptions =
+            [
+                ProjectFilterOption.All,
+                .. rows
+                    .OrderByDescending(r => r.TotalTokens)
+                    .ThenBy(r => r.Key, StringComparer.Ordinal)
+                    .Select(r => new ProjectFilterOption(r.Key, r.DisplayName ?? r.Key)),
+            ];
+            return _projectOptions;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+}

@@ -124,6 +124,27 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
+    <!-- Agent 软色底芯片四变体（D-008，原型 .agenticon 蓝/green/purple/gray 四组；
+         变体伪类经附加属性 AgentChip.Variant 驱动，颜色 DynamicResource 引用令牌，
+         按控件 ActualThemeVariant 解析——明暗翻转与窗口级主题覆盖自动生效）。
+         前景色经 TextBlock.Foreground 附加属性落在 Border 上并继承给子字形。 -->
+    <Style Selector="Border.chip-blue">
+        <Setter Property="Background" Value="{DynamicResource AppIconChipBlueBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipBlueForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.chip-green">
+        <Setter Property="Background" Value="{DynamicResource AppIconChipGreenBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipGreenForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.chip-purple">
+        <Setter Property="Background" Value="{DynamicResource AppIconChipPurpleBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.chip-neutral">
+        <Setter Property="Background" Value="{DynamicResource AppIconChipNeutralBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
+    </Style>
+
     <!-- 图例/表格圆点 ← 原型 .modeldot{width:7px;height:7px;border-radius:3px}，颜色由使用处给 AppSeries{N}Brush -->
     <Style Selector="Border.series-dot">
         <Setter Property="Width" Value="7"/>

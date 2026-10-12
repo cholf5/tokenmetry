@@ -413,7 +413,9 @@ public class OverviewBottomTests
             new FilterStateService(),
             AppServices.Get<SettingsViewModel>(),
             AppServices.Get<SessionsPanelViewModel>(),
-            AppServices.Get<IUsageQueryService>());
+            AppServices.Get<IUsageQueryService>(),
+            AppServices.Get<AgentCatalogService>(),
+            AppServices.Get<IToastService>());
 
         var overview = Assert.IsType<OverviewViewModel>(shell.CurrentPage);
         overview.OpenModelsCommand.Execute(null);
