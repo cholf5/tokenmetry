@@ -25,18 +25,26 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            var mainWindowViewModel = DependencyInjection.AppServices.Get<MainWindowViewModel>();
             var mainWindow = new MainWindow
             {
-                DataContext = DependencyInjection.AppServices.Get<MainWindowViewModel>(),
+                DataContext = mainWindowViewModel,
             };
             desktop.MainWindow = mainWindow;
 
             var trayService = new TrayService(mainWindow);
             trayService.Initialize();
 
-            var vm = (MainWindowViewModel)desktop.MainWindow.DataContext;
+            // D-003：DashboardViewModel 不再挂在导航上（旧视图由 Q-002 清理），但本地采集
+            // 周期刷新仍由它驱动——刷新把本地会话日志解析进 facts 存储，供后续页面卡查询；
+            // 刷新完成回写顶部栏"最近更新"时间戳（NoteDataRefreshed 内部 marshal 到 UI 线程）。
+            var dashboard = DependencyInjection.AppServices.Get<DashboardViewModel>();
             var refreshService = new BackgroundRefreshService(
-                () => vm.Dashboard.RefreshCommand.ExecuteAsync(null),
+                async () =>
+                {
+                    await dashboard.RefreshCommand.ExecuteAsync(null);
+                    mainWindowViewModel.NoteDataRefreshed();
+                },
                 settings.RefreshMinutes);
             refreshService.Start();
         }

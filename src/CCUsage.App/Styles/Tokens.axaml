@@ -6,7 +6,8 @@
         命名规范与使用规则见 docs/design/design-tokens.md（前缀 App*，与 Semi* / DataGrid* 键避让）。
 
         1. ThemeDictionaries（明暗翻转画刷）：Dark = 原型原值逐项对应（含 :root 变量与
-           .kpi/.panel/.chip/.linkbtn/.mini-track/.kpi-icon 等选择器里的具体色值，来源见各行注释）；
+           .kpi/.panel/.chip/.linkbtn/.mini-track/.kpi-icon 等选择器里的具体色值，来源见各行注释；
+           D-003 追加 .sidebar/.topbar/.nav 外壳 6 组）；
            Light = 同色相、明度反转的协调值（原型只有暗色主题，浅色侧为本卡设计）。
         2. 普通资源（不随明暗翻转）：7 个图表系列色（原型 JS colors[] 数组）+ mini 进度条填充渐变。
     -->
@@ -53,6 +54,13 @@
             <SolidColorBrush x:Key="AppIconChipGreenForegroundBrush" Color="#0f8f6c"/>
             <SolidColorBrush x:Key="AppIconChipNeutralBackgroundBrush" Color="#e8ecf2"/>
             <SolidColorBrush x:Key="AppIconChipNeutralForegroundBrush" Color="#5a6b80"/>
+            <!-- D-003 应用外壳（sidebar/topbar/nav）← 原型 .sidebar/.topbar/.nav 各选择器色值（Light 为协调补值） -->
+            <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#edf1f7"/>
+            <SolidColorBrush x:Key="AppTopbarBackgroundBrush" Color="#f0f4f9"/>
+            <SolidColorBrush x:Key="AppNavActiveBackgroundBrush" Color="#dbe7fb"/>
+            <SolidColorBrush x:Key="AppNavActiveForegroundBrush" Color="#2b5d9f"/>
+            <SolidColorBrush x:Key="AppNavActiveIndicatorBrush" Color="#2e6bdc"/>
+            <SolidColorBrush x:Key="AppNavHoverBackgroundBrush" Color="#e3eaf4"/>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
@@ -95,6 +103,14 @@
             <SolidColorBrush x:Key="AppIconChipGreenForegroundBrush" Color="#67e3bd"/>
             <SolidColorBrush x:Key="AppIconChipNeutralBackgroundBrush" Color="#263143"/>
             <SolidColorBrush x:Key="AppIconChipNeutralForegroundBrush" Color="#bac8da"/>
+            <!-- D-003 应用外壳 ← .sidebar{background:#0d1626} / .topbar{background:#0e1728} /
+                 .nav button.active{background:#1b2d49;color:#9dc2ff;inset 2px #5794ff} / .nav button:hover{background:#17253b} -->
+            <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#0d1626"/>
+            <SolidColorBrush x:Key="AppTopbarBackgroundBrush" Color="#0e1728"/>
+            <SolidColorBrush x:Key="AppNavActiveBackgroundBrush" Color="#1b2d49"/>
+            <SolidColorBrush x:Key="AppNavActiveForegroundBrush" Color="#9dc2ff"/>
+            <SolidColorBrush x:Key="AppNavActiveIndicatorBrush" Color="#5794ff"/>
+            <SolidColorBrush x:Key="AppNavHoverBackgroundBrush" Color="#17253b"/>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

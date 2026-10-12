@@ -4,6 +4,12 @@
 实现：`src/CCUsage.App/Styles/Tokens.axaml`（令牌）+ `src/CCUsage.App/Styles/SharedStyles.axaml`（共享样式）。
 本文档是 8 个页面卡（D-006 ~ D-013）与 S-002/Q-002 引用的约定。
 
+> D-003 补充：外壳专用令牌 `AppSidebarBackgroundBrush` / `AppTopbarBackgroundBrush` /
+> `AppNavActiveBackgroundBrush` / `AppNavActiveForegroundBrush` / `AppNavActiveIndicatorBrush` /
+> `AppNavHoverBackgroundBrush`（Dark 侧对应原型 `.sidebar/.topbar/.nav` 选择器原值，Light 为协调补值）
+> 已进 ThemeDictionaries；外壳导航样式（`ListBox.nav-list` 等）留在 `MainWindow.axaml` 的 Window.Styles
+> 内（外壳私有，页面卡勿复用），页面级样式仍从 SharedStyles.axaml 取。
+
 ## 1. 键名前缀约定
 
 | 前缀 | 归属 | 说明 |

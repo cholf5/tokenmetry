@@ -67,6 +67,13 @@ public class DesignTokenTests
         ["AppIconChipGreenForegroundBrush"] = ("#0f8f6c", "#67e3bd"),
         ["AppIconChipNeutralBackgroundBrush"] = ("#e8ecf2", "#263143"),
         ["AppIconChipNeutralForegroundBrush"] = ("#5a6b80", "#bac8da"),
+        // D-003 应用外壳（.sidebar/.topbar/.nav 各选择器色值；Light 为协调补值）
+        ["AppSidebarBackgroundBrush"] = ("#edf1f7", "#0d1626"),
+        ["AppTopbarBackgroundBrush"] = ("#f0f4f9", "#0e1728"),
+        ["AppNavActiveBackgroundBrush"] = ("#dbe7fb", "#1b2d49"),
+        ["AppNavActiveForegroundBrush"] = ("#2b5d9f", "#9dc2ff"),
+        ["AppNavActiveIndicatorBrush"] = ("#2e6bdc", "#5794ff"),
+        ["AppNavHoverBackgroundBrush"] = ("#e3eaf4", "#17253b"),
     };
 
     /// <summary>图表系列色（原型 JS colors[] 数组，索引自 0）→ 期望色值，不随明暗翻转。</summary>
