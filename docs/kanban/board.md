@@ -9,8 +9,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| I-028 | UI 聚合查询服务 A：日趋势 + KPI + 区间对比 | P1 | M | — | — |
-| I-029 | UI 聚合查询服务 B：维度聚合 + 会话明细 + 小时分布 | P1 | M | — | — |
 | D-004 | ScottPlot 趋势图正式集成（堆叠柱 + 折线 / hover helper） | P1 | M | — | I-028（软）, I-027 |
 | D-005 | 自绘环形图与热力图控件 | P1 | M | — | I-027 |
 | D-006 | 总览页（上半）：KPI 行 + 使用趋势 + Agent 占比环形 | P1 | M | — | D-003, I-028, D-004, D-005 |
@@ -32,6 +30,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-029 | UI 聚合查询服务 B：维度聚合 + 会话明细 + 小时分布 | P1 | 2026-10-13 |
+| I-028 | UI 聚合查询服务 A：日趋势 + KPI + 区间对比 | P1 | 2026-10-13 |
 | D-003 | 三栏应用外壳 + 导航 + 全局筛选状态 | P1 | 2026-10-13 |
 | I-027 | 设计令牌与共享样式（原型色板 / 卡片 / 系列色 / mini 进度条 / toast） | P1 | 2026-10-13 |
 | I-026 | Semi.Avalonia 主题迁移（含 Avalonia 12.1.x 升级） | P1 | 2026-10-13 |
