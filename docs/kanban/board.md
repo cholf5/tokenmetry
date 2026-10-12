@@ -9,8 +9,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| D-004 | ScottPlot 趋势图正式集成（堆叠柱 + 折线 / hover helper） | P1 | M | — | I-028（软）, I-027 |
-| D-005 | 自绘环形图与热力图控件 | P1 | M | — | I-027 |
 | D-006 | 总览页（上半）：KPI 行 + 使用趋势 + Agent 占比环形 | P1 | M | — | D-003, I-028, D-004, D-005 |
 | D-007 | 总览页（下半）：模型分布 + Token 构成 + 项目排行 + 成本趋势 | P2 | M | — | D-006, I-028, I-029 |
 | D-008 | 会话明细页 + 右栏最近会话联动 | P1 | M | — | D-003, I-029 |
@@ -20,6 +18,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | D-012 | 时间分析页（小时分布 + 活跃日历热力图） | P2 | M | — | D-003, I-028, I-029, D-004, D-005 |
 | D-013 | 成本分析页（计费口径透明） | P2 | S | — | D-003, I-028, I-029 |
 | S-002 | 数据源与设置页重构（原型版） | P2 | M | — | D-003, I-026 |
+| B-004 | flaky：CopilotSessionAdapterTests 间歇多计 LinesSkipped | P2 | S | — | — |
 | Q-002 | 旧视图清理与视觉验收打磨 | P2 | M | — | 本批次全部页面卡 |
 
 > 2026-10-12：按用户决定一次性建 UI 原型落地批次卡 I-026～I-029 / D-003～D-013 / S-002 / Q-002（17 张）。设计基准 `docs/design/ccusage_analytics_prototype.html`（同日自 ~/Downloads 收入仓库）；选型 Semi.Avalonia（依据见 I-026 Background）。本批是 v0.4 主体的全景规划，执行按依赖顺序逐卡进行：I-026 → I-027 → D-003，I-028/I-029 与主题线并行，随后 D-004/D-005 → D-006 → 其余页面 → Q-002。与「看板保持 5–10 张」的常规策略有意偏离，理由同 2026-10-11 适配器批次。
@@ -30,6 +29,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-005 | 自绘环形图与热力图控件 | P1 | 2026-10-13 |
+| D-004 | ScottPlot 趋势图正式集成（堆叠柱 + 折线 / hover helper） | P1 | 2026-10-13 |
 | I-029 | UI 聚合查询服务 B：维度聚合 + 会话明细 + 小时分布 | P1 | 2026-10-13 |
 | I-028 | UI 聚合查询服务 A：日趋势 + KPI + 区间对比 | P1 | 2026-10-13 |
 | D-003 | 三栏应用外壳 + 导航 + 全局筛选状态 | P1 | 2026-10-13 |

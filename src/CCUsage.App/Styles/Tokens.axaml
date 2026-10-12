@@ -61,6 +61,9 @@
             <SolidColorBrush x:Key="AppNavActiveForegroundBrush" Color="#2b5d9f"/>
             <SolidColorBrush x:Key="AppNavActiveIndicatorBrush" Color="#2e6bdc"/>
             <SolidColorBrush x:Key="AppNavHoverBackgroundBrush" Color="#e3eaf4"/>
+            <!-- D-004 图表 chrome（ScottPlot 轴/网格）← 原型 .chart .gridline/.axis 色值（Light 为协调补值） -->
+            <SolidColorBrush x:Key="AppChartGridLineBrush" Color="#d9e1ec"/>
+            <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#b9c5d7"/>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
@@ -111,6 +114,9 @@
             <SolidColorBrush x:Key="AppNavActiveForegroundBrush" Color="#9dc2ff"/>
             <SolidColorBrush x:Key="AppNavActiveIndicatorBrush" Color="#5794ff"/>
             <SolidColorBrush x:Key="AppNavHoverBackgroundBrush" Color="#17253b"/>
+            <!-- D-004 图表 chrome（ScottPlot 轴/网格）← 原型 .chart .gridline{#23344b}/.axis{#35465e}（Dark 原值） -->
+            <SolidColorBrush x:Key="AppChartGridLineBrush" Color="#23344b"/>
+            <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#35465e"/>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

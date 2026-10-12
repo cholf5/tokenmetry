@@ -74,6 +74,9 @@ public class DesignTokenTests
         ["AppNavActiveForegroundBrush"] = ("#2b5d9f", "#9dc2ff"),
         ["AppNavActiveIndicatorBrush"] = ("#2e6bdc", "#5794ff"),
         ["AppNavHoverBackgroundBrush"] = ("#e3eaf4", "#17253b"),
+        // D-004 图表 chrome（.chart .gridline/.axis 色值；Light 为协调补值）
+        ["AppChartGridLineBrush"] = ("#d9e1ec", "#23344b"),
+        ["AppChartAxisLineBrush"] = ("#b9c5d7", "#35465e"),
     };
 
     /// <summary>图表系列色（原型 JS colors[] 数组，索引自 0）→ 期望色值，不随明暗翻转。</summary>
