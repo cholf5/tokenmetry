@@ -3,6 +3,7 @@ namespace CCUsage.Infrastructure.Tests.LocalIngestion;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
+using CCUsage.Infrastructure.Antigravity;
 using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.Codebuff;
@@ -254,6 +255,7 @@ public class LocalIngestionDataSourceTests : IDisposable
             new PiAgentAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "pi-missing")),
             new GrokAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "grok-missing")),
             new OpenClawAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "openclaw-missing")),
+            new AntigravityAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "antigravity-missing")),
             pricingEngine,
             store,
             pricingClient: null,

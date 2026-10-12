@@ -1,0 +1,91 @@
+{
+  "daily": [
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 1500,
+      "date": "2026-05-05",
+      "inputTokens": 1350,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 500,
+          "cost": 0.00355,
+          "inputTokens": 750,
+          "modelName": "gemini-2.5-pro",
+          "outputTokens": 255
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 1000,
+          "cost": 0.0011099999999999999,
+          "inputTokens": 600,
+          "modelName": "gemini-2.5-flash",
+          "outputTokens": 360
+        }
+      ],
+      "modelsUsed": [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash"
+      ],
+      "outputTokens": 615,
+      "totalCost": 0.00466,
+      "totalTokens": 3465
+    },
+    {
+      "cacheCreationTokens": 40,
+      "cacheReadTokens": 1000,
+      "date": "2026-06-09",
+      "inputTokens": 200,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 40,
+          "cacheReadTokens": 1000,
+          "cost": 0.0033,
+          "inputTokens": 200,
+          "modelName": "claude-4-sonnet",
+          "outputTokens": 150
+        }
+      ],
+      "modelsUsed": [
+        "claude-4-sonnet"
+      ],
+      "outputTokens": 150,
+      "totalCost": 0.0033,
+      "totalTokens": 1390
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-06-15",
+      "inputTokens": 1000,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.0,
+          "inputTokens": 1000,
+          "missingPricing": true,
+          "modelName": "mystery-model-x",
+          "outputTokens": 400
+        }
+      ],
+      "modelsUsed": [
+        "mystery-model-x"
+      ],
+      "outputTokens": 400,
+      "totalCost": 0.0,
+      "totalTokens": 1400
+    }
+  ],
+  "totals": {
+    "cacheCreationTokens": 40,
+    "cacheReadTokens": 2500,
+    "inputTokens": 2550,
+    "outputTokens": 1165,
+    "totalCost": 0.00796,
+    "totalTokens": 6255,
+    "unpricedModels": [
+      "mystery-model-x"
+    ]
+  }
+}

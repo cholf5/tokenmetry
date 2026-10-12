@@ -35,6 +35,8 @@ public static class FixturePaths
 
     private const string OpenClawGoldenFileName = "openclaw-fixture-daily-v20.0.29.json";
 
+    private const string AntigravityGoldenFileName = "antigravity-fixture-daily-v20.0.29.json";
+
     public static string Root { get; } = Path.Combine(AppContext.BaseDirectory, "fixtures");
 
     /// <summary>Claude fixture 配置目录（内含 projects/），供 CLAUDE_CONFIG_DIR 等价使用。</summary>
@@ -85,6 +87,9 @@ public static class FixturePaths
     /// <summary>OpenClaw fixture 数据目录（内含 sessions/**&#47;*.jsonl 与 agents/*/agent/openclaw-agent.sqlite），供 OPENCLAW_DIR 等价使用（I-020）。</summary>
     public static string OpenClawRoot => Path.Combine(Root, "openclaw");
 
+    /// <summary>Antigravity fixture 数据目录（内含 conversations/**&#47;*.db），供 ANTIGRAVITY_DATA_DIR 等价使用（I-021）。</summary>
+    public static string AntigravityRoot => Path.Combine(Root, "antigravity");
+
     public static string GoldenDir => Path.Combine(Root, "golden");
 
     public static string ClaudeGoldenPath => Path.Combine(GoldenDir, ClaudeGoldenFileName);
@@ -118,4 +123,6 @@ public static class FixturePaths
     public static string GrokGoldenPath => Path.Combine(GoldenDir, GrokGoldenFileName);
 
     public static string OpenClawGoldenPath => Path.Combine(GoldenDir, OpenClawGoldenFileName);
+
+    public static string AntigravityGoldenPath => Path.Combine(GoldenDir, AntigravityGoldenFileName);
 }

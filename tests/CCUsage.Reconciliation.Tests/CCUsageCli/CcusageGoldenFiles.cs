@@ -149,6 +149,14 @@ public static class CcusageGoldenFiles
 
     public static GoldenReport LoadOpenClawText(string json) => LoadClaudeText(json);
 
+    /// <summary>
+    /// antigravity daily JSON（I-021）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[]
+    /// 逐模型带 cost，未定价模型 cost 0 且 missingPricing=true），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadAntigravity(string path) => LoadAntigravityText(File.ReadAllText(path));
+
+    public static GoldenReport LoadAntigravityText(string json) => LoadClaudeText(json);
+
     public static GoldenReport LoadClaudeText(string json)
     {
         var response = JsonSerializer.Deserialize<GoldenClaudeResponse>(

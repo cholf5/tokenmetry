@@ -1,3 +1,4 @@
+using CCUsage.Infrastructure.Antigravity;
 using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
@@ -169,6 +170,13 @@ public static class RealReconciliationEnvironment
         return roots.Any(root => locator.CollectSessionFiles(root).Count > 0
             || OpenClawSqliteReader.CollectAgentDatabases(root).Count > 0);
     }
+
+    /// <summary>
+    /// Antigravity 数据存在性（I-021）：ANTIGRAVITY_DATA_DIR / 六默认根下发现会话 .db
+    /// （与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasAntigravityData()
+        => new AntigravityLogLocator().CollectConversationDatabasePaths(null).Count > 0;
 
     /// <summary>
     /// dsh-usage-stats 蓝本目录（含 lib/usage.js）：CCUSAGE_DSH_BLUEPRINT 优先，
