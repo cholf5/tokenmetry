@@ -8,11 +8,14 @@ using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.Droid;
 using CCUsage.Infrastructure.GeminiCli;
+using CCUsage.Infrastructure.Grok;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.KimiCode;
+using CCUsage.Infrastructure.Codebuff;
+using CCUsage.Infrastructure.PiAgent;
 using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Reconciliation.Tests.CCUsageCli;
@@ -159,6 +162,27 @@ public static class UsageChainAggregator
     public static async Task<ChainAggregation> AggregateKimiAsync(string? configuredDataDir = null, CancellationToken ct = default)
     {
         var adapter = new KimiCodeAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 CODEBUFF_DATA_DIR / ~/.config/&lt;channel&gt; 自动探测（本机真实数据对账用，I-018）。</summary>
+    public static async Task<ChainAggregation> AggregateCodebuffAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new CodebuffAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 PI_AGENT_DIR / ~/.pi/agent/sessions 自动探测（本机真实数据对账用，I-019）。</summary>
+    public static async Task<ChainAggregation> AggregatePiAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new PiAgentAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 GROK_HOME / ~/.grok 自动探测（本机真实数据对账用，I-022）。</summary>
+    public static async Task<ChainAggregation> AggregateGrokAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new GrokAdapter(configuredDataDir: configuredDataDir);
         return Aggregate(await adapter.ScanAsync(ct));
     }
 

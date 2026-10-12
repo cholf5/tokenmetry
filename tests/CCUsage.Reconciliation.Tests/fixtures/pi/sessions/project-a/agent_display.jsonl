@@ -1,0 +1,3 @@
+{"type":"session","id":"display","timestamp":"2026-01-13T00:00:00.000Z"}
+{"type":"message","timestamp":"2026-01-13T09:00:00.000Z","message":{"role":"assistant","model":"gpt-5","usage":{"input":2000,"output":400,"cacheRead":1000,"cacheWrite":0,"totalTokens":3400,"cost":{"total":0.05}}}}
+{"type":"message","timestamp":"2026-01-13T10:00:00.000Z","message":{"role":"assistant","model":"gpt-5","usage":{"input":1000,"output":2000,"cacheRead":0,"cacheWrite":0,"totalTokens":3000,"cost":{"total":-1.25}}}}

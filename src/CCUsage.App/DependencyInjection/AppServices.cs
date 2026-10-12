@@ -8,17 +8,20 @@ using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.CCUsageCli;
 using CCUsage.Infrastructure.Cache;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
+using CCUsage.Infrastructure.Codebuff;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.Droid;
 using CCUsage.Infrastructure.GeminiCli;
+using CCUsage.Infrastructure.Grok;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.LocalIngestion;
 using CCUsage.Infrastructure.OpenCodeSqlite;
+using CCUsage.Infrastructure.PiAgent;
 using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 using CCUsage.Infrastructure.ModelsDev;
@@ -88,6 +91,12 @@ public static class AppServices
         services.AddSingleton<IQwenCodeAdapter>(sp => sp.GetRequiredService<QwenCodeAdapter>());
         services.AddSingleton<KimiCodeAdapter>();
         services.AddSingleton<IKimiCodeAdapter>(sp => sp.GetRequiredService<KimiCodeAdapter>());
+        services.AddSingleton<CodebuffAdapter>();
+        services.AddSingleton<ICodebuffAdapter>(sp => sp.GetRequiredService<CodebuffAdapter>());
+        services.AddSingleton<PiAgentAdapter>();
+        services.AddSingleton<IPiAgentAdapter>(sp => sp.GetRequiredService<PiAgentAdapter>());
+        services.AddSingleton<GrokAdapter>();
+        services.AddSingleton<IGrokAdapter>(sp => sp.GetRequiredService<GrokAdapter>());
 
         // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）；
         // CLI 数据源保留注册用于对账与手动导入（Reconciliation 测试套件 / 后续接线），不再是默认。

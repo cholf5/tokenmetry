@@ -1,0 +1,2 @@
+not json
+{"type":"message","timestamp":"2026-01-15T09:00:00.000Z","message":{"role":"assistant","model":"gpt-5","usage":{"input":10,"output":20,"cacheRead":0,"cacheWrite":0,"totalTokens":30,"cost":{"total":0.01}}}}

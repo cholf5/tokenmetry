@@ -3,17 +3,20 @@ using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
+using CCUsage.Infrastructure.Codebuff;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.Droid;
 using CCUsage.Infrastructure.GeminiCli;
+using CCUsage.Infrastructure.Grok;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.ModelsDev;
 using CCUsage.Infrastructure.OpenCodeSqlite;
+using CCUsage.Infrastructure.PiAgent;
 using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
@@ -22,7 +25,8 @@ namespace CCUsage.Infrastructure.LocalIngestion;
 /// <summary>
 /// 本地采集数据源（I-005，I-006 起含 ZCode，I-007 起含 DSH，I-008 起含 Copilot CLI，
 /// I-009 起含 OpenCode，I-012 起含 Goose，I-016 起含 Hermes，I-017 起含 Kilo，I-010 起含 Gemini CLI，
-/// I-014 起含 Amp，I-015 起含 Droid，I-011 起含 Qwen Code，I-013 起含 Kimi）：
+/// I-014 起含 Amp，I-015 起含 Droid，I-011 起含 Qwen Code，I-013 起含 Kimi，I-018 起含 Codebuff，
+/// I-019 起含 pi-agent，I-022 起含 Grok）：
 /// 直读适配器扫描 → 定价 → facts 落库 → 从 facts 读回每日汇总。刷新流程：各适配器扫描
 /// （JSONL 增量 / SQLite 账本全量）→
 /// <see cref="PricingEngine"/> 为无 costUSD 的记录补价（补价结果进侧表、不写回记录实例——增量扫描
@@ -50,6 +54,9 @@ public class LocalIngestionDataSource : IUsageDataSource
     private readonly IDroidAdapter _droidAdapter;
     private readonly IQwenCodeAdapter _qwenAdapter;
     private readonly IKimiCodeAdapter _kimiAdapter;
+    private readonly ICodebuffAdapter _codebuffAdapter;
+    private readonly IPiAgentAdapter _piAdapter;
+    private readonly IGrokAdapter _grokAdapter;
     private readonly PricingEngine _pricingEngine;
     private readonly ModelsDevPricingClient? _pricingClient;
     private readonly IUsageStore _store;
@@ -74,6 +81,9 @@ public class LocalIngestionDataSource : IUsageDataSource
         IDroidAdapter droidAdapter,
         IQwenCodeAdapter qwenAdapter,
         IKimiCodeAdapter kimiAdapter,
+        ICodebuffAdapter codebuffAdapter,
+        IPiAgentAdapter piAdapter,
+        IGrokAdapter grokAdapter,
         PricingEngine pricingEngine,
         IUsageStore store,
         ModelsDevPricingClient? pricingClient = null,
@@ -93,6 +103,9 @@ public class LocalIngestionDataSource : IUsageDataSource
         _droidAdapter = droidAdapter ?? throw new ArgumentNullException(nameof(droidAdapter));
         _qwenAdapter = qwenAdapter ?? throw new ArgumentNullException(nameof(qwenAdapter));
         _kimiAdapter = kimiAdapter ?? throw new ArgumentNullException(nameof(kimiAdapter));
+        _codebuffAdapter = codebuffAdapter ?? throw new ArgumentNullException(nameof(codebuffAdapter));
+        _piAdapter = piAdapter ?? throw new ArgumentNullException(nameof(piAdapter));
+        _grokAdapter = grokAdapter ?? throw new ArgumentNullException(nameof(grokAdapter));
         _pricingEngine = pricingEngine ?? throw new ArgumentNullException(nameof(pricingEngine));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _pricingClient = pricingClient;
@@ -125,10 +138,13 @@ public class LocalIngestionDataSource : IUsageDataSource
             var droid = await _droidAdapter.ScanAsync(ct);
             var qwen = await _qwenAdapter.ScanAsync(ct);
             var kimi = await _kimiAdapter.ScanAsync(ct);
+            var codebuff = await _codebuffAdapter.ScanAsync(ct);
+            var pi = await _piAdapter.ScanAsync(ct);
+            var grok = await _grokAdapter.ScanAsync(ct);
             var records = claude.Records.Concat(codex.Records).Concat(zcode.Records).Concat(dsh.Records)
                 .Concat(copilot.Records).Concat(openCode.Records).Concat(goose.Records)
                 .Concat(hermes.Records).Concat(kilo.Records).Concat(gemini.Records).Concat(amp.Records)
-                .Concat(droid.Records).Concat(qwen.Records).Concat(kimi.Records).ToList();
+                .Concat(droid.Records).Concat(qwen.Records).Concat(kimi.Records).Concat(codebuff.Records).Concat(pi.Records).Concat(grok.Records).ToList();
             if (records.Count == 0)
             {
                 // 无记录（日志目录不存在 / 全空）时不动存储：保留既有数据（含旧 CLI 行），

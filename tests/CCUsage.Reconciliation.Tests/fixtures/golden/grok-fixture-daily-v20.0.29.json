@@ -1,0 +1,91 @@
+{
+  "daily": [
+    {
+      "cacheCreationTokens": 25,
+      "cacheReadTokens": 11454,
+      "date": "2025-06-15",
+      "inputTokens": 7645,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 25,
+          "cacheReadTokens": 11304,
+          "cost": 0.0236792,
+          "inputTokens": 7265,
+          "modelName": "grok-4.5-build",
+          "outputTokens": 160
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 100,
+          "cost": 0.0,
+          "inputTokens": 200,
+          "missingPricing": true,
+          "modelName": "grokbuild-alpha-x1",
+          "outputTokens": 50
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 50,
+          "cost": 0.0,
+          "inputTokens": 150,
+          "missingPricing": true,
+          "modelName": "grokbuild-beta-x2",
+          "outputTokens": 40
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.0,
+          "inputTokens": 30,
+          "missingPricing": true,
+          "modelName": "unknown",
+          "outputTokens": 3
+        }
+      ],
+      "modelsUsed": [
+        "grok-4.5-build",
+        "grokbuild-alpha-x1",
+        "grokbuild-beta-x2",
+        "unknown"
+      ],
+      "outputTokens": 253,
+      "totalCost": 0.0236792,
+      "totalTokens": 19377
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-07-29",
+      "inputTokens": 10,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.001,
+          "inputTokens": 10,
+          "modelName": "grok-4.5-build",
+          "outputTokens": 1
+        }
+      ],
+      "modelsUsed": [
+        "grok-4.5-build"
+      ],
+      "outputTokens": 1,
+      "totalCost": 0.001,
+      "totalTokens": 11
+    }
+  ],
+  "totals": {
+    "cacheCreationTokens": 25,
+    "cacheReadTokens": 11454,
+    "inputTokens": 7655,
+    "outputTokens": 254,
+    "totalCost": 0.024679200000000002,
+    "totalTokens": 19388,
+    "unpricedModels": [
+      "grokbuild-alpha-x1",
+      "grokbuild-beta-x2",
+      "unknown"
+    ]
+  }
+}
