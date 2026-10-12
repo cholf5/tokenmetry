@@ -35,6 +35,41 @@
         <Setter Property="MinHeight" Value="124"/>
     </Style>
 
+    <!-- KPI 卡顶标签 ← 原型 .kpi-top{color:#b7c5d9;font-size:12px}（D-006） -->
+    <Style Selector="TextBlock.kpi-top">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppKpiTitleBrush}"/>
+    </Style>
+
+    <!-- KPI 主数值 ← 原型 .kpi-value{font-size:25px;font-weight:700;letter-spacing:-.6px;margin:8px 0 4px;white-space:nowrap} -->
+    <Style Selector="TextBlock.kpi-value">
+        <Setter Property="FontSize" Value="25"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="LetterSpacing" Value="-0.6"/>
+        <Setter Property="Margin" Value="0,8,0,4"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+    </Style>
+
+    <!-- KPI 脚注 ← 原型 .kpi-foot{font-size:11px;color=muted 变量} -->
+    <Style Selector="TextBlock.kpi-foot">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+    </Style>
+
+    <!-- KPI 环比箭头 ← 原型 .kpi-foot 的 .up=var green / .down=var red（D-006）。
+         颜色复用 :root 强调色令牌（AppAccentGreen/RedBrush 与 green/red 变量同源）；
+         箭头态经 Classes.kpi-change-up/down/flat 类绑定切换，平/无对比用 muted。
+         注意必须排在 kpi-foot 之后：同为单类选择器，后声明的 Foreground 覆盖脚注底色。 -->
+    <Style Selector="TextBlock.kpi-change-up">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentGreenBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.kpi-change-down">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentRedBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.kpi-change-flat">
+        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+    </Style>
+
     <!-- 页面标题 ← 原型 .pagehead h1{font-size:21px;font-weight:650;letter-spacing:-.4px} -->
     <Style Selector="TextBlock.page-title">
         <Setter Property="FontSize" Value="21"/>

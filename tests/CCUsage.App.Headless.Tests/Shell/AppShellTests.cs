@@ -15,6 +15,7 @@ using CCUsage.App.DependencyInjection;
 using CCUsage.App.Services;
 using CCUsage.App.ViewModels;
 using CCUsage.App.Views;
+using CCUsage.Core.Abstractions;
 using Xunit;
 
 namespace CCUsage.App.Headless.Tests.Shell;
@@ -22,7 +23,7 @@ namespace CCUsage.App.Headless.Tests.Shell;
 /// <summary>
 /// D-003 三栏应用外壳的自动化验证（headless，真实 App.axaml + Semi）：
 /// 1. 三栏结构（顶部栏 / 左侧导航 / 主内容路由 / 右侧最近会话栏）与 8 项导航；
-/// 2. 导航切换路由（占位视图 / 设置页真实视图）与选中态；
+/// 2. 导航切换路由（总览真实页 D-006 / 占位视图 / 设置页真实视图）与选中态；
 /// 3. 全局筛选状态（FilterStateService）变更通知到达订阅页 VM、跨线程写入 marshal 到 UI 线程；
 /// 4. 右栏最近会话 + 快速筛选骨架、顶部栏筛选与数据状态；
 /// 5. 最小窗口尺寸下三栏不破、方向键移动导航选中（键盘可达）；
@@ -30,11 +31,13 @@ namespace CCUsage.App.Headless.Tests.Shell;
 /// </summary>
 public class AppShellTests
 {
-    /// <summary>隔离 VM：新 FilterStateService，断言默认值/通知机制不受单例状态与其它用例影响。</summary>
+    /// <summary>隔离 VM：新 FilterStateService，断言默认值/通知机制不受单例状态与其它用例影响。
+    /// 查询服务为常驻单例（无会话状态），直接取 DI 实例（总览页按全局筛选重查，见 OverviewTests）。</summary>
     private static MainWindowViewModel CreateIsolatedShellViewModel() =>
         new(new FilterStateService(),
             AppServices.Get<SettingsViewModel>(),
-            AppServices.Get<SessionsPanelViewModel>());
+            AppServices.Get<SessionsPanelViewModel>(),
+            AppServices.Get<IUsageQueryService>());
 
     [AvaloniaFact]
     public void Shell_has_three_columns_with_topbar_sidebar_and_sessions_panel()
@@ -75,11 +78,11 @@ public class AppShellTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        // 初始路由到总览占位页，第一项为选中态
-        var initial = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
+        // 初始路由到总览页（D-006 真实页，非占位），第一项为选中态
+        var initial = Assert.IsType<OverviewViewModel>(vm.CurrentPage);
         Assert.Equal(PageId.Overview, initial.Page.Id);
         Assert.Same(vm.NavigationItems[0], vm.SelectedNavigation);
-        Assert.True(window.GetVisualDescendants().OfType<PagePlaceholderView>().Any());
+        Assert.True(window.GetVisualDescendants().OfType<OverviewView>().Any());
 
         // 切到会话明细
         vm.SelectedNavigation = vm.NavigationItems[1];
@@ -103,8 +106,12 @@ public class AppShellTests
     {
         var vm = CreateIsolatedShellViewModel();
 
-        // 默认筛选：最近 7 天 · 所有 Agent，占位页可观测
+        // 初始页为总览真实页（D-006）；占位页行为用会话明细页验证
+        Assert.IsType<OverviewViewModel>(vm.CurrentPage);
+        vm.SelectedNavigation = vm.NavigationItems[1];
         var placeholder = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
+
+        // 默认筛选：最近 7 天 · 所有 Agent，占位页可观测
         Assert.Equal("最近 7 天 · 所有 Agent", placeholder.CurrentFilterDisplay);
 
         // 切时间范围 → 通知到达订阅页 VM
@@ -127,17 +134,21 @@ public class AppShellTests
     public void Navigating_away_unsubscribes_old_placeholder_from_filter_changes()
     {
         var vm = CreateIsolatedShellViewModel();
-        var overview = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
+        // 初始为总览真实页（其 Dispose 退订回归在 OverviewTests），占位页退订用两次占位跳转验证
+        Assert.IsType<OverviewViewModel>(vm.CurrentPage);
+
+        vm.SelectedNavigation = vm.NavigationItems[1];
+        var sessions = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
+
+        vm.SelectedNavigation = vm.NavigationItems[2];
+        var agents = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
+        Assert.NotSame(sessions, agents);
 
         // 导航离开后旧占位页不再收筛选通知（Dispose 退订）。FilterStateService 为常驻单例，
         // 强引用订阅不退订会随导航次数无界累积（D-003 审查 P1 修复的回归用例）。
-        vm.SelectedNavigation = vm.NavigationItems[1];
-        Assert.NotSame(overview, vm.CurrentPage);
-
         vm.Filters.TimeRange = TimeRangeOption.Options[2]; // 最近 90 天
-        Assert.Equal("最近 90 天 · 所有 Agent",
-            Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage!).CurrentFilterDisplay);
-        Assert.Equal("最近 7 天 · 所有 Agent", overview.CurrentFilterDisplay); // 旧实例冻结在退订前的值
+        Assert.Equal("最近 90 天 · 所有 Agent", agents.CurrentFilterDisplay);
+        Assert.Equal("最近 7 天 · 所有 Agent", sessions.CurrentFilterDisplay); // 旧实例冻结在退订前的值
     }
 
     [AvaloniaFact]
