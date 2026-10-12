@@ -1,0 +1,189 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:CCUsage.App.ViewModels"
+             xmlns:c="using:CCUsage.App.Controls"
+             mc:Ignorable="d"
+             x:Class="CCUsage.App.Views.OverviewView"
+             x:DataType="vm:OverviewViewModel">
+
+    <!--
+        D-006 总览页上半（原型 #page-overview 的 .kpis 与 .grid2 第一行）：
+        页头（标题/副标题）+ 四张 KPI 卡（环比箭头 ↑绿/↓红/→平 走令牌类）+
+        Token 使用趋势（D-004 TrendChart DailyTokens）+ Agent 使用占比环形（D-005 DonutChart）。
+        筛选控件在外壳顶部栏（D-003 全局状态），本页只随 FilterStateService 刷新。
+        下半区（模型分布 / Token 构成 / 项目排行 / 成本趋势）由 D-007 落地。
+    -->
+    <StackPanel Spacing="13">
+
+        <!-- 页头（原型 .pagehead；筛选下拉在顶部栏，不在此重复） -->
+        <StackPanel Spacing="4">
+            <TextBlock Classes="page-title" Text="{Binding Page.Title}"/>
+            <TextBlock Classes="page-subtitle" Text="{Binding Page.Subtitle}"/>
+        </StackPanel>
+
+        <!-- 加载失败（诚实错误态；筛选再变化自动重试） -->
+        <Border Classes="panel" Padding="13" IsVisible="{Binding HasLoadError}">
+            <TextBlock Classes="page-subtitle" Text="{Binding LoadError}"/>
+        </Border>
+
+        <!-- ═══ .kpis：四张 KPI 卡（icon-chip 四色对齐原型 .kpi-icon nth-child 顺序）═══ -->
+        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+
+            <!-- 1. 总 Token 数 -->
+            <Border Grid.Column="0" Classes="kpi">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="9">
+                        <Border Classes="icon-chip"
+                                Background="{DynamicResource AppIconChipBlueBackgroundBrush}">
+                            <TextBlock Text="◈"
+                                       Foreground="{DynamicResource AppIconChipBlueForegroundBrush}"/>
+                        </Border>
+                        <TextBlock Classes="kpi-top" Text="总 Token 数" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Classes="kpi-value" Text="{Binding TokensCard.Value}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Classes="kpi-foot"
+                                   Text="{Binding TokensCard.ChangeText}"
+                                   Classes.kpi-change-up="{Binding TokensCard.IsUp}"
+                                   Classes.kpi-change-down="{Binding TokensCard.IsDown}"
+                                   Classes.kpi-change-flat="{Binding TokensCard.IsFlat}"/>
+                        <TextBlock Classes="kpi-foot" Text="vs 上一周期"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 2. 估算成本（未知成本四态文案由 VM 给出：未知 / $x.xx+ / $x.xx / —） -->
+            <Border Grid.Column="1" Classes="kpi">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="9">
+                        <Border Classes="icon-chip"
+                                Background="{DynamicResource AppIconChipAmberBackgroundBrush}">
+                            <TextBlock Text="$"
+                                       Foreground="{DynamicResource AppIconChipAmberForegroundBrush}"/>
+                        </Border>
+                        <TextBlock Classes="kpi-top" Text="估算成本" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Classes="kpi-value" Text="{Binding CostCard.Value}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Classes="kpi-foot"
+                                   Text="{Binding CostCard.ChangeText}"
+                                   Classes.kpi-change-up="{Binding CostCard.IsUp}"
+                                   Classes.kpi-change-down="{Binding CostCard.IsDown}"
+                                   Classes.kpi-change-flat="{Binding CostCard.IsFlat}"/>
+                        <TextBlock Classes="kpi-foot" Text="按模型价格估算"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 3. 会话数 -->
+            <Border Grid.Column="2" Classes="kpi">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="9">
+                        <Border Classes="icon-chip"
+                                Background="{DynamicResource AppIconChipPurpleBackgroundBrush}">
+                            <TextBlock Text="▣"
+                                       Foreground="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
+                        </Border>
+                        <TextBlock Classes="kpi-top" Text="会话数" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Classes="kpi-value" Text="{Binding SessionsCard.Value}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Classes="kpi-foot"
+                                   Text="{Binding SessionsCard.ChangeText}"
+                                   Classes.kpi-change-up="{Binding SessionsCard.IsUp}"
+                                   Classes.kpi-change-down="{Binding SessionsCard.IsDown}"
+                                   Classes.kpi-change-flat="{Binding SessionsCard.IsFlat}"/>
+                        <TextBlock Classes="kpi-foot" Text="跨 Agent 汇总"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 4. 缓存读取占比（总 token 为 0 时无基数 → "—"，不伪造 0%） -->
+            <Border Grid.Column="3" Classes="kpi">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="9">
+                        <Border Classes="icon-chip"
+                                Background="{DynamicResource AppIconChipGreenBackgroundBrush}">
+                            <TextBlock Text="↻"
+                                       Foreground="{DynamicResource AppIconChipGreenForegroundBrush}"/>
+                        </Border>
+                        <TextBlock Classes="kpi-top" Text="缓存读取占比" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Classes="kpi-value" Text="{Binding CacheCard.Value}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Classes="kpi-foot"
+                                   Text="{Binding CacheCard.ChangeText}"
+                                   Classes.kpi-change-up="{Binding CacheCard.IsUp}"
+                                   Classes.kpi-change-down="{Binding CacheCard.IsDown}"
+                                   Classes.kpi-change-flat="{Binding CacheCard.IsFlat}"/>
+                        <TextBlock Classes="kpi-foot" Text="缓存读取 / 输入相关 Token"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ═══ .grid2 第一行：趋势图 + Agent 环形（gap:12px；minmax(0,1.55fr)/minmax(250px,.85fr)）═══ -->
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.55*"/>
+                <ColumnDefinition Width="0.85*" MinWidth="250"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Token 使用趋势（原型 .panel + .panelhead h2/.meta/.legend；.chart 高 190px） -->
+            <Border Grid.Column="0" Classes="panel">
+                <StackPanel Spacing="10">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="12"
+                                    VerticalAlignment="Center">
+                            <TextBlock Classes="kpi-foot" Text="按日汇总" VerticalAlignment="Center"/>
+                            <!-- 图例三色 ← 原型 legend 输入=blue / 输出=purple / 总量=cyan -->
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border Classes="series-dot"
+                                        Background="{DynamicResource AppAccentBlueBrush}"
+                                        VerticalAlignment="Center"/>
+                                <TextBlock Text="输入" FontSize="10"
+                                           Foreground="{DynamicResource AppMutedTextBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border Classes="series-dot"
+                                        Background="{DynamicResource AppAccentPurpleBrush}"
+                                        VerticalAlignment="Center"/>
+                                <TextBlock Text="输出" FontSize="10"
+                                           Foreground="{DynamicResource AppMutedTextBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border Classes="series-dot"
+                                        Background="{DynamicResource AppAccentCyanBrush}"
+                                        VerticalAlignment="Center"/>
+                                <TextBlock Text="总量" FontSize="10"
+                                           Foreground="{DynamicResource AppMutedTextBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock Classes="panel-title" Text="Token 使用趋势" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <c:TrendChart Height="190" Mode="DailyTokens" DailyPoints="{Binding DailyPoints}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Agent 使用占比（环中心 = KPI 总 Token 紧凑格式，副文字对齐原型 "Total Tokens"） -->
+            <Border Grid.Column="1" Classes="panel">
+                <StackPanel Spacing="13">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="按 Token 总量"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Classes="panel-title" Text="Agent 使用占比" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <c:DonutChart Segments="{Binding AgentSegments}"
+                                  CenterTitle="{Binding AgentDonutCenterTitle}"
+                                  CenterSubtitle="Total Tokens"
+                                  HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </StackPanel>
+</UserControl>

@@ -54,6 +54,8 @@
             <SolidColorBrush x:Key="AppIconChipGreenForegroundBrush" Color="#0f8f6c"/>
             <SolidColorBrush x:Key="AppIconChipNeutralBackgroundBrush" Color="#e8ecf2"/>
             <SolidColorBrush x:Key="AppIconChipNeutralForegroundBrush" Color="#5a6b80"/>
+            <!-- KPI 卡顶标签 ← 原型 .kpi-top{color:#b7c5d9}（Light 为协调补值，D-006） -->
+            <SolidColorBrush x:Key="AppKpiTitleBrush" Color="#5d6f86"/>
             <!-- D-003 应用外壳（sidebar/topbar/nav）← 原型 .sidebar/.topbar/.nav 各选择器色值（Light 为协调补值） -->
             <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#edf1f7"/>
             <SolidColorBrush x:Key="AppTopbarBackgroundBrush" Color="#f0f4f9"/>
@@ -106,6 +108,8 @@
             <SolidColorBrush x:Key="AppIconChipGreenForegroundBrush" Color="#67e3bd"/>
             <SolidColorBrush x:Key="AppIconChipNeutralBackgroundBrush" Color="#263143"/>
             <SolidColorBrush x:Key="AppIconChipNeutralForegroundBrush" Color="#bac8da"/>
+            <!-- KPI 卡顶标签 ← 原型 .kpi-top{color:#b7c5d9}（Dark 原值，D-006） -->
+            <SolidColorBrush x:Key="AppKpiTitleBrush" Color="#b7c5d9"/>
             <!-- D-003 应用外壳 ← .sidebar{background:#0d1626} / .topbar{background:#0e1728} /
                  .nav button.active{background:#1b2d49;color:#9dc2ff;inset 2px #5794ff} / .nav button:hover{background:#17253b} -->
             <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#0d1626"/>

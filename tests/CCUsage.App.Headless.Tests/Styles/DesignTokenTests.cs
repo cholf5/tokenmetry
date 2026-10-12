@@ -56,6 +56,8 @@ public class DesignTokenTests
         ["AppChipTextBrush"] = ("#2b5d9f", "#a8c8ff"),
         // mini 进度条轨道（.mini-track）
         ["AppMiniTrackBrush"] = ("#e2e8f0", "#23334b"),
+        // KPI 卡顶标签（.kpi-top；D-006，Light 为协调补值）
+        ["AppKpiTitleBrush"] = ("#5d6f86", "#b7c5d9"),
         // 图标/头像软色底（.kpi-icon 四变体 + .agenticon.gray）
         ["AppIconChipBlueBackgroundBrush"] = ("#dce9fb", "#20395b"),
         ["AppIconChipBlueForegroundBrush"] = ("#2f66c0", "#8db8ff"),

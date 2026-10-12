@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CCUsage.App.Services;
+using CCUsage.Core.Abstractions;
 
 namespace CCUsage.App.ViewModels;
 
@@ -15,6 +16,7 @@ namespace CCUsage.App.ViewModels;
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly FilterStateService _filters;
+    private readonly IUsageQueryService _usageQuery;
 
     [ObservableProperty]
     private string _title = "ccusage — Token Analytics";
@@ -49,11 +51,13 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(
         FilterStateService filters,
         SettingsViewModel settings,
-        SessionsPanelViewModel sessionsPanel)
+        SessionsPanelViewModel sessionsPanel,
+        IUsageQueryService usageQuery)
     {
         _filters = filters;
         Settings = settings;
         SessionsPanel = sessionsPanel;
+        _usageQuery = usageQuery;
 
         SelectedNavigation = NavigationItems[0];
         CurrentPage = CreatePage(PageId.Overview);
@@ -66,15 +70,17 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        // 占位页 VM 每次导航新建，旧实例先退订全局筛选（见 PagePlaceholderViewModel.Dispose）；
-        // Settings 是 DI 单例，不属于本方法生命周期管理。
-        (CurrentPage as PagePlaceholderViewModel)?.Dispose();
+        // 页面 VM 每次导航新建，旧实例先退订全局筛选（实现 IDisposable 的页面 VM 约定，
+        // 见 PagePlaceholderViewModel/OverviewViewModel）；Settings 是 DI 单例，不属于本方法生命周期管理。
+        (CurrentPage as IDisposable)?.Dispose();
         CurrentPage = CreatePage(value.Page.Id);
     }
 
     private ViewModelBase CreatePage(PageId id) => id switch
     {
         PageId.Settings => Settings,
+        // D-006：总览为真实页（KPI + 趋势 + Agent 环形），随全局筛选刷新
+        PageId.Overview => new OverviewViewModel(ShellPages.For(id), _filters, _usageQuery),
         _ => new PagePlaceholderViewModel(ShellPages.For(id), _filters),
     };
 

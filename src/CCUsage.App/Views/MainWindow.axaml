@@ -76,6 +76,9 @@
          [I-027] StylePreviewView 临时页自本卡起没有导航入口（明暗截图留档与 headless 用例仍直接
          实例化该视图，重生成命令见 I-027/D-003 卡 Verification），Q-002 清理时随旧视图一并处置。 -->
     <Window.DataTemplates>
+        <DataTemplate DataType="vm:OverviewViewModel">
+            <views:OverviewView/>
+        </DataTemplate>
         <DataTemplate DataType="vm:PagePlaceholderViewModel">
             <views:PagePlaceholderView/>
         </DataTemplate>
