@@ -52,6 +52,7 @@ Expected:
 ### 2026-10-13
 
 - 建卡（D-004/D-005 审查轮抓到实锤 + PM 侧 2 次未命名观察，证据如 Background）。
+- 追加（D-008 验证轮新实锤，同家族另一用例）：`CopilotSessionAdapterTests.Discovers_session_state_files_without_nested_session_files` 间歇失败——`FilesDiscovered` 期望 1 实得 2。**新候选根因（机制明确，待复现锁定）**：`CopilotOtelMergeTests` 多处以 `Environment.SetEnvironmentVariable(CopilotLogLocator.OtelExporterPathEnvVariable, …)` 修改**进程级** `COPILOT_OTEL_FILE_EXPORTER_PATH`（tests/CCUsage.Infrastructure.Tests/CopilotSession/CopilotOtelMergeTests.cs:711/742/801，finally 清空于 725/751/820），而 xunit 按集合并行跑测试类——`CopilotLogLocator.CollectSourceFiles` 对该环境变量"非空且指向既有文件即纳入发现"（CopilotLogLocator.cs 的 exporter-path 分支），并行窗口内 `CopilotSessionAdapterTests` 的扫描会多计入 merge 测试设置的导出文件。此机制可同时解释本卡 Background 里 `LinesSkipped` 型漂移（多出的文件行被计入 skipped）。修复方向：merge 测试改注入假 `environmentAccessor`（`CopilotLogLocator`/适配器已支持注入）而非动进程环境，或环境变量用例与目录发现用例归入非并行集合。D-008 不动 Infrastructure（超卡范围），仅记录证据。
 
 ## Bugs
 

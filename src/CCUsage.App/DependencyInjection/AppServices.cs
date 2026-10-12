@@ -126,6 +126,10 @@ public static class AppServices
         // 时区用本机（与采集侧 facts 分桶默认一致）。
         services.AddSingleton<IUsageQueryService>(new UsageQueryService(store));
 
+        // D-008 筛选选项目录（Agent/模型/项目清单）：I-029 维度查询 + 服务层缓存，
+        // 全局 Agent 下拉（FilterStateService）与右栏快速筛选共用同一份（单一真相源）。
+        services.AddSingleton<AgentCatalogService>();
+
         // Notifications
         services.AddSingleton<ISystemNotification, NullSystemNotification>();
 

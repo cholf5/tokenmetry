@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:CCUsage.App.ViewModels"
+        xmlns:c="using:CCUsage.App.Controls"
         xmlns:views="using:CCUsage.App.Views"
         xmlns:svc="using:CCUsage.App.Services"
         mc:Ignorable="d"
@@ -17,7 +18,7 @@
         D-003 三栏应用外壳（原型 .app/.topbar/.shell/.sidebar/.sessions-panel）：
         顶部栏 = 全局筛选（时间范围 + Agent）+ 数据状态 + 设置入口；
         左侧栏 = 品牌 + 8 项导航；中间 = 页面路由（ContentControl + DataTemplates）；
-        右侧栏 = 最近会话 + 快速筛选骨架（真实数据接线在 D-008）。
+        右侧栏 = 最近会话（D-008 真实数据）+ 快速筛选（会话页级，关系定案见 SessionsPanelViewModel）。
         窗口 chrome 沿用系统边框（2026-10-12 卡内决策，不复刻原型 mac 红绿灯）。
         最小尺寸 960×640：184 + ≥420 主内容 + 276 三栏不破（原型 .shell 最小列宽同源）。
     -->
@@ -70,6 +71,20 @@
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
+
+        <!-- 右栏最近会话列表（原型 .sessionlist）：透明 ListBox，行距在行模板里；
+             点击 = toast 占位下钻（D-008 定案），Semi 默认选中底色保留作点击反馈 -->
+        <Style Selector="ListBox.session-list">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.session-list ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0,0,0,0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
     </Window.Styles>
 
     <!-- D-003 页面路由：CurrentPage（页面 VM）→ 视图。未落地页面共用 PagePlaceholderView；
@@ -78,6 +93,9 @@
     <Window.DataTemplates>
         <DataTemplate DataType="vm:OverviewViewModel">
             <views:OverviewView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:SessionsViewModel">
+            <views:SessionsView/>
         </DataTemplate>
         <DataTemplate DataType="vm:PagePlaceholderViewModel">
             <views:PagePlaceholderView/>
@@ -108,7 +126,7 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </StackPanel>
-                <!-- 全局 Agent 筛选（占位清单，D-008 接真数据） -->
+                <!-- 全局 Agent 筛选（选项清单 = AgentCatalogService 真实数据，D-008 接线；初始仅"所有 Agent"） -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">
                     <TextBlock Classes="topbar-label" Text="Agent"/>
                     <ComboBox MinWidth="140"
@@ -239,26 +257,60 @@
                                 x:DataType="vm:SessionsPanelViewModel"
                                 DataContext="{Binding SessionsPanel}"
                                 Margin="0,10,0,0">
-                        <!-- 列表骨架 + 诚实空态（真实数据接线在 D-008） -->
-                        <StackPanel Margin="0,18,0,0" Spacing="4" HorizontalAlignment="Center">
-                            <TextBlock Text="暂无最近会话"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource AppMutedTextBrush}"
-                                       HorizontalAlignment="Center"/>
-                            <TextBlock Text="会话列表将在会话明细页（D-008）接入真实数据"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource AppMutedTextBrush}"
-                                       HorizontalAlignment="Center"
-                                       TextWrapping="Wrap"
-                                       TextAlignment="Center"/>
-                        </StackPanel>
+                        <!-- 最近会话（D-008 真实数据：全局筛选映射 + 最近活动 Top6；行观感对齐原型 .session）。
+                             点击行 = toast 占位下钻（SessionsPanelViewModel.SelectedRecentSession）。 -->
+                        <ListBox Classes="session-list"
+                                 IsVisible="{Binding HasRecentSessions}"
+                                 ItemsSource="{Binding RecentSessions}"
+                                 SelectedItem="{Binding SelectedRecentSession, Mode=TwoWay}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:RecentSessionRowViewModel">
+                                    <Grid ColumnDefinitions="30,*" ColumnSpacing="9" Margin="0,12,0,0">
+                                        <!-- 软色底图标：变体经 AgentChip.Variant 附加属性 → chip-* 伪类
+                                             DynamicResource 着色（按控件 ActualThemeVariant，明暗自动翻转） -->
+                                        <Border Grid.Column="0" Width="29" Height="29" CornerRadius="9"
+                                                c:AgentChip.Variant="{Binding ChipVariant}"
+                                                VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding IconGlyph}" FontSize="14"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="3" MinWidth="0">
+                                            <TextBlock Text="{Binding Agent}" FontSize="11"
+                                                       Foreground="{DynamicResource AppTextBrush}"/>
+                                            <TextBlock Text="{Binding TitleText}" FontSize="11"
+                                                       Foreground="{DynamicResource AppMutedTextBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Grid.Column="0" Text="{Binding TokensText}" FontSize="10"
+                                                           Foreground="{DynamicResource AppMutedTextBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" FontSize="10"
+                                                           Foreground="{DynamicResource AppMutedTextBrush}"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <!-- 诚实空态（无数据/加载失败前）/ 错误态（加载失败） -->
+                        <TextBlock Text="暂无最近会话"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource AppMutedTextBrush}"
+                                   HorizontalAlignment="Center"
+                                   IsVisible="{Binding !HasRecentSessions}"/>
+                        <TextBlock Text="{Binding RecentError}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource AppMutedTextBrush}"
+                                   HorizontalAlignment="Center"
+                                   IsVisible="{Binding RecentError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                     </StackPanel>
 
                     <StackPanel Grid.Row="2"
                                 x:DataType="vm:SessionsPanelViewModel"
                                 DataContext="{Binding SessionsPanel}"
                                 Margin="0,16,0,0">
-                        <!-- 快速筛选骨架（原型 .filterbox） -->
+                        <!-- 快速筛选（原型 .filterbox；D-008：会话页级筛选，提交驱动会话明细页重查） -->
                         <Border Background="{DynamicResource AppPanelBrush}"
                                 BorderBrush="{DynamicResource AppLineBrush}"
                                 BorderThickness="1"

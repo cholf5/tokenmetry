@@ -301,7 +301,7 @@ public class OverviewTests
         Assert.Null(stub.KpiFilters[^1].Agent);
 
         // Agent 精确过滤直传选项 Id
-        filters.Agent = AgentOption.Options[2]; // Codex
+        filters.Agent = new AgentOption("Codex", "Codex"); // D-008 起无占位清单，直接构造选项值
         Assert.Equal(3, stub.KpiCalls);
         Assert.Equal("Codex", stub.KpiFilters[^1].Agent);
 
@@ -414,7 +414,7 @@ public class OverviewTests
 
         vm.Dispose();
         filters.TimeRange = TimeRangeOption.Options[1];
-        filters.Agent = AgentOption.Options[1];
+        filters.Agent = new AgentOption("Claude Code", "Claude Code");
 
         // FilterStateService 是常驻单例：页面 VM 不退订会随导航次数无界累积（D-003 审查 P1 同源回归）
         Assert.Equal(1, stub.KpiCalls);

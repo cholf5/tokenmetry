@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,6 +18,8 @@ public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _usageQuery;
+    private readonly AgentCatalogService _agentCatalog;
+    private readonly IToastService _toastService;
 
     [ObservableProperty]
     private string _title = "ccusage — Token Analytics";
@@ -42,7 +45,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>全局筛选状态（顶部栏 ComboBox 直接绑定；各页 VM 经 PropertyChanged 订阅）。</summary>
     public FilterStateService Filters => _filters;
 
-    /// <summary>右侧最近会话栏（骨架，真实数据接线在 D-008）。</summary>
+    /// <summary>右侧最近会话栏（D-008 真实数据接线：最近会话 Top6 + 会话页级快速筛选状态持有者）。</summary>
     public SessionsPanelViewModel SessionsPanel { get; }
 
     /// <summary>设置页沿用既有 SettingsViewModel/SettingsView（S-002 才重构为原型版）。</summary>
@@ -52,15 +55,38 @@ public partial class MainWindowViewModel : ViewModelBase
         FilterStateService filters,
         SettingsViewModel settings,
         SessionsPanelViewModel sessionsPanel,
-        IUsageQueryService usageQuery)
+        IUsageQueryService usageQuery,
+        AgentCatalogService agentCatalog,
+        IToastService toastService)
     {
         _filters = filters;
         Settings = settings;
         SessionsPanel = sessionsPanel;
         _usageQuery = usageQuery;
+        _agentCatalog = agentCatalog;
+        _toastService = toastService;
 
         SelectedNavigation = NavigationItems[0];
         CurrentPage = CreatePage(PageId.Overview);
+        // D-008：外壳启动时异步拉取真实 Agent 清单（AgentCatalogService 缓存，单一真相源），
+        // 拉到后写入 FilterStateService（顶部栏全局下拉刷新）；右栏复选组共用同一份缓存。
+        // 失败诚实保持 [所有 Agent]，不伪造占位清单（见 AgentCatalogService / FilterStateService 注释）。
+        _ = LoadAgentOptionsAsync();
+    }
+
+    private async Task LoadAgentOptionsAsync()
+    {
+        try
+        {
+            var options = await _agentCatalog.GetAgentOptionsAsync();
+            _filters.UpdateAgentOptions(options);
+        }
+        catch (Exception ex)
+        {
+            // 选项加载失败保持初始 [所有 Agent]（诚实空集，不伪造占位清单），下次启动重试（服务层缓存未写入）；
+            // 审查修复轮 P2-3：静默吞异常不利排查，补一条最小诊断日志（stderr，不影响 UI）。
+            Console.Error.WriteLine($"[ccusage] 全局 Agent 选项加载失败（保持\"所有 Agent\"单选项）：{ex.Message}");
+        }
     }
 
     partial void OnSelectedNavigationChanged(NavigationItemViewModel? value)
@@ -83,6 +109,9 @@ public partial class MainWindowViewModel : ViewModelBase
         // 随全局筛选刷新；GoToPage 经构造回调注入（「查看详情 ↗」跳模型/项目页），
         // 页面 VM 不反向引用本类型（Action<PageId> 单向注入，见 D-007 Dev Log 选型）。
         PageId.Overview => new OverviewViewModel(ShellPages.For(id), _filters, _usageQuery, GoToPage),
+        // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；Agent 复选/模型/项目
+        // 页级筛选状态由右栏 SessionsPanelViewModel 持有，页面经其提交事件触发重查（定案见各自类型说明）。
+        PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery, SessionsPanel, _toastService),
         _ => new PagePlaceholderViewModel(ShellPages.For(id), _filters),
     };
 

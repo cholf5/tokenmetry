@@ -232,26 +232,11 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 全局筛选 → 查询参数：时间窗口按本地自然日（含端点，今天收口），
     /// Agent.Id 直传（<see cref="AgentOption.AllId"/> → null 不过滤，查询服务语义为空白不过滤）。
+    /// D-008 起实现抽到 <see cref="GlobalFilterMapper"/>（会话列表同口径共用），本方法保留为测试对账入口。
     /// internal 供测试断言映射。
     /// </summary>
-    internal UsageQueryFilter BuildQueryFilter(TimeRangeOption range, AgentOption agent)
-    {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        DateOnly? fromDay = range.Value switch
-        {
-            TimeRange.Last7Days => today.AddDays(-6),
-            TimeRange.Last30Days => today.AddDays(-29),
-            TimeRange.Last90Days => today.AddDays(-89),
-            TimeRange.All => null,
-            _ => null,
-        };
-        return new UsageQueryFilter
-        {
-            FromDay = fromDay is { } from ? UsageQueryFilter.FormatDay(from) : null,
-            ToDay = fromDay is null ? null : UsageQueryFilter.FormatDay(today),
-            Agent = agent.Id == AgentOption.AllId ? null : agent.Id,
-        };
-    }
+    internal UsageQueryFilter BuildQueryFilter(TimeRangeOption range, AgentOption agent) =>
+        GlobalFilterMapper.Build(range, agent);
 
     /// <summary>按当前全局筛选重查 KPI + 日序列 + Agent/模型/项目维度（序号防护见类型说明）。</summary>
     public async Task LoadAsync()
