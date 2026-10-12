@@ -19,6 +19,9 @@ public enum PricingMatchMode
 /// 精确匹配含键归一化变体（I-024，蓝本 pricing.rs find_exact_with_fallback / normalized_pricing_key）：
 /// 每档先全部候选的原拼写、未命中再全部候选的归一化拼写（'.'/'@' → '-'，两侧归一——
 /// "google/gemini.3.pro" 命中 "google/gemini-3-pro"；原拼写命中优先，扩展前行为不变）。
+/// 归一化拼写歧义守卫（I-025，蓝本 pricing.rs normalized_keys 语义）：同一归一化拼写被两个及以上
+/// 条目键携带时该拼写"不指向任何条目"（蓝本 and_modify 置 None），归一化趟不得按 rank 或顺序
+/// 取一——否则点分/横线别名对的回退落点在价格拆开后二义。
 /// </summary>
 public static class PricingModelMatcher
 {
@@ -88,6 +91,8 @@ public static class PricingModelMatcher
             {
                 var normalized = normalizedCandidates[index];
                 var normalizedEntryIdsLocal = NormalizedEntryIds();
+                ModelPriceEntry? only = null;
+                var ambiguous = false;
                 for (var entryIndex = 0; entryIndex < entries.Count; entryIndex++)
                 {
                     var entry = entries[entryIndex];
@@ -98,8 +103,20 @@ public static class PricingModelMatcher
                         continue;
                     }
 
-                    match = entry;
-                    matchedKey = entry.ToKey();
+                    if (only is not null)
+                    {
+                        // 歧义守卫（蓝本 normalized_keys 置 None）：该归一化拼写不指向任何条目。
+                        ambiguous = true;
+                        break;
+                    }
+
+                    only = entry;
+                }
+
+                if (!ambiguous && only is not null)
+                {
+                    match = only;
+                    matchedKey = only.ToKey();
                     return true;
                 }
             }
@@ -131,10 +148,15 @@ public static class PricingModelMatcher
 
         if (best is null)
         {
+            // 归一化趟（I-025 歧义守卫）：逐候选要求"恰好一个条目"携带该归一化拼写——跨 provider
+            // 汇总计数（蓝本 full-key 归一化碰撞同式，provider 段无分隔符不改变拼写）；多键共享即
+            // 跳过该候选，不按 rank 取一。首个存在唯一命中的候选生效（候选优先级序）。
             var normalizedEntryIdsLocal = NormalizedEntryIds();
             for (var index = 0; index < candidates.Count; index++)
             {
                 var normalized = normalizedCandidates[index];
+                ModelPriceEntry? only = null;
+                var ambiguous = false;
                 for (var entryIndex = 0; entryIndex < entries.Count; entryIndex++)
                 {
                     var entry = entries[entryIndex];
@@ -144,12 +166,19 @@ public static class PricingModelMatcher
                         continue;
                     }
 
-                    var rank = ProviderRank(entry.Provider);
-                    if (rank < bestRank)
+                    if (only is not null)
                     {
-                        best = entry;
-                        bestRank = rank;
+                        ambiguous = true;
+                        break;
                     }
+
+                    only = entry;
+                }
+
+                if (!ambiguous && only is not null)
+                {
+                    best = only;
+                    break;
                 }
             }
         }

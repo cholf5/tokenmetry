@@ -1,4 +1,8 @@
 {
+  "_provenance": {
+    "anchor": "npm ccusage@20.0.29 内嵌 models-dev-pricing.json（Q-001 对账锚点，golden 由该版本录制）",
+    "verified": "2026-10-12（I-025）：I-024 审查清单所列 7 条价差经 CLI 探针逐桶实测（claude-opus-4 各桶、gpt-4o / gpt-4o-mini / gpt-5.4 / gpt-5.5 / gpt-6-astra 的 I/O/R 桶 + cache_write 桶 + 272k 长上下文档、qwen3-coder-plus 经 golden 反算两日逐位），现值即锚点值，未改价；../ccusage rust HEAD 内嵌价与 npm 20.0.29 锚点存在漂移（claude-opus-4 13/64、gpt-4o 1.25/5、qwen3-coder-plus 0.574/2.294 等），后续刷新以 npm 对账锚点优先，rust HEAD 仅作参考"
+  },
   "anthropic": {
     "id": "anthropic",
     "name": "Anthropic",
