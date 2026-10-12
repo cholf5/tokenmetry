@@ -49,11 +49,19 @@ public class OverviewTests
 
         public IReadOnlyList<DimensionUsageRow> Agents { get; set; } = Array.Empty<DimensionUsageRow>();
 
+        public IReadOnlyList<DimensionUsageRow> Models { get; set; } = Array.Empty<DimensionUsageRow>();
+
+        public IReadOnlyList<DimensionUsageRow> Projects { get; set; } = Array.Empty<DimensionUsageRow>();
+
         public int KpiCalls { get; private set; }
 
         public int DailyCalls { get; private set; }
 
         public int AgentCalls { get; private set; }
+
+        public int ModelCalls { get; private set; }
+
+        public int ProjectCalls { get; private set; }
 
         public List<UsageQueryFilter> KpiFilters { get; } = new();
 
@@ -94,11 +102,17 @@ public class OverviewTests
             return Task.FromResult(Agents);
         }
 
-        public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<DimensionUsageRow>>(Array.Empty<DimensionUsageRow>());
+        public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default)
+        {
+            ModelCalls++;
+            return Task.FromResult(Models);
+        }
 
-        public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<DimensionUsageRow>>(Array.Empty<DimensionUsageRow>());
+        public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default)
+        {
+            ProjectCalls++;
+            return Task.FromResult(Projects);
+        }
 
         public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default) =>
             throw new NotSupportedException();
@@ -141,9 +155,33 @@ public class OverviewTests
         Row("GitHub Copilot", 870_000),
     };
 
+    /// <summary>模型维度 fixture（D-007 预览表；share 按范围总量 8,740,000 记）。</summary>
+    private static IReadOnlyList<DimensionUsageRow> FixtureModels { get; } = new[]
+    {
+        Row("claude-sonnet-4-5", 3_215_482),
+        Row("gpt-4o", 1_842_317),
+    };
+
+    /// <summary>项目维度 fixture（D-007 预览表；DisplayName 为归一化项目名）。</summary>
+    private static IReadOnlyList<DimensionUsageRow> FixtureProjects { get; } = new[]
+    {
+        ProjectRow("/Users/dev/project-a", "Project-A", 2_341_628),
+        ProjectRow("/Users/dev/ai-project", "AI-Project", 1_682_317),
+    };
+
     private static DimensionUsageRow Row(string key, long tokens) => new()
     {
         Key = key,
+        SessionCount = 10,
+        TotalTokens = tokens,
+        Cost = new AggregatedCost(1m, false),
+        TokenShare = tokens / 8_740_000m,
+    };
+
+    private static DimensionUsageRow ProjectRow(string path, string displayName, long tokens) => new()
+    {
+        Key = path,
+        DisplayName = displayName,
         SessionCount = 10,
         TotalTokens = tokens,
         Cost = new AggregatedCost(1m, false),
@@ -158,7 +196,14 @@ public class OverviewTests
     [AvaloniaFact]
     public void Kpi_cards_bind_stub_values_with_change_directions()
     {
-        var vm = CreateVm(new StubQueryService { Kpi = FixtureKpi, Daily = ChartTestHelpers.DailyPoints30(), Agents = FixtureAgents });
+        var vm = CreateVm(new StubQueryService
+        {
+            Kpi = FixtureKpi,
+            Daily = ChartTestHelpers.DailyPoints30(),
+            Agents = FixtureAgents,
+            Models = FixtureModels,
+            Projects = FixtureProjects,
+        });
 
         // 总 Token：紧凑格式（原型 "8.74M"）+ ↑ 绿方向
         Assert.Equal("8.74M", vm.TokensCard.Value);
@@ -182,9 +227,11 @@ public class OverviewTests
         Assert.Equal("↑ —", vm.CacheCard.ChangeText);
         Assert.True(vm.CacheCard.IsUp);
 
-        // 日序列与 Agent 段已装载
+        // 日序列与 Agent 段已装载；D-007 预览行已就位
         Assert.NotNull(vm.DailyPoints);
         Assert.NotEmpty(vm.AgentSegments!);
+        Assert.NotEmpty(vm.ModelRows!);
+        Assert.NotEmpty(vm.ProjectRows!);
     }
 
     [AvaloniaTheory]
@@ -298,10 +345,12 @@ public class OverviewTests
 
         Assert.Equal("9.5M", vm.TokensCard.Value);
         Assert.NotEqual("3.1M", vm.TokensCard.Value);
-        // 挂起的那次只走到 KPI 就被丢弃，日序列/Agent 维度不再查
+        // 挂起的那次只走到 KPI 就被丢弃，日序列/Agent/模型/项目维度不再查（D-007 新查询同走序号防护路径）
         Assert.Equal(3, stub.KpiCalls);
         Assert.Equal(2, stub.DailyCalls);
         Assert.Equal(2, stub.AgentCalls);
+        Assert.Equal(2, stub.ModelCalls);
+        Assert.Equal(2, stub.ProjectCalls);
     }
 
     // ── Agent 环形段 ──
@@ -329,7 +378,7 @@ public class OverviewTests
 
         // token 量 Top6 + 「其他」聚合（第 7、8 行合并），零 token 行不入环
         var names = vm.AgentSegments!.Select(s => s.Name).ToArray();
-        var values = vm.AgentSegments.Select(s => s.Value).ToArray();
+        var values = vm.AgentSegments!.Select(s => s.Value).ToArray();
         Assert.Equal(
             new[] { "Claude Code", "Codex", "Cursor", "GitHub Copilot", "Cline", "Codex CLI", "其他" },
             names);
@@ -371,6 +420,8 @@ public class OverviewTests
         Assert.Equal(1, stub.KpiCalls);
         Assert.Equal(1, stub.DailyCalls);
         Assert.Equal(1, stub.AgentCalls);
+        Assert.Equal(1, stub.ModelCalls);
+        Assert.Equal(1, stub.ProjectCalls);
     }
 
     // ── 视图渲染（stub 数据，明暗两套 + 截图留档）──
@@ -378,7 +429,7 @@ public class OverviewTests
     private static Window CreateOverviewWindow(OverviewViewModel vm, ThemeVariant variant) => new()
     {
         Width = 1020,
-        Height = 760,
+        Height = 1160, // D-007 后整页更高：离屏渲染含两个 gridEqual 下行
         Content = new OverviewView { DataContext = vm },
         RequestedThemeVariant = variant,
         Background = Application.Current!.TryGetResource("AppBackgroundBrush", variant, out var bg)
@@ -393,6 +444,8 @@ public class OverviewTests
             Kpi = FixtureKpi,
             Daily = ChartTestHelpers.DailyPoints30(),
             Agents = FixtureAgents,
+            Models = FixtureModels,
+            Projects = FixtureProjects,
         });
 
         foreach (var (variant, file) in new (ThemeVariant, string)[]
