@@ -1,12 +1,16 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:semi="https://irihi.tech/semi"
              x:Class="CCUsage.App.App"
              RequestedThemeVariant="Default">
              <!-- 启动时 ThemeService 按设置里的 Theme（light / dark / system）改写 RequestedThemeVariant；
                   Default 表示跟随系统。 -->
 
     <Application.Styles>
-        <FluentTheme />
+        <!-- I-026：根主题 FluentTheme → SemiTheme（Locale 用中文，与界面文案一致）。
+             DataGrid 样式由独立包提供，须与根主题一起引入。 -->
+        <semi:SemiTheme Locale="zh-CN" />
+        <semi:DataGridSemiTheme />
     </Application.Styles>
 
     <!-- 明暗两套画刷，视图统一用 DynamicResource 引用，切换主题时自动换色。 -->

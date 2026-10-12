@@ -207,7 +207,7 @@ public partial class TrendSpikeView : UserControl
                         TrendPlot.Render(ctx);
                     }
 
-                    rtb.Save(windowPng);
+                    rtb.Save(windowPng, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
                 }
             }
 
