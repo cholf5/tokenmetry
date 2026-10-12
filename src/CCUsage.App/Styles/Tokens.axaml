@@ -145,6 +145,20 @@
     <SolidColorBrush x:Key="AppSeries5Brush" Color="{StaticResource AppSeries5Color}"/>
     <SolidColorBrush x:Key="AppSeries6Brush" Color="{StaticResource AppSeries6Color}"/>
 
+    <!--
+        Token 类型构成环形固定三色（D-007）：原型 typeDonut 调用的三元组
+        ['#4c8dff','#a779ff','#38d6a4']（输入=blue / 输出=purple / 缓存相关=green）。
+        语义固定不随维度数量变化，故独立成键而不借用 AppSeries{N}（与系列色同理不随明暗翻转）；
+        Color 供 DonutSegment 显式段色取值，Brush 供 XAML 图例/圆点使用。
+    -->
+    <Color x:Key="AppTokenTypeInputColor">#4c8dff</Color>
+    <Color x:Key="AppTokenTypeOutputColor">#a779ff</Color>
+    <Color x:Key="AppTokenTypeCacheColor">#38d6a4</Color>
+
+    <SolidColorBrush x:Key="AppTokenTypeInputBrush" Color="{StaticResource AppTokenTypeInputColor}"/>
+    <SolidColorBrush x:Key="AppTokenTypeOutputBrush" Color="{StaticResource AppTokenTypeOutputColor}"/>
+    <SolidColorBrush x:Key="AppTokenTypeCacheBrush" Color="{StaticResource AppTokenTypeCacheColor}"/>
+
     <!-- mini 进度条填充 ← 原型 .mini-fill linear-gradient(90deg,#3e7df0,#65b9ff)（90deg = 左→右，换算精确）。
          与系列色同理不随明暗翻转：饱和蓝渐变在明暗两种轨道上都可读。 -->
     <LinearGradientBrush x:Key="AppMiniFillBrush" StartPoint="0%,50%" EndPoint="100%,50%">

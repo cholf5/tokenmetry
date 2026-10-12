@@ -79,8 +79,10 @@ public partial class MainWindowViewModel : ViewModelBase
     private ViewModelBase CreatePage(PageId id) => id switch
     {
         PageId.Settings => Settings,
-        // D-006：总览为真实页（KPI + 趋势 + Agent 环形），随全局筛选刷新
-        PageId.Overview => new OverviewViewModel(ShellPages.For(id), _filters, _usageQuery),
+        // D-006/D-007：总览为真实页（KPI + 趋势 + Agent 环形 + 模型/项目/构成/成本趋势），
+        // 随全局筛选刷新；GoToPage 经构造回调注入（「查看详情 ↗」跳模型/项目页），
+        // 页面 VM 不反向引用本类型（Action<PageId> 单向注入，见 D-007 Dev Log 选型）。
+        PageId.Overview => new OverviewViewModel(ShellPages.For(id), _filters, _usageQuery, GoToPage),
         _ => new PagePlaceholderViewModel(ShellPages.For(id), _filters),
     };
 

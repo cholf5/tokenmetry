@@ -153,4 +153,27 @@
         </Setter>
     </Style>
 
+    <!-- 预览表（D-007 模型分布 / 项目排行）← 原型 .table{font-size:11px}：
+         th{color:muted;font-weight:500} / td{color:#c8d4e5（原型表体色；此处用 AppTextBrush #e8eef9 略亮于原型，可读性优先，如需逐像素还原可补专用令牌）} / td.num{text-align:right;tabular-nums} -->
+    <Style Selector="TextBlock.table-th">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.table-td">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.table-num">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="TextAlignment" Value="Right"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+    </Style>
+    <!-- 表格空态 ← 原型 .empty{padding:20px;color:var muted;text-align:center} -->
+    <Style Selector="TextBlock.table-empty">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="0,16"/>
+    </Style>
+
 </Styles>

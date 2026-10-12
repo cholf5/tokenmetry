@@ -93,7 +93,15 @@ public class DesignTokenTests
         ("AppSeries6Color", "#f06bc4"),
     ];
 
-    /// <summary>全部新令牌键（冲突检测用）：主题画刷 + 卡片/填充渐变 + 系列色 Color/Brush。</summary>
+    /// <summary>Token 类型构成环形固定三色（D-007，原型 typeDonut 三元组）→ 期望色值，不随明暗翻转。</summary>
+    private static readonly (string Key, string Hex)[] TokenTypeColors =
+    [
+        ("AppTokenTypeInputColor", "#4c8dff"),
+        ("AppTokenTypeOutputColor", "#a779ff"),
+        ("AppTokenTypeCacheColor", "#38d6a4"),
+    ];
+
+    /// <summary>全部新令牌键（冲突检测用）：主题画刷 + 卡片/填充渐变 + 系列色/类型色 Color/Brush。</summary>
     private static readonly string[] AllTokenKeys =
     [
         .. PaletteBrushes.Keys,
@@ -101,6 +109,8 @@ public class DesignTokenTests
         "AppMiniFillBrush",
         .. SeriesColors.Select(s => s.Key),
         .. SeriesColors.Select(s => s.Key.Replace("Color", "Brush", StringComparison.Ordinal)),
+        .. TokenTypeColors.Select(s => s.Key),
+        .. TokenTypeColors.Select(s => s.Key.Replace("Color", "Brush", StringComparison.Ordinal)),
     ];
 
     [AvaloniaFact]
@@ -171,6 +181,27 @@ public class DesignTokenTests
             Assert.Same(lightColor, darkColor); // 同一实例 ⇒ 与明暗无关
 
             // 派生画刷与 Color 键同值（XAML 圆点/图例直接用 Brush）
+            Assert.True(app.TryGetResource(key.Replace("Color", "Brush", StringComparison.Ordinal), ThemeVariant.Dark, out var brush));
+            Assert.Equal(Color.Parse(hex), Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Token_type_colors_are_theme_invariant_and_match_prototype_type_donut()
+    {
+        var app = Application.Current!;
+
+        foreach (var (key, hex) in TokenTypeColors)
+        {
+            Assert.True(app.TryGetResource(key, ThemeVariant.Light, out var lightColor),
+                $"Light 变体缺少资源 {key}");
+            Assert.Equal(Color.Parse(hex), Assert.IsAssignableFrom<Color>(lightColor));
+
+            Assert.True(app.TryGetResource(key, ThemeVariant.Dark, out var darkColor),
+                $"Dark 变体缺少资源 {key}");
+            Assert.Same(lightColor, darkColor); // 同一实例 ⇒ 与明暗无关
+
+            // 派生画刷与 Color 键同值（XAML 图例/圆点直接用 Brush）
             Assert.True(app.TryGetResource(key.Replace("Color", "Brush", StringComparison.Ordinal), ThemeVariant.Dark, out var brush));
             Assert.Equal(Color.Parse(hex), Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color);
         }
