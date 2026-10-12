@@ -3,6 +3,7 @@ using Microsoft.Data.Sqlite;
 namespace CCUsage.Infrastructure.Tests.Antigravity;
 
 using CCUsage.Core.Models;
+using CCUsage.Core.Services;
 using CCUsage.Infrastructure.Antigravity;
 using static AntigravityTestSupport;
 
@@ -139,7 +140,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Parses_production_step_retry_info_from_field_28()
+    public async Task Parses_production_step_retry_info_from_field_28()
     {
         var root = CreateTempDir();
         var retry = new UsageFixture
@@ -155,7 +156,7 @@ public class AntigravityAdapterTests : IDisposable
             [(1, StepMetadataBlob(null, null, null, [retry], AntigravityParser.ApiProviderGoogleGemini))],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         var record = result.Records.Should().ContainSingle().Subject;
         record.InputTokens.Should().Be(11);
@@ -210,7 +211,7 @@ public class AntigravityAdapterTests : IDisposable
     // ---- 蓝本 loader.rs 内联测试同名场景 ----
 
     [Fact]
-    public void Loads_real_schema_rows_with_continuations_and_token_buckets()
+    public async Task Loads_real_schema_rows_with_continuations_and_token_buckets()
     {
         var root = CreateTempDir();
         var firstUsage = new UsageFixture
@@ -243,7 +244,7 @@ public class AntigravityAdapterTests : IDisposable
             [],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().HaveCount(2);
         result.Records[0].Model.Should().Be("gemini-3-pro");
@@ -261,7 +262,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Decodes_model_id_without_counting_it_as_input_tokens()
+    public async Task Decodes_model_id_without_counting_it_as_input_tokens()
     {
         var root = CreateTempDir();
         CreateDatabase(
@@ -277,7 +278,7 @@ public class AntigravityAdapterTests : IDisposable
             [],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         var record = result.Records.Should().ContainSingle().Subject;
         record.Model.Should().Be("gemini-2.5-pro");
@@ -285,7 +286,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Loads_multiple_databases_consistently()
+    public async Task Loads_multiple_databases_consistently()
     {
         var root = CreateTempDir();
         CreateDatabase(
@@ -313,15 +314,15 @@ public class AntigravityAdapterTests : IDisposable
             [],
             []);
 
-        var result = CreateAdapter($"{Path.Combine(root, "one")},{Path.Combine(root, "two")}")
-            .ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter($"{Path.Combine(root, "one")},{Path.Combine(root, "two")}")
+            .ScanAsync();
 
         result.Records.Select(record => record.MessageId).Should().Equal(["one", "two"], "按时间戳稳定排序");
         result.Records.Should().HaveCount(2);
     }
 
     [Fact]
-    public void Deduplicates_response_ids_across_databases()
+    public async Task Deduplicates_response_ids_across_databases()
     {
         var root = CreateTempDir();
         CreateDatabase(
@@ -353,8 +354,8 @@ public class AntigravityAdapterTests : IDisposable
             [],
             []);
 
-        var result = CreateAdapter($"{Path.Combine(root, "first")},{Path.Combine(root, "second")}")
-            .ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter($"{Path.Combine(root, "first")},{Path.Combine(root, "second")}")
+            .ScanAsync();
 
         result.Records.Should().ContainSingle("共享 provider 身份键跨库合并（蓝本 deduplicate_events）");
         result.Records[0].MessageId.Should().Be("shared-response", "同 rank 3 保持先到者");
@@ -364,7 +365,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Collects_steps_and_retries_and_deduplicates_source_copies()
+    public async Task Collects_steps_and_retries_and_deduplicates_source_copies()
     {
         var root = CreateTempDir();
         var sharedUsage = new UsageFixture
@@ -408,7 +409,7 @@ public class AntigravityAdapterTests : IDisposable
             ],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().HaveCount(2, "step 副本 + gen 副本 + gen retry 共享身份键合并为一条");
         result.Records[0].InputTokens.Should().Be(100);
@@ -425,7 +426,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Attributes_step_and_retry_usage_to_their_token_models()
+    public async Task Attributes_step_and_retry_usage_to_their_token_models()
     {
         var root = CreateTempDir();
         var stepUsage = new UsageFixture
@@ -450,7 +451,7 @@ public class AntigravityAdapterTests : IDisposable
             [(1, StepMetadataBlob(null, stepUsage, (1_778_400_000, 0), [retryUsage], null))],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().HaveCount(2);
         result.Records.Single(record => record.MessageId == "step-pro").Model.Should().Be("gemini-2.5-pro",
@@ -459,7 +460,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Maps_required_aliases_and_keeps_unprovided_models_unprefixed()
+    public async Task Maps_required_aliases_and_keeps_unprovided_models_unprefixed()
     {
         var root = CreateTempDir();
         var aliases = new[]
@@ -483,7 +484,7 @@ public class AntigravityAdapterTests : IDisposable
             []))).ToArray();
         CreateDatabase(Path.Combine(root, "conversations", "session.db"), rows, [], []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Select(record => record.Model).Should().Equal(
             "gemini-3.5-flash-high",
@@ -494,7 +495,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Uses_trajectory_timestamp_when_generation_timestamp_is_missing()
+    public async Task Uses_trajectory_timestamp_when_generation_timestamp_is_missing()
     {
         var root = CreateTempDir();
         CreateDatabase(
@@ -508,7 +509,7 @@ public class AntigravityAdapterTests : IDisposable
             [],
             [TrajectoryMetadataBlob(1_778_300_000, 456_000_000)]);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         var record = result.Records.Should().ContainSingle().Subject;
         record.Timestamp.Should().Be(DateTimeOffset.FromUnixTimeMilliseconds(1_778_300_000_456),
@@ -517,7 +518,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Skips_zero_byte_databases_and_reports_valid_entries()
+    public async Task Skips_zero_byte_databases_and_reports_valid_entries()
     {
         var root = CreateTempDir();
         Directory.CreateDirectory(Path.Combine(root, "conversations"));
@@ -534,7 +535,7 @@ public class AntigravityAdapterTests : IDisposable
             [],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().ContainSingle().Which.MessageId.Should().Be("valid-response");
         result.Diagnostics.FilesDiscovered.Should().Be(2);
@@ -543,7 +544,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Returns_empty_report_when_only_zero_byte_databases_exist()
+    public async Task Returns_empty_report_when_only_zero_byte_databases_exist()
     {
         var root = CreateTempDir();
         var database = Path.Combine(root, "conversations", "empty.db");
@@ -552,14 +553,14 @@ public class AntigravityAdapterTests : IDisposable
 
         AntigravityParser.ParseSqliteFile(database).Should().BeNull("蓝本 parse_sqlite_file → Ok(None)");
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().BeEmpty();
         result.Diagnostics.Status.Should().Be(JsonlScanStatus.NoData);
     }
 
     [Fact]
-    public void Still_reports_errors_for_nonempty_databases_alongside_empty_ones()
+    public async Task Still_reports_errors_for_nonempty_databases_alongside_empty_ones()
     {
         var root = CreateTempDir();
         Directory.CreateDirectory(Path.Combine(root, "conversations"));
@@ -582,7 +583,7 @@ public class AntigravityAdapterTests : IDisposable
             [],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().ContainSingle().Which.MessageId.Should().Be("valid-response",
             "坏库显式降级不拖垮有效库（桌面管道口径，蓝本为整次加载失败）");
@@ -591,13 +592,13 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Propagates_database_open_and_query_errors_as_partial()
+    public async Task Propagates_database_open_and_query_errors_as_partial()
     {
         var root = CreateTempDir();
         Directory.CreateDirectory(Path.Combine(root, "conversations"));
         File.WriteAllText(Path.Combine(root, "conversations", "not-a-db.db"), "not sqlite");
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().BeEmpty();
         result.Diagnostics.FilesDiscovered.Should().Be(1);
@@ -608,7 +609,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Propagates_missing_generation_table_errors_as_partial()
+    public async Task Propagates_missing_generation_table_errors_as_partial()
     {
         var root = CreateTempDir();
         var dbPath = Path.Combine(root, "conversations", "missing-table.db");
@@ -621,7 +622,7 @@ public class AntigravityAdapterTests : IDisposable
             command.ExecuteNonQuery();
         }
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().BeEmpty();
         // 仅失败、无记录时 Status=NoData（family precedence，见上）；失败面与蓝本"整次加载失败"
@@ -630,7 +631,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Propagates_present_optional_table_schema_errors_as_partial()
+    public async Task Propagates_present_optional_table_schema_errors_as_partial()
     {
         var root = CreateTempDir();
         var dbPath = Path.Combine(root, "conversations", "bad-steps.db");
@@ -651,7 +652,7 @@ public class AntigravityAdapterTests : IDisposable
             statement.ExecuteNonQuery();
         }
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().BeEmpty("steps 存在但 schema 不符 → 查询失败 → 整库 0 条（蓝本报错含 'steps'）");
         // 仅失败、无记录时 Status=NoData（family precedence，见上）。
@@ -659,7 +660,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Propagates_malformed_metadata_errors_when_no_valid_database_exists()
+    public async Task Propagates_malformed_metadata_errors_when_no_valid_database_exists()
     {
         // 蓝本 propagates_malformed_metadata_errors 同名场景：仅坏 blob 库、无有效库共存
         // （Still_reports_errors 场景的对照面——此时记录为 0）。
@@ -670,7 +671,7 @@ public class AntigravityAdapterTests : IDisposable
             [],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().BeEmpty();
         result.Diagnostics.MalformedLines.Should().Be(1, "protobuf 解析失败按库显式计数（蓝本整次加载失败）");
@@ -679,7 +680,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Omits_steps_and_trajectory_tables_without_problems()
+    public async Task Omits_steps_and_trajectory_tables_without_problems()
     {
         var root = CreateTempDir();
         var dbPath = Path.Combine(root, "conversations", "gen-only.db");
@@ -698,7 +699,7 @@ public class AntigravityAdapterTests : IDisposable
             statement.ExecuteNonQuery();
         }
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().ContainSingle();
         result.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok, "steps / trajectory_metadata_blob 均为可选表");
@@ -707,7 +708,7 @@ public class AntigravityAdapterTests : IDisposable
     // ---- 载荷类型角落（仓库历史教训：JSON 载荷非对象 / serde Option 语义 → blob 等价角落） ----
 
     [Fact]
-    public void Zero_token_usages_are_counted_as_skipped()
+    public async Task Zero_token_usages_are_counted_as_skipped()
     {
         var root = CreateTempDir();
         CreateDatabase(
@@ -731,7 +732,7 @@ public class AntigravityAdapterTests : IDisposable
             [],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().ContainSingle().Which.MessageId.Should().Be("real-usage");
         result.Diagnostics.LinesSkipped.Should().Be(1, "非 token-bearing usage 蓝本静默丢弃 → 显式计数");
@@ -739,7 +740,7 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Whitespace_only_model_text_is_treated_as_missing()
+    public async Task Whitespace_only_model_text_is_treated_as_missing()
     {
         var root = CreateTempDir();
         CreateDatabase(
@@ -754,14 +755,14 @@ public class AntigravityAdapterTests : IDisposable
             [],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().ContainSingle().Which.Model.Should().Be("gemini-internal-model",
             "field_text 去空白非空才生效（蓝本 filter(!trim().is_empty())）→ 缺省模型");
     }
 
     [Fact]
-    public void Trajectory_rows_use_first_valid_candidate()
+    public async Task Trajectory_rows_use_first_valid_candidate()
     {
         var root = CreateTempDir();
         // 首行无 field 2（候选 None），次行有效 → 蓝本 timestamp.is_none() 才写入 → 次行生效。
@@ -778,14 +779,14 @@ public class AntigravityAdapterTests : IDisposable
             [],
             [noTimestampRow, TrajectoryMetadataBlob(1_778_000_100, 0), TrajectoryMetadataBlob(1_778_000_200, 0)]);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().ContainSingle().Which.Timestamp.Should().Be(
             DateTimeOffset.FromUnixTimeMilliseconds(1_778_000_100_000), "首个有效候选生效");
     }
 
     [Fact]
-    public void Timestamp_seconds_zero_falls_back_to_file_mtime()
+    public async Task Timestamp_seconds_zero_falls_back_to_file_mtime()
     {
         var root = CreateTempDir();
         CreateDatabase(
@@ -800,14 +801,14 @@ public class AntigravityAdapterTests : IDisposable
             }, (0, 0), [], null))],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         var record = result.Records.Should().ContainSingle().Subject;
         record.Timestamp.Should().BeAfter(DateTimeOffset.UtcNow.AddMinutes(-5), "seconds=0 无效 → mtime 回退（rank 0）");
     }
 
     [Fact]
-    public void Identity_timestamp_lookup_supplies_missing_step_timestamp()
+    public async Task Identity_timestamp_lookup_supplies_missing_step_timestamp()
     {
         // 蓝本身份键回查：无时间戳的 step usage 复用同身份事件早前记录的时间戳。
         var root = CreateTempDir();
@@ -824,7 +825,7 @@ public class AntigravityAdapterTests : IDisposable
             [(1, StepMetadataBlob(null, sharedUsage, null, [], null))],
             []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Records.Should().ContainSingle().Which.Timestamp.Should().Be(
             DateTimeOffset.FromUnixTimeMilliseconds(1_778_500_000_000),
@@ -859,17 +860,92 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Files_without_extension_db_are_not_discovered()
+    public async Task Files_without_extension_db_are_not_discovered()
     {
         var root = CreateTempDir();
         Directory.CreateDirectory(Path.Combine(root, "conversations"));
         File.WriteAllBytes(Path.Combine(root, "conversations", "notes.txt"), []);
         File.WriteAllBytes(Path.Combine(root, "conversations", "DB.bak"), []);
 
-        var result = CreateAdapter(root).ScanAsync().GetAwaiter().GetResult();
+        var result = await CreateAdapter(root).ScanAsync();
 
         result.Diagnostics.FilesDiscovered.Should().Be(0, "扩展名恰为 .db 才发现（蓝本 collect_files_with_extension）");
         result.Diagnostics.Status.Should().Be(JsonlScanStatus.NoData);
+    }
+
+    /// <summary>
+    /// 蓝本 model_candidates 移植锚点（I-024 接线 AG-1）：[模型名] +（flash effort 变体时）[基础名]，
+    /// provider ∈ {3, 24, 30} 时每名展开 google/ · gemini/ · vertex_ai/ · openrouter/google/ 前缀组；
+    /// 非 google provider / 无 provider 只裸名（+ 变体别名）。
+    /// </summary>
+    [Fact]
+    public void Builds_candidate_chain_with_flash_alias_and_google_prefixes()
+    {
+        AntigravityParser.GeminiFlashPricingAlias("gemini-3.8-flash-medium").Should().Be("gemini-3.8-flash");
+        AntigravityParser.GeminiFlashPricingAlias("gemini-3.7-flash-low").Should().Be("gemini-3.7-flash");
+        AntigravityParser.GeminiFlashPricingAlias("gemini-3.6-flash-high").Should().Be("gemini-3.6-flash");
+        AntigravityParser.GeminiFlashPricingAlias("gemini-2.5-pro").Should().BeNull();
+
+        AntigravityParser.BuildModelCandidates("gemini-3.8-flash-medium", AntigravityParser.ApiProviderGoogleGemini)
+            .Should().Equal(
+                "gemini-3.8-flash-medium",
+                "google/gemini-3.8-flash-medium",
+                "gemini/gemini-3.8-flash-medium",
+                "vertex_ai/gemini-3.8-flash-medium",
+                "openrouter/google/gemini-3.8-flash-medium",
+                "gemini-3.8-flash",
+                "google/gemini-3.8-flash",
+                "gemini/gemini-3.8-flash",
+                "vertex_ai/gemini-3.8-flash",
+                "openrouter/google/gemini-3.8-flash");
+        AntigravityParser.BuildModelCandidates("claude-4-sonnet", AntigravityParser.ApiProviderGoogleVertex)
+            .Should().Equal(
+                "claude-4-sonnet",
+                "google/claude-4-sonnet",
+                "gemini/claude-4-sonnet",
+                "vertex_ai/claude-4-sonnet",
+                "openrouter/google/claude-4-sonnet");
+        AntigravityParser.BuildModelCandidates("gemini-2.5-pro", provider: null)
+            .Should().Equal("gemini-2.5-pro"); // 无 provider → 不展开前缀组
+        AntigravityParser.BuildModelCandidates("gemini-2.5-pro", provider: 7)
+            .Should().Equal("gemini-2.5-pro"); // 非 google 系 provider → 不展开前缀组
+    }
+
+    /// <summary>
+    /// I-024 接线端到端（AG-1 两笔）：①flash effort 变体经 exact-only 走向命中基础名候选
+    /// gemini-3.8-flash（快照条目 2026-10-12 取自 CLI 20.0.29 内嵌 models-dev 数据）；②计价 output
+    /// 分量取 total_output（含 reasoning，OutputTokenOverride）——此前 visible output 计价 + 记 0 欠账。
+    /// </summary>
+    [Fact]
+    public async Task Prices_flash_effort_variant_through_base_candidate_with_total_output()
+    {
+        var root = CreateTempDir();
+        CreateDatabase(
+            Path.Combine(root, "conversations", "session.db"),
+            [],
+            [(1, StepMetadataBlob("Gemini 3.8 Flash (Medium)", new UsageFixture
+            {
+                InputTokens = 1_000_000,
+                TotalOutputTokens = 22,
+                ReasoningTokens = 2,
+                VisibleOutputTokens = 20,
+            }, (1_778_000_000, 0), [], AntigravityParser.ApiProviderGoogleGemini))],
+            []);
+
+        var result = await CreateAdapter(root).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        record.Model.Should().Be("gemini-3.8-flash-medium", "effort 变体归一化名（蓝本 normalize_antigravity_model）");
+        record.OutputTokens.Should().Be(20, "统一记录 output 为 visible 口径（total_output 22 − reasoning 2）");
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.Walk.Should().Be(PricingCandidateWalk.ExactOnlyAcrossCandidates,
+            "flash 变体 exact_lookup → 逐候选精确（蓝本 find_exact_pricing_with_alias）");
+        record.Pricing.OutputTokenOverride.Should().Be(22, "计价 output 分量取 total_output 含 reasoning");
+
+        var priced = new PricingEngine().PriceRecord(record);
+        priced.CostUsd.Should().Be(1.5m + 22 * 7.5m / 1_000_000m,
+            "input 1M×$1.5/M + 计价 output 22×$7.5/M（快照 google/gemini-3.8-flash，基础名候选命中）");
+        priced.MatchedKey.Should().Be("google/gemini-3.8-flash");
     }
 
     // ---- helpers ----

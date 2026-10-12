@@ -49,6 +49,51 @@ public class KiloSqliteAdapterTests : IDisposable
         diagnostics.DuplicateRecords.Should().Be(0);
     }
 
+    /// <summary>I-024 接线：providerID 参与蓝本 model_candidates 候选链（归一化后非 unknown/kilo 且
+    /// 精确命中时限定名生效，门槛由引擎匹配承载）；分组/显示仍用 modelID。</summary>
+    [Fact]
+    public async Task Carries_provider_qualified_candidates_and_prices_model()
+    {
+        var directory = CreateTempDir();
+        var db = CreateDatabase(Path.Combine(directory, "kilo.db"));
+        InsertMessage(db, "row-kimi", "session-a", """
+            {"id":"msg-kimi","role":"assistant","providerID":"moonshot","modelID":"kimi-k2.6","time":{"created":1767312000000},"tokens":{"input":1000,"output":100},"agent":"build"}
+            """);
+
+        var result = await CreateAdapter(directory).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.ModelCandidates.Should().Equal("moonshot/kimi-k2.6", "kimi-k2.6");
+        record.Model.Should().Be("kimi-k2.6", "分组/显示仍用 modelID");
+
+        var priced = new PricingEngine().PriceRecord(record);
+        priced.CostUsd.Should().Be(0.001m + 0.000416m, "1000×$1/M + 100×$4.16/M（快照 moonshot/kimi-k2.6，2026-10-12 刷新价）");
+        priced.MatchedKey.Should().Be("moonshot/kimi-k2.6");
+    }
+
+    /// <summary>I-024 接线：providerID 缺失 / 为 kilo（兜底）时不限定（蓝本 unknown/kilo 过滤同式）。</summary>
+    [Fact]
+    public async Task Skips_qualification_for_missing_or_kilo_provider()
+    {
+        var directory = CreateTempDir();
+        var db = CreateDatabase(Path.Combine(directory, "kilo.db"));
+        InsertMessage(db, "row-no-provider", "session-a", """
+            {"id":"msg-a","role":"assistant","modelID":"mystery-a","time":{"created":1767312000000},"tokens":{"input":10},"agent":"build"}
+            """);
+        InsertMessage(db, "row-kilo-provider", "session-a", """
+            {"id":"msg-b","role":"assistant","providerID":"kilo","modelID":"mystery-b","time":{"created":1767312000001},"tokens":{"input":10},"agent":"build"}
+            """);
+
+        var result = await CreateAdapter(directory).ScanAsync();
+
+        result.Records.Should().HaveCount(2);
+        result.Records.Single(record => record.Model == "mystery-a").Pricing!.ModelCandidates
+            .Should().Equal("mystery-a"); // providerID 缺失 → 不限定
+        result.Records.Single(record => record.Model == "mystery-b").Pricing!.ModelCandidates
+            .Should().Equal("mystery-b"); // providerID kilo 兜底 → 不限定
+    }
+
     /// <summary>蓝本 ignores_kilo_messages_without_timestamps：有 tokens 但无 time.created → 整行不产出。</summary>
     [Fact]
     public async Task Ignores_messages_without_timestamps()

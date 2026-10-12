@@ -81,6 +81,58 @@ public class HermesSqliteAdapterTests : IDisposable
         result.Diagnostics.MissingCostRecords.Should().Be(1);
     }
 
+    /// <summary>
+    /// I-024 接线：映射产物带蓝本 model_candidates 候选链（provider 限定名 + 裸名；hermes 兜底
+    /// 不限定），点分模型名经引擎键归一化（'.'→'-'）命中精确条目——此前按裸名不命中记 0
+    /// （键形状差异的 fail-loud 欠账；快照点分 claude-3.5-sonnet 条目带 match 模式、不参与
+    /// 精确档，故选无 match 模式的 kimi-k2.6 条目演示归一化命中）。
+    /// </summary>
+    [Fact]
+    public async Task Carries_candidates_and_prices_dotted_model_via_key_normalization()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(Path.Combine(home, "state.db"));
+        InsertSession(db, new SessionFixture(
+            "session-dotted", "kimi.k2.6", null, 1_789_462_800_000.0, 1,
+            InputTokens: 100_000, OutputTokens: 0, CacheReadTokens: 0, CacheWriteTokens: 0,
+            ReasoningTokens: 0, EstimatedCost: null, ActualCost: null));
+
+        var result = await CreateAdapter(home).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        // provider 缺省按模型前缀推断："kimi." 不匹配任何已知前缀 → hermes 兜底 → 不限定，仅裸名。
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.ModelCandidates.Should().Equal("kimi.k2.6");
+
+        var priced = new PricingEngine().PriceRecord(record);
+        priced.CostUsd.Should().Be(0.1m, "点分名经键归一化命中 moonshot/kimi-k2.6（input 100k × $1/M）");
+        priced.MatchedKey.Should().Be("moonshot/kimi-k2.6");
+    }
+
+    /// <summary>I-024 接线：provider 非 hermes 时限定名 + 裸名候选（qualified 仅在精确命中时可能生效，
+    /// 门槛由引擎精确匹配承载）；分组/显示仍用裸模型名。</summary>
+    [Fact]
+    public async Task Qualified_candidate_precedes_raw_model_for_pricing()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(Path.Combine(home, "state.db"));
+        InsertSession(db, new SessionFixture(
+            "session-qualified", "gemini.2.5.pro", "google", 1_789_462_800_000.0, 1,
+            InputTokens: 100_000, OutputTokens: 0, CacheReadTokens: 0, CacheWriteTokens: 0,
+            ReasoningTokens: 0, EstimatedCost: null, ActualCost: null));
+
+        var result = await CreateAdapter(home).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.ModelCandidates.Should().Equal("google/gemini.2.5.pro", "gemini.2.5.pro");
+
+        var priced = new PricingEngine().PriceRecord(record);
+        priced.CostUsd.Should().Be(0.125m, "限定名与裸名经键归一化同hit google/gemini-2.5-pro（input 100k × $1.25/M，低于 200K 分档阈值走基础档）");
+        priced.MatchedKey.Should().Be("google/gemini-2.5-pro");
+        record.Model.Should().Be("gemini.2.5.pro", "分组/显示仍用裸模型名");
+    }
+
     /// <summary>estimated_cost_usd 回退（actual 缺失时）；全零行（无 tokens 且无 cost）跳过。</summary>
     [Fact]
     public async Task Falls_back_to_estimated_cost_and_skips_all_zero_rows()

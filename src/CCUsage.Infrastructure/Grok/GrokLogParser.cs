@@ -22,8 +22,8 @@ namespace CCUsage.Infrastructure.Grok;
 /// reasoning）全零跳过（reasoning&gt;0 单独成行、token 全零）。</item>
 /// <item><b>成本</b>（蓝本 cost_usd_from_ticks）：costUsdTicks 为定点 USD，1 tick = 1e-10 USD——
 /// &gt;0 时 decimal 精确换算（从 long 构造，不经 double）入统一记录 CostUsd（LogCost 短路，与 CLI
-/// display/auto 优先采纳发票成本一致）；无 ticks 交定价引擎（蓝本候选链 xai/ 前缀与 -build 剥离
-/// 计价属 I-024 端到端欠账，见卡片偏差①）。</item>
+/// display/auto 优先采纳发票成本一致）；无 ticks 交定价引擎（I-024 起带蓝本 pricing_candidates
+/// 候选链与 exact-优先匹配走向，见 <see cref="BuildPricingCandidates"/>）。</item>
 /// <item><b>时间戳</b>（蓝本 resolve_timestamp_ms）：_meta.agentTimestampMs（整数或浮点截断，
 /// Rust `as i64` saturating 语义）&gt;0 → 毫秒；envelope timestamp（Unix 秒）&gt;0 → ×1000
 /// （saturating）；否则 UNIX 纪元。</item>
@@ -216,6 +216,12 @@ public sealed class GrokLogParser
                 ProjectPath = meta.ProjectPath,
                 SessionId = sessionId,
                 Model = rawModel,
+                // 计价走蓝本 pricing_candidates 候选链（I-024 接线，GK-1/GK-2）：剥 "[grok] " 前缀、
+                // 剥 "-build" 后缀、补 xai/ 与 x-ai/ 前缀；匹配走向为蓝本 calculate_grok_cost_at 的
+                // "exact 全候选优先、再 fuzzy"（ExactThenFamilyAcrossCandidates）。
+                Pricing = new UsagePricingPlan(
+                    BuildPricingCandidates(rawModel),
+                    PricingCandidateWalk.ExactThenFamilyAcrossCandidates),
                 CostUsd = ticks > 0 ? ticks / TicksPerUsd : null,
                 InputTokens = uncached,
                 OutputTokens = outputTokens,
@@ -247,6 +253,45 @@ public sealed class GrokLogParser
         }
 
         return [(defaultModel ?? UnknownModel, ReadModelUsage(usage))];
+    }
+
+    /// <summary>
+    /// 计价模型候选（蓝本 pricing_candidates 逐字移植，I-024 接线 GK-1/GK-2）：剥 "[grok] " 前缀
+    /// （GK-2）后依次为 [stripped, "xai/{stripped}", "x-ai/{stripped}", 剥 "-build" 后缀的
+    /// normalized, "xai/{normalized}", "x-ai/{normalized}"]，相邻去重保序；剥前缀后为空串则无候选。
+    /// 匹配走向（蓝本 calculate_grok_cost_at）：exact 全候选优先、再 fuzzy——桌面口径为
+    /// <see cref="PricingCandidateWalk.ExactThenFamilyAcrossCandidates"/>。
+    /// </summary>
+    public static IReadOnlyList<string> BuildPricingCandidates(string rawModel)
+    {
+        var candidates = new List<string>();
+        void Push(string value)
+        {
+            if (!candidates.Contains(value))
+            {
+                candidates.Add(value);
+            }
+        }
+
+        var stripped = rawModel.StartsWith("[grok] ", StringComparison.Ordinal)
+            ? rawModel["[grok] ".Length..].Trim()
+            : rawModel.Trim();
+        if (stripped.Length == 0)
+        {
+            return candidates;
+        }
+
+        var normalized = stripped.EndsWith("-build", StringComparison.Ordinal)
+            ? stripped[..^"-build".Length]
+            : stripped;
+
+        Push(stripped);
+        Push($"xai/{stripped}");
+        Push($"x-ai/{stripped}");
+        Push(normalized);
+        Push($"xai/{normalized}");
+        Push($"x-ai/{normalized}");
+        return candidates;
     }
 
     private static GrokModelUsage ReadModelUsage(JsonElement element)

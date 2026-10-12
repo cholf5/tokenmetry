@@ -30,10 +30,10 @@ public enum HermesRowRejection
 /// - reasoning（extra_total_tokens）并入 OutputTokens（I-006/I-009/I-012 口径；蓝本计价把 reasoning
 ///   按输出价计费，成本一致；CLI daily 的 outputTokens 不含 reasoning——显示口径偏差见卡片 Dev Log）；
 /// - 成本：stored cost（actual/estimated）&gt; 0 直接采用（蓝本 calculate_hermes_cost 同门槛），否则
-///   CostUsd = null 交定价引擎（蓝本候选计价机制见卡片偏差清单）；
+///   CostUsd = null 交定价引擎（I-024 起走蓝本 model_candidates 候选链，见 BuildModelCandidates 接线）；
 /// - provider 归一化（蓝本 normalize_provider / infer_provider_from_model 全分支）与计价候选顺序
 ///   （蓝本 model_candidates：provider 限定名仅在 exact-with-fallback 命中时插入，hermes 兜底不限定）
-///   移植为纯函数供移植测试；自研引擎按模型名定价（偏差⑤）；
+///   移植为纯函数供移植测试；I-024 起接入映射产物（精确门槛由引擎匹配承载，见 Map 内注释）；
 /// - message id 取蓝本 message.id 形状 "hermes:&lt;session_id&gt;"（跨库去重键与 session id 一一对应）。
 /// </summary>
 public static class HermesSessionParser
@@ -104,6 +104,14 @@ public static class HermesSessionParser
             ProjectPath = ProjectPath,
             SessionId = row.SessionId,
             Model = row.Model,
+            // 计价走蓝本 model_candidates 候选链（I-024 接线）：provider 限定名 + 裸模型名，去重保序。
+            // 蓝本"限定名仅 exact-with-fallback 命中时插入"的门槛由引擎精确匹配承载——限定名不能
+            // 精确（含 '.'/'@'→'-' 键归一化，HasExactNormalizedPrice 同口径，已进匹配器）命中时
+            // 候选自然不生效；分组/显示仍用裸模型名。
+            Pricing = new UsagePricingPlan(BuildModelCandidates(
+                NormalizeProvider(row.ProviderRaw, row.Model),
+                row.Model,
+                _ => true)),
             // stored cost（actual 优先、estimated 回退）> 0 直接采用，否则交定价引擎
             //（蓝本 calculate_hermes_cost 的 cost_usd.filter(> 0) 门槛同式）。
             CostUsd = ToDecimalCost(costUsd),

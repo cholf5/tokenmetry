@@ -2,6 +2,7 @@ namespace CCUsage.Infrastructure.Tests.PiAgent;
 
 using System.Text.Json;
 using CCUsage.Core.Models;
+using CCUsage.Core.Services;
 using CCUsage.Infrastructure.PiAgent;
 
 /// <summary>
@@ -653,6 +654,35 @@ public class PiAgentAdapterTests : IDisposable
 
     private static string? ParentPath(string sessionsRoot, string relative)
         => Path.Combine(sessionsRoot, relative);
+
+    /// <summary>
+    /// PI-3 接线（I-024）：identity cost 解析器与定价引擎同一套候选/别名口径——传入共享引擎
+    /// （含用户覆盖 / 远程数据）时，重放签名与复合 entry id 的「有效成本」按共享引擎口径现算
+    /// （蓝本 calculate_store_cost 的 display_cost 缺省分支）；缺省解析器仍为内置快照口径，
+    /// 且在同一解析器实例内复用单个引擎。
+    /// </summary>
+    [Fact]
+    public void Identity_cost_resolver_honors_shared_engine_overrides()
+    {
+        var sourceFile = WriteLines(CreateTempDir(), "project-a/agent_root.jsonl",
+            UsageLine("2026-01-02T10:00:00.000Z", 100, 10, 20, 3));
+
+        var overriddenEngine = new PricingEngine(overrides: new[]
+        {
+            new ModelPricingOverride { Model = "gpt-5", InputPerMillion = 100m, OutputPerMillion = 1000m },
+        });
+        var sharedParser = new PiSessionParser(record => overriddenEngine.PriceRecord(record).CostUsd ?? 0m);
+        var snapshotParser = new PiSessionParser();
+
+        var shared = sharedParser.ParseSessionFile(sourceFile, new PiStoreContext("pi", null)).Data!;
+        var snapshot = snapshotParser.ParseSessionFile(sourceFile, new PiStoreContext("pi", null)).Data!;
+
+        // 覆盖价：input 100×$100/M + output 10×$1000/M + cacheWrite 3×$125/M（100×1.25 缺省）
+        // + cacheRead 20×$10/M（100×0.1 缺省）= 0.020575。
+        shared.Usages.Should().ContainSingle().Which.Signature.BilledCost.Should().Be(0.020575m);
+        // 快照价（gpt-5：1.25 / 10 / 1.5625 / 0.125）= 0.0002321875。
+        snapshot.Usages.Should().ContainSingle().Which.Signature.BilledCost.Should().Be(0.0002321875m);
+    }
 
     private static string SessionLine(string id, string timestamp, string? parent)
     {

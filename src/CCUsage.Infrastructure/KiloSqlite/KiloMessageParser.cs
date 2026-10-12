@@ -38,7 +38,8 @@ public enum KiloRowRejection
 /// （蓝本同式，保证无内嵌 id 的行仍可去重）；成本（蓝本 CostMode::Auto 语义）：载荷 cost 存在即采用
 /// （含 0——与 OpenCode 的 &gt;0 过滤不同，Kilo 的 Auto 对 Some(0.0) 记 0 不再计价），缺失才交定价引擎；
 /// provider 归一化与计价候选（qualified 仅在 find_exact 命中时插入，unknown/kilo 兜底不限定）移植为
-/// 纯函数供移植测试（自研引擎按模型名定价，见卡片偏差清单）。
+/// 纯函数，I-024 起接入映射产物 <see cref="UsageRecord.Pricing"/>（精确门槛由引擎匹配承载，见
+/// MapMessage 内注释；分组/显示仍用裸 modelID）。
 /// </summary>
 public static class KiloMessageParser
 {
@@ -135,6 +136,9 @@ public static class KiloMessageParser
         var sessionId = LenientJson.GetNonEmptyString(payload, "session_id") ?? rowSessionId;
         var messageId = LenientJson.GetNonEmptyString(payload, "id") ?? $"{databasePath}:{rowId}";
         var storedCost = LenientJson.GetF64(payload, "cost");
+        // 蓝本 message_value_to_entry 的 provider = value.provider_id（Option<String>），I-024 起参与
+        // 计价候选链（qualified 仅在精确命中时可能生效，门槛由引擎匹配承载）；分组/显示仍用 modelID。
+        var providerId = LenientJson.GetNonEmptyString(payload, "providerID");
 
         return (new UsageRecord
         {
@@ -143,6 +147,8 @@ public static class KiloMessageParser
             ProjectPath = ProjectPath,
             SessionId = sessionId,
             Model = modelId,
+            // 计价走蓝本 model_candidates 候选链（I-024 接线）：provider 限定名（仅精确门槛）+ 裸名。
+            Pricing = new UsagePricingPlan(BuildModelCandidates(modelId, providerId, _ => true)),
             // 蓝本 CostMode::Auto：cost 存在即采用（含 0），缺失才交定价引擎。
             CostUsd = ToStoredCost(storedCost),
             InputTokens = inputTokens,

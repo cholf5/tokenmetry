@@ -18,8 +18,8 @@ namespace CCUsage.Infrastructure.GooseSqlite;
 ///   归一为 UTC 与 10 字符纯日期；不可解析整行作废；
 /// - 模型名取 model_config_json 的 model_name（non_empty_string；JSON 解析失败或缺失整行作废）；
 /// - provider 归一化（蓝本 normalize_provider）：显式 provider '-'→'_'；缺省按模型前缀 claude-→anthropic、
-///   gpt-/chatgpt-/o*→openai、gemini-→google、qwen*→openrouter、其余 goose（仅影响蓝本计价候选，
-///   自研引擎按模型名定价，登记为偏差）；
+///   gpt-/chatgpt-/o*→openai、gemini-→google、qwen*→openrouter、其余 goose（I-024 起参与计价候选链的
+///   provider 限定，分组/显示仍用裸模型名）；
 /// - 成本：蓝本逐行走计价（无 stored cost），自研 CostUsd 恒 null 交定价引擎（I-008 口径）；
 ///   cache 两桶恒 0（Goose 不记缓存）。
 /// </summary>
@@ -81,6 +81,10 @@ public static class GooseSessionMapper
         }
 
         var reasoningTokens = Math.Max(0, totalTokens - SaturatingAdd(inputTokens, outputTokens));
+        // provider 归一化（蓝本 row_to_entry 的 normalize_provider）此前仅登记偏差未参与计价；
+        // I-024 起接入蓝本 calculate_goose_cost / missing_goose_pricing 的候选链：
+        // [裸模型名] +（provider ≠ goose 时）["{provider}/{model}"]，逐候选首个命中生效。
+        var provider = NormalizeProvider(row.ProviderName, model);
 
         return new UsageRecord
         {
@@ -89,6 +93,7 @@ public static class GooseSessionMapper
             ProjectPath = ProjectPath,
             SessionId = row.Id,
             Model = model,
+            Pricing = new UsagePricingPlan(BuildModelCandidates(model, provider)),
             // Goose 不记逐请求成本，统一交定价引擎（蓝本 calculate_goose_cost 逐行计价同口径）。
             CostUsd = null,
             InputTokens = inputTokens,
@@ -99,6 +104,18 @@ public static class GooseSessionMapper
             CacheReadTokens = 0,
             MessageId = row.Id,
         };
+    }
+
+    /// <summary>
+    /// 计价模型候选（蓝本 calculate_goose_cost / missing_goose_pricing 的候选集）：
+    /// [裸模型名] +（provider ≠ goose 时）["{provider}/{model}"]——provider 为 goose 兜底时不做
+    /// provider 限定（蓝本 `raw > 0.0 || provider_id == "goose"` 的短路同式）。
+    /// </summary>
+    public static IReadOnlyList<string> BuildModelCandidates(string model, string provider)
+    {
+        return provider == "goose"
+            ? [model]
+            : [model, $"{provider}/{model}"];
     }
 
     /// <summary>蓝本 parse_goose_timestamp：整数秒/毫秒判别 → 时间文本 → 19 字符空格/ T 分隔 → 纯日期。</summary>

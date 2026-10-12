@@ -21,6 +21,13 @@ public class UsageRecord
     /// <summary>模型名（已归一化，含 -fast 后缀标记；&lt;synthetic&gt; 等无模型记录为 null）。</summary>
     public string? Model { get; set; }
 
+    /// <summary>
+    /// 计价用侧数据（I-024，方案 A）：源适配器按蓝本候选链填充的有序候选 + 匹配走向 +
+    /// 计价 output 覆盖，仅供定价引擎使用；null 时按 <see cref="Model"/> 单候选计价（接线前现状）。
+    /// 不影响分组 / 显示 / facts 落库（展示口径始终是 <see cref="Model"/>）。
+    /// </summary>
+    public UsagePricingPlan? Pricing { get; set; }
+
     /// <summary>日志内建成本（costUSD 字段）；为 null 时由定价引擎（I-003）计算。</summary>
     public decimal? CostUsd { get; set; }
 

@@ -15,8 +15,9 @@ namespace CCUsage.Reconciliation.Tests;
 /// inputTokens 缓存扣除与 cache_creation 子集拆分、costUsdTicks 发票成本 LogCost 直采（1 tick =
 /// 1e-10 USD）、agentTimestampMs 毫秒优先与 envelope 秒回退、无 eventId 内容键文件内去重、同 eventId
 /// 跨会话全局去重、summary 缺失时会话目录名 id 与 URL 解码项目路径、坏行预过滤跳过。
-/// fixture 不含无 ticks 的可计价模型行（CLI 候选链现算带长上下文分档，桌面引擎无分档——两侧成本会
-/// 在分档边界 fail-loud，见卡片偏差①②），unpriced 模型行（CLI missingPricing 双侧 0 成本）覆盖之。
+/// fixture 不含无 ticks 的可计价模型行（I-024 后桌面经 GK-1 候选链 + 200K 分档现算，与 CLI 口径
+/// 一致——fixture 仍以带 ticks 发票成本行覆盖之），unpriced 模型行（CLI missingPricing 双侧 0 成本）
+/// 覆盖之。
 /// </summary>
 public class GrokFixtureReconciliationTests
 {

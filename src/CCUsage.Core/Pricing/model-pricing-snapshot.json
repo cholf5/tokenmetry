@@ -154,7 +154,19 @@
           "input": 0.1,
           "output": 0.5,
           "cache_read": 0.01,
-          "cache_write": 0.125
+          "cache_write": 0.125,
+          "tiers": [
+            {
+              "tier": {
+                "size": 100000,
+                "type": "context"
+              },
+              "input": 0.5,
+              "output": 2.5,
+              "cache_read": 0.05,
+              "cache_write": 0.625
+            }
+          ]
         }
       },
       "claude-sonnet-4": {
@@ -165,7 +177,19 @@
           "input": 3,
           "output": 15,
           "cache_read": 0.3,
-          "cache_write": 3.75
+          "cache_write": 3.75,
+          "tiers": [
+            {
+              "tier": {
+                "size": 200000,
+                "type": "context"
+              },
+              "input": 6,
+              "output": 22.5,
+              "cache_read": 0.6,
+              "cache_write": 7.5
+            }
+          ]
         }
       },
       "claude-4-sonnet": {
@@ -291,7 +315,18 @@
           "input": 1.25,
           "output": 10,
           "cache_read": 0.125,
-          "cache_write": 0.375
+          "cache_write": 0.375,
+          "tiers": [
+            {
+              "tier": {
+                "size": 200000,
+                "type": "context"
+              },
+              "input": 2.5,
+              "output": 15,
+              "cache_read": 0.25
+            }
+          ]
         }
       },
       "gemini-2.5-flash": {
@@ -302,6 +337,36 @@
           "output": 2.5,
           "cache_read": 0.03,
           "cache_write": 0.083333
+        }
+      },
+      "gemini-3.8-flash": {
+        "id": "gemini-3.8-flash",
+        "name": "Gemini 3.8 Flash",
+        "cost": {
+          "input": 1.5,
+          "output": 7.5,
+          "cache_read": 0.15,
+          "cache_write": 0.083333
+        }
+      },
+      "gemini-3.7-flash": {
+        "id": "gemini-3.7-flash",
+        "name": "Gemini 3.7 Flash",
+        "cost": {
+          "input": 1.5,
+          "output": 7.5,
+          "cache_read": 0.15,
+          "cache_write": 0.083333
+        }
+      },
+      "gemini-3.6-flash": {
+        "id": "gemini-3.6-flash",
+        "name": "Gemini 3.6 Flash",
+        "cost": {
+          "input": 0.75,
+          "output": 3.75,
+          "cache_read": 0.075,
+          "cache_write": 0.041667
         }
       }
     }
@@ -538,7 +603,19 @@
           "input": 2.5,
           "output": 15,
           "cache_read": 0.25,
-          "cache_write": 3.125
+          "cache_write": 3.125,
+          "tiers": [
+            {
+              "tier": {
+                "size": 272000,
+                "type": "context"
+              },
+              "input": 5,
+              "output": 22.5,
+              "cache_read": 0.5,
+              "cache_write": 5
+            }
+          ]
         }
       },
       "gpt-5.5": {
@@ -549,7 +626,19 @@
           "input": 5,
           "output": 30,
           "cache_read": 0.5,
-          "cache_write": 6.25
+          "cache_write": 6.25,
+          "tiers": [
+            {
+              "tier": {
+                "size": 272000,
+                "type": "context"
+              },
+              "input": 10,
+              "output": 45,
+              "cache_read": 1,
+              "cache_write": 10
+            }
+          ]
         }
       },
       "gpt-5.6-sol": {
@@ -560,7 +649,19 @@
           "input": 4,
           "output": 20,
           "cache_read": 0.4,
-          "cache_write": 5
+          "cache_write": 5,
+          "tiers": [
+            {
+              "tier": {
+                "size": 272000,
+                "type": "context"
+              },
+              "input": 8,
+              "output": 30,
+              "cache_read": 0.8,
+              "cache_write": 10
+            }
+          ]
         }
       },
       "gpt-5.6-terra": {
@@ -571,7 +672,19 @@
           "input": 2,
           "output": 12,
           "cache_read": 0.2,
-          "cache_write": 2.5
+          "cache_write": 2.5,
+          "tiers": [
+            {
+              "tier": {
+                "size": 272000,
+                "type": "context"
+              },
+              "input": 4,
+              "output": 18,
+              "cache_read": 0.4,
+              "cache_write": 5
+            }
+          ]
         }
       },
       "gpt-5-mini": {
@@ -626,7 +739,19 @@
           "input": 0.1,
           "output": 0.5,
           "cache_read": 0.01,
-          "cache_write": 0.125
+          "cache_write": 0.125,
+          "tiers": [
+            {
+              "tier": {
+                "size": 272000,
+                "type": "context"
+              },
+              "input": 0.2,
+              "output": 0.75,
+              "cache_read": 0.02,
+              "cache_write": 0.25
+            }
+          ]
         }
       },
       "gpt-6-sol": {
@@ -637,7 +762,19 @@
           "input": 2,
           "output": 10,
           "cache_read": 0.2,
-          "cache_write": 2.5
+          "cache_write": 2.5,
+          "tiers": [
+            {
+              "tier": {
+                "size": 272000,
+                "type": "context"
+              },
+              "input": 4,
+              "output": 15,
+              "cache_read": 0.4,
+              "cache_write": 5
+            }
+          ]
         }
       },
       "gpt-6-astra": {
@@ -648,7 +785,19 @@
           "input": 10,
           "output": 50,
           "cache_read": 1,
-          "cache_write": 12.5
+          "cache_write": 12.5,
+          "tiers": [
+            {
+              "tier": {
+                "size": 272000,
+                "type": "context"
+              },
+              "input": 20,
+              "output": 75,
+              "cache_read": 2,
+              "cache_write": 25
+            }
+          ]
         }
       },
       "codex": {
@@ -976,9 +1125,10 @@
         "id": "kimi-k2.6",
         "name": "Kimi K2.6",
         "cost": {
-          "input": 0.95,
-          "output": 4,
-          "cache_read": 0.16
+          "input": 1,
+          "output": 4.16,
+          "cache_read": 0.18,
+          "cache_write": 1
         }
       },
       "kimi-k2.5": {
@@ -1016,7 +1166,58 @@
         "cost": {
           "input": 1.25,
           "output": 2.5,
-          "cache_read": 0.2
+          "cache_read": 0.2,
+          "tiers": [
+            {
+              "tier": {
+                "size": 200000,
+                "type": "context"
+              },
+              "input": 2.5,
+              "output": 5,
+              "cache_read": 0.4
+            }
+          ]
+        }
+      },
+      "grok-4.5": {
+        "id": "grok-4.5",
+        "name": "Grok 4.5",
+        "cost": {
+          "input": 2,
+          "output": 6,
+          "cache_read": 0.3,
+          "tiers": [
+            {
+              "tier": {
+                "size": 200000,
+                "type": "context"
+              },
+              "input": 4,
+              "output": 12,
+              "cache_read": 0.6
+            }
+          ]
+        }
+      },
+      "grok-4.6": {
+        "id": "grok-4.6",
+        "name": "Grok 4.6",
+        "cost": {
+          "input": 2,
+          "output": 6,
+          "cache_read": 0.5,
+          "tiers": [
+            {
+              "tier": {
+                "size": 200000,
+                "type": "context"
+              },
+              "input": 4,
+              "output": 12,
+              "cache_read": 1
+            }
+          ]
         }
       }
     }

@@ -79,14 +79,21 @@ public sealed class PiSessionParser
     /// <paramref name="identityCostResolver"/> 为重放签名与复合 entry id 的「有效成本」解析
     /// （蓝本 calculate → entry.cost：存储成本缺省时按定价表现算）。缺省用内置快照引擎
     /// （<see cref="PricingEngine"/>，离线确定性；未定价模型记 0——与蓝本空 PricingMap 同塌缩语义）。
+    /// PI-3 接线（I-024）：应用装配时传入与主管道共享的引擎实例（用户覆盖 / models.dev 远程数据
+    /// 与计价循环同源），identity cost 与引擎同一套候选/别名口径——蓝本 store_pricing_at 的
+    /// 「覆盖 → display 名精确 → 裸名」链由引擎对 display 名（"[store] 裸名"）的候选剥离承载；
+    /// 默认解析器在同一解析器实例内复用单个引擎（此前每条记录新建引擎，浪费且无覆盖）。
     /// </summary>
     public PiSessionParser(Func<UsageRecord, decimal>? identityCostResolver = null)
     {
-        _identityCostResolver = identityCostResolver ?? (record =>
+        if (identityCostResolver is not null)
         {
-            var engine = new PricingEngine();
-            return engine.PriceRecord(record).CostUsd ?? 0m;
-        });
+            _identityCostResolver = identityCostResolver;
+            return;
+        }
+
+        var engine = new PricingEngine();
+        _identityCostResolver = record => engine.PriceRecord(record).CostUsd ?? 0m;
     }
 
     /// <summary>解析单个会话文件（蓝本 read_session_file_data_with_context）。读取失败计 LinesSkipped、

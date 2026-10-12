@@ -1,5 +1,6 @@
 using System.Globalization;
 using CCUsage.Core.Models;
+using CCUsage.Core.Services;
 using CCUsage.Infrastructure.GooseSqlite;
 using Microsoft.Data.Sqlite;
 
@@ -116,6 +117,56 @@ public class GooseSqliteAdapterTests : IDisposable
         result.Records.Should().BeEmpty();
         result.Diagnostics.InvalidRecords.Should().Be(3);
         result.Diagnostics.Status.Should().Be(JsonlScanStatus.NoData);
+    }
+
+    /// <summary>
+    /// I-024 接线：映射产物带蓝本 calculate_goose_cost / missing_goose_pricing 候选链
+    /// （provider 归一化后 ≠ goose 时 [裸名, "{provider}/{model}"]），引擎按记录计价——
+    /// 此前自研引擎按裸模型名定价（偏差登记），限定键形状的价目命中依赖裸名巧合。
+    /// </summary>
+    [Fact]
+    public async Task Carries_provider_qualified_pricing_candidates_and_prices_model()
+    {
+        var root = CreateTempDir();
+        var db = CreateDatabase(Path.Combine(root, "data", "sessions", "sessions.db"));
+        InsertSession(db, new SessionFixture(
+            "session-kimi", """{"model_name":"kimi-k2.6"}""", "moonshot-for-coding",
+            "2026-05-01 01:02:03", Total: 1100, Input: 1000, Output: 100));
+
+        var result = await CreateAdapter(root).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.ModelCandidates.Should().Equal(
+            "kimi-k2.6", "moonshot_for_coding/kimi-k2.6"); // 显式 provider '-'→'_'（蓝本 normalize_provider）后拼限定键
+        record.Model.Should().Be("kimi-k2.6", "分组/显示仍用裸模型名");
+
+        var priced = new PricingEngine().PriceRecord(record);
+        priced.CostUsd.Should().Be(0.001m + 0.000416m, "1000×$1/M + 100×$4.16/M（快照 moonshot/kimi-k2.6，2026-10-12 刷新价）");
+        priced.MatchedKey.Should().Be("moonshot/kimi-k2.6");
+    }
+
+    /// <summary>I-024 接线：provider 兜底为 goose 时不做限定（蓝本 `provider_id == "goose"` 短路同式），
+    /// 未命中行为与接线前一致（Missing + UnpricedModels fail-loud）。</summary>
+    [Fact]
+    public async Task Skips_provider_qualification_when_provider_falls_back_to_goose()
+    {
+        var root = CreateTempDir();
+        var db = CreateDatabase(Path.Combine(root, "data", "sessions", "sessions.db"));
+        InsertSession(db, new SessionFixture(
+            "session-mystery", """{"model_name":"mystery-model"}""", null,
+            "2026-05-01 01:02:03", Total: 30, Input: 20, Output: 10));
+
+        var result = await CreateAdapter(root).ScanAsync();
+        var record = result.Records.Should().ContainSingle().Subject;
+
+        record.Pricing.Should().NotBeNull();
+        record.Pricing!.ModelCandidates.Should().Equal("mystery-model"); // 缺省 provider 按模型前缀推断为 goose 兜底 → 不限定
+
+        var engine = new PricingEngine();
+        var priced = engine.PriceRecord(record);
+        priced.IsPriced.Should().BeFalse();
+        engine.GetUnpricedModels().Should().ContainSingle(info => info.Model == "mystery-model");
     }
 
     /// <summary>时间戳形态：整数秒（×1000）、整数毫秒（>1e12）、RFC3339、纯日期（蓝本 parse_goose_timestamp 全分支）。</summary>

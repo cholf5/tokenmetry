@@ -37,6 +37,25 @@ public sealed class ModelPriceEntry
     /// <summary>cache_read 单价，USD / 百万 tokens。</summary>
     public decimal CacheReadPerMillion { get; init; }
 
+    /// <summary>
+    /// 长上下文分档阈值（I-024 观察项：models.dev cost.tiers 的 context 档，蓝本 pricing.rs
+    /// long_context_tier 取最小阈值）；null = 无分档。请求上下文（input + cache 各桶）超过阈值时
+    /// 全部桶整体切换到分档单价（蓝本 cost.rs 两段式，非边际分段）；分档缺某项单价时回落基础档。
+    /// </summary>
+    public long? LongContextThreshold { get; init; }
+
+    /// <summary>长上下文分档的 input 单价；null 回落 <see cref="InputPerMillion"/>。</summary>
+    public decimal? InputAboveThresholdPerMillion { get; init; }
+
+    /// <summary>长上下文分档的 output 单价；null 回落 <see cref="OutputPerMillion"/>。</summary>
+    public decimal? OutputAboveThresholdPerMillion { get; init; }
+
+    /// <summary>长上下文分档的 cache_creation（5m）单价；null 回落 <see cref="CacheWritePerMillion"/>。</summary>
+    public decimal? CacheWriteAboveThresholdPerMillion { get; init; }
+
+    /// <summary>长上下文分档的 cache_read 单价；null 回落 <see cref="CacheReadPerMillion"/>。</summary>
+    public decimal? CacheReadAboveThresholdPerMillion { get; init; }
+
     /// <summary>展示用键："provider/modelId"（provider 为空时仅 modelId）。</summary>
     public string ToKey()
     {

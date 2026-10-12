@@ -31,10 +31,10 @@ namespace CCUsage.Infrastructure.Codebuff;
 /// "codebuff:{session}:{RFC3339 毫秒}:{model}:{ordinal}:{in}:{out}:{cr}:{cc}:{extra}"（ordinal 为
 /// 数组原始下标）；跨文件 <b>last-wins</b>（蓝本 HashMap insert 同口径）。</item>
 /// </list>
-/// 成本落点：统一记录 CostUsd 恒 null 交定价引擎（蓝本 calculate_codebuff_cost 的 provider/
-/// 前缀候选重试与缺失定价报告属 I-024 端到端欠账，见卡片偏差①）；extra 并入统一记录 OutputTokens
-/// （仓库口径，与蓝本计价式 output+extra 同值，见卡片偏差②）。行级容错为仓库 I-004 口径
-/// （蓝本静默跳过处显式计数）。
+/// 成本落点：统一记录 CostUsd 恒 null 交定价引擎（I-024 起带蓝本候选链：infer_provider 前缀重试 +
+/// 候选集口径，见 <see cref="BuildModelCandidates"/>；CB-2 快照 gpt-5 cache_write 差异分析见卡片）；
+/// extra 并入统一记录 OutputTokens（仓库口径，与蓝本计价式 output+extra 同值，见卡片偏差②）。
+/// 行级容错为仓库 I-004 口径（蓝本静默跳过处显式计数）。
 /// </summary>
 public sealed class CodebuffChatParser
 {
@@ -121,8 +121,9 @@ public sealed class CodebuffChatParser
         }
     }
 
-    /// <summary>统一记录映射：CostUsd 恒 null 交定价引擎；extra 并入 OutputTokens（蓝本计价式
-    /// output+extra 同值）；MessageId/RequestId 置 null——去重键由 <see cref="CodebuffEntry"/>
+    /// <summary>统一记录映射：CostUsd 恒 null 交定价引擎（I-024 起带蓝本候选链：裸模型名 +
+    /// infer_provider 前缀重试，见 <see cref="BuildModelCandidates"/>）；extra 并入 OutputTokens
+    /// （蓝本计价式 output+extra 同值）；MessageId/RequestId 置 null——去重键由 <see cref="CodebuffEntry"/>
     /// 单独承载（复合键非 Claude MessageId 语义，防共享去重器误并）；IsSidechain 恒 false。</summary>
     private static UsageRecord ToRecord(
         DateTimeOffset timestamp, string model, AssistantUsage usage, string sessionId, string sourceFile)
@@ -134,6 +135,7 @@ public sealed class CodebuffChatParser
             ProjectPath = ProjectPath,
             SessionId = sessionId,
             Model = model,
+            Pricing = new UsagePricingPlan(BuildModelCandidates(model)),
             CostUsd = null,
             InputTokens = usage.InputTokens,
             OutputTokens = usage.OutputTokens.SaturatingAddClamped(usage.ExtraTotalTokens),
@@ -173,6 +175,63 @@ public sealed class CodebuffChatParser
         var variant = LenientJson.GetNonEmptyString(message, "variant")
                       ?? LenientJson.GetNonEmptyString(message, "role");
         return variant is "ai" or "agent" or "assistant";
+    }
+
+    /// <summary>
+    /// provider 推断（蓝本 infer_provider，I-024 接线移植；蓝本 entry.provider 即该函数在映射时的
+    /// 产物）：小写后按前缀 claude- / anthropic/ / anthropic. → anthropic；gpt- / o1 / o3 / o4 /
+    /// openai/ → openai；gemini / google/ → google；grok / xai/ → xai；openrouter/ → openrouter；
+    /// 其余 unknown。
+    /// </summary>
+    public static string InferProvider(string model)
+    {
+        var lowered = model.ToLowerInvariant();
+        if (lowered.StartsWith("claude-", StringComparison.Ordinal)
+            || lowered.StartsWith("anthropic/", StringComparison.Ordinal)
+            || lowered.StartsWith("anthropic.", StringComparison.Ordinal))
+        {
+            return "anthropic";
+        }
+
+        if (lowered.StartsWith("gpt-", StringComparison.Ordinal)
+            || lowered.StartsWith("o1", StringComparison.Ordinal)
+            || lowered.StartsWith("o3", StringComparison.Ordinal)
+            || lowered.StartsWith("o4", StringComparison.Ordinal)
+            || lowered.StartsWith("openai/", StringComparison.Ordinal))
+        {
+            return "openai";
+        }
+
+        if (lowered.StartsWith("gemini", StringComparison.Ordinal)
+            || lowered.StartsWith("google/", StringComparison.Ordinal))
+        {
+            return "google";
+        }
+
+        if (lowered.StartsWith("grok", StringComparison.Ordinal)
+            || lowered.StartsWith("xai/", StringComparison.Ordinal))
+        {
+            return "xai";
+        }
+
+        if (lowered.StartsWith("openrouter/", StringComparison.Ordinal))
+        {
+            return "openrouter";
+        }
+
+        return "unknown";
+    }
+
+    /// <summary>
+    /// 计价模型候选（蓝本 calculate_codebuff_cost / missing_codebuff_pricing 的候选集，I-024 接线）：
+    /// [裸模型名] +（provider ≠ unknown 且模型未自带 "{provider}/" 前缀时）["{provider}/{model}"]。
+    /// </summary>
+    public static IReadOnlyList<string> BuildModelCandidates(string model)
+    {
+        var provider = InferProvider(model);
+        return provider == "unknown" || model.StartsWith($"{provider}/", StringComparison.Ordinal)
+            ? [model]
+            : [model, $"{provider}/{model}"];
     }
 
     /// <summary>取数回退链（蓝本 extract_assistant_usage）。</summary>

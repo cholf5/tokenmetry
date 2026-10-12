@@ -1,5 +1,6 @@
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
+using CCUsage.Core.Services;
 using CCUsage.Infrastructure.JsonSource;
 
 namespace CCUsage.Infrastructure.PiAgent;
@@ -24,11 +25,16 @@ public class PiAgentAdapter : IPiAgentAdapter
     public PiAgentAdapter(
         string? configuredDataDir = null,
         PiLogLocator? locator = null,
-        PiSessionParser? parser = null)
+        PiSessionParser? parser = null,
+        PricingEngine? pricingEngine = null)
     {
         _configuredDataDir = configuredDataDir;
         _locator = locator ?? new PiLogLocator();
-        _parser = parser ?? new PiSessionParser();
+        // PI-3 接线（I-024）：应用装配传入共享定价引擎（用户覆盖 / 远程数据与计价循环同源），
+        // identity cost 与引擎同一套候选/别名口径；未传时解析器退回内置快照默认引擎（离线确定性）。
+        _parser = parser ?? new PiSessionParser(pricingEngine is null
+            ? null
+            : record => pricingEngine.PriceRecord(record).CostUsd ?? 0m);
     }
 
     public Task<JsonlScanResult> ScanAsync(CancellationToken ct = default)
