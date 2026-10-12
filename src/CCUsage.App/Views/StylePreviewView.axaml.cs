@@ -2,18 +2,23 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using CCUsage.App.DependencyInjection;
 using CCUsage.App.Services;
+using CCUsage.App.ViewModels;
+using CCUsage.Core.Abstractions;
 
 namespace CCUsage.App.Views;
 
 /// <summary>
 /// [I-027] 临时样式预览页（见 StylePreviewView.axaml 头注释）：设计令牌与共享样式的
-/// 目检载体，支持就地切换明暗主题与弹出 toast；v0.4 页面卡落地后随本页删除。
+/// 目检载体，支持就地切换明暗主题与弹出 toast；[D-004/D-005] 追加图表控件演示区
+/// （ChartPreviewViewModel：fixture ↔ 真实 IUsageQueryService 开关）。
+/// 无外壳导航入口，真机目检经 CCUSAGE_PREVIEW_WINDOW=1 打开预览窗口；v0.4 页面卡落地后随本页删除。
 /// </summary>
 public partial class StylePreviewView : UserControl
 {
     public StylePreviewView()
     {
         InitializeComponent();
+        DataContext = new ChartPreviewViewModel(AppServices.Get<IUsageQueryService>());
     }
 
     private void OnLightThemeClick(object? sender, RoutedEventArgs e) =>
@@ -27,4 +32,12 @@ public partial class StylePreviewView : UserControl
 
     private void OnToastClick(object? sender, RoutedEventArgs e) =>
         AppServices.Get<IToastService>().Show("Toast 演示：I-027 共享反馈样式", this);
+
+    private void OnReloadChartsClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ChartPreviewViewModel vm)
+        {
+            _ = vm.LoadAsync();
+        }
+    }
 }
