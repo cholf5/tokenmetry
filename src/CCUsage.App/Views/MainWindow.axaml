@@ -27,6 +27,10 @@
             <TabItem Header="Trend Spike (D-002)">
                 <views:TrendSpikeView/>
             </TabItem>
+            <!-- [I-027] 设计令牌与共享样式预览临时页，v0.4 页面卡（D-006~D-013）落地时移除 -->
+            <TabItem Header="Style Preview (I-027)">
+                <views:StylePreviewView/>
+            </TabItem>
         </TabControl>
     </Grid>
 </Window>

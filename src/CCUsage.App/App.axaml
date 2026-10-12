@@ -11,11 +11,27 @@
              DataGrid 样式由独立包提供，须与根主题一起引入。 -->
         <semi:SemiTheme Locale="zh-CN" />
         <semi:DataGridSemiTheme />
+        <!-- I-027：共享样式（card/panel/kpi、page-title、link-btn、chip、mini 进度条）。
+             须挂在 SemiTheme 之后，类选择器才能覆盖 Semi 的 ControlTheme。 -->
+        <StyleInclude Source="avares://CCUsage.App/Styles/SharedStyles.axaml" />
     </Application.Styles>
 
-    <!-- 明暗两套画刷，视图统一用 DynamicResource 引用，切换主题时自动换色。 -->
+    <!-- 明暗两套画刷，视图统一用 DynamicResource 引用，切换主题时自动换色。
+         I-027：设计令牌层在 Styles/Tokens.axaml（App* 前缀，命名规范见 docs/design/design-tokens.md）。 -->
     <Application.Resources>
         <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://CCUsage.App/Styles/Tokens.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <!-- I-026 的 10 组旧画刷（I-025 批次引入，6 个旧视图在用）按 I-027 命名规范属"遗留层"：
+                 本卡不改名不删除（保证旧视图零改动可运行），语义映射如下，收敛合并留待 Q-002：
+                 SecondaryTextBrush / MutedTextBrush → AppMutedTextBrush（原型 muted 变量）
+                 CardBackgroundBrush                  → AppCardBackgroundBrush / AppPanelBrush
+                 CardAccentBackgroundBrush            → AppPanelAltBrush（原型 panel2 变量）
+                 SeparatorBorderBrush                 → AppLineBrush（原型 line 变量）
+                 DangerTextBrush                      → AppAccentRedBrush
+                 AccentLinkTextBrush                  → AppLinkBrush
+                 WarningBanner*×3                     → 无原型对应，保留至 Q-002 -->
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="SecondaryTextBrush" Color="#666666"/>

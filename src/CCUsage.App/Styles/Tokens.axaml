@@ -1,0 +1,129 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        I-027 设计令牌层：UI 原型 docs/design/ccusage_analytics_prototype.html 的视觉规范。
+        命名规范与使用规则见 docs/design/design-tokens.md（前缀 App*，与 Semi* / DataGrid* 键避让）。
+
+        1. ThemeDictionaries（明暗翻转画刷）：Dark = 原型原值逐项对应（含 :root 变量与
+           .kpi/.panel/.chip/.linkbtn/.mini-track/.kpi-icon 等选择器里的具体色值，来源见各行注释）；
+           Light = 同色相、明度反转的协调值（原型只有暗色主题，浅色侧为本卡设计）。
+        2. 普通资源（不随明暗翻转）：7 个图表系列色（原型 JS colors[] 数组）+ mini 进度条填充渐变。
+    -->
+
+    <ResourceDictionary.ThemeDictionaries>
+
+        <ResourceDictionary x:Key="Light">
+            <!-- 页面底 / 面板 / 次面板 / 描边 ← 原型 :root 的 bg/panel/panel2/line 变量 -->
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#f4f6fa"/>
+            <SolidColorBrush x:Key="AppPanelBrush" Color="#ffffff"/>
+            <SolidColorBrush x:Key="AppPanelAltBrush" Color="#eef1f6"/>
+            <SolidColorBrush x:Key="AppLineBrush" Color="#d4dbe6"/>
+            <!-- 文字 ← 原型 :root 的 text/muted 变量（浅底上加深保证对比度） -->
+            <SolidColorBrush x:Key="AppTextBrush" Color="#1c2735"/>
+            <SolidColorBrush x:Key="AppMutedTextBrush" Color="#66788f"/>
+            <!-- 强调色 ← 原型 :root 的 blue/cyan/purple/green/orange/red 变量（浅底上加深） -->
+            <SolidColorBrush x:Key="AppAccentBlueBrush" Color="#2e6bdc"/>
+            <SolidColorBrush x:Key="AppAccentCyanBrush" Color="#1d9bc4"/>
+            <SolidColorBrush x:Key="AppAccentPurpleBrush" Color="#7d4fe0"/>
+            <SolidColorBrush x:Key="AppAccentGreenBrush" Color="#0e9e77"/>
+            <SolidColorBrush x:Key="AppAccentOrangeBrush" Color="#c77700"/>
+            <SolidColorBrush x:Key="AppAccentRedBrush" Color="#d9374f"/>
+            <!-- 卡片表面 ← 原型 .kpi/.panel（145deg 渐变换算见卡 Dev Log）与描边 #22324a -->
+            <LinearGradientBrush x:Key="AppCardBackgroundBrush" StartPoint="10.058%,-7.043%" EndPoint="89.942%,107.043%">
+                <GradientStop Color="#ffffff" Offset="0"/>
+                <GradientStop Color="#f7f9fc" Offset="1"/>
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="AppCardLineBrush" Color="#d8e0eb"/>
+            <!-- 链接按钮 ← 原型 .linkbtn #80adff -->
+            <SolidColorBrush x:Key="AppLinkBrush" Color="#2f6bd8"/>
+            <!-- chip ← 原型 .chip background:#1b2c44;color:#a8c8ff -->
+            <SolidColorBrush x:Key="AppChipBackgroundBrush" Color="#e3ecfb"/>
+            <SolidColorBrush x:Key="AppChipTextBrush" Color="#2b5d9f"/>
+            <!-- mini 进度条轨道 ← 原型 .mini-track background:#23334b（填充渐变在下方普通资源区） -->
+            <SolidColorBrush x:Key="AppMiniTrackBrush" Color="#e2e8f0"/>
+            <!-- 图标/头像软色底（KPI 卡四色 + 中性）← 原型 .kpi-icon 与 .agenticon 各变体 -->
+            <SolidColorBrush x:Key="AppIconChipBlueBackgroundBrush" Color="#dce9fb"/>
+            <SolidColorBrush x:Key="AppIconChipBlueForegroundBrush" Color="#2f66c0"/>
+            <SolidColorBrush x:Key="AppIconChipAmberBackgroundBrush" Color="#f7ecd4"/>
+            <SolidColorBrush x:Key="AppIconChipAmberForegroundBrush" Color="#a06a00"/>
+            <SolidColorBrush x:Key="AppIconChipPurpleBackgroundBrush" Color="#ece4fb"/>
+            <SolidColorBrush x:Key="AppIconChipPurpleForegroundBrush" Color="#7a4fd4"/>
+            <SolidColorBrush x:Key="AppIconChipGreenBackgroundBrush" Color="#d9f3ec"/>
+            <SolidColorBrush x:Key="AppIconChipGreenForegroundBrush" Color="#0f8f6c"/>
+            <SolidColorBrush x:Key="AppIconChipNeutralBackgroundBrush" Color="#e8ecf2"/>
+            <SolidColorBrush x:Key="AppIconChipNeutralForegroundBrush" Color="#5a6b80"/>
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Dark">
+            <!-- 页面底 / 面板 / 次面板 / 描边 ← 原型 :root bg:#0b1120 panel:#111c2e panel2:#142137 line:#24344d -->
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0b1120"/>
+            <SolidColorBrush x:Key="AppPanelBrush" Color="#111c2e"/>
+            <SolidColorBrush x:Key="AppPanelAltBrush" Color="#142137"/>
+            <SolidColorBrush x:Key="AppLineBrush" Color="#24344d"/>
+            <!-- 文字 ← 原型 :root text:#e8eef9 muted:#8293ad -->
+            <SolidColorBrush x:Key="AppTextBrush" Color="#e8eef9"/>
+            <SolidColorBrush x:Key="AppMutedTextBrush" Color="#8293ad"/>
+            <!-- 强调色 ← 原型 :root blue/cyan/purple/green/orange/red 变量 -->
+            <SolidColorBrush x:Key="AppAccentBlueBrush" Color="#4c8dff"/>
+            <SolidColorBrush x:Key="AppAccentCyanBrush" Color="#57c7e8"/>
+            <SolidColorBrush x:Key="AppAccentPurpleBrush" Color="#a779ff"/>
+            <SolidColorBrush x:Key="AppAccentGreenBrush" Color="#38d6a4"/>
+            <SolidColorBrush x:Key="AppAccentOrangeBrush" Color="#ffb454"/>
+            <SolidColorBrush x:Key="AppAccentRedBrush" Color="#ff7185"/>
+            <!-- 卡片表面 ← 原型 .kpi,.panel linear-gradient(145deg,#121e31,#101a2b) + 1px #22324a 描边 -->
+            <LinearGradientBrush x:Key="AppCardBackgroundBrush" StartPoint="10.058%,-7.043%" EndPoint="89.942%,107.043%">
+                <GradientStop Color="#121e31" Offset="0"/>
+                <GradientStop Color="#101a2b" Offset="1"/>
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="AppCardLineBrush" Color="#22324a"/>
+            <!-- 链接按钮 ← 原型 .linkbtn color:#80adff -->
+            <SolidColorBrush x:Key="AppLinkBrush" Color="#80adff"/>
+            <!-- chip ← 原型 .chip background:#1b2c44;color:#a8c8ff -->
+            <SolidColorBrush x:Key="AppChipBackgroundBrush" Color="#1b2c44"/>
+            <SolidColorBrush x:Key="AppChipTextBrush" Color="#a8c8ff"/>
+            <!-- mini 进度条轨道 ← 原型 .mini-track background:#23334b -->
+            <SolidColorBrush x:Key="AppMiniTrackBrush" Color="#23334b"/>
+            <!-- 图标/头像软色底 ← 原型 .kpi-icon 四变体 + .agenticon.gray -->
+            <SolidColorBrush x:Key="AppIconChipBlueBackgroundBrush" Color="#20395b"/>
+            <SolidColorBrush x:Key="AppIconChipBlueForegroundBrush" Color="#8db8ff"/>
+            <SolidColorBrush x:Key="AppIconChipAmberBackgroundBrush" Color="#3c3321"/>
+            <SolidColorBrush x:Key="AppIconChipAmberForegroundBrush" Color="#ffcb64"/>
+            <SolidColorBrush x:Key="AppIconChipPurpleBackgroundBrush" Color="#33284f"/>
+            <SolidColorBrush x:Key="AppIconChipPurpleForegroundBrush" Color="#c0a0ff"/>
+            <SolidColorBrush x:Key="AppIconChipGreenBackgroundBrush" Color="#173d3b"/>
+            <SolidColorBrush x:Key="AppIconChipGreenForegroundBrush" Color="#67e3bd"/>
+            <SolidColorBrush x:Key="AppIconChipNeutralBackgroundBrush" Color="#263143"/>
+            <SolidColorBrush x:Key="AppIconChipNeutralForegroundBrush" Color="#bac8da"/>
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!--
+        图表系列色（不随明暗翻转）：原型 JS `colors=['#4c8dff','#12b886','#ffad4d','#a779ff','#48bde3','#8394ae','#f06bc4']`。
+        索引自 0，与原型 colors[i]（Agent/模型维度着色）逐项对应；Color 供图表/环形图取值，Brush 供 XAML 圆点/图例使用。
+    -->
+    <Color x:Key="AppSeries0Color">#4c8dff</Color>
+    <Color x:Key="AppSeries1Color">#12b886</Color>
+    <Color x:Key="AppSeries2Color">#ffad4d</Color>
+    <Color x:Key="AppSeries3Color">#a779ff</Color>
+    <Color x:Key="AppSeries4Color">#48bde3</Color>
+    <Color x:Key="AppSeries5Color">#8394ae</Color>
+    <Color x:Key="AppSeries6Color">#f06bc4</Color>
+
+    <SolidColorBrush x:Key="AppSeries0Brush" Color="{StaticResource AppSeries0Color}"/>
+    <SolidColorBrush x:Key="AppSeries1Brush" Color="{StaticResource AppSeries1Color}"/>
+    <SolidColorBrush x:Key="AppSeries2Brush" Color="{StaticResource AppSeries2Color}"/>
+    <SolidColorBrush x:Key="AppSeries3Brush" Color="{StaticResource AppSeries3Color}"/>
+    <SolidColorBrush x:Key="AppSeries4Brush" Color="{StaticResource AppSeries4Color}"/>
+    <SolidColorBrush x:Key="AppSeries5Brush" Color="{StaticResource AppSeries5Color}"/>
+    <SolidColorBrush x:Key="AppSeries6Brush" Color="{StaticResource AppSeries6Color}"/>
+
+    <!-- mini 进度条填充 ← 原型 .mini-fill linear-gradient(90deg,#3e7df0,#65b9ff)（90deg = 左→右，换算精确）。
+         与系列色同理不随明暗翻转：饱和蓝渐变在明暗两种轨道上都可读。 -->
+    <LinearGradientBrush x:Key="AppMiniFillBrush" StartPoint="0%,50%" EndPoint="100%,50%">
+        <GradientStop Color="#3e7df0" Offset="0"/>
+        <GradientStop Color="#65b9ff" Offset="1"/>
+    </LinearGradientBrush>
+
+</ResourceDictionary>

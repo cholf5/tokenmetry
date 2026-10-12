@@ -1,0 +1,121 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        I-027 共享样式：原型选择器的 Avalonia 对应物，视图用 Classes="..." 引用。
+        类名对齐原型 CSS 类（card/panel/kpi/chip/page-title/panel-title/link-btn/mini），
+        令牌一律 DynamicResource 引用 Styles/Tokens.axaml，视图内禁止再写硬编码色值。
+        规范见 docs/design/design-tokens.md。
+    -->
+
+    <!-- 卡片表面 ← 原型 .kpi,.panel{background:linear-gradient(145deg,…);border:1px solid #22324a;border-radius:11px} -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource AppCardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="11"/>
+    </Style>
+
+    <!-- 面板 = 卡片表面 + 15px 内边距（自足，无需再连用 card）← 原型 .panel{padding:15px} -->
+    <Style Selector="Border.panel">
+        <Setter Property="Background" Value="{DynamicResource AppCardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Padding" Value="15"/>
+    </Style>
+
+    <!-- KPI 卡 = 卡片表面 + 原型 .kpi{padding:15px 15px 13px;min-height:124px}（自足） -->
+    <Style Selector="Border.kpi">
+        <Setter Property="Background" Value="{DynamicResource AppCardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Padding" Value="15,15,13,13"/>
+        <Setter Property="MinHeight" Value="124"/>
+    </Style>
+
+    <!-- 页面标题 ← 原型 .pagehead h1{font-size:21px;font-weight:650;letter-spacing:-.4px} -->
+    <Style Selector="TextBlock.page-title">
+        <Setter Property="FontSize" Value="21"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LetterSpacing" Value="-0.4"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+    </Style>
+
+    <!-- 页面副标题 ← 原型 .subtitle{color: muted 变量; font-size:12px} -->
+    <Style Selector="TextBlock.page-subtitle">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+    </Style>
+
+    <!-- 面板标题 ← 原型 .panelhead h2{font-size:13px;font-weight:650} -->
+    <Style Selector="TextBlock.panel-title">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+    </Style>
+
+    <!-- 链接按钮 ← 原型 .linkbtn{color:#80adff;font-size:11px;border:0;background:none} -->
+    <Style Selector="Button.link-btn">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="4,0"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppLinkBrush}"/>
+    </Style>
+
+    <!-- chip 标签 ← 原型 .chip{padding:3px 7px;border-radius:5px;background:#1b2c44;color:#a8c8ff;font-size:10px}
+         用在 Border 上（TextBlock 无 CornerRadius），文字颜色经附加属性继承给子 TextBlock。 -->
+    <Style Selector="Border.chip">
+        <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="Padding" Value="7,3"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppChipTextBrush}"/>
+        <Setter Property="TextBlock.FontSize" Value="10"/>
+    </Style>
+
+    <!-- 图标软色底容器 ← 原型 .kpi-icon{width:30px;height:30px;border-radius:9px;…;font-size:15px}，
+         背景/前景色由使用处按变体给 AppIconChip{Hue}BackgroundBrush / ForegroundBrush -->
+    <Style Selector="Border.icon-chip">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="TextBlock.FontSize" Value="15"/>
+    </Style>
+    <!-- Border 无内容对齐属性：图标字形经子选择器居中 -->
+    <Style Selector="Border.icon-chip > TextBlock">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- 图例/表格圆点 ← 原型 .modeldot{width:7px;height:7px;border-radius:3px}，颜色由使用处给 AppSeries{N}Brush -->
+    <Style Selector="Border.series-dot">
+        <Setter Property="Width" Value="7"/>
+        <Setter Property="Height" Value="7"/>
+        <Setter Property="CornerRadius" Value="3"/>
+    </Style>
+
+    <!-- mini 进度条 ← 原型 .mini-track{height:4px;background:#23334b;border-radius:5px} + .mini-fill{linear-gradient(90deg,#3e7df0,#65b9ff)}。
+         复用内置 ProgressBar：PART_Track / PART_Indicator 由 ProgressBar 自身代码按 Value(0-100) 计算宽度，
+         此处仅替换模板外观；类选择器优先级高于 Semi 的 ControlTheme，模板会被本样式覆盖。 -->
+    <Style Selector="ProgressBar.mini">
+        <Setter Property="Height" Value="4"/>
+        <Setter Property="Minimum" Value="0"/>
+        <Setter Property="Maximum" Value="100"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ProgressBar">
+                <Border x:Name="PART_Track"
+                        Background="{DynamicResource AppMiniTrackBrush}"
+                        CornerRadius="5"
+                        ClipToBounds="True">
+                    <Border x:Name="PART_Indicator"
+                            HorizontalAlignment="Left"
+                            Background="{DynamicResource AppMiniFillBrush}"
+                            CornerRadius="5"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+</Styles>
