@@ -9,6 +9,9 @@ public class AppSettings
     public bool ActiveSessionNotificationsEnabled { get; set; } = false;
     public bool ShowDebugInfo { get; set; } = true;
     public int RefreshMinutes { get; set; } = 15;
+
+    /// <summary>外观主题偏好：light（日间）/ dark（夜间）/ system（跟随系统）。</summary>
+    public string Theme { get; set; } = "system";
     public decimal? DailyBudgetUsd { get; set; }
     public decimal? MonthlyBudgetUsd { get; set; }
 

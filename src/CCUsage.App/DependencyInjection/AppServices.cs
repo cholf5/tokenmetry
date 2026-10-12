@@ -47,6 +47,7 @@ public static class AppServices
         services.AddSingleton(paths);
         services.AddSingleton<AppSettings>(settings);
         services.AddSingleton<IAppSettingsStore>(settingsStore);
+        services.AddSingleton<IThemeService, ThemeService>();
 
         // Core services
         services.AddSingleton<DateRangeService>();

@@ -7,28 +7,28 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0 0 0 20">
             <TextBlock Text="Model Breakdown" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
             <Button Command="{Binding LoadCommand}" Content="刷新模型" IsEnabled="{Binding !IsLoading}"/>
-            <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="#888"/>
+            <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}"/>
         </StackPanel>
 
-        <Border Grid.Row="1" Background="#f8f9fa" CornerRadius="8" Padding="12" Margin="0 0 0 20">
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0 0 0 20">
             <StackPanel Orientation="Horizontal" Spacing="20">
-                <TextBlock Text="{Binding ModelCount, StringFormat=模型数: {0}}" Foreground="#666"/>
-                <TextBlock Text="{Binding TotalCostText, StringFormat=模型成本合计: {0}}" Foreground="#666"/>
-                <TextBlock Text="{Binding TotalTokensText, StringFormat=模型 Tokens 合计: {0}}" Foreground="#666"/>
+                <TextBlock Text="{Binding ModelCount, StringFormat=模型数: {0}}" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Text="{Binding TotalCostText, StringFormat=模型成本合计: {0}}" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Text="{Binding TotalTokensText, StringFormat=模型 Tokens 合计: {0}}" Foreground="{DynamicResource SecondaryTextBrush}"/>
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="2" IsVisible="{Binding !HasData}" Background="#f8f9fa" CornerRadius="8" Padding="24">
+        <Border Grid.Row="2" IsVisible="{Binding !HasData}" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="24">
             <StackPanel Spacing="8" HorizontalAlignment="Center">
                 <TextBlock Text="暂无模型用量数据" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center"/>
-                <TextBlock Text="请先在 Dashboard 刷新数据，或确认 ccusage daily 输出包含 modelBreakdowns。" Foreground="#666" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                <TextBlock Text="请先在 Dashboard 刷新数据，或确认 ccusage daily 输出包含 modelBreakdowns。" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" HorizontalAlignment="Center"/>
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="2" IsVisible="{Binding HasData}" BorderBrush="#ddd" BorderThickness="1" CornerRadius="6">
+        <Border Grid.Row="2" IsVisible="{Binding HasData}" BorderBrush="{DynamicResource SeparatorBorderBrush}" BorderThickness="1" CornerRadius="6">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                 <StackPanel MinWidth="720">
-                    <Grid ColumnDefinitions="260,110,110,140,110" Background="#f8f9fa">
+                    <Grid ColumnDefinitions="260,110,110,140,110" Background="{DynamicResource CardBackgroundBrush}">
                         <TextBlock Grid.Column="0" Text="Model" FontWeight="Bold" Margin="8"/>
                         <TextBlock Grid.Column="1" Text="Cost" FontWeight="Bold" Margin="8"/>
                         <TextBlock Grid.Column="2" Text="Cost Share" FontWeight="Bold" Margin="8"/>
@@ -39,7 +39,7 @@
                     <ItemsControl ItemsSource="{Binding Rows}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:ModelBreakdownRow">
-                                <Border BorderBrush="#eee" BorderThickness="0,1,0,0">
+                                <Border BorderBrush="{DynamicResource SeparatorBorderBrush}" BorderThickness="0,1,0,0">
                                     <Grid ColumnDefinitions="260,110,110,140,110">
                                         <TextBlock Grid.Column="0" Text="{Binding Model}" Margin="8" TextTrimming="CharacterEllipsis"/>
                                         <TextBlock Grid.Column="1" Text="{Binding CostText}" Margin="8"/>

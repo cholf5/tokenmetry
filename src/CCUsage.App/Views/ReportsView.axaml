@@ -8,26 +8,26 @@
             <TextBlock Text="Reports" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
             <Button Command="{Binding LoadCommand}" Content="刷新列表" IsEnabled="{Binding !IsLoading}"/>
             <Button Command="{Binding ExportCsvCommand}" Content="导出 CSV" IsEnabled="{Binding CanExport}"/>
-            <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="#888"/>
+            <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}"/>
         </StackPanel>
 
-        <Border Grid.Row="1" Background="#f8f9fa" CornerRadius="8" Padding="12" Margin="0 0 0 20">
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0 0 0 20">
             <StackPanel Spacing="10">
                 <WrapPanel Orientation="Horizontal">
                     <StackPanel Width="130" Margin="0 0 10 0">
-                        <TextBlock Text="开始日期" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="开始日期" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
                         <TextBox Text="{Binding StartDateText}" PlaceholderText="YYYY-MM-DD"/>
                     </StackPanel>
                     <StackPanel Width="130" Margin="0 0 10 0">
-                        <TextBlock Text="结束日期" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="结束日期" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
                         <TextBox Text="{Binding EndDateText}" PlaceholderText="YYYY-MM-DD"/>
                     </StackPanel>
                     <StackPanel Width="220" Margin="0 0 10 0">
-                        <TextBlock Text="Agent / Model" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="Agent / Model" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
                         <TextBox Text="{Binding SearchText}" PlaceholderText="输入名称片段"/>
                     </StackPanel>
                     <StackPanel Width="150" Margin="0 0 10 0">
-                        <TextBlock Text="排序" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="排序" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
                         <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}"/>
                     </StackPanel>
                     <CheckBox Content="降序" IsChecked="{Binding IsDescending}" VerticalAlignment="Bottom" Margin="0 0 10 4"/>
@@ -35,23 +35,23 @@
                     <Button Command="{Binding ClearFiltersCommand}" Content="清空" VerticalAlignment="Bottom"/>
                 </WrapPanel>
                 <StackPanel Orientation="Horizontal" Spacing="12">
-                    <TextBlock Text="{Binding FilteredCount, StringFormat=记录数: {0}}" Foreground="#666"/>
-                    <TextBlock Text="{Binding FilteredTotalCostText, StringFormat=合计成本: {0}}" Foreground="#666"/>
+                    <TextBlock Text="{Binding FilteredCount, StringFormat=记录数: {0}}" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding FilteredTotalCostText, StringFormat=合计成本: {0}}" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 </StackPanel>
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="2" IsVisible="{Binding !HasData}" Background="#f8f9fa" CornerRadius="8" Padding="24" Margin="0 0 0 20">
+        <Border Grid.Row="2" IsVisible="{Binding !HasData}" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="24" Margin="0 0 0 20">
             <StackPanel Spacing="8" HorizontalAlignment="Center">
                 <TextBlock Text="暂无每日用量数据" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center"/>
-                <TextBlock Text="请先在 Dashboard 刷新数据，然后回到 Reports 点击刷新列表。" Foreground="#666" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                <TextBlock Text="请先在 Dashboard 刷新数据，然后回到 Reports 点击刷新列表。" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" HorizontalAlignment="Center"/>
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="3" IsVisible="{Binding HasData}" BorderBrush="#ddd" BorderThickness="1" CornerRadius="6">
+        <Border Grid.Row="3" IsVisible="{Binding HasData}" BorderBrush="{DynamicResource SeparatorBorderBrush}" BorderThickness="1" CornerRadius="6">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                 <StackPanel MinWidth="1160">
-                    <Grid ColumnDefinitions="110,90,120,100,100,130,110,160,240" Background="#f8f9fa">
+                    <Grid ColumnDefinitions="110,90,120,100,100,130,110,160,240" Background="{DynamicResource CardBackgroundBrush}">
                         <TextBlock Grid.Column="0" Text="Date" FontWeight="Bold" Margin="8"/>
                         <TextBlock Grid.Column="1" Text="Cost" FontWeight="Bold" Margin="8"/>
                         <TextBlock Grid.Column="2" Text="Total Tokens" FontWeight="Bold" Margin="8"/>
@@ -66,7 +66,7 @@
                     <ItemsControl ItemsSource="{Binding Rows}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:ReportsDailyRow">
-                                <Border BorderBrush="#eee" BorderThickness="0,1,0,0">
+                                <Border BorderBrush="{DynamicResource SeparatorBorderBrush}" BorderThickness="0,1,0,0">
                                     <Grid ColumnDefinitions="110,90,120,100,100,130,110,160,240">
                                         <TextBlock Grid.Column="0" Text="{Binding Date}" Margin="8"/>
                                         <TextBlock Grid.Column="1" Text="{Binding CostText}" Margin="8"/>

@@ -7,42 +7,60 @@
         <StackPanel Margin="20" Spacing="20">
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <TextBlock Text="Settings" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
-                <TextBlock Text="本地配置" Foreground="#666" VerticalAlignment="Center"/>
+                <TextBlock Text="本地配置" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
             </StackPanel>
 
-            <Border Background="#f8f9fa" CornerRadius="8" Padding="16">
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="16">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="ccusage CLI（对账 / 手动导入）" FontSize="16" FontWeight="Bold"/>
+                    <TextBlock Text="外观" FontSize="16" FontWeight="Bold"/>
                     <StackPanel Spacing="4">
-                        <TextBlock Text="命令或路径" Foreground="#666" FontSize="12"/>
-                        <TextBox Text="{Binding CcusageCommand}" PlaceholderText="ccusage"/>
-                        <TextBlock Text="应用默认直接读取本地 Claude Code / Codex 会话日志，无需安装 ccusage。此命令仅在需要对账或手动导入时使用，保存后于下次启动生效。" Foreground="#888" FontSize="12" TextWrapping="Wrap"/>
+                        <TextBlock Text="主题" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
+                        <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}"
+                                  Width="180" HorizontalAlignment="Left">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ThemeOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="切换后立即生效；选择“保存设置”以持久化。" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" TextWrapping="Wrap"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <Border Background="#f8f9fa" CornerRadius="8" Padding="16">
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="ccusage CLI（对账 / 手动导入）" FontSize="16" FontWeight="Bold"/>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="命令或路径" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
+                        <TextBox Text="{Binding CcusageCommand}" PlaceholderText="ccusage"/>
+                        <TextBlock Text="应用默认直接读取本地 Claude Code / Codex 会话日志，无需安装 ccusage。此命令仅在需要对账或手动导入时使用，保存后于下次启动生效。" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="16">
                 <StackPanel Spacing="12">
                     <TextBlock Text="刷新与提示" FontSize="16" FontWeight="Bold"/>
                     <StackPanel Width="180" HorizontalAlignment="Left" Spacing="4">
-                        <TextBlock Text="刷新间隔（分钟）" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="刷新间隔（分钟）" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
                         <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="15"/>
                     </StackPanel>
                     <CheckBox Content="启用异常通知" IsChecked="{Binding AnomalyNotificationsEnabled}"/>
                     <CheckBox Content="显示调试信息" IsChecked="{Binding ShowDebugInfo}"/>
-                    <TextBlock Text="刷新间隔保存后将在下次启动后台刷新服务时生效。" Foreground="#888" FontSize="12" TextWrapping="Wrap"/>
+                    <TextBlock Text="刷新间隔保存后将在下次启动后台刷新服务时生效。" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 
-            <Border Background="#f8f9fa" CornerRadius="8" Padding="16">
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="16">
                 <StackPanel Spacing="12">
                     <TextBlock Text="本地路径" FontSize="16" FontWeight="Bold"/>
                     <StackPanel Spacing="4">
-                        <TextBlock Text="缓存数据库" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="缓存数据库" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
                         <TextBox Text="{Binding CacheDbPath}" IsReadOnly="True"/>
                     </StackPanel>
                     <StackPanel Spacing="4">
-                        <TextBlock Text="设置文件" Foreground="#666" FontSize="12"/>
+                        <TextBlock Text="设置文件" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"/>
                         <TextBox Text="{Binding SettingsFilePath}" IsReadOnly="True"/>
                     </StackPanel>
                 </StackPanel>
@@ -50,7 +68,7 @@
 
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button Command="{Binding SaveCommand}" Content="保存设置" IsEnabled="{Binding !IsSaving}"/>
-                <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="#888"/>
+                <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}"/>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>
