@@ -34,11 +34,12 @@ blocked: none
 - [x] 内部模型后缀（-1m / -1m-internal 等）剥离后再匹配定价
   - ✅ `NormalizeModel` 先 -1m-internal 后 -1m、仅一次、前后空白去除（蓝本 normalize_copilot_model 同序）；
     剥离发生在分组之前，后缀变体与基础模型同组累计差分、命中基础模型价格
-- [ ] （进阶）otel 行与 shutdown 区间取优合并；进程无 shutdown 结束的调用不计（对齐蓝本口径）
-  - ⤴️ **实现判定：拆卡 [I-023](I-023-copilot-otel-merge.md)**（otel 四形态解析/互斥去重/取优合并 +
-    totalNanoAiu credit gap）。理由：本机无 otel 行与 checkpoint 数据可验（本卡 Background 勘误）、
-    蓝本该块约 800 行 Rust 且互斥优先级语义多，超出单卡合理范围；credit gap 是 cost-only
-    （0 token），不影响 token 对账。session-state 主线已完整并过对账。
+- [x] （进阶）otel 行与 shutdown 区间取优合并；进程无 shutdown 结束的调用不计（对齐蓝本口径）
+  - ✅ **2026-10-11 由 [I-023](I-023-copilot-otel-merge.md) 收口**（otel 四形态解析/互斥去重/取优
+    合并 + totalNanoAiu credit gap）：`CopilotOtelParser` + `CopilotUsageReconciler` 落地，
+    蓝本 31 个内联测试锚点逐条对齐（35 项单测），fixture golden（含 otel 接管与 checkpoint 数据）
+    重录后逐位一致；since/until 相关逻辑按桌面全量出账架构塌缩（偏差清单见 I-023 卡）。
+    totalNanoAiu credit gap 为 cost-only（0 token）条目落统一记录 unknown 模型。
 - [x] fixtures + 单元测试（含 resume 差分回归）+ 真实数据对账
   - ✅ Infrastructure 16 项单测（fixtures 全合成）+ 对账 fixture 入仓 + CLI golden 录制逐位一致 +
     `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip；COPILOT_HOME 钉 fixture 时全链路通过）
@@ -67,7 +68,10 @@ blocked: none
   同 id 重复 shutdown 去重、嵌套目录不发现、COPILOT_HOME 生效、增量重扫幂等）
 - [x] 对账：合成 fixture 入仓 + CLI golden 录制（fixtures/golden/copilot-fixture-daily-v20.0.29.json）+
   fixture 对账测试（tokens 五分量 + cost 逐位一致）+ CCUSAGE_RECONCILE_REAL 门控真实对账测试
-- [ ] otel 合并 + totalNanoAiu credit gap → 拆卡 I-023
+- [x] otel 合并 + totalNanoAiu credit gap → 已由 I-023 收口（2026-10-11）：`CopilotLogLocator`
+  补 otel/ 递归与 COPILOT_OTEL_FILE_EXPORTER_PATH 单文件收集；`CopilotOtelParser` 四形态解析 +
+  互斥去重；`CopilotUsageReconciler` 取优合并（差分移至合并器池化重算）+ credit gap cost-only
+  unknown 条目；fixtures/golden 扩充重录逐位一致（I-023 卡 Verification / TC-002）
 
 ## Dependencies
 
@@ -122,6 +126,7 @@ total=41,600 tokens，totalCost=$0.1240625** 逐位一致；分日 2026-09-14（
 cost 0.0537）与 2026-09-15（18,200/2,400/500/3,500/24,600，cost 0.0703625）逐位一致；per-model
 （claude-sonnet-4 20,500/2,200/2,500/7,000、gpt-5.1 6,500/900/0/500、gpt-5-mini 1,200/300/0/0）逐位一致；
 诊断 status=Partial（fixture 故意含 1 行坏 JSON）、malformed=1、invalid=0、records=5、UnpricedModels=∅。
+（以上为 I-008 收口时数字；I-023 扩充 fixture 后已重录 golden，最新数字见 I-023 卡 TC-002。）
 
 ### TC-003: 本机真实数据对账（CCUSAGE_RECONCILE_REAL=1 门控）
 

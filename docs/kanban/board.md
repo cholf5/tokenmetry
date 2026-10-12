@@ -9,7 +9,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| I-023 | Copilot CLI OpenTelemetry 合并与积分对账 | P3 | M | none | I-008 |
 | I-025 | 定价快照数据版本刷新 | P3 | M | none | I-024 |
 
 > 2026-10-11：按用户决定一次性建多源覆盖批次卡 I-006～I-022。蓝本为 ../ccusage/rust/adapters/（Rust 移植版，18 源清单见其 README「Supported Sources」）；DSH 不在 ccusage 支持列表（核实过，README 的 "trendshift" 含 "dsh" 是误匹配），I-007 为自研。与「看板保持 5–10 张」的常规策略有意偏离——本批是一次性全景规划，执行仍按优先级逐卡进行。**2026-10-12 追记：I-006～I-022 十七源适配器全部完成**（对账口径见各卡 TC），多源覆盖批次收口；I-024 候选计价接线随九源收口（UnpricedModels 欠账消除，快照补 tiers 段并刷新 kimi-k2.6）；剩余待办为补强卡 I-023 / I-025。
@@ -18,6 +17,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-023 | Copilot CLI OpenTelemetry 合并与积分对账 | P3 | 2026-10-12 |
 | I-024 | 候选计价端到端接线 | P2 | 2026-10-12 |
 | I-021 | Antigravity 适配器 | P3 | 2026-10-12 |
 | I-020 | OpenClaw 适配器 | P3 | 2026-10-12 |

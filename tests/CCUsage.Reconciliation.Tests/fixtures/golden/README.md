@@ -15,8 +15,14 @@
   覆盖多日 / 多模型 / cache_creation 5m+1h 细分、costUSD 内建与缺失（走计算价）两条路径、
   重复消息去重、cumulative 快照守卫、agent progress 包装行、`<synthetic>` 记录。
   Copilot fixture 覆盖：shutdown 累计快照差分（resume 跨日不重复出账）、同 id 重复 shutdown 去重、
-  uncached input 拆分（inputTokens 含缓存读写）、usage_checkpoint 行跳过、全零模型条目跳过、
-  -1m 内部后缀剥离归并、session-state 嵌套目录不发现（非递归口径）。
+  uncached input 拆分（inputTokens 含缓存读写）、全零模型条目跳过、-1m 内部后缀剥离归并、
+  session-state 嵌套目录不发现（非递归口径）、坏 JSON 行；
+  otel 四形态互斥去重（chat span 双导出计一次、inference log / agent summary 同 response id 被抑制、
+  agent turn 独立记录、同 turn 共享 response id 按用量区分保留）、otel × shutdown 取优合并
+  （进程无 shutdown 结束的调用由 otel 接管——区间全抑制、行全保留；otel 调用数不超过请求数差分时
+  区间照常、最新 shutdown 后的行保留/之前的抑制）、totalNanoAiu credit gap（shutdown 后 checkpoint
+  持续未解释部分 → cost-only unknown 条目、checkpoint-only 会话全额缺口、无 checkpoint / shutdown
+  缺总额 / 有 otel 行豁免）（I-023，otel/merge.jsonl + 7 个积分场景会话目录）。
   OpenCode fixture 覆盖：v1/v2 双表扫描、同 message id 跨表去重（v1 先扫）、fork 拷贝行剔除
   （session_v2 through 边界）、user 行跳过、坏 JSON 载荷跳过、stored cost 直采与为 0 走计价两条路径。
   Goose fixture 覆盖（I-012）：accumulated_* 列优先（plain 列为干扰值）、整数秒时间戳与 19 字符空格分隔时间、

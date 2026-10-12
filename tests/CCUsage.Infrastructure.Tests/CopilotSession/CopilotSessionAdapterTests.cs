@@ -75,7 +75,9 @@ public class CopilotSessionAdapterTests : IDisposable
             // 坏 JSON：须先通过行级预过滤（含 shutdown 标记）才进入解析、计 malformed（蓝本预过滤口径）。
             "{\"type\":\"session.shutdown\",\"timestamp\":\"2026-04-15T09:52:27.352Z",
             """{"type":"tool","data":{"message":"session.shutdown"}}""",
-            """{"type":"session.usage_checkpoint","id":"cp-1","timestamp":"2026-04-15T09:50:00.000Z","data":{"totalNanoAiu":1000}}""",
+            // 无总额的 checkpoint：积分对账无可消费内容（蓝本"A checkpoint without a total carries
+            // nothing"），计 skipped；带总额的 checkpoint 自 I-023 起产出积分快照、不再计 skipped。
+            """{"type":"session.usage_checkpoint","id":"cp-1","timestamp":"2026-04-15T09:50:00.000Z","data":{"promptCacheBreakState":[]}}""",
             Shutdown("shutdown-1", "2026-04-15T09:52:27.352Z",
                 Model("test-model", input: 1, output: 2)));
 
@@ -85,7 +87,7 @@ public class CopilotSessionAdapterTests : IDisposable
         record.InputTokens.Should().Be(1);
         record.OutputTokens.Should().Be(2);
         var diagnostics = result.Diagnostics;
-        // 坏 JSON 计 malformed；普通事件行与 checkpoint 行（积分对账为进阶范围）计 skipped。
+        // 坏 JSON 计 malformed；普通事件行与无总额 checkpoint 行计 skipped。
         diagnostics.MalformedLines.Should().Be(1);
         diagnostics.LinesSkipped.Should().Be(2);
         diagnostics.Status.Should().Be(JsonlScanStatus.Partial);

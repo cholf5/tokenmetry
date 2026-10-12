@@ -1,41 +1,35 @@
 using System.Globalization;
 using System.Text.Json;
-using CCUsage.Core.Models;
 using CCUsage.Infrastructure.Jsonl;
 
 namespace CCUsage.Infrastructure.CopilotSession;
 
 /// <summary>
-/// Copilot CLI session-state 逐文件解析（I-008）。解析与差分语义移植自
-/// ../ccusage rust/adapters/copilot（parser.rs parse_session_state_file + loader.rs
-/// reconcile_session_state_entries 的 session-state 主线）。蓝本许可：
+/// Copilot CLI session-state 逐文件解析（I-008 主线 + I-023 积分快照）。解析语义移植自
+/// ../ccusage rust/adapters/copilot（parser.rs parse_session_state_file）。蓝本许可：
 /// MIT License，Copyright (c) 2025 ryoppippi（../ccusage/LICENSE）。
 /// <list type="bullet">
 /// <item>只消费 type 为 session.shutdown / session.usage_checkpoint 的事件（行级预过滤与蓝本
-/// LinePrefilter::any 同口径）；checkpoint 行在本卡不产出记录（totalNanoAiu 积分对账为进阶范围，
-/// 见卡片实现边界），计 LinesSkipped。</item>
+/// LinePrefilter::any 同口径）。</item>
 /// <item>shutdown 的 data.modelMetrics 是按 (session, model) 的<b>累计快照</b>：resume 后每关一次
-/// 进程就多一条包含历史总和的 shutdown。解析产出各模型的累计条目后做相邻快照差分——组内按
-/// (时间戳, 出现序) 排序，首条保留、后条对前条做 saturating 减法，resume 不重复出账、总量守恒，
-/// 区间归属到后一条快照的事件日期（CLI 同口径）。</item>
-/// <item>差分在单文件内完成且与蓝本全量池化等价：分组键含 session id（= events.jsonl 的一级父目录名，
-/// 一个根目录内会话目录唯一），(session, model) 组不会跨文件，故文件内差分 == 蓝本"池化→去重→分组→
-/// 差分"的结果；跨扫描增量由共享引擎的文件记账承担（变更文件整文件重解析），无跨扫描差分状态。</item>
+/// 进程就多一条包含历史总和的 shutdown。本解析产出各模型的<b>累计快照条目</b>（含 requests.count 与
+/// 模型侧 totalNanoAiu），相邻快照差分（区间化）由 <see cref="CopilotUsageReconciler"/> 在池化后完成
+/// （蓝本 reconcile_session_state_entries 同构；I-008 时期差分在单文件解析内完成，I-023 因 otel
+/// 取优合并与积分对账需跨文件池化数据而统移至合并器——(session, model) 组不跨文件的等价性论证
+/// 不变，见卡片 Dev Log）。</item>
+/// <item>积分快照（I-023）：checkpoint 带非负 totalNanoAiu → 一条积分快照；shutdown 恒产出积分快照，
+/// 总额取 data.totalNanoAiu，但任一"参与上报"的模型（有 usage 且非全零）缺模型侧 totalNanoAiu 时
+/// 总额按缺失处理（蓝本 models_report_credits 过滤，credits 无法对账）。</item>
 /// <item>token 语义：Copilot 把缓存读写计入 inputTokens，uncached input = inputTokens −
 /// (cacheRead + cacheWrite)（解析时先算，差分作用在 uncached 累计值上——与蓝本 subtract_usage 一致）；
-/// reasoningTokens 已含在 outputTokens 内，不单列。</item>
+/// reasoningTokens 已含在 outputTokens 内，不单列（仅进无事件 id 的 dedup key）。</item>
 /// <item>内部模型后缀剥离：-1m-internal / -1m（先长后短，仅一次）在分组与定价前剥掉，
 /// 使 1m 上下文变体并入同组并命中基础模型价格。</item>
-/// <item>同文件去重（蓝本 deduplicate_session_entries）：同 dedup key 保留时间戳最新的一条
-/// （相等取后出现者），防重复 shutdown 事件双计。</item>
-/// <item>零 token 区间不产出记录（蓝本 has_usage 还接受 request_count&gt;0 的零 token 区间用于
-/// messageCount 展示；统一记录无请求数字段，零 token 记录对聚合零贡献——口径偏差见卡片 Dev Log）。</item>
+/// <item>零 token 快照不出条目，但全零<b>有请求数</b>条目保留（作差分基线参与后续减法，蓝本口径）。</item>
 /// </list>
 /// 行级容错为仓库 I-004 口径（蓝本 records() 对反序列化失败的行静默跳过）：坏 JSON 计 MalformedLines；
-/// 预过滤未命中 / 非 shutdown·checkpoint 事件 / checkpoint 行计 LinesSkipped；
+/// 预过滤未命中 / 非 shutdown·checkpoint 事件 / 缺总额的 checkpoint 行计 LinesSkipped；
 /// shutdown·checkpoint 行缺可解析时间戳计 InvalidRecords（DSH 适配器同口径偏差）。
-/// 记录 CostUsd 恒 null：成本由定价引擎按区间快照时间戳计算（CLI cost-at-timestamp 同口径）；
-/// MessageId/RequestId 恒 null（共享去重器直通，去重已在文件内按蓝本 dedup key 完成）。
 /// </summary>
 public sealed class CopilotSessionParser
 {
@@ -47,8 +41,10 @@ public sealed class CopilotSessionParser
     private const string ShutdownEvent = "session.shutdown";
     private const string UsageCheckpointEvent = "session.usage_checkpoint";
 
-    /// <summary>解析一个会话目录的 events.jsonl，产出该文件的区间用量记录。</summary>
-    public Task<JsonlFileParseOutcome> ParseAsync(TextReader reader, string sourceFile, CancellationToken ct)
+    /// <summary>
+    /// 解析一个会话目录的 events.jsonl，产出该文件的累计快照条目与积分快照（不差分）。
+    /// </summary>
+    public Task<CopilotSessionFileParse> ParseAsync(TextReader reader, string sourceFile, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -57,15 +53,14 @@ public sealed class CopilotSessionParser
         var sessionId = ResolveSessionId(sourceFile);
         if (string.IsNullOrEmpty(sessionId))
         {
-            return Task.FromResult(new JsonlFileParseOutcome(
-                Records: [], FilesRead: 1, LinesSkipped: 0, MalformedLines: 0, InvalidRecords: 0,
-                Interrupted: false));
+            return Task.FromResult(EmptyParse());
         }
 
         var linesSkipped = 0;
         var malformedLines = 0;
         var invalidRecords = 0;
-        var snapshots = new List<CumulativeSnapshot>();
+        var snapshots = new List<CopilotSnapshotEntry>();
+        var creditSnapshots = new List<CopilotCreditSnapshot>();
 
         while (reader.ReadLine() is { } line)
         {
@@ -106,14 +101,8 @@ public sealed class CopilotSessionParser
             }
 
             var eventType = typeElement.GetString();
-            if (eventType == UsageCheckpointEvent)
-            {
-                // usage_checkpoint 只服务积分（totalNanoAiu）对账——本卡实现边界，行不产出记录。
-                linesSkipped++;
-                continue;
-            }
-
-            if (eventType != ShutdownEvent)
+            var isShutdown = eventType == ShutdownEvent;
+            if (!isShutdown && eventType != UsageCheckpointEvent)
             {
                 linesSkipped++;
                 continue;
@@ -124,28 +113,85 @@ public sealed class CopilotSessionParser
                 || timestampElement.GetString() is not { Length: > 0 } timestampText
                 || !JsonlTimestamp.TryParse(timestampText, out var timestamp))
             {
-                // 时间戳缺失 / 不可解析：区间无法归日，丢弃（仓库口径计 invalid）。
+                // 时间戳缺失 / 不可解析：区间与积分快照均无法归时，丢弃（仓库口径计 invalid）。
                 invalidRecords++;
                 continue;
             }
 
-            CollectShutdownSnapshots(
-                element,
-                sessionId,
-                timestamp,
-                FormatRfc3339Millis(timestamp),
-                snapshots);
+            element.TryGetProperty("id", out var idElement);
+            var eventId = idElement.ValueKind == JsonValueKind.String
+                ? idElement.GetString()?.Trim()
+                : null;
+            if (string.IsNullOrEmpty(eventId))
+            {
+                eventId = null;
+            }
+
+            // 蓝本 CopilotSessionStateData：data 非 JSON 对象（lenient_object 失败）按 default 处理
+            // ——无模型表、无会话总额；模型表内任一模型值非对象时整表按缺失（all-or-nothing）。
+            var hasData = element.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object;
+            var sessionNanoAiu = hasData ? ReadNanoAiu(data, "totalNanoAiu") : null;
+            JsonElement modelMetricsElement = default;
+            var hasModelMetrics = hasData
+                && data.TryGetProperty("modelMetrics", out modelMetricsElement)
+                && modelMetricsElement.ValueKind == JsonValueKind.Object;
+
+            if (!isShutdown)
+            {
+                // 蓝本：checkpoint 缺总额则没有任何可对账的东西——不产出积分快照（其余内容跳过）。
+                if (sessionNanoAiu is { } checkpointTotal)
+                {
+                    creditSnapshots.Add(new CopilotCreditSnapshot(
+                        timestamp, sessionId, IsShutdown: false, checkpointTotal,
+                        BuildCreditDedupKey(sessionId, eventId, timestamp, false, checkpointTotal),
+                        sourceFile));
+                }
+                else
+                {
+                    linesSkipped++;
+                }
+
+                continue;
+            }
+
+            // ---- shutdown：模型累计快照条目 + 积分快照（蓝本 modelMetrics 循环 + models_report_credits） ----
+            // 蓝本：modelMetrics 表整体缺失 / 非对象 / 任一模型值非对象（lenient_object all-or-nothing
+            // 失败）→ 空表——无模型条目、models_report_credits 保持 true（空表不算"未上报"），
+            // shutdown 积分总额仍取会话 totalNanoAiu。
+            var modelsReportCredits = true;
+            if (hasModelMetrics)
+            {
+                foreach (var metric in modelMetricsElement.EnumerateObject())
+                {
+                    if (metric.Value.ValueKind != JsonValueKind.Object)
+                    {
+                        hasModelMetrics = false;
+                        break;
+                    }
+                }
+            }
+
+            if (hasModelMetrics)
+            {
+                CollectShutdownSnapshots(
+                    modelMetricsElement, sessionId, eventId, timestamp,
+                    FormatRfc3339Millis(timestamp), sourceFile, snapshots, ref modelsReportCredits);
+            }
+
+            // 模型侧未全部上报积分时，shutdown 总额不可对账（蓝本 total_nano_aiu.filter(models_report_credits)）。
+            var shutdownTotal = modelsReportCredits ? sessionNanoAiu : null;
+            creditSnapshots.Add(new CopilotCreditSnapshot(
+                timestamp, sessionId, IsShutdown: true, shutdownTotal,
+                BuildCreditDedupKey(sessionId, eventId, timestamp, true, shutdownTotal),
+                sourceFile));
         }
 
-        var records = ReconcileIntervals(snapshots, sourceFile);
-        return Task.FromResult(new JsonlFileParseOutcome(
-            records,
-            FilesRead: 1,
-            linesSkipped,
-            malformedLines,
-            invalidRecords,
-            Interrupted: false));
+        var counters = new CopilotFileParseCounters(FilesRead: 1, linesSkipped, malformedLines, invalidRecords);
+        return Task.FromResult(new CopilotSessionFileParse(snapshots, creditSnapshots, counters));
     }
+
+    private static CopilotSessionFileParse EmptyParse()
+        => new([], [], new CopilotFileParseCounters(FilesRead: 1, LinesSkipped: 0, MalformedLines: 0, InvalidRecords: 0));
 
     private static string? ResolveSessionId(string sourceFile)
     {
@@ -161,33 +207,20 @@ public sealed class CopilotSessionParser
 
     /// <summary>
     /// 抽取一条 shutdown 的各模型累计快照（蓝本 parse_session_state_file 的 modelMetrics 循环）。
-    /// modelMetrics 整体缺失 / 非对象 → 无快照；任一模型值非对象 → 整表按缺失处理
-    /// （蓝本 lenient_object 对 BTreeMap 反序列化失败整体返回 None 的 all-or-nothing 口径）。
+    /// usage 缺失 / 非对象 → 跳过该模型；空模型名，或全部用量桶与请求数皆 0 的条目跳过
+    /// （请求数 &gt; 0 的全零条目保留，作为差分基线参与后续减法）。参与上报（通过筛选）的模型
+    /// 任一缺 totalNanoAiu 时 <paramref name="modelsReportCredits"/> 置 false。
     /// </summary>
     private static void CollectShutdownSnapshots(
-        JsonElement element,
+        JsonElement modelMetrics,
         string sessionId,
+        string? eventId,
         DateTimeOffset timestamp,
         string timestampText,
-        List<CumulativeSnapshot> snapshots)
+        string sourceFile,
+        List<CopilotSnapshotEntry> snapshots,
+        ref bool modelsReportCredits)
     {
-        if (!element.TryGetProperty("data", out var data)
-            || data.ValueKind != JsonValueKind.Object
-            || !data.TryGetProperty("modelMetrics", out var modelMetrics)
-            || modelMetrics.ValueKind != JsonValueKind.Object)
-        {
-            return;
-        }
-
-        foreach (var metric in modelMetrics.EnumerateObject())
-        {
-            if (metric.Value.ValueKind != JsonValueKind.Object)
-            {
-                // 任一模型值不是对象：蓝本 lenient_object 让整张表反序列化失败（无快照产出）。
-                return;
-            }
-        }
-
         foreach (var metric in modelMetrics.EnumerateObject())
         {
             var model = NormalizeModel(metric.Name);
@@ -206,7 +239,7 @@ public sealed class CopilotSessionParser
             var reasoningTokens = ReadTokens(usage, "reasoningTokens");
             var requestCount = ReadRequestCount(metrics);
 
-            // 蓝本口径：空模型名，或全部用量桶与请求数皆 0 的条目跳过（请求数 &gt; 0 的全零条目保留，
+            // 蓝本口径：空模型名，或全部用量桶与请求数皆 0 的条目跳过（请求数 > 0 的全零条目保留，
             // 作为差分基线参与后续减法）。
             if (model.Length == 0
                 || (inputTokens == 0 && outputTokens == 0 && cacheReadTokens == 0
@@ -215,12 +248,15 @@ public sealed class CopilotSessionParser
                 continue;
             }
 
+            var modelNanoAiu = ReadNanoAiu(metrics, "totalNanoAiu");
+            modelsReportCredits &= modelNanoAiu is not null;
+
             // Copilot 把缓存读写计入 inputTokens：uncached input 在解析时先拆出（saturating），
             // 差分作用在 uncached 累计值上（蓝本 uncached_session_input_tokens + subtract_usage 口径）。
             var uncachedInput = SaturatingSubtract(
                 inputTokens, SaturatingAdd(cacheReadTokens, cacheWriteTokens));
 
-            snapshots.Add(new CumulativeSnapshot(
+            snapshots.Add(new CopilotSnapshotEntry(
                 sessionId,
                 model,
                 timestamp,
@@ -230,99 +266,20 @@ public sealed class CopilotSessionParser
                 cacheWriteTokens,
                 cacheReadTokens,
                 requestCount,
+                modelNanoAiu ?? 0,
                 BuildDedupKey(
-                    element, sessionId, timestampText, model,
-                    inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, reasoningTokens, requestCount)));
+                    eventId, sessionId, timestampText, model,
+                    inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, reasoningTokens, requestCount),
+                sourceFile));
         }
     }
 
     /// <summary>
-    /// 相邻快照差分（蓝本 deduplicate_session_entries → reconcile_session_state_entries）：
-    /// 同 key 保留最新时间戳（相等取后出现者）→ 按 (session, model) 分组 → 组内按 (时间戳, 出现序)
-    /// 排序 → 首条保留、后条对前条做 saturating 减法 → 有 token 的区间产出，按 (时间戳, dedup key) 排序。
-    /// </summary>
-    private static List<UsageRecord> ReconcileIntervals(List<CumulativeSnapshot> snapshots, string sourceFile)
-    {
-        // 同 key 去重：保序保留每 key 最新的一条（时间戳相等时取后出现者，蓝本 <= 判定）。
-        var keptIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
-        for (var index = 0; index < snapshots.Count; index++)
-        {
-            var snapshot = snapshots[index];
-            if (!keptIndexes.TryGetValue(snapshot.DedupKey, out var previous)
-                || snapshots[previous].Timestamp <= snapshot.Timestamp)
-            {
-                keptIndexes[snapshot.DedupKey] = index;
-            }
-        }
-
-        var grouped = keptIndexes.Values
-            .OrderBy(index => index)
-            .GroupBy(index => (snapshots[index].SessionId, snapshots[index].Model))
-            .OrderBy(group => group.Key.SessionId, StringComparer.Ordinal)
-            .ThenBy(group => group.Key.Model, StringComparer.Ordinal);
-
-        var intervals = new List<IntervalUsage>();
-        foreach (var group in grouped)
-        {
-            var sorted = group
-                .OrderBy(index => snapshots[index].Timestamp)
-                .ThenBy(index => index)
-                .Select(index => snapshots[index])
-                .ToList();
-
-            CumulativeSnapshot? baseline = null;
-            foreach (var snapshot in sorted)
-            {
-                var interval = baseline is null
-                    ? new IntervalUsage(snapshot.Timestamp, snapshot.SessionId, snapshot.Model, snapshot.DedupKey,
-                        snapshot.InputTokens, snapshot.OutputTokens,
-                        snapshot.CacheCreationTokens, snapshot.CacheReadTokens)
-                    : new IntervalUsage(snapshot.Timestamp, snapshot.SessionId, snapshot.Model, snapshot.DedupKey,
-                        SaturatingSubtract(snapshot.InputTokens, baseline.InputTokens),
-                        SaturatingSubtract(snapshot.OutputTokens, baseline.OutputTokens),
-                        SaturatingSubtract(snapshot.CacheCreationTokens, baseline.CacheCreationTokens),
-                        SaturatingSubtract(snapshot.CacheReadTokens, baseline.CacheReadTokens));
-                baseline = snapshot;
-
-                if (interval.InputTokens > 0 || interval.OutputTokens > 0
-                    || interval.CacheCreationTokens > 0 || interval.CacheReadTokens > 0)
-                {
-                    intervals.Add(interval);
-                }
-            }
-        }
-
-        return intervals
-            .OrderBy(interval => interval.Timestamp)
-            .ThenBy(interval => interval.DedupKey, StringComparer.Ordinal)
-            .Select(interval => new UsageRecord
-            {
-                Timestamp = interval.Timestamp,
-                Agent = AgentName,
-                ProjectPath = ProjectPath,
-                SessionId = interval.SessionId,
-                Model = interval.Model,
-                CostUsd = null,
-                InputTokens = interval.InputTokens,
-                OutputTokens = interval.OutputTokens,
-                CacheCreationTokens = interval.CacheCreationTokens,
-                CacheCreationEphemeral5mTokens = 0,
-                CacheCreationEphemeral1hTokens = 0,
-                CacheReadTokens = interval.CacheReadTokens,
-                IsSidechain = false,
-                MessageId = null,
-                RequestId = null,
-                SourceFile = sourceFile,
-            })
-            .ToList();
-    }
-
-    /// <summary>
-    /// dedup key（蓝本 session_state_dedup_key）：事件带 id 时 "shutdown:{session}:{id}:{model}"，
+    /// dedup key（蓝本 session_state_dedup_key）：事件带非空 id 时 "shutdown:{session}:{id}:{model}"，
     /// 否则按原始累计用量字段拼装（含 reasoningTokens，按蓝本字段序）。
     /// </summary>
     private static string BuildDedupKey(
-        JsonElement element,
+        string? eventId,
         string sessionId,
         string timestampText,
         string model,
@@ -333,15 +290,34 @@ public sealed class CopilotSessionParser
         long reasoningTokens,
         long requestCount)
     {
-        if (element.TryGetProperty("id", out var idElement)
-            && idElement.ValueKind == JsonValueKind.String
-            && idElement.GetString() is { Length: > 0 } eventId)
+        if (eventId is not null)
         {
             return $"shutdown:{sessionId}:{eventId}:{model}";
         }
 
         return FormattableString.Invariant(
             $"shutdown:{sessionId}:{timestampText}:{model}:{inputTokens}:{outputTokens}:{cacheReadTokens}:{cacheWriteTokens}:{reasoningTokens}:{requestCount}");
+    }
+
+    /// <summary>
+    /// 积分快照 dedup key（蓝本 snapshot_key）：事件带 id 时 "credits:{session}:{id}"，
+    /// 否则 "credits:{session}:{is_shutdown}:{millis}:{total:?}"（total 为 Option 的 Debug 形状）。
+    /// </summary>
+    private static string BuildCreditDedupKey(
+        string sessionId,
+        string? eventId,
+        DateTimeOffset timestamp,
+        bool isShutdown,
+        long? total)
+    {
+        if (eventId is not null)
+        {
+            return $"credits:{sessionId}:{eventId}";
+        }
+
+        var optionShape = total is { } value ? $"Some({value})" : "None";
+        return FormattableString.Invariant(
+            $"credits:{sessionId}:{(isShutdown ? "true" : "false")}:{timestamp.ToUnixTimeMilliseconds()}:{optionShape}");
     }
 
     /// <summary>内部模型后缀剥离（蓝本 normalize_copilot_model）：先 -1m-internal 后 -1m，仅一次。</summary>
@@ -369,6 +345,26 @@ public sealed class CopilotSessionParser
               ? (long)Math.Min(tokens, long.MaxValue)
               : 0;
 
+    /// <summary>
+    /// totalNanoAiu（蓝本 lenient_f64 + nano_aiu）：任意 JSON 数字生效（字符串 / 缺失为 null），
+    /// 非有限或负值拒绝，四舍五入（half away from zero，蓝本 f64::round）后钳到 long 域。
+    /// </summary>
+    private static long? ReadNanoAiu(JsonElement parent, string name)
+    {
+        if (!parent.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number)
+        {
+            return null;
+        }
+
+        var raw = value.GetDouble();
+        if (!double.IsFinite(raw) || raw < 0)
+        {
+            return null;
+        }
+
+        return (long)Math.Min(Math.Round(raw, MidpointRounding.AwayFromZero), long.MaxValue);
+    }
+
     /// <summary>requests.count（蓝本 requests.lenient_object + count lenient_u64）。</summary>
     private static long ReadRequestCount(JsonElement metrics)
         => metrics.TryGetProperty("requests", out var requests)
@@ -387,28 +383,4 @@ public sealed class CopilotSessionParser
 
     private static string FormatRfc3339Millis(DateTimeOffset timestamp)
         => timestamp.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
-
-    /// <summary>一条 (session, model) 的累计快照（inputTokens 已拆出缓存读写）。</summary>
-    private sealed record CumulativeSnapshot(
-        string SessionId,
-        string Model,
-        DateTimeOffset Timestamp,
-        string TimestampText,
-        long InputTokens,
-        long OutputTokens,
-        long CacheCreationTokens,
-        long CacheReadTokens,
-        long RequestCount,
-        string DedupKey);
-
-    /// <summary>差分后的区间用量（归属到后一条快照时间戳）。</summary>
-    private sealed record IntervalUsage(
-        DateTimeOffset Timestamp,
-        string SessionId,
-        string Model,
-        string DedupKey,
-        long InputTokens,
-        long OutputTokens,
-        long CacheCreationTokens,
-        long CacheReadTokens);
 }

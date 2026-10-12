@@ -1,0 +1,1 @@
+{"type":"session.shutdown","id":"shutdown-1","timestamp":"2026-09-16T10:00:00.000Z","data":{"totalNanoAiu":2000000000,"modelMetrics":{"claude-sonnet-4":{"usage":{"inputTokens":100,"outputTokens":10,"cacheReadTokens":0,"cacheWriteTokens":0},"requests":{"count":1},"totalNanoAiu":1000000000}}}}
