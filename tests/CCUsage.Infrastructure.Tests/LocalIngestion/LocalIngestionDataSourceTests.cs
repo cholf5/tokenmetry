@@ -17,6 +17,7 @@ using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.LocalIngestion;
+using CCUsage.Infrastructure.OpenClaw;
 using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.PiAgent;
 using CCUsage.Infrastructure.QwenCode;
@@ -252,6 +253,7 @@ public class LocalIngestionDataSourceTests : IDisposable
             new CodebuffAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "codebuff-missing")),
             new PiAgentAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "pi-missing")),
             new GrokAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "grok-missing")),
+            new OpenClawAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "openclaw-missing")),
             pricingEngine,
             store,
             pricingClient: null,

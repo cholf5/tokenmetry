@@ -1,0 +1,5 @@
+{"type":"message","message":{"role":"assistant","model":"gpt-5.2","usage":{"input":10,"output":20,"cost":{"total":0.50}},"timestamp":1770000000000}}
+{"type":"custom","customType":"model-snapshot","data":{"modelId":"deepseek-v4-flash","provider":"deepseek"}}
+{"type":"message","message":{"role":"assistant","usage":{"input":1000000,"output":0,"totalTokens":1000000,"cost":{"total":0.44}},"timestamp":1770000001000}}
+{"type":"message","message":{"role":"assistant","model":"mystery-model-x","usage":{"input":7,"output":3},"timestamp":1770000002000}}
+{"type":"message","usage":null,"message":"corrupted","timestamp":1770000003000}

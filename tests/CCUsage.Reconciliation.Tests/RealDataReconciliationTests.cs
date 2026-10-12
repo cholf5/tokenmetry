@@ -390,6 +390,31 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// I-020：本机 OpenClaw 双格式数据对账。JSONL 与 agents/*/agent/openclaw-agent.sqlite 均参与，
+    /// 同一事件的迁移 SQLite 副本优先于 JSONL 遗留副本（双侧同语义）。按数据存在性门控
+    /// （OPENCLAW_DIR / ~/.openclaw、~/.clawdbot、~/.moltbot、~/.moldbot 下有会话 JSONL 或 agent 库），
+    /// 本机无数据 Skip；有数据的机器上全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-020 卡 Dev Log）：usage.cost.total 内建成本 LogCost 直采；无内建成本的可计价
+    /// 模型行 CLI 按裸模型名候选现算，桌面按装饰名不命中记 0（I-024 欠账）——成本分量 fail-loud。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_openclaw_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasOpenClawData(),
+            "本机没有 OpenClaw 数据（OPENCLAW_DIR 或 ~/.openclaw / ~/.clawdbot / ~/.moltbot / ~/.moldbot）");
+
+        var goldenJson = RunCli("openclaw");
+        var golden = CcusageGoldenFiles.LoadOpenClawText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 OPENCLAW_DIR / 四默认根探测逻辑。
+        var ours = await UsageChainAggregator.AggregateOpenClawAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "OpenClaw");
+    }
+
+    /// <summary>
     /// I-007：本机 DSH 会话日志对账。golden 由 dsh-usage-stats 蓝本库直读原始 zstd 字节计算
     /// （Support/DshBlueprintGolden.mjs，foldUsage / estimateTokenCost 均为蓝本库代码），
     /// 自研侧走 DshSessionAdapter 全链路。两侧按 本地日历日（蓝本 dayKey 口径）分桶：

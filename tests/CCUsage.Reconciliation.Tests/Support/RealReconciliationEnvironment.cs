@@ -9,6 +9,7 @@ using CCUsage.Infrastructure.Grok;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
+using CCUsage.Infrastructure.OpenClaw;
 using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.Codebuff;
@@ -156,6 +157,18 @@ public static class RealReconciliationEnvironment
     /// </summary>
     public static bool HasGrokData()
         => new GrokLogLocator().CollectSessionFiles(null).Count > 0;
+
+    /// <summary>
+    /// OpenClaw 数据存在性（I-020）：OPENCLAW_DIR / 主目录四默认根下发现会话 JSONL 或
+    /// agents/*/agent/openclaw-agent.sqlite（与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasOpenClawData()
+    {
+        var locator = new OpenClawLogLocator();
+        var roots = locator.ResolveDataDirectories(null);
+        return roots.Any(root => locator.CollectSessionFiles(root).Count > 0
+            || OpenClawSqliteReader.CollectAgentDatabases(root).Count > 0);
+    }
 
     /// <summary>
     /// dsh-usage-stats 蓝本目录（含 lib/usage.js）：CCUSAGE_DSH_BLUEPRINT 优先，

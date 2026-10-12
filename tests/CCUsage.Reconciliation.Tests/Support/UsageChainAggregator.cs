@@ -12,6 +12,7 @@ using CCUsage.Infrastructure.Grok;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
+using CCUsage.Infrastructure.OpenClaw;
 using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.Codebuff;
@@ -183,6 +184,13 @@ public static class UsageChainAggregator
     public static async Task<ChainAggregation> AggregateGrokAsync(string? configuredDataDir = null, CancellationToken ct = default)
     {
         var adapter = new GrokAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 OPENCLAW_DIR / 主目录四默认根自动探测（本机真实数据对账用，I-020）。</summary>
+    public static async Task<ChainAggregation> AggregateOpenClawAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new OpenClawAdapter(configuredDataDir: configuredDataDir);
         return Aggregate(await adapter.ScanAsync(ct));
     }
 

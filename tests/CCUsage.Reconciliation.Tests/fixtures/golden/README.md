@@ -58,6 +58,14 @@
   1e-10 USD）、agentTimestampMs 毫秒优先与 envelope 秒回退、无 eventId 内容键文件内去重、同 eventId
   跨会话全局去重（eventId|模型 first-wins）、summary 缺失时会话目录名 id 与 URL 解码项目路径、
   损坏文件坏行预过滤跳过。
+  OpenClaw fixture 覆盖（I-020）：双格式（sessions/**&#47;*.jsonl 直读 + agents/*/agent/openclaw-agent.sqlite
+  transcript_events）、model_change（根级 modelId/provider）与 model-snapshot（customType + data 块）
+  状态跟踪、usage.cost.total 内建成本 LogCost 直采、totalTokens 兜底（output 为 0 补 output 分支）、
+  cacheWrite → cache_creation、归档会话文件名（.jsonl.deleted.* / .jsonl.reset.*）与会话 id 推导
+  （首段 ".jsonl" 前缀）、文件内重复行内容键去重、非 message / 非 assistant / 全零行跳过、损坏
+  message 块行与坏 JSON 载荷行跳过、**同一事件的迁移 SQLite 副本优先于 JSONL 遗留副本**（同会话/
+  时间戳/模型/用量身份匹配替换，成本 0.50 → 0.51）、SQLite-only 会话（会话 id 取列值、模型取
+  事件状态）、not-a-database.sqlite 不发现、无内建成本未定价模型行（CLI missingPricing 双侧 0 成本）。
 
 ## 录制命令（在仓库根目录执行）
 
@@ -123,6 +131,10 @@ PI_AGENT_DIR="$PWD/$FX/pi/sessions" \
 GROK_HOME="$PWD/$FX/grok" \
   npx --yes ccusage@20.0.29 grok daily --json --offline --timezone UTC \
   > $FX/golden/grok-fixture-daily-v20.0.29.json
+
+OPENCLAW_DIR="$PWD/$FX/openclaw" \
+  npx --yes ccusage@20.0.29 openclaw daily --json --offline --timezone UTC \
+  > $FX/golden/openclaw-fixture-daily-v20.0.29.json
 ```
 
 说明：
