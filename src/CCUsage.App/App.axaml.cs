@@ -47,6 +47,9 @@ public partial class App : Application
                 },
                 settings.RefreshMinutes);
             refreshService.Start();
+            // 启动立即首刷：定时器首跑要等一个完整间隔（默认 15 分钟），首启顶栏一直"尚未刷新"；
+            // 触发一次立即刷新（定时器语义不变），回写经 NoteDataRefreshed 内部 marshal 到 UI 线程。
+            _ = refreshService.TriggerRefreshAsync();
         }
 
         base.OnFrameworkInitializationCompleted();

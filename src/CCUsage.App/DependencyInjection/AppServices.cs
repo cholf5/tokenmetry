@@ -122,6 +122,10 @@ public static class AppServices
         services.AddSingleton<IUsageStore>(store);
         services.AddSingleton<CacheService>();
 
+        // UI 聚合查询服务（I-028/I-029）：facts 存储之上的只读聚合面（日序列 / KPI / 维度 / 会话 / 小时分布），
+        // 时区用本机（与采集侧 facts 分桶默认一致）。
+        services.AddSingleton<IUsageQueryService>(new UsageQueryService(store));
+
         // Notifications
         services.AddSingleton<ISystemNotification, NullSystemNotification>();
 
