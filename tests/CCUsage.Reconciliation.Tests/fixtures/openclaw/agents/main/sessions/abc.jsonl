@@ -1,0 +1,6 @@
+{"type":"model_change","provider":"openai-codex","modelId":"gpt-5.2"}
+{"type":"message","message":{"role":"assistant","usage":{"input":1660,"output":55,"cacheRead":108928,"cost":{"total":0.02}},"timestamp":1769753935279}}
+{"type":"message","message":{"role":"assistant","usage":{"input":1660,"output":55,"cacheRead":108928,"cost":{"total":0.02}},"timestamp":1769753935279}}
+{"type":"message","message":{"role":"user","text":"hi"}}
+{"type":"other","note":"usage"}
+{"type":"message","message":{"role":"assistant","model":"unknown-archived-model","usage":{"input":100,"output":0,"totalTokens":150,"cost":{"total":0.01}},"timestamp":1769753940000}}

@@ -12,7 +12,7 @@ blocked: none
 
 ## Goal
 
-消除适配器的 UnpricedModels 欠账：把已移植为纯函数的"候选计价模型"机制接到定价调用点，使别名模型（如 OpenCode k2p6）、provider 限定键模型（如 `deepseek/deepseek-v4-flash`）能按蓝本口径命中价格，而不是记 0（fail-loud）。首批范围：四张 SQLite 卡（OpenCode / Goose / Hermes / Kilo）；I-018 / I-019 / I-022 三张 JSONL/单文件卡实现时各自登记了同类欠账，随本卡一并接线（见 Background 末段）。
+消除适配器的 UnpricedModels 欠账：把已移植为纯函数的"候选计价模型"机制接到定价调用点，使别名模型（如 OpenCode k2p6）、provider 限定键模型（如 `deepseek/deepseek-v4-flash`）能按蓝本口径命中价格，而不是记 0（fail-loud）。首批范围：四张 SQLite 卡（OpenCode / Goose / Hermes / Kilo）；I-018 / I-019 / I-022 / I-020 各源实现时各自登记了同类欠账，随本卡一并接线（见 Background 末段）。
 
 ## Background
 
@@ -45,6 +45,12 @@ blocked: none
   后续候选的精确条目）；missing_grok_pricing 按候选集报告。另有 **200K 长上下文分档**（xai/grok-4.5
   ·4.6 在 models-dev 带 &gt;200K context 双倍档、CLI find_at 按用量分档）——即上文 tiers 观察项的
   Grok 实例，无 ticks 的可计价行成本 fail-loud。
+- **OpenClaw**（I-020，**OC-1**；蓝本 `.../rust/adapters/openclaw/src/parser.rs` openclaw_entry_to_loaded_inner
+  pricing_model 判定）：候选链 = 装饰名 "[openclaw] m" 先 find_exact（命中按装饰名计价），未命中**回退裸
+  模型名**（raw pricing identity；蓝本内联测试 calculates_decorated_deepseek_models_with_the_raw_pricing_identity）。
+  与 Grok GK-2 的"剥前缀"方向不同——OpenClaw 是"装饰名→裸名"两级链，装饰名命中时保留装饰名分组。
+  桌面统一记录仅存装饰名 → 无内建成本的可计价行当前记 0 + UnpricedModels（fail-loud）；真实数据
+  可计价模型行常态带内建 cost.total（LogCost 直采）不受影响。
 
 **观察项（I-010 审查登记，非阻塞）**：内置定价快照格式无 **tiers 分档**支持——models.dev 部分模型带
 context 分档（例：google/gemini-2.5-pro 在 models-dev 带 &gt;200k context 档 input 2.5 / output 15 /
@@ -65,7 +71,7 @@ cache_write），CLI 20.0.29 内嵌为 input 1 / output 4.16 / cache_read 0.18 +
 - [ ] 方案选型（开工时定，两案对比后择一，记录选型理由）：
   - 方案 A：UsageRecord 增加可选"计价用模型名"侧字段（如 PricingModel），适配器在映射时填主候选，引擎优先按它定价、显示/分组仍用 record.Model；
   - 方案 B：引擎按源 resolver（注册 per-agent 候选函数，引擎逐候选尝试、首个命中生效），记录不变。
-- [ ] 四源接线：OpenCode（别名 + 归一化 + provider 限定）、Goose（provider 限定，goose 兜底跳过）、Hermes（qualified 仅 exact-with-fallback、点分归一化）、Kilo（qualified 仅 find_exact），逐条对齐蓝本语义与既有移植测试
+- [ ] 八源接线：OpenCode（别名 + 归一化 + provider 限定）、Goose（provider 限定，goose 兜底跳过）、Hermes（qualified 仅 exact-with-fallback、点分归一化）、Kilo（qualified 仅 find_exact）、Codebuff（infer_provider 前缀重试 + missing_pricing 候选集报告）、pi-agent（identity cost 与引擎同候选/别名口径）、Grok（GK-1/GK-2 候选链）、OpenClaw（装饰名→裸名两级链，装饰名命中保留装饰名分组），逐条对齐蓝本语义与既有移植测试
 - [ ] 验收口径：别名/限定键模型在内置快照离线口径下命中价格（UnpricedModels 消失，或仅剩真实未知模型）；候选机制未命中时行为与现状一致（记 0 + UnpricedModels fail-loud）
 - [ ] fixture 对账回归：四源 fixture golden 逐位不回归（对账测试全绿）；蓝本内联测试锚点（各源 parser.rs 的候选/计价测试）继续逐条对齐
 
@@ -78,6 +84,7 @@ cache_write），CLI 20.0.29 内嵌为 input 1 / output 4.16 / cache_read 0.18 +
 - I-018（Codebuff 适配器：provider 前缀候选重试 + missing_pricing 候选集报告 + CB-2）
 - I-019（pi-agent 适配器：PI-3 identity cost 需 CLI 全量定价表口径）
 - I-022（Grok 适配器：GK-1 候选链 + GK-2 "[grok] " 前缀剥离 + 200K 长上下文分档）
+- I-020（OpenClaw 适配器：OC-1 装饰名→裸名两级候选链，装饰名命中保留装饰名分组）
 
 ## Test Cases
 
@@ -95,6 +102,7 @@ Expected:
 
 - 由 I-009/I-012/I-016/I-017 四卡独立审查（approve-with-nits）拆出：四源的候选计价机制已逐条移植为纯函数并有移植测试（候选清单、exact 门槛、键归一化逐位对齐蓝本内联测试），但未接到定价调用点——别名/限定键模型当前记 0（UnpricedModels fail-loud）。本卡消除该欠账；方案选型（记录侧字段 vs 引擎 resolver）开工时定。
 - 2026-10-12（I-018/I-019/I-022 批次独立审查补录）：三张 JSONL/单文件卡实现时各自声称"I-024 已登记同类共性欠账"，本卡补录其范围——Codebuff（provider 前缀候选重试 + missing_pricing 候选集报告 + CB-2 快照 gpt-5 cache_write 差异）、pi-agent（PI-3 签名 identity cost 需 CLI 全量定价表口径）、Grok（GK-1 候选链 + GK-2 "[grok] " 前缀剥离 + 200K 长上下文分档，后者并入上文 tiers 观察项）；Dependencies 同步追加三卡。
+- 2026-10-12（I-020 独立审查补录）：OpenClaw 实现时偏差①声称"I-024 已登记"不准确（GK-2 是同类但非同一笔），本卡补录 **OC-1**（装饰名→裸名两级候选链，区别于 GK-2 剥前缀方向）；Dependencies 追加 I-020，接线 AC 扩为八源。
 
 ## Bugs
 

@@ -140,6 +140,15 @@ public static class CcusageGoldenFiles
 
     public static GoldenReport LoadGrokText(string json) => LoadClaudeText(json);
 
+    /// <summary>
+    /// openclaw daily JSON（I-020）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带
+    /// cost，未定价模型 cost 0 且 missingPricing=true；另有 modelsUsed / unpricedModels 信息字段，DTO
+    /// 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadOpenClaw(string path) => LoadOpenClawText(File.ReadAllText(path));
+
+    public static GoldenReport LoadOpenClawText(string json) => LoadClaudeText(json);
+
     public static GoldenReport LoadClaudeText(string json)
     {
         var response = JsonSerializer.Deserialize<GoldenClaudeResponse>(

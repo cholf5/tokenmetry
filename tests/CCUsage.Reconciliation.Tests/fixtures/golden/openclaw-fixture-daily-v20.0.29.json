@@ -1,0 +1,127 @@
+{
+  "daily": [
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 108928,
+      "date": "2026-01-30",
+      "inputTokens": 1760,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 108928,
+          "cost": 0.02,
+          "inputTokens": 1660,
+          "modelName": "[openclaw] gpt-5.2",
+          "outputTokens": 55
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.01,
+          "inputTokens": 100,
+          "modelName": "[openclaw] unknown-archived-model",
+          "outputTokens": 50
+        }
+      ],
+      "modelsUsed": [
+        "[openclaw] gpt-5.2",
+        "[openclaw] unknown-archived-model"
+      ],
+      "outputTokens": 105,
+      "totalCost": 0.03,
+      "totalTokens": 110793
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 100,
+      "date": "2026-02-02",
+      "inputTokens": 1000517,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 100,
+          "cost": 1.8,
+          "inputTokens": 500,
+          "modelName": "[openclaw] stateful-model-z",
+          "outputTokens": 250
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.51,
+          "inputTokens": 10,
+          "modelName": "[openclaw] gpt-5.2",
+          "outputTokens": 20
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.44,
+          "inputTokens": 1000000,
+          "modelName": "[openclaw] deepseek-v4-flash",
+          "outputTokens": 0
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.0,
+          "inputTokens": 7,
+          "missingPricing": true,
+          "modelName": "[openclaw] mystery-model-x",
+          "outputTokens": 3
+        }
+      ],
+      "modelsUsed": [
+        "[openclaw] gpt-5.2",
+        "[openclaw] deepseek-v4-flash",
+        "[openclaw] mystery-model-x",
+        "[openclaw] stateful-model-z"
+      ],
+      "outputTokens": 273,
+      "totalCost": 2.75,
+      "totalTokens": 1000890
+    },
+    {
+      "cacheCreationTokens": 5,
+      "cacheReadTokens": 0,
+      "date": "2026-03-20",
+      "inputTokens": 54,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.6,
+          "inputTokens": 30,
+          "modelName": "[openclaw] worker-model-w",
+          "outputTokens": 40
+        },
+        {
+          "cacheCreationTokens": 5,
+          "cacheReadTokens": 0,
+          "cost": 0.30000000000000004,
+          "inputTokens": 24,
+          "modelName": "[openclaw] gpt-5.2",
+          "outputTokens": 39
+        }
+      ],
+      "modelsUsed": [
+        "[openclaw] gpt-5.2",
+        "[openclaw] worker-model-w"
+      ],
+      "outputTokens": 79,
+      "totalCost": 0.9,
+      "totalTokens": 138
+    }
+  ],
+  "totals": {
+    "cacheCreationTokens": 5,
+    "cacheReadTokens": 109028,
+    "inputTokens": 1002331,
+    "outputTokens": 457,
+    "totalCost": 3.6799999999999997,
+    "totalTokens": 1111821,
+    "unpricedModels": [
+      "[openclaw] mystery-model-x"
+    ]
+  }
+}

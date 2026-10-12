@@ -20,6 +20,7 @@ using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.LocalIngestion;
+using CCUsage.Infrastructure.OpenClaw;
 using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.PiAgent;
 using CCUsage.Infrastructure.QwenCode;
@@ -97,6 +98,8 @@ public static class AppServices
         services.AddSingleton<IPiAgentAdapter>(sp => sp.GetRequiredService<PiAgentAdapter>());
         services.AddSingleton<GrokAdapter>();
         services.AddSingleton<IGrokAdapter>(sp => sp.GetRequiredService<GrokAdapter>());
+        services.AddSingleton<OpenClawAdapter>();
+        services.AddSingleton<IOpenClawAdapter>(sp => sp.GetRequiredService<OpenClawAdapter>());
 
         // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）；
         // CLI 数据源保留注册用于对账与手动导入（Reconciliation 测试套件 / 后续接线），不再是默认。
