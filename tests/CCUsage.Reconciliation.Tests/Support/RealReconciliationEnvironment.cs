@@ -56,9 +56,13 @@ public static class RealReconciliationEnvironment
     public static bool HasDshData()
         => new DshLogLocator().CollectSessionArtifacts(configuredHome: null).Count > 0;
 
-    /// <summary>Copilot CLI 数据存在性（I-008）：session-state 下有会话 events.jsonl（COPILOT_HOME → ~/.copilot）。</summary>
+    /// <summary>
+    /// Copilot CLI 数据存在性（I-008，I-023 扩展）：session-state 会话 events.jsonl 或 otel
+    /// jsonl / COPILOT_OTEL_FILE_EXPORTER_PATH 任一存在（COPILOT_HOME → ~/.copilot，与 CLI 子进程
+    /// 同一套探测；otel 合并后仅 session-state 数据不足以覆盖 CLI 口径）。
+    /// </summary>
     public static bool HasCopilotData()
-        => new CopilotLogLocator().CollectSessionStateFiles(configuredHome: null).Count > 0;
+        => new CopilotLogLocator().CollectSourceFiles(configuredHome: null).Count > 0;
 
     /// <summary>
     /// OpenCode 数据存在性（I-009）：至少一个数据目录下选出了库文件

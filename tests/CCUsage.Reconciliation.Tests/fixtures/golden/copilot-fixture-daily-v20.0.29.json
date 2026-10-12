@@ -63,14 +63,109 @@
       "outputTokens": 2400,
       "totalCost": 0.0703625,
       "totalTokens": 24600
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-09-16",
+      "inputTokens": 3411,
+      "messageCount": 15,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.014988000000000001,
+          "inputTokens": 3311,
+          "modelName": "claude-sonnet-4",
+          "outputTokens": 337
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.013000000000000001,
+          "inputTokens": 0,
+          "modelName": "unknown",
+          "outputTokens": 0
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.000225,
+          "inputTokens": 100,
+          "modelName": "gpt-5.1",
+          "outputTokens": 10
+        }
+      ],
+      "modelsUsed": [
+        "claude-sonnet-4",
+        "gpt-5.1",
+        "unknown"
+      ],
+      "outputTokens": 347,
+      "totalCost": 0.028213000000000005,
+      "totalTokens": 3758
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-09-17",
+      "inputTokens": 3,
+      "messageCount": 3,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.015,
+          "inputTokens": 0,
+          "modelName": "unknown",
+          "outputTokens": 0
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.000054,
+          "inputTokens": 3,
+          "modelName": "claude-sonnet-4",
+          "outputTokens": 3
+        }
+      ],
+      "modelsUsed": [
+        "claude-sonnet-4",
+        "unknown"
+      ],
+      "outputTokens": 3,
+      "totalCost": 0.015054,
+      "totalTokens": 6
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-09-18",
+      "inputTokens": 0,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.005,
+          "inputTokens": 0,
+          "modelName": "unknown",
+          "outputTokens": 0
+        }
+      ],
+      "modelsUsed": [
+        "unknown"
+      ],
+      "outputTokens": 0,
+      "totalCost": 0.005,
+      "totalTokens": 0
     }
   ],
   "totals": {
     "cacheCreationTokens": 2500,
     "cacheReadTokens": 7500,
-    "inputTokens": 28200,
-    "outputTokens": 3400,
-    "totalCost": 0.12406249999999999,
-    "totalTokens": 41600
+    "inputTokens": 31614,
+    "outputTokens": 3750,
+    "totalCost": 0.17232950000000002,
+    "totalTokens": 45364
   }
 }

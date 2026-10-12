@@ -34,6 +34,9 @@ public sealed class ChainAggregation
 
     public int RecordCount { get; init; }
 
+    /// <summary>统一记录全集（场景级断言用；聚合粒度数字见 ModelEntries / TotalEntries）。</summary>
+    public required IReadOnlyList<UsageRecord> Records { get; init; }
+
     public required IReadOnlyList<ReconciliationEntry> ModelEntries { get; init; }
 
     /// <summary>每日总计 + 全期总计（哨兵日期 <see cref="GoldenReport.GrandTotalDate"/>）。</summary>
@@ -242,6 +245,7 @@ public static class UsageChainAggregator
         {
             Diagnostics = scan.Diagnostics,
             RecordCount = scan.Records.Count,
+            Records = scan.Records,
             ModelEntries = modelEntries,
             TotalEntries = totalEntries,
             UnpricedModels = engine.GetUnpricedModels(),

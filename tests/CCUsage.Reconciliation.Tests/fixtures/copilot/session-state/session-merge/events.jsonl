@@ -1,0 +1,2 @@
+{"type":"session.shutdown","id":"shutdown-1","timestamp":"2026-09-16T10:00:00.000Z","data":{"modelMetrics":{"claude-sonnet-4":{"usage":{"inputTokens":200,"outputTokens":20,"cacheReadTokens":0,"cacheWriteTokens":0},"requests":{"count":2}}}}}
+{"type":"session.shutdown","id":"shutdown-2","timestamp":"2026-09-17T10:00:00.000Z","data":{"modelMetrics":{"claude-sonnet-4":{"usage":{"inputTokens":300,"outputTokens":30,"cacheReadTokens":0,"cacheWriteTokens":0},"requests":{"count":3}}}}}
