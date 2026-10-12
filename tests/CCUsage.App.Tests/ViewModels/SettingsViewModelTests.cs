@@ -18,7 +18,7 @@ public class SettingsViewModelTests
         };
         var paths = new AppPaths("C:\\Users\\tester\\AppData\\Local\\CCUsage");
 
-        var viewModel = new SettingsViewModel(settings, paths, new FakeSettingsStore());
+        var viewModel = new SettingsViewModel(settings, paths, new FakeSettingsStore(), new FakeThemeService());
 
         viewModel.CcusageCommand.Should().Be("ccusage.cmd");
         viewModel.RefreshMinutesText.Should().Be("20");
@@ -33,7 +33,7 @@ public class SettingsViewModelTests
     {
         var settings = new AppSettings();
         var store = new FakeSettingsStore();
-        var viewModel = new SettingsViewModel(settings, new AppPaths("C:\\ccusage"), store)
+        var viewModel = new SettingsViewModel(settings, new AppPaths("C:\\ccusage"), store, new FakeThemeService())
         {
             CcusageCommand = "  ccusage.cmd  ",
             RefreshMinutesText = "45",
@@ -57,7 +57,7 @@ public class SettingsViewModelTests
     public async Task SaveAsync_WithBlankCommand_UsesDefaultCommand()
     {
         var settings = new AppSettings { CcusageCommand = "custom" };
-        var viewModel = new SettingsViewModel(settings, new AppPaths("C:\\ccusage"), new FakeSettingsStore())
+        var viewModel = new SettingsViewModel(settings, new AppPaths("C:\\ccusage"), new FakeSettingsStore(), new FakeThemeService())
         {
             CcusageCommand = "   ",
             RefreshMinutesText = "15"
@@ -74,7 +74,7 @@ public class SettingsViewModelTests
     {
         var settings = new AppSettings { RefreshMinutes = 15 };
         var store = new FakeSettingsStore();
-        var viewModel = new SettingsViewModel(settings, new AppPaths("C:\\ccusage"), store)
+        var viewModel = new SettingsViewModel(settings, new AppPaths("C:\\ccusage"), store, new FakeThemeService())
         {
             RefreshMinutesText = "0"
         };
@@ -90,12 +90,61 @@ public class SettingsViewModelTests
     public async Task SaveAsync_WhenStoreFails_ShowsError()
     {
         var store = new FakeSettingsStore { SaveException = new InvalidOperationException("cannot write") };
-        var viewModel = new SettingsViewModel(new AppSettings(), new AppPaths("C:\\ccusage"), store);
+        var viewModel = new SettingsViewModel(new AppSettings(), new AppPaths("C:\\ccusage"), store, new FakeThemeService());
 
         await viewModel.SaveAsync();
 
         viewModel.Status.Should().Be("error: cannot write");
         viewModel.IsSaving.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Constructor_ResolvesThemePreferenceFromSettings()
+    {
+        var settings = new AppSettings { Theme = "dark" };
+
+        var viewModel = new SettingsViewModel(settings, new AppPaths("C:\\ccusage"), new FakeSettingsStore(), new FakeThemeService());
+
+        viewModel.SelectedTheme.Should().Be(SettingsViewModel.ThemeOptions.Single(o => o.Value == "dark"));
+    }
+
+    [Fact]
+    public void Constructor_WithUnknownThemePreference_FallsBackToSystem()
+    {
+        var settings = new AppSettings { Theme = "sepia" };
+
+        var viewModel = new SettingsViewModel(settings, new AppPaths("C:\\ccusage"), new FakeSettingsStore(), new FakeThemeService());
+
+        viewModel.SelectedTheme.Value.Should().Be("system");
+    }
+
+    [Fact]
+    public async Task SaveAsync_PersistsThemePreferenceAndAppliesIt()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var themeService = new FakeThemeService();
+        var viewModel = new SettingsViewModel(settings, new AppPaths("C:\\ccusage"), store, themeService)
+        {
+            RefreshMinutesText = "15",
+            SelectedTheme = SettingsViewModel.ThemeOptions.First(o => o.Value == "dark")
+        };
+
+        await viewModel.SaveAsync();
+
+        settings.Theme.Should().Be("dark");
+        themeService.LastApplied.Should().Be("dark");
+        store.SaveCalls.Should().Be(1);
+    }
+
+    private sealed class FakeThemeService : IThemeService
+    {
+        public string? LastApplied { get; private set; }
+
+        public void Apply(string? themePreference)
+        {
+            LastApplied = themePreference;
+        }
     }
 
     private sealed class FakeSettingsStore : IAppSettingsStore

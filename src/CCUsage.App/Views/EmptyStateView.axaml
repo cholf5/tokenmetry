@@ -8,12 +8,12 @@
             <TextBlock Text="📊" FontSize="64" HorizontalAlignment="Center"/>
             <TextBlock Text="尚未找到 AI 编程使用记录" FontSize="20" HorizontalAlignment="Center" FontWeight="SemiBold"/>
             <TextBlock Text="应用直接读取本地会话日志，无需安装 ccusage CLI"
-                       Foreground="#666" TextWrapping="Wrap" MaxWidth="400" HorizontalAlignment="Center"/>
+                       Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" MaxWidth="400" HorizontalAlignment="Center"/>
             <TextBlock Text="请确认本机存在 Claude Code 或 Codex 的会话日志"
-                       Foreground="#888" TextWrapping="Wrap" MaxWidth="400" HorizontalAlignment="Center"/>
+                       Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" MaxWidth="400" HorizontalAlignment="Center"/>
             <Button Content="重新扫描" Command="{Binding RefreshCommand}" HorizontalAlignment="Center" Classes="Accent"/>
             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                <TextBlock Text="提示：也可以在开发模式下使用模拟数据测试" Foreground="#888" FontSize="12"/>
+                <TextBlock Text="提示：也可以在开发模式下使用模拟数据测试" Foreground="{DynamicResource MutedTextBrush}" FontSize="12"/>
             </StackPanel>
         </StackPanel>
     </Grid>

@@ -2,9 +2,42 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CCUsage.App.App"
              RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             <!-- 启动时 ThemeService 按设置里的 Theme（light / dark / system）改写 RequestedThemeVariant；
+                  Default 表示跟随系统。 -->
 
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+
+    <!-- 明暗两套画刷，视图统一用 DynamicResource 引用，切换主题时自动换色。 -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#666666"/>
+                    <SolidColorBrush x:Key="MutedTextBrush" Color="#888888"/>
+                    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#f8f9fa"/>
+                    <SolidColorBrush x:Key="CardAccentBackgroundBrush" Color="#eef6ff"/>
+                    <SolidColorBrush x:Key="SeparatorBorderBrush" Color="#dddddd"/>
+                    <SolidColorBrush x:Key="WarningBannerBackgroundBrush" Color="#fff7e6"/>
+                    <SolidColorBrush x:Key="WarningBannerBorderBrush" Color="#ffd591"/>
+                    <SolidColorBrush x:Key="WarningBannerTextBrush" Color="#8a5a00"/>
+                    <SolidColorBrush x:Key="DangerTextBrush" Color="#bb0000"/>
+                    <SolidColorBrush x:Key="AccentLinkTextBrush" Color="#336699"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#a9afbb"/>
+                    <SolidColorBrush x:Key="MutedTextBrush" Color="#8c929c"/>
+                    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#2a2e36"/>
+                    <SolidColorBrush x:Key="CardAccentBackgroundBrush" Color="#223047"/>
+                    <SolidColorBrush x:Key="SeparatorBorderBrush" Color="#3a404c"/>
+                    <SolidColorBrush x:Key="WarningBannerBackgroundBrush" Color="#3b3320"/>
+                    <SolidColorBrush x:Key="WarningBannerBorderBrush" Color="#7a6530"/>
+                    <SolidColorBrush x:Key="WarningBannerTextBrush" Color="#e5c878"/>
+                    <SolidColorBrush x:Key="DangerTextBrush" Color="#ff8080"/>
+                    <SolidColorBrush x:Key="AccentLinkTextBrush" Color="#82b4e8"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

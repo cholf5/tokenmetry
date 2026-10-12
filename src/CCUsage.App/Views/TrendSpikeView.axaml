@@ -12,9 +12,9 @@
         <StackPanel Grid.Row="0" Spacing="4" Margin="0 0 0 8">
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <TextBlock Text="[SPIKE] 30 天成本趋势（ScottPlot 原型）" FontSize="18" FontWeight="Bold"/>
-                <TextBlock Text="D-002 临时页，非正式功能" Foreground="#b00" VerticalAlignment="Center" FontSize="12"/>
+                <TextBlock Text="D-002 临时页，非正式功能" Foreground="{DynamicResource DangerTextBrush}" VerticalAlignment="Center" FontSize="12"/>
             </StackPanel>
-            <TextBlock Text="{Binding DataRangeText}" Foreground="#666"/>
+            <TextBlock Text="{Binding DataRangeText}" Foreground="{DynamicResource SecondaryTextBrush}"/>
         </StackPanel>
 
         <sp:AvaPlot Grid.Row="1" x:Name="TrendPlot"
@@ -22,9 +22,9 @@
                     PointerExited="OnPlotPointerExited"/>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" Margin="0 8 0 0">
-            <TextBlock Text="{Binding Status}" Foreground="#888"/>
-            <TextBlock x:Name="HoverText" Text="悬停查看数值" Foreground="#369" FontWeight="Bold"/>
-            <TextBlock Text="左键拖动平移 · 右键拖动/滚轮缩放 · 双击复位" Foreground="#999"/>
+            <TextBlock Text="{Binding Status}" Foreground="{DynamicResource MutedTextBrush}"/>
+            <TextBlock x:Name="HoverText" Text="悬停查看数值" Foreground="{DynamicResource AccentLinkTextBrush}" FontWeight="Bold"/>
+            <TextBlock Text="左键拖动平移 · 右键拖动/滚轮缩放 · 双击复位" Foreground="{DynamicResource MutedTextBrush}"/>
         </StackPanel>
     </Grid>
 </UserControl>

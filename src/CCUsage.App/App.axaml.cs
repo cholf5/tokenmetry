@@ -20,6 +20,9 @@ public partial class App : Application
     {
         DependencyInjection.AppServices.Initialize();
 
+        var settings = DependencyInjection.AppServices.Get<AppSettings>();
+        DependencyInjection.AppServices.Get<IThemeService>().Apply(settings.Theme);
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = new MainWindow
@@ -32,7 +35,6 @@ public partial class App : Application
             trayService.Initialize();
 
             var vm = (MainWindowViewModel)desktop.MainWindow.DataContext;
-            var settings = DependencyInjection.AppServices.Get<AppSettings>();
             var refreshService = new BackgroundRefreshService(
                 () => vm.Dashboard.RefreshCommand.ExecuteAsync(null),
                 settings.RefreshMinutes);
