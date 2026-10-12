@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ccusage — Token Analytics Prototype</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1120;--panel:#111c2e;--panel2:#142137;--line:#24344d;--muted:#8293ad;--text:#e8eef9;--blue:#4c8dff;--cyan:#57c7e8;--purple:#a779ff;--green:#38d6a4;--orange:#ffb454;--red:#ff7185}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.app{min-height:100vh;display:grid;grid-template-rows:52px 1fr}.topbar{display:flex;align-items:center;gap:16px;padding:0 18px;border-bottom:1px solid var(--line);background:#0e1728;position:sticky;top:0;z-index:4}
+.traffic{display:flex;gap:7px}.dot{width:10px;height:10px;border-radius:50%}.dot.red{background:#ff5f57}.dot.yellow{background:#febc2e}.dot.green{background:#28c840}
+.brand{border-left:1px solid var(--line);padding-left:18px;display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;letter-spacing:.2px}.brandmark{display:grid;place-items:center;width:24px;height:24px;border:2px solid #7daaff;border-radius:50%;color:#7daaff;font-size:15px}
+.top-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.pill{border:1px solid var(--line);background:#142137;border-radius:8px;padding:8px 11px;color:#c9d6e9}.iconbtn{width:34px;height:34px;border:1px solid var(--line);background:transparent;border-radius:8px}
+.shell{display:grid;grid-template-columns:184px minmax(420px,1fr) 276px;min-height:calc(100vh - 52px)}
+.sidebar{border-right:1px solid var(--line);padding:18px 10px;display:flex;flex-direction:column;background:#0d1626}.nav{display:grid;gap:5px}.nav button{border:0;background:transparent;text-align:left;padding:10px 12px;border-radius:8px;color:#aab9ce;display:flex;gap:12px;align-items:center}.nav button:hover{background:#17253b;color:#fff}.nav button.active{background:#1b2d49;color:#9dc2ff;box-shadow:inset 2px 0 #5794ff}.nav .ico{width:17px;text-align:center;font-size:15px}.sidefoot{margin-top:auto;padding:12px 8px;color:var(--muted);font-size:11px}.status{display:inline-block;width:7px;height:7px;background:var(--green);border-radius:50%;margin-right:7px}
+main{padding:22px 22px 30px;min-width:0}.pagehead{display:flex;align-items:flex-start;gap:15px;margin-bottom:18px}.pagehead h1{font-size:21px;margin:0 0 4px;font-weight:650;letter-spacing:-.4px}.subtitle{color:var(--muted);font-size:12px}.headfilters{margin-left:auto;display:flex;gap:8px}.select{background:#121f33;border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-width:120px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:13px}.kpi,.panel{background:linear-gradient(145deg,#121e31,#101a2b);border:1px solid #22324a;border-radius:11px}.kpi{padding:15px 15px 13px;min-height:124px}.kpi-top{display:flex;align-items:center;gap:9px;color:#b7c5d9;font-size:12px}.kpi-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:#20395b;color:#8db8ff;font-size:15px}.kpi:nth-child(2) .kpi-icon{background:#3c3321;color:#ffcb64}.kpi:nth-child(3) .kpi-icon{background:#33284f;color:#c0a0ff}.kpi:nth-child(4) .kpi-icon{background:#173d3b;color:#67e3bd}.kpi-value{font-size:25px;font-weight:700;letter-spacing:-.6px;margin:8px 0 4px;white-space:nowrap}.kpi-foot{font-size:11px;color:var(--muted)}.up{color:var(--green)}.down{color:var(--red)}
+.grid2{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(250px,.85fr);gap:12px;margin-bottom:12px}.gridEqual{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}.panel{padding:15px;min-width:0}.panelhead{display:flex;align-items:center;gap:10px;margin-bottom:13px}.panelhead h2{font-size:13px;margin:0;font-weight:650}.panelhead .meta{margin-left:auto;color:var(--muted);font-size:11px}.legend{display:flex;gap:12px;color:#aab8ce;font-size:10px}.legend span{display:flex;align-items:center;gap:5px}.swatch{width:7px;height:7px;border-radius:3px;display:inline-block}
+.chart{height:190px;width:100%;display:block}.chart text{font-family:inherit;fill:#8293ad;font-size:10px}.chart .gridline{stroke:#23344b;stroke-width:1}.chart .axis{stroke:#35465e;stroke-width:1}.chart .barin{fill:#4b8cff}.chart .barout{fill:#9b74f7}.chart .line{fill:none;stroke:#64b8ff;stroke-width:2}.chart .point{fill:#8ccaff;stroke:#122036;stroke-width:2}
+.donutrow{display:flex;align-items:center;gap:15px;min-height:190px}.donut{width:142px;height:142px;flex:0 0 142px;position:relative}.donut svg{width:100%;height:100%;transform:rotate(-90deg)}.donut .center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}.center strong{font-size:17px}.center small{font-size:10px;color:var(--muted)}.legendlist{display:grid;gap:10px;flex:1;min-width:0}.legendrow{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:7px;align-items:center;font-size:11px}.legendrow .name{color:#c2cee0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.legendrow .val{color:#e1eaf8;font-variant-numeric:tabular-nums}
+.table{width:100%;border-collapse:collapse;font-size:11px}.table th{text-align:left;color:var(--muted);font-weight:500;padding:0 4px 9px}.table td{border-top:1px solid #202f45;padding:8px 4px;color:#c8d4e5}.table th:last-child,.table td:last-child{text-align:right}.table td.num{text-align:right;font-variant-numeric:tabular-nums}.modelname{display:flex;align-items:center;gap:7px;white-space:nowrap}.modeldot{width:7px;height:7px;border-radius:3px;background:var(--blue)}.barcell{min-width:75px}.mini-track{height:4px;background:#23334b;border-radius:5px;margin-top:4px;overflow:hidden}.mini-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#3e7df0,#65b9ff)}
+.sessions-panel{border-left:1px solid var(--line);padding:20px 13px;background:#0d1626;min-width:0}.righthead{display:flex;align-items:center;margin-bottom:10px}.righthead h2{margin:0;font-size:14px}.linkbtn{margin-left:auto;background:none;border:0;color:#80adff;font-size:11px}.sessionlist{display:grid}.session{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;padding:12px 0;border-bottom:1px solid #1c2b40;cursor:pointer}.session:hover .stitle{color:#9fc3ff}.agenticon{width:29px;height:29px;border-radius:9px;display:grid;place-items:center;background:#1e3454;color:#8bb8ff;font-size:14px}.agenticon.green{background:#183a35;color:#63d7ad}.agenticon.purple{background:#322749;color:#c0a2ff}.agenticon.gray{background:#263143;color:#bac8da}.smeta{display:flex;align-items:center;gap:6px;color:#8ea0b8;font-size:10px}.smeta .agent{color:#d2ddec;font-size:11px}.stitle{font-size:11px;margin:3px 0;color:#c0ccde;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sfoot{display:flex;justify-content:space-between;color:var(--muted);font-size:10px}
+.filterbox{border:1px solid var(--line);background:#111d30;border-radius:10px;padding:13px;margin-top:16px}.filtertitle{display:flex;align-items:center;font-size:12px;font-weight:650;margin-bottom:10px}.filtertitle button{margin-left:auto;border:0;background:none;color:#82adff;font-size:10px}.filtergroup{margin:12px 0}.filterlabel{display:flex;align-items:center;color:#aab9ce;font-size:11px;margin-bottom:7px}.filterlabel button{margin-left:auto;background:none;border:0;color:#83afff;font-size:10px}.checkrow{display:flex;align-items:center;gap:8px;color:#c0cde0;font-size:11px;margin:7px 0;cursor:pointer}.checkrow input{accent-color:#4c8dff;width:13px;height:13px;margin:0}.filterbox select{width:100%;background:#0f1a2c;border:1px solid #2a3a53;border-radius:7px;padding:8px;font-size:11px}.primary{width:100%;border:0;border-radius:8px;background:linear-gradient(90deg,#397df5,#3670e7);padding:10px;font-weight:600;margin-top:11px}.primary:hover{filter:brightness(1.1)}.ghost{background:#17263c;border:1px solid #2a3b54;border-radius:7px;padding:6px 9px;color:#b9c9df}.empty{padding:20px;color:var(--muted);text-align:center}.hidden{display:none!important}.page{display:none}.page.active{display:block}.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#203651;border:1px solid #3a5a7d;padding:10px 16px;border-radius:9px;box-shadow:0 10px 35px #0007;z-index:10;animation:fade 2.5s forwards}@keyframes fade{0%,75%{opacity:1}100%{opacity:0;pointer-events:none}}
+.detailhead{display:flex;align-items:center;gap:10px;margin-bottom:16px}.search{width:100%;background:#0d1728;border:1px solid var(--line);border-radius:8px;padding:9px 11px}.widepanel{margin-bottom:12px}.sessiontable tr{cursor:pointer}.sessiontable tbody tr:hover{background:#17253a}.chip{display:inline-block;padding:3px 7px;border-radius:5px;background:#1b2c44;color:#a8c8ff;font-size:10px}
+@media(max-width:1200px){.shell{grid-template-columns:160px minmax(380px,1fr)}.sessions-panel{display:none}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:780px){.shell{grid-template-columns:58px minmax(0,1fr)}.sidebar{padding:12px 7px}.nav button{justify-content:center;padding:12px 0}.nav .label,.sidefoot{display:none}.grid2,.gridEqual{grid-template-columns:1fr}.headfilters{display:none}main{padding:15px}.kpi-value{font-size:21px}.kpi{padding:11px}.kpi-foot{font-size:10px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="traffic"><i class="dot red"></i><i class="dot yellow"></i><i class="dot green"></i></div>
+  <div class="brand"><span class="brandmark">◌</span> ccusage <span style="font-size:10px;color:#7285a1;font-weight:500">ANALYTICS</span></div>
+  <div class="top-actions"><span class="pill" id="dataStatus">● 本地数据 · 示例</span><button class="iconbtn" id="settingsBtn" title="设置">⚙</button></div>
+</header>
+<div class="shell">
+<aside class="sidebar">
+  <nav class="nav" id="nav">
+    <button class="active" data-page="overview"><span class="ico">⌂</span><span class="label">总览</span></button>
+    <button data-page="sessions"><span class="ico">▤</span><span class="label">会话明细</span></button>
+    <button data-page="agents"><span class="ico">◉</span><span class="label">Agent 统计</span></button>
+    <button data-page="models"><span class="ico">⬡</span><span class="label">模型统计</span></button>
+    <button data-page="projects"><span class="ico">▣</span><span class="label">项目统计</span></button>
+    <button data-page="time"><span class="ico">◷</span><span class="label">时间分析</span></button>
+    <button data-page="cost"><span class="ico">＄</span><span class="label">成本分析</span></button>
+    <button data-page="settings"><span class="ico">⚙</span><span class="label">数据源与设置</span></button>
+  </nav>
+  <div class="sidefoot"><div><span class="status"></span>解析器就绪</div><div style="margin:6px 0 0 14px">最近更新：刚刚</div></div>
+</aside>
+<main>
+  <section class="page active" id="page-overview">
+    <div class="pagehead"><div><h1>Token 使用概览</h1><div class="subtitle">统一查看不同 Agent 的使用量、成本与工作负载</div></div><div class="headfilters"><select class="select" id="rangeTop"><option value="7">最近 7 天</option><option value="30">最近 30 天</option><option value="90">最近 90 天</option><option value="all">全部时间</option></select><select class="select" id="agentTop"><option value="all">所有 Agent</option><option>Claude Code</option><option>Codex</option><option>Cursor</option><option>GitHub Copilot</option><option>Cline</option></select></div></div>
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-top"><span class="kpi-icon">◈</span>总 Token 数</div><div class="kpi-value" id="kpiTokens">8.74M</div><div class="kpi-foot"><span class="up">↑ 23.6%</span> <span>vs 上一周期</span></div></div>
+      <div class="kpi"><div class="kpi-top"><span class="kpi-icon">$</span>估算成本</div><div class="kpi-value" id="kpiCost">$286.41</div><div class="kpi-foot"><span class="up">↑ 18.2%</span> <span>按模型价格估算</span></div></div>
+      <div class="kpi"><div class="kpi-top"><span class="kpi-icon">▣</span>会话数</div><div class="kpi-value" id="kpiSessions">412</div><div class="kpi-foot"><span class="up">↑ 12.8%</span> <span>跨 Agent 汇总</span></div></div>
+      <div class="kpi"><div class="kpi-top"><span class="kpi-icon">↻</span>缓存读取占比</div><div class="kpi-value" id="kpiCache">67.3%</div><div class="kpi-foot"><span>缓存读取 / 输入相关 Token</span></div></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><div class="panelhead"><h2>Token 使用趋势</h2><span class="meta">按日汇总</span><div class="legend"><span><i class="swatch" style="background:var(--blue)"></i>输入</span><span><i class="swatch" style="background:var(--purple)"></i>输出</span><span><i class="swatch" style="background:var(--cyan)"></i>总量</span></div></div><svg id="trendChart" class="chart" viewBox="0 0 600 205" preserveAspectRatio="none" aria-label="Token 使用趋势图"></svg></div>
+      <div class="panel"><div class="panelhead"><h2>Agent 使用占比</h2><span class="meta">按 Token 总量</span></div><div class="donutrow"><div class="donut" id="agentDonut"></div><div class="legendlist" id="agentLegend"></div></div></div>
+    </div>
+    <div class="gridEqual">
+      <div class="panel"><div class="panelhead"><h2>模型使用分布</h2><button class="linkbtn" data-go="models">查看详情 ↗</button></div><table class="table"><thead><tr><th>模型</th><th>Token 数</th><th>占比</th></tr></thead><tbody id="modelPreview"></tbody></table></div>
+      <div class="panel"><div class="panelhead"><h2>Token 类型构成</h2><span class="meta">跨来源归一化</span></div><div class="donutrow"><div class="donut" id="typeDonut"></div><div class="legendlist" id="typeLegend"></div></div></div>
+    </div>
+    <div class="gridEqual">
+      <div class="panel"><div class="panelhead"><h2>项目 / 目录排行</h2><button class="linkbtn" data-go="projects">查看详情 ↗</button></div><table class="table"><thead><tr><th>#</th><th>项目 / 目录</th><th>Token 数</th><th>占比</th></tr></thead><tbody id="projectPreview"></tbody></table></div>
+      <div class="panel"><div class="panelhead"><h2>成本趋势</h2><span class="meta">估算值 · USD</span></div><svg id="costChart" class="chart" viewBox="0 0 600 205" preserveAspectRatio="none"></svg></div>
+    </div>
+  </section>
+  <section class="page" id="page-sessions">
+    <div class="pagehead"><div><h1>会话明细</h1><div class="subtitle">从汇总下钻到单次 Agent 会话，支持搜索与组合筛选</div></div></div>
+    <div class="panel widepanel"><div class="detailhead"><input class="search" id="sessionSearch" placeholder="搜索会话标题、项目目录、模型或 Agent…"><select class="select" id="sessionAgent"><option value="all">所有 Agent</option><option>Claude Code</option><option>Codex</option><option>Cursor</option><option>GitHub Copilot</option><option>Cline</option></select><select class="select" id="sessionSort"><option value="tokens">按 Token 排序</option><option value="cost">按成本排序</option><option value="recent">最近活动</option></select></div><table class="table sessiontable"><thead><tr><th>会话 / 任务</th><th>Agent</th><th>模型</th><th>Token</th><th>估算成本</th><th>最后活动</th></tr></thead><tbody id="sessionRows"></tbody></table><div id="sessionCount" class="subtitle" style="margin-top:12px"></div></div>
+  </section>
+  <section class="page" id="page-agents">
+    <div class="pagehead"><div><h1>Agent 统计</h1><div class="subtitle">比较不同工具的使用强度、成本与会话规模</div></div></div>
+    <div class="kpis" id="agentKpis"></div><div class="panel"><div class="panelhead"><h2>Agent 排行</h2><span class="meta">可点击查看对应会话</span></div><table class="table"><thead><tr><th>Agent</th><th>会话数</th><th>输入 Token</th><th>输出 Token</th><th>总 Token</th><th>估算成本</th><th>占比</th></tr></thead><tbody id="agentRows"></tbody></table></div>
+  </section>
+  <section class="page" id="page-models">
+    <div class="pagehead"><div><h1>模型统计</h1><div class="subtitle">模型维度的使用量与成本，不把不同模型的价格差异隐藏在总量中</div></div></div>
+    <div class="panel"><div class="panelhead"><h2>模型明细</h2><span class="meta">价格缺失时成本应标记为未知，而非 0</span></div><table class="table"><thead><tr><th>模型</th><th>关联 Agent</th><th>输入 Token</th><th>输出 Token</th><th>缓存读取</th><th>总 Token</th><th>成本</th></tr></thead><tbody id="modelRows"></tbody></table></div>
+  </section>
+  <section class="page" id="page-projects">
+    <div class="pagehead"><div><h1>项目统计</h1><div class="subtitle">按工作目录聚合，观察 Token 消耗集中在哪些代码库或任务</div></div></div>
+    <div class="panel"><div class="panelhead"><h2>项目排行</h2><span class="meta">路径归一化后的项目名</span></div><table class="table"><thead><tr><th>项目 / 目录</th><th>会话数</th><th>总 Token</th><th>估算成本</th><th>占比</th><th>平均每会话</th></tr></thead><tbody id="projectRows"></tbody></table></div>
+  </section>
+  <section class="page" id="page-time">
+    <div class="pagehead"><div><h1>时间分析</h1><div class="subtitle">识别使用高峰、工作时段分布与长会话</div></div></div>
+    <div class="gridEqual"><div class="panel"><div class="panelhead"><h2>按小时分布</h2><span class="meta">示例：本地时间</span></div><svg id="hourChart" class="chart" viewBox="0 0 600 205" preserveAspectRatio="none"></svg></div><div class="panel"><div class="panelhead"><h2>活跃日历</h2><span class="meta">每日 Token 强度</span></div><div id="heatmap" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:8px 0"></div><div class="subtitle">颜色越亮表示当日 Token 越多。示例数据仅用于展示交互。</div></div></div>
+    <div class="panel"><div class="panelhead"><h2>时间维度建议观察项</h2></div><table class="table"><tbody><tr><td>高峰时段</td><td>比较小时级 Token 和成本，判断是否有长时间连续运行的 Agent。</td></tr><tr><td>会话长度</td><td>结合会话持续时间与 Token 总量，避免只用 Token 量判断效率。</td></tr><tr><td>数据边界</td><td>缺少精确事件时间的来源应显示“未知”，不应伪造小时级分布。</td></tr></tbody></table></div>
+  </section>
+  <section class="page" id="page-cost">
+    <div class="pagehead"><div><h1>成本分析</h1><div class="subtitle">区分真实计费、模型价格估算与无法估价的数据</div></div></div>
+    <div class="kpis"><div class="kpi"><div class="kpi-top">估算总成本</div><div class="kpi-value">$286.41</div><div class="kpi-foot">示例价格表</div></div><div class="kpi"><div class="kpi-top">输入成本占比</div><div class="kpi-value">31.8%</div><div class="kpi-foot">不含缓存折扣差异</div></div><div class="kpi"><div class="kpi-top">输出成本占比</div><div class="kpi-value">54.6%</div><div class="kpi-foot">输出单价通常更高</div></div><div class="kpi"><div class="kpi-top">待确认价格</div><div class="kpi-value">3 models</div><div class="kpi-foot">成本不应默认为零</div></div></div>
+    <div class="panel"><div class="panelhead"><h2>成本计算口径</h2></div><table class="table"><thead><tr><th>项目</th><th>建议展示</th><th>注意事项</th></tr></thead><tbody><tr><td>实际计费</td><td><span class="chip">优先</span></td><td>仅在来源提供可靠计费数据时使用</td></tr><tr><td>估算成本</td><td><span class="chip">模型价格表</span></td><td>显示价格版本与计算时间；缓存输入需单独计价</td></tr><tr><td>未知成本</td><td><span class="chip">不计入总额或单独标注</span></td><td>模型映射、价格缺失、来源口径不一致时保留未知状态</td></tr></tbody></table></div>
+  </section>
+  <section class="page" id="page-settings">
+    <div class="pagehead"><div><h1>数据源与设置</h1><div class="subtitle">多 Agent 统一统计的关键是来源适配、去重和口径透明</div></div></div>
+    <div class="panel widepanel"><div class="panelhead"><h2>已识别的数据源</h2><span class="meta">示例状态，不代表真实扫描结果</span></div><table class="table"><thead><tr><th>数据源</th><th>状态</th><th>最近扫描</th><th>记录数</th><th>操作</th></tr></thead><tbody><tr><td>Claude Code</td><td><span class="up">● 已连接</span></td><td>刚刚</td><td>2,184</td><td><button class="ghost scanBtn">重新扫描</button></td></tr><tr><td>Codex</td><td><span class="up">● 已连接</span></td><td>刚刚</td><td>946</td><td><button class="ghost scanBtn">重新扫描</button></td></tr><tr><td>Cursor</td><td><span class="up">● 已连接</span></td><td>5 分钟前</td><td>622</td><td><button class="ghost scanBtn">重新扫描</button></td></tr><tr><td>GitHub Copilot</td><td><span style="color:var(--orange)">● 部分数据</span></td><td>10 分钟前</td><td>128</td><td><button class="ghost scanBtn">重新扫描</button></td></tr><tr><td>Cline</td><td><span class="up">● 已连接</span></td><td>刚刚</td><td>307</td><td><button class="ghost scanBtn">重新扫描</button></td></tr></tbody></table></div>
+    <div class="panel"><div class="panelhead"><h2>统计口径</h2></div><label class="checkrow"><input type="checkbox" checked> 按 Agent + Session ID 去重</label><label class="checkrow"><input type="checkbox" checked> 区分输入、输出、缓存读取与缓存写入</label><label class="checkrow"><input type="checkbox" checked> 未知模型价格显示为“未知”</label><label class="checkrow"><input type="checkbox"> 将不同 Agent 的疑似同一任务自动合并（谨慎启用）</label><label class="checkrow"><input type="checkbox" checked> 所有原始记录默认仅在本机处理</label><button class="primary" id="saveSettings">保存设置</button></div>
+  </section>
+</main>
+<aside class="sessions-panel">
+  <div class="righthead"><h2>最近会话</h2><button class="linkbtn" data-go="sessions">查看全部 ↗</button></div>
+  <div class="sessionlist" id="recentSessions"></div>
+  <div class="filterbox">
+    <div class="filtertitle">快速筛选 <button id="clearFilters">清除</button></div>
+    <div class="filtergroup"><div class="filterlabel">Agent <button id="selectAgents">全选</button></div>
+      <label class="checkrow"><input type="checkbox" class="agentcheck" value="Claude Code" checked> Claude Code</label>
+      <label class="checkrow"><input type="checkbox" class="agentcheck" value="Codex" checked> Codex</label>
+      <label class="checkrow"><input type="checkbox" class="agentcheck" value="Cursor" checked> Cursor</label>
+      <label class="checkrow"><input type="checkbox" class="agentcheck" value="GitHub Copilot" checked> GitHub Copilot</label>
+      <label class="checkrow"><input type="checkbox" class="agentcheck" value="Cline" checked> Cline</label>
+    </div>
+    <div class="filtergroup"><div class="filterlabel">模型</div><select id="modelFilter"><option value="all">全部模型</option><option>Claude 3.5 Sonnet</option><option>GPT-4o</option><option>Gemini 1.5 Pro</option><option>Claude 3.5 Haiku</option><option>GPT-4o mini</option></select></div>
+    <div class="filtergroup"><div class="filterlabel">项目 / 目录</div><select id="projectFilter"><option value="all">全部项目</option><option>Project-A</option><option>AI-Project</option><option>Personal</option><option>Game-Dev</option><option>Other</option></select></div>
+    <button class="primary" id="applyFilters">应用筛选</button>
+  </div>
+</aside>
+</div>
+</div>
+<script>
+const colors=['#4c8dff','#12b886','#ffad4d','#a779ff','#48bde3','#8394ae','#f06bc4'];
+const agents=['Claude Code','Codex','Cursor','GitHub Copilot','Cline'];
+const models=[
+{name:'Claude 3.5 Sonnet',tokens:3215482,input:2150000,output:604000,cache:461482,cost:123.8,agent:'Claude Code'},
+{name:'GPT-4o',tokens:1842317,input:1260000,output:390000,cache:192317,cost:54.2,agent:'Codex'},
+{name:'Gemini 1.5 Pro',tokens:1126473,input:720000,output:270000,cache:136473,cost:32.6,agent:'Cursor'},
+{name:'Claude 3.5 Haiku',tokens:842618,input:560000,output:190000,cache:92618,cost:18.4,agent:'Claude Code'},
+{name:'GPT-4o mini',tokens:621307,input:430000,output:145000,cache:46307,cost:8.2,agent:'Codex'},
+{name:'Other / unknown',tokens:1485119,input:1190000,output:65000,cache:230119,cost:null,agent:'Other'}
+];
+const projects=[
+{name:'Project-A',tokens:2341628,sessions:83,cost:74.8},{name:'AI-Project',tokens:1682317,sessions:67,cost:52.3},{name:'Personal',tokens:1245776,sessions:54,cost:39.6},{name:'Game-Dev',tokens:987421,sessions:41,cost:31.4},{name:'Other',tokens:1485174,sessions:77,cost:null}
+];
+const sessions=[
+{agent:'Claude Code',title:'优化游戏服务器架构',model:'Claude 3.5 Sonnet',tokens:182400,cost:5.81,project:'Project-A',ago:'2 分钟前',icon:'✳',cls:''},
+{agent:'Codex',title:'修复数据同步问题',model:'GPT-4o',tokens:96800,cost:2.46,project:'AI-Project',ago:'4 分钟前',icon:'◈',cls:'green'},
+{agent:'Cursor',title:'实现用户行为分析模块',model:'Gemini 1.5 Pro',tokens:74200,cost:1.84,project:'Game-Dev',ago:'6 分钟前',icon:'⬡',cls:'gray'},
+{agent:'Claude Code',title:'重构战斗逻辑',model:'Claude 3.5 Sonnet',tokens:212600,cost:6.42,project:'Project-A',ago:'8 分钟前',icon:'✳',cls:''},
+{agent:'GitHub Copilot',title:'生成单元测试',model:'GPT-4o mini',tokens:38700,cost:0.62,project:'Personal',ago:'12 分钟前',icon:'◉',cls:'purple'},
+{agent:'Cline',title:'调试内存泄漏问题',model:'Claude 3.5 Haiku',tokens:51300,cost:1.12,project:'AI-Project',ago:'15 分钟前',icon:'⬟',cls:'green'},
+{agent:'Codex',title:'补充边界条件测试',model:'GPT-4o',tokens:125900,cost:3.18,project:'Project-A',ago:'21 分钟前',icon:'◈',cls:'green'},
+{agent:'Cursor',title:'清理 UI 状态管理',model:'Gemini 1.5 Pro',tokens:63300,cost:1.54,project:'Personal',ago:'28 分钟前',icon:'⬡',cls:'gray'},
+{agent:'Claude Code',title:'整理服务启动脚本',model:'Claude 3.5 Haiku',tokens:89200,cost:1.96,project:'Project-A',ago:'35 分钟前',icon:'✳',cls:''}
+];
+const fmt=n=>n.toLocaleString('en-US');
+const compact=n=>n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n);
+const money=n=>n==null?'未知':'$'+n.toFixed(2);
+function donut(elId,legendId,data,totalLabel,colorsIn=colors){
+ const total=data.reduce((s,d)=>s+d.value,0)||1;let offset=0;const circ=2*Math.PI*47;
+ const arcs=data.map((d,i)=>{const len=d.value/total*circ;const out=`<circle cx="60" cy="60" r="47" fill="none" stroke="${colorsIn[i%colorsIn.length]}" stroke-width="13" stroke-dasharray="${len} ${circ-len}" stroke-dashoffset="${-offset}"/>`;offset+=len;return out}).join('');
+ document.getElementById(elId).innerHTML=`<svg viewBox="0 0 120 120">${arcs}<circle cx="60" cy="60" r="38" fill="#111c2e"/></svg><div class="center"><strong>${totalLabel}</strong><small>Total Tokens</small></div>`;
+ if(legendId)document.getElementById(legendId).innerHTML=data.map((d,i)=>`<div class="legendrow"><i class="swatch" style="background:${colorsIn[i%colorsIn.length]}"></i><span class="name">${d.name}</span><span class="val">${d.pct??(d.value/total*100).toFixed(1)+'%'}</span></div>`).join('');
+}
+function renderTrend(days=7){
+ const svg=document.getElementById('trendChart'), labels=days===7?['10-06','10-07','10-08','10-09','10-10','10-11','10-12']:Array.from({length:days===30?10:12},(_,i)=>days===30?`${i*3+1}日`:`${i+1}月`);
+ const vals=days===7?[.62,.71,.89,1.03,1.42,1.08,1.29]:labels.map((_,i)=>.4+Math.abs(Math.sin(i*1.17))*(days===30?1.05:1.5));
+ const ins=vals.map(v=>v*.69),outs=vals.map(v=>v*.31),W=600,H=205,L=36,R=10,T=10,B=27,pw=W-L-R,ph=H-T-B,max=Math.max(...vals)*1.18;
+ let s='';for(let i=0;i<5;i++){let y=T+ph*i/4;s+=`<line class="gridline" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/><text x="${L-7}" y="${y+4}" text-anchor="end">${(max*(1-i/4)).toFixed(1)}M</text>`}
+ const bw=Math.min(35,pw/labels.length*.5);let pts=[];
+ labels.forEach((l,i)=>{const x=L+pw*(i+.5)/labels.length,y1=T+ph*(1-ins[i]/max),y2=T+ph*(1-outs[i]/max);const base=T+ph;s+=`<rect class="barin" x="${x-bw/2}" y="${y1}" width="${bw}" height="${base-y1}" rx="2"/><rect class="barout" x="${x-bw/2}" y="${y2}" width="${bw}" height="${base-y2}" rx="2" opacity=".88"/>`;const yp=T+ph*(1-vals[i]/max);pts.push(`${x},${yp}`);s+=`<text x="${x}" y="${H-8}" text-anchor="middle">${l}</text>`});
+ s+=`<polyline class="line" points="${pts.join(' ')}"/>`+pts.map(p=>{let [x,y]=p.split(',');return `<circle class="point" cx="${x}" cy="${y}" r="3"/>`}).join('');svg.innerHTML=s;
+}
+function lineChart(id,values,labels,unit=''){
+ const svg=document.getElementById(id),W=600,H=205,L=42,R=10,T=10,B=27,pw=W-L-R,ph=H-T-B,max=Math.max(...values)*1.2;let s='',pts=[];
+ for(let i=0;i<5;i++){let y=T+ph*i/4,v=max*(1-i/4);s+=`<line class="gridline" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/><text x="${L-8}" y="${y+4}" text-anchor="end">${unit}${v.toFixed(unit==='$'?0:1)}${unit==='$'?'':'M'}</text>`}
+ values.forEach((v,i)=>{let x=L+pw*(i+.5)/values.length,y=T+ph*(1-v/max);pts.push(`${x},${y}`);s+=`<text x="${x}" y="${H-8}" text-anchor="middle">${labels[i]}</text>`});s+=`<polyline class="line" points="${pts.join(' ')}"/>`+pts.map(p=>{let [x,y]=p.split(',');return `<circle class="point" cx="${x}" cy="${y}" r="3.5"/>`}).join('');svg.innerHTML=s;
+}
+function fillTables(){
+ document.getElementById('modelPreview').innerHTML=models.slice(0,5).map((m,i)=>`<tr><td><span class="modelname"><i class="modeldot" style="background:${colors[i]}"></i>${m.name}</span><div class="mini-track"><div class="mini-fill" style="width:${m.tokens/3215482*100}%"></div></div></td><td class="num">${fmt(m.tokens)}</td><td class="num">${(m.tokens/8743316*100).toFixed(1)}%</td></tr>`).join('');
+ document.getElementById('projectPreview').innerHTML=projects.map((p,i)=>`<tr><td>${i+1}</td><td><span class="modelname"><i class="modeldot" style="background:${colors[i]}"></i>${p.name}</span></td><td class="num">${fmt(p.tokens)}</td><td class="num">${(p.tokens/8743316*100).toFixed(1)}%</td></tr>`).join('');
+ document.getElementById('modelRows').innerHTML=models.map(m=>`<tr><td>${m.name}</td><td>${m.agent}</td><td class="num">${fmt(m.input)}</td><td class="num">${fmt(m.output)}</td><td class="num">${fmt(m.cache)}</td><td class="num">${fmt(m.tokens)}</td><td class="num">${money(m.cost)}</td></tr>`).join('');
+ document.getElementById('projectRows').innerHTML=projects.map(p=>`<tr><td>${p.name}</td><td class="num">${p.sessions}</td><td class="num">${fmt(p.tokens)}</td><td class="num">${money(p.cost)}</td><td class="num">${(p.tokens/8743316*100).toFixed(1)}%</td><td class="num">${fmt(Math.round(p.tokens/p.sessions))}</td></tr>`).join('');
+ const agentData=[{name:'Claude Code',tokens:3600000,sessions:152,input:2450000,output:810000,cost:142.2},{name:'Codex',tokens:2260000,sessions:96,input:1580000,output:440000,cost:68.5},{name:'Cursor',tokens:1380000,sessions:71,input:980000,output:290000,cost:42.1},{name:'GitHub Copilot',tokens:760000,sessions:49,input:520000,output:160000,cost:18.6},{name:'Cline',tokens:743316,sessions:44,input:490000,output:180000,cost:15.0}];
+ document.getElementById('agentRows').innerHTML=agentData.map((a,i)=>`<tr><td><span class="modelname"><i class="modeldot" style="background:${colors[i]}"></i>${a.name}</span></td><td class="num">${a.sessions}</td><td class="num">${fmt(a.input)}</td><td class="num">${fmt(a.output)}</td><td class="num">${fmt(a.tokens)}</td><td class="num">${money(a.cost)}</td><td class="num">${(a.tokens/8743316*100).toFixed(1)}%</td></tr>`).join('');
+ document.getElementById('agentKpis').innerHTML=agentData.slice(0,4).map((a,i)=>`<div class="kpi"><div class="kpi-top"><span class="kpi-icon" style="background:#20395b">${['✳','◈','⬡','◉'][i]}</span>${a.name}</div><div class="kpi-value">${compact(a.tokens)}</div><div class="kpi-foot">${a.sessions} sessions · ${money(a.cost)}</div></div>`).join('');
+}
+function sessionMarkup(s){return `<div class="session" data-session="${s.title}"><div class="agenticon ${s.cls}">${s.icon}</div><div><div class="smeta"><span class="agent">${s.agent}</span></div><div class="stitle">${s.title}</div><div class="sfoot"><span>${compact(s.tokens)} tokens</span><span>${s.ago}</span></div></div></div>`}
+function renderSessions(){
+ const recent=document.getElementById('recentSessions');recent.innerHTML=sessions.slice(0,6).map(sessionMarkup).join('');
+ const q=(document.getElementById('sessionSearch')?.value||'').toLowerCase(),agent=document.getElementById('sessionAgent')?.value||'all',sort=document.getElementById('sessionSort')?.value||'tokens';
+ let rows=sessions.filter(s=>(agent==='all'||s.agent===agent)&&[s.title,s.agent,s.model,s.project].join(' ').toLowerCase().includes(q));
+ rows.sort((a,b)=>sort==='cost'?b.cost-a.cost:sort==='recent'?sessions.indexOf(a)-sessions.indexOf(b):b.tokens-a.tokens);
+ document.getElementById('sessionRows').innerHTML=rows.map(s=>`<tr data-session="${s.title}"><td>${s.title}<div class="subtitle">${s.project}</div></td><td>${s.agent}</td><td>${s.model}</td><td class="num">${fmt(s.tokens)}</td><td class="num">${money(s.cost)}</td><td>${s.ago}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">没有匹配的会话</td></tr>';
+ document.getElementById('sessionCount').textContent=`显示 ${rows.length} / ${sessions.length} 条示例会话`;
+}
+function toast(msg){let t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
+function go(page){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page)?.classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='sessions')renderSessions();if(page==='settings'){}}
+document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-page]');if(b)go(b.dataset.page)});
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)go(g.dataset.go);const s=e.target.closest('[data-session]');if(s&&s.dataset.session)toast('会话详情：'+s.dataset.session+'（原型交互）')});
+document.getElementById('rangeTop').addEventListener('change',e=>{renderTrend(e.target.value==='all'?90:Number(e.target.value));toast('已切换时间范围：'+e.target.options[e.target.selectedIndex].text)});
+document.getElementById('agentTop').addEventListener('change',e=>{toast('Agent 过滤：'+e.target.value+'（示例数据仅演示交互）')});
+document.getElementById('sessionSearch').addEventListener('input',renderSessions);document.getElementById('sessionAgent').addEventListener('change',renderSessions);document.getElementById('sessionSort').addEventListener('change',renderSessions);
+document.getElementById('clearFilters').addEventListener('click',()=>{document.querySelectorAll('.agentcheck').forEach(c=>c.checked=true);document.getElementById('modelFilter').value='all';document.getElementById('projectFilter').value='all';toast('筛选条件已清除')});
+document.getElementById('selectAgents').addEventListener('click',()=>{let cs=[...document.querySelectorAll('.agentcheck')];let all=cs.every(c=>c.checked);cs.forEach(c=>c.checked=!all);document.getElementById('selectAgents').textContent=all?'全选':'全不选'});
+document.getElementById('applyFilters').addEventListener('click',()=>{let a=[...document.querySelectorAll('.agentcheck:checked')].map(c=>c.value);let m=document.getElementById('modelFilter').value,p=document.getElementById('projectFilter').value;document.getElementById('agentTop').value='all';toast(`筛选已应用：${a.length} 个 Agent · ${m==='all'?'全部模型':m} · ${p==='all'?'全部项目':p}`)});
+document.getElementById('settingsBtn').addEventListener('click',()=>go('settings'));
+document.getElementById('saveSettings').addEventListener('click',()=>toast('设置已保存（原型交互）'));
+document.querySelectorAll('.scanBtn').forEach(b=>b.addEventListener('click',()=>{b.textContent='扫描中…';setTimeout(()=>{b.textContent='重新扫描';toast('扫描完成（示例）')},700)}));
+donut('agentDonut','agentLegend',[{name:'Claude Code',value:41.2},{name:'Codex',value:22.6},{name:'Cursor',value:15.8},{name:'GitHub Copilot',value:8.7},{name:'Cline',value:5.4},{name:'其他',value:6.3}],'8.74M');
+donut('typeDonut','typeLegend',[{name:'输入 Token',value:72.1},{name:'输出 Token',value:25.6},{name:'缓存相关',value:2.3}], '8.74M',['#4c8dff','#a779ff','#38d6a4']);
+renderTrend(7);lineChart('costChart',[24,26,29,34,45,30,33],['10-06','10-07','10-08','10-09','10-10','10-11','10-12'],'$');
+lineChart('hourChart',[.12,.08,.04,.02,.03,.1,.25,.45,.6,.8,.95,.7,.8,.92,.72,.6,.7,.85,.9,.68,.5,.42,.3,.2],Array.from({length:24},(_,i)=>i%3===0?String(i).padStart(2,'0'):''));
+fillTables();renderSessions();
+document.getElementById('heatmap').innerHTML=Array.from({length:35},(_,i)=>{let v=Math.abs(Math.sin(i*1.7));return `<div title="Day ${i+1}: ${Math.round(v*1.8)}M tokens" style="height:27px;border-radius:5px;background:rgba(76,141,255,${.12+v*.78});border:1px solid #2a3c58"></div>`}).join('');
+</script>
+</body>
+</html>

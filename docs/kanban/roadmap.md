@@ -20,6 +20,7 @@ This roadmap preserves long-term goals and milestone direction for `ccusage-desk
 2. 可对账：成本数字与 `ccusage` CLI 容差内一致。
 3. 离线优先定价：内置价格快照，联网刷新永远在后台、不阻塞 UI。
 4. 固定信息架构：Dashboard / Reports / Breakdown / Settings + 托盘，不做插件与布局自定义。
+   （2026-10-12 注：固定视图集合按 UI 原型扩展为 8 个固定视图——总览 / 会话明细 / Agent 统计 / 模型统计 / 项目统计 / 时间分析 / 成本分析 / 设置；「固定」的含义不变：不做用户自定义布局与插件，只是替用户选好的固定视图更多了。见 v0.4。）
 5. 克制的数据表达：趋势、构成、异常三种表达够用。
 
 ## Milestones
@@ -67,16 +68,24 @@ Notes:
 - 逐源口径与蓝本路径见各卡 Background；ccusage 侧布局变更时以 `../ccusage/rust/adapters/<source>/README.md` 为准。
 - 已知口径：ccusage 对部分源（如 ZCode 自定义 provider 的 GLM 行）报 missingPricing/成本 0；本项目对账锚点是 CLI，保持同口径，缺价模型由用户覆盖补齐。
 
-### v0.4 - 固定可视化 🔨（当前迭代）
+### v0.4 - 固定可视化：UI 原型落地 🔨（当前迭代）
 
 Goal:
-- 用 ScottPlot 补齐趋势可视化；Dashboard 重构为 KPI 行 + 30 天趋势 + TopN 的固定视图；Reports 增加 Monthly / Session 维度。
+- 以 `docs/design/ccusage_analytics_prototype.html`（2026-10-12 收入）为设计基准，把应用从旧 Fluent 界面整体重建为原型观感：Semi.Avalonia 主题 + 三栏外壳 + 8 个固定视图 + 自有聚合查询服务。数据口径延续产品立场：可对账、缺价显示未知不折零、不伪造时间精度。
 
-Candidate tasks:
-- `D-002` ScottPlot.Avalonia 集成 spike ✅（2026-10-11）：5.1.59 在 Avalonia 12 + net10.0 实测可用，缩放/平移零配置、tooltip 成本可控（对齐翻转有坑已记录），正式集成估 1–2 天；结论见任务卡 Development Log
-- ScottPlot 正式集成：30 天趋势图（cost / tokens 切换）——需先定日历窗口语义（空日补零 / 断线 / 仅画实际日，spike 观察到的产品决策点）与 hover helper（含右缘裁剪处理）
-- Dashboard 重构为固定视图（KPI 行 + 趋势 + Top Model / Agent / Project）
-- Reports Monthly / Session tab（依赖 I-002 的 session_facts，表结构已就绪）
+选型记录（2026-10-12）:
+- 基础主题换 **Semi.Avalonia**（12.1.0.1，需 Avalonia 12.0.4 → 12.1.x 小版本升级）；备选 SukiUI（风格过强）与保留 Fluent 手写样式（保底）已评估。视觉上限由图表还原度与样式纪律决定，主题只解决默认控件气质——判断依据见当日会话结论。
+
+Candidate tasks（依赖顺序执行，详情见各卡）:
+- 基建线：`I-026` Semi 主题迁移 → `I-027` 设计令牌与共享样式（原型色板/卡片/系列色/mini 进度条/toast）
+- 数据线（与基建并行）：`I-028` 聚合查询 A（日趋势 + KPI + 环比；含 D-002 遗留的日历窗口语义定案）、`I-029` 聚合查询 B（Agent/模型/项目维度 + 会话列表 + 小时分布，缺精度源按 unknown 返回）
+- 外壳：`D-003` 三栏外壳 + 导航 + 全局筛选（吸收「Dashboard 固定视图」规划；右侧最近会话栏常驻）
+- 图表控件：`D-004` ScottPlot 正式集成（堆叠柱+折线三形态、hover helper 含右缘裁剪翻转）、`D-005` 自绘环形图 + 热力图
+- 页面：`D-006`/`D-007` 总览页（吸收「Dashboard 重构 KPI+趋势+TopN」）、`D-008` 会话明细页（吸收「Reports Session tab」）、`D-009` Agent、`D-010` 模型（未知成本样板页）、`D-011` 项目、`D-012` 时间分析、`D-013` 成本分析、`S-002` 数据源与设置页重构
+- 收尾：`Q-002` 旧视图清理与视觉验收（8 页 × 明暗两套差异清单）
+
+已完成前置：
+- `D-002` ScottPlot.Avalonia 集成 spike ✅（2026-10-11）：5.1.59 在 Avalonia 12 + net10.0 实测可用，结论与遗留决策点（日历窗口语义、tooltip 右缘裁剪）已并入 D-004/I-028。
 
 ### v0.5 - 常驻体验
 
@@ -104,8 +113,9 @@ Candidate tasks:
 Future ideas that are not yet committed:
 
 - 面板平台（Grafana 式自定义）——已封存；重启条件与可复用资产见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md` 第 7 节
+- 月度（Monthly）汇总视图——原 v0.4「Reports Monthly tab」，UI 原型落地批次未包含，作为时间分析的后续候选（2026-10-12 移入）
 - localhost HTTP 查询 API（面板平台的前置件，栈无关引擎的暴露面）
 - Export to Excel `.xlsx`
 - 多机数据聚合
-- 深色模式 / 主题
+- ~~深色模式 / 主题~~——主题系统已落地（light/dark/system + UI 原型批次全面明暗适配），2026-10-12 移出
 - 周 / 月预算规划
