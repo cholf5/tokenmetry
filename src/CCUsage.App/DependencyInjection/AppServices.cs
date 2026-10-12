@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
+using CCUsage.Infrastructure.Antigravity;
 using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.CCUsageCli;
 using CCUsage.Infrastructure.Cache;
@@ -100,6 +101,8 @@ public static class AppServices
         services.AddSingleton<IGrokAdapter>(sp => sp.GetRequiredService<GrokAdapter>());
         services.AddSingleton<OpenClawAdapter>();
         services.AddSingleton<IOpenClawAdapter>(sp => sp.GetRequiredService<OpenClawAdapter>());
+        services.AddSingleton<AntigravityAdapter>();
+        services.AddSingleton<IAntigravityAdapter>(sp => sp.GetRequiredService<AntigravityAdapter>());
 
         // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）；
         // CLI 数据源保留注册用于对账与手动导入（Reconciliation 测试套件 / 后续接线），不再是默认。

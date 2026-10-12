@@ -51,6 +51,15 @@ blocked: none
   与 Grok GK-2 的"剥前缀"方向不同——OpenClaw 是"装饰名→裸名"两级链，装饰名命中时保留装饰名分组。
   桌面统一记录仅存装饰名 → 无内建成本的可计价行当前记 0 + UnpricedModels（fail-loud）；真实数据
   可计价模型行常态带内建 cost.total（LogCost 直采）不受影响。
+- **Antigravity**（I-021，**AG-1**；蓝本 `.../rust/adapters/antigravity/src/parser.rs`
+  calculate_antigravity_cost / missing_antigravity_pricing / model_candidates）：三层候选链 =
+  ①flash effort 变体（gemini-3.x-flash-{high,medium,low}）先 exact-with-fallback 命中（含模型别名
+  归一后重试），未命中回退 ②基础名 gemini-3.x-flash，仍未命中 ③google provider（3=vertex_ai /
+  24=gemini / 30=evergreen）时拼 google/ · gemini/ · vertex_ai/ · openrouter/google/ 前缀候选
+  （非 flash 变体仅裸名 + 前缀组）；另有 **计价 output 分量取 total_output（含 reasoning）**——桌面
+  统一记录无 reasoning/extra 字段、按 visible output 计价，含 reasoning 的可计价行成本 fail-loud
+  （fixture 已规避，见 I-021 卡）。与 OpenClaw OC-1 的"装饰名→裸名"方向不同：AG-1 是
+  "effort 变体→基础名→provider 前缀"三级链且 exact/fuzzy 门槛混合。
 
 **观察项（I-010 审查登记，非阻塞）**：内置定价快照格式无 **tiers 分档**支持——models.dev 部分模型带
 context 分档（例：google/gemini-2.5-pro 在 models-dev 带 &gt;200k context 档 input 2.5 / output 15 /
@@ -71,7 +80,7 @@ cache_write），CLI 20.0.29 内嵌为 input 1 / output 4.16 / cache_read 0.18 +
 - [ ] 方案选型（开工时定，两案对比后择一，记录选型理由）：
   - 方案 A：UsageRecord 增加可选"计价用模型名"侧字段（如 PricingModel），适配器在映射时填主候选，引擎优先按它定价、显示/分组仍用 record.Model；
   - 方案 B：引擎按源 resolver（注册 per-agent 候选函数，引擎逐候选尝试、首个命中生效），记录不变。
-- [ ] 八源接线：OpenCode（别名 + 归一化 + provider 限定）、Goose（provider 限定，goose 兜底跳过）、Hermes（qualified 仅 exact-with-fallback、点分归一化）、Kilo（qualified 仅 find_exact）、Codebuff（infer_provider 前缀重试 + missing_pricing 候选集报告）、pi-agent（identity cost 与引擎同候选/别名口径）、Grok（GK-1/GK-2 候选链）、OpenClaw（装饰名→裸名两级链，装饰名命中保留装饰名分组），逐条对齐蓝本语义与既有移植测试
+- [ ] 九源接线：OpenCode（别名 + 归一化 + provider 限定）、Goose（provider 限定，goose 兜底跳过）、Hermes（qualified 仅 exact-with-fallback、点分归一化）、Kilo（qualified 仅 find_exact）、Codebuff（infer_provider 前缀重试 + missing_pricing 候选集报告）、pi-agent（identity cost 与引擎同候选/别名口径）、Grok（GK-1/GK-2 候选链）、OpenClaw（装饰名→裸名两级链，装饰名命中保留装饰名分组）、Antigravity（AG-1 effort 变体→基础名→google provider 前缀三级链 + 计价 output 取 total_output 口径），逐条对齐蓝本语义与既有移植测试
 - [ ] 验收口径：别名/限定键模型在内置快照离线口径下命中价格（UnpricedModels 消失，或仅剩真实未知模型）；候选机制未命中时行为与现状一致（记 0 + UnpricedModels fail-loud）
 - [ ] fixture 对账回归：四源 fixture golden 逐位不回归（对账测试全绿）；蓝本内联测试锚点（各源 parser.rs 的候选/计价测试）继续逐条对齐
 
@@ -85,6 +94,7 @@ cache_write），CLI 20.0.29 内嵌为 input 1 / output 4.16 / cache_read 0.18 +
 - I-019（pi-agent 适配器：PI-3 identity cost 需 CLI 全量定价表口径）
 - I-022（Grok 适配器：GK-1 候选链 + GK-2 "[grok] " 前缀剥离 + 200K 长上下文分档）
 - I-020（OpenClaw 适配器：OC-1 装饰名→裸名两级候选链，装饰名命中保留装饰名分组）
+- I-021（Antigravity 适配器：AG-1 effort 变体→基础名→google provider 前缀三级候选链 + 计价 output 取 total_output 口径）
 
 ## Test Cases
 
@@ -103,6 +113,7 @@ Expected:
 - 由 I-009/I-012/I-016/I-017 四卡独立审查（approve-with-nits）拆出：四源的候选计价机制已逐条移植为纯函数并有移植测试（候选清单、exact 门槛、键归一化逐位对齐蓝本内联测试），但未接到定价调用点——别名/限定键模型当前记 0（UnpricedModels fail-loud）。本卡消除该欠账；方案选型（记录侧字段 vs 引擎 resolver）开工时定。
 - 2026-10-12（I-018/I-019/I-022 批次独立审查补录）：三张 JSONL/单文件卡实现时各自声称"I-024 已登记同类共性欠账"，本卡补录其范围——Codebuff（provider 前缀候选重试 + missing_pricing 候选集报告 + CB-2 快照 gpt-5 cache_write 差异）、pi-agent（PI-3 签名 identity cost 需 CLI 全量定价表口径）、Grok（GK-1 候选链 + GK-2 "[grok] " 前缀剥离 + 200K 长上下文分档，后者并入上文 tiers 观察项）；Dependencies 同步追加三卡。
 - 2026-10-12（I-020 独立审查补录）：OpenClaw 实现时偏差①声称"I-024 已登记"不准确（GK-2 是同类但非同一笔），本卡补录 **OC-1**（装饰名→裸名两级候选链，区别于 GK-2 剥前缀方向）；Dependencies 追加 I-020，接线 AC 扩为八源。
+- 2026-10-12（I-021 实现补录）：Antigravity 卡实现时按 I-020 教训**不声称已登记**，直接补录 **AG-1**（effort 变体→基础名→google provider 前缀三级候选链 + 计价 output 分量取 total_output 含 reasoning 的口径差异——后者为统一记录无 reasoning 字段的表示层欠账，随候选链一并接线）；Dependencies 追加 I-021，接线 AC 扩为九源。
 
 ## Bugs
 

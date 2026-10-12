@@ -1,6 +1,7 @@
 using System.Globalization;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
+using CCUsage.Infrastructure.Antigravity;
 using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
 using CCUsage.Infrastructure.CodexJsonl;
@@ -191,6 +192,13 @@ public static class UsageChainAggregator
     public static async Task<ChainAggregation> AggregateOpenClawAsync(string? configuredDataDir = null, CancellationToken ct = default)
     {
         var adapter = new OpenClawAdapter(configuredDataDir: configuredDataDir);
+        return Aggregate(await adapter.ScanAsync(ct));
+    }
+
+    /// <summary>无 configuredDataDir：走 ANTIGRAVITY_DATA_DIR / 六默认根自动探测（本机真实数据对账用，I-021）。</summary>
+    public static async Task<ChainAggregation> AggregateAntigravityAsync(string? configuredDataDir = null, CancellationToken ct = default)
+    {
+        var adapter = new AntigravityAdapter(configuredDataDir: configuredDataDir);
         return Aggregate(await adapter.ScanAsync(ct));
     }
 

@@ -415,6 +415,31 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// I-021：本机 Antigravity 会话库对账。gen_metadata / steps / trajectory_metadata_blob 解析
+    /// 双侧同语义。按数据存在性门控（ANTIGRAVITY_DATA_DIR / ~/.gemini/antigravity* 五根与
+    /// ~/.config/antigravity 下有 .db），本机无数据 Skip；有数据的机器上全链路对账。
+    /// 两侧读同一套探测逻辑。已知口径（见 I-021 卡 Dev Log）：CLI 计价 output 分量取
+    /// total_output（含 reasoning），桌面按 visible output 计价——含 reasoning 的真实数据成本
+    /// fail-loud（I-024 AG-1 候选链欠账同段登记）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_antigravity_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasAntigravityData(),
+            "本机没有 Antigravity 数据（ANTIGRAVITY_DATA_DIR 或 ~/.gemini/antigravity* / ~/.config/antigravity）");
+
+        var goldenJson = RunCli("antigravity");
+        var golden = CcusageGoldenFiles.LoadAntigravityText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 ANTIGRAVITY_DATA_DIR / 六默认根探测逻辑。
+        var ours = await UsageChainAggregator.AggregateAntigravityAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Antigravity");
+    }
+
+    /// <summary>
     /// I-007：本机 DSH 会话日志对账。golden 由 dsh-usage-stats 蓝本库直读原始 zstd 字节计算
     /// （Support/DshBlueprintGolden.mjs，foldUsage / estimateTokenCost 均为蓝本库代码），
     /// 自研侧走 DshSessionAdapter 全链路。两侧按 本地日历日（蓝本 dayKey 口径）分桶：

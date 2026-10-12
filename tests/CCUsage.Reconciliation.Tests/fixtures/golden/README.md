@@ -58,6 +58,16 @@
   1e-10 USD）、agentTimestampMs 毫秒优先与 envelope 秒回退、无 eventId 内容键文件内去重、同 eventId
   跨会话全局去重（eventId|模型 first-wins）、summary 缺失时会话目录名 id 与 URL 解码项目路径、
   损坏文件坏行预过滤跳过。
+  Antigravity fixture 覆盖（I-021）：conversations/**&#47;*.db（gen_metadata 必需表 + steps /
+  trajectory_metadata_blob 可选表，protobuf blob 按 I-021 spike 验证的蓝本 test_support 编码器
+  python 手工构造）、gen_metadata 代序续行（ORDER BY idx）、"Gemini 2.5 Pro" 文本归一化、
+  model_id 312 → gemini-2.5-flash 映射、steps 与 gen 同身份副本合并（同 rank 更早时间戳胜出）、
+  provider 24（google）行、无时间戳 gen 行的 trajectory blob 回退（首个有效候选）、非
+  token-bearing 零用量行跳过、0 字节未初始化库跳过、claude-4-sonnet 的 cache_creation 计价
+  （两侧显式同价）、未定价模型行（missingPricing 双侧 0 成本）。fixture 规避（I-024 AG-1 欠账）：
+  reasoning &gt; 0 的行（CLI daily totalTokens 含 extra 分量、计价 output 取 total_output——桌面
+  统一记录无 extra 字段）、gemini 行 cache_creation &gt; 0（CLI cache_write 缺失按 input×1.25
+  推导，与桌面快照不同）、google 前缀候选才会命中的模型。
   OpenClaw fixture 覆盖（I-020）：双格式（sessions/**&#47;*.jsonl 直读 + agents/*/agent/openclaw-agent.sqlite
   transcript_events）、model_change（根级 modelId/provider）与 model-snapshot（customType + data 块）
   状态跟踪、usage.cost.total 内建成本 LogCost 直采、totalTokens 兜底（output 为 0 补 output 分支）、
@@ -135,6 +145,10 @@ GROK_HOME="$PWD/$FX/grok" \
 OPENCLAW_DIR="$PWD/$FX/openclaw" \
   npx --yes ccusage@20.0.29 openclaw daily --json --offline --timezone UTC \
   > $FX/golden/openclaw-fixture-daily-v20.0.29.json
+
+ANTIGRAVITY_DATA_DIR="$PWD/$FX/antigravity" \
+  npx --yes ccusage@20.0.29 antigravity daily --json --offline --timezone UTC \
+  > $FX/golden/antigravity-fixture-daily-v20.0.29.json
 ```
 
 说明：
