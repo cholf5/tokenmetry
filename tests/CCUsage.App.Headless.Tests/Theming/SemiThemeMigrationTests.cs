@@ -161,8 +161,12 @@ public class SemiThemeMigrationTests
         {
             DataContext = AppServices.Get<MainWindowViewModel>(),
         };
-        // I-026 建卡时为 5 个 Tab（4 常规 + Trend Spike D-002）；I-027 追加 Style Preview 临时页后为 6。
-        Assert.Equal(6, window.FindLogicalDescendantOfType<TabControl>()?.Items.Count);
+        // I-026/I-027 时代为 6 个 Tab 的 TabControl；D-003 起替换为三栏外壳，此断言随结构演进：
+        // 导航为 8 项 ListBox（原型 .nav），旧 TabControl 不复存在。
+        Assert.Null(window.FindLogicalDescendantOfType<TabControl>());
+        var navList = window.FindLogicalDescendantOfType<ListBox>();
+        Assert.NotNull(navList);
+        Assert.Equal(8, navList!.ItemCount);
     }
 
     [AvaloniaFact]

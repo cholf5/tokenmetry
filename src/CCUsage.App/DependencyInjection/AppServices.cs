@@ -49,6 +49,8 @@ public static class AppServices
         services.AddSingleton<IAppSettingsStore>(settingsStore);
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<IToastService, ToastService>();
+        // D-003 全局筛选状态（时间范围 + Agent）：单例，顶部栏写入、各页 VM 订阅
+        services.AddSingleton<FilterStateService>();
 
         // Core services
         services.AddSingleton<DateRangeService>();
@@ -133,6 +135,8 @@ public static class AppServices
         services.AddTransient<ReportsViewModel>();
         services.AddTransient<ModelBreakdownViewModel>();
         services.AddTransient<SettingsViewModel>();
+        // D-003 右栏最近会话骨架（D-008 接真实数据）
+        services.AddTransient<SessionsPanelViewModel>();
 
         _provider = services.BuildServiceProvider();
     }
