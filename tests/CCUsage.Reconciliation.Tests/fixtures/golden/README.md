@@ -42,6 +42,22 @@
   旧格式 StatusUpdate token_usage 五桶（cache_creation 计价、cache_write 按 input×1.25 推导与 CLI
   同式）、total 兜底 output 补齐、同 message_id 同刻 first-wins 去重、config.json 模型显示名、
   新格式 usage.record 仅取 turn 级（session 级与全零拒绝）、kimi-code/ 前缀剥离、秒级时间戳毫秒截断。
+  Codebuff fixture 覆盖（I-018）：projects/**/chat-messages.json 多项目多 chat 发现、metadata.usage
+  四桶 + 消息级 credits、同 id 同文件重复 last-wins 去重（蓝本 HashMap insert 后到覆盖）、
+  metadata.codebuff.usage 零值字段兜底、runState.messageHistory 倒序回退（prompt_tokens /
+  completion_tokens / prompt_tokens_details.cached_tokens 别名）、total 兜底 output 补齐、
+  无消息时间戳回退 chat 目录名时间戳、缺省模型 codebuff-unknown（CLI missingPricing 双侧 0 成本）、
+  坏 JSON 与顶层级对象不计（Malformed 显式计数）。
+  pi fixture 覆盖（I-019）：重放抑制（子会话相对 parentSession 指向同批父文件，前缀签名逐位匹配
+  后跳过）、subagent-artifacts 派生转录剔除与 run-* 新上下文子会话保留、会话内建 cost.total 直采
+  与负成本重算（CLI auto 口径，"[pi] gpt-5" 剥前缀命中 openai/gpt-5）、无内建成本按快照现算
+  （含 cacheWrite 的 claude-sonnet 行两侧同价）、坏行预过滤跳过显式计数、run-*/ 会话文件名推导。
+  Grok fixture 覆盖（I-022）：turn_completed 过滤（tool_call 与缺 usage 行跳过）、modelUsage 逐模型
+  拆行（Ordinal 排序）与顶层 usage+summary current_model_id 回退（无 summary 回退 "unknown"）、
+  inputTokens 缓存扣除与 cache_creation 子集拆分、costUsdTicks 发票成本 LogCost 直采（1 tick =
+  1e-10 USD）、agentTimestampMs 毫秒优先与 envelope 秒回退、无 eventId 内容键文件内去重、同 eventId
+  跨会话全局去重（eventId|模型 first-wins）、summary 缺失时会话目录名 id 与 URL 解码项目路径、
+  损坏文件坏行预过滤跳过。
 
 ## 录制命令（在仓库根目录执行）
 
@@ -95,6 +111,18 @@ QWEN_DATA_DIR="$PWD/$FX/qwen" \
 KIMI_DATA_DIR="$PWD/$FX/kimi" \
   npx --yes ccusage@20.0.29 kimi daily --json --offline --timezone UTC \
   > $FX/golden/kimi-fixture-daily-v20.0.29.json
+
+CODEBUFF_DATA_DIR="$PWD/$FX/codebuff" \
+  npx --yes ccusage@20.0.29 codebuff daily --json --offline --timezone UTC \
+  > $FX/golden/codebuff-fixture-daily-v20.0.29.json
+
+PI_AGENT_DIR="$PWD/$FX/pi/sessions" \
+  npx --yes ccusage@20.0.29 pi daily --json --offline --timezone UTC \
+  > $FX/golden/pi-fixture-daily-v20.0.29.json
+
+GROK_HOME="$PWD/$FX/grok" \
+  npx --yes ccusage@20.0.29 grok daily --json --offline --timezone UTC \
+  > $FX/golden/grok-fixture-daily-v20.0.29.json
 ```
 
 说明：

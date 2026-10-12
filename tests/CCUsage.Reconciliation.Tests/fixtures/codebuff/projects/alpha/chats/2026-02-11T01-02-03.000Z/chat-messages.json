@@ -1,0 +1,6 @@
+[
+  {"variant":"agent","metadata":{"runState":{"sessionState":{"mainAgentState":{"messageHistory":[
+    {"role":"user","providerOptions":{}},
+    {"role":"assistant","providerOptions":{"codebuff":{"model":"openai/gpt-5","usage":{"prompt_tokens":3000,"completion_tokens":450,"prompt_tokens_details":{"cached_tokens":1200}}}}}
+  ]}}}}}
+]

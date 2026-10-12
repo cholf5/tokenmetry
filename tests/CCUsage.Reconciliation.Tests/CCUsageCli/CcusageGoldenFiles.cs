@@ -115,6 +115,31 @@ public static class CcusageGoldenFiles
 
     public static GoldenReport LoadKimiText(string json) => LoadClaudeText(json);
 
+    /// <summary>
+    /// codebuff daily JSON（I-018）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 另有 modelsUsed / credits / unpricedModels 信息字段，DTO 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadCodebuff(string path) => LoadCodebuffText(File.ReadAllText(path));
+
+    public static GoldenReport LoadCodebuffText(string json) => LoadClaudeText(json);
+
+    /// <summary>
+    /// pi daily JSON（I-019）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带 cost，
+    /// 模型名带 "[pi] " 前缀；另有 modelsUsed 信息字段，DTO 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadPi(string path) => LoadPiText(File.ReadAllText(path));
+
+    public static GoldenReport LoadPiText(string json) => LoadClaudeText(json);
+
+    /// <summary>
+    /// grok daily JSON（I-022）：输出形状与 claude 的 daily 相同（daily[] + modelBreakdowns[] 逐模型带
+    /// cost，未定价模型 cost 0 且 missingPricing=true；另有 modelsUsed / unpricedModels 信息字段，DTO
+    /// 忽略），复用 Claude DTO。
+    /// </summary>
+    public static GoldenReport LoadGrok(string path) => LoadGrokText(File.ReadAllText(path));
+
+    public static GoldenReport LoadGrokText(string json) => LoadClaudeText(json);
+
     public static GoldenReport LoadClaudeText(string json)
     {
         var response = JsonSerializer.Deserialize<GoldenClaudeResponse>(

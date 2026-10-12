@@ -5,17 +5,20 @@ using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 using CCUsage.Infrastructure.Amp;
 using CCUsage.Infrastructure.ClaudeCodeJsonl;
+using CCUsage.Infrastructure.Codebuff;
 using CCUsage.Infrastructure.CodexJsonl;
 using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.Droid;
 using CCUsage.Infrastructure.GeminiCli;
+using CCUsage.Infrastructure.Grok;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.KimiCode;
 using CCUsage.Infrastructure.LocalIngestion;
 using CCUsage.Infrastructure.OpenCodeSqlite;
+using CCUsage.Infrastructure.PiAgent;
 using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
@@ -246,6 +249,9 @@ public class LocalIngestionDataSourceTests : IDisposable
             new DroidAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "droid-missing")),
             new QwenCodeAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "qwen-missing")),
             new KimiCodeAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "kimi-missing")),
+            new CodebuffAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "codebuff-missing")),
+            new PiAgentAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "pi-missing")),
+            new GrokAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "grok-missing")),
             pricingEngine,
             store,
             pricingClient: null,

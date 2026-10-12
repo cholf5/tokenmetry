@@ -1,0 +1,6 @@
+[
+  {"role":"user","text":"fix the login bug"},
+  {"id":"msg-a1","role":"assistant","timestamp":"2026-02-10T01:05:06.000Z","metadata":{"model":"claude-sonnet-4-20250514","usage":{"inputTokens":1200,"outputTokens":340,"cacheCreationInputTokens":150,"cacheReadInputTokens":2100}},"credits":1.5},
+  {"id":"msg-a1","role":"assistant","timestamp":"2026-02-10T01:05:06.000Z","metadata":{"model":"claude-sonnet-4-20250514","usage":{"inputTokens":1500,"outputTokens":400,"cacheCreationInputTokens":200,"cacheReadInputTokens":2500}},"credits":2.0},
+  {"id":"msg-a2","role":"assistant","timestamp":"2026-02-10T02:10:11.000Z","metadata":{"model":"claude-sonnet-4-20250514","usage":{"inputTokens":800,"outputTokens":150}}}
+]

@@ -5,11 +5,15 @@ using CCUsage.Infrastructure.CopilotSession;
 using CCUsage.Infrastructure.DshSession;
 using CCUsage.Infrastructure.Droid;
 using CCUsage.Infrastructure.GeminiCli;
+using CCUsage.Infrastructure.Grok;
 using CCUsage.Infrastructure.GooseSqlite;
 using CCUsage.Infrastructure.HermesSqlite;
 using CCUsage.Infrastructure.KiloSqlite;
 using CCUsage.Infrastructure.OpenCodeSqlite;
 using CCUsage.Infrastructure.KimiCode;
+using CCUsage.Infrastructure.Codebuff;
+using CCUsage.Infrastructure.PiAgent;
+using CCUsage.Infrastructure.JsonSource;
 using CCUsage.Infrastructure.QwenCode;
 using CCUsage.Infrastructure.ZCodeSqlite;
 
@@ -119,6 +123,39 @@ public static class RealReconciliationEnvironment
     /// </summary>
     public static bool HasKimiData()
         => new KimiLogLocator().CollectWireFiles(new KimiLogLocator().ResolveDataDirectories(configuredDataDir: null)).Count > 0;
+
+    /// <summary>
+    /// Codebuff 数据存在性（I-018）：CODEBUFF_DATA_DIR / ~/.config/&lt;channel&gt; 的 projects/ 下发现
+    /// chat-messages.json（与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasCodebuffData()
+        => new CodebuffLogLocator().CollectChatFiles(new CodebuffLogLocator().ResolveProjectRoots(null)).Count > 0;
+
+    /// <summary>
+    /// pi-agent 数据存在性（I-019）：PI_AGENT_DIR / ~/.pi/agent/sessions 下发现 .jsonl
+    /// （与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasPiData()
+    {
+        var locator = new PiLogLocator();
+        return locator.ResolveSessionDirectories(null)
+            .SelectMany(directory => CollectJsonlFiles(directory))
+            .Any(file => !PiAgentAdapter.IsSubagentArtifactTranscript(file));
+    }
+
+    private static List<string> CollectJsonlFiles(string directory)
+    {
+        var files = new List<string>();
+        SourceFileCollector.Collect(directory, "jsonl", files);
+        return files;
+    }
+
+    /// <summary>
+    /// Grok 数据存在性（I-022）：GROK_HOME / ~/.grok 的 sessions/ 下发现 updates.jsonl
+    /// （与 CLI 子进程同一套探测逻辑）。
+    /// </summary>
+    public static bool HasGrokData()
+        => new GrokLogLocator().CollectSessionFiles(null).Count > 0;
 
     /// <summary>
     /// dsh-usage-stats 蓝本目录（含 lib/usage.js）：CCUSAGE_DSH_BLUEPRINT 优先，

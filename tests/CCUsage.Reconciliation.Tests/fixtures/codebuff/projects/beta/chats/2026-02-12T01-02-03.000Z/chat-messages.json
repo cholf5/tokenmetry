@@ -1,0 +1,3 @@
+[
+  {"role":"assistant","metadata":{"model":"claude-sonnet-4-20250514","usage":{"outputTokens":100},"codebuff":{"usage":{"inputTokens":2000,"cacheCreationInputTokens":300,"cacheReadInputTokens":800}}}}
+]

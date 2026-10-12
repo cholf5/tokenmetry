@@ -1,0 +1,115 @@
+{
+  "daily": [
+    {
+      "cacheCreationTokens": 200,
+      "cacheReadTokens": 2500,
+      "credits": 2.0,
+      "date": "2026-02-10",
+      "inputTokens": 2300,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 200,
+          "cacheReadTokens": 2500,
+          "cost": 0.01665,
+          "inputTokens": 2300,
+          "modelName": "claude-sonnet-4-20250514",
+          "outputTokens": 550
+        }
+      ],
+      "modelsUsed": [
+        "claude-sonnet-4-20250514"
+      ],
+      "outputTokens": 550,
+      "totalCost": 0.01665,
+      "totalTokens": 5550
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 1200,
+      "date": "2026-02-11",
+      "inputTokens": 3000,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 1200,
+          "cost": 0.008400000000000001,
+          "inputTokens": 3000,
+          "modelName": "openai/gpt-5",
+          "outputTokens": 450
+        }
+      ],
+      "modelsUsed": [
+        "openai/gpt-5"
+      ],
+      "outputTokens": 450,
+      "totalCost": 0.008400000000000001,
+      "totalTokens": 4650
+    },
+    {
+      "cacheCreationTokens": 300,
+      "cacheReadTokens": 800,
+      "date": "2026-02-12",
+      "inputTokens": 2000,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 300,
+          "cacheReadTokens": 800,
+          "cost": 0.008865000000000001,
+          "inputTokens": 2000,
+          "modelName": "claude-sonnet-4-20250514",
+          "outputTokens": 100
+        }
+      ],
+      "modelsUsed": [
+        "claude-sonnet-4-20250514"
+      ],
+      "outputTokens": 100,
+      "totalCost": 0.008865000000000001,
+      "totalTokens": 3200
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-02-13",
+      "inputTokens": 600,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.015625,
+          "inputTokens": 500,
+          "modelName": "openai/gpt-5",
+          "outputTokens": 1500
+        },
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.0,
+          "inputTokens": 100,
+          "missingPricing": true,
+          "modelName": "codebuff-unknown",
+          "outputTokens": 50
+        }
+      ],
+      "modelsUsed": [
+        "openai/gpt-5",
+        "codebuff-unknown"
+      ],
+      "outputTokens": 1550,
+      "totalCost": 0.015625,
+      "totalTokens": 2150
+    }
+  ],
+  "totals": {
+    "cacheCreationTokens": 500,
+    "cacheReadTokens": 4500,
+    "credits": 2.0,
+    "inputTokens": 7900,
+    "outputTokens": 2650,
+    "totalCost": 0.04954,
+    "totalTokens": 15550,
+    "unpricedModels": [
+      "codebuff-unknown"
+    ]
+  }
+}

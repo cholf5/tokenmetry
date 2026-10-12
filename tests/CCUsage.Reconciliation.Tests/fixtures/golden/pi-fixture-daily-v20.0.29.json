@@ -1,0 +1,166 @@
+{
+  "daily": [
+    {
+      "cacheCreationTokens": 40,
+      "cacheReadTokens": 300,
+      "date": "2026-01-10",
+      "inputTokens": 1000,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 40,
+          "cacheReadTokens": 300,
+          "cost": 0.00624,
+          "inputTokens": 1000,
+          "modelName": "[pi] claude-sonnet-4-20250514",
+          "outputTokens": 200
+        }
+      ],
+      "modelsUsed": [
+        "[pi] claude-sonnet-4-20250514"
+      ],
+      "outputTokens": 200,
+      "totalCost": 0.00624,
+      "totalTokens": 1540
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-01-11",
+      "inputTokens": 800,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.0046500000000000005,
+          "inputTokens": 800,
+          "modelName": "[pi] claude-sonnet-4-20250514",
+          "outputTokens": 150
+        }
+      ],
+      "modelsUsed": [
+        "[pi] claude-sonnet-4-20250514"
+      ],
+      "outputTokens": 150,
+      "totalCost": 0.0046500000000000005,
+      "totalTokens": 950
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-01-12",
+      "inputTokens": 500,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.003,
+          "inputTokens": 500,
+          "modelName": "[pi] claude-sonnet-4-20250514",
+          "outputTokens": 100
+        }
+      ],
+      "modelsUsed": [
+        "[pi] claude-sonnet-4-20250514"
+      ],
+      "outputTokens": 100,
+      "totalCost": 0.003,
+      "totalTokens": 600
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 1000,
+      "date": "2026-01-13",
+      "inputTokens": 3000,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 1000,
+          "cost": 0.07125000000000001,
+          "inputTokens": 3000,
+          "modelName": "[pi] gpt-5",
+          "outputTokens": 2400
+        }
+      ],
+      "modelsUsed": [
+        "[pi] gpt-5"
+      ],
+      "outputTokens": 2400,
+      "totalCost": 0.07125000000000001,
+      "totalTokens": 6400
+    },
+    {
+      "cacheCreationTokens": 200,
+      "cacheReadTokens": 1200,
+      "date": "2026-01-14",
+      "inputTokens": 3000,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 200,
+          "cacheReadTokens": 1200,
+          "cost": 0.019110000000000002,
+          "inputTokens": 3000,
+          "modelName": "[pi] claude-sonnet-4-20250514",
+          "outputTokens": 600
+        }
+      ],
+      "modelsUsed": [
+        "[pi] claude-sonnet-4-20250514"
+      ],
+      "outputTokens": 600,
+      "totalCost": 0.019110000000000002,
+      "totalTokens": 5000
+    },
+    {
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "date": "2026-01-15",
+      "inputTokens": 10,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 0,
+          "cacheReadTokens": 0,
+          "cost": 0.01,
+          "inputTokens": 10,
+          "modelName": "[pi] gpt-5",
+          "outputTokens": 20
+        }
+      ],
+      "modelsUsed": [
+        "[pi] gpt-5"
+      ],
+      "outputTokens": 20,
+      "totalCost": 0.01,
+      "totalTokens": 30
+    },
+    {
+      "cacheCreationTokens": 1,
+      "cacheReadTokens": 6,
+      "date": "2026-01-16",
+      "inputTokens": 50,
+      "modelBreakdowns": [
+        {
+          "cacheCreationTokens": 1,
+          "cacheReadTokens": 6,
+          "cost": 0.004,
+          "inputTokens": 50,
+          "modelName": "[pi] gpt-5",
+          "outputTokens": 5
+        }
+      ],
+      "modelsUsed": [
+        "[pi] gpt-5"
+      ],
+      "outputTokens": 5,
+      "totalCost": 0.004,
+      "totalTokens": 62
+    }
+  ],
+  "totals": {
+    "cacheCreationTokens": 241,
+    "cacheReadTokens": 2506,
+    "inputTokens": 8360,
+    "outputTokens": 3475,
+    "totalCost": 0.11825000000000001,
+    "totalTokens": 14582
+  }
+}

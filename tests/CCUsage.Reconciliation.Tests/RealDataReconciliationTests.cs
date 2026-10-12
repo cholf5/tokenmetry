@@ -314,6 +314,82 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// I-018：本机 Codebuff 会话数据对账。CLI 口径 vs 自研聚合（AggregateCodebuffAsync），
+    /// tokens 精确一致。按数据存在性门控（CODEBUFF_DATA_DIR / ~/.config/&lt;channel&gt; 的 projects/ 下有
+    /// chat-messages.json），本机无数据 Skip；有数据的机器上全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-018 卡 Dev Log）：CLI 的 outputTokens 不含 extra（单列），自研把 extra 并入
+    /// output——含 total 缺口（output 已知时）的真实数据在 output 分量上会以差异形式响亮失败
+    /// （fail-loud）；缺省模型 codebuff-unknown 与 provider 前缀候选计价属 I-024 欠账，成本 fail-loud。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_codebuff_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasCodebuffData(),
+            "本机没有 Codebuff 数据（CODEBUFF_DATA_DIR 或 ~/.config/manicode* 下无 projects/**/chat-messages.json）");
+
+        var goldenJson = RunCli("codebuff");
+        var golden = CcusageGoldenFiles.LoadCodebuffText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 CODEBUFF_DATA_DIR / ~/.config 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateCodebuffAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Codebuff");
+    }
+
+    /// <summary>
+    /// I-019：本机 pi-agent 会话数据对账。CLI 口径 vs 自研聚合（AggregatePiAsync），
+    /// tokens 精确一致。按数据存在性门控（PI_AGENT_DIR / ~/.pi/agent/sessions 下有 .jsonl），
+    /// 本机无数据 Skip；有数据的机器上全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-019 卡 Dev Log）：CLI 的 outputTokens 不含 extra（单列）、且蓝本 pi 计价只按
+    /// 兜底后四桶（extra 不参与），自研把 extra 并入 output 交引擎——含 total 缺口（output 已知时）
+    /// 的真实数据在 output 与成本两个分量上都会以差异形式响亮失败（fail-loud）；重放签名的现算成本
+    /// 用内置快照（蓝本用 CLI 全量定价表）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_pi_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasPiData(),
+            "本机没有 pi-agent 数据（PI_AGENT_DIR 或 ~/.pi/agent/sessions 下无 .jsonl）");
+
+        var goldenJson = RunCli("pi");
+        var golden = CcusageGoldenFiles.LoadPiText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 PI_AGENT_DIR / ~/.pi 探测逻辑。
+        var ours = await UsageChainAggregator.AggregatePiAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "pi-agent");
+    }
+
+    /// <summary>
+    /// I-022：本机 Grok Build CLI 会话数据对账。CLI 口径 vs 自研聚合（AggregateGrokAsync），
+    /// tokens 精确一致。按数据存在性门控（GROK_HOME / ~/.grok 的 sessions/ 下有 updates.jsonl），
+    /// 本机无数据 Skip；有数据的机器上全链路对账。两侧读同一套探测逻辑。
+    /// 已知口径（见 I-022 卡 Dev Log）：日志 costUsdTicks 走 LogCost 直采（display/auto 同口径），
+    /// 无 ticks 的可计价模型行在 CLI 候选链现算（含长上下文分档）与桌面无分档快照间会以成本差异
+    /// fail-loud；reasoning 已含在 output（两侧同丢弃）。
+    /// </summary>
+    [SkippableFact]
+    public async Task Real_grok_data_reconciles_with_cli()
+    {
+        Skip.IfNot(RealReconciliationEnvironment.IsGateEnabled(),
+            $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
+        Skip.IfNot(RealReconciliationEnvironment.HasGrokData(),
+            "本机没有 Grok 数据（GROK_HOME 或 ~/.grok/sessions 下无 updates.jsonl）");
+
+        var goldenJson = RunCli("grok");
+        var golden = CcusageGoldenFiles.LoadGrokText(goldenJson);
+
+        // 适配器不带 configuredDataDir：与 CLI 进程读同一套 GROK_HOME / ~/.grok 探测逻辑。
+        var ours = await UsageChainAggregator.AggregateGrokAsync();
+
+        ReconcileAndAssert(golden, ours, agent: "Grok");
+    }
+
+    /// <summary>
     /// I-007：本机 DSH 会话日志对账。golden 由 dsh-usage-stats 蓝本库直读原始 zstd 字节计算
     /// （Support/DshBlueprintGolden.mjs，foldUsage / estimateTokenCost 均为蓝本库代码），
     /// 自研侧走 DshSessionAdapter 全链路。两侧按 本地日历日（蓝本 dayKey 口径）分桶：

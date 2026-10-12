@@ -1,0 +1,1 @@
+{"type":"message","timestamp":"2026-01-16T09:00:00.000Z","message":{"role":"assistant","model":"gpt-5","usage":{"input":50,"output":5,"cacheRead":6,"cacheWrite":1,"totalTokens":62,"cost":{"total":0.004}}}}

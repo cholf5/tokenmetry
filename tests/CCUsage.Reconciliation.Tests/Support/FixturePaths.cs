@@ -27,6 +27,12 @@ public static class FixturePaths
 
     private const string KimiGoldenFileName = "kimi-fixture-daily-v20.0.29.json";
 
+    private const string CodebuffGoldenFileName = "codebuff-fixture-daily-v20.0.29.json";
+
+    private const string PiGoldenFileName = "pi-fixture-daily-v20.0.29.json";
+
+    private const string GrokGoldenFileName = "grok-fixture-daily-v20.0.29.json";
+
     public static string Root { get; } = Path.Combine(AppContext.BaseDirectory, "fixtures");
 
     /// <summary>Claude fixture 配置目录（内含 projects/），供 CLAUDE_CONFIG_DIR 等价使用。</summary>
@@ -65,6 +71,15 @@ public static class FixturePaths
     /// <summary>Kimi fixture 数据目录（内含 sessions/**/wire.jsonl 与 config.json），供 KIMI_DATA_DIR 等价使用（I-013）。</summary>
     public static string KimiRoot => Path.Combine(Root, "kimi");
 
+    /// <summary>Codebuff fixture 数据目录（内含 projects/**/chat-messages.json），供 CODEBUFF_DATA_DIR 等价使用（I-018）。</summary>
+    public static string CodebuffRoot => Path.Combine(Root, "codebuff");
+
+    /// <summary>pi fixture 数据目录（内含 sessions/**&#47;*.jsonl），供 PI_AGENT_DIR 等价使用（I-019）。</summary>
+    public static string PiRoot => Path.Combine(Root, "pi", "sessions");
+
+    /// <summary>Grok fixture 数据目录（内含 sessions/**&#47;updates.jsonl），供 GROK_HOME 等价使用（I-022）。</summary>
+    public static string GrokRoot => Path.Combine(Root, "grok");
+
     public static string GoldenDir => Path.Combine(Root, "golden");
 
     public static string ClaudeGoldenPath => Path.Combine(GoldenDir, ClaudeGoldenFileName);
@@ -90,4 +105,10 @@ public static class FixturePaths
     public static string QwenGoldenPath => Path.Combine(GoldenDir, QwenGoldenFileName);
 
     public static string KimiGoldenPath => Path.Combine(GoldenDir, KimiGoldenFileName);
+
+    public static string CodebuffGoldenPath => Path.Combine(GoldenDir, CodebuffGoldenFileName);
+
+    public static string PiGoldenPath => Path.Combine(GoldenDir, PiGoldenFileName);
+
+    public static string GrokGoldenPath => Path.Combine(GoldenDir, GrokGoldenFileName);
 }
