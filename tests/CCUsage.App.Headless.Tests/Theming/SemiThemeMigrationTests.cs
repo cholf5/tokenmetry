@@ -161,7 +161,8 @@ public class SemiThemeMigrationTests
         {
             DataContext = AppServices.Get<MainWindowViewModel>(),
         };
-        Assert.Equal(5, window.FindLogicalDescendantOfType<TabControl>()?.Items.Count);
+        // I-026 建卡时为 5 个 Tab（4 常规 + Trend Spike D-002）；I-027 追加 Style Preview 临时页后为 6。
+        Assert.Equal(6, window.FindLogicalDescendantOfType<TabControl>()?.Items.Count);
     }
 
     [AvaloniaFact]

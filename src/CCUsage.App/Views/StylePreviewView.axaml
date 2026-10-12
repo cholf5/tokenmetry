@@ -1,0 +1,141 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="CCUsage.App.Views.StylePreviewView">
+    <!-- [I-027] 临时样式预览页：设计令牌 + 共享样式的目检载体（明暗两套），与 TrendSpike(D-002) 临时页
+         同生命周期，v0.4 页面卡（D-006~D-013）落地后删除。所有颜色一律 DynamicResource 引用
+         Styles/Tokens.axaml 令牌，本页自身零硬编码色值。 -->
+    <ScrollViewer Background="{DynamicResource AppBackgroundBrush}">
+        <StackPanel Margin="22,22,22,30" MaxWidth="980" HorizontalAlignment="Left" Spacing="13">
+
+            <!-- 页面标题区 ← 原型 .pagehead -->
+            <StackPanel Spacing="4">
+                <TextBlock Classes="page-title" Text="样式预览（I-027 临时页）"/>
+                <TextBlock Classes="page-subtitle"
+                           Text="设计令牌与共享样式目检 · 设计基准 docs/design/ccusage_analytics_prototype.html"/>
+            </StackPanel>
+
+            <!-- 主题切换（TC-001 目检用）+ toast 演示 -->
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="日间" Click="OnLightThemeClick"/>
+                <Button Content="夜间" Click="OnDarkThemeClick"/>
+                <Button Content="跟随系统" Click="OnSystemThemeClick"/>
+                <Button Content="弹出 Toast" Click="OnToastClick"/>
+                <TextBlock Text="↑ 切换明暗观察令牌取值" Classes="page-subtitle" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- KPI 卡四色图标底 ← 原型 .kpis + .kpi-icon 四变体 -->
+            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+                <Border Grid.Column="0" Classes="kpi">
+                    <StackPanel Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <Border Classes="icon-chip" Background="{DynamicResource AppIconChipBlueBackgroundBrush}">
+                                <TextBlock Text="◈" Foreground="{DynamicResource AppIconChipBlueForegroundBrush}"/>
+                            </Border>
+                            <TextBlock Text="总 Token 数" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Text="8.74M" FontSize="25" FontWeight="Bold" Foreground="{DynamicResource AppTextBrush}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="↑ 23.6%" Foreground="{DynamicResource AppAccentGreenBrush}" FontSize="11"/>
+                            <TextBlock Text="vs 上一周期" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="11"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Classes="kpi">
+                    <StackPanel Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <Border Classes="icon-chip" Background="{DynamicResource AppIconChipAmberBackgroundBrush}">
+                                <TextBlock Text="$" Foreground="{DynamicResource AppIconChipAmberForegroundBrush}"/>
+                            </Border>
+                            <TextBlock Text="估算成本" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Text="$286.41" FontSize="25" FontWeight="Bold" Foreground="{DynamicResource AppTextBrush}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="↑ 18.2%" Foreground="{DynamicResource AppAccentGreenBrush}" FontSize="11"/>
+                            <TextBlock Text="按模型价格估算" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="11"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Classes="kpi">
+                    <StackPanel Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <Border Classes="icon-chip" Background="{DynamicResource AppIconChipPurpleBackgroundBrush}">
+                                <TextBlock Text="▣" Foreground="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
+                            </Border>
+                            <TextBlock Text="会话数" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Text="412" FontSize="25" FontWeight="Bold" Foreground="{DynamicResource AppTextBrush}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="↓ 2.1%" Foreground="{DynamicResource AppAccentRedBrush}" FontSize="11"/>
+                            <TextBlock Text="跨 Agent 汇总" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="11"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="3" Classes="kpi">
+                    <StackPanel Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <Border Classes="icon-chip" Background="{DynamicResource AppIconChipGreenBackgroundBrush}">
+                                <TextBlock Text="↻" Foreground="{DynamicResource AppIconChipGreenForegroundBrush}"/>
+                            </Border>
+                            <TextBlock Text="缓存读取占比" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Text="67.3%" FontSize="25" FontWeight="Bold" Foreground="{DynamicResource AppTextBrush}"/>
+                        <TextBlock Text="缓存读取 / 输入相关 Token" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="11"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid ColumnDefinitions="1.55*,0.85*" ColumnSpacing="12">
+                <!-- 面板 + 面板标题 + chip + 链接按钮 + 正文层次 -->
+                <Border Grid.Column="0" Classes="panel">
+                    <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Classes="panel-title" Text="Token 使用趋势" VerticalAlignment="Center"/>
+                            <TextBlock Text="按日汇总" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="11" VerticalAlignment="Center"/>
+                            <Button Classes="link-btn" Content="查看详情 ↗" Margin="0,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border Classes="chip"><TextBlock Text="claude-code"/></Border>
+                            <Border Classes="chip"><TextBlock Text="codex"/></Border>
+                            <Border Classes="chip"><TextBlock Text="dsh"/></Border>
+                            <Border Classes="chip"><TextBlock Text="最近 7 天"/></Border>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Text="正文 --text" Foreground="{DynamicResource AppTextBrush}" FontSize="12"/>
+                            <TextBlock Text="次级 --muted" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="12"/>
+                            <TextBlock Text="强调 --blue" Foreground="{DynamicResource AppAccentBlueBrush}" FontSize="12"/>
+                            <TextBlock Text="涨 --green" Foreground="{DynamicResource AppAccentGreenBrush}" FontSize="12"/>
+                            <TextBlock Text="跌 --red" Foreground="{DynamicResource AppAccentRedBrush}" FontSize="12"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- mini 进度条 + 7 系列色圆点 ← 原型 .mini-track/.mini-fill + colors[] -->
+                <Border Grid.Column="1" Classes="panel">
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="panel-title" Text="模型占比（mini 进度条）"/>
+                        <StackPanel Spacing="6">
+                            <ProgressBar Classes="mini" Value="82"/>
+                            <ProgressBar Classes="mini" Value="57"/>
+                            <ProgressBar Classes="mini" Value="34"/>
+                            <ProgressBar Classes="mini" Value="12"/>
+                        </StackPanel>
+                        <TextBlock Classes="panel-title" Text="系列色（不随明暗翻转）"/>
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <Border Classes="series-dot" Background="{DynamicResource AppSeries0Brush}"/>
+                            <Border Classes="series-dot" Background="{DynamicResource AppSeries1Brush}"/>
+                            <Border Classes="series-dot" Background="{DynamicResource AppSeries2Brush}"/>
+                            <Border Classes="series-dot" Background="{DynamicResource AppSeries3Brush}"/>
+                            <Border Classes="series-dot" Background="{DynamicResource AppSeries4Brush}"/>
+                            <Border Classes="series-dot" Background="{DynamicResource AppSeries5Brush}"/>
+                            <Border Classes="series-dot" Background="{DynamicResource AppSeries6Brush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -9,7 +9,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| I-027 | 设计令牌与共享样式（原型色板 / 卡片 / 系列色 / mini 进度条 / toast） | P1 | M | — | I-026 |
 | I-028 | UI 聚合查询服务 A：日趋势 + KPI + 区间对比 | P1 | M | — | — |
 | I-029 | UI 聚合查询服务 B：维度聚合 + 会话明细 + 小时分布 | P1 | M | — | — |
 | D-003 | 三栏应用外壳 + 导航 + 全局筛选状态 | P1 | M | — | I-026, I-027 |
@@ -34,6 +33,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-027 | 设计令牌与共享样式（原型色板 / 卡片 / 系列色 / mini 进度条 / toast） | P1 | 2026-10-13 |
 | I-026 | Semi.Avalonia 主题迁移（含 Avalonia 12.1.x 升级） | P1 | 2026-10-13 |
 | I-025 | 定价快照数据版本刷新 | P3 | 2026-10-12 |
 | I-023 | Copilot CLI OpenTelemetry 合并与积分对账 | P3 | 2026-10-12 |
