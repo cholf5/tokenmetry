@@ -364,6 +364,8 @@ public class UsageQueryServiceTests : IAsyncLifetime
         rows.Select(row => row.Key).Should().Equal(expected.Select(row => row.Key));
         AssertDimensionRowsMatch(rows, expected, "agent");
         rows.Should().OnlyContain(row => row.DisplayName == null, "Agent 维度 Key 即展示名");
+        rows.Should().OnlyContain(row => row.DominantAgent == null && row.AgentCount == null,
+            "D-010 关联 Agent 列仅模型维度填充，Agent 维度恒为 null");
 
         // 分解日的 agent 粒度行（03-20 Codex）计入 Codex 维度；只含会话的 agent 行 token 为 0。
         rows.Single(row => row.Key == "Claude Code").TotalTokens.Should().Be(6440);
@@ -402,6 +404,67 @@ public class UsageQueryServiceTests : IAsyncLifetime
         rows[3].SessionCount.Should().Be(1);
         rows[3].Cost.IsEmpty.Should().BeTrue();
         rows.Single(row => row.Key == "qwen-x").SessionCount.Should().Be(1);
+
+        // D-010 关联 Agent 派生（共享 fixture 每个模型只被一个 Agent 使用）：
+        rows.Should().OnlyContain(row => row.AgentCount == 1, "共享 fixture 各模型均为单一 Agent 会话");
+        rows.Single(row => row.Key == "claude-sonnet-4").DominantAgent.Should().Be("Claude Code");
+        rows.Single(row => row.Key == "gpt-x").DominantAgent.Should().Be("Codex");
+    }
+
+    [Fact]
+    public async Task Model_breakdown_derives_dominant_agent_from_session_facts()
+    {
+        // D-010 契约演进对账：DominantAgent / AgentCount 与 SessionCount 同源（同批 session_facts、
+        // 同一个 dominant_model 分组按 Agent 计数）。主用 Agent = 会话数最多者（并列取键序数最小，
+        // 与会话 token 量无关）；只有 facts 行没有会话的模型诚实为 null，不猜。
+        var storePath = Path.Combine(Path.GetTempPath(), $"ccusage-model-agents-{Guid.NewGuid():N}.db");
+        var store = new SqliteUsageStore(storePath);
+        await store.InitializeAsync();
+        try
+        {
+            var service = new UsageQueryService(store, TimeZoneInfo.Utc);
+            await store.UpsertSessionFactsAsync(
+            [
+                Session("a1", "Claude Code", "/w", "w", "m-shared", new DateTimeOffset(2026, 3, 1, 10, 0, 0, TimeSpan.Zero), 100, 0.1m),
+                Session("a2", "Claude Code", "/w", "w", "m-shared", new DateTimeOffset(2026, 3, 1, 11, 0, 0, TimeSpan.Zero), 100, 0.1m),
+                Session("a3", "Codex", "/w", "w", "m-shared", new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero), 500, 0.5m),
+                // m-tie 刻意让键序数胜者（Claude Code）token 更少（审查修复轮 P2：原量级下
+                // "并列取 token 大者"的错误实现也能通过，断言无区分度）
+                Session("a4", "Codex", "/w", "w", "m-tie", new DateTimeOffset(2026, 3, 2, 10, 0, 0, TimeSpan.Zero), 900, 0.9m),
+                Session("a5", "Claude Code", "/w", "w", "m-tie", new DateTimeOffset(2026, 3, 2, 11, 0, 0, TimeSpan.Zero), 100, 0.1m),
+            ]);
+            await store.UpsertUsageFactsAsync(
+            [
+                new UsageFact
+                {
+                    Day = "2026-03-03",
+                    Grain = UsageFactGrain.Model,
+                    Model = "m-facts-only",
+                    TotalTokens = 400,
+                    CostUsd = 0.4m,
+                },
+            ]);
+
+            var rows = await service.GetModelBreakdownAsync(new UsageQueryFilter());
+
+            var shared = rows.Single(row => row.Key == "m-shared");
+            shared.DominantAgent.Should().Be("Claude Code", "主用 Agent 按会话数（2 > 1），与单会话 token 量无关");
+            shared.AgentCount.Should().Be(2);
+
+            var tie = rows.Single(row => row.Key == "m-tie");
+            tie.DominantAgent.Should().Be("Claude Code",
+                "1:1 并列取键序数最小（Claude Code < Codex）——该胜者 token 更少（100 < 900），可区分'按键序数'与'按 token 大者'两种实现");
+            tie.AgentCount.Should().Be(2);
+
+            var factsOnly = rows.Single(row => row.Key == "m-facts-only");
+            factsOnly.SessionCount.Should().Be(0);
+            factsOnly.DominantAgent.Should().BeNull("无会话数据时不猜关联 Agent");
+            factsOnly.AgentCount.Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(storePath);
+        }
     }
 
     [Fact]
@@ -412,6 +475,9 @@ public class UsageQueryServiceTests : IAsyncLifetime
 
         rows.Select(row => row.Key).Should().Equal(expected.Select(row => row.Key));
         AssertDimensionRowsMatch(rows, expected, "project");
+
+        rows.Should().OnlyContain(row => row.DominantAgent == null && row.AgentCount == null,
+            "D-010 关联 Agent 列仅模型维度填充，项目维度恒为 null");
 
         // 歧义守卫（I-025 同式；审查后碰撞检测按 ordinal-ignore-case）：/work/tools、/other/tools、
         // /work/Tools 的展示名 tools / tools / Tools 在大小写不敏感比较下同名（大小写不敏感的本地

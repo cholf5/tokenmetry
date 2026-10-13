@@ -419,14 +419,14 @@ public class OverviewBottomTests
 
         var overview = Assert.IsType<OverviewViewModel>(shell.CurrentPage);
         overview.OpenModelsCommand.Execute(null);
-        var models = Assert.IsType<PagePlaceholderViewModel>(shell.CurrentPage); // 模型页 D-010 未落地，占位
+        var models = Assert.IsType<ModelsViewModel>(shell.CurrentPage); // 模型页 D-010 起为真实页
         Assert.Equal(PageId.Models, models.Page.Id);
 
         // 回总览（页面 VM 每次导航新建，新实例的回调仍接同一外壳）再跳项目页
         shell.GoToPageCommand.Execute(PageId.Overview);
         var overviewAgain = Assert.IsType<OverviewViewModel>(shell.CurrentPage);
         overviewAgain.OpenProjectsCommand.Execute(null);
-        var projects = Assert.IsType<PagePlaceholderViewModel>(shell.CurrentPage); // 项目页 D-011 未落地，占位
+        var projects = Assert.IsType<ProjectsViewModel>(shell.CurrentPage); // 项目页 D-011 起为真实页
         Assert.Equal(PageId.Projects, projects.Page.Id);
     }
 

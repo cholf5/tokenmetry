@@ -89,13 +89,23 @@
 
     <!-- D-003 页面路由：CurrentPage（页面 VM）→ 视图。未落地页面共用 PagePlaceholderView；
          [I-027] StylePreviewView 临时页自本卡起没有导航入口（明暗截图留档与 headless 用例仍直接
-         实例化该视图，重生成命令见 I-027/D-003 卡 Verification），Q-002 清理时随旧视图一并处置。 -->
+         实例化该视图，重生成命令见 I-027/D-003 卡 Verification），Q-002 清理时随旧视图一并处置。
+         D-009/D-010/D-011 起 Agent/模型/项目统计为真实页（余下占位：时间分析 D-012 / 成本分析 D-013）。 -->
     <Window.DataTemplates>
         <DataTemplate DataType="vm:OverviewViewModel">
             <views:OverviewView/>
         </DataTemplate>
         <DataTemplate DataType="vm:SessionsViewModel">
             <views:SessionsView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:AgentsViewModel">
+            <views:AgentsView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:ModelsViewModel">
+            <views:ModelsView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:ProjectsViewModel">
+            <views:ProjectsView/>
         </DataTemplate>
         <DataTemplate DataType="vm:PagePlaceholderViewModel">
             <views:PagePlaceholderView/>

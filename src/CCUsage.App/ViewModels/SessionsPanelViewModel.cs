@@ -251,6 +251,28 @@ public partial class SessionsPanelViewModel : ViewModelBase
         QuickFiltersCommitted?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// D-011 项目统计页行点击的外部落点（D-009/D-011 决策点 2 定案）：以「程序化立即应用」语义
+    /// 把目标项目写入会话页级项目筛选——与手动改下拉不同，不走暂存（跳转即生效），但同样经
+    /// <see cref="QuickFiltersCommitted"/> 提交、同样在右栏下拉可见、「清除」可复位（无隐藏过滤态）。
+    /// 选项清单缺该路径时如实追加（选项是启动期全集缓存，后台刷新后的新项目可能不在其中；
+    /// 静默丢弃会让跳转筛选失效）；不触碰 Agent 复选组与模型下拉（跳转只表达项目维度意图，
+    /// 其余维度维持用户既有筛选，与全局筛选取交集的语义不变）。
+    /// </summary>
+    public void ApplyExternalProjectFilter(string projectPath, string? label = null)
+    {
+        var option = ProjectFilterOptions.FirstOrDefault(o =>
+            string.Equals(o.Path, projectPath, StringComparison.Ordinal));
+        if (option is null)
+        {
+            option = new ProjectFilterOption(projectPath, label ?? projectPath);
+            ProjectFilterOptions = [.. ProjectFilterOptions, option];
+        }
+
+        ProjectFilter = option;
+        QuickFiltersCommitted?.Invoke(this, EventArgs.Empty);
+    }
+
     partial void OnSelectedRecentSessionChanged(RecentSessionRowViewModel? value)
     {
         if (value is null)

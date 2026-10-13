@@ -109,11 +109,63 @@ public partial class MainWindowViewModel : ViewModelBase
         // 随全局筛选刷新；GoToPage 经构造回调注入（「查看详情 ↗」跳模型/项目页），
         // 页面 VM 不反向引用本类型（Action<PageId> 单向注入，见 D-007 Dev Log 选型）。
         PageId.Overview => new OverviewViewModel(ShellPages.For(id), _filters, _usageQuery, GoToPage),
+        // D-009/D-010/D-011：Agent / 模型 / 项目统计为真实页（随全局筛选刷新）。D-009 行点击经
+        // OpenSessionsForAgent 跳会话页（全局单选 Agent 途径，见 AgentsViewModel 定案）；D-011 行点击
+        // 经 OpenSessionsForProject 跳会话页（右栏页级项目筛选程序化应用，见 ProjectsViewModel 定案）；
+        // D-010 无行点击下钻。页面 VM 不反向引用本类型（回调单向注入，同 D-007 选型）。
+        PageId.Agents => new AgentsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForAgent),
+        PageId.Models => new ModelsViewModel(ShellPages.For(id), _filters, _usageQuery),
+        PageId.Projects => new ProjectsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForProject),
         // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；Agent 复选/模型/项目
         // 页级筛选状态由右栏 SessionsPanelViewModel 持有，页面经其提交事件触发重查（定案见各自类型说明）。
         PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery, SessionsPanel, _toastService),
         _ => new PagePlaceholderViewModel(ShellPages.For(id), _filters),
     };
+
+    /// <summary>
+    /// D-009 Agent 排行行点击 → 会话页带该 Agent 筛选（决策点 2 定案：全局途径——顶部栏单选 Agent
+    /// 是 Agent 维度的跨页筛选宿主，落地后可见、可经「所有 Agent」清除）。目标 Agent 不在选项清单
+    /// （目录加载失败窗口期）时如实补入选项，不静默丢弃跳转。
+    /// <b>竞态安全依赖的不变量（审查修复轮 P2 锁定）</b>：AgentCatalogService 的目录查询恒为
+    /// <b>无界严格超集</b>（<see cref="UsageQueryFilter"/> 无界、facts 存在即在清单中）——因此
+    /// "快照缺 X" 只可能因 X 晚于快照入库；此处的判重补入（AgentOption record 值相等 + AgentId 键判重）
+    /// 才能保持幂等。目录查询语义一旦收窄（如随当前筛选收窄）本兜底即失效，改动前先读
+    /// AgentCatalogService 的无界超集契约。
+    /// </summary>
+    private void OpenSessionsForAgent(string agentId)
+    {
+        var option = _filters.AgentOptions.FirstOrDefault(o => o.Id == agentId);
+        if (option is null)
+        {
+            option = new AgentOption(agentId, agentId);
+            _filters.UpdateAgentOptions([.. _filters.AgentOptions, option]);
+        }
+
+        // 审查修复轮 P1：右栏复选组是启动期目录快照，可能不含后台刷新后新增的 Agent——只补全局
+        // 选项会落进会话页 ResolveAgentScope 的 Empty 死胡同（复选组全勾但不含目标 → 交集空，
+        // 硬呈"显示 0 / 0 条"，且「清除」只重勾已知复选项救不回）。同步补入一个<b>已勾选</b>的
+        // 复选项，让页级交集继续成立；状态在右栏可见、可手动反勾 / 经「清除」复位。
+        // 复选组为空（目录未加载 / 无数据的诚实兜底态）时不补入：count==0 分支本身已按
+        // Single(全局) 兜底，补入反而会伪装成"目录只含 X"的已加载态。
+        if (SessionsPanel.AgentFilterCount > 0 && SessionsPanel.AgentFilters.All(a => a.AgentId != agentId))
+        {
+            SessionsPanel.AgentFilters.Add(new AgentQuickFilterViewModel(agentId, option.Label));
+        }
+
+        _filters.Agent = option;
+        GoToPage(PageId.Sessions);
+    }
+
+    /// <summary>
+    /// D-011 项目排行行点击 → 会话页带该项目筛选（决策点 2 定案：页级途径——项目维度无全局宿主，
+    /// 写入右栏页级筛选并程序化立即应用；落地后右栏可见、「清除」可复位）。状态先写后导航，
+    /// 会话页首查即带上筛选。
+    /// </summary>
+    private void OpenSessionsForProject(string projectPath, string? label)
+    {
+        SessionsPanel.ApplyExternalProjectFilter(projectPath, label);
+        GoToPage(PageId.Sessions);
+    }
 
     /// <summary>顶部栏设置入口：导航到数据源与设置页。</summary>
     [RelayCommand]

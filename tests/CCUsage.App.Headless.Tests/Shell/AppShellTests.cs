@@ -96,6 +96,25 @@ public class AppShellTests
         Assert.True(window.GetVisualDescendants().OfType<SessionsView>().Any());
         Assert.Same(vm.NavigationItems[1], vm.SelectedNavigation);
 
+        // 切到 Agent / 模型 / 项目统计（D-009/D-010/D-011 真实页，非占位）
+        vm.SelectedNavigation = vm.NavigationItems[2];
+        Dispatcher.UIThread.RunJobs();
+        var agents = Assert.IsType<AgentsViewModel>(vm.CurrentPage);
+        Assert.Equal(PageId.Agents, agents.Page.Id);
+        Assert.True(window.GetVisualDescendants().OfType<AgentsView>().Any());
+
+        vm.SelectedNavigation = vm.NavigationItems[3];
+        Dispatcher.UIThread.RunJobs();
+        var models = Assert.IsType<ModelsViewModel>(vm.CurrentPage);
+        Assert.Equal(PageId.Models, models.Page.Id);
+        Assert.True(window.GetVisualDescendants().OfType<ModelsView>().Any());
+
+        vm.SelectedNavigation = vm.NavigationItems[4];
+        Dispatcher.UIThread.RunJobs();
+        var projects = Assert.IsType<ProjectsViewModel>(vm.CurrentPage);
+        Assert.Equal(PageId.Projects, projects.Page.Id);
+        Assert.True(window.GetVisualDescendants().OfType<ProjectsView>().Any());
+
         // 切到数据源与设置：路由到既有 SettingsView（真实视图，非占位）
         vm.SelectedNavigation = vm.NavigationItems[7];
         Dispatcher.UIThread.RunJobs();
@@ -111,11 +130,12 @@ public class AppShellTests
     {
         var vm = CreateIsolatedShellViewModel();
 
-        // 初始页为总览真实页（D-006）；占位页行为用 Agent 统计页验证（会话明细 D-008 起为真实页）
+        // 初始页为总览真实页（D-006）；占位页行为用时间分析页验证
+        // （会话/Agent/模型/项目统计 D-008~D-011 起均为真实页，各自联动断言在对应测试类）
         Assert.IsType<OverviewViewModel>(vm.CurrentPage);
-        vm.SelectedNavigation = vm.NavigationItems[2];
+        vm.SelectedNavigation = vm.NavigationItems[5];
         var placeholder = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
-        Assert.Equal(PageId.Agents, placeholder.Page.Id);
+        Assert.Equal(PageId.Time, placeholder.Page.Id);
 
         // 默认筛选：最近 7 天 · 所有 Agent，占位页可观测
         Assert.Equal("最近 7 天 · 所有 Agent", placeholder.CurrentFilterDisplay);
@@ -131,9 +151,10 @@ public class AppShellTests
         Assert.Equal(vm.Filters.Display, placeholder.CurrentFilterDisplay);
 
         // 路由到另一占位页：新页面读到当前筛选值而非默认值
-        vm.SelectedNavigation = vm.NavigationItems[3];
-        var models = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
-        Assert.Equal("最近 7 天 · Codex", models.CurrentFilterDisplay);
+        vm.SelectedNavigation = vm.NavigationItems[6];
+        var cost = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
+        Assert.Equal(PageId.Cost, cost.Page.Id);
+        Assert.Equal("最近 7 天 · Codex", cost.CurrentFilterDisplay);
     }
 
     [AvaloniaFact]
@@ -141,21 +162,21 @@ public class AppShellTests
     {
         var vm = CreateIsolatedShellViewModel();
         // 初始为总览真实页（其 Dispose 退订回归在 OverviewTests），占位页退订用两次占位跳转验证
-        // （会话明细 D-008 起为真实页，退订回归在 SessionsTests）
+        // （会话/Agent/模型/项目统计 D-008~D-011 起为真实页，退订回归在各自测试类）
         Assert.IsType<OverviewViewModel>(vm.CurrentPage);
 
-        vm.SelectedNavigation = vm.NavigationItems[2];
-        var agents = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
+        vm.SelectedNavigation = vm.NavigationItems[5];
+        var time = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
 
-        vm.SelectedNavigation = vm.NavigationItems[3];
-        var models = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
-        Assert.NotSame(agents, models);
+        vm.SelectedNavigation = vm.NavigationItems[6];
+        var cost = Assert.IsType<PagePlaceholderViewModel>(vm.CurrentPage);
+        Assert.NotSame(time, cost);
 
         // 导航离开后旧占位页不再收筛选通知（Dispose 退订）。FilterStateService 是常驻单例，
         // 强引用订阅不退订会随导航次数无界累积（D-003 审查 P1 同源回归）。
         vm.Filters.TimeRange = TimeRangeOption.Options[2]; // 最近 90 天
-        Assert.Equal("最近 90 天 · 所有 Agent", models.CurrentFilterDisplay);
-        Assert.Equal("最近 7 天 · 所有 Agent", agents.CurrentFilterDisplay); // 旧实例冻结在退订前的值
+        Assert.Equal("最近 90 天 · 所有 Agent", cost.CurrentFilterDisplay);
+        Assert.Equal("最近 7 天 · 所有 Agent", time.CurrentFilterDisplay); // 旧实例冻结在退订前的值
     }
 
     [AvaloniaFact]

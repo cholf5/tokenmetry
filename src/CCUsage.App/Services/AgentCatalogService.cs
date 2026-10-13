@@ -35,6 +35,9 @@ public sealed record ModelFilterOption(string? Model, string Label)
 /// 选项清单陈旧一个会话周期是可接受取舍，记录于 D-008 Dev Log）。
 /// 查询用无界 <see cref="UsageQueryFilter"/>（全部时间、全部 Agent）——选项清单描述数据全集，
 /// 不随当前筛选收窄；排序按 token 降序（防御性重排，不依赖服务排序契约）。
+/// <b>无界超集语义是契约的一部分（审查修复轮 P2 锁定，勿收窄）</b>：D-009/D-011 外部跳转
+/// （OpenSessionsForAgent / ApplyExternalProjectFilter）对"快照缺项"的判重补入，依赖本清单
+/// 恒为无界严格超集 + 选项 record 值相等重绑才保持幂等——目录查询一旦随筛选收窄，补入兜底即失效。
 /// 加载失败抛出给调用方（外壳把 Agent 清单失败处理为保持 [所有 Agent]，诚实不伪造）。
 /// </summary>
 public sealed class AgentCatalogService

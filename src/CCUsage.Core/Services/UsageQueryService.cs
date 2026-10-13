@@ -116,15 +116,15 @@ public class UsageQueryService : IUsageQueryService
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-        GetDimensionBreakdownAsync(filter, UsageFactGrain.Agent, fact => fact.Agent, session => session.Agent, withProjectDisplayName: false, ct);
+        GetDimensionBreakdownAsync(filter, UsageFactGrain.Agent, fact => fact.Agent, session => session.Agent, withProjectDisplayName: false, withDominantAgent: false, ct);
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-        GetDimensionBreakdownAsync(filter, UsageFactGrain.Model, fact => fact.Model, session => session.DominantModel, withProjectDisplayName: false, ct);
+        GetDimensionBreakdownAsync(filter, UsageFactGrain.Model, fact => fact.Model, session => session.DominantModel, withProjectDisplayName: false, withDominantAgent: true, ct);
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-        GetDimensionBreakdownAsync(filter, UsageFactGrain.Project, fact => fact.Project, session => session.Project, withProjectDisplayName: true, ct);
+        GetDimensionBreakdownAsync(filter, UsageFactGrain.Project, fact => fact.Project, session => session.Project, withProjectDisplayName: true, withDominantAgent: false, ct);
 
     /// <inheritdoc />
     public async Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default)
@@ -373,6 +373,7 @@ public class UsageQueryService : IUsageQueryService
         Func<UsageFact, string> factKey,
         Func<SessionFact, string> sessionKey,
         bool withProjectDisplayName,
+        bool withDominantAgent,
         CancellationToken ct)
     {
         var factRowsByKey = new Dictionary<string, List<UsageFact>>(StringComparer.Ordinal);
@@ -404,6 +405,11 @@ public class UsageQueryService : IUsageQueryService
         var sessions = await GetScopedSessionsAsync(filter, ct);
         var sessionCountByKey = new Dictionary<string, long>(StringComparer.Ordinal);
         var sessionDisplayByKey = new Dictionary<string, string>(StringComparer.Ordinal);
+        // D-010 关联 Agent 列（契约演进定案）：与 SessionCount 同一批会话、同一个 sessionKey 分组，
+        // 顺带按 Agent 计数——每模型每 Agent 一个 long，成本可忽略；其余维度不累计。
+        var agentSessionsByKey = withDominantAgent
+            ? new Dictionary<string, Dictionary<string, long>>(StringComparer.Ordinal)
+            : null;
         foreach (var session in sessions)
         {
             var key = sessionKey(session);
@@ -418,6 +424,17 @@ public class UsageQueryService : IUsageQueryService
                 && !string.IsNullOrWhiteSpace(session.ProjectDisplayName))
             {
                 sessionDisplayByKey[key] = session.ProjectDisplayName;
+            }
+
+            if (agentSessionsByKey is { } agentMap && !string.IsNullOrWhiteSpace(session.Agent))
+            {
+                if (!agentMap.TryGetValue(key, out var agents))
+                {
+                    agents = new Dictionary<string, long>(StringComparer.Ordinal);
+                    agentMap[key] = agents;
+                }
+
+                agents[session.Agent] = agents.GetValueOrDefault(session.Agent) + 1;
             }
         }
 
@@ -434,6 +451,19 @@ public class UsageQueryService : IUsageQueryService
             var resolvedCost = list is null
                 ? AggregatedCost.Empty
                 : AggregatedCost.FromRowCosts(list.Select(fact => fact.CostUsd));
+
+            // 主用 Agent：会话数最多的 Agent（并列取键序数最小，保证确定性）；无会话数据 → null（诚实）。
+            string? dominantAgent = null;
+            int? agentCount = null;
+            if (agentSessionsByKey is { } map && map.TryGetValue(key, out var agents) && agents.Count > 0)
+            {
+                agentCount = agents.Count;
+                dominantAgent = agents
+                    .OrderByDescending(pair => pair.Value)
+                    .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+                    .First().Key;
+            }
+
             rows.Add(new DimensionUsageRow
             {
                 Key = key,
@@ -446,6 +476,8 @@ public class UsageQueryService : IUsageQueryService
                 CacheReadTokens = list?.Sum(fact => fact.CacheReadTokens) ?? 0,
                 TotalTokens = list?.Sum(fact => fact.TotalTokens) ?? 0,
                 Cost = resolvedCost,
+                DominantAgent = dominantAgent,
+                AgentCount = agentCount,
             });
         }
 
@@ -472,6 +504,8 @@ public class UsageQueryService : IUsageQueryService
                 CacheReadTokens = row.CacheReadTokens,
                 TotalTokens = row.TotalTokens,
                 Cost = row.Cost,
+                DominantAgent = row.DominantAgent,
+                AgentCount = row.AgentCount,
                 TokenShare = scopeTotalTokens > 0 ? (decimal?)Math.Round(row.TotalTokens / scopeTotalTokens, 4) : null,
                 CostShare = scopeKnownCost is { } denominator and > 0
                              && !row.Cost.HasUnknownCost

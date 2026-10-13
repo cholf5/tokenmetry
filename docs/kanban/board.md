@@ -9,9 +9,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| D-009 | Agent 统计页 | P2 | S | — | D-003, I-029 |
-| D-010 | 模型统计页（价格缺失显示未知口径样板） | P2 | S | — | D-003, I-029 |
-| D-011 | 项目统计页 | P2 | S | — | D-003, I-029 |
 | D-012 | 时间分析页（小时分布 + 活跃日历热力图） | P2 | M | — | D-003, I-028, I-029, D-004, D-005 |
 | D-013 | 成本分析页（计费口径透明） | P2 | S | — | D-003, I-028, I-029 |
 | S-002 | 数据源与设置页重构（原型版） | P2 | M | — | D-003, I-026 |
@@ -26,6 +23,9 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-011 | 项目统计页 | P2 | 2026-10-13 |
+| D-010 | 模型统计页（价格缺失显示未知口径样板） | P2 | 2026-10-13 |
+| D-009 | Agent 统计页 | P2 | 2026-10-13 |
 | D-008 | 会话明细页 + 右栏最近会话联动 | P1 | 2026-10-13 |
 | D-007 | 总览页（下半）：模型分布 + Token 构成 + 项目排行 + 成本趋势 | P2 | 2026-10-13 |
 | D-006 | 总览页（上半）：KPI 行 + 使用趋势 + Agent 占比环形 | P1 | 2026-10-13 |
