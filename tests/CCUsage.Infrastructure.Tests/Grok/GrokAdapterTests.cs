@@ -453,18 +453,13 @@ public class GrokAdapterTests : IDisposable
         WriteSession(defaultHome, "proj/decoy",
             TurnLine("evt-decoy", "m", 9, 1, 0, 0, envelopeSeconds: 1_750_000_000, agentMs: null, ticks: 0));
 
-        try
-        {
-            Environment.SetEnvironmentVariable(GrokLogLocator.GrokHomeEnvVariable, relocated);
-            var result = await new GrokAdapter().ScanAsync();
+        // GROK_HOME 经注入的 accessor 提供（定位器读环境的生产同一缝隙），不动进程环境（A-3，
+        // 同 B-004 Copilot 处理）：xunit 并行窗口内进程级环境变量会与其他用例互踩。
+        var result = await new GrokAdapter(locator: new GrokLogLocator(
+            name => name == GrokLogLocator.GrokHomeEnvVariable ? relocated : null)).ScanAsync();
 
-            result.Records.Should().ContainSingle().Which.MessageId.Should().Be("evt-1");
-            result.Roots.Should().ContainSingle().Which.Should().Be(relocated);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(GrokLogLocator.GrokHomeEnvVariable, null);
-        }
+        result.Records.Should().ContainSingle().Which.MessageId.Should().Be("evt-1");
+        result.Roots.Should().ContainSingle().Which.Should().Be(relocated);
     }
 
     [Fact]
@@ -476,22 +471,16 @@ public class GrokAdapterTests : IDisposable
         WriteSession(defaultRoot, "home/session-a",
             TurnLine("evt-1", "grok-4.5-build", 5, 1, 0, 0, envelopeSeconds: 1_750_000_000, agentMs: null, ticks: 0));
 
-        try
-        {
-            Environment.SetEnvironmentVariable(GrokLogLocator.GrokHomeEnvVariable, "  ");
-            Environment.SetEnvironmentVariable("USERPROFILE", fakeHome);
-            Environment.SetEnvironmentVariable("HOME", fakeHome);
-            var result = await new GrokAdapter().ScanAsync();
+        // 环境语义经注入 accessor 覆盖（A-3）：GROK_HOME 空白 + USERPROFILE/HOME 指向 fakeHome。
+        // 此前直接改进程环境且 finally 置 null 不还原原值——对并行/后续用例是永久污染
+        // （USERPROFILE/HOME 从此消失，覆盖面最宽，见 B-004 卡的全家族备注）。
+        var result = await new GrokAdapter(locator: new GrokLogLocator(name =>
+            name == GrokLogLocator.GrokHomeEnvVariable ? "  "
+            : name is "USERPROFILE" or "HOME" ? fakeHome
+            : null)).ScanAsync();
 
-            result.Records.Should().ContainSingle();
-            result.Records[0].SourceFile.Should().Contain("session-a", "回退默认目录 ~/.grok/sessions");
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(GrokLogLocator.GrokHomeEnvVariable, null);
-            Environment.SetEnvironmentVariable("USERPROFILE", null);
-            Environment.SetEnvironmentVariable("HOME", null);
-        }
+        result.Records.Should().ContainSingle();
+        result.Records[0].SourceFile.Should().Contain("session-a", "回退默认目录 ~/.grok/sessions");
     }
 
     [Fact]
