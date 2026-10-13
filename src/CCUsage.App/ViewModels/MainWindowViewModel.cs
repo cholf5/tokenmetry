@@ -33,9 +33,22 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private ViewModelBase? _currentPage;
 
-    /// <summary>顶部栏数据源就绪状态。TODO(I-028/D-006)：接入查询服务的真实数据源状态后替换静态文案。</summary>
+    /// <summary>顶部栏数据源状态文案。初始为启动态（A-12：不再硬编码"就绪"）；
+    /// 由 BackgroundRefreshWiring 每轮回写真实状态（NoteDataSourceStatus）。</summary>
     [ObservableProperty]
-    private string _dataStatusText = "本地数据源就绪";
+    private string _dataStatusText = "启动中…";
+
+    /// <summary>顶部栏状态灯级别（A-12）：ok=绿 / warn=橙（无数据）/ error=红（本轮失败）。
+    /// 经 Classes 条件绑定切换 Ellipse.status-dot 的 status-error/status-warn 类。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDataSourceError), nameof(IsDataSourceWarned))]
+    private string _dataStatusLevel = "ok";
+
+    /// <summary>A-12 状态灯红色态绑定（刷新失败）。</summary>
+    public bool IsDataSourceError => DataStatusLevel == "error";
+
+    /// <summary>A-12 状态灯橙色态绑定（本轮扫描完成但无数据）。</summary>
+    public bool IsDataSourceWarned => DataStatusLevel == "warn";
 
     /// <summary>顶部栏"最近更新"。初始为未刷新；由 App.axaml.cs 的后台刷新回调经 NoteDataRefreshed 更新。</summary>
     [ObservableProperty]
@@ -199,13 +212,40 @@ public partial class MainWindowViewModel : ViewModelBase
     public void NoteDataRefreshed()
     {
         var text = $"最近更新 {DateTime.Now:HH:mm}";
+        RunOnUIThread(() => LastUpdatedText = text);
+    }
+
+    /// <summary>
+    /// A-12：由 BackgroundRefreshWiring 每轮回写采集状态（DashboardViewModel.Status 语义：
+    /// ok / refreshing / no data / error / loading），驱动顶栏状态文案与状态灯颜色。
+    /// 可能由定时器/线程池线程调用，内部 marshal 到 UI 线程。
+    /// </summary>
+    public void NoteDataSourceStatus(string status)
+    {
+        var (text, level) = status switch
+        {
+            "error" => ("数据源错误（本轮刷新失败）", "error"),
+            "no data" => ("未检出本地数据", "warn"),
+            "refreshing" => ("正在扫描本地数据…", "ok"),
+            "loading" => ("启动中…", "ok"),
+            _ => ("本地数据源就绪", "ok"),
+        };
+        RunOnUIThread(() =>
+        {
+            DataStatusText = text;
+            DataStatusLevel = level;
+        });
+    }
+
+    private static void RunOnUIThread(Action action)
+    {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            LastUpdatedText = text;
+            action();
         }
         else
         {
-            Dispatcher.UIThread.Post(() => LastUpdatedText = text);
+            Dispatcher.UIThread.Post(action);
         }
     }
 }

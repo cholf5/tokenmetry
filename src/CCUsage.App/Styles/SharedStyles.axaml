@@ -231,6 +231,10 @@
     <Style Selector="TextBlock.status-nodata">
         <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
     </Style>
+    <!-- A-6：源扫描抛异常被逐源隔离后的诚实失败态（红），区别于"部分数据"（橙）与"未检出"（灰） -->
+    <Style Selector="TextBlock.status-error">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentRedBrush}"/>
+    </Style>
     <Style Selector="TextBlock.status-pending">
         <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
     </Style>

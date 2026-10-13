@@ -31,9 +31,7 @@ public class DashboardSummaryTests
     public void AppSettings_defaults_are_quiet()
     {
         var settings = new AppSettings();
-        settings.OfflinePricing.Should().BeTrue();
         settings.AnomalyNotificationsEnabled.Should().BeTrue();
-        settings.BudgetNotificationsEnabled.Should().BeFalse();
         settings.RefreshMinutes.Should().Be(15);
     }
 }

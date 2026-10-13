@@ -61,4 +61,8 @@ public enum JsonlScanStatus
 
     /// <summary>没有发现任何 usage 记录。</summary>
     NoData,
+
+    /// <summary>扫描委托抛出异常（A-6 逐源隔离）：该源本轮跳过出数，其余源不受影响。
+    /// 该状态只由 LocalIngestionDataSource 的隔离 catch 登记，适配器自身不产出。</summary>
+    Error,
 }

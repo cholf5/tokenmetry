@@ -177,10 +177,27 @@ public class LocalIngestionDataSource : IUsageDataSource
 
             // S-002：逐源扫描（顺序与拼接序 = BuildScanPipeline 清单），每源完成后向注册表登记
             // 真实快照（状态 / 累计记录数 / 完成时刻），供设置页数据源表读取。
+            // A-6 逐源异常隔离：任一适配器抛出只跳过该源（登记 Error 快照供设置页如实显示），
+            // 其余源正常出数——此前无隔离，一源抛出即整轮 19 源全部失败且几乎不可观测。
             var scanResults = new List<JsonlScanResult>(BuildScanPipeline().Length);
             foreach (var (agent, scan) in BuildScanPipeline())
             {
-                var result = await scan(ct);
+                JsonlScanResult result;
+                try
+                {
+                    result = await scan(ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[ccusage] 数据源 {agent} 扫描失败（本轮跳过，其余源不受影响）：{ex.Message}");
+                    _scanRegistry?.ReportScan(agent, JsonlScanStatus.Error, 0, DateTimeOffset.Now);
+                    continue;
+                }
+
                 scanResults.Add(result);
                 _scanRegistry?.ReportScan(agent, result.Diagnostics.Status, result.Records.Count, DateTimeOffset.Now);
             }

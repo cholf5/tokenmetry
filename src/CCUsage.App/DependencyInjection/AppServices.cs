@@ -143,7 +143,9 @@ public static class AppServices
         services.AddSingleton<AgentCatalogService>();
 
         // Notifications
-        services.AddSingleton<ISystemNotification, NullSystemNotification>();
+        // A-11：异常检测通知接真实出口（in-app toast）——此前 NullSystemNotification 使
+        // 「启用异常通知」成为假开关（检测管线真实运行但通知被吞）。
+        services.AddSingleton<ISystemNotification, ToastSystemNotification>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

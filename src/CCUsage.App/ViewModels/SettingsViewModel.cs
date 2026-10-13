@@ -33,12 +33,13 @@ public sealed record DataSourceRowViewModel(
     bool IsOk,
     bool IsPartial,
     bool IsNoData,
+    bool IsError,
     bool IsPending,
     string LastScanText,
     string RecordCountText)
 {
     public static DataSourceRowViewModel NotScannedYet(string agent) =>
-        new(agent, "● 尚未扫描", IsOk: false, IsPartial: false, IsNoData: false, IsPending: true, "—", "—");
+        new(agent, "● 尚未扫描", IsOk: false, IsPartial: false, IsNoData: false, IsError: false, IsPending: true, "—", "—");
 }
 
 public partial class SettingsViewModel : ViewModelBase, INavigationAware
@@ -262,6 +263,7 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
                     IsOk: snapshot.Status == JsonlScanStatus.Ok,
                     IsPartial: snapshot.Status == JsonlScanStatus.Partial,
                     IsNoData: snapshot.Status == JsonlScanStatus.NoData,
+                    IsError: snapshot.Status == JsonlScanStatus.Error,
                     IsPending: false,
                     FormatLastScan(snapshot.ScannedAt),
                     snapshot.RecordCount.ToString("N0", CultureInfo.InvariantCulture))
@@ -282,6 +284,7 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         JsonlScanStatus.Ok => "● 已连接",
         JsonlScanStatus.Partial => "● 部分数据",
         JsonlScanStatus.NoData => "● 未检出",
+        JsonlScanStatus.Error => "● 扫描失败（本轮跳过）",
         _ => "● 尚未扫描",
     };
 

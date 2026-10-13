@@ -24,6 +24,16 @@
     -->
 
     <Window.Styles>
+        <!-- A-12 顶栏状态灯三态（默认绿 / warn 橙 / error 红），Classes 条件绑定见状态点元素 -->
+        <Style Selector="Ellipse.status-dot">
+            <Setter Property="Fill" Value="{DynamicResource AppAccentGreenBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.status-dot.warn">
+            <Setter Property="Fill" Value="{DynamicResource AppAccentOrangeBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.status-dot.error">
+            <Setter Property="Fill" Value="{DynamicResource AppAccentRedBrush}"/>
+        </Style>
         <!-- 侧栏导航列表（原型 .nav）：透明底、条目 8px 圆角、悬停/选中走 D-003 外壳令牌 -->
         <Style Selector="ListBox.nav-list">
             <Setter Property="Background" Value="Transparent"/>
@@ -163,8 +173,11 @@
                         Padding="11,7"
                         Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Ellipse Width="7" Height="7"
-                                 Fill="{DynamicResource AppAccentGreenBrush}"
+                        <!-- A-12 状态灯：默认绿（就绪/刷新中），无数据橙、刷新失败红——
+                             由 DashboardViewModel.Status 每轮回写（BackgroundRefreshWiring → NoteDataSourceStatus） -->
+                        <Ellipse Width="7" Height="7" Classes="status-dot"
+                                 Classes.warn="{Binding IsDataSourceWarned}"
+                                 Classes.error="{Binding IsDataSourceError}"
                                  VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding DataStatusText}"
                                    FontSize="12"

@@ -80,6 +80,35 @@ public class JsonAppSettingsStoreTests : IDisposable
         loaded.PricingOverrides[1].CacheReadPerMillion.Should().BeNull();
     }
 
+    [Fact]
+    public async Task LoadAsync_WhenFileCorrupt_SelfHealsToDefaultsAndKeepsEvidence()
+    {
+        // A-7：settings.json 损坏不再启动即崩——回落默认 + 坏文件改名 .bad-时间戳留证（不静默销毁）。
+        var store = new JsonAppSettingsStore(new AppPaths(_tempDirectory));
+        Directory.CreateDirectory(_tempDirectory);
+        await File.WriteAllTextAsync(Path.Combine(_tempDirectory, "settings.json"), "{ not valid json");
+
+        var settings = await store.LoadAsync();
+
+        settings.CcusageCommand.Should().Be("ccusage");
+        settings.RefreshMinutes.Should().Be(15);
+        File.Exists(Path.Combine(_tempDirectory, "settings.json")).Should().BeFalse();
+        Directory.EnumerateFiles(_tempDirectory, "settings.json.bad-*").Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task SaveAsync_LeavesNoTempFileBehind()
+    {
+        // A-7 原子保存：tmp + Move(overwrite) 后不残留半截临时文件。
+        var store = new JsonAppSettingsStore(new AppPaths(_tempDirectory));
+        Directory.CreateDirectory(_tempDirectory);
+
+        await store.SaveAsync(new AppSettings { CcusageCommand = "x" });
+
+        File.Exists(Path.Combine(_tempDirectory, "settings.json")).Should().BeTrue();
+        Directory.EnumerateFiles(_tempDirectory, "settings.json.tmp*").Should().BeEmpty();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
