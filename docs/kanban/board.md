@@ -9,8 +9,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| D-012 | 时间分析页（小时分布 + 活跃日历热力图） | P2 | M | — | D-003, I-028, I-029, D-004, D-005 |
-| D-013 | 成本分析页（计费口径透明） | P2 | S | — | D-003, I-028, I-029 |
 | S-002 | 数据源与设置页重构（原型版） | P2 | M | — | D-003, I-026 |
 | B-004 | flaky：CopilotSessionAdapterTests 间歇多计 LinesSkipped | P2 | S | — | — |
 | Q-002 | 旧视图清理与视觉验收打磨 | P2 | M | — | 本批次全部页面卡 |
@@ -23,6 +21,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-013 | 成本分析页（计费口径透明） | P2 | 2026-10-13 |
+| D-012 | 时间分析页（小时分布 + 活跃日历热力图） | P2 | 2026-10-13 |
 | D-011 | 项目统计页 | P2 | 2026-10-13 |
 | D-010 | 模型统计页（价格缺失显示未知口径样板） | P2 | 2026-10-13 |
 | D-009 | Agent 统计页 | P2 | 2026-10-13 |

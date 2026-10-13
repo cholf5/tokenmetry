@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
+using CCUsage.Core.Services;
 
 namespace CCUsage.App.ViewModels;
 
@@ -20,6 +21,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IUsageQueryService _usageQuery;
     private readonly AgentCatalogService _agentCatalog;
     private readonly IToastService _toastService;
+    private readonly PricingEngine _pricingEngine;
 
     [ObservableProperty]
     private string _title = "ccusage — Token Analytics";
@@ -57,7 +59,8 @@ public partial class MainWindowViewModel : ViewModelBase
         SessionsPanelViewModel sessionsPanel,
         IUsageQueryService usageQuery,
         AgentCatalogService agentCatalog,
-        IToastService toastService)
+        IToastService toastService,
+        PricingEngine pricingEngine)
     {
         _filters = filters;
         Settings = settings;
@@ -65,6 +68,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _usageQuery = usageQuery;
         _agentCatalog = agentCatalog;
         _toastService = toastService;
+        _pricingEngine = pricingEngine;
 
         SelectedNavigation = NavigationItems[0];
         CurrentPage = CreatePage(PageId.Overview);
@@ -119,6 +123,11 @@ public partial class MainWindowViewModel : ViewModelBase
         // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；Agent 复选/模型/项目
         // 页级筛选状态由右栏 SessionsPanelViewModel 持有，页面经其提交事件触发重查（定案见各自类型说明）。
         PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery, SessionsPanel, _toastService),
+        // D-012：时间分析为真实页（小时分布 + 活跃日历热力图 + 观察项表），随全局筛选刷新。
+        PageId.Time => new TimeViewModel(ShellPages.For(id), _filters, _usageQuery),
+        // D-013：成本分析为真实页（KPI 四卡 + 口径说明表）；待确认价格卡与定价引擎同一单例
+        // （GetUnpricedModels 全局口径，不随筛选变化——CostViewModel 类型说明）。
+        PageId.Cost => new CostViewModel(ShellPages.For(id), _filters, _usageQuery, _pricingEngine),
         _ => new PagePlaceholderViewModel(ShellPages.For(id), _filters),
     };
 
