@@ -104,6 +104,8 @@ public partial class MainWindowViewModel : ViewModelBase
         // 见 PagePlaceholderViewModel/OverviewViewModel）；Settings 是 DI 单例，不属于本方法生命周期管理。
         (CurrentPage as IDisposable)?.Dispose();
         CurrentPage = CreatePage(value.Page.Id);
+        // S-002：单例页（设置页）重进刷新钩子——新页面就位后通知导航进入，数据源表按最新扫描快照重建。
+        (CurrentPage as INavigationAware)?.OnNavigatedTo();
     }
 
     private ViewModelBase CreatePage(PageId id) => id switch

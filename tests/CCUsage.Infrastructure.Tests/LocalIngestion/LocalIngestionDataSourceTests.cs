@@ -226,9 +226,62 @@ public class LocalIngestionDataSourceTests : IDisposable
         store.Facts.Single(fact => fact.Model == "claude-test").CostUsd.Should().Be(6m);
     }
 
+    [Fact]
+    public async Task GetDailyUsage_ReportsPerSourceScanSnapshotsToRegistry()
+    {
+        // S-002：管道逐源扫描后向注册表登记真实快照（状态 / 累计记录数 / 完成时刻），
+        // 注册清单 = 管道组合（19 个适配器），设置页数据源表的数据面。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
+            ClaudeLine("msg-1", "claude-test", costUsd: "0.05", inputTokens: 10, outputTokens: 20));
+        // codexHome 无会话文件 → NoData；其余适配器指向不存在目录 → NoData
+
+        var registry = new IngestionScanRegistry();
+        var source = CreateSource(store, claudeRoot, codexHome, registry: registry);
+        await source.GetDailyUsageAsync();
+
+        registry.RegisteredSources.Should().HaveCount(19);
+
+        var claude = registry.GetLastScan(ClaudeCodeJsonlLineParser.AgentName);
+        claude.Should().NotBeNull();
+        claude!.Status.Should().Be(JsonlScanStatus.Ok);
+        claude.RecordCount.Should().Be(1);
+        claude.ScannedAt.Should().BeOnOrAfter(DateTimeOffset.UtcNow.AddMinutes(-1));
+
+        var codex = registry.GetLastScan(CodexJsonlFileParser.AgentName);
+        codex.Should().NotBeNull();
+        codex!.Status.Should().Be(JsonlScanStatus.NoData);
+        codex.RecordCount.Should().Be(0);
+
+        // 管道尾源与其余全部登记（键 = 各适配器声明的源名；pi-agent 无单一出账名，取适配器名）
+        registry.GetLastScan("pi-agent").Should().NotBeNull();
+        registry.GetLastScan("Antigravity").Should().NotBeNull();
+        registry.GetLastScan("Copilot CLI").Should().NotBeNull();
+        registry.RegisteredSources.Should().Contain(new[]
+        {
+            "Claude Code", "Codex", "ZCode", "DSH", "Copilot CLI", "OpenCode", "Goose", "Hermes",
+            "Kilo", "Gemini CLI", "Amp", "Droid", "Qwen Code", "Kimi", "Codebuff", "pi-agent",
+            "Grok", "OpenClaw", "Antigravity",
+        });
+    }
+
+    [Fact]
+    public async Task GetDailyUsage_WithRegistryNull_DoesNotThrow()
+    {
+        // 既有构造点（未传注册表）保持可用：报告为可选副作用
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        var source = CreateSource(store, claudeRoot, codexHome);
+
+        var act = () => source.GetDailyUsageAsync();
+
+        await act.Should().NotThrowAsync();
+    }
+
     // ---- helpers ----
 
-    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null)
+    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null)
     {
         pricingEngine ??= new PricingEngine(overrides: new[]
         {
@@ -259,7 +312,8 @@ public class LocalIngestionDataSourceTests : IDisposable
             pricingEngine,
             store,
             pricingClient: null,
-            timeZone: Utc);
+            timeZone: Utc,
+            scanRegistry: registry);
     }
 
     private (string ClaudeRoot, string CodexHome) CreateLogDirs()
