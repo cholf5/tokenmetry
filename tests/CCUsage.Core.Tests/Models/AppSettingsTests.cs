@@ -9,15 +9,11 @@ public class AppSettingsTests
     {
         var settings = new AppSettings();
 
+        // A-11：无 UI 出口且无行为消费者的设置字段已删除；保留字段均有真实消费者。
         settings.CcusageCommand.Should().Be("ccusage");
-        settings.OfflinePricing.Should().BeTrue();
         settings.AnomalyNotificationsEnabled.Should().BeTrue();
-        settings.BudgetNotificationsEnabled.Should().BeFalse();
-        settings.ActiveSessionNotificationsEnabled.Should().BeFalse();
         settings.ShowDebugInfo.Should().BeTrue();
         settings.RefreshMinutes.Should().Be(15);
-        settings.DailyBudgetUsd.Should().BeNull();
-        settings.MonthlyBudgetUsd.Should().BeNull();
         settings.PricingOverrides.Should().BeEmpty();
     }
 }

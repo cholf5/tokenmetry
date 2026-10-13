@@ -109,6 +109,38 @@ public class LocalIngestionDataSourceTests : IDisposable
         pricingEngine.GetUnpricedModels().Should().Contain(info => info.Model == "unknown/unknown");
     }
 
+    private sealed class ThrowingZCodeAdapter : IZCodeSqliteAdapter
+    {
+        public Task<JsonlScanResult> ScanAsync(CancellationToken ct = default) =>
+            throw new InvalidOperationException("boom（注入的故障源）");
+    }
+
+    [Fact]
+    public async Task GetDailyUsage_ThrowingSourceIsIsolatedAndReportedAsError()
+    {
+        // A-6 回归锁：任一源扫描抛异常只跳过该源（注册表如实登记 Error），其余源正常出数；
+        // 修复前无隔离——一源抛出即整轮 19 源失败。
+        var store = new InMemoryUsageStore();
+        var registry = new IngestionScanRegistry();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
+            ClaudeLine("msg-1", "claude-test", costUsd: "0.05", inputTokens: 10, outputTokens: 20));
+
+        var source = CreateSource(store, claudeRoot, codexHome, registry: registry,
+            zcodeAdapter: new ThrowingZCodeAdapter());
+
+        var rows = await source.GetDailyUsageAsync();
+
+        rows.Should().ContainSingle("其余源不受故障源影响，正常出数");
+        rows[0].TotalCostUsd.Should().BeGreaterThan(0);
+        rows[0].TotalTokens.Should().BeGreaterThan(0);
+
+        registry.GetLastScan("ZCode").Should().NotBeNull();
+        registry.GetLastScan("ZCode")!.Status.Should().Be(JsonlScanStatus.Error, "故障源如实登记失败态（设置页红色行）");
+        registry.GetLastScan("ZCode")!.RecordCount.Should().Be(0);
+        registry.GetLastScan("Claude Code")!.Status.Should().Be(JsonlScanStatus.Ok);
+    }
+
     [Fact]
     public async Task GetDailyUsage_PreservesLogCost_AndPricesMissingRecords()
     {
@@ -314,7 +346,7 @@ public class LocalIngestionDataSourceTests : IDisposable
 
     // ---- helpers ----
 
-    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null, string? dshHome = null)
+    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null, string? dshHome = null, IZCodeSqliteAdapter? zcodeAdapter = null)
     {
         pricingEngine ??= new PricingEngine(overrides: new[]
         {
@@ -325,7 +357,7 @@ public class LocalIngestionDataSourceTests : IDisposable
         return new LocalIngestionDataSource(
             new ClaudeCodeJsonlAdapter(configuredRoot: claudeRoot),
             new CodexJsonlAdapter(configuredHome: codexHome),
-            new ZCodeSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "zcode-missing")),
+            zcodeAdapter ?? new ZCodeSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "zcode-missing")),
             new DshSessionAdapter(configuredHome: dshHome ?? Path.Combine(Path.GetDirectoryName(claudeRoot)!, "dsh-missing")),
             new CopilotSessionAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "copilot-missing")),
             new OpenCodeSqliteAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "opencode-missing")),

@@ -26,18 +26,27 @@ public sealed class BackgroundRefreshWiring
         _shell = shell ?? throw new ArgumentNullException(nameof(shell));
     }
 
-    /// <summary>执行一轮刷新；返回本轮是否成功（true = 采集线完成且未报错）。</summary>
-    /// <exception cref="InvalidOperationException">未接线（App 启动序列未完成 Attach）时抛出，
+    /// <summary>执行一轮刷新；返回本轮是否成功（true = 采集线完成且未报错）。
+    /// 整轮在<b>线程池</b>执行（A-5）：启动路径的触发点在 UI 线程（App.OnFrameworkInitializationCompleted
+    /// 的 fire-and-forget），而 Infrastructure 采集链各 await 未配 ConfigureAwait(false)——捕获的
+    /// UI 上下文会把 19 源扫描的续体逐段排回 UI 线程造成冷启动/重扫期间 UI 卡顿。VM 属性回写
+    /// 本就在后台线程发生（定时器路径既有语义，顶栏回写经 Dispatcher marshal），此置不引入
+    /// 新的线程语义。</summary>
+    /// <exception cref="InvalidOperationException">未接线（App 启动序列未完成 Attach）时<b>同步</b>抛出，
     /// 由 BackgroundRefreshService 捕获转为失败结果——设置页重扫据此如实报"扫描失败"。</exception>
-    public async Task<bool> RunRefreshAsync()
+    public Task<bool> RunRefreshAsync()
     {
         var dashboard = _dashboard ?? throw new InvalidOperationException(
             "后台刷新未接线（App 启动序列未完成 Attach）——拒绝空转假成功");
-        await dashboard.RefreshCommand.ExecuteAsync(null);
-        // 外壳"最近更新"时间戳回写（D-003 既有行为；NoteDataRefreshed 内部 marshal 到 UI 线程，
-        // 定时器线程上下文调用安全）
-        _shell?.NoteDataRefreshed();
-        return dashboard.Status != "error";
+        return Task.Run(async () =>
+        {
+            await dashboard.RefreshCommand.ExecuteAsync(null);
+            // 外壳"最近更新"时间戳回写（D-003 既有行为；NoteDataRefreshed 内部 marshal 到 UI 线程，
+            // 定时器线程上下文调用安全）。A-12：同轮回写数据源状态灯（error 红 / no data 橙）。
+            _shell?.NoteDataRefreshed();
+            _shell?.NoteDataSourceStatus(dashboard.Status);
+            return dashboard.Status != "error";
+        });
     }
 }
 

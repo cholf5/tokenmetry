@@ -61,6 +61,7 @@
                                                    Classes.status-ok="{Binding IsOk}"
                                                    Classes.status-partial="{Binding IsPartial}"
                                                    Classes.status-nodata="{Binding IsNoData}"
+                                                   Classes.status-error="{Binding IsError}"
                                                    Classes.status-pending="{Binding IsPending}"
                                                    Text="{Binding StatusText}"/>
                                         <TextBlock Grid.Column="2" Classes="table-td"
@@ -141,8 +142,10 @@
                                    Text="应用默认直读本地会话日志，无需安装 ccusage；此命令仅对账 / 手动导入时使用，保存后下次启动生效。"/>
                     </StackPanel>
 
-                    <CheckBox Content="启用异常通知" IsChecked="{Binding AnomalyNotificationsEnabled}"/>
-                    <CheckBox Content="显示调试信息" IsChecked="{Binding ShowDebugInfo}"/>
+                    <!-- A-11：两开关中仅「异常通知」有真实行为（接 ISystemNotification → in-app toast，
+                         见 ToastSystemNotification）；「显示调试信息」无任何 UI 消费者（消费视图已删），
+                         按假开关红线删除——诚实优先，未来有调试出口再恢复。 -->
+                    <CheckBox Content="启用异常通知（应用内 toast 提示）" IsChecked="{Binding AnomalyNotificationsEnabled}"/>
                 </StackPanel>
             </Border>
 

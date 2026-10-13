@@ -20,7 +20,25 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        DependencyInjection.AppServices.Initialize();
+        // A-7：启动期不可恢复错误（facts 库迁移失败等）给可读错误窗，不再原始异常闪退。
+        try
+        {
+            DependencyInjection.AppServices.Initialize();
+        }
+        catch (Exception ex)
+        {
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime errorDesktop)
+            {
+                ShowStartupError(errorDesktop,
+                    "本地数据初始化失败：" + ex.Message +
+                    "\n\n缓存库位置：" + Services.AppPaths.CreateDefault().CacheDbPath +
+                    "\n\n可删除该文件后重试——历史用量可由本地会话日志重新扫描采集。");
+                base.OnFrameworkInitializationCompleted();
+                return;
+            }
+
+            throw;
+        }
 
         var settings = DependencyInjection.AppServices.Get<AppSettings>();
         DependencyInjection.AppServices.Get<IThemeService>().Apply(settings.Theme);
@@ -80,5 +98,39 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// A-7：启动期不可恢复错误的可读提示窗（唯一窗口，关闭即退出进程）。
+    /// 不用 MainWindow 的关窗隐藏拦截（那是常驻体验语义，错误窗必须可退出）。
+    /// </summary>
+    private static void ShowStartupError(IClassicDesktopStyleApplicationLifetime desktop, string message)
+    {
+        var closeButton = new Button { Content = "退出", Width = 96, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center };
+        var dialog = new Window
+        {
+            Title = "ccusage 启动失败",
+            Width = 520,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            Content = new StackPanel
+            {
+                Margin = new Avalonia.Thickness(24),
+                Spacing = 16,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = message,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                    },
+                    closeButton,
+                },
+            },
+        };
+        desktop.MainWindow = dialog;
+        closeButton.Click += (_, _) => dialog.Close();
+        // ShutdownMode 默认 OnLastWindowClose：错误窗关闭 = 进程退出
+        dialog.Show();
     }
 }
