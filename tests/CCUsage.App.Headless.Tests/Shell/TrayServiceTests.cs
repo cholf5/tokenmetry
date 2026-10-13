@@ -3,6 +3,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using CCUsage.App.Localization;
 using CCUsage.App.Tray;
 using CCUsage.App.Views;
 using Xunit;
@@ -82,6 +83,40 @@ public class TrayServiceTests : IDisposable
 
         window.Show(); // 托盘「打开主窗」可唤回——窗口未被销毁
         Assert.True(window.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void Language_switch_updates_menu_headers_in_place_without_replacing_menu()
+    {
+        // 语言切换回归（真机实测）：macOS 的 NativeMenu 导出器缓存首个挂载实例，语言切换
+        // 若整体替换 _trayIcon.Menu 会抛 ArgumentException("The menu being updated does not
+        // match.") 且沿 PropertyChanged 同步链打断切换——正确做法是就地更新各菜单项 Header。
+        var tray = new TrayService(_window);
+        tray.Initialize();
+        var icon = SingleRegisteredIcon();
+        Assert.NotNull(icon);
+        var menuBefore = icon!.Menu;
+
+        var originalLanguage = Translations.Instance.CurrentLanguage;
+        try
+        {
+            Translations.Instance.SetLanguage(AppLanguage.English);
+
+            Assert.Same(menuBefore, icon.Menu); // 菜单实例不替换
+            var headers = icon.Menu!.Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList();
+            Assert.Contains("Open window", headers);
+            Assert.Contains("Refresh now", headers);
+            Assert.Contains("Quit", headers);
+
+            Translations.Instance.SetLanguage(originalLanguage);
+            var headersRestored = icon.Menu!.Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList();
+            Assert.Contains("打开主窗", headersRestored);
+            Assert.Contains("退出", headersRestored);
+        }
+        finally
+        {
+            Translations.Instance.SetLanguage(originalLanguage); // 进程级单例，恢复基线
+        }
     }
 
     private static TrayIcon? SingleRegisteredIcon()

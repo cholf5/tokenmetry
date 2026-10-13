@@ -31,6 +31,10 @@ public class TrayService
     private readonly BackgroundRefreshService? _refreshService;
     private TrayIcon? _trayIcon;
     private NativeMenuItem? _costItem;
+    private NativeMenuItem? _openItem;
+    private NativeMenuItem? _refreshItem;
+    private NativeMenuItem? _settingsItem;
+    private NativeMenuItem? _exitItem;
 
     public TrayService(Window mainWindow) : this(mainWindow, null, null, null)
     {
@@ -46,16 +50,37 @@ public class TrayService
 
     public void Initialize()
     {
-        // 托盘为应用级常驻：订阅语言切换信号重建菜单（NativeMenuItem.Header 不支持绑定，
-        // 只能命令式重写；成本首行由 UpdateToolTip/BuildCostText 实时取串无需在此处理）。
+        // 托盘为应用级常驻：订阅语言切换信号重译菜单（NativeMenuItem.Header 不支持绑定，
+        // 只能命令式改写；成本首行由 UpdateToolTip/BuildCostText 实时取串无需在此处理）。
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
+
+        // 菜单实例只建一份：macOS 的 NativeMenu 导出器缓存首个挂载实例，运行中替换整个
+        // _trayIcon.Menu 会抛 ArgumentException("The menu being updated does not match.")，
+        // 且该异常沿 PropertyChanged 同步链向上打断语言切换（实测）——语言切换只就地改 Header。
+        _costItem = new NativeMenuItem { Header = Translations.Instance.TrayCostNoData, IsEnabled = false };
+        _openItem = new NativeMenuItem { Header = Translations.Instance.TrayOpenWindow, Command = new RelayCommand(ShowWindow) };
+        _refreshItem = new NativeMenuItem { Header = Translations.Instance.TrayRefreshNow, Command = new RelayCommand(RefreshNow) };
+        _settingsItem = new NativeMenuItem { Header = Translations.Instance.TraySettings, Command = new RelayCommand(OpenSettings) };
+        _exitItem = new NativeMenuItem { Header = Translations.Instance.TrayExit, Command = new RelayCommand(ExitApp) };
 
         _trayIcon = new TrayIcon
         {
             IsVisible = true,
             ToolTipText = BuildTooltip(),
             Icon = CreateIcon(),
-            Menu = BuildMenu()
+            Menu = new NativeMenu
+            {
+                Items =
+                {
+                    _costItem,
+                    new NativeMenuItemSeparator(),
+                    _openItem,
+                    _refreshItem,
+                    _settingsItem,
+                    new NativeMenuItemSeparator(),
+                    _exitItem,
+                }
+            }
         };
         _trayIcon.Clicked += (_, _) => ShowWindow();
 
@@ -75,31 +100,11 @@ public class TrayService
         }
     }
 
-    private NativeMenu BuildMenu()
-    {
-        // NativeMenuItem 禁止同实例挂到第二个 NativeMenu（Avalonia parent 校验，重建即抛
-        // InvalidOperationException）——每次整份新建，成本首行实例随之替换；
-        // 后续成本回写经 UpdateToolTip 写到新实例上。初值 = 无数据态文案（KPI 联动会很快覆盖）。
-        _costItem = new NativeMenuItem { Header = Translations.Instance.TrayCostNoData, IsEnabled = false };
-
-        return new NativeMenu
-        {
-            Items =
-            {
-                _costItem,
-                new NativeMenuItemSeparator(),
-                new NativeMenuItem { Header = Translations.Instance.TrayOpenWindow, Command = new RelayCommand(ShowWindow) },
-                new NativeMenuItem { Header = Translations.Instance.TrayRefreshNow, Command = new RelayCommand(RefreshNow) },
-                new NativeMenuItem { Header = Translations.Instance.TraySettings, Command = new RelayCommand(OpenSettings) },
-                new NativeMenuItemSeparator(),
-                new NativeMenuItem { Header = Translations.Instance.TrayExit, Command = new RelayCommand(ExitApp) },
-            }
-        };
-    }
-
     private string BuildTooltip() => Translations.Instance.TrayTooltip;
 
-    /// <summary>语言切换重译：菜单重建 + tooltip 重写（成本首行仍按当前数据态取串）。</summary>
+    /// <summary>语言切换重译：就地更新各菜单项 Header + tooltip（成本首行仍按当前数据态取串）。
+    /// <b>不得替换 NativeMenu 实例</b>——macOS 导出器缓存首个挂载实例（见 Initialize 注释）；
+    /// Header 就地改写能同步到原生菜单（成本首行的运行时回写一直如此）。</summary>
     private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(Translations.CurrentLanguage) || _trayIcon is null)
@@ -107,8 +112,26 @@ public class TrayService
             return;
         }
 
-        var menu = BuildMenu();
-        _trayIcon.Menu = menu;
+        if (_openItem is { } open)
+        {
+            open.Header = Translations.Instance.TrayOpenWindow;
+        }
+
+        if (_refreshItem is { } refresh)
+        {
+            refresh.Header = Translations.Instance.TrayRefreshNow;
+        }
+
+        if (_settingsItem is { } settings)
+        {
+            settings.Header = Translations.Instance.TraySettings;
+        }
+
+        if (_exitItem is { } exit)
+        {
+            exit.Header = Translations.Instance.TrayExit;
+        }
+
         if (_dashboard != null)
         {
             UpdateToolTip(BuildCostText(_dashboard.TodayCostUsd, _dashboard.HasData));
