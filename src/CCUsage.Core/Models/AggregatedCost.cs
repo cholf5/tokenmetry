@@ -9,7 +9,10 @@ namespace CCUsage.Core.Models;
 /// <list type="bullet">
 /// <item><c>(null, false)</c>——范围内没有任何成本数据（如补零空日、无 facts），既非 0 也非未知。</item>
 /// <item><c>(null, true)</c>——全部成本未知（有用量但计价全部缺失）。</item>
-/// <item><c>(0, false)</c>——已知成本恰为 0（如 ZCode 自定义 provider 行的显式 0 成本），与未知严格区分。</item>
+/// <item><c>(0, false)</c>——已知成本恰为 0，与未知严格区分。<b>"已知为零"只能来自来源侧的
+/// 显式声明</b>：如 ZCode 自定义 provider 行（账本不记逐请求成本，非 Z.ai 行按发布版 CLI 的
+/// missingPricing→0 约定落账，属"来源声明零价"），并非我们判定其价格为 0。采集适配器自身的
+/// "不可计价"一律走 null 缺价（A-0b），不得折 0 冒充本态。</item>
 /// <item><c>(x, true)</c>——部分未知；x 是已知成本下限，实际成本大于等于 x。</item>
 /// </list>
 /// 边界（I-002 存储语义）：facts 行的 cost_usd 仅在该行全部记录成本未知时为 null，混合行存"已知部分
