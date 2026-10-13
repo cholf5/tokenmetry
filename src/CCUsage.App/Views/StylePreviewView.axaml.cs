@@ -8,10 +8,12 @@ using CCUsage.Core.Abstractions;
 namespace CCUsage.App.Views;
 
 /// <summary>
-/// [I-027] 临时样式预览页（见 StylePreviewView.axaml 头注释）：设计令牌与共享样式的
-/// 目检载体，支持就地切换明暗主题与弹出 toast；[D-004/D-005] 追加图表控件演示区
+/// [I-027] dev-only 样式预览页（Q-002 定案保留）：设计令牌与共享样式的目检载体，
+/// 支持就地切换明暗主题与弹出 toast；[D-004/D-005] 图表控件演示区
 /// （ChartPreviewViewModel：fixture ↔ 真实 IUsageQueryService 开关）。
-/// 无外壳导航入口，真机目检经 CCUSAGE_PREVIEW_WINDOW=1 打开预览窗口；v0.4 页面卡落地后随本页删除。
+/// 定位：截图/测试基建 + 开发预览——<b>无生产入口</b>（不在外壳导航与路由中，唯一打开方式
+/// 为 CCUSAGE_PREVIEW_WINDOW=1 的开发预览窗）；真机目检与明暗截图留档（CCUSAGE_STYLE_PREVIEW_DIR）
+/// 继续依赖本页。生产视图不再依赖它时可删。
 /// </summary>
 public partial class StylePreviewView : UserControl
 {

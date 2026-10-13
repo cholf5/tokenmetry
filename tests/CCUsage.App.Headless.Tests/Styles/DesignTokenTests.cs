@@ -285,6 +285,29 @@ public class DesignTokenTests
     }
 
     [AvaloniaFact]
+    public void Data_table_rows_hover_with_shared_nav_hover_brush()
+    {
+        // Q-002 跨页统一：数据表行（共享 data-table 类，原 rank-table/session-table 收编）
+        // hover 底色 = AppNavHoverBackgroundBrush（原型 tr:hover #17253a 同源令牌，与外壳导航一致）。
+        var listBox = new ListBox { Classes = { "data-table" }, ItemsSource = new[] { "a", "b" } };
+        var window = new Window { Width = 400, Height = 300, Content = listBox };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var item = Assert.IsType<ListBoxItem>(listBox.GetRealizedContainers().First());
+        var at = item.TranslatePoint(new Point(item.Bounds.Width / 2, item.Bounds.Height / 2), window)!.Value;
+        window.MouseMove(at);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(item.IsPointerOver, "悬停应命中行容器");
+        Assert.True(Application.Current!.TryGetResource("AppNavHoverBackgroundBrush", window.ActualThemeVariant, out var hover));
+        Assert.Same(hover, item.Background);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void Toast_service_shows_notification_card_in_host_window()
     {
         var window = new Window { Width = 400, Height = 300 };

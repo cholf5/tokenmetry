@@ -9,7 +9,7 @@ namespace CCUsage.App.Headless.Tests.Theming;
 
 /// <summary>
 /// I-026 headless 测试宿主：以 headless 平台启动真实的 App（App.axaml 里的
-/// SemiTheme + DataGridSemiTheme + 自建 ThemeDictionaries 全部生效），
+/// SemiTheme 生效（DataGridSemiTheme 与自建 ThemeDictionaries 已随 Q-002 清理移除）），
 /// 不 mock 样式层，保证被测对象就是迁移产物本身。
 /// I-027：UseHeadlessDrawing=false 改用真实 Skia 离屏渲染 —— 默认的 headless drawing
 /// 管线无法截取合成帧（CaptureRenderedFrame 直接 NotSupported/空帧），而样式预览页的

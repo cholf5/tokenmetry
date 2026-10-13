@@ -625,7 +625,7 @@ public class SessionsTests
         Dispatcher.UIThread.RunJobs();
 
         var list = window.GetVisualDescendants().OfType<ListBox>()
-            .First(lb => lb.Classes.Contains("session-table"));
+            .First(lb => lb.Classes.Contains("data-table")); // Q-002：原 session-table 类收编为共享 data-table
         var realized = list.GetRealizedContainers().ToList();
         Assert.InRange(realized.Count, 1, 200); // 远小于 6,667 —— 虚拟化生效
         Assert.True(realized.Count < host.Vm.Rows.Count);

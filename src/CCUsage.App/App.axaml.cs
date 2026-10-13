@@ -37,8 +37,8 @@ public partial class App : Application
             var trayService = new TrayService(mainWindow);
             trayService.Initialize();
 
-            // D-003：DashboardViewModel 不再挂在导航上（旧视图由 Q-002 清理），但本地采集
-            // 周期刷新仍由它驱动——刷新把本地会话日志解析进 facts 存储，供后续页面卡查询。
+            // D-003/Q-002：DashboardViewModel 无视图挂载（旧视图已清理），作为后台采集刷新锚点保留——
+            // 刷新把本地会话日志解析进 facts 存储，供各页面卡查询（定案见其类型注释）。
             // S-002 审查修复（P0）：刷新接线在 dashboard 与外壳 VM 都就绪后 Attach，随后启动后台
             // 刷新服务——设置页「重新扫描」经容器内同一 BackgroundRefreshService 实例走同一条
             // 采集线（不再有 late map / 兜底实例），外壳时间戳回写也不再依赖 shell 局部变量的
@@ -52,9 +52,10 @@ public partial class App : Application
             // 回写经 NoteDataRefreshed 内部 marshal 到 UI 线程。
             _ = refreshService.TriggerRefreshAsync();
 
-            // [D-004/D-005] 临时预览窗口（StylePreviewView 自 I-027 起无导航入口）：设置
-            // CCUSAGE_PREVIEW_WINDOW=1 启动时另开一个预览窗，用于图表控件的真机 hover 目检
-            // （TC-001/TC-002）与明暗切换观察；不影响正常启动与测试。
+            // [D-004/D-005] dev-only 预览窗口（Q-002 定案：StylePreviewView 为唯一保留的临时宿主，
+            // 无导航入口、不进生产用户路径）：设置 CCUSAGE_PREVIEW_WINDOW=1 启动时另开一个预览窗，
+            // 用于图表控件 / 设计令牌的真机 hover 目检（TC-001/TC-002）与明暗切换观察；
+            // 不影响正常启动与测试。
             if (Environment.GetEnvironmentVariable("CCUSAGE_PREVIEW_WINDOW") == "1")
             {
                 var previewWindow = new Window

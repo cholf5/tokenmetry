@@ -7,11 +7,12 @@
              mc:Ignorable="d"
              x:Class="CCUsage.App.Views.StylePreviewView"
              x:DataType="vm:ChartPreviewViewModel">
-    <!-- [I-027] 临时样式预览页：设计令牌 + 共享样式的目检载体（明暗两套），与 TrendSpike(D-002) 临时页
-         同生命周期，v0.4 页面卡（D-006~D-013）落地后删除。所有颜色一律 DynamicResource 引用
+    <!-- [I-027] dev-only 样式预览页（Q-002 定案保留，无生产入口——见 StylePreviewView.axaml.cs 类型注释）：
+         设计令牌 + 共享样式的目检载体（明暗两套），依赖它的只有 headless 截图/渲染用例与
+         CCUSAGE_PREVIEW_WINDOW=1 开发预览窗。所有颜色一律 DynamicResource 引用
          Styles/Tokens.axaml 令牌，本页自身零硬编码色值。
-         [D-004/D-005] 追加图表控件演示区（TrendChart / DonutChart / Heatmap），数据源由
-         ChartPreviewViewModel 提供（fixture ↔ 真实 IUsageQueryService 开关），同样临时。 -->
+         [D-004/D-005] 图表控件演示区（TrendChart / DonutChart / Heatmap），数据源由
+         ChartPreviewViewModel 提供（fixture ↔ 真实 IUsageQueryService 开关）。 -->
     <ScrollViewer Background="{DynamicResource AppBackgroundBrush}">
         <StackPanel Margin="22,22,22,30" MaxWidth="980" HorizontalAlignment="Left" Spacing="13">
 
@@ -183,7 +184,7 @@
                             <TextBlock Text="日 token 强度热力图 · 灰格=补零日" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="11" VerticalAlignment="Center"/>
                         </StackPanel>
                         <c:Heatmap Cells="{Binding HeatmapCells}" Columns="7" HorizontalAlignment="Left"/>
-                        <TextBlock Text="颜色越亮表示当日 Token 越多；悬停显示当日数值。"
+                        <TextBlock Text="颜色越浓表示当日 Token 越多；悬停显示当日数值。"
                                    Foreground="{DynamicResource AppMutedTextBrush}" FontSize="10"/>
                     </StackPanel>
                 </Border>

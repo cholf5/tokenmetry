@@ -345,6 +345,56 @@ public class AppShellTests
     }
 
     [AvaloniaFact]
+    public void Keyboard_tab_traversal_reaches_topbar_filters_settings_and_navigation()
+    {
+        // Q-002 键盘可达性锁：Tab 遍历主窗口，顶栏两个全局筛选、设置入口、侧栏导航全部可达
+        // （可视焦点 ring 的观感属 Semi 控件模板 + 真机复核范畴，headless 只锁遍历可达性）。
+        var vm = CreateIsolatedShellViewModel();
+        var window = new MainWindow { DataContext = vm };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var topBar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TopBar");
+        var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
+        Assert.Equal(2, combos.Count);
+        var settingsButton = topBar.GetVisualDescendants().OfType<Button>()
+            .First(b => b.Classes.Contains("icon-btn"));
+        var navList = window.GetVisualDescendants().OfType<ListBox>().Single(lb => lb.Classes.Contains("nav-list"));
+
+        var visited = new List<Control>();
+        var focusManager = window.FocusManager!;
+        for (var i = 0; i < 10; i++)
+        {
+            window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, "Tab");
+            Dispatcher.UIThread.RunJobs();
+
+            if (focusManager.GetFocusedElement() is Control focused && !visited.Contains(focused))
+            {
+                visited.Add(focused);
+            }
+
+            var allReached =
+                visited.Contains(combos[0]) && visited.Contains(combos[1]) &&
+                visited.Contains(settingsButton) &&
+                visited.Any(c => c == navList || (c is ListBoxItem item && navList.IsVisualAncestorOf(item)));
+            if (allReached)
+            {
+                break;
+            }
+        }
+
+        Assert.Contains(combos[0], visited);          // 全局时间范围下拉
+        Assert.Contains(combos[1], visited);          // 全局 Agent 下拉
+        Assert.Contains(settingsButton, visited);     // 顶栏设置入口
+        Assert.Contains(visited, c => c == navList || (c is ListBoxItem item && navList.IsVisualAncestorOf(item)));
+        // 焦点始终在窗口内（没有逃逸到不可见层）
+        Assert.All(visited, c => Assert.True(window.IsVisualAncestorOf(c), "焦点控件应在主窗口可视树内"));
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void App_shell_renders_light_and_dark_screenshots_for_archive()
     {
         // 截图留档目录由环境变量指定（验证时传 docs/design）；未设置时仅断言可渲染。

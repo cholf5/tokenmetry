@@ -87,10 +87,9 @@
         </Style>
     </Window.Styles>
 
-    <!-- D-003 页面路由：CurrentPage（页面 VM）→ 视图。未落地页面共用 PagePlaceholderView；
-         [I-027] StylePreviewView 临时页自本卡起没有导航入口（明暗截图留档与 headless 用例仍直接
-         实例化该视图，重生成命令见 I-027/D-003 卡 Verification），Q-002 清理时随旧视图一并处置。
-         D-012/D-013 起时间分析 / 成本分析为真实页——8 个导航页全部真实化，占位路由仅剩未知兜底。 -->
+    <!-- D-003 页面路由：CurrentPage（页面 VM）→ 视图。Q-002：旧视图（Dashboard/Reports/
+         ModelBreakdown/TrendSpike/EmptyState）已删除，仅剩 8 个真实页 + 设置页 + 未知兜底占位；
+         StylePreviewView 为 dev-only 预览宿主（无导航入口，CCUSAGE_PREVIEW_WINDOW=1 才打开）。 -->
     <Window.DataTemplates>
         <DataTemplate DataType="vm:OverviewViewModel">
             <views:OverviewView/>

@@ -9,6 +9,20 @@ using CCUsage.Core.Abstractions;
 
 namespace CCUsage.App.ViewModels;
 
+/// <summary>
+/// 后台采集刷新锚点（Q-002 定案）：旧 DashboardView 已删除，本 VM <b>不再挂载任何视图</b>，
+/// 以纯 headless VM 保留——它是刷新线的行为锚点，删除会改变采集线语义：
+/// <list type="bullet">
+/// <item>BackgroundRefreshWiring.Attach(dashboard, shell) → RefreshCommand：定时器 / 启动首刷 /
+///       设置页「重新扫描」三条触发共用同一轮（P0 回归锁 Di_settings_rescan_drives_real_dashboard_refresh_line）；</item>
+/// <item>RefreshAsync 内 = 本地采集 facts 直解析（GetDailyUsageAsync）+ 非 facts 持久化源的落库 +
+///       成本异常提醒（AnomalyDetector + ISystemNotification，设置可关）；</item>
+/// <item>成败口径：Status == "error" 即本轮失败（接线层据此向设置页如实上报）。</item>
+/// </list>
+/// KPI 状态属性（TodayCostUsd 等）仅被本类 Status/HasData 计算与测试消费，无 UI 展示；
+/// 若未来需要拆轻量 RefreshCoordinator，须先迁移上述三点并保住 BackgroundRefreshServiceTests
+/// 与 SettingsPageTests 的 P0 回归锁。
+/// </summary>
 public partial class DashboardViewModel : ViewModelBase
 {
     private readonly DashboardService _dashboardService;

@@ -14,8 +14,10 @@
         两个 .gridEqual 下行（D-007）：模型使用分布表 / Token 类型构成环形 / 项目排行表 / 成本趋势折线。
         筛选控件在外壳顶部栏（D-003 全局状态），本页只随 FilterStateService 刷新；
         「查看详情 ↗」经 VM 构造注入的导航回调（外壳 GoToPage）跳模型/项目页。
+        Q-002：页面根补 ScrollViewer（同时间/成本/设置页模式）——最小窗口高度下底部面板不再被裁剪。
     -->
-    <StackPanel Spacing="13">
+    <ScrollViewer>
+        <StackPanel Spacing="13" Margin="0,0,0,4">
 
         <!-- 页头（原型 .pagehead；筛选下拉在顶部栏，不在此重复） -->
         <StackPanel Spacing="4">
@@ -329,5 +331,6 @@
                 </StackPanel>
             </Border>
         </Grid>
-    </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

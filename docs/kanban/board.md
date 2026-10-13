@@ -10,7 +10,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
 | B-004 | flaky：CopilotSessionAdapterTests 间歇多计 LinesSkipped | P2 | S | — | — |
-| Q-002 | 旧视图清理与视觉验收打磨 | P2 | M | — | 本批次全部页面卡 |
 
 > 2026-10-12：按用户决定一次性建 UI 原型落地批次卡 I-026～I-029 / D-003～D-013 / S-002 / Q-002（17 张）。设计基准 `docs/design/ccusage_analytics_prototype.html`（同日自 ~/Downloads 收入仓库）；选型 Semi.Avalonia（依据见 I-026 Background）。本批是 v0.4 主体的全景规划，执行按依赖顺序逐卡进行：I-026 → I-027 → D-003，I-028/I-029 与主题线并行，随后 D-004/D-005 → D-006 → 其余页面 → Q-002。与「看板保持 5–10 张」的常规策略有意偏离，理由同 2026-10-11 适配器批次。
 
@@ -20,6 +19,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| Q-002 | 旧视图清理与视觉验收打磨 | P2 | 2026-10-13 |
 | S-002 | 数据源与设置页重构（原型版） | P2 | 2026-10-13 |
 | D-013 | 成本分析页（计费口径透明） | P2 | 2026-10-13 |
 | D-012 | 时间分析页（小时分布 + 活跃日历热力图） | P2 | 2026-10-13 |
