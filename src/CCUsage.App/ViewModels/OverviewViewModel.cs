@@ -115,7 +115,7 @@ public sealed class DimensionRowViewModel
 /// 导航机制（D-007 定案）：构造注入 <see cref="Action{PageId}"/> 回调（外壳把 GoToPage 传入），
 /// 页面 VM 不反向引用 MainWindowViewModel（无双向外包依赖）；回调为 null 时跳转命令 no-op。
 /// </summary>
-public partial class OverviewViewModel : ViewModelBase, IDisposable
+public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
     /// <summary>预览表 TopN（模型分布 / 项目排行共用；原型表为 Top5，任务卡定 N≈6，与同页 Agent 环形 Top6 一致）。</summary>
     public const int TopN = 6;
@@ -237,6 +237,9 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable
     /// </summary>
     internal UsageQueryFilter BuildQueryFilter(TimeRangeOption range, AgentOption agent) =>
         GlobalFilterMapper.Build(range, agent);
+
+    /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync，序号防护保证与筛选重查并发时旧响应丢弃。</summary>
+    public Task OnDataRefreshedAsync() => LoadAsync();
 
     /// <summary>按当前全局筛选重查 KPI + 日序列 + Agent/模型/项目维度（序号防护见类型说明）。</summary>
     public async Task LoadAsync()

@@ -66,7 +66,7 @@ public sealed class ProjectRankRowViewModel
 /// （程序化立即应用，右栏可见、「清除」可复位，无隐藏过滤态）后导航会话页。
 /// 生命周期 / 线程 / 序号防护纪律同 <see cref="OverviewViewModel"/>。
 /// </summary>
-public partial class ProjectsViewModel : ViewModelBase, IDisposable
+public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
@@ -121,6 +121,9 @@ public partial class ProjectsViewModel : ViewModelBase, IDisposable
             _ = LoadAsync();
         }
     }
+
+    /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync，序号防护保证与筛选重查并发时旧响应丢弃。</summary>
+    public Task OnDataRefreshedAsync() => LoadAsync();
 
     /// <summary>按当前全局筛选重查项目维度（序号防护见类型说明）。</summary>
     public async Task LoadAsync()

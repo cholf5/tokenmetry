@@ -108,7 +108,7 @@ public sealed class AgentRankRowViewModel
 /// 生命周期 / 线程 / 序号防护纪律同 <see cref="OverviewViewModel"/>：每次导航新建实例、
 /// 外壳 Dispose 退订、FilterStateService 通知已在 UI 线程。
 /// </summary>
-public partial class AgentsViewModel : ViewModelBase, IDisposable
+public partial class AgentsViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
     /// <summary>KPI 卡张数（原型 agentKpis 为 Top4）。</summary>
     public const int KpiTopN = 4;
@@ -179,6 +179,9 @@ public partial class AgentsViewModel : ViewModelBase, IDisposable
             _ = LoadAsync();
         }
     }
+
+    /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync，序号防护保证与筛选重查并发时旧响应丢弃。</summary>
+    public Task OnDataRefreshedAsync() => LoadAsync();
 
     /// <summary>按当前全局筛选重查 Agent 维度（序号防护见类型说明）。</summary>
     public async Task LoadAsync()

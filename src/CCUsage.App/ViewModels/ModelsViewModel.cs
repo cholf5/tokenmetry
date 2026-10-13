@@ -124,7 +124,7 @@ public sealed class ModelsTotalViewModel
 /// 外壳 Dispose 退订、FilterStateService 通知已在 UI 线程。加载失败保留上一次成功数据 +
 /// 错误面板（同会话页 P2-2 纪律）；本页无行点击下钻（卡内未要求，明细下钻经会话页搜索/筛选完成）。
 /// </summary>
-public partial class ModelsViewModel : ViewModelBase, IDisposable
+public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
@@ -173,6 +173,9 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable
             _ = LoadAsync();
         }
     }
+
+    /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync，序号防护保证与筛选重查并发时旧响应丢弃。</summary>
+    public Task OnDataRefreshedAsync() => LoadAsync();
 
     /// <summary>按当前全局筛选重查模型维度（序号防护见类型说明）。</summary>
     public async Task LoadAsync()

@@ -137,7 +137,7 @@
                 Background="{DynamicResource AppTopbarBackgroundBrush}"
                 BorderBrush="{DynamicResource AppLineBrush}"
                 BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="18,0" VerticalAlignment="Center">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="18,0" VerticalAlignment="Center">
                 <!-- 全局时间范围（7/30/90/全部，默认 7 天，写入 FilterStateService） -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                     <TextBlock Classes="topbar-label" Text="时间范围"/>
@@ -190,8 +190,25 @@
                                    Margin="4,0,0,0"/>
                     </StackPanel>
                 </Border>
-                <!-- 设置入口（导航到数据源与设置页） -->
+                <!-- 手动刷新（⟳）：经 BackgroundRefreshService 单飞槽触发一轮采集刷新（与定时器 /
+                     托盘「立即刷新」/ 设置页重扫同一合并语义）；扫描进行中按钮禁用并切换为
+                     进行中字形，轮次结束的状态/时间戳/页面重查回写由 BackgroundRefreshWiring 统一完成 -->
                 <Button Grid.Column="4"
+                        Classes="icon-btn"
+                        Command="{Binding RefreshDataCommand}"
+                        IsEnabled="{Binding !RefreshDataCommand.IsRunning}"
+                        ToolTip.Tip="立即刷新本地数据">
+                    <Panel>
+                        <TextBlock Text="⟳"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   IsVisible="{Binding !RefreshDataCommand.IsRunning}"/>
+                        <TextBlock Text="◌"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   IsVisible="{Binding RefreshDataCommand.IsRunning}"/>
+                    </Panel>
+                </Button>
+                <!-- 设置入口（导航到数据源与设置页） -->
+                <Button Grid.Column="5"
                         Classes="icon-btn"
                         Content="⚙"
                         Command="{Binding OpenSettingsCommand}"

@@ -247,9 +247,12 @@ public class AppShellTests
         Assert.Contains(vm.DataStatusText, texts);
         Assert.Contains("尚未刷新", texts);
 
-        // 设置入口按钮 → 导航到数据源与设置页
+        // 顶栏两个 icon-btn：⟳ 手动刷新（接外壳刷新线）+ ⚙ 设置入口——按命令定位，不依赖顺序
+        Assert.Contains(
+            topBar.GetVisualDescendants().OfType<Button>(),
+            b => b.Command == vm.RefreshDataCommand);
         var settingsButton = topBar.GetVisualDescendants().OfType<Button>()
-            .First(b => b.Classes.Contains("icon-btn"));
+            .First(b => b.Command == vm.OpenSettingsCommand);
         Assert.NotNull(settingsButton.Command);
         settingsButton.Command!.Execute(null);
         Dispatcher.UIThread.RunJobs();

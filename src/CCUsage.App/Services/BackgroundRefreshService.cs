@@ -45,6 +45,9 @@ public sealed class BackgroundRefreshWiring
             // 定时器线程上下文调用安全）。A-12：同轮回写数据源状态灯（error 红 / no data 橙）。
             _shell?.NoteDataRefreshed();
             _shell?.NoteDataSourceStatus(dashboard.Status);
+            // 本轮 facts 已入库 → 当前可见页面与右栏最近会话重查（内部 marshal 到 UI 线程；
+            // 不重查则页面停留在导航/筛选时的旧数据，手动刷新按钮也无可感知效果）。
+            _shell?.RefreshCurrentPageData();
             return dashboard.Status != "error";
         });
     }

@@ -106,7 +106,7 @@ public sealed class SessionRowViewModel
 /// 下钻定案：行点击 → toast 显示会话标识 + "详情视图规划中"（原型为 toast 占位；
 /// 不在本卡发明弹窗/详情页新功能面，正式下钻留待后续卡）。
 /// </summary>
-public partial class SessionsViewModel : ViewModelBase, IDisposable
+public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
     /// <summary>"加载更多"页大小（I-029 分页契约）。</summary>
     public const int PageSize = 50;
@@ -360,6 +360,9 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable
             PageSize = unbounded ? null : PageSize,
         };
     }
+
+    /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync（回到第 1 页按当前筛选/搜索/排序重查），序号防护保证与筛选重查并发时旧响应丢弃。</summary>
+    public Task OnDataRefreshedAsync() => LoadAsync();
 
     /// <summary>按当前筛选/搜索/排序/页状态重查明细表（序号防护见类型说明）。</summary>
     public async Task LoadAsync()
