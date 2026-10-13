@@ -38,6 +38,21 @@ public sealed class DimensionUsageRow
     public decimal? TokenShare { get; init; }
 
     /// <summary>
+    /// 主用 Agent（仅模型维度填充，D-010）：把该模型作为会话主模型（dominant_model）的会话按 Agent
+    /// 分组取会话数最多者，并列取键序数最小。数据源与 <see cref="SessionCount"/> 同一批 session_facts
+    /// （口径一致）。为 null 的三种情形：无会话数据（如纯 CLI 源只有 facts 行）；或该模型的会话中
+    /// 无有效 Agent 归属（空白 Agent 键被跳过）；或非模型维度。Agent / 项目维度恒为 null。
+    /// </summary>
+    public string? DominantAgent { get; init; }
+
+    /// <summary>
+    /// 使用该模型的 Agent 数（仅模型维度填充，与 <see cref="DominantAgent"/> 同源）：1 = 唯一 Agent；
+    /// &gt;1 = 多 Agent 共用（展示层据此决定「主用 Agent」或聚合文案）；无会话数据为 null。
+    /// Agent / 项目维度恒为 null。
+    /// </summary>
+    public int? AgentCount { get; init; }
+
+    /// <summary>
     /// 成本占比 = 本行已知成本 / 范围已知成本合计（0..1）。本行含未知成本（<see cref="AggregatedCost.HasUnknownCost"/>）
     /// 或范围已知成本合计为 0 / 无已知成本时为 null——未知部分不可比，不伪造占比。
     /// </summary>

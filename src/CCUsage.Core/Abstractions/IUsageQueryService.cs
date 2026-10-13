@@ -35,7 +35,11 @@ public interface IUsageQueryService
     /// <summary>Agent 维度聚合（I-029）：会话数、输入/输出/总 token、成本、占比。</summary>
     Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default);
 
-    /// <summary>模型维度聚合（I-029）：会话数按 dominant_model 归属；空模型键跳过（对齐既有页面口径）。</summary>
+    /// <summary>
+    /// 模型维度聚合（I-029）：会话数按 dominant_model 归属；空模型键跳过（对齐既有页面口径）。
+    /// D-010 契约演进：额外填充 <see cref="DimensionUsageRow.DominantAgent"/> / <see cref="DimensionUsageRow.AgentCount"/>
+    /// （同一批 session_facts 按 Agent 计数派生的"关联 Agent"，仅本维度非 null）。
+    /// </summary>
     Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default);
 
     /// <summary>项目维度聚合（I-029）：Key 为原始路径，DisplayName 为归一化项目名（歧义守卫见类型说明）。</summary>
