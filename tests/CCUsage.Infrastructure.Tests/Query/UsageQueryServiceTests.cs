@@ -31,6 +31,9 @@ public class UsageQueryServiceTests : IAsyncLifetime
     {
         if (File.Exists(_dbPath))
         {
+            // A-1（Windows）：连接池默认开启（Pooling=True），池化连接会一直持有 .db 句柄，
+            // 重试删除救不回来——先清池再删，POSIX 上无副作用。
+            SqliteConnection.ClearAllPools();
             // SQLite may keep the file open for a short time. Retry a few times.
             for (var i = 0; i < 5; i++)
             {
@@ -289,6 +292,7 @@ public class UsageQueryServiceTests : IAsyncLifetime
         }
         finally
         {
+            SqliteConnection.ClearAllPools(); // A-1（Windows）：清池释放 .db 句柄后再删
             File.Delete(emptyDb);
         }
     }
@@ -346,6 +350,7 @@ public class UsageQueryServiceTests : IAsyncLifetime
         }
         finally
         {
+            SqliteConnection.ClearAllPools(); // A-1（Windows）：清池释放 .db 句柄后再删
             if (File.Exists(storePath))
             {
                 File.Delete(storePath);
@@ -463,6 +468,7 @@ public class UsageQueryServiceTests : IAsyncLifetime
         }
         finally
         {
+            SqliteConnection.ClearAllPools(); // A-1（Windows）：清池释放 .db 句柄后再删
             File.Delete(storePath);
         }
     }
@@ -709,6 +715,7 @@ public class UsageQueryServiceTests : IAsyncLifetime
         }
         finally
         {
+            SqliteConnection.ClearAllPools(); // A-1（Windows）：清池释放 .db 句柄后再删
             if (File.Exists(storePath))
             {
                 File.Delete(storePath);
