@@ -29,6 +29,11 @@
     <ProjectReference Include="..\CCUsage.Infrastructure\CCUsage.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!-- A-0：托盘图标资产（彩色版通用；-template 单色版 macOS 状态栏模板图标，跟随明暗自动反色） -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/**" />
+  </ItemGroup>
+
   <!-- D-008：headless 页面层测试需要访问 VM 的 internal 测试对账入口（防抖提交钩子 /
        Agent 范围解析 / 查询映射构造器等，与 OverviewViewModel "internal 供测试对账" 同纪律）。 -->
   <ItemGroup>
