@@ -242,6 +242,7 @@ public class CopilotOtelMergeTests : IDisposable
 
         var adapter = new CopilotSessionAdapter(
             configuredHome: home,
+            locator: HermeticLocator,
             otelParser: new CopilotOtelParser(fallbackTimestamp: _ => fallback));
         var result = await adapter.ScanAsync();
 
@@ -706,50 +707,40 @@ public class CopilotOtelMergeTests : IDisposable
         Directory.CreateDirectory(Path.Combine(home, "session-state", "nested", "session-c"));
         File.WriteAllText(Path.Combine(home, "session-state", "nested", "session-c", "events.jsonl"), "{}\n");
 
-        try
-        {
-            Environment.SetEnvironmentVariable(CopilotLogLocator.OtelExporterPathEnvVariable, explicitFile);
-            var files = new CopilotLogLocator().CollectSourceFiles(home);
+        // 环境经注入的 accessor 提供（生产接线的同一缝隙），不动进程环境：xunit 按类并行，
+        // 进程级环境变量会泄入并行窗口内的其他 Copilot 扫描（B-004 间歇失败根因）。
+        var files = new CopilotLogLocator(name
+                => name == CopilotLogLocator.OtelExporterPathEnvVariable ? explicitFile : null)
+            .CollectSourceFiles(home);
 
-            files.Select(file => (file.Kind, file.Path)).Should().BeEquivalentTo(new[]
-            {
-                (CopilotSourceKind.Otel, explicitFile),
-                (CopilotSourceKind.Otel, Path.Combine(home, "otel", "nested", "deep.jsonl")),
-                (CopilotSourceKind.Otel, Path.Combine(home, "otel", "otel.jsonl")),
-                (CopilotSourceKind.SessionState, Path.Combine(home, "session-state", "session-a", "events.jsonl")),
-                (CopilotSourceKind.SessionState, Path.Combine(home, "session-state", "session-b", "events.jsonl")),
-            }, options => options.WithoutStrictOrdering(), "otel/ 递归收集、非 jsonl 不收集、session-state 仅一级目录、按路径排序");
-        }
-        finally
+        files.Select(file => (file.Kind, file.Path)).Should().BeEquivalentTo(new[]
         {
-            Environment.SetEnvironmentVariable(CopilotLogLocator.OtelExporterPathEnvVariable, null);
-        }
+            (CopilotSourceKind.Otel, explicitFile),
+            (CopilotSourceKind.Otel, Path.Combine(home, "otel", "nested", "deep.jsonl")),
+            (CopilotSourceKind.Otel, Path.Combine(home, "otel", "otel.jsonl")),
+            (CopilotSourceKind.SessionState, Path.Combine(home, "session-state", "session-a", "events.jsonl")),
+            (CopilotSourceKind.SessionState, Path.Combine(home, "session-state", "session-b", "events.jsonl")),
+        }, options => options.WithoutStrictOrdering(), "otel/ 递归收集、非 jsonl 不收集、session-state 仅一级目录、按路径排序");
     }
 
     [Fact]
     public void Discovers_files_from_copilot_home_and_deduplicates_exporter_path()
     {
-        var home = CreateTempHome();
         var relocated = CreateTempHome();
         Directory.CreateDirectory(Path.Combine(relocated, "otel"));
         var shared = Path.Combine(relocated, "otel", "trace.jsonl");
         File.WriteAllText(shared, "{}\n");
         WriteEvents(relocated, "session-1", "{}");
 
-        try
+        var files = new CopilotLogLocator(name => name switch
         {
-            Environment.SetEnvironmentVariable(CopilotLogLocator.CopilotHomeEnvVariable, relocated);
-            Environment.SetEnvironmentVariable(CopilotLogLocator.OtelExporterPathEnvVariable, shared);
-            var files = new CopilotLogLocator().CollectSourceFiles(configuredHome: null);
+            CopilotLogLocator.CopilotHomeEnvVariable => relocated,
+            CopilotLogLocator.OtelExporterPathEnvVariable => shared,
+            _ => null,
+        }).CollectSourceFiles(configuredHome: null);
 
-            files.Should().HaveCount(2, "COPILOT_HOME 重定位 + 导出变量与 otel/ 重复指向同文件去重");
-            files.Should().OnlyContain(file => file.Path.StartsWith(relocated, StringComparison.Ordinal));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(CopilotLogLocator.CopilotHomeEnvVariable, null);
-            Environment.SetEnvironmentVariable(CopilotLogLocator.OtelExporterPathEnvVariable, null);
-        }
+        files.Should().HaveCount(2, "COPILOT_HOME 重定位 + 导出变量与 otel/ 重复指向同文件去重");
+        files.Should().OnlyContain(file => file.Path.StartsWith(relocated, StringComparison.Ordinal));
     }
 
     // ---- 增量扫描（适配器自有记账：变更 otel 文件整文件重解析、合并对池重算） ----
@@ -798,8 +789,9 @@ public class CopilotOtelMergeTests : IDisposable
 
         try
         {
-            Environment.SetEnvironmentVariable(CopilotLogLocator.OtelExporterPathEnvVariable, lockedFile);
-            var result = await CreateAdapter(home).ScanAsync();
+            // 导出路径经注入 accessor 提供，不动进程环境（B-004：并行窗口内的跨类污染）。
+            var result = await CreateAdapter(home, new CopilotLogLocator(name
+                => name == CopilotLogLocator.OtelExporterPathEnvVariable ? lockedFile : null)).ScanAsync();
 
             // 其余数据正常出账：shutdown 区间 + otel/otel.jsonl 行（otel_after=10:00 之后保留）。
             result.Records.Should().HaveCount(2);
@@ -811,20 +803,28 @@ public class CopilotOtelMergeTests : IDisposable
             result.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok, "读失败不是解析错误，不降级 Partial");
 
             // 失败条件持续存在时重复扫描：同样不崩溃、不重复计数（审查员指出的持续失败场景）。
-            var second = await CreateAdapter(home).ScanAsync();
+            var second = await CreateAdapter(home, new CopilotLogLocator(name
+                => name == CopilotLogLocator.OtelExporterPathEnvVariable ? lockedFile : null)).ScanAsync();
             second.Records.Should().HaveCount(2);
             second.Diagnostics.LinesSkipped.Should().Be(1);
         }
         finally
         {
-            Environment.SetEnvironmentVariable(CopilotLogLocator.OtelExporterPathEnvVariable, null);
             File.SetUnixFileMode(lockedFile, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
     }
 
     // ---- helpers ----
 
-    private CopilotSessionAdapter CreateAdapter(string home) => new(configuredHome: home);
+    /// <summary>
+    /// 全类扫描不读进程环境（xunit 按类并行 + dotnet test 继承 shell 环境，任何泄漏进来的
+    /// Copilot 环境变量都会击穿默认定位器的导出路径分支，B-004）；环境语义由文件发现专用用例
+    /// 经显式注入的 accessor 覆盖。
+    /// </summary>
+    private static readonly CopilotLogLocator HermeticLocator = new(_ => null);
+
+    private CopilotSessionAdapter CreateAdapter(string home, CopilotLogLocator? locator = null)
+        => new(configuredHome: home, locator: locator ?? HermeticLocator);
 
     private static async Task<CopilotSessionFileParse> ParseSessionState(string eventsFile)
     {

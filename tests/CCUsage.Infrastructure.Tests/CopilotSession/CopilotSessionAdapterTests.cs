@@ -338,19 +338,15 @@ public class CopilotSessionAdapterTests : IDisposable
         WriteEvents(defaultHome, "session-default",
             Shutdown("s-1", "2026-04-15T09:00:00.000Z", Model("m", input: 7, output: 1)));
 
-        try
-        {
-            Environment.SetEnvironmentVariable(CopilotLogLocator.CopilotHomeEnvVariable, relocated);
-            var result = await new CopilotSessionAdapter().ScanAsync();
+        // COPILOT_HOME 经注入的 accessor 提供（定位器读环境的生产同一缝隙），不动进程环境：
+        // xunit 按类并行，进程级环境变量会与并行窗口内的其他 Copilot 用例互踩（B-004）。
+        var adapter = new CopilotSessionAdapter(locator: new CopilotLogLocator(
+            name => name == CopilotLogLocator.CopilotHomeEnvVariable ? relocated : null));
+        var result = await adapter.ScanAsync();
 
-            result.Records.Should().ContainSingle();
-            result.Records[0].SessionId.Should().Be("session-relocated");
-            result.Roots.Should().ContainSingle().Which.Should().Be(relocated);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(CopilotLogLocator.CopilotHomeEnvVariable, null);
-        }
+        result.Records.Should().ContainSingle();
+        result.Records[0].SessionId.Should().Be("session-relocated");
+        result.Roots.Should().ContainSingle().Which.Should().Be(relocated);
     }
 
     [Fact]
@@ -396,6 +392,13 @@ public class CopilotSessionAdapterTests : IDisposable
 
     // ---- helpers ----
 
+    /// <summary>
+    /// 全类扫描不读进程环境（xunit 按类并行 + dotnet test 继承 shell 环境，任何泄漏进来的
+    /// Copilot 环境变量都会击穿默认定位器的导出路径分支，B-004）；环境语义由专用用例
+    /// 经显式注入的 accessor 覆盖。
+    /// </summary>
+    private static readonly CopilotLogLocator HermeticLocator = new(_ => null);
+
     private static string Shutdown(string id, string timestamp, params string[] models)
         => $$"""{"type":"session.shutdown","id":"{{id}}","timestamp":"{{timestamp}}","data":{"modelMetrics":{ {{string.Join(",", models)}} } } }""";
 
@@ -405,7 +408,8 @@ public class CopilotSessionAdapterTests : IDisposable
 
     private static string RawModel(string name, string metricsJson) => $"\"{name}\":{metricsJson}";
 
-    private CopilotSessionAdapter CreateAdapter(string home) => new(configuredHome: home);
+    private CopilotSessionAdapter CreateAdapter(string home, CopilotLogLocator? locator = null)
+        => new(configuredHome: home, locator: locator ?? HermeticLocator);
 
     private string CreateTempHome()
     {
