@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -86,7 +87,7 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
 
     /// <summary>缺价模型名清单（tooltip 用；空清单为「无缺价模型」）。</summary>
     [ObservableProperty]
-    private string _unpricedModelsTooltip = "无缺价模型";
+    private string _unpricedModelsTooltip = Translations.Instance.NoUnpricedModels;
 
     /// <summary>未知成本说明行（估算总成本存在未知贡献时可见；D-010 口径的页面级说明）。</summary>
     [ObservableProperty]
@@ -160,7 +161,9 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
             var (inputShare, outputShare) = CreateDirectionShares(daily);
             InputShareText = OverviewViewModel.FormatShare(inputShare);
             OutputShareText = OverviewViewModel.FormatShare(outputShare);
-            UnpricedCountText = $"{unpriced.Count.ToString("N0", CultureInfo.InvariantCulture)} 个";
+            UnpricedCountText = string.Format(
+                Translations.Instance.UnpricedCountFormat,
+                unpriced.Count.ToString("N0", CultureInfo.InvariantCulture));
             UnpricedModelsTooltip = BuildUnpricedTooltip(unpriced);
             LoadError = null;
         }
@@ -171,7 +174,7 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
                 return; // 旧请求的失败不覆盖新请求的状态
             }
 
-            LoadError = $"加载失败：{ex.Message}";
+            LoadError = string.Format(Translations.Instance.LoadErrorFormat, ex.Message);
         }
     }
 
@@ -205,17 +208,18 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
     /// </summary>
     internal static string? BuildUnknownCostNote(AggregatedCost cost) => cost.KnownCostUsd is { } known
         ? cost.HasUnknownCost
-            ? $"估算总成本为已知成本下限（${known.ToString("F2", CultureInfo.InvariantCulture)}+）："
-              + "存在未计价模型的成本未知，未计入总额（缺价模型见「待确认价格」）。"
+            ? string.Format(
+                Translations.Instance.UnknownCostPartialNoteFormat,
+                known.ToString("F2", CultureInfo.InvariantCulture))
             : null
         : cost.HasUnknownCost
-            ? "当前范围成本全部未知：范围内用量的模型均缺价，成本未计入任何合计（绝不折 0）。"
+            ? Translations.Instance.UnknownCostAllNote
             : null;
 
     /// <summary>待确认价格 tooltip：缺价模型名（引擎序）分号连接；空清单「无缺价模型」。</summary>
     internal static string BuildUnpricedTooltip(IReadOnlyList<UnpricedModelInfo> unpriced) =>
         unpriced.Count == 0
-            ? "无缺价模型"
+            ? Translations.Instance.NoUnpricedModels
             : string.Join("; ", unpriced.Select(m => m.Model));
 
     /// <summary>
@@ -230,17 +234,16 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
     /// <item>未知成本——缺价模型保留「未知」，绝不折 0 混入合计（I-024/I-025 纪律 + AggregatedCost 契约）。</item>
     /// </list>
     /// </summary>
-    internal static IReadOnlyList<CostBasisRowViewModel> CreateCostBasisRows() =>
-    [
-        new("实际计费", "优先",
-            "日志自带 costUSD 时直接采用（与 ccusage 计价优先级一致，对账证据见 docs/reconciliation）；"
-            + "仅在来源提供可靠计费数据时使用。"),
-        new("估算成本", "模型价格表",
-            "按价格快照估算：用户覆盖 → models.dev 远程数据 → 内置快照三级回退；缓存输入（5m/1h）单独计价。"
-            + "金额为采集时按当次命中的价格来源计算，页面不另行折算。"),
-        new("未知成本", "不计入总额或单独标注",
-            "价格缺失的模型保留「未知」，绝不折 0 混入合计；缺价清单见「待确认价格」，逐模型明细见模型统计页。"),
-    ];
+    internal static IReadOnlyList<CostBasisRowViewModel> CreateCostBasisRows()
+    {
+        var t = Translations.Instance;
+        return
+        [
+            new(t.CostBasisRealItem, t.CostBasisRealStance, t.CostBasisRealNote),
+            new(t.CostBasisEstimateItem, t.CostBasisEstimateStance, t.CostBasisEstimateNote),
+            new(t.CostBasisUnknownItem, t.CostBasisUnknownStance, t.CostBasisUnknownNote),
+        ];
+    }
 
     public void Dispose() => _filters.PropertyChanged -= OnFilterPropertyChanged;
 }

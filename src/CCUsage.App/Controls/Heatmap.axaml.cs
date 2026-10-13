@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using CCUsage.App.Localization;
 
 namespace CCUsage.App.Controls;
 
@@ -179,7 +180,7 @@ public partial class Heatmap : UserControl
     /// <summary>悬停 tooltip：当日数值（token 千分位口径）或"无数据"。</summary>
     public static string BuildCellTooltip(HeatmapCell cell) => cell.HasData
         ? $"{cell.Label} · {cell.Value.ToString("N0", CultureInfo.InvariantCulture)} tok"
-        : $"{cell.Label} · 无数据";
+        : string.Format(Translations.Instance.HeatmapNoDataTooltip, cell.Label);
 
     /// <summary>强度色基准 = AppSeries0Color（原型 rgba(76,141,255,α) 即 #4c8dff；普通资源不随明暗翻转）。</summary>
     private Color ResolveSeriesColor()

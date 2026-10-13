@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:CCUsage.App.ViewModels"
+             xmlns:loc="using:CCUsage.App.Localization"
              mc:Ignorable="d"
              x:Class="CCUsage.App.Views.ModelsView"
              x:DataType="vm:ModelsViewModel">
@@ -35,20 +36,20 @@
             <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="10">
 
                 <DockPanel Grid.Row="0">
-                    <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="价格缺失时成本应标记为未知，而非 0"
+                    <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding MetaMissingPriceUnknown, Source={x:Static loc:Translations.Instance}}"
                                VerticalAlignment="Center"/>
-                    <TextBlock Classes="panel-title" Text="模型明细" VerticalAlignment="Center"/>
+                    <TextBlock Classes="panel-title" Text="{Binding PanelModelDetails, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                 </DockPanel>
 
                 <!-- 表头（列宽与行模板一致） -->
                 <Grid Grid.Row="1" ColumnDefinitions="1.3*,0.9*,56,56,56,56,64" ColumnSpacing="6" Margin="0,0,0,2">
-                    <TextBlock Grid.Column="0" Classes="table-th" Text="模型"/>
-                    <TextBlock Grid.Column="1" Classes="table-th" Text="关联 Agent"/>
-                    <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="输入 Token"/>
-                    <TextBlock Grid.Column="3" Classes="table-th" TextAlignment="Right" Text="输出 Token"/>
-                    <TextBlock Grid.Column="4" Classes="table-th" TextAlignment="Right" Text="缓存读取"/>
-                    <TextBlock Grid.Column="5" Classes="table-th" TextAlignment="Right" Text="总 Token"/>
-                    <TextBlock Grid.Column="6" Classes="table-th" TextAlignment="Right" Text="成本"/>
+                    <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThModel, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="table-th" Text="{Binding ThAssociatedAgents, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThInputTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="3" Classes="table-th" TextAlignment="Right" Text="{Binding ThOutputTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="4" Classes="table-th" TextAlignment="Right" Text="{Binding ThCacheRead, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="5" Classes="table-th" TextAlignment="Right" Text="{Binding ThTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="6" Classes="table-th" TextAlignment="Right" Text="{Binding ThCost, Source={x:Static loc:Translations.Instance}}"/>
                 </Grid>
 
                 <!-- 明细行（ListBox 虚拟化；本页无行点击下钻，D-010 卡内未要求） -->
@@ -83,7 +84,7 @@
                                                    IsVisible="{Binding !IsUnknownCost}"/>
                                         <Border Classes="chip" HorizontalAlignment="Right"
                                                 IsVisible="{Binding IsUnknownCost}"
-                                                ToolTip.Tip="模型价格缺失，成本未知；不计入合计">
+                                                ToolTip.Tip="{Binding TooltipUnknownCostChip, Source={x:Static loc:Translations.Instance}}">
                                             <TextBlock Text="{Binding CostText}"/>
                                         </Border>
                                     </Grid>
@@ -94,7 +95,7 @@
                 </ListBox>
 
                 <!-- 空态（无行且无错误；错误态下隐藏避免矛盾三重态） -->
-                <TextBlock Grid.Row="2" Classes="table-empty" Text="暂无数据"
+                <TextBlock Grid.Row="2" Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
                            IsVisible="{Binding ShowEmptyState}"
                            VerticalAlignment="Top"/>
 

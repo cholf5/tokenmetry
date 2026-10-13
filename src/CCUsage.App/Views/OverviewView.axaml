@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:CCUsage.App.ViewModels"
              xmlns:c="using:CCUsage.App.Controls"
+             xmlns:loc="using:CCUsage.App.Localization"
              mc:Ignorable="d"
              x:Class="CCUsage.App.Views.OverviewView"
              x:DataType="vm:OverviewViewModel">
@@ -42,7 +43,7 @@
                             <TextBlock Text="◈"
                                        Foreground="{DynamicResource AppIconChipBlueForegroundBrush}"/>
                         </Border>
-                        <TextBlock Classes="kpi-top" Text="总 Token 数" VerticalAlignment="Center"/>
+                        <TextBlock Classes="kpi-top" Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Classes="kpi-value" Text="{Binding TokensCard.Value}"/>
                     <!-- D-007 P3 顺手修：横排 StackPanel 在窄主区把脚注裁切，改 Grid（Auto,*）让说明列换行 -->
@@ -53,7 +54,7 @@
                                    Classes.kpi-change-down="{Binding TokensCard.IsDown}"
                                    Classes.kpi-change-flat="{Binding TokensCard.IsFlat}"/>
                         <TextBlock Grid.Column="1" Classes="kpi-foot"
-                                   Text="vs 上一周期" TextWrapping="Wrap"/>
+                                   Text="{Binding KpiFootVsPrevious, Source={x:Static loc:Translations.Instance}}" TextWrapping="Wrap"/>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -67,7 +68,7 @@
                             <TextBlock Text="$"
                                        Foreground="{DynamicResource AppIconChipAmberForegroundBrush}"/>
                         </Border>
-                        <TextBlock Classes="kpi-top" Text="估算成本" VerticalAlignment="Center"/>
+                        <TextBlock Classes="kpi-top" Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Classes="kpi-value" Text="{Binding CostCard.Value}"/>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="5">
@@ -77,7 +78,7 @@
                                    Classes.kpi-change-down="{Binding CostCard.IsDown}"
                                    Classes.kpi-change-flat="{Binding CostCard.IsFlat}"/>
                         <TextBlock Grid.Column="1" Classes="kpi-foot"
-                                   Text="按模型价格估算" TextWrapping="Wrap"/>
+                                   Text="{Binding KpiFootPriceEstimate, Source={x:Static loc:Translations.Instance}}" TextWrapping="Wrap"/>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -91,7 +92,7 @@
                             <TextBlock Text="▣"
                                        Foreground="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
                         </Border>
-                        <TextBlock Classes="kpi-top" Text="会话数" VerticalAlignment="Center"/>
+                        <TextBlock Classes="kpi-top" Text="{Binding KpiSessions, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Classes="kpi-value" Text="{Binding SessionsCard.Value}"/>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="5">
@@ -101,7 +102,7 @@
                                    Classes.kpi-change-down="{Binding SessionsCard.IsDown}"
                                    Classes.kpi-change-flat="{Binding SessionsCard.IsFlat}"/>
                         <TextBlock Grid.Column="1" Classes="kpi-foot"
-                                   Text="跨 Agent 汇总" TextWrapping="Wrap"/>
+                                   Text="{Binding KpiFootAcrossAgents, Source={x:Static loc:Translations.Instance}}" TextWrapping="Wrap"/>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -115,7 +116,7 @@
                             <TextBlock Text="↻"
                                        Foreground="{DynamicResource AppIconChipGreenForegroundBrush}"/>
                         </Border>
-                        <TextBlock Classes="kpi-top" Text="缓存读取占比" VerticalAlignment="Center"/>
+                        <TextBlock Classes="kpi-top" Text="{Binding KpiCacheShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Classes="kpi-value" Text="{Binding CacheCard.Value}"/>
                     <!-- D-006 审查 P3：此卡脚注最长，窄主区原横排被裁切 → Grid + 换行 -->
@@ -126,7 +127,7 @@
                                    Classes.kpi-change-down="{Binding CacheCard.IsDown}"
                                    Classes.kpi-change-flat="{Binding CacheCard.IsFlat}"/>
                         <TextBlock Grid.Column="1" Classes="kpi-foot"
-                                   Text="缓存读取 / 输入相关 Token" TextWrapping="Wrap"/>
+                                   Text="{Binding KpiFootCacheOfInput, Source={x:Static loc:Translations.Instance}}" TextWrapping="Wrap"/>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -145,13 +146,13 @@
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="12"
                                     VerticalAlignment="Center">
-                            <TextBlock Classes="kpi-foot" Text="按日汇总" VerticalAlignment="Center"/>
+                            <TextBlock Classes="kpi-foot" Text="{Binding LegendDaily, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                             <!-- 图例三色 ← 原型 legend 输入=blue / 输出=purple / 总量=cyan -->
                             <StackPanel Orientation="Horizontal" Spacing="5">
                                 <Border Classes="series-dot"
                                         Background="{DynamicResource AppAccentBlueBrush}"
                                         VerticalAlignment="Center"/>
-                                <TextBlock Text="输入" FontSize="10"
+                                <TextBlock Text="{Binding LegendInput, Source={x:Static loc:Translations.Instance}}" FontSize="10"
                                            Foreground="{DynamicResource AppMutedTextBrush}"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -159,7 +160,7 @@
                                 <Border Classes="series-dot"
                                         Background="{DynamicResource AppAccentPurpleBrush}"
                                         VerticalAlignment="Center"/>
-                                <TextBlock Text="输出" FontSize="10"
+                                <TextBlock Text="{Binding LegendOutput, Source={x:Static loc:Translations.Instance}}" FontSize="10"
                                            Foreground="{DynamicResource AppMutedTextBrush}"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -167,12 +168,12 @@
                                 <Border Classes="series-dot"
                                         Background="{DynamicResource AppAccentCyanBrush}"
                                         VerticalAlignment="Center"/>
-                                <TextBlock Text="总量" FontSize="10"
+                                <TextBlock Text="{Binding LegendTotal, Source={x:Static loc:Translations.Instance}}" FontSize="10"
                                            Foreground="{DynamicResource AppMutedTextBrush}"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>
-                        <TextBlock Classes="panel-title" Text="Token 使用趋势" VerticalAlignment="Center"/>
+                        <TextBlock Classes="panel-title" Text="{Binding PanelTrend, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </DockPanel>
                     <c:TrendChart Height="190" Mode="DailyTokens" DailyPoints="{Binding DailyPoints}"/>
                 </StackPanel>
@@ -182,9 +183,9 @@
             <Border Grid.Column="1" Classes="panel">
                 <StackPanel Spacing="13">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="按 Token 总量"
+                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding MetaByTotalTokens, Source={x:Static loc:Translations.Instance}}"
                                    VerticalAlignment="Center"/>
-                        <TextBlock Classes="panel-title" Text="Agent 使用占比" VerticalAlignment="Center"/>
+                        <TextBlock Classes="panel-title" Text="{Binding PanelAgentDonut, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </DockPanel>
                     <c:DonutChart Segments="{Binding AgentSegments}"
                                   CenterTitle="{Binding AgentDonutCenterTitle}"
@@ -207,14 +208,14 @@
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Classes="link-btn"
                                 Command="{Binding OpenModelsCommand}"
-                                VerticalAlignment="Center" Content="查看详情 ↗"/>
-                        <TextBlock Classes="panel-title" Text="模型使用分布" VerticalAlignment="Center"/>
+                                VerticalAlignment="Center" Content="{Binding ViewDetails, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="panel-title" Text="{Binding PanelModelDistribution, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </DockPanel>
 
                     <Grid ColumnDefinitions="*,76,52" ColumnSpacing="10" Margin="0,0,0,2">
-                        <TextBlock Grid.Column="0" Classes="table-th" Text="模型"/>
-                        <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="Token 数"/>
-                        <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="占比"/>
+                        <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThModel, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
                     </Grid>
 
                     <ItemsControl ItemsSource="{Binding ModelRows}">
@@ -244,7 +245,7 @@
                     </ItemsControl>
 
                     <!-- 空数据诚实空态（原型 .empty 同款文案） -->
-                    <TextBlock Classes="table-empty" Text="暂无数据" IsVisible="{Binding !HasModelRows}"/>
+                    <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasModelRows}"/>
                 </StackPanel>
             </Border>
 
@@ -252,9 +253,9 @@
             <Border Grid.Column="1" Classes="panel">
                 <StackPanel Spacing="13">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="跨来源归一化"
+                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding MetaNormalizedAcrossSources, Source={x:Static loc:Translations.Instance}}"
                                    VerticalAlignment="Center"/>
-                        <TextBlock Classes="panel-title" Text="Token 类型构成" VerticalAlignment="Center"/>
+                        <TextBlock Classes="panel-title" Text="{Binding PanelTypeDonut, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </DockPanel>
                     <c:DonutChart Segments="{Binding TypeSegments}"
                                   CenterTitle="{Binding TypeDonutCenterTitle}"
@@ -277,15 +278,15 @@
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Classes="link-btn"
                                 Command="{Binding OpenProjectsCommand}"
-                                VerticalAlignment="Center" Content="查看详情 ↗"/>
-                        <TextBlock Classes="panel-title" Text="项目 / 目录排行" VerticalAlignment="Center"/>
+                                VerticalAlignment="Center" Content="{Binding ViewDetails, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="panel-title" Text="{Binding PanelProjectRanking, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </DockPanel>
 
                     <Grid ColumnDefinitions="22,*,76,52" ColumnSpacing="10" Margin="0,0,0,2">
                         <TextBlock Grid.Column="0" Classes="table-th" Text="#"/>
-                        <TextBlock Grid.Column="1" Classes="table-th" Text="项目 / 目录"/>
-                        <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="Token 数"/>
-                        <TextBlock Grid.Column="3" Classes="table-th" TextAlignment="Right" Text="占比"/>
+                        <TextBlock Grid.Column="1" Classes="table-th" Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="3" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
                     </Grid>
 
                     <ItemsControl ItemsSource="{Binding ProjectRows}">
@@ -315,7 +316,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <TextBlock Classes="table-empty" Text="暂无数据" IsVisible="{Binding !HasProjectRows}"/>
+                    <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasProjectRows}"/>
                 </StackPanel>
             </Border>
 
@@ -323,9 +324,9 @@
             <Border Grid.Column="1" Classes="panel">
                 <StackPanel Spacing="10">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="估算值 · USD"
+                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding MetaEstimateUsd, Source={x:Static loc:Translations.Instance}}"
                                    VerticalAlignment="Center"/>
-                        <TextBlock Classes="panel-title" Text="成本趋势" VerticalAlignment="Center"/>
+                        <TextBlock Classes="panel-title" Text="{Binding PanelCostTrend, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </DockPanel>
                     <c:TrendChart Height="190" Mode="CostUsd" DailyPoints="{Binding DailyPoints}"/>
                 </StackPanel>

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CCUsage.App.Controls;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -153,7 +154,7 @@ public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefres
                 return; // 旧请求的失败不覆盖新请求的状态
             }
 
-            LoadError = $"加载失败：{ex.Message}";
+            LoadError = string.Format(Translations.Instance.LoadErrorFormat, ex.Message);
         }
     }
 

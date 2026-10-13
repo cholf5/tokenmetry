@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform;
 using CommunityToolkit.Mvvm.Input;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.App.ViewModels;
 
@@ -45,28 +46,16 @@ public class TrayService
 
     public void Initialize()
     {
-        // 菜单首行的成本展示与 tooltip 同源（macOS 状态项无 hover tooltip，此处是 macOS 上
-        // 唯一可见的成本出口；规格要求常驻展示今日成本）
-        _costItem = new NativeMenuItem { Header = "今日成本：—", IsEnabled = false };
+        // 托盘为应用级常驻：订阅语言切换信号重建菜单（NativeMenuItem.Header 不支持绑定，
+        // 只能命令式重写；成本首行由 UpdateToolTip/BuildCostText 实时取串无需在此处理）。
+        Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
 
         _trayIcon = new TrayIcon
         {
             IsVisible = true,
-            ToolTipText = "ccusage — Token 成本监控",
+            ToolTipText = BuildTooltip(),
             Icon = CreateIcon(),
-            Menu = new NativeMenu
-            {
-                Items =
-                {
-                    _costItem,
-                    new NativeMenuItemSeparator(),
-                    new NativeMenuItem { Header = "打开主窗", Command = new RelayCommand(ShowWindow) },
-                    new NativeMenuItem { Header = "立即刷新", Command = new RelayCommand(RefreshNow) },
-                    new NativeMenuItem { Header = "设置", Command = new RelayCommand(OpenSettings) },
-                    new NativeMenuItemSeparator(),
-                    new NativeMenuItem { Header = "退出", Command = new RelayCommand(ExitApp) },
-                }
-            }
+            Menu = BuildMenu()
         };
         _trayIcon.Clicked += (_, _) => ShowWindow();
 
@@ -83,6 +72,50 @@ public class TrayService
         {
             _dashboard.PropertyChanged += OnDashboardPropertyChanged;
             UpdateToolTip(BuildCostText(_dashboard.TodayCostUsd, _dashboard.HasData));
+        }
+    }
+
+    private NativeMenu BuildMenu()
+    {
+        // NativeMenuItem 禁止同实例挂到第二个 NativeMenu（Avalonia parent 校验，重建即抛
+        // InvalidOperationException）——每次整份新建，成本首行实例随之替换；
+        // 后续成本回写经 UpdateToolTip 写到新实例上。初值 = 无数据态文案（KPI 联动会很快覆盖）。
+        _costItem = new NativeMenuItem { Header = Translations.Instance.TrayCostNoData, IsEnabled = false };
+
+        return new NativeMenu
+        {
+            Items =
+            {
+                _costItem,
+                new NativeMenuItemSeparator(),
+                new NativeMenuItem { Header = Translations.Instance.TrayOpenWindow, Command = new RelayCommand(ShowWindow) },
+                new NativeMenuItem { Header = Translations.Instance.TrayRefreshNow, Command = new RelayCommand(RefreshNow) },
+                new NativeMenuItem { Header = Translations.Instance.TraySettings, Command = new RelayCommand(OpenSettings) },
+                new NativeMenuItemSeparator(),
+                new NativeMenuItem { Header = Translations.Instance.TrayExit, Command = new RelayCommand(ExitApp) },
+            }
+        };
+    }
+
+    private string BuildTooltip() => Translations.Instance.TrayTooltip;
+
+    /// <summary>语言切换重译：菜单重建 + tooltip 重写（成本首行仍按当前数据态取串）。</summary>
+    private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(Translations.CurrentLanguage) || _trayIcon is null)
+        {
+            return;
+        }
+
+        var menu = BuildMenu();
+        _trayIcon.Menu = menu;
+        if (_dashboard != null)
+        {
+            UpdateToolTip(BuildCostText(_dashboard.TodayCostUsd, _dashboard.HasData));
+        }
+        else
+        {
+            UpdateToolTip(BuildTooltip());
         }
     }
 
@@ -109,8 +142,8 @@ public class TrayService
 
     private static string BuildCostText(decimal todayCostUsd, bool hasData)
         => hasData
-            ? $"今日成本：${todayCostUsd.ToString("F2", CultureInfo.InvariantCulture)}"
-            : "今日成本：—（尚无数据）";
+            ? string.Format(Translations.Instance.TrayCostFormat, todayCostUsd.ToString("F2", CultureInfo.InvariantCulture))
+            : Translations.Instance.TrayCostNoData;
 
     private void ShowWindow()
     {

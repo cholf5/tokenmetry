@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CCUsage.App.Controls;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -142,7 +143,7 @@ public partial class TimeViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
                 return; // 旧请求的失败不覆盖新请求的状态
             }
 
-            LoadError = $"加载失败：{ex.Message}";
+            LoadError = string.Format(Translations.Instance.LoadErrorFormat, ex.Message);
         }
     }
 
@@ -165,11 +166,14 @@ public partial class TimeViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
 
         var total = knownSessions + unknownSessions;
         var share = total > 0 ? (decimal)unknownSessions / total * 100m : 100m;
-        var note = $"{unknownSessions.ToString("N0", CultureInfo.InvariantCulture)} 个会话缺少精确时间，"
-            + $"未计入小时分布（占 {share.ToString("F1", CultureInfo.InvariantCulture)}%）";
+        var t = Translations.Instance;
+        var note = string.Format(
+            t.UnknownNoteFormat,
+            unknownSessions.ToString("N0", CultureInfo.InvariantCulture),
+            share.ToString("F1", CultureInfo.InvariantCulture));
         if (unknownTokens > 0)
         {
-            note += $"，涉及 {TrendChart.FormatCompactTokens(unknownTokens)} tokens 用量";
+            note += string.Format(t.UnknownNoteTokensSuffix, TrendChart.FormatCompactTokens(unknownTokens));
         }
 
         return note;
@@ -185,17 +189,16 @@ public partial class TimeViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
     /// <item>数据边界——I-029 unknown 契约的产品立场表述（原型 meta 原文），与页面 unknown 标注互相印证。</item>
     /// </list>
     /// </summary>
-    internal static IReadOnlyList<TimeObservationRowViewModel> CreateObservations() =>
-    [
-        new("高峰时段",
-            "比较小时级 Token 与成本（小时分布仅含带分钟级时间精度的会话），判断是否有长时间连续运行的 Agent。"),
-        new("会话长度",
-            "结合会话持续时长与 Token 总量判断效率，避免只用 Token 量。事实存储含会话首次 / 最晚活动时间（时长可推导），"
-            + "但部分来源为采集兜底时间戳，时长仅供参考。"),
-        new("数据边界",
-            "缺少精确事件时间的来源显示「未知」并不入小时分布（UTC 午夜 / 本地午夜锚定视为无精度），不伪造小时级分布；"
-            + "占比见小时分布图下标注。"),
-    ];
+    internal static IReadOnlyList<TimeObservationRowViewModel> CreateObservations()
+    {
+        var t = Translations.Instance;
+        return
+        [
+            new(t.TimeObsPeakTitle, t.TimeObsPeakDesc),
+            new(t.TimeObsSessionTitle, t.TimeObsSessionDesc),
+            new(t.TimeObsBoundaryTitle, t.TimeObsBoundaryDesc),
+        ];
+    }
 
     public void Dispose() => _filters.PropertyChanged -= OnFilterPropertyChanged;
 }

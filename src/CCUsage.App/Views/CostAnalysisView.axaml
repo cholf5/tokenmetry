@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:CCUsage.App.ViewModels"
+             xmlns:loc="using:CCUsage.App.Localization"
              mc:Ignorable="d"
              x:Class="CCUsage.App.Views.CostAnalysisView"
              x:DataType="vm:CostViewModel">
@@ -39,10 +40,10 @@
                                 <TextBlock Text="$"
                                            Foreground="{DynamicResource AppIconChipAmberForegroundBrush}"/>
                             </Border>
-                            <TextBlock Classes="kpi-top" Text="估算总成本" VerticalAlignment="Center"/>
+                            <TextBlock Classes="kpi-top" Text="{Binding KpiTotalCost, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Classes="kpi-value" Text="{Binding TotalCostText}"/>
-                        <TextBlock Classes="kpi-foot" Text="已知成本合计 · 未知不计入总额" TextWrapping="Wrap"/>
+                        <TextBlock Classes="kpi-foot" Text="{Binding KpiFootKnownCostOnly, Source={x:Static loc:Translations.Instance}}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
@@ -55,11 +56,11 @@
                                 <TextBlock Text="↓"
                                            Foreground="{DynamicResource AppIconChipBlueForegroundBrush}"/>
                             </Border>
-                            <TextBlock Classes="kpi-top" Text="输入成本占比" VerticalAlignment="Center"/>
+                            <TextBlock Classes="kpi-top" Text="{Binding KpiInputCostShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Classes="kpi-value" Text="{Binding InputShareText}"/>
                         <TextBlock Classes="kpi-foot"
-                                   Text="按 Token 构成展示 · 成本按方向拆价口径待扩展（缓存单列）"
+                                   Text="{Binding KpiFootTokenShareBasis, Source={x:Static loc:Translations.Instance}}"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
@@ -73,11 +74,11 @@
                                 <TextBlock Text="↑"
                                            Foreground="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
                             </Border>
-                            <TextBlock Classes="kpi-top" Text="输出成本占比" VerticalAlignment="Center"/>
+                            <TextBlock Classes="kpi-top" Text="{Binding KpiOutputCostShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Classes="kpi-value" Text="{Binding OutputShareText}"/>
                         <TextBlock Classes="kpi-foot"
-                                   Text="按 Token 构成展示 · 成本按方向拆价口径待扩展（缓存单列）"
+                                   Text="{Binding KpiFootTokenShareBasis, Source={x:Static loc:Translations.Instance}}"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
@@ -92,11 +93,11 @@
                                 <TextBlock Text="?"
                                            Foreground="{DynamicResource AppIconChipGreenForegroundBrush}"/>
                             </Border>
-                            <TextBlock Classes="kpi-top" Text="待确认价格" VerticalAlignment="Center"/>
+                            <TextBlock Classes="kpi-top" Text="{Binding KpiUnpriced, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Classes="kpi-value" Text="{Binding UnpricedCountText}"/>
                         <TextBlock Classes="kpi-foot"
-                                   Text="缺价模型数 · 成本不应默认为零 · 全局口径（自启动累计），不随筛选变化"
+                                   Text="{Binding KpiFootUnpriced, Source={x:Static loc:Translations.Instance}}"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
@@ -110,11 +111,11 @@
             <!-- ═══ 成本计算口径（静态三行说明表，原型同款；内容与 docs/reconciliation 口径对齐）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="10">
-                    <TextBlock Classes="panel-title" Text="成本计算口径"/>
+                    <TextBlock Classes="panel-title" Text="{Binding PanelCostBasis, Source={x:Static loc:Translations.Instance}}"/>
                     <Grid ColumnDefinitions="1.1*,1.3*,2.2*" ColumnSpacing="10" Margin="0,0,0,2">
-                        <TextBlock Grid.Column="0" Classes="table-th" Text="项目"/>
-                        <TextBlock Grid.Column="1" Classes="table-th" Text="建议展示"/>
-                        <TextBlock Grid.Column="2" Classes="table-th" Text="注意事项"/>
+                        <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThItem, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="table-th" Text="{Binding ThSuggestedDisplay, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="2" Classes="table-th" Text="{Binding ThCaveats, Source={x:Static loc:Translations.Instance}}"/>
                     </Grid>
                     <ItemsControl ItemsSource="{Binding CostBasisRows}">
                         <ItemsControl.ItemTemplate>
