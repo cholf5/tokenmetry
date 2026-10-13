@@ -735,7 +735,8 @@ public class SessionsTests
             new SessionsPanelViewModel(new StubToast(), failStub, catalog, filters),
             failStub,
             catalog,
-            new StubToast());
+            new StubToast(),
+            new Core.Services.PricingEngine());
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(new[] { AgentOption.All }, filters.AgentOptions);
     }

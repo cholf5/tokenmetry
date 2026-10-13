@@ -1,0 +1,90 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:CCUsage.App.ViewModels"
+             xmlns:c="using:CCUsage.App.Controls"
+             mc:Ignorable="d"
+             x:Class="CCUsage.App.Views.TimeAnalysisView"
+             x:DataType="vm:TimeViewModel">
+
+    <!--
+        D-012 时间分析页（原型 #page-time）：页头 + 左「按小时分布」（TrendChart HourlyTokens，本地时区，
+        图下 unknown 占比标注——I-029 无精度会话不入桶、不伪造分布）+ 右「活跃日历」（Heatmap 日 Token
+        强度；补零日淡格呈现）+ 「时间维度建议观察项」静态三行说明表（内容与 facts 实际能力一致）。
+        筛选在外壳顶部栏，本页只随 FilterStateService 刷新。
+    -->
+    <ScrollViewer>
+        <StackPanel Spacing="13" Margin="0,0,0,4">
+
+            <!-- 页头（原型 .pagehead：识别使用高峰、工作时段分布与长会话） -->
+            <StackPanel Spacing="4">
+                <TextBlock Classes="page-title" Text="{Binding Page.Title}"/>
+                <TextBlock Classes="page-subtitle" Text="{Binding Page.Subtitle}"/>
+            </StackPanel>
+
+            <!-- 加载失败（诚实错误态；已加载图表保留，筛选再变化自动重试） -->
+            <Border Classes="panel" Padding="13" IsVisible="{Binding HasLoadError}">
+                <TextBlock Classes="page-subtitle" Text="{Binding LoadError}"/>
+            </Border>
+
+            <!-- ═══ .gridEqual：小时分布 + 活跃日历 ═══ -->
+            <Grid ColumnDefinitions="1.15*,0.85*" ColumnSpacing="12">
+
+                <!-- 按小时分布（原型 meta「示例：本地时间」→ 真实时区随 I-029 服务，标注本地时间口径） -->
+                <Border Grid.Column="0" Classes="panel">
+                    <StackPanel Spacing="10">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="本地时间 · 仅含带分钟级精度的会话"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Classes="panel-title" Text="按小时分布" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <c:TrendChart Height="190" Mode="HourlyTokens" HourlyDistribution="{Binding HourlyDistribution}"/>
+                        <!-- unknown 占比标注（TC-001）：无精度会话不入桶，页面可见而非静默丢失 -->
+                        <TextBlock Classes="page-subtitle" Text="{Binding UnknownNoteText}"
+                                   IsVisible="{Binding HasUnknownNote}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 活跃日历（原型 meta「每日 Token 强度」；补零日淡格 + 悬停数值） -->
+                <Border Grid.Column="1" Classes="panel">
+                    <StackPanel Spacing="10">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="每日 Token 强度"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Classes="panel-title" Text="活跃日历" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <c:Heatmap Cells="{Binding HeatmapCells}" Columns="7" HorizontalAlignment="Stretch"/>
+                        <TextBlock Classes="page-subtitle"
+                                   Text="颜色越深表示当日 Token 越多；淡格为窗口内无数据日。悬停查看当日数值。"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ═══ 时间维度建议观察项（静态三行说明表，原型同款；无假数据）═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="panel-title" Text="时间维度建议观察项"/>
+                    <ItemsControl ItemsSource="{Binding Observations}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TimeObservationRowViewModel">
+                                <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,9,0,7">
+                                    <Grid ColumnDefinitions="88,*" ColumnSpacing="10">
+                                        <TextBlock Grid.Column="0" Classes="table-td" FontWeight="SemiBold"
+                                                   Text="{Binding Title}" VerticalAlignment="Top"/>
+                                        <TextBlock Grid.Column="1" Classes="table-td"
+                                                   Text="{Binding Description}" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

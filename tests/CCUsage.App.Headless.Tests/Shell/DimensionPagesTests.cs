@@ -315,7 +315,8 @@ public class DimensionPagesTests
     {
         var catalog = new AgentCatalogService(stub);
         var panel = new SessionsPanelViewModel(toast, stub, catalog, filters);
-        return new MainWindowViewModel(filters, AppServices.Get<SettingsViewModel>(), panel, stub, catalog, toast);
+        return new MainWindowViewModel(filters, AppServices.Get<SettingsViewModel>(), panel, stub, catalog, toast,
+            AppServices.Get<Core.Services.PricingEngine>());
     }
 
     /// <summary>页面会话查询（剔除右栏最近会话的 Top6 查询）。</summary>
