@@ -869,7 +869,6 @@ public class SessionsTests
         var panel = new SessionsPanelViewModel(
             AppServices.Get<IToastService>(), query, new AgentCatalogService(query), filters);
         var vm = new SessionsViewModel(ShellPages.For(PageId.Sessions), filters, query, panel, AppServices.Get<IToastService>());
-        Dispatcher.UIThread.RunJobs();
 
         // 同口径直查（默认筛选 = 最近 7 天 · 所有 Agent · 按 Token 降序 · 首页 50）
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -885,6 +884,13 @@ public class SessionsTests
             Page = 1,
             PageSize = SessionsViewModel.PageSize,
         })).GetAwaiter().GetResult();
+
+        // 数据面查询已移到线程池执行（UsageQueryService 线程模型），VM 续体回 UI 队列：
+        // 泵至加载完成再对账（空库时 TotalCount 恒 0 无法区分 pending，改按行内容等待——
+        // 加载完成时 TotalCount 必与同口径直查相等）。
+        DispatcherPump.PumpUntil(
+            () => vm.TotalCount == expected.TotalCount
+                && (expected.Rows.Count == 0 || vm.Rows.Count > 0));
 
         // 计数条 Y 与首行 token 同口径一致（本机有无 facts 皆可对账）
         Assert.Equal(expected.TotalCount, vm.TotalCount);

@@ -553,7 +553,8 @@ public class OverviewBottomTests
     {
         var query = AppServices.Get<IUsageQueryService>();
         var vm = new OverviewViewModel(ShellPages.For(PageId.Overview), new FilterStateService(), query);
-        Dispatcher.UIThread.RunJobs();
+        // 数据面查询已移到线程池执行（UsageQueryService 线程模型），VM 续体回 UI 队列：泵至加载完成
+        DispatcherPump.PumpUntil(() => vm.ModelRows is not null && vm.ProjectRows is not null);
 
         // 同口径直查（默认筛选 = 最近 7 天 · 所有 Agent）
         var to = DateOnly.FromDateTime(DateTime.Today);
