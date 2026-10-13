@@ -161,6 +161,27 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public void SelectedLanguageChange_PersistsImmediately_WithoutWaitingForSaveButton()
+    {
+        // 对齐 stupid-dict 的语言切换语义：改完即落盘（真机反馈：不即时持久化重启会回退）。
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store);
+        var originalLanguage = Translations.Instance.CurrentLanguage;
+        try
+        {
+            viewModel.SelectedLanguage = SettingsViewModel.LanguageOptions.First(o => o.Value == "en");
+
+            store.SaveCalls.Should().Be(1); // 切换即保存，不等「保存设置」
+            settings.Language.Should().Be("en");
+        }
+        finally
+        {
+            Translations.Instance.SetLanguage(originalLanguage); // 进程级单例，恢复基线避免污染其他用例
+        }
+    }
+
+    [Fact]
     public async Task SaveAsync_PersistsLanguagePreferenceAndAppliesIt()
     {
         var settings = new AppSettings();
@@ -176,7 +197,7 @@ public class SettingsViewModelTests
 
             settings.Language.Should().Be("en");
             Translations.Instance.CurrentLanguage.Should().Be(AppLanguage.English); // 切换即时生效
-            store.SaveCalls.Should().Be(1);
+            store.SaveCalls.Should().Be(2); // 切换时即时保存 1 次 + 「保存设置」整体保存 1 次
         }
         finally
         {

@@ -257,6 +257,11 @@ public class SettingsPageTests
             Assert.Contains("Recognized data sources", texts);
             Assert.Contains("Appearance & general", texts);
             Assert.Contains("Save settings", texts);
+            // 页头 Page.Title 实时重译（多级绑定路径 Page.Title——叶子通知由 PageDescriptor 发，
+            // 真机实测缺失时标题保持旧语言、导航切换回来才更新）
+            var pageTitle = window.GetVisualDescendants().OfType<TextBlock>()
+                .First(t => t.Classes.Contains("page-title")).Text;
+            Assert.Equal("Data & settings", pageTitle);
             // 选中保持（切换后仍为同一选项实例），选项 Label 已刷新为英文
             Assert.Same(SettingsViewModel.LanguageOptions.Single(o => o.Value == "en"), languageCombo.SelectedItem);
             Assert.Equal("English", SettingsViewModel.LanguageOptions.Single(o => o.Value == "en").Label);

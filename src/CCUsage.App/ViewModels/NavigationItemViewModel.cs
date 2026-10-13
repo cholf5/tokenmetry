@@ -21,17 +21,36 @@ public enum PageId
 
 /// <summary>
 /// 页面描述：导航标签 + 占位页展示信息（真实落地卡号与规划内容，供占位视图展示，不含假数据）。
-/// Label/Title/Subtitle 不再内联字符串，按 <see cref="Id"/> 经 Translations 实时取串——
-/// 语言切换后由持有方（导航项 / 页面 VM）raise 通知重新求值（导航项见
-/// <see cref="NavigationItemViewModel"/>；页面 VM 每次导航新建，天然读到当前语言）。
+/// Label/Title/Subtitle 不内联字符串，按 <see cref="Id"/> 经 Translations 实时取串。
+/// <b>类而非 record + INPC</b>：{Binding Page.Title} 这类多级绑定路径在中间段（Page）通知时
+/// 值为同一实例，Avalonia 编译绑定不重读叶子——必须由叶子所属对象在语言切换时自行发通知
+/// （实测：不发则侧栏标签 / 页头标题在语言切换后保持旧语言，导航重建才更新）。
+/// 描述符为 ShellPages.All 进程级单例（应用级生命周期），直订阅语言切换无需退订；
+/// 实例间共享同一 Id，切换时各自 raise 自己的三个文案属性。
 /// PlannedSections 仅占位页渲染（当前 8 页全部有真实 VM，占位路径不可达），保持中文原文不接 i18n。
 /// </summary>
-public sealed record PageDescriptor(
-    PageId Id,
-    string Icon,
-    string CardRef,
-    IReadOnlyList<string> PlannedSections)
+public sealed class PageDescriptor : INotifyPropertyChanged
 {
+    public PageDescriptor(PageId id, string icon, string cardRef, IReadOnlyList<string> plannedSections)
+    {
+        Id = id;
+        Icon = icon;
+        CardRef = cardRef;
+        PlannedSections = plannedSections;
+        Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
+    }
+
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public PageId Id { get; }
+
+    public string Icon { get; }
+
+    public string CardRef { get; }
+
+    public IReadOnlyList<string> PlannedSections { get; }
+
     public string Label => Id switch
     {
         PageId.Overview => Translations.Instance.NavOverview,
@@ -67,6 +86,19 @@ public sealed record PageDescriptor(
         PageId.Cost => Translations.Instance.CostSubtitle,
         _ => Translations.Instance.SettingsSubtitle,
     };
+
+    private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Translations.CurrentLanguage))
+        {
+            OnPropertyChanged(nameof(Label));
+            OnPropertyChanged(nameof(Title));
+            OnPropertyChanged(nameof(Subtitle));
+        }
+    }
+
+    private void OnPropertyChanged(string propertyName) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
 /// <summary>8 个页面的固定注册表（顺序即导航顺序）。</summary>
@@ -116,8 +148,8 @@ public static class ShellPages
 
 /// <summary>侧栏导航项 VM：图标 + 标签。视图选中态由 ListBox 的 SelectedItem 与
 /// ListBoxItem:selected 伪类样式驱动（单一真相源，D-003 审查后移除冗余 IsActive 状态）。
-/// 标签经 PageDescriptor 实时取串；实例随外壳创建（应用级生命周期），订阅语言切换信号
-/// raise Page 使 <c>{Binding Page.Label}</c> 重新求值，实时重译。</summary>
+/// 标签经 <see cref="PageDescriptor"/> 实时取串并在语言切换时由描述符自行发通知刷新
+/// （绑定路径为 Page.Label，叶子在描述符上）。</summary>
 public partial class NavigationItemViewModel : ViewModelBase
 {
     public PageDescriptor Page { get; }
@@ -125,15 +157,6 @@ public partial class NavigationItemViewModel : ViewModelBase
     public NavigationItemViewModel(PageDescriptor page)
     {
         Page = page;
-        Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
-    }
-
-    private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(Translations.CurrentLanguage))
-        {
-            OnPropertyChanged(nameof(Page));
-        }
     }
 
     public static IReadOnlyList<NavigationItemViewModel> CreateDefaults() =>
