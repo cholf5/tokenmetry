@@ -29,10 +29,10 @@ public partial class App : Application
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime errorDesktop)
             {
-                ShowStartupError(errorDesktop,
-                    "本地数据初始化失败：" + ex.Message +
-                    "\n\n缓存库位置：" + Services.AppPaths.CreateDefault().CacheDbPath +
-                    "\n\n可删除该文件后重试——历史用量可由本地会话日志重新扫描采集。");
+                ShowStartupError(errorDesktop, string.Format(
+                    Localization.Translations.Instance.StartupErrorBodyFormat,
+                    ex.Message,
+                    Services.AppPaths.CreateDefault().CacheDbPath));
                 base.OnFrameworkInitializationCompleted();
                 return;
             }
@@ -42,6 +42,8 @@ public partial class App : Application
 
         var settings = DependencyInjection.AppServices.Get<AppSettings>();
         DependencyInjection.AppServices.Get<IThemeService>().Apply(settings.Theme);
+        // 界面语言在主窗 / 托盘创建前应用（托盘菜单、顶栏、各页文案都经 Translations 取串）。
+        Localization.Translations.ApplyPreference(settings.Language);
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -106,10 +108,13 @@ public partial class App : Application
     /// </summary>
     private static void ShowStartupError(IClassicDesktopStyleApplicationLifetime desktop, string message)
     {
-        var closeButton = new Button { Content = "退出", Width = 96, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center };
+        // 初始化失败时 settings 尚未加载（也未应用语言偏好），文案按系统 UI 语言解析——
+        // Translations 不依赖 DI 容器，此处可安全取串。
+        var t = Localization.Translations.Instance;
+        var closeButton = new Button { Content = t.StartupErrorExit, Width = 96, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center };
         var dialog = new Window
         {
-            Title = "ccusage 启动失败",
+            Title = t.StartupErrorTitle,
             Width = 520,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
