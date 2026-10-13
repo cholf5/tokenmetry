@@ -12,22 +12,11 @@
         六列表（项目 / 会话数 / 总 Token / 估算成本 / 占比 / 平均每会话，均值除零保护 → "—"）。
         名称 = I-029 归一化展示名（歧义守卫下即原始路径——页面如实展示，ToolTip 恒为原始路径）。
         行点击 → 会话页带项目筛选（决策点 2 定案：右栏页级筛选程序化应用）。
+        排行表 = ListBox 虚拟化（共享 data-table 行配方，Q-002 收编）。
+        Q-002：页面根补 ScrollViewer（同时间/成本/设置页模式）——最小窗口高度下排行面板不再被裁剪。
     -->
-    <UserControl.Styles>
-        <Style Selector="ListBox.rank-table">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-        </Style>
-        <Style Selector="ListBox.rank-table ListBoxItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="0,8"/>
-            <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-        </Style>
-    </UserControl.Styles>
-
-    <StackPanel Spacing="13">
+    <ScrollViewer>
+        <StackPanel Spacing="13" Margin="0,0,0,4">
 
         <!-- 页头（原型 .pagehead：按工作目录聚合，观察 Token 消耗集中在哪些代码库或任务） -->
         <StackPanel Spacing="4">
@@ -62,7 +51,7 @@
 
                 <!-- 排行行（ListBox 虚拟化；SelectedProject = 行点击跳会话页带项目筛选） -->
                 <ListBox Grid.Row="2"
-                         Classes="rank-table"
+                         Classes="data-table"
                          ItemsSource="{Binding Rows}"
                          SelectedItem="{Binding SelectedProject, Mode=TwoWay}">
                     <ListBox.ItemTemplate>
@@ -98,5 +87,6 @@
                            VerticalAlignment="Top"/>
             </Grid>
         </Border>
-    </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

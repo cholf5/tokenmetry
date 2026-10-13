@@ -10,7 +10,7 @@ using CCUsage.Core.Models;
 namespace CCUsage.App.ViewModels;
 
 /// <summary>
-/// [D-004/D-005] 图表控件预览 VM（挂 StylePreviewView 临时页，随页面卡落地后一并删除）：
+/// [D-004/D-005] 图表控件预览 VM（Q-002 定案：随 StylePreviewView dev-only 保留，无生产入口）：
 /// 双数据源开关——「示例数据」为内置 fixture（含补零日/未知成本等边界样本，不依赖本机 facts）；
 /// 关掉则走 <see cref="IUsageQueryService"/> 真实查询（I-028 日序列 + I-029 小时分布 + Agent 维度），
 /// 本机 facts 为空时控件呈诚实空态。热力图取日序列尾部 ≤35 天。

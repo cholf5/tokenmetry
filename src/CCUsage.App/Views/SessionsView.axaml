@@ -11,25 +11,12 @@
     <!--
         D-008 会话明细页（原型 #page-sessions）：页头 + 明细面板（搜索 + 排序在页面内；
         Agent 复选 / 模型 / 项目筛选在右栏快速筛选，经 VM 提交事件驱动本页重查）+
-        明细表（ListBox 虚拟化：页面根 Grid 用 * 行约束视口，万行 fixture 只实例化视口内行）+
+        明细表（ListBox 虚拟化：页面根 Grid 用 * 行约束视口，万行 fixture 只实例化视口内行；
+        行配方用共享 data-table 类，Q-002 收编）+
         计数条（显示 X / Y 条）与「加载更多」（I-029 分页契约）。
         明细行观感对齐原型 .sessiontable + .table（table-th/td 令牌、行顶分隔线、Agent 软色底图标）。
         加载失败语义（审查修复轮）：错误面板出现时隐藏空态与计数条，已加载行保留不清。
     -->
-    <UserControl.Styles>
-        <!-- 明细表（原型 .table）：透明 ListBox，行内距与分隔线在模板里；虚拟化由 ListBox 默认面板承担 -->
-        <Style Selector="ListBox.session-table">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-        </Style>
-        <Style Selector="ListBox.session-table ListBoxItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="0,8"/>
-            <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-        </Style>
-    </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="13">
 
@@ -70,7 +57,7 @@
 
                 <!-- 明细行（ListBox 虚拟化；SelectedSession = 行点击占位下钻） -->
                 <ListBox Grid.Row="2"
-                         Classes="session-table"
+                         Classes="data-table"
                          ItemsSource="{Binding Rows}"
                          SelectedItem="{Binding SelectedSession, Mode=TwoWay}">
                     <ListBox.ItemTemplate>

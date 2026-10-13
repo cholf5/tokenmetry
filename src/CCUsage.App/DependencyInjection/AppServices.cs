@@ -137,15 +137,11 @@ public static class AppServices
         // Notifications
         services.AddSingleton<ISystemNotification, NullSystemNotification>();
 
-        // Export
-        services.AddSingleton<ReportCsvFormatter>();
-        services.AddSingleton<IReportCsvExporter, ReportCsvExporter>();
-
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
+        // Q-002：DashboardViewModel 为后台采集刷新锚点（无视图挂载，headless VM——定案见其类型注释）；
+        // 旧 ReportsViewModel / ModelBreakdownViewModel / TrendSpikeViewModel 随旧视图一并移除。
         services.AddTransient<DashboardViewModel>();
-        services.AddTransient<ReportsViewModel>();
-        services.AddTransient<ModelBreakdownViewModel>();
         // S-002：设置页 VM 仍为单例生命周期（MainWindowViewModel 持有同一实例，外壳 CreatePage 复用，
         // 主题选中态跨导航保持）；数据源表刷新经 INavigationAware.OnNavigatedTo（重进刷新，定案见卡 Dev Log）。
         services.AddSingleton<SettingsViewModel>();

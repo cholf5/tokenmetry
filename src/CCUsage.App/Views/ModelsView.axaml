@@ -13,22 +13,11 @@
         总 Token / 成本）+ 合计行（口径可见：Token 含缺价行、成本只计已估部分 + 未知计数脚注）。
         缺价行成本 = 「未知」chip（Border.chip 令牌，明暗成套）；混合行 "$x.xx+" 普通文本。
         关联 Agent 列定案（决策点 1）：唯一 → Agent 名；多 Agent → "主用 等 N 个"；无会话数据 → "—"。
+        明细表 = ListBox 虚拟化（共享 data-table 行配方，Q-002 收编）。
+        Q-002：页面根补 ScrollViewer（同时间/成本/设置页模式）——最小窗口高度下合计行不再被裁剪。
     -->
-    <UserControl.Styles>
-        <Style Selector="ListBox.rank-table">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-        </Style>
-        <Style Selector="ListBox.rank-table ListBoxItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="0,8"/>
-            <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-        </Style>
-    </UserControl.Styles>
-
-    <StackPanel Spacing="13">
+    <ScrollViewer>
+        <StackPanel Spacing="13" Margin="0,0,0,4">
 
         <!-- 页头（原型 .pagehead：模型维度的使用量与成本，不把不同模型的价格差异隐藏在总量中） -->
         <StackPanel Spacing="4">
@@ -64,7 +53,7 @@
 
                 <!-- 明细行（ListBox 虚拟化；本页无行点击下钻，D-010 卡内未要求） -->
                 <ListBox Grid.Row="2"
-                         Classes="rank-table"
+                         Classes="data-table"
                          ItemsSource="{Binding Rows}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:ModelDetailRowViewModel">
@@ -139,5 +128,6 @@
                 </StackPanel>
             </Grid>
         </Border>
-    </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

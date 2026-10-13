@@ -13,23 +13,11 @@
         紧凑 token 主值 + "N 会话 · 成本"脚注，未知成本四态）+ Agent 排行面板（七列：Agent / 会话数 /
         输入 / 输出 / 总 Token / 估算成本 / 占比；系列圆点对齐原型 .modeldot）。
         行点击 → 会话页带该 Agent 全局筛选（AgentsViewModel 定案：写顶部栏单选 Agent）。
-        排行表 = ListBox 虚拟化 + 行顶分隔线（table-th/td/num 令牌，同会话页模式）。
+        排行表 = ListBox 虚拟化（共享 data-table 行配方，Q-002 收编）+ 行顶分隔线（table-th/td/num 令牌）。
+        Q-002：页面根补 ScrollViewer（同时间/成本/设置页模式）——最小窗口高度下排行面板不再被裁剪。
     -->
-    <UserControl.Styles>
-        <Style Selector="ListBox.rank-table">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-        </Style>
-        <Style Selector="ListBox.rank-table ListBoxItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="0,8"/>
-            <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-        </Style>
-    </UserControl.Styles>
-
-    <StackPanel Spacing="13">
+    <ScrollViewer>
+        <StackPanel Spacing="13" Margin="0,0,0,4">
 
         <!-- 页头（原型 .pagehead：比较不同工具的使用强度、成本与会话规模） -->
         <StackPanel Spacing="4">
@@ -133,7 +121,7 @@
 
                 <!-- 排行行（ListBox 虚拟化；SelectedAgent = 行点击跳会话页带该 Agent 筛选） -->
                 <ListBox Grid.Row="2"
-                         Classes="rank-table"
+                         Classes="data-table"
                          ItemsSource="{Binding Rows}"
                          SelectedItem="{Binding SelectedAgent, Mode=TwoWay}">
                     <ListBox.ItemTemplate>
@@ -175,5 +163,6 @@
                            VerticalAlignment="Top"/>
             </Grid>
         </Border>
-    </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

@@ -57,7 +57,7 @@
                         </DockPanel>
                         <c:Heatmap Cells="{Binding HeatmapCells}" Columns="7" HorizontalAlignment="Stretch"/>
                         <TextBlock Classes="page-subtitle"
-                                   Text="颜色越深表示当日 Token 越多；淡格为窗口内无数据日。悬停查看当日数值。"
+                                   Text="颜色越浓表示当日 Token 越多；淡格为窗口内无数据日。悬停查看当日数值。"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>

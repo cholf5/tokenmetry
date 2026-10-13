@@ -197,6 +197,26 @@
         <Setter Property="Padding" Value="0,16"/>
     </Style>
 
+    <!-- 数据表列表（Q-002 跨页统一）：Agent/模型/项目排行与会话明细共用一套 ListBox 行配方
+         （收编自 4 个页面的局部副本，原类名 rank-table / session-table 统一为 data-table）。
+         行 hover ← 原型 tr:hover{background:#17253a}：Dark 经 AppNavHoverBackgroundBrush（同源令牌，
+         与外壳导航 hover 一致），Light 用其协调值；透明 ListBox 本体、行内距与圆角同原配方。
+         行顶分隔线与单元格令牌（table-th/td/num）仍在各页行模板里。 -->
+    <Style Selector="ListBox.data-table">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="ListBox.data-table ListBoxItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="0,8"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="ListBox.data-table ListBoxItem:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
+    </Style>
+
     <!-- 数据源表状态色（S-002，原型 .up 为绿色 / ● 部分数据 为橙色）：
          未检出 / 尚未扫描用 muted（无数据的源不做绿色假象）。颜色复用 :root 强调色令牌
          （AppAccentGreen/OrangeBrush 与原型 green/orange 变量同源）；行 VM 的 Is* 布尔经

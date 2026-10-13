@@ -1003,4 +1003,17 @@ public class DimensionPagesTests
             }
         }
     }
+
+    [AvaloniaTheory]
+    [InlineData(typeof(OverviewView))]
+    [InlineData(typeof(AgentsView))]
+    [InlineData(typeof(ModelsView))]
+    [InlineData(typeof(ProjectsView))]
+    public void Long_scroll_pages_root_is_scrollviewer_so_min_window_keeps_bottom_reachable(Type viewType)
+    {
+        // Q-002 审查 P2：四页"最小窗口下底部面板可达"修复（根容器改 ScrollViewer）此前无自动化锁，
+        // 回退（有人把根改回普通容器）将无声——这里按视图类型锁定结构。
+        var view = (UserControl)Activator.CreateInstance(viewType)!;
+        Assert.IsAssignableFrom<ScrollViewer>(view.Content);
+    }
 }
