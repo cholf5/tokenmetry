@@ -1,29 +1,104 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
+using CCUsage.App.Localization;
 
 namespace CCUsage.App.Services;
 
 /// <summary>项目筛选下拉的单个选项：查询值 = 项目原始路径（I-029 SessionListQuery.Project 精确匹配），
-/// 展示名 = 归一化项目名（歧义守卫下可能是原始路径，见 DimensionUsageRow.DisplayName）。null 路径 = 全部项目。</summary>
-public sealed record ProjectFilterOption(string? Path, string Label)
+/// 展示名 = 归一化项目名（歧义守卫下可能是原始路径，见 DimensionUsageRow.DisplayName）。null 路径 = 全部项目。
+/// 稳定实例 + 实时 Label（"全部项目"哨兵为 UI 文案经 Translations 取串，真实项目名为数据）；
+/// 相等性只看 <see cref="Path"/>——ComboBox 重建选项清单按值相等保持选中态的契约不变，语言切换亦不改变相等性。</summary>
+public sealed class ProjectFilterOption : INotifyPropertyChanged, IEquatable<ProjectFilterOption>
 {
-    /// <summary>"全部项目"（不过滤）。单例复用：ComboBox 重建选项清单时按记录值相等保持选中态。</summary>
-    public static ProjectFilterOption All { get; } = new(null, "全部项目");
+    public ProjectFilterOption(string? path, string? label = null)
+    {
+        Path = path;
+        _label = label;
+    }
+
+    public string? Path { get; }
+
+    private readonly string? _label;
+
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Label => Path is null ? Translations.Instance.AllProjects : (_label ?? Path);
+
+    /// <summary>语言切换后刷新哨兵展示名。</summary>
+    public void RefreshLabel() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Label)));
+
+    /// <summary>"全部项目"（不过滤）。单例复用：ComboBox 重建选项清单时按 Path 值相等保持选中态。</summary>
+    public static ProjectFilterOption All { get; } = new(null);
 
     public override string ToString() => Label;
+
+    public bool Equals(ProjectFilterOption? other) => other is not null && Path == other.Path;
+
+    public override bool Equals(object? obj) => obj is ProjectFilterOption other && Equals(other);
+
+    public override int GetHashCode() => Path?.GetHashCode(StringComparison.Ordinal) ?? 0;
+
+    static ProjectFilterOption()
+    {
+        Translations.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Translations.CurrentLanguage))
+            {
+                All.RefreshLabel();
+            }
+        };
+    }
 }
 
-/// <summary>模型筛选下拉的单个选项：查询值 = 会话主模型（dominant_model 精确匹配）。null = 全部模型。</summary>
-public sealed record ModelFilterOption(string? Model, string Label)
+/// <summary>模型筛选下拉的单个选项：查询值 = 会话主模型（dominant_model 精确匹配）。null = 全部模型。
+/// 机制同 <see cref="ProjectFilterOption"/>（哨兵 Label 实时取串，相等性只看 <see cref="Model"/>）。</summary>
+public sealed class ModelFilterOption : INotifyPropertyChanged, IEquatable<ModelFilterOption>
 {
-    public static ModelFilterOption All { get; } = new(null, "全部模型");
+    public ModelFilterOption(string? model, string? label = null)
+    {
+        Model = model;
+        _label = label;
+    }
+
+    public string? Model { get; }
+
+    private readonly string? _label;
+
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Label => Model is null ? Translations.Instance.AllModels : (_label ?? Model);
+
+    /// <summary>语言切换后刷新哨兵展示名。</summary>
+    public void RefreshLabel() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Label)));
+
+    public static ModelFilterOption All { get; } = new(null);
 
     public override string ToString() => Label;
+
+    public bool Equals(ModelFilterOption? other) => other is not null && Model == other.Model;
+
+    public override bool Equals(object? obj) => obj is ModelFilterOption other && Equals(other);
+
+    public override int GetHashCode() => Model?.GetHashCode(StringComparison.Ordinal) ?? 0;
+
+    static ModelFilterOption()
+    {
+        Translations.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Translations.CurrentLanguage))
+            {
+                All.RefreshLabel();
+            }
+        };
+    }
 }
 
 /// <summary>

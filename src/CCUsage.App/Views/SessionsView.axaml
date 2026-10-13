@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:CCUsage.App.ViewModels"
              xmlns:c="using:CCUsage.App.Controls"
+             xmlns:loc="using:CCUsage.App.Localization"
              mc:Ignorable="d"
              x:Class="CCUsage.App.Views.SessionsView"
              x:DataType="vm:SessionsViewModel">
@@ -34,25 +35,31 @@
                      placeholder 口径诚实：facts 无标题字段，搜索命中会话标识/项目/模型/Agent（I-029）。 -->
                 <Grid Grid.Row="0" ColumnDefinitions="*,150" ColumnSpacing="10">
                     <TextBox Grid.Column="0"
-                             PlaceholderText="搜索会话标识、项目、模型或 Agent…"
+                             PlaceholderText="{Binding SearchPlaceholder, Source={x:Static loc:Translations.Instance}}"
                              Text="{Binding SearchText, Mode=TwoWay}"/>
                     <ComboBox Grid.Column="1"
                               MinWidth="140"
                               HorizontalAlignment="Left"
                               ItemsSource="{Binding SortOptions}"
-                              SelectedItem="{Binding SelectedSort, Mode=TwoWay}"/>
+                              SelectedItem="{Binding SelectedSort, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SessionSortOption">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </Grid>
 
                 <!-- 表头（原型 .sessiontable thead；列宽与行模板一致。
                      文本列星宽、数字列定宽：最小窗口（主列 456px）下会话列仍保留可读宽度，
                      文本经 TextTrimming 截断，不把最后列挤出面板） -->
                 <Grid Grid.Row="1" ColumnDefinitions="2*,60,1.2*,72,58,68" ColumnSpacing="8" Margin="0,0,0,2">
-                    <TextBlock Grid.Column="0" Classes="table-th" Text="会话"/>
-                    <TextBlock Grid.Column="1" Classes="table-th" Text="Agent"/>
-                    <TextBlock Grid.Column="2" Classes="table-th" Text="模型"/>
+                    <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThSession, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="table-th" Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="2" Classes="table-th" Text="{Binding LabelModels, Source={x:Static loc:Translations.Instance}}"/>
                     <TextBlock Grid.Column="3" Classes="table-th" TextAlignment="Right" Text="Token"/>
-                    <TextBlock Grid.Column="4" Classes="table-th" TextAlignment="Right" Text="估算成本"/>
-                    <TextBlock Grid.Column="5" Classes="table-th" Text="最后活动"/>
+                    <TextBlock Grid.Column="4" Classes="table-th" TextAlignment="Right" Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="5" Classes="table-th" Text="{Binding ThLastActivity, Source={x:Static loc:Translations.Instance}}"/>
                 </Grid>
 
                 <!-- 明细行（ListBox 虚拟化；SelectedSession = 行点击占位下钻） -->
@@ -105,14 +112,14 @@
                 </ListBox>
 
                 <!-- 空态（无行且无错误：过滤后无匹配 / 数据源为空，诚实呈现；错误态下隐藏，见 ShowEmptyState） -->
-                <TextBlock Grid.Row="2" Classes="table-empty" Text="没有匹配的会话"
+                <TextBlock Grid.Row="2" Classes="table-empty" Text="{Binding NoMatchingSessions, Source={x:Static loc:Translations.Instance}}"
                            IsVisible="{Binding ShowEmptyState}"
                            VerticalAlignment="Top"/>
 
                 <!-- 计数条 + 加载更多（原型 #sessionCount 文案去掉"示例"；错误态下隐藏避免与错误面板矛盾） -->
                 <StackPanel Grid.Row="3" Spacing="8" IsVisible="{Binding ShowCountLine}">
                     <Button Classes="link-btn"
-                            Content="加载更多"
+                            Content="{Binding LoadMore, Source={x:Static loc:Translations.Instance}}"
                             HorizontalAlignment="Left"
                             IsVisible="{Binding HasMore}"
                             Command="{Binding LoadMoreCommand}"/>

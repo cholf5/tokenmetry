@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CCUsage.App.Controls;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -16,23 +17,69 @@ using CCUsage.Core.Models;
 namespace CCUsage.App.ViewModels;
 
 /// <summary>
-/// 会话明细排序选项（I-029 排序白名单 + 降序）。三档文案对齐原型 #sessionSort
-/// （按 Token 排序 / 按成本排序 / 最近活动），默认选中第一项（原型 select 初始渲染口径）。
-/// 值相等性为记录值相等，供 ComboBox SelectedItem 绑定比较。
+/// 会话明细排序选项（I-029 排序白名单 + 降序）。三档对齐原型 #sessionSort（按 Token 排序 /
+/// 按成本排序 / 最近活动），默认选中第一项（原型 select 初始渲染口径）。
+/// Label 经 Translations 实时取串（进程级订阅语言切换刷新，同 TimeRangeOption 机制）；
+/// 值相等只看 (Field, SortDescending)，供 ComboBox SelectedItem 绑定比较。
 /// </summary>
-public sealed record SessionSortOption(SessionSortField Field, bool SortDescending, string Label)
+public sealed class SessionSortOption : INotifyPropertyChanged, IEquatable<SessionSortOption>
 {
+    public SessionSortOption(SessionSortField field, bool sortDescending)
+    {
+        Field = field;
+        SortDescending = sortDescending;
+    }
+
+    public SessionSortField Field { get; }
+
+    public bool SortDescending { get; }
+
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Label => Field switch
+    {
+        SessionSortField.TotalTokens => Translations.Instance.SortByTokens,
+        SessionSortField.Cost => Translations.Instance.SortByCost,
+        _ => Translations.Instance.SortByRecent,
+    };
+
+    /// <summary>语言切换后刷新展示名。</summary>
+    public void RefreshLabel() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Label)));
+
     public static IReadOnlyList<SessionSortOption> Options { get; } =
     [
-        new(SessionSortField.TotalTokens, true, "按 Token 排序"),
-        new(SessionSortField.Cost, true, "按成本排序"),
-        new(SessionSortField.LastSeenAt, true, "最近活动"),
+        new(SessionSortField.TotalTokens, true),
+        new(SessionSortField.Cost, true),
+        new(SessionSortField.LastSeenAt, true),
     ];
 
     /// <summary>默认按 Token 降序（对齐原型 #sessionSort 默认选中首项；I-029 契约默认是最近活动，页面口径以原型为准）。</summary>
     public static SessionSortOption Default { get; } = Options[0];
 
     public override string ToString() => Label;
+
+    public bool Equals(SessionSortOption? other) =>
+        other is not null && Field == other.Field && SortDescending == other.SortDescending;
+
+    public override bool Equals(object? obj) => obj is SessionSortOption other && Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(Field, SortDescending);
+
+    static SessionSortOption()
+    {
+        // 选项为进程级稳定实例（应用级生命周期），直订阅语言切换信号统一刷新 Label，无需退订。
+        Translations.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Translations.CurrentLanguage))
+            {
+                foreach (var option in Options)
+                {
+                    option.RefreshLabel();
+                }
+            }
+        };
+    }
 }
 
 /// <summary>
@@ -81,8 +128,8 @@ public sealed class SessionRowViewModel
     public string LastActivityText { get; }
 
     internal static string FormatCost(decimal? costUsd) => costUsd is { } known
-        ? TrendChart.FormatCostUsd(known, hasUnknownCost: false) ?? "未知"
-        : "未知";
+        ? TrendChart.FormatCostUsd(known, hasUnknownCost: false) ?? Translations.Instance.Unknown
+        : Translations.Instance.Unknown;
 
     private static string FirstNotEmpty(params string[] values) =>
         values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "—";
@@ -194,7 +241,10 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
     public bool ShowCountLine => !HasLoadError;
 
     /// <summary>计数条（原型 #sessionCount 同款口径，去掉"示例"）：显示 X / Y 条（X=已加载，Y=过滤后总数）。</summary>
-    public string CountText => $"显示 {Rows.Count.ToString("N0", CultureInfo.InvariantCulture)} / {TotalCount.ToString("N0", CultureInfo.InvariantCulture)} 条";
+    public string CountText => string.Format(
+        Translations.Instance.CountTextFormat,
+        Rows.Count.ToString("N0", CultureInfo.InvariantCulture),
+        TotalCount.ToString("N0", CultureInfo.InvariantCulture));
 
     private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -234,7 +284,7 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
         }
 
         // 下钻定案（D-008）：toast 显示会话标识 + 规划中提示，不做弹窗/详情页
-        _toast.Show($"会话 {value.SessionId}：详情视图规划中");
+        _toast.Show(string.Format(Translations.Instance.ToastSessionPlannedFormat, value.SessionId));
         _selectedSession = null; // 直接回写字段避免 setter 递归；下次点击同一行仍触发
         OnPropertyChanged(nameof(SelectedSession));
     }
@@ -431,7 +481,7 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
             // 失败语义（审查修复轮 P2-2）：只置错误态，不清已加载行/总数——重置型加载失败
             // 保留上一次成功数据（与 LoadMore 追加失败不清数据的纪律对齐）；
             // 首查即失败时 Rows 本就为空，空态经 ShowEmptyState 让位于错误面板。
-            LoadError = $"加载失败：{ex.Message}";
+            LoadError = string.Format(Translations.Instance.LoadErrorFormat, ex.Message);
         }
     }
 
@@ -470,7 +520,7 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
         {
             if (sequence == _loadSequence)
             {
-                LoadError = $"加载更多失败：{ex.Message}"; // 追加失败不清已加载数据
+                LoadError = string.Format(Translations.Instance.LoadMoreErrorFormat, ex.Message); // 追加失败不清已加载数据
             }
 
             return;
@@ -526,10 +576,11 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
             elapsed = TimeSpan.Zero; // 时钟偏差防御
         }
 
-        return elapsed.TotalMinutes < 1 ? "刚刚"
-            : elapsed.TotalMinutes < 60 ? $"{(int)elapsed.TotalMinutes} 分钟前"
-            : elapsed.TotalHours < 24 ? $"{(int)elapsed.TotalHours} 小时前"
-            : elapsed.TotalDays < 30 ? $"{(int)elapsed.TotalDays} 天前"
+        var t = Translations.Instance;
+        return elapsed.TotalMinutes < 1 ? t.RelTimeNow
+            : elapsed.TotalMinutes < 60 ? string.Format(t.RelTimeMinutesAgo, (int)elapsed.TotalMinutes)
+            : elapsed.TotalHours < 24 ? string.Format(t.RelTimeHoursAgo, (int)elapsed.TotalHours)
+            : elapsed.TotalDays < 30 ? string.Format(t.RelTimeDaysAgo, (int)elapsed.TotalDays)
             : timestamp.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 

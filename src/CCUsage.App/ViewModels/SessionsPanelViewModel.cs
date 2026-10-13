@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CCUsage.App.Controls;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -224,7 +225,7 @@ public partial class SessionsPanelViewModel : ViewModelBase
             }
 
             RecentSessions = new ObservableCollection<RecentSessionRowViewModel>();
-            RecentError = $"最近会话加载失败：{ex.Message}";
+            RecentError = string.Format(Translations.Instance.RecentErrorFormat, ex.Message);
         }
     }
 
@@ -232,8 +233,11 @@ public partial class SessionsPanelViewModel : ViewModelBase
     private void ApplyQuickFilters()
     {
         // 原型 applyFilters 同款反馈（Agent 数 · 模型 · 项目）；重查由订阅本事件的会话页执行
-        _toastService.Show(
-            $"筛选已应用：{AgentFilters.Count(a => a.IsChecked)} 个 Agent · {ModelFilter.Label} · {ProjectFilter.Label}");
+        _toastService.Show(string.Format(
+            Translations.Instance.ToastFiltersAppliedFormat,
+            AgentFilters.Count(a => a.IsChecked),
+            ModelFilter.Label,
+            ProjectFilter.Label));
         QuickFiltersCommitted?.Invoke(this, EventArgs.Empty);
     }
 
@@ -247,7 +251,7 @@ public partial class SessionsPanelViewModel : ViewModelBase
 
         ModelFilter = ModelFilterOptions[0];
         ProjectFilter = ProjectFilterOptions[0];
-        _toastService.Show("筛选条件已清除");
+        _toastService.Show(Translations.Instance.ToastFiltersCleared);
         QuickFiltersCommitted?.Invoke(this, EventArgs.Empty);
     }
 
@@ -281,7 +285,7 @@ public partial class SessionsPanelViewModel : ViewModelBase
         }
 
         // 下钻定案（D-008）：与明细表行点击一致——toast 显示会话标识 + 规划中提示
-        _toastService.Show($"会话 {value.SessionId}：详情视图规划中");
+        _toastService.Show(string.Format(Translations.Instance.ToastSessionPlannedFormat, value.SessionId));
         _selectedRecentSession = null;
         OnPropertyChanged(nameof(SelectedRecentSession));
     }

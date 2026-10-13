@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:sp="using:ScottPlot.Avalonia"
+             xmlns:loc="using:CCUsage.App.Localization"
              mc:Ignorable="d"
              x:Class="CCUsage.App.Controls.TrendChart">
     <!-- D-004 正式趋势图控件：三种形态共用一个 AvaPlot（绘图代码集中在 code-behind，D-002 结论）。
@@ -20,12 +21,12 @@
                     VerticalAlignment="Center"
                     Spacing="4"
                     IsVisible="False">
-            <TextBlock Text="暂无数据"
+            <TextBlock Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
                        FontSize="13"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource AppMutedTextBrush}"
                        TextAlignment="Center"/>
-            <TextBlock Text="该时间范围内没有用量记录"
+            <TextBlock Text="{Binding NoUsageInRange, Source={x:Static loc:Translations.Instance}}"
                        FontSize="11"
                        Foreground="{DynamicResource AppMutedTextBrush}"
                        TextAlignment="Center"/>

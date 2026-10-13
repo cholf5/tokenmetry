@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:c="using:CCUsage.App.Controls"
+             xmlns:loc="using:CCUsage.App.Localization"
              mc:Ignorable="d"
              x:Class="CCUsage.App.Controls.DonutChart">
     <!-- D-005 环形图控件（原型 .donutrow：左环 + 右图例）。几何为自绘 StreamGeometry 圆弧段
@@ -68,7 +69,7 @@
         <!-- 空数据占位文案（无图例行时与占位环一起呈现） -->
         <TextBlock x:Name="EmptyText"
                    Grid.Column="2"
-                   Text="暂无数据"
+                   Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
                    FontSize="11"
                    VerticalAlignment="Center"
                    Foreground="{DynamicResource AppMutedTextBrush}"

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CCUsage.App.Controls;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -31,7 +32,10 @@ public sealed class ModelDetailRowViewModel
         AssociatedAgentText = row.AgentCount switch
         {
             1 => row.DominantAgent ?? "—",
-            > 1 => $"{row.DominantAgent} 等 {row.AgentCount.Value.ToString("N0", CultureInfo.InvariantCulture)} 个",
+            > 1 => string.Format(
+                Translations.Instance.AssociatedAgentsMultiFormat,
+                row.DominantAgent,
+                row.AgentCount.Value.ToString("N0", CultureInfo.InvariantCulture)),
             _ => "—",
         };
         IsMultiAgent = row.AgentCount is > 1;
@@ -80,7 +84,9 @@ public sealed class ModelsTotalViewModel
 {
     public ModelsTotalViewModel(IReadOnlyList<DimensionUsageRow> rows)
     {
-        ModelCountText = $"合计（{rows.Count.ToString("N0", CultureInfo.InvariantCulture)} 个模型）";
+        ModelCountText = string.Format(
+            Translations.Instance.TotalsModelCountFormat,
+            rows.Count.ToString("N0", CultureInfo.InvariantCulture));
         // Token 合计用紧凑格式（行同口径，见 ModelDetailRowViewModel 的列宽裁定）
         InputTokensText = TrendChart.FormatCompactTokens(rows.Sum(row => row.InputTokens));
         OutputTokensText = TrendChart.FormatCompactTokens(rows.Sum(row => row.OutputTokens));
@@ -89,7 +95,9 @@ public sealed class ModelsTotalViewModel
         Cost = rows.Aggregate(AggregatedCost.Empty, (acc, row) => acc.Add(row.Cost));
         CostText = OverviewViewModel.FormatCost(Cost);
         UnknownCount = rows.Count(row => row.Cost.HasUnknownCost);
-        UnknownNoteText = $"{UnknownCount.ToString("N0", CultureInfo.InvariantCulture)} 个模型成本未知（缺价）：其成本未计入合计，Token 已计入总量。";
+        UnknownNoteText = string.Format(
+            Translations.Instance.TotalsUnknownNoteFormat,
+            UnknownCount.ToString("N0", CultureInfo.InvariantCulture));
     }
 
     /// <summary>合计行的成本聚合（已知部分之和 + 未知标记；测试对账用）。</summary>
@@ -206,7 +214,7 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
                 return; // 旧请求的失败不覆盖新请求的状态
             }
 
-            LoadError = $"加载失败：{ex.Message}";
+            LoadError = string.Format(Translations.Instance.LoadErrorFormat, ex.Message);
         }
     }
 

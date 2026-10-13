@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Services;
@@ -34,10 +36,22 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private ViewModelBase? _currentPage;
 
-    /// <summary>顶部栏数据源状态文案。初始为启动态（A-12：不再硬编码"就绪"）；
-    /// 由 BackgroundRefreshWiring 每轮回写真实状态（NoteDataSourceStatus）。</summary>
-    [ObservableProperty]
-    private string _dataStatusText = "启动中…";
+    /// <summary>顶部栏数据源状态码（A-12 语义沿用 DashboardViewModel.Status：ok / refreshing /
+    /// no data / error / loading）。文案经 <see cref="DataStatusText"/> 实时取串，语言切换重译。</summary>
+    private string _dataStatusCode = "loading";
+
+    /// <summary>顶部栏数据源状态文案（按状态码实时取串，初始为启动态——A-12：不再硬编码"就绪"）；
+    /// 状态码由 BackgroundRefreshWiring 每轮回写（NoteDataSourceStatus）。</summary>
+    public string DataStatusText => DescribeDataStatus(_dataStatusCode);
+
+    private static string DescribeDataStatus(string status) => status switch
+    {
+        "error" => Translations.Instance.StatusSourceError,
+        "no data" => Translations.Instance.StatusNoLocalData,
+        "refreshing" => Translations.Instance.StatusScanning,
+        "loading" => Translations.Instance.StatusStarting,
+        _ => Translations.Instance.StatusReady,
+    };
 
     /// <summary>顶部栏状态灯级别（A-12）：ok=绿 / warn=橙（无数据）/ error=红（本轮失败）。
     /// 经 Classes 条件绑定切换 Ellipse.status-dot 的 status-error/status-warn 类。</summary>
@@ -51,9 +65,13 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>A-12 状态灯橙色态绑定（本轮扫描完成但无数据）。</summary>
     public bool IsDataSourceWarned => DataStatusLevel == "warn";
 
-    /// <summary>顶部栏"最近更新"。初始为未刷新；由 App.axaml.cs 的后台刷新回调经 NoteDataRefreshed 更新。</summary>
-    [ObservableProperty]
-    private string _lastUpdatedText = "尚未刷新";
+    /// <summary>顶部栏"最近更新"（按刷新时刻实时取串；初始未刷新态）。由 App.axaml.cs 的
+    /// 后台刷新回调经 NoteDataRefreshed 更新；语言切换按存储的时刻重译。</summary>
+    private DateTimeOffset? _lastRefreshedAt;
+
+    public string LastUpdatedText => _lastRefreshedAt is { } at
+        ? string.Format(Translations.Instance.LastUpdatedFormat, at.LocalDateTime)
+        : Translations.Instance.NotRefreshedYet;
 
     /// <summary>侧栏 8 项导航（顺序同原型 .nav）。</summary>
     public IReadOnlyList<NavigationItemViewModel> NavigationItems { get; } = NavigationItemViewModel.CreateDefaults();
@@ -90,10 +108,25 @@ public partial class MainWindowViewModel : ViewModelBase
 
         SelectedNavigation = NavigationItems[0];
         CurrentPage = CreatePage(PageId.Overview);
+        // 外壳 VM 与应用同生命周期，直订阅语言切换信号（重译顶栏命令式文案），无需退订。
+        Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
         // D-008：外壳启动时异步拉取真实 Agent 清单（AgentCatalogService 缓存，单一真相源），
         // 拉到后写入 FilterStateService（顶部栏全局下拉刷新）；右栏复选组共用同一份缓存。
         // 失败诚实保持 [所有 Agent]，不伪造占位清单（见 AgentCatalogService / FilterStateService 注释）。
         _ = LoadAgentOptionsAsync();
+    }
+
+    /// <summary>
+    /// 语言切换重译：DataStatusText / LastUpdatedText 由状态码与时刻实时取串，此处 raise 即可；
+    /// 侧栏导航标签由 NavigationItemViewModel 各自订阅重译。瞬态 toast 不回溯重译。
+    /// </summary>
+    private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Translations.CurrentLanguage))
+        {
+            OnPropertyChanged(nameof(DataStatusText));
+            OnPropertyChanged(nameof(LastUpdatedText));
+        }
     }
 
     private async Task LoadAgentOptionsAsync()
@@ -235,8 +268,11 @@ public partial class MainWindowViewModel : ViewModelBase
     /// </summary>
     public void NoteDataRefreshed()
     {
-        var text = $"最近更新 {DateTime.Now:HH:mm}";
-        RunOnUIThread(() => LastUpdatedText = text);
+        RunOnUIThread(() =>
+        {
+            _lastRefreshedAt = DateTimeOffset.Now;
+            OnPropertyChanged(nameof(LastUpdatedText));
+        });
     }
 
     /// <summary>
@@ -246,18 +282,17 @@ public partial class MainWindowViewModel : ViewModelBase
     /// </summary>
     public void NoteDataSourceStatus(string status)
     {
-        var (text, level) = status switch
+        var level = status switch
         {
-            "error" => ("数据源错误（本轮刷新失败）", "error"),
-            "no data" => ("未检出本地数据", "warn"),
-            "refreshing" => ("正在扫描本地数据…", "ok"),
-            "loading" => ("启动中…", "ok"),
-            _ => ("本地数据源就绪", "ok"),
+            "error" => "error",
+            "no data" => "warn",
+            _ => "ok",
         };
         RunOnUIThread(() =>
         {
-            DataStatusText = text;
+            _dataStatusCode = status;
             DataStatusLevel = level;
+            OnPropertyChanged(nameof(DataStatusText));
         });
     }
 

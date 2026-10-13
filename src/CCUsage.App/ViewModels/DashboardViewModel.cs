@@ -1,8 +1,10 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CCUsage.App.Localization;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 using CCUsage.Core.Abstractions;
@@ -161,6 +163,18 @@ public partial class DashboardViewModel : ViewModelBase
         return HasHistoricalDataAvailable(summary) && !HasCurrentPeriodDataAvailable(summary);
     }
 
+    /// <summary>异常通知用户文案（internal 供测试对账）：daily_cost_spike → Translations 取串
+    /// （{0}=统计天数，{1}=倍数，InvariantCulture 与全应用数值口径一致）；未知 Kind 回落数据层原文。</summary>
+    internal static string FormatAnomalyMessage(AnomalyNotice anomaly, int historyDays) => anomaly.Kind switch
+    {
+        "daily_cost_spike" => string.Format(
+            CultureInfo.InvariantCulture,
+            Translations.Instance.AnomalyCostSpikeFormat,
+            historyDays,
+            anomaly.Ratio),
+        _ => anomaly.Message,
+    };
+
     [RelayCommand]
     public async Task RefreshAsync()
     {
@@ -186,13 +200,18 @@ public partial class DashboardViewModel : ViewModelBase
 
                 // 检测异常
                 var today = rows.FirstOrDefault(r => r.Date == _dateService.Today()) ?? new DailyUsageSummary();
-                var anomalies = _anomalyDetector.DetectAnomalies(today, rows.Take(7).ToList(), minAbsoluteCost: 0.05m);
+                var recentHistory = rows.Take(7).ToList();
+                var anomalies = _anomalyDetector.DetectAnomalies(today, recentHistory, minAbsoluteCost: 0.05m);
 
                 if (_settings.AnomalyNotificationsEnabled && anomalies.Any())
                 {
                     foreach (var anomaly in anomalies)
                     {
-                        await _notification.ShowAsync("AI 成本异常提醒", anomaly.Message);
+                        // 用户可见文案在 App 层按 Kind 实时取串（Core 的 AnomalyNotice.Message 是
+                        // 数据层细节，不直接展示——语言跟随 UI）；未知 Kind 如实回落原文。
+                        await _notification.ShowAsync(
+                            Translations.Instance.AnomalyToastTitle,
+                            FormatAnomalyMessage(anomaly, recentHistory.Count));
                     }
                 }
             }

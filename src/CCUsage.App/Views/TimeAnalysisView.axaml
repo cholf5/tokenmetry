@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:CCUsage.App.ViewModels"
              xmlns:c="using:CCUsage.App.Controls"
+             xmlns:loc="using:CCUsage.App.Localization"
              mc:Ignorable="d"
              x:Class="CCUsage.App.Views.TimeAnalysisView"
              x:DataType="vm:TimeViewModel">
@@ -35,9 +36,9 @@
                 <Border Grid.Column="0" Classes="panel">
                     <StackPanel Spacing="10">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="本地时间 · 仅含带分钟级精度的会话"
+                            <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding MetaLocalTimePrecise, Source={x:Static loc:Translations.Instance}}"
                                        VerticalAlignment="Center"/>
-                            <TextBlock Classes="panel-title" Text="按小时分布" VerticalAlignment="Center"/>
+                            <TextBlock Classes="panel-title" Text="{Binding PanelHourlyDistribution, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </DockPanel>
                         <c:TrendChart Height="190" Mode="HourlyTokens" HourlyDistribution="{Binding HourlyDistribution}"/>
                         <!-- unknown 占比标注（TC-001）：无精度会话不入桶，页面可见而非静默丢失 -->
@@ -51,13 +52,13 @@
                 <Border Grid.Column="1" Classes="panel">
                     <StackPanel Spacing="10">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="每日 Token 强度"
+                            <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding MetaDailyTokenIntensity, Source={x:Static loc:Translations.Instance}}"
                                        VerticalAlignment="Center"/>
-                            <TextBlock Classes="panel-title" Text="活跃日历" VerticalAlignment="Center"/>
+                            <TextBlock Classes="panel-title" Text="{Binding PanelActivityCalendar, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </DockPanel>
                         <c:Heatmap Cells="{Binding HeatmapCells}" Columns="7" HorizontalAlignment="Stretch"/>
                         <TextBlock Classes="page-subtitle"
-                                   Text="颜色越浓表示当日 Token 越多；淡格为窗口内无数据日。悬停查看当日数值。"
+                                   Text="{Binding HeatmapLegend, Source={x:Static loc:Translations.Instance}}"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
@@ -66,7 +67,7 @@
             <!-- ═══ 时间维度建议观察项（静态三行说明表，原型同款；无假数据）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="10">
-                    <TextBlock Classes="panel-title" Text="时间维度建议观察项"/>
+                    <TextBlock Classes="panel-title" Text="{Binding PanelObservations, Source={x:Static loc:Translations.Instance}}"/>
                     <ItemsControl ItemsSource="{Binding Observations}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:TimeObservationRowViewModel">

@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CCUsage.App.Controls;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -29,7 +30,10 @@ public sealed class AgentKpiCardViewModel
         Glyph = AgentVisualMap.Glyph(row.Key).ToString();
         ChipVariant = AgentVisualMap.ChipVariant(row.Key);
         TokensText = TrendChart.FormatCompactTokens(row.TotalTokens);
-        FootText = $"{row.SessionCount.ToString("N0", CultureInfo.InvariantCulture)} 会话 · {OverviewViewModel.FormatCost(row.Cost)}";
+        FootText = string.Format(
+            Translations.Instance.AgentKpiFootFormat,
+            row.SessionCount.ToString("N0", CultureInfo.InvariantCulture),
+            OverviewViewModel.FormatCost(row.Cost));
     }
 
     /// <summary>Agent 名（维度 Key 即展示名）。</summary>
@@ -207,7 +211,7 @@ public partial class AgentsViewModel : ViewModelBase, IDisposable, IDataRefreshA
                 return; // 旧请求的失败不覆盖新请求的状态
             }
 
-            LoadError = $"加载失败：{ex.Message}";
+            LoadError = string.Format(Translations.Instance.LoadErrorFormat, ex.Message);
         }
     }
 

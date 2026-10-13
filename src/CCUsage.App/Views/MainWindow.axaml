@@ -6,6 +6,7 @@
         xmlns:c="using:CCUsage.App.Controls"
         xmlns:views="using:CCUsage.App.Views"
         xmlns:svc="using:CCUsage.App.Services"
+        xmlns:loc="using:CCUsage.App.Localization"
         mc:Ignorable="d"
         x:Class="CCUsage.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -140,7 +141,7 @@
             <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="18,0" VerticalAlignment="Center">
                 <!-- 全局时间范围（7/30/90/全部，默认 7 天，写入 FilterStateService） -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                    <TextBlock Classes="topbar-label" Text="时间范围"/>
+                    <TextBlock Classes="topbar-label" Text="{Binding TopbarTimeRange, Source={x:Static loc:Translations.Instance}}"/>
                     <ComboBox MinWidth="124"
                               ItemsSource="{Binding Filters.TimeRangeOptions}"
                               SelectedItem="{Binding Filters.TimeRange, Mode=TwoWay}">
@@ -153,7 +154,7 @@
                 </StackPanel>
                 <!-- 全局 Agent 筛选（选项清单 = AgentCatalogService 真实数据，D-008 接线；初始仅"所有 Agent"） -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">
-                    <TextBlock Classes="topbar-label" Text="Agent"/>
+                    <TextBlock Classes="topbar-label" Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
                     <ComboBox MinWidth="140"
                               ItemsSource="{Binding Filters.AgentOptions}"
                               SelectedItem="{Binding Filters.Agent, Mode=TwoWay}">
@@ -197,7 +198,7 @@
                         Classes="icon-btn"
                         Command="{Binding RefreshDataCommand}"
                         IsEnabled="{Binding !RefreshDataCommand.IsRunning}"
-                        ToolTip.Tip="立即刷新本地数据">
+                        ToolTip.Tip="{Binding TooltipRefreshNow, Source={x:Static loc:Translations.Instance}}">
                     <Panel>
                         <TextBlock Text="⟳"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -212,7 +213,7 @@
                         Classes="icon-btn"
                         Content="⚙"
                         Command="{Binding OpenSettingsCommand}"
-                        ToolTip.Tip="数据源与设置"/>
+                        ToolTip.Tip="{Binding NavSettings, Source={x:Static loc:Translations.Instance}}"/>
             </Grid>
         </Border>
 
@@ -292,10 +293,10 @@
                     <DockPanel Grid.Row="0">
                         <Button DockPanel.Dock="Right"
                                 Classes="link-btn"
-                                Content="查看全部 ↗"
+                                Content="{Binding ViewAll, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding GoToPageCommand}"
                                 CommandParameter="{x:Static vm:PageId.Sessions}"/>
-                        <TextBlock Classes="panel-title" FontSize="14" Text="最近会话"/>
+                        <TextBlock Classes="panel-title" FontSize="14" Text="{Binding RecentSessions, Source={x:Static loc:Translations.Instance}}"/>
                     </DockPanel>
 
                     <StackPanel Grid.Row="1"
@@ -338,7 +339,7 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
                         <!-- 诚实空态（无数据/加载失败前）/ 错误态（加载失败） -->
-                        <TextBlock Text="暂无最近会话"
+                        <TextBlock Text="{Binding NoRecentSessions, Source={x:Static loc:Translations.Instance}}"
                                    FontSize="12"
                                    Foreground="{DynamicResource AppMutedTextBrush}"
                                    HorizontalAlignment="Center"
@@ -365,12 +366,12 @@
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right"
                                             Classes="link-btn"
-                                            Content="清除"
+                                            Content="{Binding ClearFilters, Source={x:Static loc:Translations.Instance}}"
                                             Command="{Binding ClearQuickFiltersCommand}"/>
-                                    <TextBlock Classes="panel-title" Text="快速筛选"/>
+                                    <TextBlock Classes="panel-title" Text="{Binding QuickFilter, Source={x:Static loc:Translations.Instance}}"/>
                                 </DockPanel>
                                 <StackPanel Spacing="5">
-                                    <TextBlock Text="Agent" FontSize="11"
+                                    <TextBlock Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}" FontSize="11"
                                                Foreground="{DynamicResource AppMutedTextBrush}"/>
                                     <ItemsControl ItemsSource="{Binding AgentFilters}">
                                         <ItemsControl.ItemTemplate>
@@ -383,25 +384,37 @@
                                     </ItemsControl>
                                 </StackPanel>
                                 <StackPanel Spacing="4">
-                                    <TextBlock Text="模型" FontSize="11"
+                                    <TextBlock Text="{Binding LabelModels, Source={x:Static loc:Translations.Instance}}" FontSize="11"
                                                Foreground="{DynamicResource AppMutedTextBrush}"/>
                                     <ComboBox Width="210"
                                               HorizontalAlignment="Left"
                                               HorizontalContentAlignment="Stretch"
                                               ItemsSource="{Binding ModelFilterOptions}"
-                                              SelectedItem="{Binding ModelFilter, Mode=TwoWay}"/>
+                                              SelectedItem="{Binding ModelFilter, Mode=TwoWay}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="svc:ModelFilterOption">
+                                                <TextBlock Text="{Binding Label}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
                                 </StackPanel>
                                 <StackPanel Spacing="4">
-                                    <TextBlock Text="项目 / 目录" FontSize="11"
+                                    <TextBlock Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}" FontSize="11"
                                                Foreground="{DynamicResource AppMutedTextBrush}"/>
                                     <ComboBox Width="210"
                                               HorizontalAlignment="Left"
                                               HorizontalContentAlignment="Stretch"
                                               ItemsSource="{Binding ProjectFilterOptions}"
-                                              SelectedItem="{Binding ProjectFilter, Mode=TwoWay}"/>
+                                              SelectedItem="{Binding ProjectFilter, Mode=TwoWay}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="svc:ProjectFilterOption">
+                                                <TextBlock Text="{Binding Label}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
                                 </StackPanel>
                                 <Button Classes="Primary"
-                                        Content="应用筛选"
+                                        Content="{Binding ApplyFilters, Source={x:Static loc:Translations.Instance}}"
                                         HorizontalAlignment="Stretch"
                                         Command="{Binding ApplyQuickFiltersCommand}"/>
                             </StackPanel>

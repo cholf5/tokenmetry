@@ -10,6 +10,7 @@ using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CCUsage.App.Controls;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -301,7 +302,7 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
             }
 
             HasLoadError = true;
-            LoadError = $"加载失败：{ex.Message}";
+            LoadError = string.Format(Translations.Instance.LoadErrorFormat, ex.Message);
         }
     }
 
@@ -329,8 +330,8 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     /// (x,false) "$x.xx"；(x,true) "$x.xx+"（已知成本下限）；(null,true) "未知"；(null,false) "—"（无成本数据）。
     /// </summary>
     internal static string FormatCost(AggregatedCost cost) => cost.KnownCostUsd is { } known
-        ? TrendChart.FormatCostUsd(known, cost.HasUnknownCost) ?? "未知"
-        : cost.HasUnknownCost ? "未知" : "—";
+        ? TrendChart.FormatCostUsd(known, cost.HasUnknownCost) ?? Translations.Instance.Unknown
+        : cost.HasUnknownCost ? Translations.Instance.Unknown : "—";
 
     /// <summary>占比文案：0..1 → "67.3%"（对齐原型一位小数）；无基数（总 token 为 0）→ "—"。</summary>
     internal static string FormatShare(decimal? share) => share is { } value
@@ -354,7 +355,7 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
         var rest = withTokens.Skip(6).ToList();
         if (rest.Count > 0)
         {
-            segments.Add(new DonutSegment("其他", rest.Sum(a => a.TotalTokens)));
+            segments.Add(new DonutSegment(Translations.Instance.OthersSegment, rest.Sum(a => a.TotalTokens)));
         }
 
         return segments;
@@ -362,10 +363,11 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
 
     // ════════════════════════════ D-007 下半区映射（internal 供测试对账）════════════════════════════
 
-    /// <summary>Token 类型构成图例名（定案口径：契约的 InputTokens 本身不含缓存，见 CreateTokenTypeSegments）。</summary>
-    public const string TokenTypeInputLabel = "输入(未缓存)";
-    public const string TokenTypeOutputLabel = "输出";
-    public const string TokenTypeCacheLabel = "缓存相关";
+    /// <summary>Token 类型构成图例名（定案口径：契约的 InputTokens 本身不含缓存，见 CreateTokenTypeSegments）。
+    /// 经 Translations 实时取串（页面 VM 每次导航新建；测试引用属性即当前语言文案）。</summary>
+    public static string TokenTypeInputLabel => Translations.Instance.TokenTypeInput;
+    public static string TokenTypeOutputLabel => Translations.Instance.TokenTypeOutput;
+    public static string TokenTypeCacheLabel => Translations.Instance.TokenTypeCache;
 
     /// <summary>
     /// 模型/项目维度 → 预览表行：TopN、零 token 行不入榜（占比无意义）、防御性按 token 降序

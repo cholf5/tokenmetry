@@ -6,6 +6,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using CCUsage.App.Localization;
 
 namespace CCUsage.App.Controls;
 
@@ -218,7 +219,7 @@ public partial class DonutChart : UserControl
         {
             LegendList.ItemsSource = null;
             CenterTitleText.Text = CenterTitle;
-            CenterSubtitleText.Text = "暂无数据";
+            CenterSubtitleText.Text = Translations.Instance.NoData;
             return;
         }
 
