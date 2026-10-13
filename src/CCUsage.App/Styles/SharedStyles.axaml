@@ -197,4 +197,22 @@
         <Setter Property="Padding" Value="0,16"/>
     </Style>
 
+    <!-- 数据源表状态色（S-002，原型 .up 为绿色 / ● 部分数据 为橙色）：
+         未检出 / 尚未扫描用 muted（无数据的源不做绿色假象）。颜色复用 :root 强调色令牌
+         （AppAccentGreen/OrangeBrush 与原型 green/orange 变量同源）；行 VM 的 Is* 布尔经
+         Classes 条件绑定切换（同 kpi-change-* 模式）。必须排在 table-td 之后：
+         同为单类选择器，后声明的 Foreground 覆盖表体底色。 -->
+    <Style Selector="TextBlock.status-ok">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentGreenBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.status-partial">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentOrangeBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.status-nodata">
+        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.status-pending">
+        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+    </Style>
+
 </Styles>

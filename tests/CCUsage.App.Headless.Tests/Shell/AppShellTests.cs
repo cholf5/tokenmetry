@@ -129,11 +129,14 @@ public class AppShellTests
         Assert.Equal(PageId.Cost, cost.Page.Id);
         Assert.True(window.GetVisualDescendants().OfType<CostAnalysisView>().Any());
 
-        // 切到数据源与设置：路由到既有 SettingsView（真实视图，非占位）
+        // 切到数据源与设置：路由到 SettingsView（S-002 原地重构：数据源表 + 口径区 + 设置项迁入）
         vm.SelectedNavigation = vm.NavigationItems[7];
         Dispatcher.UIThread.RunJobs();
         Assert.Same(vm.Settings, vm.CurrentPage);
         Assert.True(window.GetVisualDescendants().OfType<SettingsView>().Any());
+        // S-002：单例页重进刷新（INavigationAware.OnNavigatedTo）——数据源表按真实采集注册表重建，
+        // 行数 = 管道注册的 19 个数据源（快照有无随本机扫描而定，行数环境无关）
+        Assert.Equal(19, vm.Settings.SourceRows.Count);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

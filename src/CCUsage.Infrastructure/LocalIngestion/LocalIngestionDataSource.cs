@@ -65,7 +65,40 @@ public class LocalIngestionDataSource : IUsageDataSource
     private readonly ModelsDevPricingClient? _pricingClient;
     private readonly IUsageStore _store;
     private readonly TimeZoneInfo? _timeZone;
+    private readonly IngestionScanRegistry? _scanRegistry;
     private readonly SemaphoreSlim _ingestionGate = new(initialCount: 1, maxCount: 1);
+
+    /// <summary>
+    /// 管道扫描清单（S-002 数据源表的"已识别数据源"即此清单，经 <see cref="IngestionScanRegistry"/>
+    /// 注册，UI 不手写）：(源名, 扫描委托) 对，顺序即 <see cref="GetDailyUsageAsync"/> 的扫描与
+    /// 记录拼接顺序。源名 = 各适配器解析器声明的 <c>AgentName</c>（= facts agent 维度出账名）；
+    /// pi-agent 的记录按存储作用域出账（默认 "pi"，命名存储独立 agent），无单一出账名，源名取
+    /// 适配器名 "pi-agent"；Antigravity 适配器无 AgentName 常量，取其出账名同值字面量。
+    /// ClaudeCodeJsonlAdapter 返回 <see cref="ClaudeCodeScanResult"/>（<see cref="JsonlScanResult"/> 子类），
+    /// 经 async await 归一为共享扫描模型。
+    /// </summary>
+    private (string Agent, Func<CancellationToken, Task<JsonlScanResult>> Scan)[] BuildScanPipeline() =>
+    [
+        (ClaudeCodeJsonlLineParser.AgentName, async ct => await _claudeAdapter.ScanAsync(ct)),
+        (CodexJsonlFileParser.AgentName, async ct => await _codexAdapter.ScanAsync(ct)),
+        (ZCodeRecordMapper.AgentName, async ct => await _zcodeAdapter.ScanAsync(ct)),
+        (DshSessionLogParser.AgentName, async ct => await _dshAdapter.ScanAsync(ct)),
+        (CopilotSessionParser.AgentName, async ct => await _copilotAdapter.ScanAsync(ct)),
+        (OpenCodeMessageParser.AgentName, async ct => await _openCodeAdapter.ScanAsync(ct)),
+        (GooseSessionMapper.AgentName, async ct => await _gooseAdapter.ScanAsync(ct)),
+        (HermesSessionParser.AgentName, async ct => await _hermesAdapter.ScanAsync(ct)),
+        (KiloMessageParser.AgentName, async ct => await _kiloAdapter.ScanAsync(ct)),
+        (GeminiLogParser.AgentName, async ct => await _geminiAdapter.ScanAsync(ct)),
+        (AmpThreadParser.AgentName, async ct => await _ampAdapter.ScanAsync(ct)),
+        (DroidSettingsParser.AgentName, async ct => await _droidAdapter.ScanAsync(ct)),
+        (QwenLogParser.AgentName, async ct => await _qwenAdapter.ScanAsync(ct)),
+        (KimiLogParser.AgentName, async ct => await _kimiAdapter.ScanAsync(ct)),
+        (CodebuffChatParser.AgentName, async ct => await _codebuffAdapter.ScanAsync(ct)),
+        ("pi-agent", async ct => await _piAdapter.ScanAsync(ct)),
+        (GrokLogParser.AgentName, async ct => await _grokAdapter.ScanAsync(ct)),
+        (OpenClawLogParser.AgentName, async ct => await _openClawAdapter.ScanAsync(ct)),
+        ("Antigravity", async ct => await _antigravityAdapter.ScanAsync(ct)),
+    ];
 
     /// <inheritdoc />
     public bool PersistsFacts => true;
@@ -93,7 +126,8 @@ public class LocalIngestionDataSource : IUsageDataSource
         PricingEngine pricingEngine,
         IUsageStore store,
         ModelsDevPricingClient? pricingClient = null,
-        TimeZoneInfo? timeZone = null)
+        TimeZoneInfo? timeZone = null,
+        IngestionScanRegistry? scanRegistry = null)
     {
         _claudeAdapter = claudeAdapter ?? throw new ArgumentNullException(nameof(claudeAdapter));
         _codexAdapter = codexAdapter ?? throw new ArgumentNullException(nameof(codexAdapter));
@@ -118,6 +152,15 @@ public class LocalIngestionDataSource : IUsageDataSource
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _pricingClient = pricingClient;
         _timeZone = timeZone;
+        _scanRegistry = scanRegistry;
+        // S-002：管道组成即"已识别数据源"清单，构造时注册（含未扫描态——UI 显示"尚未扫描"）
+        if (_scanRegistry is { } registry)
+        {
+            foreach (var (agent, _) in BuildScanPipeline())
+            {
+                registry.RegisterSource(agent);
+            }
+        }
     }
 
     public async Task<List<DailyUsageSummary>> GetDailyUsageAsync(CancellationToken ct = default)
@@ -132,31 +175,17 @@ public class LocalIngestionDataSource : IUsageDataSource
                 _ = Task.Run(() => pricingClient.RefreshIfDueAsync(ct), ct);
             }
 
-            var claude = await _claudeAdapter.ScanAsync(ct);
-            var codex = await _codexAdapter.ScanAsync(ct);
-            var zcode = await _zcodeAdapter.ScanAsync(ct);
-            var dsh = await _dshAdapter.ScanAsync(ct);
-            var copilot = await _copilotAdapter.ScanAsync(ct);
-            var openCode = await _openCodeAdapter.ScanAsync(ct);
-            var goose = await _gooseAdapter.ScanAsync(ct);
-            var hermes = await _hermesAdapter.ScanAsync(ct);
-            var kilo = await _kiloAdapter.ScanAsync(ct);
-            var gemini = await _geminiAdapter.ScanAsync(ct);
-            var amp = await _ampAdapter.ScanAsync(ct);
-            var droid = await _droidAdapter.ScanAsync(ct);
-            var qwen = await _qwenAdapter.ScanAsync(ct);
-            var kimi = await _kimiAdapter.ScanAsync(ct);
-            var codebuff = await _codebuffAdapter.ScanAsync(ct);
-            var pi = await _piAdapter.ScanAsync(ct);
-            var grok = await _grokAdapter.ScanAsync(ct);
-            var openclaw = await _openClawAdapter.ScanAsync(ct);
-            var antigravity = await _antigravityAdapter.ScanAsync(ct);
-            var records = claude.Records.Concat(codex.Records).Concat(zcode.Records).Concat(dsh.Records)
-                .Concat(copilot.Records).Concat(openCode.Records).Concat(goose.Records)
-                .Concat(hermes.Records).Concat(kilo.Records).Concat(gemini.Records).Concat(amp.Records)
-                .Concat(droid.Records).Concat(qwen.Records).Concat(kimi.Records).Concat(codebuff.Records)
-                .Concat(pi.Records).Concat(grok.Records).Concat(openclaw.Records).Concat(antigravity.Records)
-                .ToList();
+            // S-002：逐源扫描（顺序与拼接序 = BuildScanPipeline 清单），每源完成后向注册表登记
+            // 真实快照（状态 / 累计记录数 / 完成时刻），供设置页数据源表读取。
+            var scanResults = new List<JsonlScanResult>(BuildScanPipeline().Length);
+            foreach (var (agent, scan) in BuildScanPipeline())
+            {
+                var result = await scan(ct);
+                scanResults.Add(result);
+                _scanRegistry?.ReportScan(agent, result.Diagnostics.Status, result.Records.Count, DateTimeOffset.Now);
+            }
+
+            var records = scanResults.SelectMany(r => r.Records).ToList();
             if (records.Count == 0)
             {
                 // 无记录（日志目录不存在 / 全空）时不动存储：保留既有数据（含旧 CLI 行），

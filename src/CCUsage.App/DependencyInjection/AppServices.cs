@@ -111,6 +111,10 @@ public static class AppServices
 
         // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）；
         // CLI 数据源保留注册用于对账与手动导入（Reconciliation 测试套件 / 后续接线），不再是默认。
+        // S-002：采集扫描状态注册表（单例）随本地采集源装配——管道组合（19 个适配器）在此注册，
+        // 每轮刷新逐源登记扫描快照，设置页数据源表读取（"已识别数据源"不手写清单）。
+        services.AddSingleton<IngestionScanRegistry>();
+        services.AddSingleton<IIngestionScanReader>(sp => sp.GetRequiredService<IngestionScanRegistry>());
         services.AddSingleton<LocalIngestionDataSource>();
         services.AddSingleton<IUsageDataSource>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
         services.AddSingleton(_ => new CCUsageCliDataSource(settings.CcusageCommand));
@@ -142,11 +146,27 @@ public static class AppServices
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<ReportsViewModel>();
         services.AddTransient<ModelBreakdownViewModel>();
-        services.AddTransient<SettingsViewModel>();
+        // S-002：设置页 VM 仍为单例生命周期（MainWindowViewModel 持有同一实例，外壳 CreatePage 复用，
+        // 主题选中态跨导航保持）；数据源表刷新经 INavigationAware.OnNavigatedTo（重进刷新，定案见卡 Dev Log）。
+        services.AddSingleton<SettingsViewModel>();
         // D-003 右栏最近会话骨架（D-008 接真实数据）
         services.AddTransient<SessionsPanelViewModel>();
 
+        // S-002 审查修复（P0）：后台刷新服务在容器内正常注册——设置页 VM 的嵌套构造注入与顶层
+        // Get<T> 解析到同一实例。此前"late map（RegisterInstance 只拦截顶层 Get<T>，嵌套构造注入
+        // 不经过它）+ 兜底空转实例"的设计使真机重扫命中兜底实例成假成功，两者均已删除（late map
+        // 无其余调用方，兜底实例由 BackgroundRefreshWiring 的"未接线如实失败"语义取代）。
+        // 刷新动作经 BackgroundRefreshWiring 执行：dashboard 与外壳 VM 在 App 启动序列就绪后 Attach；
+        // headless 测试宿主不执行启动序列，其下未接线重扫得到明确的"扫描失败"而非假成功。
+        var refreshWiring = new BackgroundRefreshWiring();
+        services.AddSingleton(refreshWiring);
+        services.AddSingleton(new BackgroundRefreshService(refreshWiring.RunRefreshAsync, settings.RefreshMinutes));
+
         _provider = services.BuildServiceProvider();
+
+        // S-002：启动即物化本地采集源（构造侧向扫描注册表登记管道组合——"已识别的数据源"清单），
+        // 不依赖 DashboardViewModel 的解析时机；真正的扫描仍只在刷新时发生。
+        _provider.GetRequiredService<LocalIngestionDataSource>();
     }
 
     public static T Get<T>() where T : notnull
@@ -155,6 +175,7 @@ public static class AppServices
         {
             throw new InvalidOperationException("AppServices not initialized. Call Initialize() first.");
         }
+
         return _provider.GetRequiredService<T>();
     }
 }
