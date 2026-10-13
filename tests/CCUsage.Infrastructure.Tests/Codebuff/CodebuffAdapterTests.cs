@@ -140,7 +140,8 @@ public class CodebuffAdapterTests : IDisposable
 
         var record = result.Records.Should().ContainSingle().Subject;
         record.InputTokens.Should().Be(20, "同键后到者覆盖（last-wins，蓝本 HashMap insert）");
-        record.SourceFile.Should().Contain("/r2/", "存活记录来自排序在后的文件");
+        // A-1：路径断言用平台分隔符（POSIX 斜杠字面量在 Windows 下不成立）。
+        record.SourceFile.Should().Contain($"{Path.DirectorySeparatorChar}r2{Path.DirectorySeparatorChar}", "存活记录来自排序在后的文件");
         result.Diagnostics.DuplicateRecords.Should().Be(1);
     }
 

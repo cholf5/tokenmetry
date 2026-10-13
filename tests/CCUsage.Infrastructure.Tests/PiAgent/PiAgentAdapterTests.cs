@@ -600,7 +600,8 @@ public class PiAgentAdapterTests : IDisposable
 
         var locator = new PiLogLocator(name => name is "USERPROFILE" or "HOME" ? home : null);
         locator.ResolveNamedStoreDirectories("~/.omp/agent/sessions").Should().Equal([store]);
-        locator.ResolveNamedStoreDirectories($" {first}, {second}, {first}, {home}/missing/sessions ")
+        // A-1：期望路径用 Path.Combine 构造（POSIX 斜杠字面量在 Windows 下不成立）。
+        locator.ResolveNamedStoreDirectories($" {first}, {second}, {first}, {Path.Combine(home, "missing", "sessions")} ")
             .Should().Equal([first, second], "去空白、去重、不存在目录丢弃");
     }
 
