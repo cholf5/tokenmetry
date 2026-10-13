@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CCUsage.App.ViewModels"
+             xmlns:loc="using:CCUsage.App.Localization"
              x:Class="CCUsage.App.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
 
@@ -35,16 +36,16 @@
                                    Margin="0,0,12,0"
                                    VerticalAlignment="Center"
                                    Text="{Binding SourceMetaText}"/>
-                        <TextBlock Classes="panel-title" Text="已识别的数据源" VerticalAlignment="Center"/>
+                        <TextBlock Classes="panel-title" Text="{Binding SourcesPanelTitle, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </DockPanel>
 
                     <!-- 表头（原型 .table：数据源 / 状态 / 最近扫描 / 记录数；per-source 重扫列不设——
                          采集管道为单信号量串行全源扫描，逐行重扫按钮会是假能力） -->
                     <Grid Grid.Row="1" ColumnDefinitions="1.6*,1*,0.9*,0.9*" ColumnSpacing="8" Margin="0,0,0,2">
-                        <TextBlock Grid.Column="0" Classes="table-th" Text="数据源"/>
-                        <TextBlock Grid.Column="1" Classes="table-th" Text="状态"/>
-                        <TextBlock Grid.Column="2" Classes="table-th" Text="最近扫描"/>
-                        <TextBlock Grid.Column="3" Classes="table-th" Text="记录数" TextAlignment="Right"/>
+                        <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThSource, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="table-th" Text="{Binding ThStatus, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="2" Classes="table-th" Text="{Binding ThLastScan, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="3" Classes="table-th" Text="{Binding ThRecords, Source={x:Static loc:Translations.Instance}}" TextAlignment="Right"/>
                     </Grid>
 
                     <!-- 数据源行（整表随快照重建；状态着色经 status-* 类条件绑定） -->
@@ -79,7 +80,7 @@
             <!-- ═══ 统计口径：逐项定案为说明样式（S-002 Dev Log），不做假开关 ═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="10">
-                    <TextBlock Classes="panel-title" Text="统计口径"/>
+                    <TextBlock Classes="panel-title" Text="{Binding CaliberTitle, Source={x:Static loc:Translations.Instance}}"/>
                     <ItemsControl ItemsSource="{Binding CaliberRows}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:CaliberItem">
@@ -106,13 +107,13 @@
                 </StackPanel>
             </Border>
 
-            <!-- ═══ 外观与通用（既有设置项迁入新信息架构；主题三态即时预览 + 保存持久化）═══ -->
+            <!-- ═══ 外观与通用（既有设置项迁入新信息架构；主题/语言即时预览 + 保存持久化）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="12">
-                    <TextBlock Classes="panel-title" Text="外观与通用"/>
+                    <TextBlock Classes="panel-title" Text="{Binding AppearanceTitle, Source={x:Static loc:Translations.Instance}}"/>
 
                     <StackPanel Spacing="4">
-                        <TextBlock Classes="page-subtitle" Text="主题"/>
+                        <TextBlock Classes="page-subtitle" Text="{Binding LabelTheme, Source={x:Static loc:Translations.Instance}}"/>
                         <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}"
                                   Width="220" HorizontalAlignment="Left"
                                   HorizontalContentAlignment="Stretch">
@@ -123,42 +124,59 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                                   Text="切换后立即预览；选择「保存设置」持久化（重启后保持）。"/>
+                                   Text="{Binding ThemeHint, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
+
+                    <!-- 界面语言（zh/en/system；切换即时全局生效，保存设置持久化） -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Classes="page-subtitle" Text="{Binding LabelLanguage, Source={x:Static loc:Translations.Instance}}"/>
+                        <ComboBox ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}"
+                                  Width="220" HorizontalAlignment="Left"
+                                  HorizontalContentAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LanguageOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                                   Text="{Binding LanguageHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
 
                     <StackPanel Spacing="4">
-                        <TextBlock Classes="page-subtitle" Text="刷新间隔（分钟）"/>
+                        <TextBlock Classes="page-subtitle" Text="{Binding LabelRefreshInterval, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="15" Width="220"
                                  HorizontalAlignment="Left"/>
                         <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                                   Text="保存后于下次启动后台刷新服务时生效。"/>
+                                   Text="{Binding RefreshHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
 
                     <StackPanel Spacing="4">
-                        <TextBlock Classes="page-subtitle" Text="ccusage CLI（对账 / 手动导入）"/>
+                        <TextBlock Classes="page-subtitle" Text="{Binding LabelCcusageCli, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBox Text="{Binding CcusageCommand}" PlaceholderText="ccusage" Width="320"
                                  HorizontalAlignment="Left"/>
                         <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                                   Text="应用默认直读本地会话日志，无需安装 ccusage；此命令仅对账 / 手动导入时使用，保存后下次启动生效。"/>
+                                   Text="{Binding CcusageHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
 
                     <!-- A-11：两开关中仅「异常通知」有真实行为（接 ISystemNotification → in-app toast，
                          见 ToastSystemNotification）；「显示调试信息」无任何 UI 消费者（消费视图已删），
                          按假开关红线删除——诚实优先，未来有调试出口再恢复。 -->
-                    <CheckBox Content="启用异常通知（应用内 toast 提示）" IsChecked="{Binding AnomalyNotificationsEnabled}"/>
+                    <CheckBox Content="{Binding CheckAnomalyNotifications, Source={x:Static loc:Translations.Instance}}"
+                              IsChecked="{Binding AnomalyNotificationsEnabled}"/>
                 </StackPanel>
             </Border>
 
             <!-- ═══ 本地路径（只读说明）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="8">
-                    <TextBlock Classes="panel-title" Text="本地路径"/>
+                    <TextBlock Classes="panel-title" Text="{Binding LocalPathsTitle, Source={x:Static loc:Translations.Instance}}"/>
                     <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="缓存数据库"/>
+                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelCacheDb, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding CacheDbPath}" TextWrapping="Wrap"/>
                     </Grid>
                     <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="设置文件"/>
+                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelSettingsFile, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding SettingsFilePath}" TextWrapping="Wrap"/>
                     </Grid>
                 </StackPanel>
@@ -166,7 +184,7 @@
 
             <!-- 保存（成功 / 失败经 toast 反馈；Status 保留既有测试对账语义） -->
             <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Classes="Primary" Content="保存设置"
+                <Button Classes="Primary" Content="{Binding SaveSettings, Source={x:Static loc:Translations.Instance}}"
                         Command="{Binding SaveCommand}" IsEnabled="{Binding !IsSaving}"/>
                 <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Classes="page-subtitle"/>
             </StackPanel>

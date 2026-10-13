@@ -1,19 +1,58 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.Core.Models;
 using CCUsage.Core.Services;
 
 namespace CCUsage.App.ViewModels;
 
-/// <summary>外观主题选项（Value 对应 AppSettings.Theme 的取值）。</summary>
-public sealed record ThemeOption(string Value, string Label);
+/// <summary>
+/// 外观主题选项（Value 对应 AppSettings.Theme 的取值）。稳定实例 + 实时 Label（经 Translations 取串，
+/// 语言切换由 SettingsViewModel 统一 RefreshLabel）——规避 Avalonia ComboBox 重建 ItemsSource 丢选中、
+/// 选中项内容被快照的坑（同 stupid-dict 的 OptionItem 方案）。相等性只看 Value（SelectedItem 绑定比较稳定）。
+/// </summary>
+public sealed class ThemeOption : ObservableObject
+{
+    public ThemeOption(string value) => Value = value;
+
+    public string Value { get; }
+
+    public string Label => Value switch
+    {
+        "light" => Translations.Instance.ThemeLight,
+        "dark" => Translations.Instance.ThemeDark,
+        _ => Translations.Instance.ThemeSystem,
+    };
+
+    /// <summary>语言切换后由 SettingsViewModel 统一触发（Label 为计算属性，需显式通知刷新）。</summary>
+    public void RefreshLabel() => OnPropertyChanged(nameof(Label));
+}
+
+/// <summary>界面语言选项（Value 对应 AppSettings.Language 的取值：system / zh / en），机制同 <see cref="ThemeOption"/>。
+/// 语言名按 stupid-dict 惯例经 Translations 显示（英文界面显示 "简体中文"/"English"，中文界面同理）。</summary>
+public sealed class LanguageOption : ObservableObject
+{
+    public LanguageOption(string value) => Value = value;
+
+    public string Value { get; }
+
+    public string Label => Value switch
+    {
+        "zh" => Translations.Instance.LanguageZh,
+        "en" => Translations.Instance.LanguageEn,
+        _ => Translations.Instance.LanguageSystem,
+    };
+
+    public void RefreshLabel() => OnPropertyChanged(nameof(Label));
+}
 
 /// <summary>
 /// 统计口径区单行（S-002 定案）：本版全部为说明项——逐项评估后没有可真实生效的用户开关
@@ -39,36 +78,47 @@ public sealed record DataSourceRowViewModel(
     string RecordCountText)
 {
     public static DataSourceRowViewModel NotScannedYet(string agent) =>
-        new(agent, "● 尚未扫描", IsOk: false, IsPartial: false, IsNoData: false, IsError: false, IsPending: true, "—", "—");
+        new(agent, Translations.Instance.StatusNotScanned, IsOk: false, IsPartial: false, IsNoData: false, IsError: false, IsPending: true, "—", "—");
 }
 
 public partial class SettingsViewModel : ViewModelBase, INavigationAware
 {
     public static IReadOnlyList<ThemeOption> ThemeOptions { get; } = new[]
     {
-        new ThemeOption("light", "日间"),
-        new ThemeOption("dark", "夜间"),
-        new ThemeOption("system", "跟随系统"),
+        new ThemeOption("light"),
+        new ThemeOption("dark"),
+        new ThemeOption("system"),
+    };
+
+    /// <summary>界面语言选项（顺序即下拉展示顺序：跟随系统 / 简体中文 / English）。</summary>
+    public static IReadOnlyList<LanguageOption> LanguageOptions { get; } = new[]
+    {
+        new LanguageOption("system"),
+        new LanguageOption("zh"),
+        new LanguageOption("en"),
     };
 
     /// <summary>
     /// 统计口径区定案（S-002，逐项结论记录于卡 Dev Log）：原型 5 个复选项全部评估为说明项——
     /// 去重 / Token 四向拆分 / 未知成本纪律 / 仅本机处理为采集与计价管道的<b>始终生效</b>行为
     /// （无用户开关可接）；跨 Agent 合并<b>未提供</b>（未实现）。不做假开关。
+    /// 文案每次访问经 Translations 现取（语言切换后 CaliberRows 重绑即拿到新语言）。
     /// </summary>
-    public static IReadOnlyList<CaliberItem> CaliberItems { get; } = new[]
+    public static IReadOnlyList<CaliberItem> CaliberItems
     {
-        new CaliberItem("按 Agent + Session ID 去重", "始终生效",
-            "消息级去重与会话事实按 agent + session_id 幂等 upsert，采集管道内建行为"),
-        new CaliberItem("区分输入、输出、缓存读取与缓存写入", "始终生效",
-            "统一记录与 facts 存储固定四向拆分 Token"),
-        new CaliberItem("未知模型价格显示为「未知」", "始终生效",
-            "缺价模型成本显式标记未知、绝不折算为 0（未知成本纪律）"),
-        new CaliberItem("将不同 Agent 的疑似同一任务自动合并（谨慎启用）", "未提供",
-            "跨 Agent 任务合并尚未实现；原型开关不落地，避免无效果的假开关"),
-        new CaliberItem("所有原始记录默认仅在本机处理", "始终生效",
-            "适配器直读本机日志与账本；联网仅拉取模型价格表，原始记录不出本机"),
-    };
+        get
+        {
+            var t = Translations.Instance;
+            return new[]
+            {
+                new CaliberItem(t.CaliberDedupText, t.BadgeAlways, t.CaliberDedupNote),
+                new CaliberItem(t.CaliberSplitText, t.BadgeAlways, t.CaliberSplitNote),
+                new CaliberItem(t.CaliberUnknownPriceText, t.BadgeAlways, t.CaliberUnknownPriceNote),
+                new CaliberItem(t.CaliberMergeText, t.BadgeNotProvided, t.CaliberMergeNote),
+                new CaliberItem(t.CaliberLocalOnlyText, t.BadgeAlways, t.CaliberLocalOnlyNote),
+            };
+        }
+    }
 
     private readonly AppSettings _settings;
     private readonly IAppSettingsStore _store;
@@ -101,18 +151,42 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     private bool _isScanning;
 
     /// <summary>重扫按钮文案（如实语义：全局重扫，不支持 per-source）。</summary>
-    public string ScanButtonText => IsScanning ? "扫描中…" : "重新扫描（全部源）";
+    public string ScanButtonText => IsScanning ? Translations.Instance.ScanRunning : Translations.Instance.ScanIdle;
 
     [ObservableProperty]
     private ThemeOption _selectedTheme;
 
-    /// <summary>数据源面板 meta 文案：扫描中提示 / 静态口径说明 / 扫描失败提示（保持到下次成功扫描）。</summary>
     [ObservableProperty]
-    private string _sourceMetaText = SourceMetaIdle;
+    private LanguageOption _selectedLanguage;
 
-    public const string SourceMetaIdle = "状态与记录数来自上次采集扫描 · 记录数为增量累计值";
-    public const string SourceMetaScanning = "扫描中…（按源逐个执行，完成后统一刷新）";
-    public const string SourceMetaScanFailed = "上次扫描未完成——下表为最近一次成功快照，可能非本轮数据";
+    /// <summary>数据源面板 meta 状态（Idle / Scanning / ScanFailed；文案经 Translations 实时取串，语言切换按当前状态重译）。</summary>
+    public enum SourceMetaState
+    {
+        Idle,
+        Scanning,
+        ScanFailed,
+    }
+
+    private SourceMetaState _sourceMetaState = SourceMetaState.Idle;
+
+    /// <summary>数据源面板 meta 文案：扫描中提示 / 静态口径说明 / 扫描失败提示（保持到下次成功扫描）。</summary>
+    public string SourceMetaText => _sourceMetaState switch
+    {
+        SourceMetaState.Scanning => Translations.Instance.SourceMetaScanning,
+        SourceMetaState.ScanFailed => Translations.Instance.SourceMetaScanFailed,
+        _ => Translations.Instance.SourceMetaIdle,
+    };
+
+    private void SetSourceMetaState(SourceMetaState state)
+    {
+        if (_sourceMetaState == state)
+        {
+            return;
+        }
+
+        _sourceMetaState = state;
+        OnPropertyChanged(nameof(SourceMetaText));
+    }
 
     /// <summary>数据源表行（"已识别数据源"来自采集层注册表，不手写清单）。</summary>
     public ObservableCollection<DataSourceRowViewModel> SourceRows { get; } = new();
@@ -139,7 +213,11 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         _anomalyNotificationsEnabled = settings.AnomalyNotificationsEnabled;
         _showDebugInfo = settings.ShowDebugInfo;
         _selectedTheme = ResolveThemeOption(settings.Theme);
+        _selectedLanguage = ResolveLanguageOption(settings.Language);
         RebuildSourceRows();
+
+        // 语言切换重译订阅：设置页 VM 为 DI 单例（与外壳同生命周期），直订阅无需退订。
+        Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
     }
 
     public string CacheDbPath { get; }
@@ -158,6 +236,46 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         {
             _themeService.Apply(value.Value);
         }
+    }
+
+    /// <summary>切换语言选项时立即全局应用（含本页与外壳重译）；持久化仍由保存设置触发。</summary>
+    partial void OnSelectedLanguageChanged(LanguageOption value)
+    {
+        if (value is not null)
+        {
+            Translations.ApplyPreference(value.Value);
+        }
+    }
+
+    /// <summary>
+    /// 语言切换重译（应用级单例，进程内存活）：以 PropertyChanged(CurrentLanguage) 作为
+    /// 「每次切换一次」的信号（同 stupid-dict 约定）——刷新下拉选项 Label、重算命令式文案、
+    /// 重建数据源表并重绑口径区。XAML 直绑 Translations 的串由 Translations 的全量
+    /// PropertyChanged 自行刷新；Page 的 raise 使 <c>{Binding Page.Title}</c> 属性路径重新求值。
+    /// 瞬态 Status（内部状态码）与 toast 保持出现时语言，不回溯重译。
+    /// </summary>
+    private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(Translations.CurrentLanguage))
+        {
+            return;
+        }
+
+        foreach (var option in ThemeOptions)
+        {
+            option.RefreshLabel();
+        }
+
+        foreach (var option in LanguageOptions)
+        {
+            option.RefreshLabel();
+        }
+
+        OnPropertyChanged(nameof(Page));
+        OnPropertyChanged(nameof(ScanButtonText));
+        OnPropertyChanged(nameof(SourceMetaText));
+        OnPropertyChanged(nameof(CaliberRows));
+        RebuildSourceRows();
     }
 
     /// <summary>
@@ -186,7 +304,7 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         }
 
         IsScanning = true;
-        SourceMetaText = SourceMetaScanning;
+        SetSourceMetaState(SourceMetaState.Scanning);
         Status = "scanning";
         try
         {
@@ -197,14 +315,14 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
             if (success)
             {
                 Status = "scan finished";
-                SourceMetaText = SourceMetaIdle;
-                _toastService.Show("扫描完成");
+                SetSourceMetaState(SourceMetaState.Idle);
+                _toastService.Show(Translations.Instance.ToastScanDone);
             }
             else
             {
                 Status = "scan error";
-                SourceMetaText = SourceMetaScanFailed;
-                _toastService.Show("扫描失败：数据表保持最近一次成功快照");
+                SetSourceMetaState(SourceMetaState.ScanFailed);
+                _toastService.Show(Translations.Instance.ToastScanFailed);
             }
         }
         finally
@@ -234,17 +352,18 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
             _settings.AnomalyNotificationsEnabled = AnomalyNotificationsEnabled;
             _settings.ShowDebugInfo = ShowDebugInfo;
             _settings.Theme = SelectedTheme?.Value ?? "system";
+            _settings.Language = SelectedLanguage?.Value ?? "system";
 
             await _store.SaveAsync(_settings);
             CcusageCommand = _settings.CcusageCommand;
             RefreshMinutesText = _settings.RefreshMinutes.ToString();
             Status = "settings saved";
-            _toastService.Show("设置已保存");
+            _toastService.Show(Translations.Instance.ToastSaved);
         }
         catch (Exception ex)
         {
             Status = $"error: {ex.Message}";
-            _toastService.Show($"保存失败：{ex.Message}");
+            _toastService.Show(string.Format(Translations.Instance.ToastSaveFailedFormat, ex.Message));
         }
         finally
         {
@@ -281,11 +400,11 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     /// 行的状态着色由各 Is* 布尔经 Classes 条件绑定驱动，见 SharedStyles 的 status-* 类）。</summary>
     internal static string DescribeStatus(JsonlScanStatus status) => status switch
     {
-        JsonlScanStatus.Ok => "● 已连接",
-        JsonlScanStatus.Partial => "● 部分数据",
-        JsonlScanStatus.NoData => "● 未检出",
-        JsonlScanStatus.Error => "● 扫描失败（本轮跳过）",
-        _ => "● 尚未扫描",
+        JsonlScanStatus.Ok => Translations.Instance.StatusOk,
+        JsonlScanStatus.Partial => Translations.Instance.StatusPartial,
+        JsonlScanStatus.NoData => Translations.Instance.StatusNoData,
+        JsonlScanStatus.Error => Translations.Instance.StatusError,
+        _ => Translations.Instance.StatusNotScanned,
     };
 
     /// <summary>扫描完成时刻 → 展示文案：当日显示 HH:mm，跨日显示 MM-dd HH:mm（本机时区）。</summary>
@@ -301,6 +420,13 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     {
         var normalized = (preference ?? "system").Trim().ToLowerInvariant();
         return ThemeOptions.FirstOrDefault(o => o.Value == normalized) ?? ThemeOptions[2];
+    }
+
+    /// <summary>语言偏好 → 选项（未知/空值如实回落「跟随系统」，同 Theme 的未知值处理）。</summary>
+    private static LanguageOption ResolveLanguageOption(string? preference)
+    {
+        var normalized = (preference ?? "system").Trim().ToLowerInvariant();
+        return LanguageOptions.FirstOrDefault(o => o.Value == normalized) ?? LanguageOptions[0];
     }
 
     private bool TryValidateRefreshMinutes(out int refreshMinutes, out string error)
