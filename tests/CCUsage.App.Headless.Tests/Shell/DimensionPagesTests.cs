@@ -906,9 +906,18 @@ public class DimensionPagesTests
         var agents = new AgentsViewModel(ShellPages.For(PageId.Agents), filters, query);
         var models = new ModelsViewModel(ShellPages.For(PageId.Models), filters, query);
         var projects = new ProjectsViewModel(ShellPages.For(PageId.Projects), filters, query);
-        Dispatcher.UIThread.RunJobs();
 
         var expectedAgents = Task.Run(() => query.GetAgentBreakdownAsync(expectedFilter)).GetAwaiter().GetResult();
+        var expectedModels = Task.Run(() => query.GetModelBreakdownAsync(expectedFilter)).GetAwaiter().GetResult();
+        var expectedProjects = Task.Run(() => query.GetProjectBreakdownAsync(expectedFilter)).GetAwaiter().GetResult();
+
+        // 数据面查询已移到线程池执行（UsageQueryService 线程模型），VM 续体回 UI 队列：泵至加载完成
+        // （Rows 初始为空集，与"无数据"不可区分——按与同口径直查行数一致等待）
+        DispatcherPump.PumpUntil(() =>
+            agents.Rows.Count == expectedAgents.Count
+            && models.Rows.Count == expectedModels.Count
+            && projects.Rows.Count == expectedProjects.Count);
+
         Assert.Equal(expectedAgents.Count, agents.Rows.Count);
         if (expectedAgents.Count > 0)
         {
@@ -919,7 +928,6 @@ public class DimensionPagesTests
                 agents.Rows[0].TotalTokensText);
         }
 
-        var expectedModels = Task.Run(() => query.GetModelBreakdownAsync(expectedFilter)).GetAwaiter().GetResult();
         Assert.Equal(expectedModels.Count, models.Rows.Count);
         if (expectedModels.Count > 0)
         {
@@ -935,7 +943,6 @@ public class DimensionPagesTests
             Assert.Equal(expectedText, models.Rows[0].AssociatedAgentText);
         }
 
-        var expectedProjects = Task.Run(() => query.GetProjectBreakdownAsync(expectedFilter)).GetAwaiter().GetResult();
         Assert.Equal(expectedProjects.Count, projects.Rows.Count);
 
         // 三页整窗渲染不崩（数据有无随本机 facts 而定）

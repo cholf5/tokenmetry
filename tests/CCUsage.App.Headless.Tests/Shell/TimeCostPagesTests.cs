@@ -653,7 +653,12 @@ public class TimeCostPagesTests
         var time = new TimeViewModel(ShellPages.For(PageId.Time), filters, query);
         var cost = new CostViewModel(
             ShellPages.For(PageId.Cost), filters, query, AppServices.Get<PricingEngine>());
-        Dispatcher.UIThread.RunJobs();
+        // 数据面查询已移到线程池执行（UsageQueryService 线程模型），VM 续体回 UI 队列：泵至加载完成
+        // （HourlyDistribution/HeatmapCells 加载后恒非 null；UnpricedCountText 加载后恒为 "N 个"）
+        DispatcherPump.PumpUntil(() =>
+            time.HourlyDistribution is not null
+            && time.HeatmapCells is not null
+            && cost.UnpricedCountText != "—");
 
         var expectedHourly = Task.Run(() => query.GetHourlyDistributionAsync(expectedFilter)).GetAwaiter().GetResult();
         Assert.Equal(expectedHourly.Hours.Count, time.HourlyDistribution!.Hours.Count);

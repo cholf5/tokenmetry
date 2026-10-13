@@ -17,6 +17,11 @@ namespace CCUsage.Core.Services;
 /// 存储层 <c>FormatTimestamp</c> 保留原始 offset——测试里 substr(first_seen_at,1,10) 的"UTC 日"口径
 /// 仅在 offset 恒为 +00:00 时与本地日等价；该等价性由当前适配器链的时间戳解析保证（解析层
 /// AdjustToUniversal 统一归一化为 UTC）。
+/// <b>线程模型</b>：调用方是页面 VM（UI 线程），而 <c>Microsoft.Data.Sqlite</c> 的 *Async API 实际
+/// 同步完成（无真实异步 IO），存储读出后还有全量内存聚合——若内联在调用线程执行，整轮
+/// "全表读 + 聚合"都会压在 UI 线程上，采集写库提交期间读被锁阻塞时即表现为 UI 冻结。
+/// 因此所有公共查询入口经 <c>Task.Run</c> 把"读 + 聚合"整体移到线程池执行；调用方 await
+/// 恢复到 UI 线程后只做 VM 属性回写（公共入口是唯一的线程边界，内部私有方法不再各自调度）。
 /// </summary>
 public class UsageQueryService : IUsageQueryService
 {
@@ -30,7 +35,10 @@ public class UsageQueryService : IUsageQueryService
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesAsync(UsageQueryFilter filter, CancellationToken ct = default)
+    public Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+        Task.Run(() => GetDailySeriesCoreAsync(filter, ct));
+
+    private async Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesCoreAsync(UsageQueryFilter filter, CancellationToken ct)
     {
         ValidateRange(filter);
         var from = UsageQueryFilter.ParseDay(filter.FromDay);
@@ -69,7 +77,10 @@ public class UsageQueryService : IUsageQueryService
     }
 
     /// <inheritdoc />
-    public async Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default)
+    public Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+        Task.Run(() => GetKpiCoreAsync(filter, ct));
+
+    private async Task<UsageKpiResult> GetKpiCoreAsync(UsageQueryFilter filter, CancellationToken ct)
     {
         ValidateRange(filter);
         var current = await BuildKpiAggregateAsync(filter, ct);
@@ -116,18 +127,21 @@ public class UsageQueryService : IUsageQueryService
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-        GetDimensionBreakdownAsync(filter, UsageFactGrain.Agent, fact => fact.Agent, session => session.Agent, withProjectDisplayName: false, withDominantAgent: false, ct);
+        Task.Run(() => GetDimensionBreakdownAsync(filter, UsageFactGrain.Agent, fact => fact.Agent, session => session.Agent, withProjectDisplayName: false, withDominantAgent: false, ct));
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-        GetDimensionBreakdownAsync(filter, UsageFactGrain.Model, fact => fact.Model, session => session.DominantModel, withProjectDisplayName: false, withDominantAgent: true, ct);
+        Task.Run(() => GetDimensionBreakdownAsync(filter, UsageFactGrain.Model, fact => fact.Model, session => session.DominantModel, withProjectDisplayName: false, withDominantAgent: true, ct));
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-        GetDimensionBreakdownAsync(filter, UsageFactGrain.Project, fact => fact.Project, session => session.Project, withProjectDisplayName: true, withDominantAgent: false, ct);
+        Task.Run(() => GetDimensionBreakdownAsync(filter, UsageFactGrain.Project, fact => fact.Project, session => session.Project, withProjectDisplayName: true, withDominantAgent: false, ct));
 
     /// <inheritdoc />
-    public async Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default)
+    public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default) =>
+        Task.Run(() => GetSessionsCoreAsync(query, ct));
+
+    private async Task<SessionListResult> GetSessionsCoreAsync(SessionListQuery query, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(query);
         var filter = query.Filter ?? new UsageQueryFilter();
@@ -187,7 +201,10 @@ public class UsageQueryService : IUsageQueryService
     }
 
     /// <inheritdoc />
-    public async Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default)
+    public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+        Task.Run(() => GetHourlyDistributionCoreAsync(filter, ct));
+
+    private async Task<HourlyDistributionResult> GetHourlyDistributionCoreAsync(UsageQueryFilter filter, CancellationToken ct)
     {
         ValidateRange(filter);
         var sessions = await GetScopedSessionsAsync(filter, ct);
