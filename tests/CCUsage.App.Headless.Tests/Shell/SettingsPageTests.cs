@@ -12,6 +12,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CCUsage.App.DependencyInjection;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.App.ViewModels;
 using CCUsage.App.Views;
@@ -217,13 +218,53 @@ public class SettingsPageTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var combo = window.GetVisualDescendants().OfType<ComboBox>().Single();
+        var combo = window.GetVisualDescendants().OfType<ComboBox>()
+            .First(c => c.ItemsSource is IReadOnlyList<ThemeOption>); // 设置页现有主题 + 语言两个下拉
         Assert.Equal(3, combo.ItemCount);
         Assert.Same(SettingsViewModel.ThemeOptions.Single(o => o.Value == "dark"), combo.SelectedItem);
 
         // 三态选项文案（迁移自旧视图，标签不变）
         var optionTexts = SettingsViewModel.ThemeOptions.Select(o => o.Label).ToList();
         Assert.Equal(new[] { "日间", "夜间", "跟随系统" }, optionTexts);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Language_combo_offers_three_options_and_switching_retranslates_live()
+    {
+        // 界面语言（zh/en/system）：三选项 + 切换不重启实时重译（对标 stupid-dict 的语言切换回归测试）。
+        // 下拉选项为稳定实例 + RefreshLabel——重建 ItemsSource 会丢选中（Avalonia ComboBox 坑，见 VM 注释）。
+        var vm = CreateViewModel();
+        var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var languageCombo = window.GetVisualDescendants().OfType<ComboBox>()
+            .First(c => c.ItemsSource is IReadOnlyList<LanguageOption>);
+        Assert.Equal(3, languageCombo.ItemCount);
+        Assert.Same(SettingsViewModel.LanguageOptions.Single(o => o.Value == "system"), languageCombo.SelectedItem);
+
+        var originalLanguage = Translations.Instance.CurrentLanguage;
+        try
+        {
+            vm.SelectedLanguage = SettingsViewModel.LanguageOptions.First(o => o.Value == "en");
+            Dispatcher.UIThread.RunJobs();
+
+            // 页面直绑 Translations 的串实时重译（无重启）
+            var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+            Assert.Contains("Recognized data sources", texts);
+            Assert.Contains("Appearance & general", texts);
+            Assert.Contains("Save settings", texts);
+            // 选中保持（切换后仍为同一选项实例），选项 Label 已刷新为英文
+            Assert.Same(SettingsViewModel.LanguageOptions.Single(o => o.Value == "en"), languageCombo.SelectedItem);
+            Assert.Equal("English", SettingsViewModel.LanguageOptions.Single(o => o.Value == "en").Label);
+        }
+        finally
+        {
+            Translations.Instance.SetLanguage(originalLanguage); // 进程级单例，恢复基线
+        }
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

@@ -38,5 +38,6 @@
        Agent 范围解析 / 查询映射构造器等，与 OverviewViewModel "internal 供测试对账" 同纪律）。 -->
   <ItemGroup>
     <InternalsVisibleTo Include="CCUsage.App.Headless.Tests" />
+    <InternalsVisibleTo Include="CCUsage.App.Tests" />
   </ItemGroup>
 </Project>
