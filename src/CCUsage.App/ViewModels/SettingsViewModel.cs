@@ -238,12 +238,32 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         }
     }
 
-    /// <summary>切换语言选项时立即全局应用（含本页与外壳重译）；持久化仍由保存设置触发。</summary>
+    /// <summary>切换语言选项：立即全局应用（含本页与外壳重译）并即时落盘——对齐 stupid-dict
+    /// 的语言切换语义（改完即保存），避免重启后回到旧语言；「保存设置」仍会整体落盘（含
+    /// Language）。与 Theme 的「预览-保存」两段式不同，语言是唯一即时持久化的设置项。</summary>
     partial void OnSelectedLanguageChanged(LanguageOption value)
     {
-        if (value is not null)
+        if (value is null)
         {
-            Translations.ApplyPreference(value.Value);
+            return;
+        }
+
+        Translations.ApplyPreference(value.Value);
+        _settings.Language = value.Value;
+        _ = SaveLanguagePreferenceAsync();
+    }
+
+    /// <summary>语言偏好的即时落盘（best-effort：磁盘失败不阻断语言切换——UI 已生效，
+    /// 下次「保存设置」/切换会补写；静默吞掉但打最小诊断，同外壳 Agent 选项失败的处理）。</summary>
+    private async Task SaveLanguagePreferenceAsync()
+    {
+        try
+        {
+            await _store.SaveAsync(_settings);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[ccusage] 语言偏好即时保存失败（UI 已生效，待下次保存补写）：{ex.Message}");
         }
     }
 
@@ -251,7 +271,7 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     /// 语言切换重译（应用级单例，进程内存活）：以 PropertyChanged(CurrentLanguage) 作为
     /// 「每次切换一次」的信号（同 stupid-dict 约定）——刷新下拉选项 Label、重算命令式文案、
     /// 重建数据源表并重绑口径区。XAML 直绑 Translations 的串由 Translations 的全量
-    /// PropertyChanged 自行刷新；Page 的 raise 使 <c>{Binding Page.Title}</c> 属性路径重新求值。
+    /// PropertyChanged 自行刷新；页头 Page.Title 由 PageDescriptor 自行发通知（叶子层）。
     /// 瞬态 Status（内部状态码）与 toast 保持出现时语言，不回溯重译。
     /// </summary>
     private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -271,7 +291,6 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
             option.RefreshLabel();
         }
 
-        OnPropertyChanged(nameof(Page));
         OnPropertyChanged(nameof(ScanButtonText));
         OnPropertyChanged(nameof(SourceMetaText));
         OnPropertyChanged(nameof(CaliberRows));
