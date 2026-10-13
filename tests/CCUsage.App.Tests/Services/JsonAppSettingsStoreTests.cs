@@ -44,7 +44,23 @@ public class JsonAppSettingsStoreTests : IDisposable
         loaded.RefreshMinutes.Should().Be(30);
         loaded.AnomalyNotificationsEnabled.Should().BeFalse();
         loaded.ShowDebugInfo.Should().BeFalse();
+        loaded.Theme.Should().Be("system"); // 缺省值往返
+        loaded.Language.Should().Be("system");
         File.Exists(Path.Combine(_tempDirectory, "settings.json")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SaveAsync_RoundTripsLanguageAndThemePreferences()
+    {
+        // 界面语言与主题同为字符串偏好（未知值在解析处回落，不炸整体反序列化）。
+        var store = new JsonAppSettingsStore(new AppPaths(_tempDirectory));
+        var settings = new AppSettings { Theme = "dark", Language = "en" };
+
+        await store.SaveAsync(settings);
+        var loaded = await store.LoadAsync();
+
+        loaded.Theme.Should().Be("dark");
+        loaded.Language.Should().Be("en");
     }
 
     [Fact]

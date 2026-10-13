@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CCUsage.App.Localization;
 using CCUsage.App.Services;
 using CCUsage.App.ViewModels;
 using CCUsage.Core.Models;
@@ -97,7 +98,7 @@ public class SettingsViewModelTests
 
         viewModel.Status.Should().Be("error: cannot write");
         viewModel.IsSaving.Should().BeFalse();
-        toast.Messages.Should().Contain(m => m.StartsWith("保存失败"));
+        toast.Messages.Should().Contain(string.Format(Translations.Instance.ToastSaveFailedFormat, "cannot write"));
     }
 
     [Fact]
@@ -135,6 +136,76 @@ public class SettingsViewModelTests
         settings.Theme.Should().Be("dark");
         themeService.LastApplied.Should().Be("dark");
         store.SaveCalls.Should().Be(1);
+    }
+
+    // ---- 界面语言（zh / en / system，机制与 Theme 全链路同构）----
+
+    [Fact]
+    public void Constructor_ResolvesLanguagePreferenceFromSettings()
+    {
+        var settings = new AppSettings { Language = "en" };
+
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), new FakeSettingsStore());
+
+        viewModel.SelectedLanguage.Should().Be(SettingsViewModel.LanguageOptions.Single(o => o.Value == "en"));
+    }
+
+    [Fact]
+    public void Constructor_WithUnknownLanguagePreference_FallsBackToSystem()
+    {
+        var settings = new AppSettings { Language = "klingon" };
+
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), new FakeSettingsStore());
+
+        viewModel.SelectedLanguage.Value.Should().Be("system");
+    }
+
+    [Fact]
+    public async Task SaveAsync_PersistsLanguagePreferenceAndAppliesIt()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store);
+        viewModel.RefreshMinutesText = "15";
+        var originalLanguage = Translations.Instance.CurrentLanguage;
+        try
+        {
+            viewModel.SelectedLanguage = SettingsViewModel.LanguageOptions.First(o => o.Value == "en");
+
+            await viewModel.SaveAsync();
+
+            settings.Language.Should().Be("en");
+            Translations.Instance.CurrentLanguage.Should().Be(AppLanguage.English); // 切换即时生效
+            store.SaveCalls.Should().Be(1);
+        }
+        finally
+        {
+            Translations.Instance.SetLanguage(originalLanguage); // 进程级单例，恢复基线避免污染其他用例
+        }
+    }
+
+    [Fact]
+    public void SelectedLanguageChange_RetranslatesOptionsAndImperativeTexts()
+    {
+        var originalLanguage = Translations.Instance.CurrentLanguage;
+        try
+        {
+            var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\ccusage"), new FakeSettingsStore());
+
+            viewModel.SelectedLanguage = SettingsViewModel.LanguageOptions.First(o => o.Value == "en");
+
+            Translations.Instance.CurrentLanguage.Should().Be(AppLanguage.English);
+            // 选项 Label 实时刷新（稳定实例 + RefreshLabel，规避 ComboBox 快照坑）
+            SettingsViewModel.ThemeOptions.Single(o => o.Value == "light").Label.Should().Be("Light");
+            SettingsViewModel.LanguageOptions.Single(o => o.Value == "zh").Label.Should().Be("简体中文");
+            // 命令式文案经 CurrentLanguage 信号重译
+            viewModel.ScanButtonText.Should().Be(Translations.Instance.ScanIdle);
+            Translations.Instance.ScanIdle.Should().Be("Rescan (all sources)");
+        }
+        finally
+        {
+            Translations.Instance.SetLanguage(originalLanguage);
+        }
     }
 
     // ---- S-002 数据源表 ----
@@ -216,17 +287,17 @@ public class SettingsViewModelTests
 
         var run = viewModel.RescanAsync();
         viewModel.IsScanning.Should().BeTrue();
-        viewModel.ScanButtonText.Should().Be("扫描中…");
-        viewModel.SourceMetaText.Should().Be(SettingsViewModel.SourceMetaScanning);
+        viewModel.ScanButtonText.Should().Be(Translations.Instance.ScanRunning);
+        viewModel.SourceMetaText.Should().Be(Translations.Instance.SourceMetaScanning);
 
         gate.SetResult();
         await run;
 
         viewModel.IsScanning.Should().BeFalse();
-        viewModel.ScanButtonText.Should().Be("重新扫描（全部源）");
-        viewModel.SourceMetaText.Should().Be(SettingsViewModel.SourceMetaIdle);
+        viewModel.ScanButtonText.Should().Be(Translations.Instance.ScanIdle);
+        viewModel.SourceMetaText.Should().Be(Translations.Instance.SourceMetaIdle);
         viewModel.SourceRows.Single().RecordCountText.Should().Be("42");
-        toast.Messages.Should().Contain("扫描完成");
+        toast.Messages.Should().Contain(Translations.Instance.ToastScanDone);
         viewModel.Status.Should().Be("scan finished");
     }
 
@@ -246,9 +317,9 @@ public class SettingsViewModelTests
 
         viewModel.Status.Should().Be("scan error");
         viewModel.IsScanning.Should().BeFalse();
-        viewModel.SourceMetaText.Should().Be(SettingsViewModel.SourceMetaScanFailed);
-        toast.Messages.Should().Contain(m => m.StartsWith("扫描失败"));
-        toast.Messages.Should().NotContain("扫描完成");
+        viewModel.SourceMetaText.Should().Be(Translations.Instance.SourceMetaScanFailed);
+        toast.Messages.Should().Contain(Translations.Instance.ToastScanFailed);
+        toast.Messages.Should().NotContain(Translations.Instance.ToastScanDone);
         // 行仍为最近一次成功快照（如实旧数据 + 面板提示"可能非本轮"）
         viewModel.SourceRows.Single().RecordCountText.Should().Be("7");
     }
@@ -266,7 +337,7 @@ public class SettingsViewModelTests
         await viewModel.RescanAsync();
 
         viewModel.Status.Should().Be("scan error");
-        toast.Messages.Should().Contain(m => m.StartsWith("扫描失败"));
+        toast.Messages.Should().Contain(Translations.Instance.ToastScanFailed);
     }
 
     [Fact]
