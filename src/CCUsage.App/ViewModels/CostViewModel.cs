@@ -54,7 +54,7 @@ public sealed class CostBasisRowViewModel
 /// </list>
 /// 生命周期 / 线程 / 序号防护纪律同 <see cref="OverviewViewModel"/>；失败保留上一次成功数据 + 错误面板。
 /// </summary>
-public partial class CostViewModel : ViewModelBase, IDisposable
+public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
@@ -127,6 +127,9 @@ public partial class CostViewModel : ViewModelBase, IDisposable
             _ = LoadAsync();
         }
     }
+
+    /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync，序号防护保证与筛选重查并发时旧响应丢弃。</summary>
+    public Task OnDataRefreshedAsync() => LoadAsync();
 
     /// <summary>按当前全局筛选重查 KPI + 日序列，并重读定价引擎缺价清单（序号防护见类型说明）。</summary>
     public async Task LoadAsync()

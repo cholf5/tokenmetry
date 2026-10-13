@@ -22,6 +22,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly AgentCatalogService _agentCatalog;
     private readonly IToastService _toastService;
     private readonly PricingEngine _pricingEngine;
+    private readonly BackgroundRefreshService? _refreshService;
 
     [ObservableProperty]
     private string _title = "ccusage — Token Analytics";
@@ -73,7 +74,8 @@ public partial class MainWindowViewModel : ViewModelBase
         IUsageQueryService usageQuery,
         AgentCatalogService agentCatalog,
         IToastService toastService,
-        PricingEngine pricingEngine)
+        PricingEngine pricingEngine,
+        BackgroundRefreshService? refreshService = null)
     {
         _filters = filters;
         Settings = settings;
@@ -82,6 +84,9 @@ public partial class MainWindowViewModel : ViewModelBase
         _agentCatalog = agentCatalog;
         _toastService = toastService;
         _pricingEngine = pricingEngine;
+        // 可选依赖（既有测试按 7 参构造）：App DI 注入容器内同一 BackgroundRefreshService 单例，
+        // 顶栏手动刷新与定时器/托盘/设置页重扫共用同一单飞槽；未注入（测试）时刷新命令如实 no-op。
+        _refreshService = refreshService;
 
         SelectedNavigation = NavigationItems[0];
         CurrentPage = CreatePage(PageId.Overview);
@@ -206,6 +211,25 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 顶栏手动刷新（⟳ 按钮）：经容器内同一 <see cref="BackgroundRefreshService"/> 单飞槽触发一轮
+    /// 采集刷新——与定时器 / 托盘「立即刷新」/ 设置页重扫同一合并语义（在跑的轮次直接并入等待，
+    /// 不重复扫描）。触发即回写顶栏"正在扫描本地数据…"（状态灯绿），轮次结束的状态回写由
+    /// BackgroundRefreshWiring 统一完成（NoteDataRefreshed / NoteDataSourceStatus / 页面重查），
+    /// 本命令不重复维护终态。未接线（测试构造未注入刷新服务）时如实 no-op。
+    /// </summary>
+    [RelayCommand]
+    private async Task RefreshDataAsync()
+    {
+        if (_refreshService is null)
+        {
+            return;
+        }
+
+        NoteDataSourceStatus("refreshing");
+        await _refreshService.TriggerRefreshAsync();
+    }
+
+    /// <summary>
     /// 后台数据刷新完成时更新顶部栏"最近更新"时间戳（可能由定时器线程调用，内部 marshal 到 UI 线程）。
     /// TODO(I-028/D-006)：刷新成败与最后数据时间应来自查询/采集服务的真实状态，而非刷新动作时间。
     /// </summary>
@@ -234,6 +258,26 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             DataStatusText = text;
             DataStatusLevel = level;
+        });
+    }
+
+    /// <summary>
+    /// 后台采集刷新轮次完成后重查当前页面与右栏最近会话：页面 VM 只在导航 / 全局筛选变化时查询，
+    /// 不重查则扫描入库后可见页面停留在旧数据（手动刷新按钮的可见效果依赖本回调）。
+    /// 由接线层线程池线程调用，内部 marshal 到 UI 线程（页面 VM 按 UI 线程亲和设计）。
+    /// 重查经各页 <see cref="IDataRefreshAware.OnDataRefreshedAsync"/>（LoadAsync 序号防护保证
+    /// 并发安全）；设置页不实现该接口（数据源表由重扫路径与 OnNavigatedTo 重建）。
+    /// </summary>
+    public void RefreshCurrentPageData()
+    {
+        RunOnUIThread(() =>
+        {
+            if (CurrentPage is IDataRefreshAware refreshable)
+            {
+                _ = refreshable.OnDataRefreshedAsync();
+            }
+
+            _ = SessionsPanel.ReloadRecentSessionsAsync();
         });
     }
 

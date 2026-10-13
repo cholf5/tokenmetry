@@ -48,7 +48,7 @@ public sealed class TimeObservationRowViewModel
 /// 生命周期 / 线程 / 序号防护纪律同 <see cref="OverviewViewModel"/>：每次导航新建实例、外壳 Dispose 退订、
 /// FilterStateService 通知已在 UI 线程；加载失败保留上一次成功数据 + 错误面板（同会话页 P2-2 纪律）。
 /// </summary>
-public partial class TimeViewModel : ViewModelBase, IDisposable
+public partial class TimeViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
@@ -103,6 +103,9 @@ public partial class TimeViewModel : ViewModelBase, IDisposable
             _ = LoadAsync();
         }
     }
+
+    /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync，序号防护保证与筛选重查并发时旧响应丢弃。</summary>
+    public Task OnDataRefreshedAsync() => LoadAsync();
 
     /// <summary>按当前全局筛选重查小时分布 + 日序列（序号防护见类型说明）。</summary>
     public async Task LoadAsync()
