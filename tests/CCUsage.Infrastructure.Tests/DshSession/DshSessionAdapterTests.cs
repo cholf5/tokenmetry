@@ -53,7 +53,8 @@ public class DshSessionAdapterTests : IDisposable
         diagnostics.LinesSkipped.Should().Be(1); // session 头行
         diagnostics.MalformedLines.Should().Be(0);
         diagnostics.InvalidRecords.Should().Be(0);
-        diagnostics.MissingCostRecords.Should().Be(0);
+        // ark 路由不可计价 = 缺价（A-0b）：此前记已知 0 不计入，现按 null 缺价如实计数。
+        diagnostics.MissingCostRecords.Should().Be(2);
         diagnostics.UnknownModelRecords.Should().Be(0);
     }
 
@@ -154,7 +155,7 @@ public class DshSessionAdapterTests : IDisposable
 
         var record = result.Records.Single();
         record.Model.Should().Be("unknown/unknown");
-        record.CostUsd.Should().Be(0m); // 非 deepseek 路由 fail-closed（记 0，不进泛化匹配）
+        record.CostUsd.Should().BeNull(); // 非 deepseek 路由 fail-closed = 缺价 null（不折已知 0，A-0b）
     }
 
     [Fact]
@@ -440,13 +441,14 @@ public class DshSessionAdapterTests : IDisposable
         result.Records[0].CostUsd.Should().Be(0.14m + 0.0056m + 0.28m);
         result.Records[1].CostUsd.Should().Be(0.44m);
 
-        // 非 deepseek 路由：0（fail-closed，不进泛化匹配——快照 zai 段确有 glm-5.3-flash）。
+        // 非 deepseek 路由：null 缺价（fail-closed 不本地计价；A-0b 起不折已知 0，
+        // 采集侧侧表仍可定价，缺价进 UnpricedModels——快照 zai 段确有 glm-5.3-flash）。
         WriteSessionLog(home, "--tmp-proj--", "session-ark-priced", zstd: false, version: null,
             Header("session-ark-priced", "/tmp/proj"),
             Message(WeekdayEraTime, 1, turn: 1, step: 1, input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0,
                 provider: "ark", model: "glm-5.3-flash"));
         var arkResult = await CreateAdapter(home).ScanAsync();
-        arkResult.Records.Single(record => record.SessionId == "session-ark-priced").CostUsd.Should().Be(0m);
+        arkResult.Records.Single(record => record.SessionId == "session-ark-priced").CostUsd.Should().BeNull();
     }
 
     [Fact]
@@ -460,10 +462,11 @@ public class DshSessionAdapterTests : IDisposable
 
         var result = await CreateAdapter(home).ScanAsync();
 
-        // 目录所有规则的 cacheWrite 无单价（蓝本 unitPrices 默认 null）→ 正桶缺价整体 fail-closed → 0。
+        // 目录所有规则的 cacheWrite 无单价（蓝本 unitPrices 默认 null）→ 正桶缺价整体 fail-closed
+        // → 缺价 null（不折已知 0，A-0b；侧表定价同样缺价时进 UnpricedModels）。
         var record = result.Records.Single();
         record.CacheCreationTokens.Should().Be(50);
-        record.CostUsd.Should().Be(0m);
+        record.CostUsd.Should().BeNull();
     }
 
     [Fact]

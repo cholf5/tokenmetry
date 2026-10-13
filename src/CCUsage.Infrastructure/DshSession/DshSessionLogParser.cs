@@ -28,9 +28,11 @@ namespace CCUsage.Infrastructure.DshSession;
 /// 非 JSON 对象 / 缺 type / 缺 seq 的行计 LinesSkipped。
 /// 记录成本（CostUsd）在此落定：官方 deepseek 路由样本按 <see cref="DeepSeekPricingCatalog"/> 的
 /// 历史规则（生效区间 + Asia/Shanghai peak/offPeak）计价；不可计价（非 deepseek 路由、模型不在目录、
-/// 正桶缺单价）记 0——不置 null 是为防止 PricingEngine 泛化匹配把 ark 等路由的同名模型错配成
-/// 其他 provider 的价格（快照 zai 段确有 glm-5.3-flash 条目），0 的聚合语义与"缺失"一致
-/// （I-006 自定义 provider 行同口径）。
+/// 正桶缺单价）返回 null（A-0b 未知成本纪律：未知不折已知 0——此前记 0 使 98.1% token 被记成
+/// "已知 $0" 且绕过定价引擎侧表与 GetUnpricedModels 权威未知清单，总览永远显示 $0.00）。
+/// 此前"记 0 防泛化匹配错配"的顾虑由定价引擎侧承担：null 记录走 LocalIngestionDataSource 的
+/// 侧表定价（PricingEngine 同一权威口径：快照 + models.dev + 用户覆盖），仍缺价才登记
+/// UnpricedModels fail-loud；匹配收紧见 PricingModelMatcher（A-10）。
 /// </summary>
 public sealed class DshSessionLogParser
 {
@@ -216,7 +218,8 @@ public sealed class DshSessionLogParser
         return 0;
     }
 
-    /// <summary>官方 deepseek 路由按历史规则计价；不可计价记 0（防泛化匹配错配其他 provider 价格）。</summary>
+    /// <summary>官方 deepseek 路由按历史规则计价；不可计价返回 null（未知成本，交给采集侧
+    /// 定价引擎侧表，仍缺价进 UnpricedModels fail-loud——绝不折已知 0）。</summary>
     private decimal? EstimateCost(SampleState sample, DateTimeOffset timestamp)
         => _pricingCatalog.TryEstimate(
             sample.Model,
@@ -227,7 +230,7 @@ public sealed class DshSessionLogParser
             sample.CacheWrite,
             out var cost)
             ? cost
-            : 0m;
+            : null;
 
     /// <summary>抽取事件携带的 usage 样本（两种载体）；无样本 / 结构不符 / 缺事件时间返回 null。</summary>
     private static ExtractedSample? TryExtractSample(JsonElement element)

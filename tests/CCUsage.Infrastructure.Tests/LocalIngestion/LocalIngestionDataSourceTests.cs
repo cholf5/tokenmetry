@@ -77,6 +77,39 @@ public class LocalIngestionDataSourceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetDailyUsage_AllUnknownCostAgent_SurfacesNullFactsAndUnpricedModels()
+    {
+        // A-0b 回归锁（跨源）：某 agent 的记录全部缺价（DSH 无 request/header 路由 → unknown/unknown）
+        // 且 token > 0 时，采集侧不得把未知折成"已知 0"——facts 行成本必须为 null（未知），
+        // 权威未知清单（PricingEngine.GetUnpricedModels）必须登记该模型。修复前 DSH 不可计价记 0m，
+        // 被 CostUsd is null 侧表门槛短路，既不补价也进不了未知清单，总览永远显示 $0.00。
+        var store = new InMemoryUsageStore();
+        var pricingEngine = new PricingEngine(overrides: []);
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        var dshHome = Path.Combine(Path.GetDirectoryName(claudeRoot)!, "dsh");
+        Directory.CreateDirectory(Path.Combine(dshHome, "sessions", "--tmp-proj--", "session-dsh-unknown"));
+        File.WriteAllText(
+            Path.Combine(dshHome, "sessions", "--tmp-proj--", "session-dsh-unknown", "session.jsonl"),
+            string.Join("\n",
+                "{\"type\":\"session\",\"version\":4,\"id\":\"session-dsh-unknown\",\"createdAt\":1787536700000,\"cwd\":\"/tmp/proj\"}",
+                // 无 request/header 重归属：unknown/unknown 路由（DSH 目录不可计价 → null）。
+                "{\"type\":\"assistant/chunk\",\"seq\":1,\"time\":1787536800000,\"data\":{\"turn\":1,\"step\":1," +
+                "\"chunk\":{\"type\":\"usage\",\"usage\":{\"inputTokens\":40,\"outputTokens\":40,\"cacheReadTokens\":0,\"cacheWriteTokens\":0}}}}") + "\n");
+
+        var source = CreateSource(store, claudeRoot, codexHome, pricingEngine, dshHome: dshHome);
+
+        var rows = await source.GetDailyUsageAsync();
+
+        var day = rows.Single(row => row.Date == "2026-08-24");
+        day.TotalTokens.Should().BeGreaterThan(0);
+
+        var dshFacts = store.Facts.Where(fact => fact.Agent == "DSH").ToList();
+        dshFacts.Should().NotBeNull();
+        dshFacts.Should().OnlyContain(fact => fact.CostUsd == null);
+        pricingEngine.GetUnpricedModels().Should().Contain(info => info.Model == "unknown/unknown");
+    }
+
+    [Fact]
     public async Task GetDailyUsage_PreservesLogCost_AndPricesMissingRecords()
     {
         var store = new InMemoryUsageStore();
@@ -281,7 +314,7 @@ public class LocalIngestionDataSourceTests : IDisposable
 
     // ---- helpers ----
 
-    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null)
+    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null, string? dshHome = null)
     {
         pricingEngine ??= new PricingEngine(overrides: new[]
         {
@@ -293,7 +326,7 @@ public class LocalIngestionDataSourceTests : IDisposable
             new ClaudeCodeJsonlAdapter(configuredRoot: claudeRoot),
             new CodexJsonlAdapter(configuredHome: codexHome),
             new ZCodeSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "zcode-missing")),
-            new DshSessionAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "dsh-missing")),
+            new DshSessionAdapter(configuredHome: dshHome ?? Path.Combine(Path.GetDirectoryName(claudeRoot)!, "dsh-missing")),
             new CopilotSessionAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "copilot-missing")),
             new OpenCodeSqliteAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "opencode-missing")),
             new GooseSqliteAdapter(configuredRoot: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "goose-missing")),
