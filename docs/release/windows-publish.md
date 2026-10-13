@@ -51,9 +51,10 @@ After publishing, verify these items on a Windows machine:
 4. Confirm local `ccusage` data is loaded.
 5. Open the Reports tab and click `刷新列表`.
 6. Confirm daily rows are visible when cached daily data exists.
-7. Confirm the tray icon/menu is present when supported by the platform environment.
-8. Use tray menu `Open` to show the window.
-9. Use tray menu `Exit` to close the app.
+7. Confirm the tray icon is present in the system tray.
+8. Close the main window with `X` — the process must stay alive with the tray icon visible (close = hide to tray).
+9. Use tray menu `打开主窗` to recall the window; confirm the tray tooltip / 菜单首行 shows 今日成本 after the first refresh.
+10. Use tray menu `退出` to exit — the process must terminate cleanly (window `X` must not be the exit path).
 
 ## Known limitations
 
@@ -62,4 +63,4 @@ After publishing, verify these items on a Windows machine:
 - No auto-update flow is configured.
 - The default package is framework-dependent and requires the .NET 10 Desktop Runtime on target machines.
 - Refresh depends on a working local `ccusage` CLI installation and readable local usage logs.
-- Tray icon behavior may vary by Windows shell and Avalonia platform support.
+- The tray icon is registered via Avalonia `TrayIcon.SetIcons` and hides the main window on close (A-0). On macOS the status-bar icon uses a monochrome template asset that follows the menu bar appearance; the tray tooltip has no macOS equivalent, so the today-cost is shown as the first (disabled) menu row.

@@ -34,7 +34,11 @@ public partial class App : Application
             };
             desktop.MainWindow = mainWindow;
 
-            var trayService = new TrayService(mainWindow);
+            // A-0：托盘常驻。dashboard/refreshService 先于 TrayService 解析——托盘的今日成本
+            // 联动、「立即刷新」「设置」菜单都依赖容器内同一实例。
+            var dashboard = DependencyInjection.AppServices.Get<DashboardViewModel>();
+            var refreshService = DependencyInjection.AppServices.Get<BackgroundRefreshService>();
+            var trayService = new TrayService(mainWindow, dashboard, mainWindowViewModel, refreshService);
             trayService.Initialize();
 
             // D-003/Q-002：DashboardViewModel 无视图挂载（旧视图已清理），作为后台采集刷新锚点保留——
@@ -43,14 +47,18 @@ public partial class App : Application
             // 刷新服务——设置页「重新扫描」经容器内同一 BackgroundRefreshService 实例走同一条
             // 采集线（不再有 late map / 兜底实例），外壳时间戳回写也不再依赖 shell 局部变量的
             // 赋值顺序。
-            var dashboard = DependencyInjection.AppServices.Get<DashboardViewModel>();
             DependencyInjection.AppServices.Get<BackgroundRefreshWiring>().Attach(dashboard, mainWindowViewModel);
-            var refreshService = DependencyInjection.AppServices.Get<BackgroundRefreshService>();
             refreshService.Start();
+            // A-0：真正退出（托盘「退出」/ OS 会话结束）经生命周期正常收尾——Exit 在两种
+            // shutdown 路径都会触发，此处停掉后台刷新定时器（替代此前 Environment.Exit 的跳过）。
+            desktop.Exit += (_, _) => refreshService.Stop();
             // 启动立即首刷：定时器首跑要等一个完整间隔（默认 15 分钟），首启顶栏一直"尚未刷新"；
             // 触发一次立即刷新（定时器语义不变；启动路径不观察成败返回值），
             // 回写经 NoteDataRefreshed 内部 marshal 到 UI 线程。
             _ = refreshService.TriggerRefreshAsync();
+
+            // A-0：主窗口随启动显示（此前从未 Show——修好托盘前应用启动后没有任何可见界面）
+            mainWindow.Show();
 
             // [D-004/D-005] dev-only 预览窗口（Q-002 定案：StylePreviewView 为唯一保留的临时宿主，
             // 无导航入口、不进生产用户路径）：设置 CCUSAGE_PREVIEW_WINDOW=1 启动时另开一个预览窗，
