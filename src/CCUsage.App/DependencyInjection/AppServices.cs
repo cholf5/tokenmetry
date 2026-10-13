@@ -37,10 +37,18 @@ public static class AppServices
 {
     private static IServiceProvider? _provider;
 
+    /// <summary>
+    /// 测试宿主的 AppData 根覆盖（A-2）：headless 测试进程启动真实 App（OnFrameworkInitializationCompleted
+    /// → Initialize）时，store / settings 落到测试临时目录，<b>禁止触碰真实用户数据</b>
+    /// （此前无条件 CreateDefault() 使测试读写本机 LocalApplicationData 下的 ccusage.db）。
+    /// 须在首次 <see cref="Initialize"/> 前设置（SemiTestAppBuilder.BuildAvaloniaApp 内）。
+    /// </summary>
+    public static AppPaths? PathsOverride { get; set; }
+
     public static void Initialize()
     {
         var services = new ServiceCollection();
-        var paths = AppPaths.CreateDefault();
+        var paths = PathsOverride ?? AppPaths.CreateDefault();
         var settingsStore = new JsonAppSettingsStore(paths);
         var settings = settingsStore.LoadAsync().GetAwaiter().GetResult();
 

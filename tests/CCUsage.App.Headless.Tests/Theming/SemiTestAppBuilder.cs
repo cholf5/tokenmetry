@@ -1,9 +1,12 @@
 using System;
+using System.IO;
 using Avalonia;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml;
 using CCUsage.App;
+using CCUsage.App.DependencyInjection;
+using CCUsage.App.Services;
 
 namespace CCUsage.App.Headless.Tests.Theming;
 
@@ -14,14 +17,22 @@ namespace CCUsage.App.Headless.Tests.Theming;
 /// I-027：UseHeadlessDrawing=false 改用真实 Skia 离屏渲染 —— 默认的 headless drawing
 /// 管线无法截取合成帧（CaptureRenderedFrame 直接 NotSupported/空帧），而样式预览页的
 /// 明暗两套截图留档（DesignTokenTests）需要整窗合成结果；资源/样式断言行为不受影响。
+/// A-2：AppData 根重定向到测试进程专属临时目录（真实启动序列在此目录建 store/settings），
+/// 测试进程绝不读写真实用户数据；旧临时目录由 OS 定期清理，不做进程内删除（并发会话安全）。
 /// </summary>
 public static class SemiTestAppBuilder
 {
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<App>()
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        // AppServices.Initialize 在首个测试触发生命周期时运行；覆盖必须先于它落定。
+        AppServices.PathsOverride ??= new AppPaths(Path.Combine(
+            Path.GetTempPath(), "ccusage-headless-tests", Guid.NewGuid().ToString("N")));
+
+        return AppBuilder.Configure<App>()
             .UseSkia() // 注册 Skia 渲染/字体后端（UseHeadlessDrawing=false 时 IPlatformRenderInterface/IFontManagerImpl 由此提供）
             .UseHeadless(new AvaloniaHeadlessPlatformOptions
             {
                 UseHeadlessDrawing = false,
             });
+    }
 }
