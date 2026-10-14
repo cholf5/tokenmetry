@@ -130,25 +130,24 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ThemeLight)] = "日间",
         [nameof(ThemeDark)] = "夜间",
         [nameof(ThemeSystem)] = "跟随系统",
-        [nameof(ThemeHint)] = "切换后立即预览；选择「保存设置」持久化（重启后保持）。",
+        [nameof(ThemeHint)] = "切换后立即生效并自动保存（重启后保持）。",
         [nameof(LabelLanguage)] = "界面语言",
         [nameof(LanguageSystem)] = "跟随系统",
         [nameof(LanguageZh)] = "简体中文",
         [nameof(LanguageEn)] = "English",
-        [nameof(LanguageHint)] = "切换后立即生效并自动保存（重启后保持）；「保存设置」会一并保存其他设置。",
+        [nameof(LanguageHint)] = "切换后立即生效并自动保存（重启后保持）。",
         [nameof(LabelRefreshInterval)] = "刷新间隔（分钟）",
-        [nameof(RefreshHint)] = "保存后于下次启动后台刷新服务时生效。",
+        [nameof(RefreshIntervalMustBeNumber)] = "刷新间隔必须是数字",
+        [nameof(RefreshIntervalOutOfRange)] = "刷新间隔必须在 1–1440 分钟之间（当前值保持不变）",
+        [nameof(RefreshHint)] = "修改即时保存；于下次启动后台刷新服务时生效。",
         [nameof(LabelCcusageCli)] = "ccusage CLI（对账 / 手动导入）",
-        [nameof(CcusageHint)] = "应用默认直读本地会话日志，无需安装 ccusage；此命令仅对账 / 手动导入时使用，保存后下次启动生效。",
+        [nameof(CcusageHint)] = "应用默认直读本地会话日志，无需安装 ccusage；此命令仅对账 / 手动导入时使用，下次启动生效。",
         [nameof(CheckAnomalyNotifications)] = "启用异常通知（应用内 toast 提示）",
         [nameof(LocalPathsTitle)] = "本地路径",
         [nameof(LabelCacheDb)] = "缓存数据库",
         [nameof(LabelSettingsFile)] = "设置文件",
-        [nameof(SaveSettings)] = "保存设置",
         [nameof(ToastScanDone)] = "扫描完成",
         [nameof(ToastScanFailed)] = "扫描失败：数据表保持最近一次成功快照",
-        [nameof(ToastSaved)] = "设置已保存",
-        [nameof(ToastSaveFailedFormat)] = "保存失败：{0}",
 
         // ── 启动错误窗（App.ShowStartupError，A-7）──
         [nameof(StartupErrorTitle)] = "ccusage 启动失败",
@@ -380,25 +379,24 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ThemeLight)] = "Light",
         [nameof(ThemeDark)] = "Dark",
         [nameof(ThemeSystem)] = "Follow system",
-        [nameof(ThemeHint)] = "Preview applies immediately; choose “Save settings” to persist (kept across restarts).",
+        [nameof(ThemeHint)] = "Applies and saves automatically (kept across restarts).",
         [nameof(LabelLanguage)] = "Language",
         [nameof(LanguageSystem)] = "Follow system",
         [nameof(LanguageZh)] = "简体中文",
         [nameof(LanguageEn)] = "English",
-        [nameof(LanguageHint)] = "Applies and saves automatically (kept across restarts); “Save settings” persists the other settings too.",
+        [nameof(LanguageHint)] = "Applies and saves automatically (kept across restarts).",
         [nameof(LabelRefreshInterval)] = "Refresh interval (minutes)",
-        [nameof(RefreshHint)] = "Takes effect the next time the background refresh service starts.",
+        [nameof(RefreshIntervalMustBeNumber)] = "Refresh interval must be a number",
+        [nameof(RefreshIntervalOutOfRange)] = "Refresh interval must be between 1 and 1440 minutes (current value kept)",
+        [nameof(RefreshHint)] = "Saved automatically; takes effect the next time the background refresh service starts.",
         [nameof(LabelCcusageCli)] = "ccusage CLI (reconciliation / manual import)",
-        [nameof(CcusageHint)] = "The app reads local session logs directly — ccusage is not required; this command is only used for reconciliation / manual import and takes effect after restart.",
+        [nameof(CcusageHint)] = "The app reads local session logs directly — ccusage is not required; this command is only used for reconciliation / manual import and takes effect on next start.",
         [nameof(CheckAnomalyNotifications)] = "Enable anomaly notifications (in-app toast)",
         [nameof(LocalPathsTitle)] = "Local paths",
         [nameof(LabelCacheDb)] = "Cache database",
         [nameof(LabelSettingsFile)] = "Settings file",
-        [nameof(SaveSettings)] = "Save settings",
         [nameof(ToastScanDone)] = "Scan finished",
         [nameof(ToastScanFailed)] = "Scan failed: the table keeps the most recent successful snapshot",
-        [nameof(ToastSaved)] = "Settings saved",
-        [nameof(ToastSaveFailedFormat)] = "Failed to save: {0}",
 
         [nameof(StartupErrorTitle)] = "ccusage failed to start",
         [nameof(StartupErrorExit)] = "Exit",
@@ -713,6 +711,8 @@ public sealed class Translations : INotifyPropertyChanged
     public string LanguageEn => Get();
     public string LanguageHint => Get();
     public string LabelRefreshInterval => Get();
+    public string RefreshIntervalMustBeNumber => Get();
+    public string RefreshIntervalOutOfRange => Get();
     public string RefreshHint => Get();
     public string LabelCcusageCli => Get();
     public string CcusageHint => Get();
@@ -720,11 +720,8 @@ public sealed class Translations : INotifyPropertyChanged
     public string LocalPathsTitle => Get();
     public string LabelCacheDb => Get();
     public string LabelSettingsFile => Get();
-    public string SaveSettings => Get();
     public string ToastScanDone => Get();
     public string ToastScanFailed => Get();
-    public string ToastSaved => Get();
-    public string ToastSaveFailedFormat => Get();
 
     // ── 启动错误窗 ──
     public string StartupErrorTitle => Get();
