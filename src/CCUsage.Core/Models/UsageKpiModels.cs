@@ -20,7 +20,7 @@ public enum ChangeDirection
 /// <item>current 为 null（如当前周期成本全未知）而 previous 有值 → <see cref="Neutral"/>，百分比 null
 /// （不臆造方向，审查 P3 补记）。</item>
 /// <item>previous 为 0、current 非 0 → 方向仍给出（Increase/Decrease），百分比 null（除数为 0 不可定义，
-/// 不伪造数字）。</item>
+/// 不伪造数字；UI 层如实呈现 "↑ ∞"，见 <c>KpiCardViewModel</c>）。</item>
 /// <item>current == previous → Neutral，百分比 0。</item>
 /// </list>
 /// </summary>

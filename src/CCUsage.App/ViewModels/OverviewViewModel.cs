@@ -35,11 +35,12 @@ public sealed class KpiCardViewModel
             ChangeDirection.Decrease => "↓",
             _ => "→",
         };
-        // 百分比不可定义（上一周期无数据 / 为 0 / 当前成本全未知）→ "—"，不伪造数字；
+        // 百分比不可定义分两种：无对比基准（上一周期无数据 / 当前成本全未知）→ "—"，不伪造数字；
+        // 上一周期为 0 而本周期非 0（方向有 ↑/↓、除数为 0）→ 数学上无穷大，如实显示 "∞"。
         // 有一位小数即可读（原型 "↑ 23.6%" 同款）。方向由箭头表达，数值取绝对值避免 "↓ -1.1%" 双重负号。
         var percent = change.PercentChange is { } p
             ? Math.Abs(p).ToString("F1", CultureInfo.InvariantCulture) + "%"
-            : "—";
+            : change.Direction == ChangeDirection.Neutral ? "—" : "∞";
         ChangeText = $"{arrow} {percent}";
         IsUp = change.Direction == ChangeDirection.Increase;
         IsDown = change.Direction == ChangeDirection.Decrease;
@@ -52,7 +53,7 @@ public sealed class KpiCardViewModel
     /// <summary>主数值（总 Token 紧凑格式 / 成本四态文案 / 会话数千分位 / 占比百分数）。</summary>
     public string Value { get; }
 
-    /// <summary>环比文案（含箭头前缀，如 "↑ 23.6%"、"→ —"）。</summary>
+    /// <summary>环比文案（含箭头前缀，如 "↑ 23.6%"、"→ —"；上一周期为 0 → "↑ ∞"）。</summary>
     public string ChangeText { get; }
 
     public bool IsUp { get; }

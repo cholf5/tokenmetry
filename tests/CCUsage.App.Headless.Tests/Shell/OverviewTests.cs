@@ -222,9 +222,9 @@ public class OverviewTests
         Assert.Equal("↑ 12.8%", vm.SessionsCard.ChangeText);
         Assert.True(vm.SessionsCard.IsUp);
 
-        // 缓存读取占比：0..1 → 一位小数百分数；上一周期为 0 → 箭头有方向、数字留 "—"（不伪造）
+        // 缓存读取占比：0..1 → 一位小数百分数；上一周期为 0 → 箭头有方向、百分比呈 "∞"（除数为 0 的如实表达）
         Assert.Equal("67.3%", vm.CacheCard.Value);
-        Assert.Equal("↑ —", vm.CacheCard.ChangeText);
+        Assert.Equal("↑ ∞", vm.CacheCard.ChangeText);
         Assert.True(vm.CacheCard.IsUp);
 
         // 日序列与 Agent 段已装载；D-007 预览行已就位
