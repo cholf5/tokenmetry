@@ -45,14 +45,14 @@ blocked: none
 ### TC-001: 导航与筛选联动
 
 Steps:
-1. `dotnet run --project src/CCUsage.App`。
+1. `dotnet run --project src/TokenPulse.App`。
 2. 点击 8 个导航项；切换时间范围与 Agent。
 
 Expected:
 - 页面切换正常；筛选状态变更各占位页可观测（临时日志或绑定显示）。
 
 Automated coverage（2026-10-13）:
-- 上述路径已由 `tests/CCUsage.App.Headless.Tests/Shell/AppShellTests.cs` 全覆盖（导航切换路由、筛选通知到达占位页 VM、右栏/顶栏骨架、最小尺寸、方向键、明暗截图）；真机点击路径待 PM 执行。
+- 上述路径已由 `tests/TokenPulse.App.Headless.Tests/Shell/AppShellTests.cs` 全覆盖（导航切换路由、筛选通知到达占位页 VM、右栏/顶栏骨架、最小尺寸、方向键、明暗截图）；真机点击路径待 PM 执行。
 
 ## Development Log
 
@@ -76,7 +76,7 @@ Automated coverage（2026-10-13）:
 
 **其余结构决策**：最小窗口 960×640（184 + ≥420 主列 + 276，与原型 .shell 最小列宽同源），headless 断言最小尺寸下三栏 ActualWidth 不破；窗口 Title 更新为 "ccusage — Token Analytics"（品牌与侧栏一致）；右栏快速筛选为骨架本地状态（Agent 勾选/模型/项目下拉 + 清除 + 应用筛选→toast 提示 D-008 接入），不驱动查询——诚实占位；右栏常驻（Background 决策倾向照办），会话列表空态用简单文案而非 EmptyStateView（后者绑定 DashboardViewModel，语义不符）。
 
-**测试与验证**：I-026 的 `MainWindow_instantiates_under_Semi` 断言随结构演进改为"无 TabControl + 8 项导航 ListBox"（注释留痕）；新增 AppShellTests 10 个用例（三栏结构/路由切换/筛选通知/线程 marshal/顶栏/右栏骨架/最小尺寸/方向键/明暗截图）；headless 21→31。全套 `dotnet test CCUsage.sln`：834 通过 / 22 跳过 / 0 失败（基线 824/22/0 无回归），Debug/Release 构建 0 警告 0 错误。明暗截图目检：导航选中态（底色 + 蓝字 + 指示条）、顶栏筛选/数据状态/设置按钮、右栏骨架、占位页 chip 明暗均正常（app-shell-light/dark.png）。
+**测试与验证**：I-026 的 `MainWindow_instantiates_under_Semi` 断言随结构演进改为"无 TabControl + 8 项导航 ListBox"（注释留痕）；新增 AppShellTests 10 个用例（三栏结构/路由切换/筛选通知/线程 marshal/顶栏/右栏骨架/最小尺寸/方向键/明暗截图）；headless 21→31。全套 `dotnet test TokenPulse.sln`：834 通过 / 22 跳过 / 0 失败（基线 824/22/0 无回归），Debug/Release 构建 0 警告 0 错误。明暗截图目检：导航选中态（底色 + 蓝字 + 指示条）、顶栏筛选/数据状态/设置按钮、右栏骨架、占位页 chip 明暗均正常（app-shell-light/dark.png）。
 
 **遗留风险**：
 - 真机 `dotnet run` 的完整点击路径（TC-001）未人工执行，headless 已覆盖结构/路由/键盘/明暗离屏截图；PM 验收待做。
@@ -102,27 +102,27 @@ Automated coverage（2026-10-13）:
 ## Verification
 
 - Related files:
-  - `src/CCUsage.App/Services/FilterStateService.cs`（新建：TimeRange 枚举 + TimeRangeOption/AgentOption 记录 + FilterStateService 单例，UI 线程 marshal）
-  - `src/CCUsage.App/ViewModels/NavigationItemViewModel.cs`（新建：PageId 枚举 + PageDescriptor + ShellPages 注册表 + NavigationItemViewModel）
-  - `src/CCUsage.App/ViewModels/PagePlaceholderViewModel.cs`（新建：占位页 VM，订阅 FilterStateService）
-  - `src/CCUsage.App/ViewModels/SessionsPanelViewModel.cs`（新建：右栏骨架 VM）
-  - `src/CCUsage.App/Views/PagePlaceholderView.axaml(.cs)`（新建：统一占位视图，仅用 I-027 令牌/样式类）
-  - `src/CCUsage.App/Views/MainWindow.axaml`（重写：三栏外壳 + 8 项导航 + 顶栏筛选/数据状态/设置入口 + 右栏骨架 + Window.DataTemplates 路由）
-  - `src/CCUsage.App/ViewModels/MainWindowViewModel.cs`（重写：导航/路由/数据状态；不再持有 Dashboard/Reports/ModelBreakdown）
-  - `src/CCUsage.App/App.axaml.cs`（DashboardViewModel 直接解析维持后台采集刷新，刷新回写"最近更新"）
-  - `src/CCUsage.App/DependencyInjection/AppServices.cs`（注册 FilterStateService / SessionsPanelViewModel）
-  - `src/CCUsage.App/Styles/Tokens.axaml`（追加 6 组外壳令牌，明暗各一份）
+  - `src/TokenPulse.App/Services/FilterStateService.cs`（新建：TimeRange 枚举 + TimeRangeOption/AgentOption 记录 + FilterStateService 单例，UI 线程 marshal）
+  - `src/TokenPulse.App/ViewModels/NavigationItemViewModel.cs`（新建：PageId 枚举 + PageDescriptor + ShellPages 注册表 + NavigationItemViewModel）
+  - `src/TokenPulse.App/ViewModels/PagePlaceholderViewModel.cs`（新建：占位页 VM，订阅 FilterStateService）
+  - `src/TokenPulse.App/ViewModels/SessionsPanelViewModel.cs`（新建：右栏骨架 VM）
+  - `src/TokenPulse.App/Views/PagePlaceholderView.axaml(.cs)`（新建：统一占位视图，仅用 I-027 令牌/样式类）
+  - `src/TokenPulse.App/Views/MainWindow.axaml`（重写：三栏外壳 + 8 项导航 + 顶栏筛选/数据状态/设置入口 + 右栏骨架 + Window.DataTemplates 路由）
+  - `src/TokenPulse.App/ViewModels/MainWindowViewModel.cs`（重写：导航/路由/数据状态；不再持有 Dashboard/Reports/ModelBreakdown）
+  - `src/TokenPulse.App/App.axaml.cs`（DashboardViewModel 直接解析维持后台采集刷新，刷新回写"最近更新"）
+  - `src/TokenPulse.App/DependencyInjection/AppServices.cs`（注册 FilterStateService / SessionsPanelViewModel）
+  - `src/TokenPulse.App/Styles/Tokens.axaml`（追加 6 组外壳令牌，明暗各一份）
   - `docs/design/design-tokens.md`（头部注明 D-003 外壳令牌与导航样式归属）
   - `docs/design/app-shell-light.png`、`docs/design/app-shell-dark.png`（headless 整窗离屏截图留档）
-  - `tests/CCUsage.App.Headless.Tests/Shell/AppShellTests.cs`（新建：10 个用例）
-  - `tests/CCUsage.App.Headless.Tests/Styles/DesignTokenTests.cs`（期望值表同步 6 组新令牌）
-  - `tests/CCUsage.App.Headless.Tests/Theming/SemiThemeMigrationTests.cs`（MainWindow 断言：TabControl→8 项导航 ListBox）
+  - `tests/TokenPulse.App.Headless.Tests/Shell/AppShellTests.cs`（新建：10 个用例）
+  - `tests/TokenPulse.App.Headless.Tests/Styles/DesignTokenTests.cs`（期望值表同步 6 组新令牌）
+  - `tests/TokenPulse.App.Headless.Tests/Theming/SemiThemeMigrationTests.cs`（MainWindow 断言：TabControl→8 项导航 ListBox）
 - How to run/verify:
-  - 自动化：`dotnet build CCUsage.sln`（Debug/Release 0 警告 0 错误）+ `dotnet test CCUsage.sln`。
-  - 外壳用例：`dotnet test tests/CCUsage.App.Headless.Tests --filter FullyQualifiedName~Shell`（AppShellTests 10 个 + SemiThemeMigrationTests 2 个 Shell 相关）。
-  - 截图重生成：`CCUSAGE_SHELL_PREVIEW_DIR=<仓库绝对路径>/docs/design dotnet test tests/CCUsage.App.Headless.Tests --filter FullyQualifiedName~App_shell_renders`（须绝对路径，测试宿主 cwd 在 bin 目录）。
-  - TC-001 人工（**待 PM 执行**）：`dotnet run --project src/CCUsage.App` → 逐个点击 8 个导航项、切换时间范围/Agent、右栏"查看全部"与设置 ⚙ 跳转、明暗主题切换观察外壳换色。
+  - 自动化：`dotnet build TokenPulse.sln`（Debug/Release 0 警告 0 错误）+ `dotnet test TokenPulse.sln`。
+  - 外壳用例：`dotnet test tests/TokenPulse.App.Headless.Tests --filter FullyQualifiedName~Shell`（AppShellTests 10 个 + SemiThemeMigrationTests 2 个 Shell 相关）。
+  - 截图重生成：`TOKENPULSE_SHELL_PREVIEW_DIR=<仓库绝对路径>/docs/design dotnet test tests/TokenPulse.App.Headless.Tests --filter FullyQualifiedName~App_shell_renders`（须绝对路径，测试宿主 cwd 在 bin 目录）。
+  - TC-001 人工（**待 PM 执行**）：`dotnet run --project src/TokenPulse.App` → 逐个点击 8 个导航项、切换时间范围/Agent、右栏"查看全部"与设置 ⚙ 跳转、明暗主题切换观察外壳换色。
 - Results:
   - Debug / Release 构建 0 警告 0 错误。
-  - `dotnet test CCUsage.sln`：**834 通过 / 22 跳过 / 0 失败**（Core 99、Infrastructure 612+3、Reconciliation 49+19、App 43、App.Headless 31）≥ 基线 824 / 22 / 0，无回归；新增 10 个 headless 用例全过（21→31）。
+  - `dotnet test TokenPulse.sln`：**834 通过 / 22 跳过 / 0 失败**（Core 99、Infrastructure 612+3、Reconciliation 49+19、App 43、App.Headless 31）≥ 基线 824 / 22 / 0，无回归；新增 10 个 headless 用例全过（21→31）。
   - TC-001 截图留档：`docs/design/app-shell-light.png`、`docs/design/app-shell-dark.png`（1280×800 整窗合成帧：三栏 / 8 项导航选中态 / 顶栏筛选与数据状态 / 右栏骨架 / 占位页含"当前筛选"chip）；真机人工目检待 PM。

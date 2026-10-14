@@ -62,7 +62,7 @@ Expected:
 ### 2026-10-11
 
 - 创建任务卡（v0.3 规划），尚未开始实现。
-- 实现 `tests/CCUsage.Reconciliation.Tests/`（新测试项目并入 sln）：容差比较器（tokens 精确、cost ≤0.5% 或 <$0.01、差异按 日期×模型×字段 定位并标注 解析/定价 原因）、CLI golden DTO、自研链路聚合器、比较器单测 13、fixture 对账测试 4、真实数据集成测试 2（CCUSAGE_RECONCILE_REAL=1 门控，xunit.skippablefact 动态 Skip）。
+- 实现 `tests/TokenPulse.Reconciliation.Tests/`（新测试项目并入 sln）：容差比较器（tokens 精确、cost ≤0.5% 或 <$0.01、差异按 日期×模型×字段 定位并标注 解析/定价 原因）、CLI golden DTO、自研链路聚合器、比较器单测 13、fixture 对账测试 4、真实数据集成测试 2（TOKENPULSE_RECONCILE_REAL=1 门控，xunit.skippablefact 动态 Skip）。
 - 用探针逐项确认 ccusage 20.0.29 行为规则（costUSD 优先、显式 costUSD:null 与 message.id 缺失整条丢弃、5m/1h 倍率、-fast、synthetic、去重、Codex 累计快照守卫、--timezone UTC 分桶），两侧口径全部对齐；录制 golden（claude/codex fixture 各一份，录制命令与版本见 fixtures/golden/README.md）。
 - fixture 对账：per-model 与每日/全期总计全部零差异（tokens 精确一致，cost 一致）。
 - 真实数据对账（本机 ~/.codex，19 文件 / 2931 记录）：tokens 级全等（input 12,348,058 / cacheRead 353,026,048 / output 1,273,689）；首跑 cost 两日超容差（+96.5% / +99.8%）——定位为 gpt-5.6-terra（本机默认模型）被内置快照的 "gpt-5.6"（sol，2× 价）家族兜底吞并，而 models.dev 实有 terra 价（2/12/0.2/2.5）与 CLI（LiteLLM）一致 → 归类为快照数据漏收（真实 bug）并修复：model-pricing-snapshot.json 补 gpt-5.6-terra 条目 + PricingEngineTests 回归测试（Snapshot_PricesGpt56TerraAtOwnRateNotSolFamily）。修复后真实数据全期 cost $101.3856438 与 CLI 逐分钱一致。
@@ -85,6 +85,6 @@ Expected:
 
 ## Verification
 
-- Related files: `tests/CCUsage.Reconciliation.Tests/`（比较器 / golden DTO / 聚合器 / 测试 / fixtures+golden）、`src/CCUsage.Core/Pricing/model-pricing-snapshot.json`（gpt-5.6-terra 条目）、`tests/CCUsage.Core.Tests/Services/PricingEngineTests.cs`（回归）、`docs/reconciliation/2026-10-11-reconciliation.md`（证据）
-- How to run/verify: `dotnet test CCUsage.sln`（离线部分）；本机真实数据对账 `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests`（需 npx 与真实数据，不满足时自动 Skip）
+- Related files: `tests/TokenPulse.Reconciliation.Tests/`（比较器 / golden DTO / 聚合器 / 测试 / fixtures+golden）、`src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`（gpt-5.6-terra 条目）、`tests/TokenPulse.Core.Tests/Services/PricingEngineTests.cs`（回归）、`docs/reconciliation/2026-10-11-reconciliation.md`（证据）
+- How to run/verify: `dotnet test TokenPulse.sln`（离线部分）；本机真实数据对账 `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests`（需 npx 与真实数据，不满足时自动 Skip）
 - Results: build 0 警告 0 错误；门控关 227 通过 / 5 跳过 / 0 失败，门控开 228 通过 / 4 跳过 / 0 失败；真实 Codex 数据 tokens 级全等、全期 cost $101.3856438 与 CLI 一致（详见对账文档 §3/§4）

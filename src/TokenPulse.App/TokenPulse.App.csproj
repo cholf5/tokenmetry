@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <!-- Q-002：Avalonia.Controls.DataGrid / Semi.Avalonia.DataGrid 随 TrendSpike(D-002) 临时页移除
+         （生产视图不再使用 DataGrid，App.axaml 的 DataGridSemiTheme 一并撤下）。 -->
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+    <PackageReference Include="Semi.Avalonia" Version="12.1.0.1" />
+    <PackageReference Include="Irihi.Avalonia.Shared" Version="0.5.0" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.1">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    <PackageReference Include="ScottPlot.Avalonia" Version="5.1.59" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TokenPulse.Core\TokenPulse.Core.csproj" />
+    <ProjectReference Include="..\TokenPulse.Infrastructure\TokenPulse.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- A-0：托盘图标资产（彩色版通用；-template 单色版 macOS 状态栏模板图标，跟随明暗自动反色） -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/**" />
+  </ItemGroup>
+
+  <!-- D-008：headless 页面层测试需要访问 VM 的 internal 测试对账入口（防抖提交钩子 /
+       Agent 范围解析 / 查询映射构造器等，与 OverviewViewModel "internal 供测试对账" 同纪律）。 -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="TokenPulse.App.Headless.Tests" />
+    <InternalsVisibleTo Include="TokenPulse.App.Tests" />
+  </ItemGroup>
+</Project>

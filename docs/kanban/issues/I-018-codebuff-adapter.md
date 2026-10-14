@@ -43,7 +43,7 @@ blocked: none
     数组、metadata 非对象、runState 非对象历史条目与 providerOptions 标量、credits-only 信号、
     last-wins 去重、env 空串/多根/projects 根、多 channel 枚举、定价快照与缺省模型欠账）
   - ✅ 合成 fixture（7 文件：双项目双日 + runState + codebuff 兜底 + total 兜底 + 缺省模型 + 坏 JSON +
-    顶层对象诱饵）入仓 + CLI golden 录制 + fixture 对账测试 ×2 + `CCUSAGE_RECONCILE_REAL` 门控真实
+    顶层对象诱饵）入仓 + CLI golden 录制 + fixture 对账测试 ×2 + `TOKENPULSE_RECONCILE_REAL` 门控真实
     对账测试（HasCodebuffData 数据存在性 Skip）
   - ✅ `ICodebuffAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十五路 concat + App DI 双注册
 
@@ -71,7 +71,7 @@ blocked: none
   日期后缀名家族命中）、未知模型欠账、env 语义四场景、多 channel 枚举、无数据目录）
 - [x] 对账：合成 fixture（projects/alpha|beta 双项目 + 2026-02-10～15 六 chat + 2 诱饵文件）入仓 +
   CLI golden 录制（fixtures/golden/codebuff-fixture-daily-v20.0.29.json）+ fixture 对账测试 ×2 +
-  `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（HasCodebuffData 数据存在性 Skip）
+  `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasCodebuffData 数据存在性 Skip）
 - [x] 管道接线：`ICodebuffAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十五路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**无需新增条目**——claude-sonnet-4-20250514 由快照 anthropic/claude-sonnet-4 家族模式
@@ -104,7 +104,7 @@ Result: 通过（Infrastructure 35/35，场景清单见 Subtasks）。
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/CCUsage.Reconciliation.Tests/fixtures/codebuff/`（合成数据，覆盖：metadata.usage
+1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/codebuff/`（合成数据，覆盖：metadata.usage
    四桶 + credits、同 id 同文件重复 last-wins、metadata.codebuff.usage 兜底、runState 倒序回退、total
    兜底、chat 目录名时间戳、缺省模型、坏 JSON 与顶层对象诱饵）。
 2. 录制 golden：`CODEBUFF_DATA_DIR=$PWD/$FX/codebuff npx --yes ccusage@20.0.29 codebuff daily --json
@@ -123,10 +123,10 @@ cost 0.01665；02-11 openai/gpt-5 3000/450/0/1200 cost 0.0084；02-12 claude-son
 2000/100/300/800 cost 0.008865；02-13 openai/gpt-5 + codebuff-unknown 600/1550 cost 0.015625）；诊断
 status=Partial、FilesDiscovered=7、records=6、DuplicateRecords=1。
 
-### TC-003: 本机真实数据对账（CCUSAGE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_codebuff"`。
+1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_codebuff"`。
 2. 数据存在性门控：定位器（CODEBUFF_DATA_DIR / ~/.config/&lt;channel&gt; 的 projects/）下发现
    chat-messages.json 才运行（与 CLI 子进程同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 codebuff daily --json --offline --timezone UTC`（golden）
@@ -223,7 +223,7 @@ Copyright (c) 2025 ryoppippi，声明保留在 CodebuffLogLocator / CodebuffChat
   解析的越界输入回退 None（走后续回退链），蓝本侧 from_millis 同域受限；真实日志不出现。
 - ⑩ **configuredDataDir 为仓库增强**（非蓝本）：测试钉定入口，语义同 Amp/Kimi（非空即覆盖 env 与默认）。
 
-验证：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **560 通过 / 18 跳过**
+验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **560 通过 / 18 跳过**
 （I-013 收口基线 523/17 + 新增 35 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账
 测试（本机 Skip））；门控以 CODEBUFF_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 /
 TC-003。
@@ -239,7 +239,7 @@ TC-003。
 - **[P3] dedup_key 计数分量表述更正**：Dev Log/Subtasks "六计数分量" → **5 个**（in/out/cr/cc/extra，
   蓝本 dedup_key 同为 5）；CodebuffChatParser 文档注释与 CodebuffAdapterTests 注释同步更正（纯注释，
   无代码变更）。
-- 复核：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **623 通过 / 20 跳过**
+- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **623 通过 / 20 跳过**
   （数字随 I-019/I-022 收口增长，本卡相关项不回归——codebuff fixture 对账 2/2 与 CLI golden 逐位
   一致；门控以 CODEBUFF_DATA_DIR 钉 fixture 复跑通过 1/1 Passed）。
 
@@ -252,23 +252,23 @@ TC-003。
 
 ## Verification
 
-- Related files: `src/CCUsage.Infrastructure/Codebuff/CodebuffLogLocator.cs`、
-  `src/CCUsage.Infrastructure/Codebuff/CodebuffChatParser.cs`、
-  `src/CCUsage.Infrastructure/Codebuff/CodebuffAdapter.cs`、
-  `src/CCUsage.Core/Abstractions/ICodebuffAdapter.cs`、
-  `src/CCUsage.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
-  `src/CCUsage.App/DependencyInjection/AppServices.cs`、
-  `tests/CCUsage.Infrastructure.Tests/Codebuff/CodebuffAdapterTests.cs`、
-  `tests/CCUsage.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/CodebuffFixtureReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/codebuff/`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/golden/codebuff-fixture-daily-v20.0.29.json`、
-  `tests/CCUsage.Reconciliation.Tests/RealDataReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
-  `tests/CCUsage.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
-- How to run/verify: `dotnet test CCUsage.sln`（全绿）；fixture 对账
-  `dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Codebuff"`；门控复跑
-  `CODEBUFF_DATA_DIR=$PWD/tests/CCUsage.Reconciliation.Tests/fixtures/codebuff CCUSAGE_RECONCILE_REAL=1
-  dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_codebuff"`。
+- Related files: `src/TokenPulse.Infrastructure/Codebuff/CodebuffLogLocator.cs`、
+  `src/TokenPulse.Infrastructure/Codebuff/CodebuffChatParser.cs`、
+  `src/TokenPulse.Infrastructure/Codebuff/CodebuffAdapter.cs`、
+  `src/TokenPulse.Core/Abstractions/ICodebuffAdapter.cs`、
+  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
+  `src/TokenPulse.App/DependencyInjection/AppServices.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/Codebuff/CodebuffAdapterTests.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/CodebuffFixtureReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/codebuff/`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/codebuff-fixture-daily-v20.0.29.json`、
+  `tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
+- How to run/verify: `dotnet test TokenPulse.sln`（全绿）；fixture 对账
+  `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Codebuff"`；门控复跑
+  `CODEBUFF_DATA_DIR=$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/codebuff TOKENPULSE_RECONCILE_REAL=1
+  dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_codebuff"`。
 - Results: 全部通过（见 TC-001/002/003 Result 与 Development Log 验证段；收口数字 **560/18**，
   2026-10-12 独立审查修复复核后随批次收口数字 **623/20**，本卡项不回归）。

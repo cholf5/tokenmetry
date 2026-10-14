@@ -79,9 +79,9 @@ Expected:
 
 ## Related Files
 
-- `src/CCUsage.App/ViewModels/ReportsViewModel.cs`
-- `src/CCUsage.App/Views/ReportsView.axaml`
-- `src/CCUsage.App/Services/`
+- `src/TokenPulse.App/ViewModels/ReportsViewModel.cs`
+- `src/TokenPulse.App/Views/ReportsView.axaml`
+- `src/TokenPulse.App/Services/`
 
 ## Dependencies
 
@@ -96,7 +96,7 @@ Expected:
 - 实现 `ReportCsvFormatter`、`IReportCsvExporter` / `ReportCsvExporter`，使用 Avalonia `StorageProvider.SaveFilePickerAsync` 保存 CSV。
 - 在 Reports 顶部工具栏添加 `导出 CSV` 按钮，`ReportsViewModel.ExportCsvAsync` 导出当前筛选/排序后的 `Rows`。
 - 补充 CSV header/转义测试，以及导出成功、无数据、失败、取消的 ViewModel 测试。
-- 验证结果：`dotnet test tests\\CCUsage.App.Tests\\CCUsage.App.Tests.csproj` 通过，19 passed；`dotnet test CCUsage.sln` 通过，48 passed；`dotnet build CCUsage.sln` 通过，0 warnings, 0 errors。`.NET preview SDK` 信息为环境提示。
+- 验证结果：`dotnet test tests\\TokenPulse.App.Tests\\TokenPulse.App.Tests.csproj` 通过，19 passed；`dotnet test TokenPulse.sln` 通过，48 passed；`dotnet build TokenPulse.sln` 通过，0 warnings, 0 errors。`.NET preview SDK` 信息为环境提示。
 
 ## Review Notes
 
@@ -105,7 +105,7 @@ Expected:
 - Notes:
   - PR-equivalent Review Summary:
     - Modification points: 新增 Reports CSV formatter/exporter 服务；Reports ViewModel 增加导出命令和导出状态；Reports UI 增加导出按钮；补充 CSV 与导出命令测试。
-    - How to run/test: `dotnet test tests\\CCUsage.App.Tests\\CCUsage.App.Tests.csproj`; `dotnet test CCUsage.sln`; `dotnet build CCUsage.sln`。
+    - How to run/test: `dotnet test tests\\TokenPulse.App.Tests\\TokenPulse.App.Tests.csproj`; `dotnet test TokenPulse.sln`; `dotnet build TokenPulse.sln`。
     - Impact area: Reports 页面、App DI、CSV 文件保存对话框。
     - Regression risk: 低到中；ReportsViewModel 构造增加 exporter 依赖，保留测试友好的 fallback 构造；文件保存依赖 Avalonia StorageProvider，手动 GUI 导出仍需实际点击验证。
 

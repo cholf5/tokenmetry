@@ -1,7 +1,7 @@
 # 设计令牌与样式命名规范（I-027）
 
 来源：UI 原型 `docs/design/ccusage_analytics_prototype.html`（v0.4 设计基准）。
-实现：`src/CCUsage.App/Styles/Tokens.axaml`（令牌）+ `src/CCUsage.App/Styles/SharedStyles.axaml`（共享样式）。
+实现：`src/TokenPulse.App/Styles/Tokens.axaml`（令牌）+ `src/TokenPulse.App/Styles/SharedStyles.axaml`（共享样式）。
 本文档是 8 个页面卡（D-006 ~ D-013）与 S-002/Q-002 引用的约定。
 
 > D-003 补充：外壳专用令牌 `AppSidebarBackgroundBrush` / `AppTopbarBackgroundBrush` /
@@ -73,4 +73,4 @@ CSS `linear-gradient(θ, ...)`：0deg 指向上、顺时针；方向向量（屏
 
 ## 6. 令牌 ↔ 原型色值对照
 
-Dark 列全部为原型原值（`:root` 变量 + `.kpi/.chip/.linkbtn/.mini-track/.kpi-icon/.agenticon` 选择器色值）；Light 列为 I-027 设计的协调值（同色相、明度反转、浅底上加深保证对比度）。完整对照见 `Styles/Tokens.axaml` 内逐行注释与 `tests/CCUsage.App.Headless.Tests/Styles/DesignTokenTests.cs` 的期望值表（测试与令牌文件同步维护）。
+Dark 列全部为原型原值（`:root` 变量 + `.kpi/.chip/.linkbtn/.mini-track/.kpi-icon/.agenticon` 选择器色值）；Light 列为 I-027 设计的协调值（同色相、明度反转、浅底上加深保证对比度）。完整对照见 `Styles/Tokens.axaml` 内逐行注释与 `tests/TokenPulse.App.Headless.Tests/Styles/DesignTokenTests.cs` 的期望值表（测试与令牌文件同步维护）。

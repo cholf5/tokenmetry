@@ -114,11 +114,11 @@ Steps:
    - Grok：pricing_candidates 移植锚点（[grok] 前缀 / -build 后缀 / xai//x-ai/ 前缀 / 去重）+ grok-4.5-build 无 ticks 行剥后缀经 xai/grok-4.5 命中（ExactThenFamily 走向）+ 真实未知模型未命中不回归；
    - OpenClaw：装饰名→裸名两级链（ExactThenFamily 走向）无内建成本行按裸名精确命中 + 真实未知装饰名不回归；
    - Antigravity：model_candidates / gemini_flash_pricing_alias 移植锚点 + flash effort 变体 exact-only 走向命中基础名 google/gemini-3.8-flash + 计价 output 取 total_output（OutputTokenOverride=22，含 reasoning）。
-4. fixture 对账回归：九源（含其余十源）fixture golden 全部全绿、数字逐位不回归；门控真实对账（CCUSAGE_RECONCILE_REAL=1）本机有数据的源全绿。
+4. fixture 对账回归：九源（含其余十源）fixture golden 全部全绿、数字逐位不回归；门控真实对账（TOKENPULSE_RECONCILE_REAL=1）本机有数据的源全绿。
 
 Expected:
 - 别名/限定键/点分/装饰名模型在内置快照离线口径下命中价格（MatchedKey 指向真实条目）；候选未命中行为与接线前一致（Missing + UnpricedModels fail-loud，键为显示模型名）。
-- `dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` 全绿：**757 通过 / 22 跳过**（基线 728/22 + 本卡新增 29）。
+- `dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` 全绿：**757 通过 / 22 跳过**（基线 728/22 + 本卡新增 29）。
 
 ### 2026-10-12（独立审查修复，收口）
 
@@ -149,7 +149,7 @@ Expected:
 
 ### 2026-10-12（实现）：实现完成
 
-**引擎侧（CCUsage.Core）**：
+**引擎侧（TokenPulse.Core）**：
 - `UsagePricingPlan`（新）：候选链 + `PricingCandidateWalk`（PerCandidateFull / ExactThenFamilyAcrossCandidates / ExactOnlyAcrossCandidates）+ OutputTokenOverride；`UsageRecord.Pricing` 侧字段（null = 按 Model 单候选，接线前现状）。
 - `PricingEngine`：`PriceRecord` 优先按记录计划计价；`PriceTokens(plan, displayModel, tokens)` 三种走向（PerCandidateFull=蓝本逐候选 find；ExactThenFamily=蓝本 grok exact 全候选优先再 fuzzy、同构承载 OpenClaw OC-1；ExactOnly=蓝本 antigravity flash exact-with-fallback）；全候选未命中与单候选同口径（Missing + UnpricedModels 记显示模型名）。
 - `PricingModelMatcher`：精确档补**键归一化变体**（蓝本 find_exact_with_fallback / normalized_pricing_key：候选与条目键两侧 '.'/'@'→'-'，dash↔dot 双向互hit；每档先全部候选原拼写、未命中再归一化拼写——原拼写命中优先，扩展前行为逐位不变）。
@@ -157,7 +157,7 @@ Expected:
 - 快照（model-pricing-snapshot.json，82 条目）：**kimi-k2.6 刷新**（0.95/4/0.16 → 1/4.16/0.18/1，源 = ccusage 20.0.29 CLI 内嵌 models-dev-pricing.json，2026-10-12 录制）；11 条既有条目补 tiers 段（claude-sonnet-4、claude-haiku-5-5、gemini-2.5-pro、gpt-5.4/5.5/5.6-sol/5.6-terra、gpt-6-luna/sol/astra、xai/grok-4.3，同源）；新条目 xai/grok-4.5、xai/grok-4.6（GK-1 分档模型，含 200K 档）与 google/gemini-3.8-flash、gemini-3.7-flash、gemini-3.6-flash（AG-1 flash 别名基础名，同源）。
 - CB-2 处置（分析后无需改动）：CLI models-dev 层对缺 cache_write 的条目按 input×1.25 推导（ccusage-core pricing.rs `unwrap_or(input * 1.25)`），与快照 openai/gpt-5 显式 cache_write 1.5625 等价——"计 0"不是 models-dev 层行为；LiteLLM 表层的差异核对不在本卡范围，真实数据若现差异由对账 fail-loud 捕获。
 
-**九源接线（CCUsage.Infrastructure）**（映射期填 `Pricing`，分组/显示/facts 全部不变）：
+**九源接线（TokenPulse.Infrastructure）**（映射期填 `Pricing`，分组/显示/facts 全部不变）：
 - **OpenCode**：`Pricing = BuildModelCandidates(modelID, providerID)`（既有纯函数，蓝本 base 首项 = resolved 别名解析名）。
 - **Goose**：映射期算 `NormalizeProvider`（原仅登记偏差）→ `BuildModelCandidates`（新纯函数：[裸名] + provider≠goose 时 [provider/裸名]，蓝本 calculate_goose_cost / missing_goose_pricing 候选集同式）。
 - **Hermes**：`BuildModelCandidates(provider, model, _ => true)`（既有纯函数；qualified 仅精确生效的门槛由引擎精确匹配承载，`HasExactNormalizedPrice` 的点分归一化已进匹配器）。
@@ -187,10 +187,10 @@ Expected:
 ## Verification
 
 - Related files:
-  - 引擎：`src/CCUsage.Core/Models/UsagePricingPlan.cs`（新）、`src/CCUsage.Core/Models/UsageRecord.cs`、`src/CCUsage.Core/Models/ModelPriceEntry.cs`、`src/CCUsage.Core/Services/PricingEngine.cs`、`src/CCUsage.Core/Services/PricingModelMatcher.cs`、`src/CCUsage.Core/Services/ModelsDevPricingParser.cs`、`src/CCUsage.Core/Pricing/model-pricing-snapshot.json`
-  - 九源接线：`src/CCUsage.Infrastructure/OpenCodeSqlite/OpenCodeMessageParser.cs`、`GooseSqlite/GooseSessionMapper.cs`、`HermesSqlite/HermesSessionParser.cs`、`KiloSqlite/KiloMessageParser.cs`、`Codebuff/CodebuffChatParser.cs`、`PiAgent/PiSessionParser.cs` + `PiAgentAdapter.cs`、`Grok/GrokLogParser.cs`、`OpenClaw/OpenClawLogParser.cs`、`Antigravity/AntigravityParser.cs` + `AntigravityAdapter.cs`；DI：`src/CCUsage.App/DependencyInjection/AppServices.cs`
-  - 测试：`tests/CCUsage.Core.Tests/Services/PricingEngineTests.cs`、`tests/CCUsage.Core.Tests/Services/PricingModelMatcherTests.cs`（新）、`tests/CCUsage.Infrastructure.Tests/{OpenCodeSqlite,GooseSqlite,HermesSqlite,KiloSqlite,Codebuff,PiAgent,Grok,OpenClaw,Antigravity}/*`、`tests/CCUsage.Reconciliation.Tests/*FixtureReconciliationTests.cs`（三处注释更新）
-- How to run/verify: `dotnet build CCUsage.sln`（0 警告 0 错误）；`dotnet test CCUsage.sln`（全绿）；门控真实对账 `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~RealData"`。
+  - 引擎：`src/TokenPulse.Core/Models/UsagePricingPlan.cs`（新）、`src/TokenPulse.Core/Models/UsageRecord.cs`、`src/TokenPulse.Core/Models/ModelPriceEntry.cs`、`src/TokenPulse.Core/Services/PricingEngine.cs`、`src/TokenPulse.Core/Services/PricingModelMatcher.cs`、`src/TokenPulse.Core/Services/ModelsDevPricingParser.cs`、`src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`
+  - 九源接线：`src/TokenPulse.Infrastructure/OpenCodeSqlite/OpenCodeMessageParser.cs`、`GooseSqlite/GooseSessionMapper.cs`、`HermesSqlite/HermesSessionParser.cs`、`KiloSqlite/KiloMessageParser.cs`、`Codebuff/CodebuffChatParser.cs`、`PiAgent/PiSessionParser.cs` + `PiAgentAdapter.cs`、`Grok/GrokLogParser.cs`、`OpenClaw/OpenClawLogParser.cs`、`Antigravity/AntigravityParser.cs` + `AntigravityAdapter.cs`；DI：`src/TokenPulse.App/DependencyInjection/AppServices.cs`
+  - 测试：`tests/TokenPulse.Core.Tests/Services/PricingEngineTests.cs`、`tests/TokenPulse.Core.Tests/Services/PricingModelMatcherTests.cs`（新）、`tests/TokenPulse.Infrastructure.Tests/{OpenCodeSqlite,GooseSqlite,HermesSqlite,KiloSqlite,Codebuff,PiAgent,Grok,OpenClaw,Antigravity}/*`、`tests/TokenPulse.Reconciliation.Tests/*FixtureReconciliationTests.cs`（三处注释更新）
+- How to run/verify: `dotnet build TokenPulse.sln`（0 警告 0 错误）；`dotnet test TokenPulse.sln`（全绿）；门控真实对账 `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~RealData"`。
 - Results:（2026-10-12 实现完成）
   - 构建 0 警告 0 错误（含修复基线 23 个 xUnit1031 阻塞告警——AntigravityAdapterTests 同步改 async）。
   - 测试 **757 通过 / 22 跳过**（基线 728/22；+29 = Core 81→93、Infrastructure 559→576），全绿。

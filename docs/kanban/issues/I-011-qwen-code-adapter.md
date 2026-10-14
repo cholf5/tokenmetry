@@ -37,7 +37,7 @@ blocked: none
     [projects, project, chats, file] 滑窗提取
 - [x] fixtures + 单元测试；接入本地采集管道
   - ✅ Infrastructure 19 项单测（临时目录合成数据，fixtures 全合成）+ 合成 fixture（4 个聊天文件
-    + 2 个不发现诱饵）入仓 + CLI golden 录制逐位一致 + `CCUSAGE_RECONCILE_REAL` 门控真实对账测试
+    + 2 个不发现诱饵）入仓 + CLI golden 录制逐位一致 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试
     （数据存在性 Skip，门控以 QWEN_DATA_DIR 钉 fixture 复跑通过 1/1）；`IQwenCodeAdapter` +
     LocalIngestionDataSource 第十三路 concat + App DI 双注册
 
@@ -63,7 +63,7 @@ blocked: none
   entry_id_is_unambiguous_for_colon_fields 同场景）、mtime 回退（缺失/不可解析）、sessionId/模型回退、
   三段布局过滤、env 设置即不回退（含空串）、缺省目录无数据、跨文件排序、快照定价、project 滑窗）
 - [x] 对账：合成 fixture 入仓 + CLI golden 录制（fixtures/golden/qwen-fixture-daily-v20.0.29.json）+
-  fixture 对账测试 ×2 + `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（HasQwenData 数据存在性 Skip）
+  fixture 对账测试 ×2 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasQwenData 数据存在性 Skip）
 - [x] 管道接线：`IQwenCodeAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十三路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**新增 qwen 段**（qwen3-coder-plus：input 1 / output 5，无 cache_read/cache_write 价、
@@ -105,7 +105,7 @@ Prices_records_via_builtin_snapshot_qwen_section、Project_from_path_extracts_pr
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/CCUsage.Reconciliation.Tests/fixtures/qwen/`（合成数据，双项目双日，覆盖：
+1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/qwen/`（合成数据，双项目双日，覆盖：
    user 行预过滤、total 恰等四桶和 no-op、total 缺口补 output（output 为 0）、坏 JSON 行、
    usageMetadata null / 非对象（"oops"）/ 全零 / user 带 usageMetadata 拒绝、同内容键跨文件去重、
    布局诱饵 transcripts/ 与 chats/deep/）。
@@ -123,10 +123,10 @@ tokens，totalCost=$0.0022725** 逐位一致（02-23：qwen3-coder-plus 300/150/
 02-24：310/180/0/100 cost 0.00122）；诊断 status=Partial、FilesDiscovered=4、records=4、
 UnpricedModels=[]。
 
-### TC-003: 本机真实数据对账（CCUSAGE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_qwen"`。
+1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_qwen"`。
 2. 数据存在性门控：定位器（QWEN_DATA_DIR / ~/.qwen/projects）下发现聊天 .jsonl 才运行（与 CLI 子进程
    同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 qwen daily --json --offline --timezone UTC`（golden）
@@ -216,7 +216,7 @@ QwenUsageRecordDeduper 文件头；fixtures 全部合成，无真实数据入仓
 - ⑧ **timestamp 理论边界**：蓝本 jiff 支持 year 0，DateTimeOffset 下限 year 1，year 0000 输入按不可
   解析处理（回退 mtime；真实日志不出现）。
 
-验证：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **502 通过 / 16 跳过**
+验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **502 通过 / 16 跳过**
 （I-015 收口基线 481/15 + 新增 19 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账
 测试（本机 Skip））；门控以 QWEN_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 /
 TC-003。
@@ -235,7 +235,7 @@ P2-2 / P2-4 / deferred 登记同批），修复如下：
   非null 时静默胜出、`deduper` 被忽略（两者互斥使用、不同时传入；不抛异常，保持构造简单）。
 - **[P2-7] 偏差③补句**：补 "(out, extra) 折叠等价的记录在自研侧同样合并、计 DuplicateRecords"
   （QwenUsageRecordDeduper.cs 注释已有，卡片漏了）。
-- 复核：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **523 通过 / 17 跳过**
+- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **523 通过 / 17 跳过**
   （与 I-013 收口同数——本批修复无新增测试，仅 fixture 行与断言计数调整）；qwen fixture 对账 2/2
   与 CLI golden 逐位一致不回归；门控以 QWEN_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）。
 
@@ -246,24 +246,24 @@ P2-2 / P2-4 / deferred 登记同批），修复如下：
 
 ## Verification
 
-- Related files: `src/CCUsage.Infrastructure/QwenCode/QwenLogLocator.cs`、
-  `src/CCUsage.Infrastructure/QwenCode/QwenLogParser.cs`、`src/CCUsage.Infrastructure/QwenCode/QwenCodeAdapter.cs`、
-  `src/CCUsage.Infrastructure/QwenCode/QwenUsageRecordDeduper.cs`、
-  `src/CCUsage.Infrastructure/Jsonl/IncrementalJsonlScanner.cs`（dedupe 委托钩子）、
-  `src/CCUsage.Core/Abstractions/IQwenCodeAdapter.cs`、
-  `src/CCUsage.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
-  `src/CCUsage.App/DependencyInjection/AppServices.cs`、`src/CCUsage.Core/Pricing/model-pricing-snapshot.json`、
-  `tests/CCUsage.Infrastructure.Tests/QwenCode/QwenCodeAdapterTests.cs`、
-  `tests/CCUsage.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/QwenFixtureReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/qwen/`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/golden/qwen-fixture-daily-v20.0.29.json`、
-  `tests/CCUsage.Reconciliation.Tests/RealDataReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
-  `tests/CCUsage.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
-- How to run/verify: `dotnet test CCUsage.sln`（全绿）；fixture 对账
-  `dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Qwen"`；门控复跑
-  `QWEN_DATA_DIR=$PWD/tests/CCUsage.Reconciliation.Tests/fixtures/qwen CCUSAGE_RECONCILE_REAL=1
-  dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_qwen"`。
+- Related files: `src/TokenPulse.Infrastructure/QwenCode/QwenLogLocator.cs`、
+  `src/TokenPulse.Infrastructure/QwenCode/QwenLogParser.cs`、`src/TokenPulse.Infrastructure/QwenCode/QwenCodeAdapter.cs`、
+  `src/TokenPulse.Infrastructure/QwenCode/QwenUsageRecordDeduper.cs`、
+  `src/TokenPulse.Infrastructure/Jsonl/IncrementalJsonlScanner.cs`（dedupe 委托钩子）、
+  `src/TokenPulse.Core/Abstractions/IQwenCodeAdapter.cs`、
+  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
+  `src/TokenPulse.App/DependencyInjection/AppServices.cs`、`src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`、
+  `tests/TokenPulse.Infrastructure.Tests/QwenCode/QwenCodeAdapterTests.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/QwenFixtureReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/qwen/`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/qwen-fixture-daily-v20.0.29.json`、
+  `tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
+- How to run/verify: `dotnet test TokenPulse.sln`（全绿）；fixture 对账
+  `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Qwen"`；门控复跑
+  `QWEN_DATA_DIR=$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/qwen TOKENPULSE_RECONCILE_REAL=1
+  dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_qwen"`。
 - Results: 全部通过（见 TC-001/002/003 Result 与 Development Log 验证段；本卡收口 **502/16**，
   2026-10-12 审查修复后全仓 **523/17**）。

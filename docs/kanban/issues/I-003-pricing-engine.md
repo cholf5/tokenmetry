@@ -76,7 +76,7 @@ Expected:
 
 **内置快照来源与日期**
 
-- 数据取自 2026-10-11 实测 `https://models.dev/api.json`（当日全量约 5.4MB、226 个 provider；docs/chore/why-ccusage-so-slow.md 记载的 2.36MB 已过时），整理为 models.dev 形状的嵌入资源 `src/CCUsage.Core/Pricing/model-pricing-snapshot.json`（csproj EmbeddedResource，LogicalName `CCUsage.Core.Pricing.model-pricing-snapshot.json`）。
+- 数据取自 2026-10-11 实测 `https://models.dev/api.json`（当日全量约 5.4MB、226 个 provider；docs/chore/why-ccusage-so-slow.md 记载的 2.36MB 已过时），整理为 models.dev 形状的嵌入资源 `src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`（csproj EmbeddedResource，LogicalName `TokenPulse.Core.Pricing.model-pricing-snapshot.json`）。
 - anthropic 25 条：现行模型（opus-4-5/4-6/4-7、sonnet-4-5/4-6、sonnet-5/5-5、haiku-4-5/5-5、fable-5/5-1 等，取实测价）+ 家族/别名模式（claude-sonnet-4、claude-opus-4、claude-3-5-sonnet、claude-3-opus、claude-3-5-haiku、claude-3-haiku 等，价目取蓝本 adapters/pricing.rs 表）。注意：opus-4-8/opus-5/opus-5-5 原录入价目有误（2×），已在独立审查后按 2026-10-11 实测修正，见 Development Log。
 - openai 19 条：gpt-5/5.1/5.2/5.3/5.4/5.5/5.6-sol、gpt-5-mini/5.1-mini、gpt-5-nano/5.1-nano、gpt-6-luna/sol/astra、codex、gpt-4o/4o-mini、gpt-4.1、o3（codex CLI 主流模型）。
 - 快照条目可带 `match` 家族模式（最长模式包含匹配），用于命中 models.dev 已移除的历史 id（如 claude-sonnet-4-20250514、claude-3-5-sonnet-20241022——当日实测 anthropic 下已无这些条目）。远程刷新数据按精确 id 覆盖快照。
@@ -105,7 +105,7 @@ Expected:
 **测试**
 
 - 新增 41 个用例：解析器 8（三种形状、缺价跳过、分档忽略、match 字段、空表、坏 JSON）；引擎 24（快照定价、5m/1h 倍率、无细分、-fast/provider 前缀、gpt-5 系、未命中记录与清空、null 模型、LogCost 短路、覆盖优先/缺省 cache 价/大小写与 -fast/UpdateOverrides/无效覆盖忽略、远程覆盖快照、远程缺条目回退快照、openrouter 前缀取优、TryResolve 命中/未命中）；客户端 8（TTL 到期前后、未刷新即到期、失败沿用旧数据、HTTP 错误、空表、坏 JSON、取消不抛、单飞）+ 设置持久化 1。
-- `dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` 180 通过 / 3 跳过 / 0 失败（基线 139 通过 / 3 跳过，净增 41）。
+- `dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` 180 通过 / 3 跳过 / 0 失败（基线 139 通过 / 3 跳过，净增 41）。
 
 ### 2026-10-11（独立审查修复）
 
@@ -127,6 +127,6 @@ Expected:
 
 ## Verification
 
-- Related files: `src/CCUsage.Core/Services/PricingEngine.cs`、`src/CCUsage.Core/Services/PricingModelMatcher.cs`、`src/CCUsage.Core/Services/BuiltinPricingSnapshot.cs`、`src/CCUsage.Core/Services/ModelsDevPricingParser.cs`、`src/CCUsage.Core/Models/ModelPriceEntry.cs`、`src/CCUsage.Core/Models/PricingResult.cs`、`src/CCUsage.Core/Models/TokenUsageDetail.cs`、`src/CCUsage.Core/Models/ModelPricingOverride.cs`、`src/CCUsage.Core/Abstractions/IRemotePricingSource.cs`、`src/CCUsage.Core/Pricing/model-pricing-snapshot.json`、`src/CCUsage.Infrastructure/ModelsDev/ModelsDevPricingClient.cs`、`src/CCUsage.Core/Models/AppSettings.cs`
-- How to run/verify: `dotnet test tests/CCUsage.Core.Tests/CCUsage.Core.Tests.csproj`（引擎与解析器）与 `dotnet test tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj`（models.dev 客户端，可注入 handler，不依赖网络）
-- Results: 2026-10-11 执行 `dotnet build CCUsage.sln`（0 警告 0 错误）+ `dotnet test CCUsage.sln`：Core 64 通过、App 38 通过、Infrastructure 79 通过 / 3 跳过，0 失败（基线 139 通过 / 3 跳过 → 181 通过 / 3 跳过）。审查后快照已按 models.dev 实测修正（Opus ×2 错价 + 4 条 mini/nano 精确条目），离线定价 TC-001 与覆盖优先 TC-002 均由单测覆盖并通过。
+- Related files: `src/TokenPulse.Core/Services/PricingEngine.cs`、`src/TokenPulse.Core/Services/PricingModelMatcher.cs`、`src/TokenPulse.Core/Services/BuiltinPricingSnapshot.cs`、`src/TokenPulse.Core/Services/ModelsDevPricingParser.cs`、`src/TokenPulse.Core/Models/ModelPriceEntry.cs`、`src/TokenPulse.Core/Models/PricingResult.cs`、`src/TokenPulse.Core/Models/TokenUsageDetail.cs`、`src/TokenPulse.Core/Models/ModelPricingOverride.cs`、`src/TokenPulse.Core/Abstractions/IRemotePricingSource.cs`、`src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`、`src/TokenPulse.Infrastructure/ModelsDev/ModelsDevPricingClient.cs`、`src/TokenPulse.Core/Models/AppSettings.cs`
+- How to run/verify: `dotnet test tests/TokenPulse.Core.Tests/TokenPulse.Core.Tests.csproj`（引擎与解析器）与 `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj`（models.dev 客户端，可注入 handler，不依赖网络）
+- Results: 2026-10-11 执行 `dotnet build TokenPulse.sln`（0 警告 0 错误）+ `dotnet test TokenPulse.sln`：Core 64 通过、App 38 通过、Infrastructure 79 通过 / 3 跳过，0 失败（基线 139 通过 / 3 跳过 → 181 通过 / 3 跳过）。审查后快照已按 models.dev 实测修正（Opus ×2 错价 + 4 条 mini/nano 精确条目），离线定价 TC-001 与覆盖优先 TC-002 均由单测覆盖并通过。

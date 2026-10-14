@@ -25,7 +25,7 @@ v0.4 UI 批次收尾质量卡：移除旧视图与死代码，统一滚动条 / 
 - [x] 8 页 × 亮暗两套全量目检，差异清单成文（docs/design/q-002-visual-diff.md，接受的差异附理由；自动化截图 + 逐张人工核对由执行人完成，真机交互复核留 PM/用户）
 - [x] 键盘可达性：Tab 焦点顺序、focus ring 在 Semi 下正常，无不可达控件（headless 锁 Tab 遍历可达性：顶栏筛选/设置入口/侧栏导航；focus ring 观感与读屏属真机复核项，如实标注）
 - [x] 空态 / 加载态统一（盘点结论：8 个真实页已统一经 SharedStyles 的 table-empty 类 + 各页诚实错误态；EmptyStateView 为旧 Dashboard 专属大空态（绑定 DashboardViewModel），随旧视图删除）
-- [x] `dotnet test CCUsage.sln` 基线不回归（清理前 1030 过/22 跳/0 败 → 清理后 1010 过/22 跳/0 败，差额 = 随死代码删除 27 个旧用例（3 个整删测试文件的 24 例 + SemiThemeMigrationTests 内 3 个方法）− 新增 7 个（3 个新测试 + Existing_views 理论 6→10 的 +4；审查后再加 4 例 ScrollViewer 结构锁，清理后总数为 1014 过），0 失败）
+- [x] `dotnet test TokenPulse.sln` 基线不回归（清理前 1030 过/22 跳/0 败 → 清理后 1010 过/22 跳/0 败，差额 = 随死代码删除 27 个旧用例（3 个整删测试文件的 24 例 + SemiThemeMigrationTests 内 3 个方法）− 新增 7 个（3 个新测试 + Existing_views 理论 6→10 的 +4；审查后再加 4 例 ScrollViewer 结构锁，清理后总数为 1014 过），0 失败）
 
 ## Subtasks
 
@@ -43,15 +43,15 @@ v0.4 UI 批次收尾质量卡：移除旧视图与死代码，统一滚动条 / 
 ### TC-001: 全量回归
 
 Steps:
-1. `dotnet test CCUsage.sln`。
+1. `dotnet test TokenPulse.sln`。
 2. 按 D-002 离屏截图钩子思路对关键页面留证（可选）。
 
 Expected:
 - 测试基线不回归；目检无 P0/P1 差异。
 
 Results（2026-10-13）:
-- `dotnet build CCUsage.sln`：0 警告 / 0 错误。
-- `dotnet test CCUsage.sln`：App 33 过、Headless 185 过、Core 103 过、Infrastructure 640 过/3 跳、Reconciliation 49 过/19 跳 —— 合计 **1010 通过 / 22 跳过 / 0 失败**。
+- `dotnet build TokenPulse.sln`：0 警告 / 0 错误。
+- `dotnet test TokenPulse.sln`：App 33 过、Headless 185 过、Core 103 过、Infrastructure 640 过/3 跳、Reconciliation 49 过/19 跳 —— 合计 **1010 通过 / 22 跳过 / 0 失败**。
 - 离屏截图留证：8 页 × 亮暗 + 外壳 + 图表控件全部重生成至 docs/design/（18 张更新；另全部 32 张 PNG 因重渲染 mtime 刷新，其中 14 张字节级不变——渲染确定性所致）。
 - 新增/演进用例见 Development Log；P0/P1 差异无遗留（1 个 P1、2 个 P2 当场修复）。
 
@@ -77,12 +77,12 @@ Di_settings_rescan_drives_real_dashboard_refresh_line）与 15 个 VM 用例的�
   CardBackground/CardAccentBackground/SeparatorBorder/WarningBanner×3/DangerText/AccentLinkText，
   唯一使用者即被删旧视图）——App.axaml 注释中"收敛合并留待 Q-002"的事项就此办结；
   Semi 键名冲突检测职责由 DesignTokenTests 对 App* 令牌的断言接管
-- CCUsage.App.csproj：Avalonia.Controls.DataGrid + Semi.Avalonia.DataGrid 包引用移除
+- TokenPulse.App.csproj：Avalonia.Controls.DataGrid + Semi.Avalonia.DataGrid 包引用移除
 （I-026 的 DataGrid 演示使命已完成，生产视图无 DataGrid 使用者，演示随 TrendSpikeView 删除、
 未迁入 StylePreview；SemiThemeMigrationTests 以类型全名负断言防复活）
 
 **StylePreviewView 定案：dev-only 保留。** 无导航入口、不在外壳路由中，唯一打开方式
-CCUSAGE_PREVIEW_WINDOW=1；定位（截图/测试基建 + 开发预览）已写入类型与 XAML 注释。
+TOKENPULSE_PREVIEW_WINDOW=1；定位（截图/测试基建 + 开发预览）已写入类型与 XAML 注释。
 ChartPreviewViewModel 同步改注释。
 
 **跨页一致性打磨：**
@@ -137,15 +137,15 @@ Tab 遍历可达性锁。Reports/ModelBreakdown 两个 VM 测试文件与 CSV �
 
 ## Verification
 
-- Related files: src/CCUsage.App（Views 12 处、ViewModels、Services、App.axaml、App.axaml.cs、
-  DependencyInjection/AppServices.cs、Styles/SharedStyles.axaml、CCUsage.App.csproj）、
-  tests/CCUsage.App.Headless.Tests（Theming/SemiThemeMigrationTests、Shell/AppShellTests、
-  Shell/SessionsTests、Styles/DesignTokenTests）、tests/CCUsage.App.Tests（删除 3 个旧测试文件）、
+- Related files: src/TokenPulse.App（Views 12 处、ViewModels、Services、App.axaml、App.axaml.cs、
+  DependencyInjection/AppServices.cs、Styles/SharedStyles.axaml、TokenPulse.App.csproj）、
+  tests/TokenPulse.App.Headless.Tests（Theming/SemiThemeMigrationTests、Shell/AppShellTests、
+  Shell/SessionsTests、Styles/DesignTokenTests）、tests/TokenPulse.App.Tests（删除 3 个旧测试文件）、
   docs/design/q-002-visual-diff.md（新增）+ docs/design/*.png（重生成）
-- How to run/verify: `dotnet build CCUsage.sln`（0 警告）；`dotnet test CCUsage.sln`（1010 过/22 跳/0 败）；
+- How to run/verify: `dotnet build TokenPulse.sln`（0 警告）；`dotnet test TokenPulse.sln`（1010 过/22 跳/0 败）；
   grep 验证导航与 DI 无旧视图残留（仅注释性文字）；`SemiThemeMigrationTests.Legacy_view_and_dead_
   service_types_are_removed_from_app_assembly` 反射锁旧类型不复活；截图重生成见各截图测试的
-  CCUSAGE_*_PREVIEW_DIR 约定；差异清单与逐页核对记录见 docs/design/q-002-visual-diff.md
+  TOKENPULSE_*_PREVIEW_DIR 约定；差异清单与逐页核对记录见 docs/design/q-002-visual-diff.md
 - Results: AC 全部满足（2026-10-13）；目检 3 缺陷（1 P1 + 2 P2）当场修复，无 P0/P1 遗留；
   真机交互复核（focus ring 观感 / hover 手感 / 读屏）留 PM/用户
 

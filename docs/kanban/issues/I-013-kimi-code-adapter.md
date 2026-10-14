@@ -59,7 +59,7 @@ blocked: none
   排序、快照定价（cache_write 推导口径）、缺省模型显示名不变 + 定价欠账 fail-loud）
 - [x] 对账：合成 fixture（config.json + 双格式双日 + 4 段/non-wire 诱饵）入仓 + CLI golden 录制
   （fixtures/golden/kimi-fixture-daily-v20.0.29.json）+ fixture 对账测试 ×2 +
-  `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（HasKimiData 数据存在性 Skip）
+  `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasKimiData 数据存在性 Skip）
 - [x] 管道接线：`IKimiCodeAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十四路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**新增 moonshot/kimi-k2.5 条目**（input 0.6 / output 3 / cache_read 0.1，cache_write
@@ -104,7 +104,7 @@ Default_display_model_stays_unpriced_candidate_pricing_debt）。
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/CCUsage.Reconciliation.Tests/fixtures/kimi/`（合成数据，config.json
+1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/kimi/`（合成数据，config.json
    model=kimi-k2.5，覆盖：旧格式 StatusUpdate 五桶（cache_creation 计价）、total 兜底 output 补齐、
    同 message_id 同刻重复去重、metadata/TurnBegin 行、新格式 turn 级 + session 级拒绝 + 全零拒绝 +
    坏 JSON 行、kimi-code/ 前缀剥离、4 段与 non-wire 诱饵）。
@@ -122,10 +122,10 @@ total=18,600 tokens，totalCost=$0.0050732** 逐位一致（02-13：kimi-k2.5 10
 0.001522（含 cache_creation 20×0.75/M 推导价）；06-22：3064/76/0/14848 cost 0.0035512）；诊断
 status=Partial、FilesDiscovered=2、records=3、UnpricedModels=[]。
 
-### TC-003: 本机真实数据对账（CCUSAGE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_kimi"`。
+1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_kimi"`。
 2. 数据存在性门控：定位器（KIMI_DATA_DIR / ~/.kimi、~/.kimi-code 的 sessions/）下发现 wire.jsonl 才
    运行（与 CLI 子进程同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 kimi daily --json --offline --timezone UTC`（golden）
@@ -223,7 +223,7 @@ KimiUsageRecordDeduper 文件头；fixtures 全部合成，无真实数据入仓
   i64 毫秒负端出现（DateTimeOffset.UnixEpoch.AddMilliseconds 接受负值，表达 year < 1970，无拒绝
   差异；真实日志不出现）。
 
-验证：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **523 通过 / 17 跳过**
+验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **523 通过 / 17 跳过**
 （I-011 收口基线 502/16 + 新增 19 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账
 测试（本机 Skip））；门控以 KIMI_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 /
 TC-003。
@@ -245,7 +245,7 @@ TC-003。
   IOException/UnauthorizedAccessException，蓝本全错误路径回退缺省模型——理论边界：root 来自刚
   枚举成功的 wire 路径前缀）；KIMI-2（会话 id 空白判定 IsNullOrWhiteSpace vs 蓝本仅 is_empty，
   纯空白目录名两侧结果不同的理论角落）。
-- 复核：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **523 通过 / 17 跳过**
+- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **523 通过 / 17 跳过**
   （数字不变——本批修复为注释/文档/登记，无代码与测试变更）；kimi fixture 对账 2/2 与 CLI golden
   逐位一致不回归；门控以 KIMI_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）。
 
@@ -258,23 +258,23 @@ TC-003。
 
 ## Verification
 
-- Related files: `src/CCUsage.Infrastructure/KimiCode/KimiLogLocator.cs`、
-  `src/CCUsage.Infrastructure/KimiCode/KimiLogParser.cs`、`src/CCUsage.Infrastructure/KimiCode/KimiCodeAdapter.cs`、
-  `src/CCUsage.Infrastructure/KimiCode/KimiUsageRecordDeduper.cs`、
-  `src/CCUsage.Core/Abstractions/IKimiCodeAdapter.cs`、
-  `src/CCUsage.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
-  `src/CCUsage.App/DependencyInjection/AppServices.cs`、`src/CCUsage.Core/Pricing/model-pricing-snapshot.json`、
-  `tests/CCUsage.Infrastructure.Tests/KimiCode/KimiCodeAdapterTests.cs`、
-  `tests/CCUsage.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/KimiFixtureReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/kimi/`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/golden/kimi-fixture-daily-v20.0.29.json`、
-  `tests/CCUsage.Reconciliation.Tests/RealDataReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
-  `tests/CCUsage.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
-- How to run/verify: `dotnet test CCUsage.sln`（全绿）；fixture 对账
-  `dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Kimi"`；门控复跑
-  `KIMI_DATA_DIR=$PWD/tests/CCUsage.Reconciliation.Tests/fixtures/kimi CCUSAGE_RECONCILE_REAL=1
-  dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_kimi"`。
+- Related files: `src/TokenPulse.Infrastructure/KimiCode/KimiLogLocator.cs`、
+  `src/TokenPulse.Infrastructure/KimiCode/KimiLogParser.cs`、`src/TokenPulse.Infrastructure/KimiCode/KimiCodeAdapter.cs`、
+  `src/TokenPulse.Infrastructure/KimiCode/KimiUsageRecordDeduper.cs`、
+  `src/TokenPulse.Core/Abstractions/IKimiCodeAdapter.cs`、
+  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
+  `src/TokenPulse.App/DependencyInjection/AppServices.cs`、`src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`、
+  `tests/TokenPulse.Infrastructure.Tests/KimiCode/KimiCodeAdapterTests.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/KimiFixtureReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/kimi/`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/kimi-fixture-daily-v20.0.29.json`、
+  `tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
+- How to run/verify: `dotnet test TokenPulse.sln`（全绿）；fixture 对账
+  `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Kimi"`；门控复跑
+  `KIMI_DATA_DIR=$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/kimi TOKENPULSE_RECONCILE_REAL=1
+  dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_kimi"`。
 - Results: 全部通过（见 TC-001/002/003 Result 与 Development Log 验证段；收口数字 **523/17**，
   2026-10-12 审查修复复核后数字不变）。

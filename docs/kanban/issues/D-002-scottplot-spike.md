@@ -42,7 +42,7 @@ blocked: none
 ### TC-001: spike 运行
 
 Steps:
-1. `dotnet run --project src/CCUsage.App` 打开 spike 页面。
+1. `dotnet run --project src/TokenPulse.App` 打开 spike 页面。
 
 Expected:
 - 趋势图渲染真实数据，交互可用，无崩溃。
@@ -62,12 +62,12 @@ Expected:
 #### 1. 版本兼容性实测
 
 - 锁定 **ScottPlot.Avalonia 5.1.59**（本环境经 nuget.org 的 azure.cn 镜像核实为最新 5.x；与选型文档核实的版本一致）。nuspec 依赖：`ScottPlot 5.1.59`、`Avalonia ≥ 12.0.0`、`Avalonia.Skia ≥ 12.0.0`，与当前 Avalonia 12.0.4 兼容；包内含 net10.0 目标。
-- NuGet 还原结果："compatible with all the specified frameworks"；`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test` 242 通过 / 5 跳过（基线不变）。
+- NuGet 还原结果："compatible with all the specified frameworks"；`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test` 242 通过 / 5 跳过（基线不变）。
 - 真机 `dotnet run` 启动无崩溃、日志无异常，图表渲染成功（证据见 Verification）。
 
 #### 2. Spike 实现（代码规模）
 
-- `src/CCUsage.App/Views/TrendSpikeView.axaml(.cs)` + `ViewModels/TrendSpikeViewModel.cs`，经 CacheService.GetDailyRowsAsync 取最近 30 个日行（本机 facts 实际 9 个数据日，见第 5 节）。VM ~80 行；View XAML ~35 行；code-behind ~200 行（其中 ~70 行是验证钩子，正式集成不需要，实际核心逻辑 ~130 行）。
+- `src/TokenPulse.App/Views/TrendSpikeView.axaml(.cs)` + `ViewModels/TrendSpikeViewModel.cs`，经 CacheService.GetDailyRowsAsync 取最近 30 个日行（本机 facts 实际 9 个数据日，见第 5 节）。VM ~80 行；View XAML ~35 行；code-behind ~200 行（其中 ~70 行是验证钩子，正式集成不需要，实际核心逻辑 ~130 行）。
 - 绘图：`Plot.Add.Scatter(xs, ys)` + `Plot.Axes.DateTimeTicksBottom()`；x 用 `DateTime.ToOADate()` 数值（ScottPlot 5 的日期约定）。共 4 个绘图 API 调用，成本极低。
 - 导航侵入：MainWindow.axaml 仅追加一个 `TabItem`（Header "Trend Spike (D-002)"，页内自带红色 "[SPIKE]" 标识）；ViewModel 不经 DI 注册，spike 页在 code-behind 自建（AppServices.Get\<CacheService\>()），未改任何现有页面行为。
 
@@ -84,7 +84,7 @@ Expected:
 
 #### 5. 渲染性能与数据事实
 
-- 本机真实数据（~/Library/Application Support/CCUsage/ccusage.db）：9 个有数据日（2026-01-28 .. 2026-09-25，Codex/gpt-5.2-codex），合计 $101.39，峰值 $63.16（02-07）——图表上的峰值点与 SQLite `SUM(cost_usd)` 对账一致。
+- 本机真实数据（~/Library/Application Support/TokenPulse/tokenpulse.db）：9 个有数据日（2026-01-28 .. 2026-09-25，Codex/gpt-5.2-codex），合计 $101.39，峰值 $63.16（02-07）——图表上的峰值点与 SQLite `SUM(cost_usd)` 对账一致。
 - facts 读取 + 映射耗时 **7 ms**（VM 状态栏实测）；ScottPlot 为百万点级设计，30/90 天每日 1 点（≤90 点）毫无压力，无需考虑 Signal/DataStreamer 等优化路径。
 - 观察到产品决策点（留给正式集成卡）：稀疏日期之间的长直线有误导性（看起来像持续花费），v0.4 需决定空日补零 / 断线 / 仅画实际日。
 
@@ -111,8 +111,8 @@ Expected:
 
 ## Verification
 
-- Related files: `src/CCUsage.App/CCUsage.App.csproj`（+ScottPlot.Avalonia 5.1.59）、`src/CCUsage.App/Views/TrendSpikeView.axaml`、`src/CCUsage.App/Views/TrendSpikeView.axaml.cs`、`src/CCUsage.App/ViewModels/TrendSpikeViewModel.cs`、`src/CCUsage.App/Views/MainWindow.axaml`（仅追加 spike Tab）
-- How to run/verify: `dotnet run --project src/CCUsage.App` → 切到 "Trend Spike (D-002)" tab；或设 `CCUSAGE_SPIKE_CAPTURE=/tmp/x.png`（可选 `CCUSAGE_SPIKE_CAPTURE_WINDOW=/tmp/y.png`）**并切到 spike tab**（TabControl 只在选中时挂载内容、触发 Loaded，审查实测仅设环境变量不触发）让 spike 页离屏输出证据图
+- Related files: `src/TokenPulse.App/TokenPulse.App.csproj`（+ScottPlot.Avalonia 5.1.59）、`src/TokenPulse.App/Views/TrendSpikeView.axaml`、`src/TokenPulse.App/Views/TrendSpikeView.axaml.cs`、`src/TokenPulse.App/ViewModels/TrendSpikeViewModel.cs`、`src/TokenPulse.App/Views/MainWindow.axaml`（仅追加 spike Tab）
+- How to run/verify: `dotnet run --project src/TokenPulse.App` → 切到 "Trend Spike (D-002)" tab；或设 `TOKENPULSE_SPIKE_CAPTURE=/tmp/x.png`（可选 `TOKENPULSE_SPIKE_CAPTURE_WINDOW=/tmp/y.png`）**并切到 spike tab**（TabControl 只在选中时挂载内容、触发 Loaded，审查实测仅设环境变量不触发）让 spike 页离屏输出证据图
 - Results:
   - build 0 警告 0 错误；test 242 通过 / 5 跳过（Core 68 / Reconciliation 18 / Infrastructure 116 / App 40），基线不变。
   - 真机 `dotnet run` 启动无崩溃、日志无异常；状态栏实测 `loaded 9 rows in 7 ms; range=2026-01-28 .. 2026-09-25 · 合计 $101.39 · 峰值 $63.16/day`。

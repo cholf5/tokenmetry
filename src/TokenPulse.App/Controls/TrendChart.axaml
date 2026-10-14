@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:sp="using:ScottPlot.Avalonia"
+             xmlns:loc="using:TokenPulse.App.Localization"
+             mc:Ignorable="d"
+             x:Class="TokenPulse.App.Controls.TrendChart">
+    <!-- D-004 正式趋势图控件：三种形态共用一个 AvaPlot（绘图代码集中在 code-behind，D-002 结论）。
+         数据经样式属性传入（Mode / DailyPoints / HourlyDistribution），控件自身无 DataContext 依赖。
+         ScottPlot 不吃 Avalonia DynamicResource —— 图表 chrome 色在每次 RebuildPlot 时按当前
+         ActualThemeVariant 从 Tokens.axaml 令牌现取，主题变更经 ActualThemeVariantChanged 触发重建。 -->
+    <Panel>
+        <sp:AvaPlot x:Name="PlotControl"
+                    PointerMoved="OnPlotPointerMoved"
+                    PointerExited="OnPlotPointerExited"/>
+        <!-- 诚实空态：无数据点 / 双端有界窗口全补零（IsEffectivelyEmpty）时覆盖提示（不画伪零线） -->
+        <StackPanel x:Name="EmptyState"
+                    IsHitTestVisible="False"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="4"
+                    IsVisible="False">
+            <TextBlock Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource AppMutedTextBrush}"
+                       TextAlignment="Center"/>
+            <TextBlock Text="{Binding NoUsageInRange, Source={x:Static loc:Translations.Instance}}"
+                       FontSize="11"
+                       Foreground="{DynamicResource AppMutedTextBrush}"
+                       TextAlignment="Center"/>
+        </StackPanel>
+    </Panel>
+</UserControl>

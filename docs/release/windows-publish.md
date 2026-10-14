@@ -1,6 +1,6 @@
 # Windows Publish
 
-This document records the manual Windows release flow for `ccusage-gui` v0.1.
+This document records the manual Windows release flow for TokenPulse v0.1.
 
 ## Prerequisites
 
@@ -13,22 +13,22 @@ This document records the manual Windows release flow for `ccusage-gui` v0.1.
 
 ## Default publish command
 
-Run from the `ccusage-gui` directory:
+Run from the repository root (TokenPulse):
 
 ```bat
-dotnet publish src\CCUsage.App\CCUsage.App.csproj -c Release -r win-x64 --self-contained false
+dotnet publish src\TokenPulse.App\TokenPulse.App.csproj -c Release -r win-x64 --self-contained false
 ```
 
 Output directory:
 
 ```text
-src\CCUsage.App\bin\Release\net10.0\win-x64\publish\
+src\TokenPulse.App\bin\Release\net10.0\win-x64\publish\
 ```
 
 Start the app with:
 
 ```bat
-src\CCUsage.App\bin\Release\net10.0\win-x64\publish\CCUsage.App.exe
+src\TokenPulse.App\bin\Release\net10.0\win-x64\publish\TokenPulse.App.exe
 ```
 
 ## Optional self-contained publish
@@ -36,7 +36,7 @@ src\CCUsage.App\bin\Release\net10.0\win-x64\publish\CCUsage.App.exe
 Use this when the target machine should not require a separately installed .NET Desktop Runtime:
 
 ```bat
-dotnet publish src\CCUsage.App\CCUsage.App.csproj -c Release -r win-x64 --self-contained true
+dotnet publish src\TokenPulse.App\TokenPulse.App.csproj -c Release -r win-x64 --self-contained true
 ```
 
 The self-contained output is larger than the default framework-dependent output.
@@ -45,7 +45,7 @@ The self-contained output is larger than the default framework-dependent output.
 
 After publishing, verify these items on a Windows machine:
 
-1. Launch `CCUsage.App.exe` from the publish directory.
+1. Launch `TokenPulse.App.exe` from the publish directory.
 2. Confirm the Dashboard tab appears without crashing.
 3. Click `刷新数据` on Dashboard.
 4. Confirm local `ccusage` data is loaded.
