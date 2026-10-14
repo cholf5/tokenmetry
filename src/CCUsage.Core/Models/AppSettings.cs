@@ -24,6 +24,18 @@ public class AppSettings
     /// </summary>
     public string Language { get; set; } = "system";
 
+    /// <summary>
+    /// 顶部栏时间范围档（CCUsage.App 的 TimeRange 枚举名，如 "Last7Days"）；未知值由
+    /// FilterStatePersistence 解析处如实回落默认档。存字符串：枚举在 App 层，Core 不依赖 UI。
+    /// </summary>
+    public string TimeRange { get; set; } = "Last7Days";
+
+    /// <summary>自定义档起始日（含，yyyy-MM-dd invariant；null = 未选，查询映射不设下界）。</summary>
+    public string? CustomFromDay { get; set; }
+
+    /// <summary>自定义档结束日（含，yyyy-MM-dd invariant；null = 未选，查询映射不设上界）。</summary>
+    public string? CustomToDay { get; set; }
+
     /// <summary>用户价格覆盖规则（I-003，exact 模型名匹配，优先级高于远程数据与内置快照）。</summary>
     public List<ModelPricingOverride> PricingOverrides { get; set; } = new();
 }

@@ -14,6 +14,9 @@ public class AppSettingsTests
         settings.AnomalyNotificationsEnabled.Should().BeTrue();
         settings.ShowDebugInfo.Should().BeTrue();
         settings.RefreshMinutes.Should().Be(15);
+        settings.TimeRange.Should().Be("Last7Days");
+        settings.CustomFromDay.Should().BeNull();
+        settings.CustomToDay.Should().BeNull();
         settings.PricingOverrides.Should().BeEmpty();
     }
 }
