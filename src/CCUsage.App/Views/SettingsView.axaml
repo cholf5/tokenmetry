@@ -8,8 +8,10 @@
     <!--
         S-002 数据源与设置页（原型 #page-settings）：页头 + 已识别的数据源表（真实扫描快照，
         全局重扫——采集管道不支持 per-source，按钮语义如实）+ 统计口径说明区（逐项定案，
-        全部说明样式，不做假开关）+ 既有设置项迁入（主题三态 / 刷新间隔 / 通知 / 调试 /
-        ccusage 命令 / 本地路径）。保存与重扫操作经 IToastService 反馈（I-027）。
+        全部说明样式，不做假开关）+ 既有设置项迁入（主题三态 / 界面语言 / 刷新间隔 / 通知 /
+        ccusage 命令 / 本地路径）。全部设置项全自动保存（改完即生效并落盘，无保存按钮——
+        对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）；重扫操作经 IToastService
+        反馈（I-027）。
     -->
     <ScrollViewer>
         <StackPanel Spacing="13" Margin="0,0,0,4">
@@ -107,7 +109,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- ═══ 外观与通用（既有设置项迁入新信息架构；主题/语言即时预览 + 保存持久化）═══ -->
+            <!-- ═══ 外观与通用（既有设置项迁入新信息架构；全部设置项全自动保存：改完即生效并落盘）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="12">
                     <TextBlock Classes="panel-title" Text="{Binding AppearanceTitle, Source={x:Static loc:Translations.Instance}}"/>
@@ -127,7 +129,7 @@
                                    Text="{Binding ThemeHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
 
-                    <!-- 界面语言（zh/en/system；切换即时全局生效，保存设置持久化） -->
+                    <!-- 界面语言（zh/en/system；切换即时全局生效并落盘） -->
                     <StackPanel Spacing="4">
                         <TextBlock Classes="page-subtitle" Text="{Binding LabelLanguage, Source={x:Static loc:Translations.Instance}}"/>
                         <ComboBox ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}"
@@ -147,6 +149,11 @@
                         <TextBlock Classes="page-subtitle" Text="{Binding LabelRefreshInterval, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="15" Width="220"
                                  HorizontalAlignment="Left"/>
+                        <!-- 全自动保存的行内校验：非法输入显示提示且不落盘（保留上一个合法值） -->
+                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                                   Text="{Binding RefreshMinutesError}"
+                                   Foreground="{DynamicResource AppAccentRedBrush}"
+                                   IsVisible="{Binding RefreshMinutesError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                         <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
                                    Text="{Binding RefreshHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
@@ -181,13 +188,6 @@
                     </Grid>
                 </StackPanel>
             </Border>
-
-            <!-- 保存（成功 / 失败经 toast 反馈；Status 保留既有测试对账语义） -->
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Classes="Primary" Content="{Binding SaveSettings, Source={x:Static loc:Translations.Instance}}"
-                        Command="{Binding SaveCommand}" IsEnabled="{Binding !IsSaving}"/>
-                <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Classes="page-subtitle"/>
-            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

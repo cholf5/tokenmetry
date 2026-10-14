@@ -20,8 +20,7 @@ public class SettingsViewModelTests
         {
             CcusageCommand = "ccusage.cmd",
             RefreshMinutes = 20,
-            AnomalyNotificationsEnabled = false,
-            ShowDebugInfo = false
+            AnomalyNotificationsEnabled = false
         };
         var paths = new AppPaths("C:\\Users\\tester\\AppData\\Local\\CCUsage");
 
@@ -30,75 +29,109 @@ public class SettingsViewModelTests
         viewModel.CcusageCommand.Should().Be("ccusage.cmd");
         viewModel.RefreshMinutesText.Should().Be("20");
         viewModel.AnomalyNotificationsEnabled.Should().BeFalse();
-        viewModel.ShowDebugInfo.Should().BeFalse();
         viewModel.CacheDbPath.Should().Be(Path.Combine(paths.AppDataDirectory, "ccusage.db"));
         viewModel.SettingsFilePath.Should().Be(Path.Combine(paths.AppDataDirectory, "settings.json"));
     }
 
+    // ---- 全自动保存（无保存按钮：各设置项改完即生效并落盘）----
+
     [Fact]
-    public async Task SaveAsync_UpdatesSettingsAndPersists()
+    public void ThemeChange_AppliesAndPersistsImmediately()
     {
         var settings = new AppSettings();
         var store = new FakeSettingsStore();
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store);
-        viewModel.CcusageCommand = "  ccusage.cmd  ";
-        viewModel.RefreshMinutesText = "45";
-        viewModel.AnomalyNotificationsEnabled = false;
-        viewModel.ShowDebugInfo = false;
+        var themeService = new FakeThemeService();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store, themeService: themeService);
 
-        await viewModel.SaveAsync();
+        viewModel.SelectedTheme = SettingsViewModel.ThemeOptions.First(o => o.Value == "dark");
 
-        settings.CcusageCommand.Should().Be("ccusage.cmd");
-        settings.RefreshMinutes.Should().Be(45);
-        settings.AnomalyNotificationsEnabled.Should().BeFalse();
-        settings.ShowDebugInfo.Should().BeFalse();
+        themeService.LastApplied.Should().Be("dark");
+        settings.Theme.Should().Be("dark");
         store.SaveCalls.Should().Be(1);
-        store.SavedSettings.Should().BeSameAs(settings);
-        viewModel.Status.Should().Be("settings saved");
-        viewModel.IsSaving.Should().BeFalse();
     }
 
     [Fact]
-    public async Task SaveAsync_WithBlankCommand_UsesDefaultCommand()
-    {
-        var settings = new AppSettings { CcusageCommand = "custom" };
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), new FakeSettingsStore());
-        viewModel.CcusageCommand = "   ";
-        viewModel.RefreshMinutesText = "15";
-
-        await viewModel.SaveAsync();
-
-        settings.CcusageCommand.Should().Be("ccusage");
-        viewModel.CcusageCommand.Should().Be("ccusage");
-    }
-
-    [Fact]
-    public async Task SaveAsync_WithInvalidRefreshInterval_DoesNotSave()
+    public void RefreshMinutesTextChange_WithValidValue_PersistsAndClearsError()
     {
         var settings = new AppSettings { RefreshMinutes = 15 };
         var store = new FakeSettingsStore();
         var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store);
-        viewModel.RefreshMinutesText = "0";
 
-        await viewModel.SaveAsync();
+        viewModel.RefreshMinutesText = "45";
 
-        store.SaveCalls.Should().Be(0);
-        settings.RefreshMinutes.Should().Be(15);
-        viewModel.Status.Should().Be("refresh interval must be between 1 and 1440 minutes");
+        settings.RefreshMinutes.Should().Be(45);
+        store.SaveCalls.Should().Be(1);
+        viewModel.RefreshMinutesError.Should().BeNull();
     }
 
     [Fact]
-    public async Task SaveAsync_WhenStoreFails_ShowsError()
+    public void RefreshMinutesTextChange_WithInvalidValue_ShowsInlineErrorAndDoesNotPersist()
     {
+        var settings = new AppSettings { RefreshMinutes = 15 };
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store);
+
+        viewModel.RefreshMinutesText = "0";
+
+        settings.RefreshMinutes.Should().Be(15); // 非法不落盘，保留上一个合法值
+        store.SaveCalls.Should().Be(0);
+        viewModel.RefreshMinutesError.Should().Be(Translations.Instance.RefreshIntervalOutOfRange);
+
+        viewModel.RefreshMinutesText = "abc";
+        viewModel.RefreshMinutesError.Should().Be(Translations.Instance.RefreshIntervalMustBeNumber);
+        store.SaveCalls.Should().Be(0);
+
+        viewModel.RefreshMinutesText = "30"; // 回到合法 → 落盘 + 提示清除
+        settings.RefreshMinutes.Should().Be(30);
+        store.SaveCalls.Should().Be(1);
+        viewModel.RefreshMinutesError.Should().BeNull();
+    }
+
+    [Fact]
+    public void CcusageCommandChange_PersistsTrimmedAndBlankCoercesToDefault()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store);
+
+        viewModel.CcusageCommand = "  ccusage.cmd  ";
+
+        settings.CcusageCommand.Should().Be("ccusage.cmd"); // 输入框保留原文，规范化只落盘
+        store.SaveCalls.Should().Be(1);
+
+        viewModel.CcusageCommand = "   ";
+
+        settings.CcusageCommand.Should().Be("ccusage");
+        store.SaveCalls.Should().Be(2);
+    }
+
+    [Fact]
+    public void AnomalyNotificationsToggle_PersistsImmediately()
+    {
+        var settings = new AppSettings { AnomalyNotificationsEnabled = true };
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store);
+
+        viewModel.AnomalyNotificationsEnabled = false;
+
+        settings.AnomalyNotificationsEnabled.Should().BeFalse();
+        store.SaveCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void SettingsChange_WhenStoreFails_KeepsUiEffectiveAndDoesNotThrow()
+    {
+        // best-effort 自动保存：磁盘失败不阻断 UI 已生效的更改（诊断日志，下次更改重试）。
+        var settings = new AppSettings();
         var store = new FakeSettingsStore { SaveException = new InvalidOperationException("cannot write") };
-        var toast = new FakeToastService();
-        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\ccusage"), store, toast: toast);
+        var themeService = new FakeThemeService();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store, themeService: themeService);
 
-        await viewModel.SaveAsync();
+        viewModel.SelectedTheme = SettingsViewModel.ThemeOptions.First(o => o.Value == "dark");
 
-        viewModel.Status.Should().Be("error: cannot write");
-        viewModel.IsSaving.Should().BeFalse();
-        toast.Messages.Should().Contain(string.Format(Translations.Instance.ToastSaveFailedFormat, "cannot write"));
+        themeService.LastApplied.Should().Be("dark"); // UI 侧生效
+        settings.Theme.Should().Be("dark");           // 内存设置生效
+        store.SavedSettings.Should().BeNull();        // 落盘失败（待下次更改重试）
     }
 
     [Fact]
@@ -119,23 +152,6 @@ public class SettingsViewModelTests
         var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), new FakeSettingsStore());
 
         viewModel.SelectedTheme.Value.Should().Be("system");
-    }
-
-    [Fact]
-    public async Task SaveAsync_PersistsThemePreferenceAndAppliesIt()
-    {
-        var settings = new AppSettings();
-        var store = new FakeSettingsStore();
-        var themeService = new FakeThemeService();
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store, themeService: themeService);
-        viewModel.RefreshMinutesText = "15";
-        viewModel.SelectedTheme = SettingsViewModel.ThemeOptions.First(o => o.Value == "dark");
-
-        await viewModel.SaveAsync();
-
-        settings.Theme.Should().Be("dark");
-        themeService.LastApplied.Should().Be("dark");
-        store.SaveCalls.Should().Be(1);
     }
 
     // ---- 界面语言（zh / en / system，机制与 Theme 全链路同构）----
@@ -174,30 +190,6 @@ public class SettingsViewModelTests
 
             store.SaveCalls.Should().Be(1); // 切换即保存，不等「保存设置」
             settings.Language.Should().Be("en");
-        }
-        finally
-        {
-            Translations.Instance.SetLanguage(originalLanguage); // 进程级单例，恢复基线避免污染其他用例
-        }
-    }
-
-    [Fact]
-    public async Task SaveAsync_PersistsLanguagePreferenceAndAppliesIt()
-    {
-        var settings = new AppSettings();
-        var store = new FakeSettingsStore();
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\ccusage"), store);
-        viewModel.RefreshMinutesText = "15";
-        var originalLanguage = Translations.Instance.CurrentLanguage;
-        try
-        {
-            viewModel.SelectedLanguage = SettingsViewModel.LanguageOptions.First(o => o.Value == "en");
-
-            await viewModel.SaveAsync();
-
-            settings.Language.Should().Be("en");
-            Translations.Instance.CurrentLanguage.Should().Be(AppLanguage.English); // 切换即时生效
-            store.SaveCalls.Should().Be(2); // 切换时即时保存 1 次 + 「保存设置」整体保存 1 次
         }
         finally
         {

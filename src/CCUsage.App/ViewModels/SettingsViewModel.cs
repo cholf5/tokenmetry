@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -127,6 +128,9 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     private readonly BackgroundRefreshService _refreshService;
     private readonly IToastService _toastService;
 
+    /// <summary>自动保存串行化 gate：文本框逐键触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+
     [ObservableProperty]
     private string _ccusageCommand = string.Empty;
 
@@ -136,14 +140,14 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     [ObservableProperty]
     private bool _anomalyNotificationsEnabled;
 
-    [ObservableProperty]
-    private bool _showDebugInfo;
-
+    /// <summary>重扫生命周期内部状态码（scanning / scan finished / scan error，供重扫回归锁对账；
+    /// 全部设置项改全自动保存后不再渲染，无 UI 出口）。</summary>
     [ObservableProperty]
     private string _status = "ready";
 
+    /// <summary>刷新间隔的行内校验提示（非法输入时非空并显示；合法/初始为 null 隐藏）。</summary>
     [ObservableProperty]
-    private bool _isSaving;
+    private string? _refreshMinutesError;
 
     /// <summary>重新扫描进行中（TC-001：按钮进入扫描态防重复触发；互斥在 BackgroundRefreshService）。</summary>
     [ObservableProperty]
@@ -211,7 +215,6 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         _ccusageCommand = settings.CcusageCommand;
         _refreshMinutesText = settings.RefreshMinutes.ToString();
         _anomalyNotificationsEnabled = settings.AnomalyNotificationsEnabled;
-        _showDebugInfo = settings.ShowDebugInfo;
         _selectedTheme = ResolveThemeOption(settings.Theme);
         _selectedLanguage = ResolveLanguageOption(settings.Language);
         RebuildSourceRows();
@@ -229,18 +232,21 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     /// <summary>口径区行（静态定案数据，实例属性便于绑定）。</summary>
     public IReadOnlyList<CaliberItem> CaliberRows => CaliberItems;
 
-    /// <summary>切换选项时立即预览效果；持久化仍由保存设置触发。</summary>
+    /// <summary>主题切换：立即应用预览并落盘（全自动保存——预览即生效，无需两段式）。</summary>
     partial void OnSelectedThemeChanged(ThemeOption value)
     {
-        if (value is not null)
+        if (value is null)
         {
-            _themeService.Apply(value.Value);
+            return;
         }
+
+        _themeService.Apply(value.Value);
+        _settings.Theme = value.Value;
+        PersistSettings();
     }
 
-    /// <summary>切换语言选项：立即全局应用（含本页与外壳重译）并即时落盘——对齐 stupid-dict
-    /// 的语言切换语义（改完即保存），避免重启后回到旧语言；「保存设置」仍会整体落盘（含
-    /// Language）。与 Theme 的「预览-保存」两段式不同，语言是唯一即时持久化的设置项。</summary>
+    /// <summary>语言切换：立即全局应用（含本页与外壳重译）并即时落盘——对齐 stupid-dict
+    /// 的语言切换语义（改完即保存），避免重启后回到旧语言。</summary>
     partial void OnSelectedLanguageChanged(LanguageOption value)
     {
         if (value is null)
@@ -250,22 +256,72 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
 
         Translations.ApplyPreference(value.Value);
         _settings.Language = value.Value;
-        _ = SaveLanguagePreferenceAsync();
+        PersistSettings();
     }
 
-    /// <summary>语言偏好的即时落盘（best-effort：磁盘失败不阻断语言切换——UI 已生效，
-    /// 下次「保存设置」/切换会补写；静默吞掉但打最小诊断，同外壳 Agent 选项失败的处理）。</summary>
-    private async Task SaveLanguagePreferenceAsync()
+    /// <summary>刷新间隔输入：合法（1–1440）即存（中间合法值无害——刷新间隔在下次启动后台
+    /// 刷新服务时生效），非法行内提示且不落盘（settings.json 保留上一个合法值）。</summary>
+    partial void OnRefreshMinutesTextChanged(string value)
+    {
+        if (!int.TryParse(value, out var parsed))
+        {
+            RefreshMinutesError = Translations.Instance.RefreshIntervalMustBeNumber;
+            return;
+        }
+
+        if (parsed is < 1 or > 1440)
+        {
+            RefreshMinutesError = Translations.Instance.RefreshIntervalOutOfRange;
+            return;
+        }
+
+        RefreshMinutesError = null;
+        _settings.RefreshMinutes = parsed;
+        PersistSettings();
+    }
+
+    /// <summary>ccusage 命令输入：内容变化即存；空值按既有语义落默认命令 "ccusage"
+    /// （原始文本保留在输入框，规范化只落盘；命令本身下次启动才被消费）。</summary>
+    partial void OnCcusageCommandChanged(string value)
+    {
+        _settings.CcusageCommand = string.IsNullOrWhiteSpace(value) ? "ccusage" : value.Trim();
+        PersistSettings();
+    }
+
+    /// <summary>异常通知开关：勾选即存（有真实行为出口——ISystemNotification → in-app toast）。</summary>
+    partial void OnAnomalyNotificationsEnabledChanged(bool value)
+    {
+        _settings.AnomalyNotificationsEnabled = value;
+        PersistSettings();
+    }
+
+    /// <summary>
+    /// 全自动保存（所有设置项改完即落盘，无保存按钮——对齐 stupid-dict 的设置语义）。
+    /// 单飞行 gate 串行化：文本框逐键触发的高频保存不并发写同一 settings.json；
+    /// best-effort——磁盘失败不阻断 UI 已生效的更改，打最小诊断（同外壳 Agent 选项失败
+    /// 的处理），后续任一更改会继续尝试。
+    /// </summary>
+    private async Task PersistSettingsAsync()
     {
         try
         {
-            await _store.SaveAsync(_settings);
+            await _saveGate.WaitAsync();
+            try
+            {
+                await _store.SaveAsync(_settings);
+            }
+            finally
+            {
+                _saveGate.Release();
+            }
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[ccusage] 语言偏好即时保存失败（UI 已生效，待下次保存补写）：{ex.Message}");
+            Console.Error.WriteLine($"[ccusage] 设置自动保存失败（UI 已生效，待下次更改重试）：{ex.Message}");
         }
     }
+
+    private void PersistSettings() => _ = PersistSettingsAsync();
 
     /// <summary>
     /// 语言切换重译（应用级单例，进程内存活）：以 PropertyChanged(CurrentLanguage) 作为
@@ -350,46 +406,6 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         }
     }
 
-    [RelayCommand]
-    public async Task SaveAsync()
-    {
-        if (!TryValidateRefreshMinutes(out var refreshMinutes, out var error))
-        {
-            Status = error;
-            return;
-        }
-
-        IsSaving = true;
-        Status = "saving";
-
-        try
-        {
-            _settings.CcusageCommand = string.IsNullOrWhiteSpace(CcusageCommand)
-                ? "ccusage"
-                : CcusageCommand.Trim();
-            _settings.RefreshMinutes = refreshMinutes;
-            _settings.AnomalyNotificationsEnabled = AnomalyNotificationsEnabled;
-            _settings.ShowDebugInfo = ShowDebugInfo;
-            _settings.Theme = SelectedTheme?.Value ?? "system";
-            _settings.Language = SelectedLanguage?.Value ?? "system";
-
-            await _store.SaveAsync(_settings);
-            CcusageCommand = _settings.CcusageCommand;
-            RefreshMinutesText = _settings.RefreshMinutes.ToString();
-            Status = "settings saved";
-            _toastService.Show(Translations.Instance.ToastSaved);
-        }
-        catch (Exception ex)
-        {
-            Status = $"error: {ex.Message}";
-            _toastService.Show(string.Format(Translations.Instance.ToastSaveFailedFormat, ex.Message));
-        }
-        finally
-        {
-            IsSaving = false;
-        }
-    }
-
     /// <summary>从采集扫描注册表重建数据源表（注册序 = 管道扫描序；未扫描的源如实显示"尚未扫描"）。</summary>
     private void RebuildSourceRows()
     {
@@ -446,26 +462,5 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     {
         var normalized = (preference ?? "system").Trim().ToLowerInvariant();
         return LanguageOptions.FirstOrDefault(o => o.Value == normalized) ?? LanguageOptions[0];
-    }
-
-    private bool TryValidateRefreshMinutes(out int refreshMinutes, out string error)
-    {
-        refreshMinutes = 0;
-        error = string.Empty;
-
-        if (!int.TryParse(RefreshMinutesText, out var parsed))
-        {
-            error = "refresh interval must be a number";
-            return false;
-        }
-
-        if (parsed < 1 || parsed > 1440)
-        {
-            error = "refresh interval must be between 1 and 1440 minutes";
-            return false;
-        }
-
-        refreshMinutes = parsed;
-        return true;
     }
 }

@@ -256,7 +256,7 @@ public class SettingsPageTests
             var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
             Assert.Contains("Recognized data sources", texts);
             Assert.Contains("Appearance & general", texts);
-            Assert.Contains("Save settings", texts);
+            Assert.Contains("Saved automatically; takes effect the next time the background refresh service starts.", texts);
             // 页头 Page.Title 实时重译（多级绑定路径 Page.Title——叶子通知由 PageDescriptor 发，
             // 真机实测缺失时标题保持旧语言、导航切换回来才更新）
             var pageTitle = window.GetVisualDescendants().OfType<TextBlock>()
