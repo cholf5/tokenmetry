@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using CCUsage.App.Localization;
 using CCUsage.Core.Models;
 using ScottPlot;
 using ScottPlot.Plottables;
@@ -634,25 +635,63 @@ public partial class TrendChart : UserControl
             : $"${value.ToString("F2", CultureInfo.InvariantCulture)}";
     }
 
-    /// <summary>紧凑数值（1.2M / 850K / 42，原型 compact() 语义）；轴刻度与环中心总量共用。</summary>
-    public static string FormatCompactTokens(double value)
-    {
-        var abs = Math.Abs(value);
-        return abs >= 1_000_000
-            ? (value / 1_000_000).ToString("0.##", CultureInfo.InvariantCulture) + "M"
-            : abs >= 1_000
-                ? (value / 1_000).ToString("0.#", CultureInfo.InvariantCulture) + "K"
-                : value.ToString("0.##", CultureInfo.InvariantCulture);
-    }
+    /// <summary>
+    /// 紧凑数值，按 UI 语言取单位制（调用时点读 Translations，语言切换后的下一次重渲染即换单位）：
+    /// 英文千进制 K/M/B/T/Q（1B 显示 1B 而非 1000M）；中文万进制 万/亿/万亿（口语直读——5882万
+    /// 而非 5.88千万，1.23亿 而非 123百万；万进制是中文数字的原生分组）。尾数 ≥1000 取整、≥100
+    /// 一位小数、其余两位（封顶 3~4 位有效数字）；尾数取整越档（如 9999.5万 → "10000万"）升入
+    /// 上一档（"1亿"），杜绝 "10000万"/"1000M" 式越档尾数。仅 Avalonia 文本消费；ScottPlot 轴刻度
+    /// 走 <see cref="FormatCompactAxisValue"/>（无 CJK 字形，恒为 ASCII 单位）。
+    /// </summary>
+    public static string FormatCompactTokens(double value) =>
+        FormatCompact(value,
+            Translations.Instance.CurrentLanguage == AppLanguage.SimplifiedChinese ? ChineseUnits : EnglishUnits,
+            tickPrecision: false);
 
-    /// <summary>轴刻度紧凑数值（同 <see cref="FormatCompactTokens"/>，刻度精度略降）。</summary>
-    private static string FormatCompactAxisValue(double value)
+    /// <summary>轴刻度紧凑数值（ScottPlot 渲染无 CJK 字形，恒为 ASCII 短单位；刻度精度略降）。</summary>
+    private static string FormatCompactAxisValue(double value) => FormatCompact(value, EnglishUnits, tickPrecision: true);
+
+    /// <summary>单位档：生效阈值 / 除数 / 单位 / 尾数上限（取整尾数达到上限即升入上一档；阶梯末端不设限）。</summary>
+    private readonly record struct CompactUnit(double Threshold, double Divisor, string Unit, double MantissaMax);
+
+    // 千进制（英文习惯）：K/M/B/T 每档 10^3，Q 为阶梯末端。
+    private static readonly CompactUnit[] EnglishUnits =
+    [
+        new(1e3, 1e3, "K", 1e3),
+        new(1e6, 1e6, "M", 1e3),
+        new(1e9, 1e9, "B", 1e3),
+        new(1e12, 1e12, "T", 1e3),
+        new(1e15, 1e15, "Q", double.MaxValue),
+    ];
+
+    // 万进制（中文习惯）：万/亿 每档 10^4（十亿写作 10亿、五千万写作 5000万，不设独立档），万亿为阶梯末端。
+    private static readonly CompactUnit[] ChineseUnits =
+    [
+        new(1e4, 1e4, "万", 1e4),
+        new(1e8, 1e8, "亿", 1e4),
+        new(1e12, 1e12, "万亿", double.MaxValue),
+    ];
+
+    private static string FormatCompact(double value, CompactUnit[] units, bool tickPrecision)
     {
         var abs = Math.Abs(value);
-        return abs >= 1_000_000
-            ? (value / 1_000_000).ToString("0.#", CultureInfo.InvariantCulture) + "M"
-            : abs >= 1_000
-                ? (value / 1_000).ToString("0.#", CultureInfo.InvariantCulture) + "K"
-                : value.ToString("0.##", CultureInfo.InvariantCulture);
+        var index = Array.FindLastIndex(units, unit => abs >= unit.Threshold);
+        if (index < 0)
+        {
+            return value.ToString("0.##", CultureInfo.InvariantCulture);
+        }
+
+        // 尾数取整达到本档上限（9999.5万 → "10000万"，同英文 "1000M"）时升入上一档再缩放。
+        if (index + 1 < units.Length && Math.Round(abs / units[index].Divisor) >= units[index].MantissaMax)
+        {
+            index++;
+        }
+
+        var scaled = value / units[index].Divisor;
+        var format = tickPrecision ? "0.#"
+            : Math.Abs(scaled) >= 1000 ? "0"
+            : Math.Abs(scaled) >= 100 ? "0.#"
+            : "0.##";
+        return scaled.ToString(format, CultureInfo.InvariantCulture) + units[index].Unit;
     }
 }
