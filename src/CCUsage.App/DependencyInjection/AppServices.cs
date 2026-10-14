@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -50,7 +51,15 @@ public static class AppServices
         var services = new ServiceCollection();
         var paths = PathsOverride ?? AppPaths.CreateDefault();
         var settingsStore = new JsonAppSettingsStore(paths);
-        var settings = settingsStore.LoadAsync().GetAwaiter().GetResult();
+        // 启动期 sync-over-async 死锁修复（真机实测启动假死）：本方法在主线程于 Avalonia 启动
+        // 序列内执行，此时 Dispatcher 尚未泵消息。直接 GetResult() 等待异步 IO 时，一旦某个
+        // await 真异步完成（如 settings.json 存在时 JsonSerializer.DeserializeAsync 的续延），
+        // 续延被投递到 AvaloniaSynchronizationContext（= 主线程），而主线程正阻塞在本等待上——
+        // 互相等死。Task.Run 把整条异步链搬到线程池（无线程池外的同步上下文，续延就地完成），
+        // GetResult 拿到的是已完成的 Task。首例触发：语言自动保存首次写出 settings.json 后，
+        // 下一次启动 LoadAsync 走读取路径即卡死（settings.json 不存在时 LoadAsync 同步短路，
+        // 从不触发——故此雷长期潜伏）。
+        var settings = Task.Run(() => settingsStore.LoadAsync()).GetAwaiter().GetResult();
 
         services.AddSingleton(paths);
         services.AddSingleton<AppSettings>(settings);
@@ -127,10 +136,11 @@ public static class AppServices
         services.AddSingleton<IUsageDataSource>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
         services.AddSingleton(_ => new CCUsageCliDataSource(settings.CcusageCommand));
 
-        // Facts 存储（I-002）：启动时执行顺序迁移
+        // Facts 存储（I-002）：启动时执行顺序迁移（同上：经 Task.Run 隔离异步链，防启动期
+        // sync-over-async 死锁——SQLite 迁移内部的 await 同样可能真异步完成）
         Directory.CreateDirectory(paths.AppDataDirectory);
         var store = new SqliteUsageStore(paths.CacheDbPath);
-        store.InitializeAsync().GetAwaiter().GetResult();
+        Task.Run(() => store.InitializeAsync()).GetAwaiter().GetResult();
         services.AddSingleton<IUsageStore>(store);
         services.AddSingleton<CacheService>();
 
