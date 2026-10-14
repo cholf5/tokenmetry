@@ -11,6 +11,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using CCUsage.App.Controls;
 using CCUsage.App.DependencyInjection;
+using CCUsage.App.Localization;
 using CCUsage.App.ViewModels;
 using CCUsage.Core.Abstractions;
 using CCUsage.Core.Models;
@@ -554,6 +555,53 @@ public class TrendChartTests
     [InlineData(-42, "-42")]
     public void FormatTokens_uses_thousands_separator(long tokens, string expected) =>
         Assert.Equal(expected, TrendChart.FormatTokens(tokens));
+
+    // ── 紧凑数值单位制（调用时点按 UI 语言取制；单例语言每用例保存恢复，同 TranslationsTests 约定）──
+
+    private void WithLanguage(AppLanguage language, Action action)
+    {
+        var original = Translations.Instance.CurrentLanguage;
+        Translations.Instance.SetLanguage(language);
+        try
+        {
+            action();
+        }
+        finally
+        {
+            Translations.Instance.SetLanguage(original);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0, "0")]
+    [InlineData(42, "42")]
+    [InlineData(1_500, "1.5K")]
+    [InlineData(1_261_301, "1.26M")]
+    [InlineData(999_999_999, "1B")]   // 尾数取整越档（"1000M"）升入上一档
+    [InlineData(1_261_301_001, "1.26B")]
+    [InlineData(2_500_000_000_000, "2.5T")]
+    [InlineData(1e15, "1Q")]
+    public void FormatCompactTokens_english_uses_short_scale_units(double value, string expected) =>
+        WithLanguage(AppLanguage.English, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
+
+    [AvaloniaTheory]
+    [InlineData(0, "0")]
+    [InlineData(42, "42")]
+    [InlineData(9_999, "9999")]
+    [InlineData(12_345, "1.23万")]
+    [InlineData(999_999, "100万")]
+    [InlineData(1_234_567, "123.5万")]
+    [InlineData(58_820_000, "5882万")]     // 尾数 ≥1000 取整（5882万 而非 5.88千万，口语直读）
+    [InlineData(12_345_678, "1235万")]
+    [InlineData(99_995_000, "1亿")]        // 9999.5万 越档进位
+    [InlineData(5_000_000_000, "50亿")]
+    [InlineData(1_261_301_001, "12.61亿")]
+    [InlineData(15_000_000_000, "150亿")]
+    [InlineData(123_400_000_000, "1234亿")]
+    [InlineData(999_999_999_999, "1万亿")] // 9999.99…亿 越档进位
+    [InlineData(2_500_000_000_000, "2.5万亿")]
+    public void FormatCompactTokens_chinese_uses_wan_yi_scale_units(double value, string expected) =>
+        WithLanguage(AppLanguage.SimplifiedChinese, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
 
     [AvaloniaTheory]
     [InlineData(12.5, false, "$12.50")]

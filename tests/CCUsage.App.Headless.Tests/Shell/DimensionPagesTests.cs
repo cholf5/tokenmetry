@@ -335,9 +335,9 @@ public class DimensionPagesTests
         var first = host.Vm.Rows[0];
         Assert.Equal("Claude Code", first.Name);
         Assert.Equal("152", first.SessionCountText);
-        Assert.Equal("3M", first.InputTokensText); // token 列紧凑格式（列宽裁定：宁紧凑不裁切）
-        Assert.Equal("2M", first.OutputTokensText);
-        Assert.Equal("5M", first.TotalTokensText);
+        Assert.Equal("300万", first.InputTokensText); // token 列紧凑格式（列宽裁定：宁紧凑不裁切；zh 基线万档）
+        Assert.Equal("200万", first.OutputTokensText);
+        Assert.Equal("500万", first.TotalTokensText);
         Assert.Equal("$142.20", first.CostText);
         Assert.Equal("41.2%", first.ShareText);
 
@@ -347,7 +347,7 @@ public class DimensionPagesTests
 
         // KPI Top4（token 降序）：主值紧凑格式 + "N 会话 · 成本"脚注（成本四态同源）
         Assert.Equal("Claude Code", host.Vm.Kpi1!.Name);
-        Assert.Equal("5M", host.Vm.Kpi1.TokensText);
+        Assert.Equal("500万", host.Vm.Kpi1.TokensText);
         Assert.Equal("152 会话 · $142.20", host.Vm.Kpi1.FootText);
         Assert.Equal("Codex", host.Vm.Kpi2!.Name);
         Assert.Equal("71 会话 · 未知", host.Vm.Kpi3!.FootText); // 未知成本 KPI 卡不折 0
@@ -532,10 +532,10 @@ public class DimensionPagesTests
         Assert.Equal("claude-sonnet-4", first.Name);
         Assert.Equal("Claude Code", first.AssociatedAgentText);
         Assert.False(first.IsMultiAgent);
-        Assert.Equal("4K", first.InputTokensText);
-        Assert.Equal("2.7K", first.OutputTokensText);
+        Assert.Equal("4008", first.InputTokensText);
+        Assert.Equal("2672", first.OutputTokensText);
         Assert.Equal("668", first.CacheReadTokensText);
-        Assert.Equal("6.7K", first.TotalTokensText);
+        Assert.Equal("6680", first.TotalTokensText);
         Assert.Equal("$3.06", first.CostText);
 
         var multi = host.Vm.Rows[1];
@@ -571,10 +571,10 @@ public class DimensionPagesTests
         var totals = host.Vm.Totals;
         Assert.NotNull(totals);
         Assert.Equal("合计（4 个模型）", totals!.ModelCountText);
-        Assert.Equal("6.5K", totals.InputTokensText); // 4008 + 2370 + 96 + 0（含缺价行的 96）
-        Assert.Equal("4.3K", totals.OutputTokensText);
-        Assert.Equal("1.1K", totals.CacheReadTokensText);
-        Assert.Equal("10.8K", totals.TotalTokensText); // 含缺价行 160 —— Token 计入
+        Assert.Equal("6474", totals.InputTokensText); // 4008 + 2370 + 96 + 0（含缺价行的 96）
+        Assert.Equal("4316", totals.OutputTokensText);
+        Assert.Equal("1079", totals.CacheReadTokensText);
+        Assert.Equal("1.08万", totals.TotalTokensText); // 10790（≥1万 → 万档）；含缺价行 160 —— Token 计入
         Assert.Equal("$5.60+", totals.CostText); // 3.06 + 2.54（缺价行成本未计入，混合行保留未知标记）
         Assert.Equal(2, totals.UnknownCount);
         Assert.True(totals.HasUnknownNote);
@@ -683,10 +683,10 @@ public class DimensionPagesTests
         Assert.Equal("alpha", first.Name); // 归一化展示名
         Assert.Equal("/work/alpha", first.RawPath); // 原始路径（跳转筛选值）
         Assert.Equal("3", first.SessionCountText);
-        Assert.Equal("5.5K", first.TotalTokensText); // 紧凑格式（列宽裁定，同 Agent/模型页）
+        Assert.Equal("5500", first.TotalTokensText); // 紧凑格式（列宽裁定，同 Agent/模型页；zh 基线 <1万 全量显示）
         Assert.Equal("$2.25", first.CostText);
         Assert.Equal("56.2%", first.ShareText);
-        Assert.Equal("1.8K", first.AverageText); // round(5500 / 3) = 1833 → 紧凑格式
+        Assert.Equal("1833", first.AverageText); // round(5500 / 3) = 1833 → 紧凑格式
 
         // 除零保护：零会话（纯 CLI 源项目）均值 "—"，不伪造 0
         Assert.Equal("—", host.Vm.Rows[1].AverageText);

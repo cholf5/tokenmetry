@@ -174,7 +174,9 @@ public sealed class FilterStateService : ObservableObject
     {
         if (e.PropertyName == nameof(Translations.CurrentLanguage))
         {
-            OnPropertyChanged(nameof(Display));
+            // 语言切换广播全属性变更（INPC 空串约定）：各页 VM 的 IsNullOrEmpty 分支按「整页重查
+            // 重渲染」消费——Token 紧凑数值等单位随语言即时切换（选项 Label/Display 单发不足以驱动整页）。
+            OnPropertyChanged(string.Empty);
         }
     }
 

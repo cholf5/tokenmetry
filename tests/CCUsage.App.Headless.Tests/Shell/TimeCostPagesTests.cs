@@ -269,7 +269,7 @@ public class TimeCostPagesTests
         Assert.DoesNotContain(hourly.Hours, h => h.SessionCount == 2); // unknown 会话不在任何桶
         Assert.Contains("2 个会话缺少精确时间", host.Vm.UnknownNoteText);
         Assert.Contains("占 20.0%", host.Vm.UnknownNoteText);
-        Assert.Contains("1.2K tokens 用量", host.Vm.UnknownNoteText);
+        Assert.Contains("1200 tokens 用量", host.Vm.UnknownNoteText);
 
         // 页面可见性：渲染后标注文本出现在视觉树
         var texts = RenderAndGetTexts(new TimeAnalysisView { DataContext = host.Vm });

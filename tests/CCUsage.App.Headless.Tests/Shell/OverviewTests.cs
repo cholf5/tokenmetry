@@ -205,8 +205,8 @@ public class OverviewTests
             Projects = FixtureProjects,
         });
 
-        // 总 Token：紧凑格式（原型 "8.74M"）+ ↑ 绿方向
-        Assert.Equal("8.74M", vm.TokensCard.Value);
+        // 总 Token：紧凑格式（原型 "8.74M"；zh 基线为万档）+ ↑ 绿方向
+        Assert.Equal("874万", vm.TokensCard.Value);
         Assert.Equal("↑ 23.6%", vm.TokensCard.ChangeText);
         Assert.True(vm.TokensCard.IsUp);
         Assert.False(vm.TokensCard.IsDown);
@@ -337,14 +337,14 @@ public class OverviewTests
         stub.HoldNextKpi(staleKpi);
         filters.TimeRange = TimeRangeOption.Options[1]; // 30 天 → 挂起
         filters.TimeRange = TimeRangeOption.Options[2]; // 90 天 → 完成
-        Assert.Equal("9.5M", vm.TokensCard.Value);
+        Assert.Equal("950万", vm.TokensCard.Value);
 
         // 放行旧响应：序号防护使其被丢弃，UI 仍是新选择（90 天）的结果
         stub.ReleaseHeldKpi();
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal("9.5M", vm.TokensCard.Value);
-        Assert.NotEqual("3.1M", vm.TokensCard.Value);
+        Assert.Equal("950万", vm.TokensCard.Value);
+        Assert.NotEqual("310万", vm.TokensCard.Value);
         // 挂起的那次只走到 KPI 就被丢弃，日序列/Agent/模型/项目维度不再查（D-007 新查询同走序号防护路径）
         Assert.Equal(3, stub.KpiCalls);
         Assert.Equal(2, stub.DailyCalls);
@@ -385,7 +385,7 @@ public class OverviewTests
         Assert.Equal(4_120_000, values[0]);
         Assert.Equal(120_000 + 60_000, values[^1]);
         // 环心 = KPI 总 Token（紧凑），与卡片同源
-        Assert.Equal("8.74M", vm.AgentDonutCenterTitle);
+        Assert.Equal("874万", vm.AgentDonutCenterTitle);
     }
 
     [AvaloniaFact]
@@ -458,7 +458,7 @@ public class OverviewTests
             var frame = ChartTestHelpers.RenderFrame(window);
 
             // KPI 值、Agent 图例、趋势图空态不可见（stub 有数据）
-            Assert.NotNull(ChartTestHelpers.FindTextBlock(window, "8.74M"));
+            Assert.NotNull(ChartTestHelpers.FindTextBlock(window, "874万"));
             Assert.NotNull(ChartTestHelpers.FindTextBlock(window, "$286.41"));
             Assert.NotNull(ChartTestHelpers.FindTextBlock(window, "412"));
             Assert.NotNull(ChartTestHelpers.FindTextBlock(window, "67.3%"));
