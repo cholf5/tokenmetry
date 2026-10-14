@@ -68,6 +68,8 @@ public static class AppServices
         services.AddSingleton<IToastService, ToastService>();
         // D-003 全局筛选状态（时间范围 + Agent）：单例，顶部栏写入、各页 VM 订阅
         services.AddSingleton<FilterStateService>();
+        // 时间范围持久化：启动应用上次的档位/自定义起止，此后顶部栏变更即存（FilterStatePersistence）
+        services.AddSingleton<FilterStatePersistence>();
 
         // Core services
         services.AddSingleton<DateRangeService>();
@@ -183,6 +185,10 @@ public static class AppServices
         // S-002：启动即物化本地采集源（构造侧向扫描注册表登记管道组合——"已识别的数据源"清单），
         // 不依赖 DashboardViewModel 的解析时机；真正的扫描仍只在刷新时发生。
         _provider.GetRequiredService<LocalIngestionDataSource>();
+
+        // 时间范围持久化接线：先于外壳 VM 解析应用上次的档位/自定义起止（各页 VM 构造时读到的
+        // 已是恢复后的筛选），此后顶部栏变更即存。设置必须已加载（上方 LoadAsync）。
+        _provider.GetRequiredService<FilterStatePersistence>().Apply();
     }
 
     public static T Get<T>() where T : notnull
