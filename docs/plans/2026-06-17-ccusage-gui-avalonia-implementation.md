@@ -28,12 +28,12 @@
 ### 任务 0.1：创建解决方案和项目结构
 
 **文件：**
-- 创建：`ccusage-gui/CCUsage.sln`
-- 创建：`ccusage-gui/src/CCUsage.Core/CCUsage.Core.csproj`
-- 创建：`ccusage-gui/src/CCUsage.Infrastructure/CCUsage.Infrastructure.csproj`
-- 创建：`ccusage-gui/src/CCUsage.App/CCUsage.App.csproj`
-- 创建：`ccusage-gui/tests/CCUsage.Core.Tests/CCUsage.Core.Tests.csproj`
-- 创建：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj`
+- 创建：`ccusage-gui/TokenPulse.sln`
+- 创建：`ccusage-gui/src/TokenPulse.Core/TokenPulse.Core.csproj`
+- 创建：`ccusage-gui/src/TokenPulse.Infrastructure/TokenPulse.Infrastructure.csproj`
+- 创建：`ccusage-gui/src/TokenPulse.App/TokenPulse.App.csproj`
+- 创建：`ccusage-gui/tests/TokenPulse.Core.Tests/TokenPulse.Core.Tests.csproj`
+- 创建：`ccusage-gui/tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj`
 
 **步骤 1：创建解决方案和项目文件**
 
@@ -42,38 +42,38 @@
 ```powershell
 dotnet new sln -n CCUsage
 
-dotnet new classlib -n CCUsage.Core -o src/CCUsage.Core -f net8.0
-dotnet new classlib -n CCUsage.Infrastructure -o src/CCUsage.Infrastructure -f net8.0
-dotnet new avalonia.app -n CCUsage.App -o src/CCUsage.App -f net8.0
+dotnet new classlib -n TokenPulse.Core -o src/TokenPulse.Core -f net8.0
+dotnet new classlib -n TokenPulse.Infrastructure -o src/TokenPulse.Infrastructure -f net8.0
+dotnet new avalonia.app -n TokenPulse.App -o src/TokenPulse.App -f net8.0
 
-dotnet new xunit -n CCUsage.Core.Tests -o tests/CCUsage.Core.Tests -f net8.0
-dotnet new xunit -n CCUsage.Infrastructure.Tests -o tests/CCUsage.Infrastructure.Tests -f net8.0
+dotnet new xunit -n TokenPulse.Core.Tests -o tests/TokenPulse.Core.Tests -f net8.0
+dotnet new xunit -n TokenPulse.Infrastructure.Tests -o tests/TokenPulse.Infrastructure.Tests -f net8.0
 ```
 
 **步骤 2：添加项目引用关系**
 
 ```powershell
 # Infrastructure 引用 Core
-dotnet add src/CCUsage.Infrastructure reference src/CCUsage.Core
+dotnet add src/TokenPulse.Infrastructure reference src/TokenPulse.Core
 
 # App 引用 Core 和 Infrastructure
-dotnet add src/CCUsage.App reference src/CCUsage.Core
-dotnet add src/CCUsage.App reference src/CCUsage.Infrastructure
+dotnet add src/TokenPulse.App reference src/TokenPulse.Core
+dotnet add src/TokenPulse.App reference src/TokenPulse.Infrastructure
 
 # 测试项目引用
-dotnet add tests/CCUsage.Core.Tests reference src/CCUsage.Core
-dotnet add tests/CCUsage.Infrastructure.Tests reference src/CCUsage.Core
-dotnet add tests/CCUsage.Infrastructure.Tests reference src/CCUsage.Infrastructure
+dotnet add tests/TokenPulse.Core.Tests reference src/TokenPulse.Core
+dotnet add tests/TokenPulse.Infrastructure.Tests reference src/TokenPulse.Core
+dotnet add tests/TokenPulse.Infrastructure.Tests reference src/TokenPulse.Infrastructure
 ```
 
 **步骤 3：将项目加入解决方案**
 
 ```powershell
-dotnet sln add src/CCUsage.Core
-dotnet sln add src/CCUsage.Infrastructure
-dotnet sln add src/CCUsage.App
-dotnet sln add tests/CCUsage.Core.Tests
-dotnet sln add tests/CCUsage.Infrastructure.Tests
+dotnet sln add src/TokenPulse.Core
+dotnet sln add src/TokenPulse.Infrastructure
+dotnet sln add src/TokenPulse.App
+dotnet sln add tests/TokenPulse.Core.Tests
+dotnet sln add tests/TokenPulse.Infrastructure.Tests
 ```
 
 **步骤 4：验证构建**
@@ -91,28 +91,28 @@ dotnet build
 ### 任务 0.2：配置测试框架和基础包
 
 **文件：**
-- 修改：`ccusage-gui/tests/CCUsage.Core.Tests/CCUsage.Core.Tests.csproj`
-- 修改：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj`
-- 创建：`ccusage-gui/tests/CCUsage.Core.Tests/Usings.cs`
-- 创建：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/Usings.cs`
+- 修改：`ccusage-gui/tests/TokenPulse.Core.Tests/TokenPulse.Core.Tests.csproj`
+- 修改：`ccusage-gui/tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj`
+- 创建：`ccusage-gui/tests/TokenPulse.Core.Tests/Usings.cs`
+- 创建：`ccusage-gui/tests/TokenPulse.Infrastructure.Tests/Usings.cs`
 
 **步骤 1：添加 FluentAssertions 包**
 
 ```powershell
-dotnet add tests/CCUsage.Core.Tests package FluentAssertions
-dotnet add tests/CCUsage.Infrastructure.Tests package FluentAssertions
+dotnet add tests/TokenPulse.Core.Tests package FluentAssertions
+dotnet add tests/TokenPulse.Infrastructure.Tests package FluentAssertions
 ```
 
 **步骤 2：编写 Usings.cs 全局导入**
 
-`CCUsage.Core.Tests/Usings.cs`：
+`TokenPulse.Core.Tests/Usings.cs`：
 
 ```csharp
 global using Xunit;
 global using FluentAssertions;
 ```
 
-`CCUsage.Infrastructure.Tests/Usings.cs`：
+`TokenPulse.Infrastructure.Tests/Usings.cs`：
 
 ```csharp
 global using Xunit;
@@ -134,13 +134,13 @@ dotnet test
 ### 任务 0.3：Core 层第一个失败测试和最小模型
 
 **文件：**
-- 创建：`ccusage-gui/tests/CCUsage.Core.Tests/Models/DailyUsageSummaryTests.cs`
-- 创建：`ccusage-gui/src/CCUsage.Core/Models/DailyUsageSummary.cs`
+- 创建：`ccusage-gui/tests/TokenPulse.Core.Tests/Models/DailyUsageSummaryTests.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Models/DailyUsageSummary.cs`
 
 **步骤 1：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Core.Tests.Models;
+namespace TokenPulse.Core.Tests.Models;
 
 public class DailyUsageSummaryTests
 {
@@ -193,17 +193,17 @@ public class DailyUsageSummaryTests
 **步骤 2：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：编译错误，类型未定义。
 
 **步骤 3：编写最少实现**
 
-`CCUsage.Core/Models/DailyUsageSummary.cs`：
+`TokenPulse.Core/Models/DailyUsageSummary.cs`：
 
 ```csharp
-namespace CCUsage.Core.Models;
+namespace TokenPulse.Core.Models;
 
 public class DailyUsageSummary
 {
@@ -245,7 +245,7 @@ public class ProjectBreakdown
 **步骤 4：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：2 个测试全部通过。
@@ -257,15 +257,15 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 0.4：Core 层剩余基础数据模型
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.Core/Models/DashboardSummary.cs`
-- 创建：`ccusage-gui/src/CCUsage.Core/Models/AppSettings.cs`
-- 创建：`ccusage-gui/src/CCUsage.Core/Models/AnomalyNotice.cs`
-- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Models/DashboardSummaryTests.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Models/DashboardSummary.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Models/AppSettings.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Models/AnomalyNotice.cs`
+- 测试：`ccusage-gui/tests/TokenPulse.Core.Tests/Models/DashboardSummaryTests.cs`
 
 **步骤 1：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Core.Tests.Models;
+namespace TokenPulse.Core.Tests.Models;
 
 public class DashboardSummaryTests
 {
@@ -307,7 +307,7 @@ public class DashboardSummaryTests
 **步骤 2：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：编译错误，类型未定义。
@@ -317,7 +317,7 @@ dotnet test tests/CCUsage.Core.Tests
 `DashboardSummary.cs`：
 
 ```csharp
-namespace CCUsage.Core.Models;
+namespace TokenPulse.Core.Models;
 
 public class DashboardSummary
 {
@@ -334,7 +334,7 @@ public class DashboardSummary
 `AnomalyNotice.cs`：
 
 ```csharp
-namespace CCUsage.Core.Models;
+namespace TokenPulse.Core.Models;
 
 public class AnomalyNotice
 {
@@ -347,7 +347,7 @@ public class AnomalyNotice
 `AppSettings.cs`：
 
 ```csharp
-namespace CCUsage.Core.Models;
+namespace TokenPulse.Core.Models;
 
 public class AppSettings
 {
@@ -364,7 +364,7 @@ public class AppSettings
 **步骤 4：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：5 个测试全部通过。
@@ -378,14 +378,14 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 1.1：定义数据源接口和测试用数据
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.Core/Abstractions/IUsageDataSource.cs`
-- 创建：`ccusage-gui/src/CCUsage.Core/Services/DateRangeService.cs`
-- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Services/DateRangeServiceTests.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Abstractions/IUsageDataSource.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Services/DateRangeService.cs`
+- 测试：`ccusage-gui/tests/TokenPulse.Core.Tests/Services/DateRangeServiceTests.cs`
 
 **步骤 1：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Core.Tests.Services;
+namespace TokenPulse.Core.Tests.Services;
 
 public class DateRangeServiceTests
 {
@@ -418,7 +418,7 @@ public class DateRangeServiceTests
 **步骤 2：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：编译错误。
@@ -428,9 +428,9 @@ dotnet test tests/CCUsage.Core.Tests
 `IUsageDataSource.cs`：
 
 ```csharp
-using CCUsage.Core.Models;
+using TokenPulse.Core.Models;
 
-namespace CCUsage.Core.Abstractions;
+namespace TokenPulse.Core.Abstractions;
 
 public interface IUsageDataSource
 {
@@ -441,7 +441,7 @@ public interface IUsageDataSource
 `DateRangeService.cs`：
 
 ```csharp
-namespace CCUsage.Core.Services;
+namespace TokenPulse.Core.Services;
 
 public class DateRangeService
 {
@@ -462,7 +462,7 @@ public class DateRangeService
 **步骤 4：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：测试全部通过。
@@ -474,13 +474,13 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 1.2：实现 Dashboard 汇总逻辑
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.Core/Services/DashboardService.cs`
-- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Services/DashboardServiceTests.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Services/DashboardService.cs`
+- 测试：`ccusage-gui/tests/TokenPulse.Core.Tests/Services/DashboardServiceTests.cs`
 
 **步骤 1：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Core.Tests.Services;
+namespace TokenPulse.Core.Tests.Services;
 
 public class DashboardServiceTests
 {
@@ -535,7 +535,7 @@ public class DashboardServiceTests
 **步骤 2：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：编译错误。
@@ -543,10 +543,10 @@ dotnet test tests/CCUsage.Core.Tests
 **步骤 3：编写最少实现**
 
 ```csharp
-using CCUsage.Core.Abstractions;
-using CCUsage.Core.Models;
+using TokenPulse.Core.Abstractions;
+using TokenPulse.Core.Models;
 
-namespace CCUsage.Core.Services;
+namespace TokenPulse.Core.Services;
 
 public class DashboardService
 {
@@ -581,7 +581,7 @@ public class DashboardService
 **步骤 4：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：测试全部通过。
@@ -593,13 +593,13 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 1.3：实现异常检测规则引擎
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.Core/Services/AnomalyDetector.cs`
-- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Services/AnomalyDetectorTests.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Services/AnomalyDetector.cs`
+- 测试：`ccusage-gui/tests/TokenPulse.Core.Tests/Services/AnomalyDetectorTests.cs`
 
 **步骤 1：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Core.Tests.Services;
+namespace TokenPulse.Core.Tests.Services;
 
 public class AnomalyDetectorTests
 {
@@ -660,7 +660,7 @@ public class AnomalyDetectorTests
 **步骤 2：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：编译错误。
@@ -668,9 +668,9 @@ dotnet test tests/CCUsage.Core.Tests
 **步骤 3：编写最少实现**
 
 ```csharp
-using CCUsage.Core.Models;
+using TokenPulse.Core.Models;
 
-namespace CCUsage.Core.Services;
+namespace TokenPulse.Core.Services;
 
 public class AnomalyDetector
 {
@@ -713,7 +713,7 @@ public class AnomalyDetector
 **步骤 4：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：测试全部通过。
@@ -725,14 +725,14 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 1.4：实现本地缓存接口
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.Core/Abstractions/IUsageCache.cs`
-- 创建：`ccusage-gui/src/CCUsage.Core/Services/CacheService.cs`
-- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Services/CacheServiceTests.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Abstractions/IUsageCache.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Services/CacheService.cs`
+- 测试：`ccusage-gui/tests/TokenPulse.Core.Tests/Services/CacheServiceTests.cs`
 
 **步骤 1：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Core.Tests.Services;
+namespace TokenPulse.Core.Tests.Services;
 
 public class CacheServiceTests
 {
@@ -798,7 +798,7 @@ public class InMemoryUsageCache : IUsageCache
 **步骤 2：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：编译错误，接口未定义。
@@ -808,9 +808,9 @@ dotnet test tests/CCUsage.Core.Tests
 `IUsageCache.cs`：
 
 ```csharp
-using CCUsage.Core.Models;
+using TokenPulse.Core.Models;
 
-namespace CCUsage.Core.Abstractions;
+namespace TokenPulse.Core.Abstractions;
 
 public interface IUsageCache
 {
@@ -824,10 +824,10 @@ public interface IUsageCache
 `CacheService.cs`：
 
 ```csharp
-using CCUsage.Core.Abstractions;
-using CCUsage.Core.Models;
+using TokenPulse.Core.Abstractions;
+using TokenPulse.Core.Models;
 
-namespace CCUsage.Core.Services;
+namespace TokenPulse.Core.Services;
 
 public class CacheService
 {
@@ -863,7 +863,7 @@ public class CacheService
 **步骤 4：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：测试全部通过。
@@ -877,9 +877,9 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 2.1：实现 ccusage CLI JSON 输出解析器
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliParser.cs`
-- 创建：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsageCliParserTests.cs`
-- 测试数据：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/fixtures/sample-daily.json`
+- 创建：`ccusage-gui/src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliParser.cs`
+- 创建：`ccusage-gui/tests/TokenPulse.Infrastructure.Tests/CCUsageCliParserTests.cs`
+- 测试数据：`ccusage-gui/tests/TokenPulse.Infrastructure.Tests/fixtures/sample-daily.json`
 
 **步骤 1：准备测试 JSON fixture**
 
@@ -905,7 +905,7 @@ dotnet test tests/CCUsage.Core.Tests
 **步骤 2：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Infrastructure.Tests.CCUsageCli;
+namespace TokenPulse.Infrastructure.Tests.CCUsageCli;
 
 public class CCUsageCliParserTests
 {
@@ -944,7 +944,7 @@ public class CCUsageCliParserTests
 **步骤 3：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Infrastructure.Tests
+dotnet test tests/TokenPulse.Infrastructure.Tests
 ```
 
 预期：编译错误。
@@ -954,16 +954,16 @@ dotnet test tests/CCUsage.Infrastructure.Tests
 首先给 Infrastructure 项目添加 System.Text.Json 包：
 
 ```powershell
-dotnet add src/CCUsage.Infrastructure package System.Text.Json
+dotnet add src/TokenPulse.Infrastructure package System.Text.Json
 ```
 
 然后实现 parser：
 
 ```csharp
 using System.Text.Json;
-using CCUsage.Core.Models;
+using TokenPulse.Core.Models;
 
-namespace CCUsage.Infrastructure.CCUsageCli;
+namespace TokenPulse.Infrastructure.CCUsageCli;
 
 public class CCUsageCliParser
 {
@@ -983,7 +983,7 @@ public class CCUsageCliParser
 **步骤 5：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Infrastructure.Tests
+dotnet test tests/TokenPulse.Infrastructure.Tests
 ```
 
 预期：3 个测试全部通过。
@@ -995,14 +995,14 @@ dotnet test tests/CCUsage.Infrastructure.Tests
 ### 任务 2.2：实现 CLI 进程调用包装器
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliRunner.cs`
-- 创建：`ccusage-gui/src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`
-- 测试：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/CCUsageCliRunnerTests.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliRunner.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`
+- 测试：`ccusage-gui/tests/TokenPulse.Infrastructure.Tests/CCUsageCliRunnerTests.cs`
 
 **步骤 1：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Infrastructure.Tests.CCUsageCli;
+namespace TokenPulse.Infrastructure.Tests.CCUsageCli;
 
 public class CCUsageCliRunnerTests
 {
@@ -1028,7 +1028,7 @@ public class CCUsageCliRunnerTests
 **步骤 2：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Infrastructure.Tests
+dotnet test tests/TokenPulse.Infrastructure.Tests
 ```
 
 预期：编译错误。
@@ -1040,7 +1040,7 @@ dotnet test tests/CCUsage.Infrastructure.Tests
 ```csharp
 using System.Diagnostics;
 
-namespace CCUsage.Infrastructure.CCUsageCli;
+namespace TokenPulse.Infrastructure.CCUsageCli;
 
 public class CCUsageCliRunner
 {
@@ -1083,10 +1083,10 @@ public class CCUsageCliRunner
 `CCUsageCliDataSource.cs`（实现 Core 层接口）：
 
 ```csharp
-using CCUsage.Core.Abstractions;
-using CCUsage.Core.Models;
+using TokenPulse.Core.Abstractions;
+using TokenPulse.Core.Models;
 
-namespace CCUsage.Infrastructure.CCUsageCli;
+namespace TokenPulse.Infrastructure.CCUsageCli;
 
 public class CCUsageCliDataSource : IUsageDataSource
 {
@@ -1110,7 +1110,7 @@ public class CCUsageCliDataSource : IUsageDataSource
 **步骤 4：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Infrastructure.Tests
+dotnet test tests/TokenPulse.Infrastructure.Tests
 ```
 
 预期：测试全部通过（echo 测试在 Windows 上可能需要调整为 cmd /c echo，根据平台调整）。
@@ -1124,21 +1124,21 @@ dotnet test tests/CCUsage.Infrastructure.Tests
 ### 任务 2.3：实现 SQLite 持久化缓存
 
 **文件：**
-- 修改：`ccusage-gui/src/CCUsage.Infrastructure/CCUsage.Infrastructure.csproj`
-- 创建：`ccusage-gui/src/CCUsage.Infrastructure/Cache/SqliteUsageCache.cs`
-- 测试：`ccusage-gui/tests/CCUsage.Infrastructure.Tests/Cache/SqliteUsageCacheTests.cs`
+- 修改：`ccusage-gui/src/TokenPulse.Infrastructure/TokenPulse.Infrastructure.csproj`
+- 创建：`ccusage-gui/src/TokenPulse.Infrastructure/Cache/SqliteUsageCache.cs`
+- 测试：`ccusage-gui/tests/TokenPulse.Infrastructure.Tests/Cache/SqliteUsageCacheTests.cs`
 
 **步骤 1：添加 SQLite 包**
 
 ```powershell
-dotnet add src/CCUsage.Infrastructure package Microsoft.Data.Sqlite
-dotnet add src/CCUsage.Infrastructure package System.Text.Json
+dotnet add src/TokenPulse.Infrastructure package Microsoft.Data.Sqlite
+dotnet add src/TokenPulse.Infrastructure package System.Text.Json
 ```
 
 **步骤 2：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Infrastructure.Tests.Cache;
+namespace TokenPulse.Infrastructure.Tests.Cache;
 
 public class SqliteUsageCacheTests : IAsyncLifetime
 {
@@ -1208,7 +1208,7 @@ public class SqliteUsageCacheTests : IAsyncLifetime
 **步骤 3：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Infrastructure.Tests
+dotnet test tests/TokenPulse.Infrastructure.Tests
 ```
 
 预期：编译错误。
@@ -1218,10 +1218,10 @@ dotnet test tests/CCUsage.Infrastructure.Tests
 ```csharp
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
-using CCUsage.Core.Abstractions;
-using CCUsage.Core.Models;
+using TokenPulse.Core.Abstractions;
+using TokenPulse.Core.Models;
 
-namespace CCUsage.Infrastructure.Cache;
+namespace TokenPulse.Infrastructure.Cache;
 
 public class SqliteUsageCache : IUsageCache
 {
@@ -1343,7 +1343,7 @@ public class SqliteUsageCache : IUsageCache
 **步骤 5：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Infrastructure.Tests
+dotnet test tests/TokenPulse.Infrastructure.Tests
 ```
 
 预期：测试全部通过。
@@ -1355,14 +1355,14 @@ dotnet test tests/CCUsage.Infrastructure.Tests
 ### 任务 2.4：实现跨平台系统通知抽象
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.Core/Abstractions/ISystemNotification.cs`
-- 创建：`ccusage-gui/src/CCUsage.Infrastructure/Notifications/NullSystemNotification.cs`
-- 测试：`ccusage-gui/tests/CCUsage.Core.Tests/Notifications/NullSystemNotificationTests.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Core/Abstractions/ISystemNotification.cs`
+- 创建：`ccusage-gui/src/TokenPulse.Infrastructure/Notifications/NullSystemNotification.cs`
+- 测试：`ccusage-gui/tests/TokenPulse.Core.Tests/Notifications/NullSystemNotificationTests.cs`
 
 **步骤 1：编写失败的测试**
 
 ```csharp
-namespace CCUsage.Core.Tests.Notifications;
+namespace TokenPulse.Core.Tests.Notifications;
 
 public class NullSystemNotificationTests
 {
@@ -1379,7 +1379,7 @@ public class NullSystemNotificationTests
 **步骤 2：运行测试以验证它失败**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：编译错误。
@@ -1389,7 +1389,7 @@ dotnet test tests/CCUsage.Core.Tests
 `ISystemNotification.cs`（Core 层）：
 
 ```csharp
-namespace CCUsage.Core.Abstractions;
+namespace TokenPulse.Core.Abstractions;
 
 public interface ISystemNotification
 {
@@ -1400,9 +1400,9 @@ public interface ISystemNotification
 `NullSystemNotification.cs`（Infrastructure 层）：
 
 ```csharp
-using CCUsage.Core.Abstractions;
+using TokenPulse.Core.Abstractions;
 
-namespace CCUsage.Infrastructure.Notifications;
+namespace TokenPulse.Infrastructure.Notifications;
 
 public class NullSystemNotification : ISystemNotification
 {
@@ -1416,7 +1416,7 @@ public class NullSystemNotification : ISystemNotification
 **步骤 4：运行测试以验证它通过**
 
 ```powershell
-dotnet test tests/CCUsage.Core.Tests
+dotnet test tests/TokenPulse.Core.Tests
 ```
 
 预期：测试通过。
@@ -1432,20 +1432,20 @@ dotnet test tests/CCUsage.Core.Tests
 ### 任务 3.1：初始化 Avalonia App 基础结构
 
 **文件：**
-- 修改：`ccusage-gui/src/CCUsage.App/CCUsage.App.csproj`
-- 创建：`ccusage-gui/src/CCUsage.App/App.axaml`
-- 创建：`ccusage-gui/src/CCUsage.App/App.axaml.cs`
-- 创建：`ccusage-gui/src/CCUsage.App/ViewModels/ViewModelBase.cs`
-- 创建：`ccusage-gui/src/CCUsage.App/ViewModels/MainWindowViewModel.cs`
-- 创建：`ccusage-gui/src/CCUsage.App/Views/MainWindow.axaml`
-- 创建：`ccusage-gui/src/CCUsage.App/Views/MainWindow.axaml.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/TokenPulse.App.csproj`
+- 创建：`ccusage-gui/src/TokenPulse.App/App.axaml`
+- 创建：`ccusage-gui/src/TokenPulse.App/App.axaml.cs`
+- 创建：`ccusage-gui/src/TokenPulse.App/ViewModels/ViewModelBase.cs`
+- 创建：`ccusage-gui/src/TokenPulse.App/ViewModels/MainWindowViewModel.cs`
+- 创建：`ccusage-gui/src/TokenPulse.App/Views/MainWindow.axaml`
+- 创建：`ccusage-gui/src/TokenPulse.App/Views/MainWindow.axaml.cs`
 
 **步骤 1：添加必要的 NuGet 包**
 
 ```powershell
-dotnet add src/CCUsage.App package Avalonia.Desktop
-dotnet add src/CCUsage.App package CommunityToolkit.Mvvm
-dotnet add src/CCUsage.App package Microsoft.Extensions.DependencyInjection
+dotnet add src/TokenPulse.App package Avalonia.Desktop
+dotnet add src/TokenPulse.App package CommunityToolkit.Mvvm
+dotnet add src/TokenPulse.App package Microsoft.Extensions.DependencyInjection
 ```
 
 **步骤 2：创建 ViewModel 基类**
@@ -1455,7 +1455,7 @@ dotnet add src/CCUsage.App package Microsoft.Extensions.DependencyInjection
 ```csharp
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace CCUsage.App.ViewModels;
+namespace TokenPulse.App.ViewModels;
 
 public class ViewModelBase : ObservableObject
 {
@@ -1465,7 +1465,7 @@ public class ViewModelBase : ObservableObject
 `MainWindowViewModel.cs`：
 
 ```csharp
-namespace CCUsage.App.ViewModels;
+namespace TokenPulse.App.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
@@ -1483,7 +1483,7 @@ public class MainWindowViewModel : ViewModelBase
 ```xml
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="using:CCUsage.App"
+             xmlns:local="using:TokenPulse.App"
              RequestedThemeVariant="Default">
     <Application.Resources>
     </Application.Resources>
@@ -1496,10 +1496,10 @@ public class MainWindowViewModel : ViewModelBase
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using CCUsage.App.ViewModels;
-using CCUsage.App.Views;
+using TokenPulse.App.ViewModels;
+using TokenPulse.App.Views;
 
-namespace CCUsage.App;
+namespace TokenPulse.App;
 
 public partial class App : Application
 {
@@ -1547,7 +1547,7 @@ public partial class App : Application
 ```csharp
 using Avalonia.Controls;
 
-namespace CCUsage.App.Views;
+namespace TokenPulse.App.Views;
 
 public partial class MainWindow : Window
 {
@@ -1561,7 +1561,7 @@ public partial class MainWindow : Window
 **步骤 5：验证构建**
 
 ```powershell
-dotnet build src/CCUsage.App
+dotnet build src/TokenPulse.App
 ```
 
 预期：构建成功。
@@ -1569,7 +1569,7 @@ dotnet build src/CCUsage.App
 **步骤 6：手动验证**
 
 ```powershell
-dotnet run --project src/CCUsage.App
+dotnet run --project src/TokenPulse.App
 ```
 
 预期：窗口正常打开，标题显示 "AI Coding Cost Monitor"，中央有文字。
@@ -1581,8 +1581,8 @@ dotnet run --project src/CCUsage.App
 ### 任务 3.2：实现依赖注入配置和服务定位器
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.App/DependencyInjection/AppServices.cs`
-- 修改：`ccusage-gui/src/CCUsage.App/App.axaml.cs`
+- 创建：`ccusage-gui/src/TokenPulse.App/DependencyInjection/AppServices.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/App.axaml.cs`
 
 **步骤 1：编写最少实现**
 
@@ -1590,13 +1590,13 @@ dotnet run --project src/CCUsage.App
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
-using CCUsage.Core.Abstractions;
-using CCUsage.Core.Services;
-using CCUsage.Infrastructure.CCUsageCli;
-using CCUsage.Infrastructure.Cache;
-using CCUsage.Infrastructure.Notifications;
+using TokenPulse.Core.Abstractions;
+using TokenPulse.Core.Services;
+using TokenPulse.Infrastructure.CCUsageCli;
+using TokenPulse.Infrastructure.Cache;
+using TokenPulse.Infrastructure.Notifications;
 
-namespace CCUsage.App.DependencyInjection;
+namespace TokenPulse.App.DependencyInjection;
 
 public static class AppServices
 {
@@ -1664,7 +1664,7 @@ public override void OnFrameworkInitializationCompleted()
 **步骤 2：验证构建**
 
 ```powershell
-dotnet build src/CCUsage.App
+dotnet build src/TokenPulse.App
 ```
 
 预期：构建成功。
@@ -1672,7 +1672,7 @@ dotnet build src/CCUsage.App
 **步骤 3：运行并验证 DI 初始化不崩溃**
 
 ```powershell
-dotnet run --project src/CCUsage.App
+dotnet run --project src/TokenPulse.App
 ```
 
 预期：App 正常启动，无异常。
@@ -1684,20 +1684,20 @@ dotnet run --project src/CCUsage.App
 ### 任务 3.3：实现 Dashboard ViewModel 绑定
 
 **文件：**
-- 修改：`ccusage-gui/src/CCUsage.App/ViewModels/MainWindowViewModel.cs`
-- 创建：`ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
-- 修改：`ccusage-gui/src/CCUsage.App/Views/MainWindow.axaml`
-- 创建：`ccusage-gui/src/CCUsage.App/Views/DashboardView.axaml`
+- 修改：`ccusage-gui/src/TokenPulse.App/ViewModels/MainWindowViewModel.cs`
+- 创建：`ccusage-gui/src/TokenPulse.App/ViewModels/DashboardViewModel.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/Views/MainWindow.axaml`
+- 创建：`ccusage-gui/src/TokenPulse.App/Views/DashboardView.axaml`
 
 **步骤 1：创建 DashboardViewModel**
 
 ```csharp
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CCUsage.Core.Models;
-using CCUsage.Core.Services;
+using TokenPulse.Core.Models;
+using TokenPulse.Core.Services;
 
-namespace CCUsage.App.ViewModels;
+namespace TokenPulse.App.ViewModels;
 
 public partial class DashboardViewModel : ViewModelBase
 {
@@ -1860,7 +1860,7 @@ services.AddTransient<DashboardViewModel>();
 **步骤 4：验证构建和运行**
 
 ```powershell
-dotnet run --project src/CCUsage.App
+dotnet run --project src/TokenPulse.App
 ```
 
 预期：窗口显示 Dashboard Tab，有 4 个卡片和 Refresh 按钮，点击按钮不崩溃。
@@ -1872,16 +1872,16 @@ dotnet run --project src/CCUsage.App
 ### 任务 3.4：实现托盘图标和菜单
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.App/Tray/TrayService.cs`
-- 修改：`ccusage-gui/src/CCUsage.App/App.axaml.cs`
+- 创建：`ccusage-gui/src/TokenPulse.App/Tray/TrayService.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/App.axaml.cs`
 
 **步骤 1：创建 TrayService**
 
 ```csharp
 using Avalonia.Controls;
-using CCUsage.App.ViewModels;
+using TokenPulse.App.ViewModels;
 
-namespace CCUsage.App.Tray;
+namespace TokenPulse.App.Tray;
 
 public class TrayService
 {
@@ -1961,7 +1961,7 @@ public override void OnFrameworkInitializationCompleted()
 **步骤 3：验证构建和运行**
 
 ```powershell
-dotnet run --project src/CCUsage.App
+dotnet run --project src/TokenPulse.App
 ```
 
 预期：系统托盘出现图标，右键有 Open/Exit 菜单，点击可以打开窗口。
@@ -1977,8 +1977,8 @@ dotnet run --project src/CCUsage.App
 ### 任务 4.1：连接 CLI 数据源到 Dashboard 刷新
 
 **文件：**
-- 修改：`ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
-- 修改：`ccusage-gui/src/CCUsage.App/DependencyInjection/AppServices.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/ViewModels/DashboardViewModel.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/DependencyInjection/AppServices.cs`
 
 **步骤 1：修改 DashboardViewModel 接入真实数据源**
 
@@ -2030,7 +2030,7 @@ public async Task RefreshAsync()
 **步骤 2：验证构建和运行**
 
 ```powershell
-dotnet run --project src/CCUsage.App
+dotnet run --project src/TokenPulse.App
 ```
 
 预期：点击 Refresh 按钮会调用 CLI 并更新数据（如果本地有 ccusage 数据的话）。
@@ -2042,13 +2042,13 @@ dotnet run --project src/CCUsage.App
 ### 任务 4.2：实现后台定时刷新服务
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.App/Services/BackgroundRefreshService.cs`
-- 修改：`ccusage-gui/src/CCUsage.App/App.axaml.cs`
+- 创建：`ccusage-gui/src/TokenPulse.App/Services/BackgroundRefreshService.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/App.axaml.cs`
 
 **步骤 1：实现后台刷新服务**
 
 ```csharp
-namespace CCUsage.App.Services;
+namespace TokenPulse.App.Services;
 
 public class BackgroundRefreshService
 {
@@ -2111,7 +2111,7 @@ refreshService.Start();
 **步骤 3：验证构建和运行**
 
 ```powershell
-dotnet run --project src/CCUsage.App
+dotnet run --project src/TokenPulse.App
 ```
 
 预期：App 启动后 15 分钟会自动刷新（可以临时改为 1 分钟测试）。
@@ -2123,9 +2123,9 @@ dotnet run --project src/CCUsage.App
 ### 任务 4.3：实现无数据引导和空状态
 
 **文件：**
-- 创建：`ccusage-gui/src/CCUsage.App/Views/EmptyStateView.axaml`
-- 修改：`ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
-- 修改：`ccusage-gui/src/CCUsage.App/Views/DashboardView.axaml`
+- 创建：`ccusage-gui/src/TokenPulse.App/Views/EmptyStateView.axaml`
+- 修改：`ccusage-gui/src/TokenPulse.App/ViewModels/DashboardViewModel.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/Views/DashboardView.axaml`
 
 **步骤 1：创建 EmptyStateView**
 
@@ -2151,7 +2151,7 @@ dotnet run --project src/CCUsage.App
 **步骤 3：验证构建和运行**
 
 ```powershell
-dotnet run --project src/CCUsage.App
+dotnet run --project src/TokenPulse.App
 ```
 
 预期：无数据时显示友好引导页面。
@@ -2163,8 +2163,8 @@ dotnet run --project src/CCUsage.App
 ### 任务 4.4：实现异常通知触发
 
 **文件：**
-- 修改：`ccusage-gui/src/CCUsage.App/ViewModels/DashboardViewModel.cs`
-- 修改：`ccusage-gui/src/CCUsage.App/DependencyInjection/AppServices.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/ViewModels/DashboardViewModel.cs`
+- 修改：`ccusage-gui/src/TokenPulse.App/DependencyInjection/AppServices.cs`
 
 **步骤 1：在 Refresh 后检测异常并通知**
 
@@ -2190,7 +2190,7 @@ if (anomalies.Any())
 **步骤 2：验证构建和运行**
 
 ```powershell
-dotnet run --project src/CCUsage.App
+dotnet run --project src/TokenPulse.App
 ```
 
 预期：检测到异常时触发系统通知。

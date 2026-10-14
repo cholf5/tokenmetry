@@ -78,9 +78,9 @@ Expected:
 
 ## Related Files
 
-- `src/CCUsage.App/Views/DashboardView.axaml`
-- `src/CCUsage.App/ViewModels/DashboardViewModel.cs`
-- `src/CCUsage.Core/Models/DashboardSummary.cs`
+- `src/TokenPulse.App/Views/DashboardView.axaml`
+- `src/TokenPulse.App/ViewModels/DashboardViewModel.cs`
+- `src/TokenPulse.Core/Models/DashboardSummary.cs`
 
 ## Dependencies
 
@@ -95,8 +95,8 @@ Expected:
 - 完成 DashboardViewModel 历史数据/当前周期状态属性和历史-only 提示判断。
 - 完成 Dashboard 布局重排：当前周期区与历史/最近数据区分离，补充历史累计 tokens 与最近一天 tokens。
 - 补充 App 层 DashboardViewModel 提示逻辑测试。
-- `dotnet test CCUsage.sln` 通过：Core 17、Infrastructure 10、App 5，共 32 个测试通过。
-- `dotnet build CCUsage.sln` 通过：0 warning，0 error。环境提示正在使用 .NET 预览版 SDK（NETSDK1057）。
+- `dotnet test TokenPulse.sln` 通过：Core 17、Infrastructure 10、App 5，共 32 个测试通过。
+- `dotnet build TokenPulse.sln` 通过：0 warning，0 error。环境提示正在使用 .NET 预览版 SDK（NETSDK1057）。
 - 移动到 In Review，等待模拟 review/QA 或人工验收。
 
 ## Review Notes
@@ -106,7 +106,7 @@ Expected:
 - Notes:
   - PR-equivalent Review Summary:
     - 修改点：新增 Dashboard 历史数据/当前周期状态属性、historical-only 提示判断，重排 Dashboard 当前周期与历史累计卡片，并补充 App ViewModel 测试。
-    - 测试方式：`dotnet test CCUsage.sln`；构建方式：`dotnet build CCUsage.sln`。
+    - 测试方式：`dotnet test TokenPulse.sln`；构建方式：`dotnet build TokenPulse.sln`。
     - 影响范围：Dashboard ViewModel、Dashboard Avalonia 布局、App 测试。
     - 回归风险：Dashboard 数据加载链路未改变；主要风险在 UI 布局显示，需要后续人工或 GUI 环境确认无遮挡。
 

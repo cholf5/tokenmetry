@@ -70,8 +70,8 @@ Expected:
 
 ## Verification
 
-- Related files: `src/CCUsage.App/ViewModels/ProjectsViewModel.cs`、`src/CCUsage.App/Views/ProjectsView.axaml(.cs)`、`src/CCUsage.App/ViewModels/SessionsPanelViewModel.cs`（ApplyExternalProjectFilter）、`src/CCUsage.App/ViewModels/MainWindowViewModel.cs`（OpenSessionsForProject）、`tests/CCUsage.App.Headless.Tests/Shell/DimensionPagesTests.cs`
-- How to run/verify: `dotnet test tests/CCUsage.App.Headless.Tests/CCUsage.App.Headless.Tests.csproj`（DimensionPagesTests）+ 明暗截图目检
+- Related files: `src/TokenPulse.App/ViewModels/ProjectsViewModel.cs`、`src/TokenPulse.App/Views/ProjectsView.axaml(.cs)`、`src/TokenPulse.App/ViewModels/SessionsPanelViewModel.cs`（ApplyExternalProjectFilter）、`src/TokenPulse.App/ViewModels/MainWindowViewModel.cs`（OpenSessionsForProject）、`tests/TokenPulse.App.Headless.Tests/Shell/DimensionPagesTests.cs`
+- How to run/verify: `dotnet test tests/TokenPulse.App.Headless.Tests/TokenPulse.App.Headless.Tests.csproj`（DimensionPagesTests）+ 明暗截图目检
 - Results: 2026-10-13（审查修复轮后）全套件 987 通过 / 22 跳过 / 0 失败 / 0 警告。TC-001 端到端通过（`Project_row_click_navigates_shell_to_filtered_sessions_and_clears`：行点击 → 右栏项目筛选程序化应用 → 会话页首查只剩该项目会话 → 「清除」复位重查）；占比 / 均值 / 除零 "—" / 歧义守卫原始路径直显 / 未知成本「未知」/ 选项缺路径如实追加 / 序号防护 / Dispose 退订各有用例。截图 `docs/design/projects-light.png`、`docs/design/projects-dark.png`（真实数据 7 个项目，均值列 11.41M … 258.6K 可见）。
 
 **独立审查轮（2026-10-13，PM 派独立审查 agent）**：三卡组合审查结论"有问题需修复"——1×P1 + 3×P2；契约演进推导、对账三分支手算、两条跨页途径端到端、TC-001 合计口径、数字裁切修复、三页模式合规全部核实为真。修复（原开发 agent 完成，PM 验收）：

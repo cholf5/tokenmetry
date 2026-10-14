@@ -126,7 +126,7 @@ Result: 通过（Infrastructure 35/35：CopilotOtelMergeTests 35 项，蓝本锚
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/CCUsage.Reconciliation.Tests/fixtures/copilot/`（合成数据；I-008 主线
+1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/copilot/`（合成数据；I-008 主线
    覆盖 resume 跨日累计差分、同 id 重复 shutdown 去重、uncached 拆分、全零模型条目、-1m 后缀
    归并、session-state 嵌套目录不发现、坏 JSON 行；I-023 增补 otel/merge.jsonl——四形态互斥去重、
    双导出计一次、同 turn 多调用、进程崩溃接管、最新 shutdown 后保留/前抑制——与 8 个场景
@@ -166,7 +166,7 @@ credit_gap_entries + otel 保留过滤；蓝本许可 MIT License，Copyright (c
 保留在 CopilotLogLocator / CopilotSessionParser / CopilotOtelParser / CopilotUsageReconciler
 文件头；fixtures 全部合成，无真实数据入仓）：
 
-- **五件结构**（`src/CCUsage.Infrastructure/CopilotSession/`）：`CopilotLogLocator` 补 otel 目录
+- **五件结构**（`src/TokenPulse.Infrastructure/CopilotSession/`）：`CopilotLogLocator` 补 otel 目录
   递归收集（蓝本 collect_files_with_extension：扩展名 Ordinal 精确匹配、读不到子目录静默跳过）
   与 `COPILOT_OTEL_FILE_EXPORTER_PATH` 单文件（非空去空白且确为文件才生效），清单按路径去重
   排序（蓝本 add_file seen + 末尾 sort_by）；`CopilotOtelParser`（新）逐文件四形态解析 + 行内
@@ -249,9 +249,9 @@ credit_gap_entries + otel 保留过滤；蓝本许可 MIT License，Copyright (c
   局部集合）；跨文件同 dedup key 的 otel 行两侧各留（蓝本同）；MessageId 恒 null，蓝本
   message.id=dedup_key 不复现（桌面管道无消费方）。
 
-验证：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **793 通过 / 22 跳过**
+验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **793 通过 / 22 跳过**
 （基线 757/22 + 新增 36：Infrastructure CopilotOtelMergeTests 35 项 + Reconciliation 场景测试
-1 项；fixture 对账 3 项全绿含重录 golden）。`CCUSAGE_RECONCILE_REAL=1` 门控轮：Real_copilot
+1 项；fixture 对账 3 项全绿含重录 golden）。`TOKENPULSE_RECONCILE_REAL=1` 门控轮：Real_copilot
 本机 Skip（无数据，与 I-008 同态）、其余门控 3 Passed / 16 Skipped 无回归；COPILOT_HOME 钉
 fixture 时 Real_copilot Passed（真实 CLI 子进程 vs 自研全链路，含 otel 与 credit gap 数据）。
 
@@ -272,7 +272,7 @@ golden 全部核对通过，修复后无需重审）。修复包：
 - **[P3] 清理 ×3**：CopilotSessionParser 删除死引用 using SqliteSource；卡片偏差⑦补
   `FromMillis` 钳位（i64::MAX）vs 丢弃（null 落下一来源直至 mtime）登记；并发进程测试注释措辞
   更正（逐 shutdown 比较 otel 调用增量 1+2+0=3 vs 请求数差分 1+0+2=3，first-1 同时计入两侧）。
-- 验证：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **794 通过 / 22 跳过**
+- 验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **794 通过 / 22 跳过**
   （新增 1 项 P1 回归测试）；COPILOT_HOME 钉 fixture 门控 Real_copilot Passed。
 
 ## Bugs
@@ -282,23 +282,23 @@ golden 全部核对通过，修复后无需重审）。修复包：
 
 ## Verification
 
-- Related files: `src/CCUsage.Infrastructure/CopilotSession/`（CopilotLogLocator、CopilotSessionParser、
+- Related files: `src/TokenPulse.Infrastructure/CopilotSession/`（CopilotLogLocator、CopilotSessionParser、
   **CopilotOtelParser（新）**、**CopilotUsageReconciler（新）**、**CopilotSourceRecords（新，中间记录）**、
-  CopilotSessionAdapter）、`src/CCUsage.Core/Abstractions/ICopilotSessionAdapter.cs`（文档注释）、
-  `tests/CCUsage.Infrastructure.Tests/CopilotSession/CopilotOtelMergeTests.cs`（新，35 项）、
-  `tests/CCUsage.Infrastructure.Tests/CopilotSession/CopilotSessionAdapterTests.cs`（无总额 checkpoint
-  断言随语义更新）、`tests/CCUsage.Reconciliation.Tests/CopilotFixtureReconciliationTests.cs`
-  （3 项，含场景级断言）、`tests/CCUsage.Reconciliation.Tests/Support/UsageChainAggregator.cs`
-  （ChainAggregation 增 Records）、`tests/CCUsage.Reconciliation.Tests/Support/RealReconciliationEnvironment.cs`
-  （HasCopilotData 扩 otel 数据源）、`tests/CCUsage.Reconciliation.Tests/fixtures/copilot/`
-  （otel/merge.jsonl + 7 个积分场景会话）、`tests/CCUsage.Reconciliation.Tests/fixtures/golden/
+  CopilotSessionAdapter）、`src/TokenPulse.Core/Abstractions/ICopilotSessionAdapter.cs`（文档注释）、
+  `tests/TokenPulse.Infrastructure.Tests/CopilotSession/CopilotOtelMergeTests.cs`（新，35 项）、
+  `tests/TokenPulse.Infrastructure.Tests/CopilotSession/CopilotSessionAdapterTests.cs`（无总额 checkpoint
+  断言随语义更新）、`tests/TokenPulse.Reconciliation.Tests/CopilotFixtureReconciliationTests.cs`
+  （3 项，含场景级断言）、`tests/TokenPulse.Reconciliation.Tests/Support/UsageChainAggregator.cs`
+  （ChainAggregation 增 Records）、`tests/TokenPulse.Reconciliation.Tests/Support/RealReconciliationEnvironment.cs`
+  （HasCopilotData 扩 otel 数据源）、`tests/TokenPulse.Reconciliation.Tests/fixtures/copilot/`
+  （otel/merge.jsonl + 7 个积分场景会话）、`tests/TokenPulse.Reconciliation.Tests/fixtures/golden/
   copilot-fixture-daily-v20.0.29.json`（重录）+ `golden/README.md`（覆盖说明）
-- How to run/verify: 全量 `dotnet build CCUsage.sln && dotnet test CCUsage.sln`；Copilot 单测
-  `dotnet test tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj --filter
-  "FullyQualifiedName~Copilot"`；fixture 对账 `dotnet test tests/CCUsage.Reconciliation.Tests
+- How to run/verify: 全量 `dotnet build TokenPulse.sln && dotnet test TokenPulse.sln`；Copilot 单测
+  `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj --filter
+  "FullyQualifiedName~Copilot"`；fixture 对账 `dotnet test tests/TokenPulse.Reconciliation.Tests
   --filter "FullyQualifiedName~CopilotFixture"`；golden 重录命令见
-  `tests/CCUsage.Reconciliation.Tests/fixtures/golden/README.md`；门控真实对账（有数据机器）
-  `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`；门控真实对账（有数据机器）
+  `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter
   "FullyQualifiedName~Real_copilot"`（无数据自动 Skip）
 - Results: 2026-10-11 — 构建 0 警告 0 错误；全仓 **793 通过 / 22 跳过**（基线 757/22 保留，
   新增 36 项：35 单测 + 1 场景对账测试）；fixture 对账 tokens 五分量 + cost 两侧逐位一致

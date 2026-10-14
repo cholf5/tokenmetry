@@ -33,7 +33,7 @@ blocked: none
     区别于 Gemini 的浮点截断）
 - [x] fixtures + 单元测试；接入本地采集管道
   - ✅ Infrastructure 17 项单测（临时目录合成数据，fixtures 全合成）+ 合成 fixture（threads/T-*.json）
-    入仓 + CLI golden 录制逐位一致 + `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip，
+    入仓 + CLI golden 录制逐位一致 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip，
     门控以 AMP_DATA_DIR 钉 fixture 复跑通过 1/1）；`IAmpAdapter` + LocalIngestionDataSource
     第十一路 concat + App DI 双注册
 
@@ -56,7 +56,7 @@ blocked: none
   计数、跨文件排序、快照定价、threads 子树发现（含嵌套）、env 设置即不回退（含空串）、缺省目录无数据）
 - [x] 对账：合成 fixture（账本优先 + toMessageId attach + total 兜底 + messages 回退 + user 行 +
   缺 model 事件）入仓 + CLI golden 录制（fixtures/golden/amp-fixture-daily-v20.0.29.json）+
-  fixture 对账测试 ×2 + `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（HasAmpData 数据存在性 Skip）
+  fixture 对账测试 ×2 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasAmpData 数据存在性 Skip）
 - [x] 管道接线：`IAmpAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十一路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**无新增段**——fixture 的 gpt-5 / claude-haiku-4-5-20251001 均可命中现有
@@ -109,7 +109,7 @@ Missing_configured_directory_yields_no_data）。
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/CCUsage.Reconciliation.Tests/fixtures/amp/threads/`（T-thread-a.json：账本路径，
+1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/amp/threads/`（T-thread-a.json：账本路径，
    event-a/event-b（toMessageId=11 attach 986/11372）/event-c（total 兜底）/event-d（缺 model 跳过）+
    缓存源 assistant 消息；T-thread-b.json：messages 路径，两条 haiku 全四桶 + 一条 totalTokens 兜底 +
    user 行）。
@@ -129,10 +129,10 @@ total=39,896 tokens，totalCost=$0.021346825** 逐位一致（01-19：gpt-5 1,80
 0.008212125、claude-haiku-4-5-20251001 15/220/986/23,372 cost 0.0046847；01-20：gpt-5 0/845/0/0 cost
 0.00845）；诊断 status=Ok、skipped=2、records=6、UnpricedModels=∅。
 
-### TC-003: 本机真实数据对账（CCUSAGE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_amp"`。
+1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_amp"`。
 2. 数据存在性门控：定位器（AMP_DATA_DIR / ~/.local/share/amp）threads/ 下有 .json 才运行（与 CLI 子进程
    同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 amp daily --json --offline --timezone UTC`（golden）
@@ -219,7 +219,7 @@ fixtures 全部合成，无真实数据入仓）：
 - ⑦ **无 since/until 窗口 / Display 模式不复现**：桌面适配器统一全量出账（I-008 偏差⑦同款架构）；
   蓝本 Display 模式桌面无对应（Kilo 偏差③同款）。
 
-验证：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **457 通过 / 14 跳过**
+验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **457 通过 / 14 跳过**
 （I-010 收口基线 438/13 + 新增 17 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账
 测试（本机 Skip））；门控以 AMP_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 / TC-003。
 
@@ -248,9 +248,9 @@ ccusage 20.0.29 原生二进制双向实证（5 个最小 fixture 全部 `Invali
 - **[P3a] 偏差⑥更正**："桌面 TryGetInt64 对整数值浮点（11.0）同样生效"与事实相反——实测
   TryGetUInt64/TryGetInt64 对 11.0 均返回 false，与蓝本 as_u64/as_i64 完全一致，该偏差不存在，
   偏差⑥改写为"无差异"（仅保留 u64→long 钳制边界）。
-- 复核：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **481 通过 / 15 跳过**
+- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **481 通过 / 15 跳过**
   （本卡收口 457/14 → 审查修复新增 5 项单测 → 全仓 481/15）；fixture 对账 2/2 与 CLI golden 逐位一致
-  不回归；门控以 AMP_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）；`CCUSAGE_RECONCILE_REAL=1` 全量门控
+  不回归；门控以 AMP_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）；`TOKENPULSE_RECONCILE_REAL=1` 全量门控
   回归 37 通过 / 9 跳过 / 0 失败（codex/zcode/dsh 真实对账 Passed，gemini/amp/droid 等九源按数据
   存在性 Skip）；审查员最小 fixture 形态（"tokens":null / "tokens":5 / "usage":null / "usage":5）
   单测实证不崩溃且语义对齐蓝本。
@@ -262,22 +262,22 @@ ccusage 20.0.29 原生二进制双向实证（5 个最小 fixture 全部 `Invali
 
 ## Verification
 
-- Related files: `src/CCUsage.Infrastructure/Amp/AmpLogLocator.cs`、
-  `src/CCUsage.Infrastructure/Amp/AmpThreadParser.cs`、`src/CCUsage.Infrastructure/Amp/AmpAdapter.cs`、
-  `src/CCUsage.Core/Abstractions/IAmpAdapter.cs`、
-  `src/CCUsage.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
-  `src/CCUsage.App/DependencyInjection/AppServices.cs`、
-  `tests/CCUsage.Infrastructure.Tests/Amp/AmpAdapterTests.cs`、
-  `tests/CCUsage.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/AmpFixtureReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/amp/`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/golden/amp-fixture-daily-v20.0.29.json`、
-  `tests/CCUsage.Reconciliation.Tests/RealDataReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
-  `tests/CCUsage.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
-- How to run/verify: `dotnet test CCUsage.sln`（全绿）；fixture 对账
-  `dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Amp"`；门控复跑
-  `AMP_DATA_DIR=$PWD/tests/CCUsage.Reconciliation.Tests/fixtures/amp CCUSAGE_RECONCILE_REAL=1
-  dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_amp"`。
+- Related files: `src/TokenPulse.Infrastructure/Amp/AmpLogLocator.cs`、
+  `src/TokenPulse.Infrastructure/Amp/AmpThreadParser.cs`、`src/TokenPulse.Infrastructure/Amp/AmpAdapter.cs`、
+  `src/TokenPulse.Core/Abstractions/IAmpAdapter.cs`、
+  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
+  `src/TokenPulse.App/DependencyInjection/AppServices.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/Amp/AmpAdapterTests.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/AmpFixtureReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/amp/`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/amp-fixture-daily-v20.0.29.json`、
+  `tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
+- How to run/verify: `dotnet test TokenPulse.sln`（全绿）；fixture 对账
+  `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Amp"`；门控复跑
+  `AMP_DATA_DIR=$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/amp TOKENPULSE_RECONCILE_REAL=1
+  dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_amp"`。
 - Results: 全部通过（见 TC-001/002/003 Result 与 Development Log 验证段；收口数字 457/14，
   2026-10-12 审查修复后全仓 **481/15**）。

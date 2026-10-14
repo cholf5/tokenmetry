@@ -6,61 +6,61 @@
 ## 预期修改文件（全部在新仓库 ccusage-gui 中）
 
 ### 解决方案和项目文件
-- CCUsage.sln
-- src/CCUsage.Core/CCUsage.Core.csproj
-- src/CCUsage.Infrastructure/CCUsage.Infrastructure.csproj
-- src/CCUsage.App/CCUsage.App.csproj
-- tests/CCUsage.Core.Tests/CCUsage.Core.Tests.csproj
-- tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj
+- TokenPulse.sln
+- src/TokenPulse.Core/TokenPulse.Core.csproj
+- src/TokenPulse.Infrastructure/TokenPulse.Infrastructure.csproj
+- src/TokenPulse.App/TokenPulse.App.csproj
+- tests/TokenPulse.Core.Tests/TokenPulse.Core.Tests.csproj
+- tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj
 
 ### Core 层
-- src/CCUsage.Core/Models/DailyUsageSummary.cs
-- src/CCUsage.Core/Models/DashboardSummary.cs
-- src/CCUsage.Core/Models/AnomalyNotice.cs
-- src/CCUsage.Core/Models/AppSettings.cs
-- src/CCUsage.Core/Abstractions/IUsageDataSource.cs
-- src/CCUsage.Core/Abstractions/IUsageCache.cs
-- src/CCUsage.Core/Abstractions/ISystemNotification.cs
-- src/CCUsage.Core/Services/DateRangeService.cs
-- src/CCUsage.Core/Services/DashboardService.cs
-- src/CCUsage.Core/Services/AnomalyDetector.cs
-- src/CCUsage.Core/Services/CacheService.cs
+- src/TokenPulse.Core/Models/DailyUsageSummary.cs
+- src/TokenPulse.Core/Models/DashboardSummary.cs
+- src/TokenPulse.Core/Models/AnomalyNotice.cs
+- src/TokenPulse.Core/Models/AppSettings.cs
+- src/TokenPulse.Core/Abstractions/IUsageDataSource.cs
+- src/TokenPulse.Core/Abstractions/IUsageCache.cs
+- src/TokenPulse.Core/Abstractions/ISystemNotification.cs
+- src/TokenPulse.Core/Services/DateRangeService.cs
+- src/TokenPulse.Core/Services/DashboardService.cs
+- src/TokenPulse.Core/Services/AnomalyDetector.cs
+- src/TokenPulse.Core/Services/CacheService.cs
 
 ### Infrastructure 层
-- src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliParser.cs
-- src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliRunner.cs
-- src/CCUsage.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs
-- src/CCUsage.Infrastructure/Cache/SqliteUsageCache.cs
-- src/CCUsage.Infrastructure/Notifications/NullSystemNotification.cs
-- tests/CCUsage.Infrastructure.Tests/fixtures/sample-daily.json
+- src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliParser.cs
+- src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliRunner.cs
+- src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs
+- src/TokenPulse.Infrastructure/Cache/SqliteUsageCache.cs
+- src/TokenPulse.Infrastructure/Notifications/NullSystemNotification.cs
+- tests/TokenPulse.Infrastructure.Tests/fixtures/sample-daily.json
 
 ### Avalonia App 层
-- src/CCUsage.App/App.axaml
-- src/CCUsage.App/App.axaml.cs
-- src/CCUsage.App/ViewModels/ViewModelBase.cs
-- src/CCUsage.App/ViewModels/MainWindowViewModel.cs
-- src/CCUsage.App/ViewModels/DashboardViewModel.cs
-- src/CCUsage.App/Views/MainWindow.axaml
-- src/CCUsage.App/Views/MainWindow.axaml.cs
-- src/CCUsage.App/Views/DashboardView.axaml
-- src/CCUsage.App/Views/EmptyStateView.axaml
-- src/CCUsage.App/DependencyInjection/AppServices.cs
-- src/CCUsage.App/Tray/TrayService.cs
-- src/CCUsage.App/Services/BackgroundRefreshService.cs
+- src/TokenPulse.App/App.axaml
+- src/TokenPulse.App/App.axaml.cs
+- src/TokenPulse.App/ViewModels/ViewModelBase.cs
+- src/TokenPulse.App/ViewModels/MainWindowViewModel.cs
+- src/TokenPulse.App/ViewModels/DashboardViewModel.cs
+- src/TokenPulse.App/Views/MainWindow.axaml
+- src/TokenPulse.App/Views/MainWindow.axaml.cs
+- src/TokenPulse.App/Views/DashboardView.axaml
+- src/TokenPulse.App/Views/EmptyStateView.axaml
+- src/TokenPulse.App/DependencyInjection/AppServices.cs
+- src/TokenPulse.App/Tray/TrayService.cs
+- src/TokenPulse.App/Services/BackgroundRefreshService.cs
 
 ### 测试文件
-- tests/CCUsage.Core.Tests/Usings.cs
-- tests/CCUsage.Core.Tests/Models/DailyUsageSummaryTests.cs
-- tests/CCUsage.Core.Tests/Models/DashboardSummaryTests.cs
-- tests/CCUsage.Core.Tests/Services/DateRangeServiceTests.cs
-- tests/CCUsage.Core.Tests/Services/DashboardServiceTests.cs
-- tests/CCUsage.Core.Tests/Services/AnomalyDetectorTests.cs
-- tests/CCUsage.Core.Tests/Services/CacheServiceTests.cs
-- tests/CCUsage.Core.Tests/Notifications/NullSystemNotificationTests.cs
-- tests/CCUsage.Infrastructure.Tests/Usings.cs
-- tests/CCUsage.Infrastructure.Tests/CCUsageCli/CCUsageCliParserTests.cs
-- tests/CCUsage.Infrastructure.Tests/CCUsageCli/CCUsageCliRunnerTests.cs
-- tests/CCUsage.Infrastructure.Tests/Cache/SqliteUsageCacheTests.cs
+- tests/TokenPulse.Core.Tests/Usings.cs
+- tests/TokenPulse.Core.Tests/Models/DailyUsageSummaryTests.cs
+- tests/TokenPulse.Core.Tests/Models/DashboardSummaryTests.cs
+- tests/TokenPulse.Core.Tests/Services/DateRangeServiceTests.cs
+- tests/TokenPulse.Core.Tests/Services/DashboardServiceTests.cs
+- tests/TokenPulse.Core.Tests/Services/AnomalyDetectorTests.cs
+- tests/TokenPulse.Core.Tests/Services/CacheServiceTests.cs
+- tests/TokenPulse.Core.Tests/Notifications/NullSystemNotificationTests.cs
+- tests/TokenPulse.Infrastructure.Tests/Usings.cs
+- tests/TokenPulse.Infrastructure.Tests/CCUsageCli/CCUsageCliParserTests.cs
+- tests/TokenPulse.Infrastructure.Tests/CCUsageCli/CCUsageCliRunnerTests.cs
+- tests/TokenPulse.Infrastructure.Tests/Cache/SqliteUsageCacheTests.cs
 
 ## 设计文档
 

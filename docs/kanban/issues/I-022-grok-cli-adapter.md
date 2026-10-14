@@ -42,7 +42,7 @@ blocked: none
 - [x] fixtures + 单元测试；接入本地采集管道
   - ✅ 32 项 Infrastructure 单测（蓝本 loader 7 项 + parser 20 项内联测试同名场景移植：token 三段拆分、
     多模型拆行、双层去重、时间戳优先级、URL 解码宽标量/非法字节、summary 覆盖链、ticks 成本、
-    结构性拒绝计数 + 目录发现 7 场景）+ fixture 对账测试 ×2 + `CCUSAGE_RECONCILE_REAL` 门控真实对账
+    结构性拒绝计数 + 目录发现 7 场景）+ fixture 对账测试 ×2 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账
     测试（HasGrokData 数据存在性 Skip）
   - ✅ `IGrokAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十七路 concat + App DI 双注册
 
@@ -66,7 +66,7 @@ blocked: none
   排序/全局去重/损坏文件隔离、发现过滤与排序、env 语义三态、无数据目录）
 - [x] 对账：合成 fixture（3 会话目录：主会话 5 行 + 跨会话 eventId 重放 + 无 summary 会话 + 损坏
   文件）入仓 + CLI golden 录制（fixtures/golden/grok-fixture-daily-v20.0.29.json）+ fixture 对账测试 ×2 +
-  `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（HasGrokData 数据存在性 Skip）
+  `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasGrokData 数据存在性 Skip）
 - [x] 管道接线：`IGrokAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十七路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**无需新增条目**——带 ticks 的行走 LogCost（fixture 全部可计价行带 ticks）；无 ticks
@@ -98,7 +98,7 @@ Result: 通过（Infrastructure 32/32，场景清单见 Subtasks）。
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/CCUsage.Reconciliation.Tests/fixtures/grok/`（sessions/D%3A%5Cwork%5Cproj/
+1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/grok/`（sessions/D%3A%5Cwork%5Cproj/
    三个会话目录：主会话（ticks 发票成本行 + 双 unpriced 模型行 + cache_creation 拆分行 + 无 eventId
    重复行）、无 summary 会话（同 eventId 重放 + agentTimestampMs 行 + "unknown" 回退行 + tool_call/
    缺 usage 诱饵）、损坏文件）。
@@ -118,10 +118,10 @@ cost 0.0236792（0.0185192 + 0.005 + 0.00016 三行 ticks 直采）+ 双 unprice
 2026-07-29：agentTimestampMs 毫秒归日 10/1 cost 0.001）；诊断 FilesDiscovered=3、records=7、
 DuplicateRecords=1。
 
-### TC-003: 本机真实数据对账（CCUSAGE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_grok"`。
+1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_grok"`。
 2. 数据存在性门控：定位器（GROK_HOME / ~/.grok 的 sessions/）下发现 updates.jsonl 才运行（与 CLI
    子进程同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 grok daily --json --offline --timezone UTC`（golden）
@@ -216,7 +216,7 @@ Copyright (c) 2025 ryoppippi，声明保留在 GrokLogLocator / GrokLogParser / 
   同款架构）；数据存在性探测由门控测试的定位器调用承担。
 - ⑩ **configuredDataDir 为仓库增强**（非蓝本）：测试钉定入口（env 同规则：trim 非空才生效）。
 
-验证：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **623 通过 / 20 跳过**
+验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **623 通过 / 20 跳过**
 （I-019 收口基线 589/19 + 新增 32 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账
 测试（本机 Skip））；门控以 GROK_HOME 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 /
 TC-003。
@@ -232,7 +232,7 @@ TC-003。
   依赖引擎文件插入序（首次扫描发现序记账），蓝本每次全量按路径排序折叠——跨扫描新增排序在前的
   文件时，重叠 eventId 场景两侧胜者理论上可反向（I-001/I-011 引擎既有特性，非本批引入；记录内容
   不受影响，仅存活副本归属）；随真实数据对账回归再对齐。
-- 复核：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **623 通过 / 20 跳过**
+- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **623 通过 / 20 跳过**
   （本批收口数字不变——本批修复为文档/登记项，无代码与测试变更）；grok fixture 对账 2/2 与 CLI
   golden 逐位一致不回归；门控以 GROK_HOME 钉 fixture 复跑通过（1/1 Passed）。
 
@@ -246,23 +246,23 @@ TC-003。
 
 ## Verification
 
-- Related files: `src/CCUsage.Infrastructure/Grok/GrokLogLocator.cs`、
-  `src/CCUsage.Infrastructure/Grok/GrokLogParser.cs`、
-  `src/CCUsage.Infrastructure/Grok/GrokAdapter.cs`、
-  `src/CCUsage.Core/Abstractions/IGrokAdapter.cs`、
-  `src/CCUsage.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
-  `src/CCUsage.App/DependencyInjection/AppServices.cs`、
-  `tests/CCUsage.Infrastructure.Tests/Grok/GrokAdapterTests.cs`、
-  `tests/CCUsage.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/GrokFixtureReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/grok/`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/golden/grok-fixture-daily-v20.0.29.json`、
-  `tests/CCUsage.Reconciliation.Tests/RealDataReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
-  `tests/CCUsage.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
-- How to run/verify: `dotnet test CCUsage.sln`（全绿）；fixture 对账
-  `dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~GrokFixture"`；门控复跑
-  `GROK_HOME=$PWD/tests/CCUsage.Reconciliation.Tests/fixtures/grok CCUSAGE_RECONCILE_REAL=1
-  dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_grok"`。
+- Related files: `src/TokenPulse.Infrastructure/Grok/GrokLogLocator.cs`、
+  `src/TokenPulse.Infrastructure/Grok/GrokLogParser.cs`、
+  `src/TokenPulse.Infrastructure/Grok/GrokAdapter.cs`、
+  `src/TokenPulse.Core/Abstractions/IGrokAdapter.cs`、
+  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
+  `src/TokenPulse.App/DependencyInjection/AppServices.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/Grok/GrokAdapterTests.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/GrokFixtureReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/grok/`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/grok-fixture-daily-v20.0.29.json`、
+  `tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
+- How to run/verify: `dotnet test TokenPulse.sln`（全绿）；fixture 对账
+  `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~GrokFixture"`；门控复跑
+  `GROK_HOME=$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/grok TOKENPULSE_RECONCILE_REAL=1
+  dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_grok"`。
 - Results: 全部通过（见 TC-001/002/003 Result 与 Development Log 验证段；收口数字 **623/20**，
   2026-10-12 独立审查修复复核后数字不变）。

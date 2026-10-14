@@ -5,7 +5,7 @@
 - 被测两侧：
   - **自研链路**：JSONL 直读适配器（`ClaudeCodeJsonlAdapter` / `CodexJsonlAdapter`）→ 统一 `UsageRecord` → 自有 `PricingEngine`（内置 models.dev 快照）→ 按 UTC 自然日聚合；
   - **CLI 链**：`npx --yes ccusage@20.0.29 <agent> daily --json --offline --timezone UTC`。
-- 测试实现：`tests/CCUsage.Reconciliation.Tests/`（新项目，已并入 `CCUsage.sln`）。
+- 测试实现：`tests/TokenPulse.Reconciliation.Tests/`（新项目，已并入 `TokenPulse.sln`）。
 - 结论速览：**fixture 对账 tokens 逐项精确一致、cost 全部一致；本机真实数据（Codex，19 文件 / 2931 条记录）tokens 级全等、cost 全期 $101.3856438 两侧一致**。对账暴露并修复了一处内置快照漏收（gpt-5.6-terra，详见差异归类 §5）。
 
 ## 1. 对账方法
@@ -41,10 +41,10 @@
 
 ### 1.3 golden 录制命令
 
-版本 ccusage **20.0.29**，录制于 2026-10-11（详见 `tests/CCUsage.Reconciliation.Tests/fixtures/golden/README.md`）：
+版本 ccusage **20.0.29**，录制于 2026-10-11（详见 `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`）：
 
 ```bash
-FX=tests/CCUsage.Reconciliation.Tests/fixtures
+FX=tests/TokenPulse.Reconciliation.Tests/fixtures
 
 CLAUDE_CONFIG_DIR="$PWD/$FX/claude" \
   npx --yes ccusage@20.0.29 claude daily --json --offline --timezone UTC \
@@ -66,12 +66,12 @@ fixture 覆盖面：多日 × 多模型（sonnet-4-5 / opus-4 / haiku-4-5 / `-fa
 - Claude：2026-09-14 全期 21.68 万 tokens / $0.3238；2026-09-15 1.29 万 tokens / $0.0238；9 条记录（1 条重复行被两侧一致去重）、0 malformed、0 invalid、无未命中定价模型；
 - Codex：三日分别 $0.0427 / $0.08975 / $0.011625（gpt-5.3-codex / gpt-5.1-codex-max / gpt-5-codex），重复快照守卫两侧一致跳过。
 
-## 3. 本机真实数据对账结果（TC-002，CCUSAGE_RECONCILE_REAL=1）
+## 3. 本机真实数据对账结果（TC-002，TOKENPULSE_RECONCILE_REAL=1）
 
 环境：本机无 Claude 日志（`~/.claude/projects` 不存在 → Claude 真实数据测试按设计 Skip）；有真实 Codex 日志（`~/.codex/sessions`，19 文件）。运行方式：
 
 ```bash
-CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter RealDataReconciliationTests
+TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter RealDataReconciliationTests
 ```
 
 CLI 实跑（`npx --yes ccusage@20.0.29 codex daily --json --offline --timezone UTC`）vs 自研全链路（`CodexJsonlAdapter` 默认目录探测 → 快照计价 → UTC 聚合）：
@@ -99,10 +99,10 @@ CLI 实跑（`npx --yes ccusage@20.0.29 codex daily --json --offline --timezone 
 
 ## 4. 测试结果与回归
 
-- `dotnet build CCUsage.sln`：0 警告 0 错误；
-- `dotnet test CCUsage.sln`（门控关）：**227 通过 / 5 跳过 / 0 失败**（基线 208 通过 / 3 跳过 + 新增对账项目 18 通过 + 快照回归 1 通过 + 门控跳过 2）；
-- `CCUSAGE_RECONCILE_REAL=1 dotnet test CCUsage.sln`（门控开）：**228 通过 / 4 跳过 / 0 失败**（Codex 真实数据测试实跑通过；Claude 真实数据测试因本机无 Claude 日志 Skip；另 3 个跳过为既有 Windows-only 用例）；
-- 新增测试清单：比较器单测 13（含容差/缺失/报告格式）、fixture 对账 4、真实数据 2（门控）、快照回归 1（`Snapshot_PricesGpt56TerraAtOwnRateNotSolFamily`，位于 `CCUsage.Core.Tests/Services/PricingEngineTests.cs`）。
+- `dotnet build TokenPulse.sln`：0 警告 0 错误；
+- `dotnet test TokenPulse.sln`（门控关）：**227 通过 / 5 跳过 / 0 失败**（基线 208 通过 / 3 跳过 + 新增对账项目 18 通过 + 快照回归 1 通过 + 门控跳过 2）；
+- `TOKENPULSE_RECONCILE_REAL=1 dotnet test TokenPulse.sln`（门控开）：**228 通过 / 4 跳过 / 0 失败**（Codex 真实数据测试实跑通过；Claude 真实数据测试因本机无 Claude 日志 Skip；另 3 个跳过为既有 Windows-only 用例）；
+- 新增测试清单：比较器单测 13（含容差/缺失/报告格式）、fixture 对账 4、真实数据 2（门控）、快照回归 1（`Snapshot_PricesGpt56TerraAtOwnRateNotSolFamily`，位于 `TokenPulse.Core.Tests/Services/PricingEngineTests.cs`）。
 
 ## 5. 差异归类与修复
 
@@ -121,4 +121,4 @@ I-004 备忘提到的新版 ccusage compaction 去重逻辑：本机 19 个真�
 
 ## 7. 对产品立场的意义
 
-"任何成本数字必须能与 ccusage 核对"（pivot 文档第 3 节）在本仓库内被机制化：fixture 对账测试离线常驻测试套件，真实数据对账一条命令即可在本机复跑（`CCUSAGE_RECONCILE_REAL=1`）。v0.3 exit criteria（roadmap）的"与 ccusage 对账一致"在 fixture 与本机真实数据两个层面均以 tokens 精确一致、cost 0.5%/1¢ 容差内一致达成，且对账差异可自动定位到解析或定价原因。
+"任何成本数字必须能与 ccusage 核对"（pivot 文档第 3 节）在本仓库内被机制化：fixture 对账测试离线常驻测试套件，真实数据对账一条命令即可在本机复跑（`TOKENPULSE_RECONCILE_REAL=1`）。v0.3 exit criteria（roadmap）的"与 ccusage 对账一致"在 fixture 与本机真实数据两个层面均以 tokens 精确一致、cost 0.5%/1¢ 容差内一致达成，且对账差异可自动定位到解析或定价原因。

@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:TokenPulse.App.ViewModels"
+             xmlns:loc="using:TokenPulse.App.Localization"
+             mc:Ignorable="d"
+             x:Class="TokenPulse.App.Views.ModelsView"
+             x:DataType="vm:ModelsViewModel">
+
+    <!--
+        D-010 模型统计页（原型 #page-models）：页头 + 模型明细面板（meta「价格缺失时成本应标记为
+        未知，而非 0」= 全应用未知成本口径样板）+ 七列表（模型 / 关联 Agent / 输入 / 输出 / 缓存读取 /
+        总 Token / 成本）+ 合计行（口径可见：Token 含缺价行、成本只计已估部分 + 未知计数脚注）。
+        缺价行成本 = 「未知」chip（Border.chip 令牌，明暗成套）；混合行 "$x.xx+" 普通文本。
+        关联 Agent 列定案（决策点 1）：唯一 → Agent 名；多 Agent → "主用 等 N 个"；无会话数据 → "—"。
+        明细表 = ListBox 虚拟化（共享 data-table 行配方，Q-002 收编）。
+        Q-002：页面根补 ScrollViewer（同时间/成本/设置页模式）——最小窗口高度下合计行不再被裁剪。
+    -->
+    <ScrollViewer>
+        <StackPanel Spacing="13" Margin="0,0,0,4">
+
+        <!-- 页头（原型 .pagehead：模型维度的使用量与成本，不把不同模型的价格差异隐藏在总量中） -->
+        <StackPanel Spacing="4">
+            <TextBlock Classes="page-title" Text="{Binding Page.Title}"/>
+            <TextBlock Classes="page-subtitle" Text="{Binding Page.Subtitle}"/>
+        </StackPanel>
+
+        <!-- 加载失败（诚实错误态；已加载行/合计保留，筛选再变化自动重试） -->
+        <Border Classes="panel" Padding="13" IsVisible="{Binding HasLoadError}">
+            <TextBlock Classes="page-subtitle" Text="{Binding LoadError}"/>
+        </Border>
+
+        <!-- ═══ 模型明细面板 ═══ -->
+        <Border Classes="panel">
+            <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="10">
+
+                <DockPanel Grid.Row="0">
+                    <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding MetaMissingPriceUnknown, Source={x:Static loc:Translations.Instance}}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Classes="panel-title" Text="{Binding PanelModelDetails, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                </DockPanel>
+
+                <!-- 表头（列宽与行模板一致） -->
+                <Grid Grid.Row="1" ColumnDefinitions="1.3*,0.9*,56,56,56,56,64" ColumnSpacing="6" Margin="0,0,0,2">
+                    <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThModel, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="table-th" Text="{Binding ThAssociatedAgents, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThInputTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="3" Classes="table-th" TextAlignment="Right" Text="{Binding ThOutputTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="4" Classes="table-th" TextAlignment="Right" Text="{Binding ThCacheRead, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="5" Classes="table-th" TextAlignment="Right" Text="{Binding ThTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="6" Classes="table-th" TextAlignment="Right" Text="{Binding ThCost, Source={x:Static loc:Translations.Instance}}"/>
+                </Grid>
+
+                <!-- 明细行（ListBox 虚拟化；本页无行点击下钻，D-010 卡内未要求） -->
+                <ListBox Grid.Row="2"
+                         Classes="data-table"
+                         ItemsSource="{Binding Rows}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ModelDetailRowViewModel">
+                            <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                    BorderThickness="0,1,0,0"
+                                    Padding="0,8,0,2">
+                                <Grid ColumnDefinitions="1.3*,0.9*,56,56,56,56,64" ColumnSpacing="6">
+                                    <TextBlock Grid.Column="0" Classes="table-td" Text="{Binding Name}"
+                                               ToolTip.Tip="{Binding Name}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding AssociatedAgentText}"
+                                               ToolTip.Tip="{Binding AssociatedAgentText}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding InputTokensText}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="3" Classes="table-num" Text="{Binding OutputTokensText}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="4" Classes="table-num" Text="{Binding CacheReadTokensText}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="5" Classes="table-num" Text="{Binding TotalTokensText}"
+                                               VerticalAlignment="Center"/>
+                                    <!-- 成本四态：全未知（缺价）→ 「未知」chip；已知/混合/无数据 → 普通文本 -->
+                                    <Grid Grid.Column="6" VerticalAlignment="Center">
+                                        <TextBlock Classes="table-num" Text="{Binding CostText}"
+                                                   IsVisible="{Binding !IsUnknownCost}"/>
+                                        <Border Classes="chip" HorizontalAlignment="Right"
+                                                IsVisible="{Binding IsUnknownCost}"
+                                                ToolTip.Tip="{Binding TooltipUnknownCostChip, Source={x:Static loc:Translations.Instance}}">
+                                            <TextBlock Text="{Binding CostText}"/>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- 空态（无行且无错误；错误态下隐藏避免矛盾三重态） -->
+                <TextBlock Grid.Row="2" Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
+                           IsVisible="{Binding ShowEmptyState}"
+                           VerticalAlignment="Top"/>
+
+                <!-- ═══ 合计行（口径可见，TC-001）：Token 合计含缺价行，成本合计只计已估部分 ═══ -->
+                <StackPanel Grid.Row="3" Spacing="6" IsVisible="{Binding ShowTotals}">
+                    <Border BorderBrush="{DynamicResource AppLineBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="0,8,0,0"
+                            x:DataType="vm:ModelsTotalViewModel"
+                            DataContext="{Binding Totals}">
+                        <Grid ColumnDefinitions="1.3*,0.9*,56,56,56,56,64" ColumnSpacing="6">
+                            <TextBlock Grid.Column="0" Classes="table-td" FontWeight="SemiBold"
+                                       Text="{Binding ModelCountText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding InputTokensText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Classes="table-num" Text="{Binding OutputTokensText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Classes="table-num" Text="{Binding CacheReadTokensText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="5" Classes="table-num" Text="{Binding TotalTokensText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="6" Classes="table-num" Text="{Binding CostText}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <!-- 口径脚注：未知成本不计入合计、Token 已计入（对齐原型 meta 的产品立场） -->
+                    <TextBlock Classes="page-subtitle"
+                               Text="{Binding Totals.UnknownNoteText}"
+                               IsVisible="{Binding Totals.HasUnknownNote}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -86,7 +86,7 @@ Automated: SettingsViewModelTests.SaveAsync_PersistsThemePreferenceAndAppliesIt 
 | 记录数 | 该源上次扫描返回 `Records.Count`（消息级去重后的累计统一 usage 记录数；增量扫描跨刷新累计） | 真实扫描计数，千分位展示 |
 | 操作 | 无 per-source 操作列；面板级「重新扫描（全部源）」按钮（见定案 3） | 诚实降级 |
 
-- 基建：新增 `CCUsage.Core/Services/IngestionScanRegistry.cs`（`IIngestionScanReader` 读取面 + 写入实现，锁内不可变快照；写入只发生在管道内），`LocalIngestionDataSource` 可选注入（未传不报告，既有构造点不受影响），扫描循环化（顺序与拼接序与原实现逐位等价，行为保持）。启动时 DI 即物化采集源（注册表清单不依赖 DashboardViewModel 解析时机）。
+- 基建：新增 `TokenPulse.Core/Services/IngestionScanRegistry.cs`（`IIngestionScanReader` 读取面 + 写入实现，锁内不可变快照；写入只发生在管道内），`LocalIngestionDataSource` 可选注入（未传不报告，既有构造点不受影响），扫描循环化（顺序与拼接序与原实现逐位等价，行为保持）。启动时 DI 即物化采集源（注册表清单不依赖 DashboardViewModel 解析时机）。
 
 **3. per-source vs 全局重扫（定案：全局重扫）**
 - 采集管道是单信号量串行全源管道（JSONL 增量记账非线程安全），适配器不作为独立可寻址单元暴露；per-source 重扫需要新管道入口与独立 upsert 语义，超出本卡范围且收益低（增量扫描下"单源重扫"与全源重扫成本同阶）。
@@ -146,8 +146,8 @@ Automated: SettingsViewModelTests.SaveAsync_PersistsThemePreferenceAndAppliesIt 
 
 ## Verification
 
-- Related files: `src/CCUsage.App/Views/SettingsView.axaml`（原地重构）、`src/CCUsage.App/ViewModels/SettingsViewModel.cs`（重写）、`src/CCUsage.App/ViewModels/INavigationAware.cs`、`src/CCUsage.Core/Services/IngestionScanRegistry.cs`、`src/CCUsage.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（逐源快照报告）、`src/CCUsage.App/Services/BackgroundRefreshService.cs`（单飞行槽 + 触发合并 + BackgroundRefreshWiring 接线）、`src/CCUsage.App/DependencyInjection/AppServices.cs`、`src/CCUsage.App/App.axaml.cs`、`src/CCUsage.App/Styles/SharedStyles.axaml`（status-* 类）、`src/CCUsage.App/ViewModels/MainWindowViewModel.cs`（OnNavigatedTo 钩子）
-- How to run/verify: TC-001 / TC-002（见上）；截图 `CCUSAGE_SETTINGS_PREVIEW_DIR=docs/design dotnet test ...SettingsPageTests`；P0 回归锁 `dotnet test ...SettingsPageTests.Di_settings_rescan`
+- Related files: `src/TokenPulse.App/Views/SettingsView.axaml`（原地重构）、`src/TokenPulse.App/ViewModels/SettingsViewModel.cs`（重写）、`src/TokenPulse.App/ViewModels/INavigationAware.cs`、`src/TokenPulse.Core/Services/IngestionScanRegistry.cs`、`src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（逐源快照报告）、`src/TokenPulse.App/Services/BackgroundRefreshService.cs`（单飞行槽 + 触发合并 + BackgroundRefreshWiring 接线）、`src/TokenPulse.App/DependencyInjection/AppServices.cs`、`src/TokenPulse.App/App.axaml.cs`、`src/TokenPulse.App/Styles/SharedStyles.axaml`（status-* 类）、`src/TokenPulse.App/ViewModels/MainWindowViewModel.cs`（OnNavigatedTo 钩子）
+- How to run/verify: TC-001 / TC-002（见上）；截图 `TOKENPULSE_SETTINGS_PREVIEW_DIR=docs/design dotnet test ...SettingsPageTests`；P0 回归锁 `dotnet test ...SettingsPageTests.Di_settings_rescan`
 - Results:
   - 测试全绿无回归（含审查修复轮）：Core 103 通过；Infrastructure 640 通过 / 3 跳过；App.Tests 57 通过（SettingsViewModelTests 重写 + 重扫成败/未接线诚实失败/合并语义 + BackgroundRefreshServiceTests 6 例）；Headless 181 通过 / 0 失败（含 SettingsPageTests 7 例：**P0 回归锁 Di_settings_rescan_drives_real_dashboard_refresh_line** + 数据源表绑定与状态着色 / 口径区无假开关 / 重扫扫描态全链路 / 主题三态迁移 / 真实 DI 冒烟 19 源 / 明暗截图）；Reconciliation 49 通过 / 19 跳过。合计 **1029 通过 / 22 跳过 / 0 失败 / 0 警告**（S-002 前基线 1003/22/0）。
   - P0 修复验证：`Di_settings_rescan_drives_real_dashboard_refresh_line` 以真实 DI 解析设置页 VM → RescanCommand → 断言 `scan finished` + 外壳「最近更新」时间戳被本轮回写 + 19 源全部有快照（走通 容器内同一 BackgroundRefreshService → BackgroundRefreshWiring → DashboardViewModel.RefreshCommand 真实采集线）；未接线路径经单测 `RescanAsync_WhenServiceUnwired_FailsHonestlyInsteadOfFakeSuccess` 锁定（如实「扫描失败」，无假成功）。

@@ -33,7 +33,7 @@ blocked: none
     JsonlScanDiagnostics 与 I-006 状态机；定位器/行映射语义差异见 Dev Log
 - [x] fixtures + 单元测试；接入本地采集管道
   - ✅ Infrastructure 21 项单测（临时 SQLite 库，fixtures 全合成）+ 合成 fixture（state.db）入仓 +
-    CLI golden 录制逐位一致 + `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip）；
+    CLI golden 录制逐位一致 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip）；
     `IHermesSqliteAdapter` + LocalIngestionDataSource 第八路 concat + App DI 双注册
 
 ## Subtasks
@@ -57,7 +57,7 @@ blocked: none
   配置根优先、默认根回退、库缺失、frontier 模型快照计价、候选/归一化纯函数、时间边界）
 - [x] 对账：合成 fixture（五桶 + REAL 秒/毫秒双刻度 + provider 推断 + actual cost 直采 + 全零行 + 空白
   model 行）入仓 + CLI golden 录制（fixtures/golden/hermes-fixture-daily-v20.0.29.json）+ fixture 对账
-  测试 ×2 + `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（HasHermesData 数据存在性 Skip）
+  测试 ×2 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasHermesData 数据存在性 Skip）
 - [x] 管道接线：`IHermesSqliteAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第八路 concat +
   App DI 双注册（具体类 + 接口）
 
@@ -100,7 +100,7 @@ Rejects_non_finite_and_non_positive_timestamps）。
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/CCUsage.Reconciliation.Tests/fixtures/hermes/state.db`（合成数据，覆盖：五桶 +
+1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/hermes/state.db`（合成数据，覆盖：五桶 +
    REAL 秒含小数截断（session-a/f）/REAL 毫秒（session-b）双刻度、billing_provider 缺失前缀推断
    （session-f）、actual cost 直采（session-b 0.05）、全零行（session-d）、空白 model 行（session-e））。
 2. 录制 golden：`HERMES_HOME=$PWD/$FX/hermes npx --yes ccusage@20.0.29 hermes daily --json --offline
@@ -117,10 +117,10 @@ totalCost=$0.058325** 逐位一致；分日 2026-09-14（1,230/303/20/50/1,603�
 0.008325 = 引擎计价 0.00819 + 前缀推断行 0.000135）与 2026-09-15（400/40/0/0/440，gpt-5.1 cost 0.05
 actual 直采）逐位一致；诊断 status=Ok、skipped=1、records=3、UnpricedModels=∅。
 
-### TC-003: 本机真实数据对账（CCUSAGE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_hermes"`。
+1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_hermes"`。
 2. 数据存在性门控：定位器（HERMES_HOME / ~/.hermes）下有 state.db 才运行（与 CLI 子进程同一套探测）；
    无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 hermes daily --json --offline --timezone UTC`（golden）
@@ -201,7 +201,7 @@ Copyright (c) 2025 ryoppippi，声明保留在 HermesLogLocator / HermesSessionP
 - ⑧ **u64 → long 边界**：蓝本 read_u64 的 i64 max(0) → 有限正 f64 截断链在 C# 等价移植，f64 超界钳
   long.MaxValue（saturating；不可达域防御）。
 
-验证：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **393 通过 / 11 跳过**
+验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **393 通过 / 11 跳过**
 （I-012 收口基线 370/10 + 新增 21 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账测试
 （本机 Skip））；门控以 HERMES_HOME 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 / TC-003。
 
@@ -215,7 +215,7 @@ Copyright (c) 2025 ryoppippi，声明保留在 HermesLogLocator / HermesSessionP
   ResolveHomeCandidates 仅供测试与诊断（行为无改动）。
 - **[拆卡] 候选计价端到端接线 → [I-024](I-024-candidate-pricing-wiring.md)**：偏差⑤的落地路径拆小卡，
   Bugs 表登记 deferred（I-016-B1）；board.md Todo 加 I-024 行（PM 委托的唯一 board 改动）。
-- 复核：`dotnet build CCUsage.sln` 0 警告 0 错误；全仓 `dotnet test` **417 通过 / 12 跳过**（本卡零代码
+- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；全仓 `dotnet test` **417 通过 / 12 跳过**（本卡零代码
   改动，增量来自 I-009 审查修复的 2 项单测）；fixture 对账复验不变（golden 逐位一致）。
 
 ## Bugs
@@ -226,24 +226,24 @@ Copyright (c) 2025 ryoppippi，声明保留在 HermesLogLocator / HermesSessionP
 
 ## Verification
 
-- Related files: `src/CCUsage.Infrastructure/HermesSqlite/`（HermesSqliteAdapter、HermesSessionParser、
-  HermesLogLocator）、`src/CCUsage.Core/Abstractions/IHermesSqliteAdapter.cs`、
-  `src/CCUsage.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第八路）、
-  `src/CCUsage.App/DependencyInjection/AppServices.cs`（DI）、
-  `src/CCUsage.Core/Pricing/model-pricing-snapshot.json`（xai 段）、
-  `tests/CCUsage.Infrastructure.Tests/HermesSqlite/HermesSqliteAdapterTests.cs`、
-  `tests/CCUsage.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第八适配器）、
-  `tests/CCUsage.Reconciliation.Tests/`（HermesFixtureReconciliationTests、RealDataReconciliationTests、
+- Related files: `src/TokenPulse.Infrastructure/HermesSqlite/`（HermesSqliteAdapter、HermesSessionParser、
+  HermesLogLocator）、`src/TokenPulse.Core/Abstractions/IHermesSqliteAdapter.cs`、
+  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第八路）、
+  `src/TokenPulse.App/DependencyInjection/AppServices.cs`（DI）、
+  `src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`（xai 段）、
+  `tests/TokenPulse.Infrastructure.Tests/HermesSqlite/HermesSqliteAdapterTests.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第八适配器）、
+  `tests/TokenPulse.Reconciliation.Tests/`（HermesFixtureReconciliationTests、RealDataReconciliationTests、
   Support/UsageChainAggregator、Support/RealReconciliationEnvironment、Support/FixturePaths、
-  CCUsageCli/CcusageGoldenFiles）、`tests/CCUsage.Reconciliation.Tests/fixtures/hermes/state.db`
-  （合成 fixture）、`tests/CCUsage.Reconciliation.Tests/fixtures/golden/hermes-fixture-daily-v20.0.29.json`
+  CCUsageCli/CcusageGoldenFiles）、`tests/TokenPulse.Reconciliation.Tests/fixtures/hermes/state.db`
+  （合成 fixture）、`tests/TokenPulse.Reconciliation.Tests/fixtures/golden/hermes-fixture-daily-v20.0.29.json`
   （CLI 录制 golden + README 录制命令）
-- How to run/verify: 全量 `dotnet build CCUsage.sln && dotnet test CCUsage.sln`；Hermes 单测
-  `dotnet test tests/CCUsage.Infrastructure.Tests/CCUsage.Infrastructure.Tests.csproj --filter "FullyQualifiedName~HermesSqlite"`；
-  fixture 对账 `dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Hermes"`；
-  真实对账（有数据机器）`CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests
+- How to run/verify: 全量 `dotnet build TokenPulse.sln && dotnet test TokenPulse.sln`；Hermes 单测
+  `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj --filter "FullyQualifiedName~HermesSqlite"`；
+  fixture 对账 `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Hermes"`；
+  真实对账（有数据机器）`TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests
   --filter "FullyQualifiedName~Real_hermes"`（无数据自动 Skip）；golden 重录命令见
-  `tests/CCUsage.Reconciliation.Tests/fixtures/golden/README.md`
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`
 - Results: 2026-10-11 — 构建 0 警告 0 错误；单测 21/21；全仓 393 通过 / 11 跳过；fixture 对账 tokens
   五分量 + cost 两侧逐位一致（全量 input=1,630 / output=343 / cacheCreation=20 / cacheRead=50 /
   total=2,043，cost=$0.058325，见 TC-002）；真实数据对账门控测试就绪，本机无 Hermes 数据按门控 Skip，

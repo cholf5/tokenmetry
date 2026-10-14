@@ -71,8 +71,8 @@ Expected:
 
 ## Verification
 
-- Related files: `src/CCUsage.App/ViewModels/TimeViewModel.cs`, `src/CCUsage.App/Views/TimeAnalysisView.axaml(.cs)`, `src/CCUsage.App/ViewModels/MainWindowViewModel.cs`（路由）, `src/CCUsage.App/Views/MainWindow.axaml`（DataTemplate）, `tests/CCUsage.App.Headless.Tests/Shell/TimeCostPagesTests.cs`
-- How to run/verify: `dotnet test tests/CCUsage.App.Headless.Tests --filter FullyQualifiedName~TimeCostPagesTests`（16 用例，含 TC-001 unknown 标注）；明暗目检 `docs/design/time-light.png` / `time-dark.png`（重生成：`CCUSAGE_TIMECOST_PREVIEW_DIR=docs/design dotnet test --filter Time_and_cost_pages_render_light_and_dark_screenshots_for_archive`）
-- Results: 2026-10-13 全量 `dotnet test CCUsage.sln` 1003 通过 / 22 跳过 / 0 失败、0 警告；TC-001 通过（无精度源不入桶 + 页面「2 个会话缺少精确时间……占 20.0%」可见）；明暗截图已留档并目检（真实本机数据：小时分布 / 热力图 / 观察项表渲染正常，本机 unknown=0 故标注按设计隐藏）。
+- Related files: `src/TokenPulse.App/ViewModels/TimeViewModel.cs`, `src/TokenPulse.App/Views/TimeAnalysisView.axaml(.cs)`, `src/TokenPulse.App/ViewModels/MainWindowViewModel.cs`（路由）, `src/TokenPulse.App/Views/MainWindow.axaml`（DataTemplate）, `tests/TokenPulse.App.Headless.Tests/Shell/TimeCostPagesTests.cs`
+- How to run/verify: `dotnet test tests/TokenPulse.App.Headless.Tests --filter FullyQualifiedName~TimeCostPagesTests`（16 用例，含 TC-001 unknown 标注）；明暗目检 `docs/design/time-light.png` / `time-dark.png`（重生成：`TOKENPULSE_TIMECOST_PREVIEW_DIR=docs/design dotnet test --filter Time_and_cost_pages_render_light_and_dark_screenshots_for_archive`）
+- Results: 2026-10-13 全量 `dotnet test TokenPulse.sln` 1003 通过 / 22 跳过 / 0 失败、0 警告；TC-001 通过（无精度源不入桶 + 页面「2 个会话缺少精确时间……占 20.0%」可见）；明暗截图已留档并目检（真实本机数据：小时分布 / 热力图 / 观察项表渲染正常，本机 unknown=0 故标注按设计隐藏）。
 
 **独立审查轮（2026-10-13，PM 派独立审查 agent）**：结论通过，无 P0/P1。unknown 占比口径（完备不变式有测试锁定、占比算式手算一致）、热力图数据链（强度分母=窗口内有数据日最大值、补零淡格对齐 D-002 定案、无界实际日语义）、方案 b 诚实性（脚注卡内可见非藏 tooltip、分母算式核实、AC 偏差登记一致）、PricingEngine 接线（真引擎 TC-001 + 3→4 实时联动、单例同法核实、全局口径筛选不变性有测）、静态表逐句对照原型与对账文档（无凭记忆表述）、超范围零改动全部核实。P2 三条由 PM 处理：① 看板状态迁移（本次收尾操作）；② D-013 卡用例计数 9→8 更正；③ 成本页脚注补「（自启动累计）」语义（174/174 headless 复验通过）。PM 验收：全量 1003 通过 / 22 跳过 / 0 失败维持。

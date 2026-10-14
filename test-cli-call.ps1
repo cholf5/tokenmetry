@@ -1,9 +1,9 @@
 # 清理缓存
-$cachePath = Join-Path $env:LOCALAPPDATA "CCUsage\ccusage.db"
+$cachePath = Join-Path $env:LOCALAPPDATA "TokenPulse\tokenpulse.db"
 if (Test-Path $cachePath) { Remove-Item $cachePath -Force; Write-Host "Cache cleared" }
 
 Write-Host "Running App for 10 seconds..."
-$proc = Start-Process -FilePath "E:\dev\cholf5\ccusage\ccusage-gui\src\CCUsage.App\bin\Debug\net8.0\CCUsage.App.exe" -PassThru
+$proc = Start-Process -FilePath "E:\dev\cholf5\ccusage\ccusage-gui\src\TokenPulse.App\bin\Debug\net8.0\TokenPulse.App.exe" -PassThru
 Start-Sleep 10
 if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force }
 Write-Host "App closed"

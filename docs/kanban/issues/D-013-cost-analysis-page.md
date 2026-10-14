@@ -68,8 +68,8 @@ Expected:
 
 ## Verification
 
-- Related files: `src/CCUsage.App/ViewModels/CostViewModel.cs`, `src/CCUsage.App/Views/CostAnalysisView.axaml(.cs)`, `src/CCUsage.App/ViewModels/MainWindowViewModel.cs`（路由 + 引擎注入）, `src/CCUsage.App/Views/MainWindow.axaml`（DataTemplate）, `tests/CCUsage.App.Headless.Tests/Shell/TimeCostPagesTests.cs`
-- How to run/verify: `dotnet test tests/CCUsage.App.Headless.Tests --filter FullyQualifiedName~TimeCostPagesTests`（TC-001 在 `Unpriced_model_count_matches_pricing_engine_tc001`）；明暗目检 `docs/design/cost-light.png` / `cost-dark.png`（重生成：`CCUSAGE_TIMECOST_PREVIEW_DIR=docs/design dotnet test --filter Time_and_cost_pages_render_light_and_dark_screenshots_for_archive`）
-- Results: 2026-10-13 全量 `dotnet test CCUsage.sln` 1003 通过 / 22 跳过 / 0 失败、0 警告；TC-001 通过（fixture 3 个缺价模型 → 页面 KPI「3 个」与引擎一致，估算总成本 $2.25+ 不含三者成本）；输入/输出占比为 Token 构成口径并显式标注（AC 偏差见上）；明暗截图已留档并目检（KPI 四卡、未知说明行、口径表三行渲染正常）。
+- Related files: `src/TokenPulse.App/ViewModels/CostViewModel.cs`, `src/TokenPulse.App/Views/CostAnalysisView.axaml(.cs)`, `src/TokenPulse.App/ViewModels/MainWindowViewModel.cs`（路由 + 引擎注入）, `src/TokenPulse.App/Views/MainWindow.axaml`（DataTemplate）, `tests/TokenPulse.App.Headless.Tests/Shell/TimeCostPagesTests.cs`
+- How to run/verify: `dotnet test tests/TokenPulse.App.Headless.Tests --filter FullyQualifiedName~TimeCostPagesTests`（TC-001 在 `Unpriced_model_count_matches_pricing_engine_tc001`）；明暗目检 `docs/design/cost-light.png` / `cost-dark.png`（重生成：`TOKENPULSE_TIMECOST_PREVIEW_DIR=docs/design dotnet test --filter Time_and_cost_pages_render_light_and_dark_screenshots_for_archive`）
+- Results: 2026-10-13 全量 `dotnet test TokenPulse.sln` 1003 通过 / 22 跳过 / 0 失败、0 警告；TC-001 通过（fixture 3 个缺价模型 → 页面 KPI「3 个」与引擎一致，估算总成本 $2.25+ 不含三者成本）；输入/输出占比为 Token 构成口径并显式标注（AC 偏差见上）；明暗截图已留档并目检（KPI 四卡、未知说明行、口径表三行渲染正常）。
 
 **独立审查轮（2026-10-13，PM 派独立审查 agent）**：结论通过，无 P0/P1。unknown 占比口径（完备不变式有测试锁定、占比算式手算一致）、热力图数据链（强度分母=窗口内有数据日最大值、补零淡格对齐 D-002 定案、无界实际日语义）、方案 b 诚实性（脚注卡内可见非藏 tooltip、分母算式核实、AC 偏差登记一致）、PricingEngine 接线（真引擎 TC-001 + 3→4 实时联动、单例同法核实、全局口径筛选不变性有测）、静态表逐句对照原型与对账文档（无凭记忆表述）、超范围零改动全部核实。P2 三条由 PM 处理：① 看板状态迁移（本次收尾操作）；② D-013 卡用例计数 9→8 更正；③ 成本页脚注补「（自启动累计）」语义（174/174 headless 复验通过）。PM 验收：全量 1003 通过 / 22 跳过 / 0 失败维持。

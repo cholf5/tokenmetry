@@ -59,7 +59,7 @@ Expected:
 
 ### 2026-10-13（实现完成）
 
-**接口归属决策（卡内决策点定案）**：接口 `IUsageQueryService` 放 `CCUsage.Core/Abstractions`（与 `IUsageStore` 同位），实现 `UsageQueryService` 放 `CCUsage.Core/Services`（与 `CacheService` 同位），**不是** Infrastructure。理由：查询服务只消费 `IUsageStore`——facts 存储已是唯一 SQL 数据面（I-002），复用其读取 / cost_usd 文本解析 / 迁移口径，不引入第二套 SQL 语义；桌面本地库全量读取后内存聚合成本可忽略（`CacheService.GetDailyRowsAsync` 同模式）；纯 Core 落位让契约可被 App 与测试在无 Infrastructure 依赖下绑定。契约模型（`AggregatedCost` / `DailyUsagePoint` / `UsageKpiModels` / `UsageQueryFilter`）放 `Core/Models`。DI 在 `AppServices` 注册单例，时区 = 本机（与采集侧 `UsageFactsMapper` 分桶默认一致）。
+**接口归属决策（卡内决策点定案）**：接口 `IUsageQueryService` 放 `TokenPulse.Core/Abstractions`（与 `IUsageStore` 同位），实现 `UsageQueryService` 放 `TokenPulse.Core/Services`（与 `CacheService` 同位），**不是** Infrastructure。理由：查询服务只消费 `IUsageStore`——facts 存储已是唯一 SQL 数据面（I-002），复用其读取 / cost_usd 文本解析 / 迁移口径，不引入第二套 SQL 语义；桌面本地库全量读取后内存聚合成本可忽略（`CacheService.GetDailyRowsAsync` 同模式）；纯 Core 落位让契约可被 App 与测试在无 Infrastructure 依赖下绑定。契约模型（`AggregatedCost` / `DailyUsagePoint` / `UsageKpiModels` / `UsageQueryFilter`）放 `Core/Models`。DI 在 `AppServices` 注册单例，时区 = 本机（与采集侧 `UsageFactsMapper` 分桶默认一致）。
 
 **日历窗口语义定案（D-002 遗留决策点）**：三选一取**范围内空日补零 + `HasData` 标记**。理由：①"仅画实际日"会把 9 个数据日横跨 8 个月的稀疏序列画成连续花费（D-002 审查记录在案的误导）；②"断线"需要图层数据结构表达序列中断，单 scatter/line 图实现成本高，且热力图 / tooltip 消费方无论如何都需要完整日历轴；③补零让 x 轴回归真实日历、与 SQL 聚合对账最直接，配合 `DailyUsagePoint.HasData=false`，UI 图层可把补零点画成淡化 / 空心（"补零且图层可辨识"），未来若要改断线只需在图层处理 `HasData`，查询契约不变。双端无界（"全部时间"）或单端有界时无从补零，只返回实际有数据的日期。
 
@@ -71,7 +71,7 @@ Expected:
 
 **顺带（同组提交）**：`BackgroundRefreshService` 增加 `TriggerRefreshAsync()`（与定时器共用互斥与静默异常语义，不改定时器计划），App 启动路径 fire-and-forget 触发一次首刷——首启顶栏不再停留"尚未刷新"（定时器首跑要等完整间隔，默认 15 分钟）。
 
-**测试**：`tests/CCUsage.Infrastructure.Tests/Query/UsageQueryServiceTests.cs` 22 例：fixture 3 Agent / 4 模型 / 6 项目 + 缺价模型 + CLI 分解日 + 纪元与日锚定时间戳会话，时区固定 UTC；TC-001 日序列与 KPI 与手写 SQL（full 优先 NOT EXISTS 子查询）逐项对照；补零、Agent 过滤、环比方向 / 百分比 / 除零、null ≠ 0 ≠ Empty 三态、空库不伪造占比、非法范围抛错均有用例。
+**测试**：`tests/TokenPulse.Infrastructure.Tests/Query/UsageQueryServiceTests.cs` 22 例：fixture 3 Agent / 4 模型 / 6 项目 + 缺价模型 + CLI 分解日 + 纪元与日锚定时间戳会话，时区固定 UTC；TC-001 日序列与 KPI 与手写 SQL（full 优先 NOT EXISTS 子查询）逐项对照；补零、Agent 过滤、环比方向 / 百分比 / 除零、null ≠ 0 ≠ Empty 三态、空库不伪造占比、非法范围抛错均有用例。
 
 ### 2026-10-13（独立审查修复轮）
 
@@ -82,7 +82,7 @@ Expected:
 - **P2-6 修复——BackgroundRefreshService 并发占位原子化**：`_isRunning` 的 check-then-set 改为 `Interlocked.CompareExchange` / `Exchange`（bool → int），注释说明定时器回调与启动首刷（TriggerRefreshAsync）两个并发入口在非原子 check-and-set 下可双跑的既有缺陷。
 - **P3-7**：纪元判定提为具名常量 `MillisecondsPerDay`（在 I-029 侧的小时分布判定处，含写入方锚定注释）；`MetricChange` XML doc 补"current 为 null（当前成本全未知）→ Neutral（不臆造方向）"组合。
 - 顺带修正首轮测试的两个断言口径（审查手算核对后固化）：会话成本排序中 s7（纪元会话）成本 0.10 为**已知**成本；项目维度 TokenShare 分母是项目维度行合计（不含 agent/model 分解日的贡献）。
-- 验证：`dotnet build CCUsage.sln` 0 警告；`dotnet test CCUsage.sln` 全量 860 通过 / 22 跳过 / 0 失败（首轮 857 + 审查轮新增 3 例，零回归）。
+- 验证：`dotnet build TokenPulse.sln` 0 警告；`dotnet test TokenPulse.sln` 全量 860 通过 / 22 跳过 / 0 失败（首轮 857 + 审查轮新增 3 例，零回归）。
 
 ## Bugs
 
@@ -91,8 +91,8 @@ Expected:
 
 ## Verification
 
-- Related files: `src/CCUsage.Core/Abstractions/IUsageQueryService.cs`、`src/CCUsage.Core/Services/UsageQueryService.cs`、`src/CCUsage.Core/Models/AggregatedCost.cs`、`src/CCUsage.Core/Models/DailyUsagePoint.cs`、`src/CCUsage.Core/Models/UsageKpiModels.cs`、`src/CCUsage.Core/Models/UsageQueryFilter.cs`、`src/CCUsage.App/DependencyInjection/AppServices.cs`（DI）、`src/CCUsage.App/Services/BackgroundRefreshService.cs` + `src/CCUsage.App/App.axaml.cs`（启动首刷）、`tests/CCUsage.Infrastructure.Tests/Query/UsageQueryServiceTests.cs`
-- How to run/verify: `dotnet build CCUsage.sln`（0 警告）+ `dotnet test CCUsage.sln`；TC-001 可独立复现 = 测试 `Daily_series_matches_handwritten_sql_with_full_grain_precedence` 与 `Kpi_matches_handwritten_sql_and_exposes_unknown_cost`（真实 SQLite fixture + 手写 SQL 同库对照）
+- Related files: `src/TokenPulse.Core/Abstractions/IUsageQueryService.cs`、`src/TokenPulse.Core/Services/UsageQueryService.cs`、`src/TokenPulse.Core/Models/AggregatedCost.cs`、`src/TokenPulse.Core/Models/DailyUsagePoint.cs`、`src/TokenPulse.Core/Models/UsageKpiModels.cs`、`src/TokenPulse.Core/Models/UsageQueryFilter.cs`、`src/TokenPulse.App/DependencyInjection/AppServices.cs`（DI）、`src/TokenPulse.App/Services/BackgroundRefreshService.cs` + `src/TokenPulse.App/App.axaml.cs`（启动首刷）、`tests/TokenPulse.Infrastructure.Tests/Query/UsageQueryServiceTests.cs`
+- How to run/verify: `dotnet build TokenPulse.sln`（0 警告）+ `dotnet test TokenPulse.sln`；TC-001 可独立复现 = 测试 `Daily_series_matches_handwritten_sql_with_full_grain_precedence` 与 `Kpi_matches_handwritten_sql_and_exposes_unknown_cost`（真实 SQLite fixture + 手写 SQL 同库对照）
 - Results: 全量 860 通过 / 22 跳过 / 0 失败（基线 835 通过 / 22 跳过；首轮 857 + 审查轮新增 3 例，零回归）；构建 0 警告 0 错误
 
 **PM 验收留痕（2026-10-13）**：修复轮后 PM 实跑 build 0 警告 + 全量测试复核。期间两次全量运行出现 1 例 Infrastructure.Tests 间歇失败（单跑该项目与随后 13 次连跑均无法复现，失败时恰逢与构建/测试并行的高负载窗口，疑似 CCUsageCliRunner 进程类用例在 CPU 争抢下超时——该超时用例先于本卡存在）。按观察项记录、不阻塞本卡；后续复现时以 console logger 抓用例名再定位。

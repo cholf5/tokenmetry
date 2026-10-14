@@ -99,11 +99,11 @@ Result:
 
 ## Related Files
 
-- `src/CCUsage.Core/Models/DailyUsageSummary.cs`
-- `src/CCUsage.App/ViewModels/ModelBreakdownViewModel.cs`
-- `src/CCUsage.App/Views/ModelBreakdownView.axaml`
-- `src/CCUsage.App/Views/MainWindow.axaml`
-- `tests/CCUsage.App.Tests/ViewModels/ModelBreakdownViewModelTests.cs`
+- `src/TokenPulse.Core/Models/DailyUsageSummary.cs`
+- `src/TokenPulse.App/ViewModels/ModelBreakdownViewModel.cs`
+- `src/TokenPulse.App/Views/ModelBreakdownView.axaml`
+- `src/TokenPulse.App/Views/MainWindow.axaml`
+- `tests/TokenPulse.App.Tests/ViewModels/ModelBreakdownViewModelTests.cs`
 
 ## Dependencies
 
@@ -118,7 +118,7 @@ Result:
 - 新增 `ModelBreakdownViewModel` / `ModelBreakdownRow`，支持加载、汇总、格式化、空状态和按成本降序排序。
 - 新增 `ModelBreakdownView` 并在 MainWindow 增加 `Model Breakdown` Tab。
 - 补充 App 层汇总测试、CLI parser 模型映射断言、SQLite nested `Models` roundtrip 断言。
-- 验证结果：`dotnet test tests\CCUsage.App.Tests\CCUsage.App.Tests.csproj` 通过，37 passed；`dotnet test CCUsage.sln` 通过，67 passed；`dotnet build CCUsage.sln` 通过，0 warnings，0 errors。命令输出中有 .NET preview SDK 的 NETSDK1057 informational message。
+- 验证结果：`dotnet test tests\TokenPulse.App.Tests\TokenPulse.App.Tests.csproj` 通过，37 passed；`dotnet test TokenPulse.sln` 通过，67 passed；`dotnet build TokenPulse.sln` 通过，0 warnings，0 errors。命令输出中有 .NET preview SDK 的 NETSDK1057 informational message。
 - 开发完成，移动到 In Review。
 
 ## Review Notes
@@ -128,7 +128,7 @@ Result:
 - Notes:
   - PR-equivalent Review Summary:
     - Modification points: 新增模型汇总 ViewModel/View，接入 DI 与 MainWindow Tab；补充 parser/cache/App 测试。
-    - How to run/test: `dotnet test tests\CCUsage.App.Tests\CCUsage.App.Tests.csproj`、`dotnet test CCUsage.sln`、`dotnet build CCUsage.sln`。
+    - How to run/test: `dotnet test tests\TokenPulse.App.Tests\TokenPulse.App.Tests.csproj`、`dotnet test TokenPulse.sln`、`dotnet build TokenPulse.sln`。
     - Impact area: App Reports 邻近页面、MainWindow Tab 布局、daily row 模型数据读取链路。
     - Regression risk: 低到中；新增页面为独立 Tab，DI 构造函数变化会影响 MainWindow 初始化，已通过 build 和 App tests 覆盖。
 

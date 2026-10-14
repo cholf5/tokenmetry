@@ -33,7 +33,7 @@ blocked: none
     否则文件 mtime；session id = 文件名剥 .settings.json
 - [x] fixtures + 单元测试；接入本地采集管道
   - ✅ Infrastructure 14 项单测（临时目录合成数据，fixtures 全合成）+ 合成 fixture（*.settings.json +
-    侧车 + 非快照 json）入仓 + CLI golden 录制逐位一致 + `CCUSAGE_RECONCILE_REAL` 门控真实对账测试
+    侧车 + 非快照 json）入仓 + CLI golden 录制逐位一致 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试
     （数据存在性 Skip，门控以 DROID_SESSIONS_DIR 钉 fixture 复跑通过 1/1）；`IDroidAdapter` +
     LocalIngestionDataSource 第十二路 concat + App DI 双注册
 
@@ -53,7 +53,7 @@ blocked: none
   缺省目录无数据）
 - [x] 对账：合成 fixture（模型归一化 + 侧车回退 + archive 去重 + 全零跳过 + 非快照 json）入仓 +
   CLI golden 录制（fixtures/golden/droid-fixture-daily-v20.0.29.json）+ fixture 对账测试 ×2 +
-  `CCUSAGE_RECONCILE_REAL` 门控真实对账测试（HasDroidData 数据存在性 Skip）
+  `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasDroidData 数据存在性 Skip）
 - [x] 管道接线：`IDroidAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十二路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**无新增段**——claude-sonnet-4 / gpt-5 直接命中现有段；侧车提取的
@@ -95,7 +95,7 @@ Missing_configured_directory_yields_no_data）。
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/CCUsage.Reconciliation.Tests/fixtures/droid/`（session-a：settings.model
+1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/droid/`（session-a：settings.model
    "Claude-Sonnet-4-[Anthropic]" 100/50/20/10；session-b：无 model + 侧车 Model: 行 → opus-4-5-thinking
    10/20；archive/session-c 05-01 旧快照 + session-c 05-02 最新 100/200（gpt-5）；zero.settings.json
    全零跳过；meta.json 非快照不发现；所有快照均带 providerLockTimestamp——mtime 回退分支依赖检出时间，
@@ -115,10 +115,10 @@ totalCost=$0.003803** 逐位一致（05-01：claude-sonnet-4 100/50/20/10 cost 0
 100/200/0/0 cost 0.002125、claude-opus-4-5-thinking 10/20/0/0 cost 0.00055）；诊断 status=Ok、
 skipped=1、duplicate=1、records=3、UnpricedModels=∅。
 
-### TC-003: 本机真实数据对账（CCUSAGE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `CCUSAGE_RECONCILE_REAL=1 dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_droid"`。
+1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_droid"`。
 2. 数据存在性门控：定位器（DROID_SESSIONS_DIR / ~/.factory/sessions）下有 *.settings.json 才运行
    （与 CLI 子进程同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 droid daily --json --offline --timezone UTC`（golden）
@@ -202,7 +202,7 @@ fixtures 全部合成，无真实数据入仓）：
 - ⑧ **timestamp 理论边界**：蓝本 jiff 支持 year 0，DateTimeOffset 下限 year 1，year 0000 输入按不可
   解析处理（回退 mtime；真实日志不出现）。
 
-验证：`dotnet build CCUsage.sln` 0 警告 0 错误；`dotnet test CCUsage.sln` **473 通过 / 15 跳过**
+验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **473 通过 / 15 跳过**
 （I-014 收口基线 457/14 + 新增 14 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账
 测试（本机 Skip））；门控以 DROID_SESSIONS_DIR 钉 fixture 复跑通过（1/1 Passed）。对账数字见
 TC-002 / TC-003。
@@ -214,22 +214,22 @@ TC-002 / TC-003。
 
 ## Verification
 
-- Related files: `src/CCUsage.Infrastructure/Droid/DroidLogLocator.cs`、
-  `src/CCUsage.Infrastructure/Droid/DroidSettingsParser.cs`、`src/CCUsage.Infrastructure/Droid/DroidAdapter.cs`、
-  `src/CCUsage.Core/Abstractions/IDroidAdapter.cs`、
-  `src/CCUsage.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
-  `src/CCUsage.App/DependencyInjection/AppServices.cs`、
-  `tests/CCUsage.Infrastructure.Tests/Droid/DroidAdapterTests.cs`、
-  `tests/CCUsage.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/DroidFixtureReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/droid/`、
-  `tests/CCUsage.Reconciliation.Tests/fixtures/golden/droid-fixture-daily-v20.0.29.json`、
-  `tests/CCUsage.Reconciliation.Tests/RealDataReconciliationTests.cs`、
-  `tests/CCUsage.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
-  `tests/CCUsage.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
-- How to run/verify: `dotnet test CCUsage.sln`（全绿）；fixture 对账
-  `dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Droid"`；门控复跑
-  `DROID_SESSIONS_DIR=$PWD/tests/CCUsage.Reconciliation.Tests/fixtures/droid CCUSAGE_RECONCILE_REAL=1
-  dotnet test tests/CCUsage.Reconciliation.Tests --filter "FullyQualifiedName~Real_droid"`。
+- Related files: `src/TokenPulse.Infrastructure/Droid/DroidLogLocator.cs`、
+  `src/TokenPulse.Infrastructure/Droid/DroidSettingsParser.cs`、`src/TokenPulse.Infrastructure/Droid/DroidAdapter.cs`、
+  `src/TokenPulse.Core/Abstractions/IDroidAdapter.cs`、
+  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
+  `src/TokenPulse.App/DependencyInjection/AppServices.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/Droid/DroidAdapterTests.cs`、
+  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/DroidFixtureReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/droid/`、
+  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/droid-fixture-daily-v20.0.29.json`、
+  `tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
+  `tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
+- How to run/verify: `dotnet test TokenPulse.sln`（全绿）；fixture 对账
+  `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Droid"`；门控复跑
+  `DROID_SESSIONS_DIR=$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/droid TOKENPULSE_RECONCILE_REAL=1
+  dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_droid"`。
 - Results: 全部通过（见 TC-001/002/003 Result 与 Development Log 验证段；收口数字 473/15，
   2026-10-12 审查修复后全仓 **481/15**——本卡无必修项，数字随 Gemini/Amp 审查修复的新增单测更新）。

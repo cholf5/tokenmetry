@@ -82,11 +82,11 @@ Expected:
 
 ## Related Files
 
-- `src/CCUsage.App/Views/MainWindow.axaml`
-- `src/CCUsage.App/ViewModels/SettingsViewModel.cs`
-- `src/CCUsage.App/Views/SettingsView.axaml`
-- `src/CCUsage.Core/Models/AppSettings.cs`
-- `src/CCUsage.App/DependencyInjection/AppServices.cs`
+- `src/TokenPulse.App/Views/MainWindow.axaml`
+- `src/TokenPulse.App/ViewModels/SettingsViewModel.cs`
+- `src/TokenPulse.App/Views/SettingsView.axaml`
+- `src/TokenPulse.Core/Models/AppSettings.cs`
+- `src/TokenPulse.App/DependencyInjection/AppServices.cs`
 
 ## Dependencies
 
@@ -104,7 +104,7 @@ Expected:
 - 新增 `SettingsViewModel` / `SettingsView`，替换 Settings Tab 占位内容，支持命令、刷新间隔、通知和调试开关、路径显示及保存状态。
 - App 启动时加载设置，CLI 数据源使用设置中的命令；后台刷新间隔使用设置中的分钟数；Dashboard 异常通知和 DebugInfo 显示受设置控制。
 - 补充 AppSettings 默认值、JSON 设置读写、SettingsViewModel 保存/校验/错误、Dashboard 设置联动测试。
-- 验证结果：首次新增 Dashboard 测试期望单条通知失败，因为构造函数异步初始化和显式刷新都会触发通知；调整断言为通知非空后通过。`dotnet test tests\\CCUsage.App.Tests\\CCUsage.App.Tests.csproj` 通过，30 passed；`dotnet test CCUsage.sln` 通过，60 passed；`dotnet build CCUsage.sln` 通过，0 warnings, 0 errors。`.NET preview SDK` 信息为环境提示。
+- 验证结果：首次新增 Dashboard 测试期望单条通知失败，因为构造函数异步初始化和显式刷新都会触发通知；调整断言为通知非空后通过。`dotnet test tests\\TokenPulse.App.Tests\\TokenPulse.App.Tests.csproj` 通过，30 passed；`dotnet test TokenPulse.sln` 通过，60 passed；`dotnet build TokenPulse.sln` 通过，0 warnings, 0 errors。`.NET preview SDK` 信息为环境提示。
 
 ## Review Notes
 
@@ -113,7 +113,7 @@ Expected:
 - Notes:
   - PR-equivalent Review Summary:
     - Modification points: 新增 Settings 页面与 ViewModel；新增本地 JSON 设置存储和 AppPaths；扩展 AppSettings；启动流程加载设置并联动 CLI 命令、后台刷新间隔、异常通知和 DebugInfo 显示；补充设置相关测试。
-    - How to run/test: `dotnet test tests\\CCUsage.App.Tests\\CCUsage.App.Tests.csproj`; `dotnet test CCUsage.sln`; `dotnet build CCUsage.sln`。
+    - How to run/test: `dotnet test tests\\TokenPulse.App.Tests\\TokenPulse.App.Tests.csproj`; `dotnet test TokenPulse.sln`; `dotnet build TokenPulse.sln`。
     - Impact area: App 启动 DI、Dashboard 通知/调试显示、Settings 页面、ccusage CLI 命令配置、后台刷新间隔下次启动配置。
     - Regression risk: 中；启动流程现在读取本地 settings.json，CLI command 和刷新间隔依赖配置值。已覆盖默认值、读写、保存失败和 Dashboard 联动测试；GUI 手动保存/重启验证仍未执行。
 
