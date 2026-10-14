@@ -115,9 +115,7 @@ public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefres
 
     private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (string.IsNullOrEmpty(e.PropertyName)
-            || e.PropertyName == nameof(FilterStateService.TimeRange)
-            || e.PropertyName == nameof(FilterStateService.Agent))
+        if (FilterStateService.AffectsQueries(e.PropertyName))
         {
             _ = LoadAsync();
         }
@@ -130,7 +128,7 @@ public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefres
     public async Task LoadAsync()
     {
         var sequence = ++_loadSequence;
-        var filter = GlobalFilterMapper.Build(_filters.TimeRange, _filters.Agent);
+        var filter = GlobalFilterMapper.Build(_filters);
 
         try
         {

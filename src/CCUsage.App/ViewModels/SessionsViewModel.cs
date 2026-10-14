@@ -248,9 +248,7 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
 
     private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (string.IsNullOrEmpty(e.PropertyName)
-            || e.PropertyName == nameof(FilterStateService.TimeRange)
-            || e.PropertyName == nameof(FilterStateService.Agent))
+        if (FilterStateService.AffectsQueries(e.PropertyName))
         {
             _ = LoadAsync();
         }
@@ -378,7 +376,7 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
     /// <summary>本次查询的过滤参数（全局时间窗口 + Agent 范围）。internal 供测试断言映射。</summary>
     internal UsageQueryFilter BuildEffectiveFilter(SessionAgentScope scope)
     {
-        var global = GlobalFilterMapper.Build(_filters.TimeRange, _filters.Agent);
+        var global = GlobalFilterMapper.Build(_filters);
         if (scope.Mode is not (SessionAgentScopeMode.Single or SessionAgentScopeMode.SubsetMerge)
             || scope.Agents.Count == 0)
         {

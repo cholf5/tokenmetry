@@ -154,7 +154,7 @@ public class AppShellTests
         Assert.Equal("最近 7 天 · 所有 Agent", placeholder.CurrentFilterDisplay);
 
         // 切时间范围 → 通知到达订阅页 VM
-        filters.TimeRange = TimeRangeOption.Options[0];
+        filters.TimeRange = TimeRangeOption.Options[1];
         Assert.Equal("最近 7 天 · 所有 Agent", filters.Display);
         Assert.Equal(filters.Display, placeholder.CurrentFilterDisplay);
 
@@ -199,7 +199,7 @@ public class AppShellTests
         };
 
         // 非 UI 线程写入：赋值与通知都应 marshal 到 UI 线程（UI 线程未被阻塞时以 RunJobs 驱动）
-        Task.Run(() => filters.TimeRange = TimeRangeOption.Options[3]).Wait();
+        Task.Run(() => filters.TimeRange = TimeRangeOption.Options[4]).Wait();
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(TimeRange.All, received);
@@ -231,10 +231,10 @@ public class AppShellTests
         var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
         Assert.Equal(2, combos.Count);
 
-        // 时间范围：默认最近 7 天（对齐原型），4 档选项
+        // 时间范围：默认最近 7 天（对齐原型），今日/7/30/90/全部/自定义 六档选项
         var timeCombo = combos[0];
         Assert.Equal(TimeRangeOption.Default, timeCombo.SelectedItem);
-        Assert.Equal(4, timeCombo.ItemCount);
+        Assert.Equal(6, timeCombo.ItemCount);
 
         // Agent：默认所有 Agent；选项清单为真实数据（D-008：初始仅"所有 Agent"，
         // AgentCatalogService 异步加载后替换，条目数随本机 facts 而定 → 只断言下界与默认选中）
