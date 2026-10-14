@@ -352,7 +352,7 @@ public class SessionsTests
         };
         var host = CreateHost(stub);
 
-        host.Filters.TimeRange = TimeRangeOption.Options[1]; // 最近 30 天
+        host.Filters.TimeRange = TimeRangeOption.Options[2]; // 最近 30 天
         host.Filters.Agent = new AgentOption("Claude Code", "Claude Code");
         host.Vm.SearchText = "algo";
         host.Vm.CommitSearchForTests();
@@ -538,7 +538,7 @@ public class SessionsTests
         Assert.False(host.Vm.ShowEmptyState);
 
         stub.ThrowOnSessions = true;
-        host.Filters.TimeRange = TimeRangeOption.Options[1];
+        host.Filters.TimeRange = TimeRangeOption.Options[2];
         Dispatcher.UIThread.RunJobs();
 
         Assert.NotNull(host.Vm.LoadError);
@@ -649,8 +649,8 @@ public class SessionsTests
             TotalCount = 3,
             PageSize = SessionsViewModel.PageSize,
         });
-        host.Filters.TimeRange = TimeRangeOption.Options[1]; // 30 天 → 挂起
-        host.Filters.TimeRange = TimeRangeOption.Options[2]; // 90 天 → 完成（120 行全集）
+        host.Filters.TimeRange = TimeRangeOption.Options[2]; // 30 天 → 挂起
+        host.Filters.TimeRange = TimeRangeOption.Options[3]; // 90 天 → 完成（120 行全集）
         Assert.Equal("显示 50 / 120 条", host.Vm.CountText);
 
         stub.ReleaseHeldSessions(); // 旧响应放行：序号防护丢弃，不覆盖新选择
@@ -670,7 +670,7 @@ public class SessionsTests
         var afterInit = PageQueries(stub).Count;
 
         host.Vm.Dispose();
-        host.Filters.TimeRange = TimeRangeOption.Options[1];
+        host.Filters.TimeRange = TimeRangeOption.Options[2];
         host.Filters.Agent = new AgentOption("Codex", "Codex");
         host.Panel.ClearQuickFiltersCommand.Execute(null); // 右栏提交事件不再触达页面
         host.Vm.SearchText = "algo";
@@ -761,7 +761,7 @@ public class SessionsTests
         Assert.Equal(SessionsPanelViewModel.RecentTopN, recentQuery.PageSize);
 
         // 全局筛选切换 → 最近会话重查（映射窗口正确；右栏查询以页大小 = TopN 识别）
-        filters.TimeRange = TimeRangeOption.Options[1];
+        filters.TimeRange = TimeRangeOption.Options[2];
         Dispatcher.UIThread.RunJobs();
         var latest = stub.SessionQueries.Where(q => q.PageSize == SessionsPanelViewModel.RecentTopN).Last();
         var today = DateOnly.FromDateTime(DateTime.Today);

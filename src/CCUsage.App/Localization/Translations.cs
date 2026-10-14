@@ -79,10 +79,12 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ToastSessionPlannedFormat)] = "会话 {0}：详情视图规划中",
 
         // ── 全局筛选选项（FilterStateService）──
+        [nameof(TimeRangeToday)] = "今日",
         [nameof(TimeRange7)] = "最近 7 天",
         [nameof(TimeRange30)] = "最近 30 天",
         [nameof(TimeRange90)] = "最近 90 天",
         [nameof(TimeRangeAll)] = "全部时间",
+        [nameof(TimeRangeCustom)] = "自定义",
         [nameof(AllAgents)] = "所有 Agent",
         [nameof(AllModels)] = "全部模型",
         [nameof(AllProjects)] = "全部项目",
@@ -330,10 +332,12 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ToastFiltersCleared)] = "Filters cleared",
         [nameof(ToastSessionPlannedFormat)] = "Session {0}: detail view is planned",
 
+        [nameof(TimeRangeToday)] = "Today",
         [nameof(TimeRange7)] = "Last 7 days",
         [nameof(TimeRange30)] = "Last 30 days",
         [nameof(TimeRange90)] = "Last 90 days",
         [nameof(TimeRangeAll)] = "All time",
+        [nameof(TimeRangeCustom)] = "Custom",
         [nameof(AllAgents)] = "All agents",
         [nameof(AllModels)] = "All models",
         [nameof(AllProjects)] = "All projects",
@@ -653,10 +657,12 @@ public sealed class Translations : INotifyPropertyChanged
     public string ToastSessionPlannedFormat => Get();
 
     // ── 全局筛选选项 ──
+    public string TimeRangeToday => Get();
     public string TimeRange7 => Get();
     public string TimeRange30 => Get();
     public string TimeRange90 => Get();
     public string TimeRangeAll => Get();
+    public string TimeRangeCustom => Get();
     public string AllAgents => Get();
     public string AllModels => Get();
     public string AllProjects => Get();

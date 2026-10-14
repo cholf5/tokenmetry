@@ -449,8 +449,8 @@ public class OverviewBottomTests
 
         // 第 2 次查询（切 30 天）在模型维度挂起；第 3 次（切 90 天）同步走完
         stub.HoldNextModels(stale);
-        filters.TimeRange = TimeRangeOption.Options[1];
         filters.TimeRange = TimeRangeOption.Options[2];
+        filters.TimeRange = TimeRangeOption.Options[3];
         Assert.Equal("claude-sonnet-4-5", vm.ModelRows![0].Name);
 
         // 放行旧响应：序号防护丢弃，模型/项目行仍是新选择（90 天）的结果

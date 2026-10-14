@@ -221,10 +221,8 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
 
     private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // 只关心两个筛选维度；Display 是派生串，忽略避免一次变更触发两次重查
-        if (string.IsNullOrEmpty(e.PropertyName)
-            || e.PropertyName == nameof(FilterStateService.TimeRange)
-            || e.PropertyName == nameof(FilterStateService.Agent))
+        // 只关心会改查询结果的筛选维度（时间档/Agent/自定义起止）；Display 是派生串，忽略避免一次变更触发两次重查
+        if (FilterStateService.AffectsQueries(e.PropertyName))
         {
             _ = LoadAsync();
         }
@@ -233,11 +231,9 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     /// <summary>
     /// 全局筛选 → 查询参数：时间窗口按本地自然日（含端点，今天收口），
     /// Agent.Id 直传（<see cref="AgentOption.AllId"/> → null 不过滤，查询服务语义为空白不过滤）。
-    /// D-008 起实现抽到 <see cref="GlobalFilterMapper"/>（会话列表同口径共用），本方法保留为测试对账入口。
-    /// internal 供测试断言映射。
+    /// D-008 起实现抽到 <see cref="GlobalFilterMapper"/>（会话列表同口径共用）。
     /// </summary>
-    internal UsageQueryFilter BuildQueryFilter(TimeRangeOption range, AgentOption agent) =>
-        GlobalFilterMapper.Build(range, agent);
+    internal UsageQueryFilter BuildQueryFilter() => GlobalFilterMapper.Build(_filters);
 
     /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync，序号防护保证与筛选重查并发时旧响应丢弃。</summary>
     public Task OnDataRefreshedAsync() => LoadAsync();
@@ -246,7 +242,7 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     public async Task LoadAsync()
     {
         var sequence = ++_loadSequence;
-        var filter = BuildQueryFilter(_filters.TimeRange, _filters.Agent);
+        var filter = BuildQueryFilter();
 
         try
         {

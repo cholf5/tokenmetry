@@ -1,19 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CCUsage.App.Localization;
 
 namespace CCUsage.App.Services;
 
-/// <summary>全局时间范围（D-003 顶部栏筛选，对应原型 #rangeTop 的 7/30/90/全部四档）。</summary>
+/// <summary>全局时间范围（D-003 顶部栏筛选；在原型 #rangeTop 的 7/30/90/全部四档上追加 今日 与 自定义 两档）。</summary>
 public enum TimeRange
 {
+    Today,
     Last7Days,
     Last30Days,
     Last90Days,
     All,
+    Custom,
 }
 
 /// <summary>
@@ -32,25 +35,36 @@ public sealed class TimeRangeOption : INotifyPropertyChanged
 
     public string Label => Value switch
     {
+        TimeRange.Today => Translations.Instance.TimeRangeToday,
         TimeRange.Last7Days => Translations.Instance.TimeRange7,
         TimeRange.Last30Days => Translations.Instance.TimeRange30,
         TimeRange.Last90Days => Translations.Instance.TimeRange90,
+        TimeRange.All => Translations.Instance.TimeRangeAll,
+        TimeRange.Custom => Translations.Instance.TimeRangeCustom,
         _ => Translations.Instance.TimeRangeAll,
     };
+
+    /// <summary>是否为自定义档（放在本类：FilterStateService 内有同名 TimeRange 属性会遮蔽枚举名）。</summary>
+    public bool IsCustom => Value == TimeRange.Custom;
 
     /// <summary>语言切换后刷新展示名（Label 为计算属性，需显式通知）。</summary>
     public void RefreshLabel() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Label)));
 
     public static IReadOnlyList<TimeRangeOption> Options { get; } =
     [
+        new(TimeRange.Today),
         new(TimeRange.Last7Days),
         new(TimeRange.Last30Days),
         new(TimeRange.Last90Days),
         new(TimeRange.All),
+        new(TimeRange.Custom),
     ];
 
-    /// <summary>默认时间范围：最近 7 天（对齐原型 #rangeTop 默认选中与初始渲染 renderTrend(7)；D-003 审查后由 30 天改齐）。</summary>
-    public static TimeRangeOption Default { get; } = Options[0];
+    /// <summary>
+    /// 默认时间范围：最近 7 天（对齐原型 #rangeTop 默认选中与初始渲染 renderTrend(7)；D-003 审查后由 30 天改齐）。
+    /// 按值定位而非 Options 下标，选项清单增删不改默认档。
+    /// </summary>
+    public static TimeRangeOption Default { get; } = Options.First(o => o.Value == TimeRange.Last7Days);
 
     public override string ToString() => Label;
 
@@ -136,12 +150,26 @@ public sealed class FilterStateService : ObservableObject
     private TimeRangeOption _timeRange = TimeRangeOption.Default;
     private AgentOption _agent = AgentOption.All;
     private IReadOnlyList<AgentOption> _agentOptions = [AgentOption.All];
+    private DateTimeOffset? _customFromDate;
+    private DateTimeOffset? _customToDate;
 
     public FilterStateService()
     {
         // 语言切换重译：选项 Label 由各选项自行刷新，此处补发 Display 汇总串。
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
     }
+
+    /// <summary>
+    /// 属性名是否会影响查询结果（各页 VM OnFilterPropertyChanged 的统一判据）：
+    /// 空 = 语言切换全属性广播（整页重查重渲染），其余为筛选的四个可变维度。
+    /// Display 是派生串，不在此列（避免一次变更触发两次重查）。
+    /// </summary>
+    public static bool AffectsQueries(string? propertyName) =>
+        string.IsNullOrEmpty(propertyName)
+        || propertyName == nameof(TimeRange)
+        || propertyName == nameof(Agent)
+        || propertyName == nameof(CustomFromDate)
+        || propertyName == nameof(CustomToDate);
 
     /// <summary>时间范围选项（顶部栏 ComboBox 数据源）。</summary>
     public IReadOnlyList<TimeRangeOption> TimeRangeOptions => TimeRangeOption.Options;
@@ -157,8 +185,47 @@ public sealed class FilterStateService : ObservableObject
     public TimeRangeOption TimeRange
     {
         get => _timeRange;
-        set => SetOnUi(() => SetProperty(ref _timeRange, value));
+        set => SetOnUi(() =>
+        {
+            if (!SetProperty(ref _timeRange, value))
+            {
+                return false;
+            }
+
+            OnPropertyChanged(nameof(IsCustomRange));
+            if (value.IsCustom && _customFromDate is null && _customToDate is null)
+            {
+                // 首次切到自定义：预填与默认档一致的最近 7 天窗口（本地自然日含端点），保证起止两端有值可直接查询。
+                var today = DateOnly.FromDateTime(DateTime.Today);
+                _customFromDate = today.AddDays(-6).ToDateTime(TimeOnly.MinValue);
+                _customToDate = today.ToDateTime(TimeOnly.MinValue);
+                OnPropertyChanged(nameof(CustomFromDate));
+                OnPropertyChanged(nameof(CustomToDate));
+            }
+
+            return true;
+        });
     }
+
+    /// <summary>
+    /// 自定义范围起始日（含；DatePicker SelectedDate 绑定源，取本地自然日的 0 点）。
+    /// 仅 <see cref="TimeRange.Custom"/> 档参与查询映射（未选侧 = 不设该端界限）。
+    /// </summary>
+    public DateTimeOffset? CustomFromDate
+    {
+        get => _customFromDate;
+        set => SetOnUi(() => SetProperty(ref _customFromDate, value));
+    }
+
+    /// <summary>自定义范围结束日（含；语义同 <see cref="CustomFromDate"/>）。</summary>
+    public DateTimeOffset? CustomToDate
+    {
+        get => _customToDate;
+        set => SetOnUi(() => SetProperty(ref _customToDate, value));
+    }
+
+    /// <summary>当前是否为自定义档（顶部栏据此显隐起止日期选择器）。</summary>
+    public bool IsCustomRange => _timeRange.IsCustom;
 
     /// <summary>Agent 筛选。默认所有 Agent（不过滤）。</summary>
     public AgentOption Agent

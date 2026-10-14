@@ -176,9 +176,7 @@ public partial class AgentsViewModel : ViewModelBase, IDisposable, IDataRefreshA
 
     private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (string.IsNullOrEmpty(e.PropertyName)
-            || e.PropertyName == nameof(FilterStateService.TimeRange)
-            || e.PropertyName == nameof(FilterStateService.Agent))
+        if (FilterStateService.AffectsQueries(e.PropertyName))
         {
             _ = LoadAsync();
         }
@@ -191,7 +189,7 @@ public partial class AgentsViewModel : ViewModelBase, IDisposable, IDataRefreshA
     public async Task LoadAsync()
     {
         var sequence = ++_loadSequence;
-        var filter = GlobalFilterMapper.Build(_filters.TimeRange, _filters.Agent);
+        var filter = GlobalFilterMapper.Build(_filters);
 
         try
         {

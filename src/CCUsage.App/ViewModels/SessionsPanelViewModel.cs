@@ -186,9 +186,7 @@ public partial class SessionsPanelViewModel : ViewModelBase
 
     private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (string.IsNullOrEmpty(e.PropertyName)
-            || e.PropertyName == nameof(FilterStateService.TimeRange)
-            || e.PropertyName == nameof(FilterStateService.Agent))
+        if (FilterStateService.AffectsQueries(e.PropertyName))
         {
             _ = ReloadRecentSessionsAsync();
         }
@@ -202,7 +200,7 @@ public partial class SessionsPanelViewModel : ViewModelBase
         {
             var result = await _query.GetSessionsAsync(new SessionListQuery
             {
-                Filter = GlobalFilterMapper.Build(_filters.TimeRange, _filters.Agent),
+                Filter = GlobalFilterMapper.Build(_filters),
                 SortBy = SessionSortField.LastSeenAt,
                 SortDescending = true,
                 Page = 1,

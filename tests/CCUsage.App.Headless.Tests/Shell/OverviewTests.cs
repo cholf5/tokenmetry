@@ -294,7 +294,7 @@ public class OverviewTests
         Assert.Null(initial.Agent); // "all" 不过滤
 
         // 30 天：窗口本地自然日、含端点
-        filters.TimeRange = TimeRangeOption.Options[1];
+        filters.TimeRange = TimeRangeOption.Options[2];
         Assert.Equal(2, stub.KpiCalls);
         Assert.Equal(UsageQueryFilter.FormatDay(today.AddDays(-29)), stub.KpiFilters[^1].FromDay);
         Assert.Equal(UsageQueryFilter.FormatDay(today), stub.KpiFilters[^1].ToDay);
@@ -306,7 +306,7 @@ public class OverviewTests
         Assert.Equal("Codex", stub.KpiFilters[^1].Agent);
 
         // 全部时间：双端无界 → 无上一周期，环比呈平箭头 "→ —"（不臆造对比）
-        filters.TimeRange = TimeRangeOption.Options[3];
+        filters.TimeRange = TimeRangeOption.Options[4];
         Assert.Equal(4, stub.KpiCalls);
         Assert.Null(stub.KpiFilters[^1].FromDay);
         Assert.Null(stub.KpiFilters[^1].ToDay);
@@ -335,8 +335,8 @@ public class OverviewTests
 
         // 第 2 次查询（切 30 天）在 KPI 处挂起；第 3 次（切 90 天）同步走完
         stub.HoldNextKpi(staleKpi);
-        filters.TimeRange = TimeRangeOption.Options[1]; // 30 天 → 挂起
-        filters.TimeRange = TimeRangeOption.Options[2]; // 90 天 → 完成
+        filters.TimeRange = TimeRangeOption.Options[2]; // 30 天 → 挂起
+        filters.TimeRange = TimeRangeOption.Options[3]; // 90 天 → 完成
         Assert.Equal("950万", vm.TokensCard.Value);
 
         // 放行旧响应：序号防护使其被丢弃，UI 仍是新选择（90 天）的结果
@@ -413,7 +413,7 @@ public class OverviewTests
         Assert.Equal(1, stub.KpiCalls);
 
         vm.Dispose();
-        filters.TimeRange = TimeRangeOption.Options[1];
+        filters.TimeRange = TimeRangeOption.Options[2];
         filters.Agent = new AgentOption("Claude Code", "Claude Code");
 
         // FilterStateService 是常驻单例：页面 VM 不退订会随导航次数无界累积（D-003 审查 P1 同源回归）

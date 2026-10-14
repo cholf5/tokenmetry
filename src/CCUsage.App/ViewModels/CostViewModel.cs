@@ -121,9 +121,7 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
 
     private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (string.IsNullOrEmpty(e.PropertyName)
-            || e.PropertyName == nameof(FilterStateService.TimeRange)
-            || e.PropertyName == nameof(FilterStateService.Agent))
+        if (FilterStateService.AffectsQueries(e.PropertyName))
         {
             _ = LoadAsync();
         }
@@ -136,7 +134,7 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
     public async Task LoadAsync()
     {
         var sequence = ++_loadSequence;
-        var filter = GlobalFilterMapper.Build(_filters.TimeRange, _filters.Agent);
+        var filter = GlobalFilterMapper.Build(_filters);
 
         try
         {
