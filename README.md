@@ -16,13 +16,7 @@
 ---
 
 <p align="center">
-  <img src="docs/design/time-dark.png" alt="Tokenmetry 总览" width="880" />
-</p>
-
-<p align="center">
-  <img src="docs/design/overview-dark.png" alt="Token 使用概览" width="430" />
-  &nbsp;
-  <img src="docs/design/cost-dark.png" alt="成本分析" width="430" />
+  <img src="docs/design/time-dark.png" alt="Tokenmetry 界面" width="880" />
 </p>
 
 > 上图为设计基准原型（`docs/design/ccusage_analytics_prototype.html`）。实现以 Semi.Avalonia 主题 + ScottPlot / 自绘控件对齐此观感，共 8 个固定视图 × 明暗两套主题。
