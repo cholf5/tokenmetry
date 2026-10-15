@@ -72,7 +72,7 @@ Expected:
 
 ## Verification
 
-- Related files: `src/TokenPulse.Core/Models/DimensionUsageRow.cs`（DominantAgent/AgentCount 契约演进）、`src/TokenPulse.Core/Services/UsageQueryService.cs`、`src/TokenPulse.Core/Abstractions/IUsageQueryService.cs`、`src/TokenPulse.App/ViewModels/ModelsViewModel.cs`、`src/TokenPulse.App/Views/ModelsView.axaml(.cs)`、`tests/TokenPulse.Infrastructure.Tests/Query/UsageQueryServiceTests.cs`（对账）、`tests/TokenPulse.App.Headless.Tests/Shell/DimensionPagesTests.cs`（页面层）
+- Related files: `src/Tokenmetry.Core/Models/DimensionUsageRow.cs`（DominantAgent/AgentCount 契约演进）、`src/Tokenmetry.Core/Services/UsageQueryService.cs`、`src/Tokenmetry.Core/Abstractions/IUsageQueryService.cs`、`src/Tokenmetry.App/ViewModels/ModelsViewModel.cs`、`src/Tokenmetry.App/Views/ModelsView.axaml(.cs)`、`tests/Tokenmetry.Infrastructure.Tests/Query/UsageQueryServiceTests.cs`（对账）、`tests/Tokenmetry.App.Headless.Tests/Shell/DimensionPagesTests.cs`（页面层）
 - How to run/verify: `dotnet test`（Infrastructure 的 UsageQueryServiceTests + Headless 的 DimensionPagesTests）+ 明暗截图目检
 - Results: 2026-10-13（审查修复轮后）全套件 987 通过 / 22 跳过 / 0 失败 / 0 警告。TC-001 通过（`Totals_row_includes_unpriced_tokens_but_excludes_unknown_cost`：缺价行「未知」、合计 Token 10,790 含缺价行 160、成本 $5.60+ 不含缺价行）；成本四态（全已知 "$Y" / 混合 "$Y+" / 全未知「未知」/ 空 "—"）与关联 Agent 三态各有用例（m-tie 用例已量级交换为可区分断言）；全局筛选联动 / 序号防护 / 失败保留上次成功数据 / Dispose 退订覆盖。截图 `docs/design/models-light.png`、`docs/design/models-dark.png`（真实数据 2 模型全已知成本，合计行可见）。
 

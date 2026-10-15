@@ -31,7 +31,7 @@ blocked: none
 - [x] `OpenClawSqliteReader`（sqlite.rs）：agents/*/agent/openclaw-agent.sqlite 发现（目录与文件均非符号链接、按路径排序）→ 只读打开（共享 SqliteReadonly）→ transcript_events 表存在性检查（缺失静默跳过不算问题）→ `SELECT session_id, seq, event_json, created_at ORDER BY session_id, seq` → 逐行复用同一行映射、跟踪状态**按会话边界重置**（JSONL 逐文件状态的等价物）
 - [x] `OpenClawAdapter`（loader.rs）：每根先 SQLite 后 JSONL → JSONL 走共享 `IncrementalJsonlScanner`（内容键 = migration_id + 成本 first-wins）→ **SQLite 优先合并**：事件 id "openclaw:&lt;session&gt;:&lt;id&gt;" 去重 → ①会话+事件 id、②迁移身份（migration_id：会话+时间戳+模型+四桶+extra，**不含成本**）匹配替换 JSONL 副本、③追加 → 时间戳稳定排序
 - [x] 接线：`IOpenClawAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十八路 concat + AppServices 单例
-- [x] 单元测试 49 项（tests/TokenPulse.Infrastructure.Tests/OpenClaw/，蓝本 paths/parser/loader/sqlite 内联测试同名场景逐一对齐 + 载荷类型角落 + env 语义 + 双格式优先级）
+- [x] 单元测试 49 项（tests/Tokenmetry.Infrastructure.Tests/OpenClaw/，蓝本 paths/parser/loader/sqlite 内联测试同名场景逐一对齐 + 载荷类型角落 + env 语义 + 双格式优先级）
 - [x] fixture（合成 JSONL 会话 + python3 生成合成 transcript_events 库，无真实数据）+ golden 录制（ccusage 20.0.29 openclaw daily --json --offline --timezone UTC，OPENCLAW_DIR 钉 fixture）+ 对账测试 2 项
 - [x] 门控真实对账就绪（RealDataReconciliationTests.Real_openclaw_data_reconciles_with_cli；本机无数据验证 Skip）
 
@@ -41,7 +41,7 @@ blocked: none
 
 ## Test Cases
 
-### TC-001: 蓝本语义单元测试（tests/TokenPulse.Infrastructure.Tests/OpenClaw/OpenClawAdapterTests.cs，49 项）
+### TC-001: 蓝本语义单元测试（tests/Tokenmetry.Infrastructure.Tests/OpenClaw/OpenClawAdapterTests.cs，49 项）
 
 Steps:
 1. 归档会话文件判定与会话 id 推导（.jsonl / .jsonl.deleted.* / .jsonl.reset.* / 非 .jsonl 后缀；首段 ".jsonl" 前缀推导）。
@@ -57,7 +57,7 @@ Expected:
 
 Result: ✅ 49 通过 / 0 失败（2026-10-11，含蓝本 paths.rs detects_archived_session_files、parser.rs 三例、loader.rs 四例、sqlite.rs 五例全部同名移植）。
 
-### TC-002: fixture 对账（tests/TokenPulse.Reconciliation.Tests/OpenClawFixtureReconciliationTests.cs，2 项）
+### TC-002: fixture 对账（tests/Tokenmetry.Reconciliation.Tests/OpenClawFixtureReconciliationTests.cs，2 项）
 
 Steps:
 1. fixture：fixtures/openclaw/（合成 agents/main、agents/worker 双 agent 的 JSONL 会话含归档后缀 + python3 生成的两份 transcript_events 库，含迁移副本、SQLite-only 会话、坏 JSON 载荷行、not-a-database.sqlite 干扰项；全部合成数据）。
@@ -72,13 +72,13 @@ Result: ✅ 2 通过 / 0 失败（2026-10-11）。对账数字：3 天 × 6 模�
 ### TC-003: 门控本机真实数据对账（RealDataReconciliationTests.Real_openclaw_data_reconciles_with_cli）
 
 Steps:
-1. `TOKENPULSE_RECONCILE_REAL=1` 且本机存在 OpenClaw 数据（OPENCLAW_DIR / 四默认根下有会话 JSONL 或 agent 库）时运行：CLI openclaw daily --json --offline 与自研全链路对账。
+1. `TOKENMETRY_RECONCILE_REAL=1` 且本机存在 OpenClaw 数据（OPENCLAW_DIR / 四默认根下有会话 JSONL 或 agent 库）时运行：CLI openclaw daily --json --offline 与自研全链路对账。
 2. 任一条件不满足时 Skip 而非 Fail。
 
 Expected:
 - 本机（无 OpenClaw 数据）Skip；有数据机器全链路 tokens 精确一致。
 
-Result: ✅ Skip 验证通过（2026-10-11，TOKENPULSE_RECONCILE_REAL=1 下 Skipped: 1；数据探测复用产品定位器与 CLI 同一套逻辑）。
+Result: ✅ Skip 验证通过（2026-10-11，TOKENMETRY_RECONCILE_REAL=1 下 Skipped: 1；数据探测复用产品定位器与 CLI 同一套逻辑）。
 
 ## Development Log
 
@@ -129,6 +129,6 @@ Result: ✅ Skip 验证通过（2026-10-11，TOKENPULSE_RECONCILE_REAL=1 下 Ski
 
 ## Verification
 
-- Related files: `src/TokenPulse.Core/Abstractions/IOpenClawAdapter.cs`、`src/TokenPulse.Infrastructure/OpenClaw/OpenClawLogLocator.cs`、`src/TokenPulse.Infrastructure/OpenClaw/OpenClawLogParser.cs`、`src/TokenPulse.Infrastructure/OpenClaw/OpenClawSqliteReader.cs`、`src/TokenPulse.Infrastructure/OpenClaw/OpenClawAdapter.cs`、`src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第十八路）、`src/TokenPulse.App/DependencyInjection/AppServices.cs`、`tests/TokenPulse.Infrastructure.Tests/OpenClaw/OpenClawAdapterTests.cs`、`tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（十八参构造）、`tests/TokenPulse.Reconciliation.Tests/OpenClawFixtureReconciliationTests.cs`、`tests/TokenPulse.Reconciliation.Tests/fixtures/openclaw/`（合成双格式 fixture）、`tests/TokenPulse.Reconciliation.Tests/fixtures/golden/openclaw-fixture-daily-v20.0.29.json`、`tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`（录制命令）、`tests/TokenPulse.Reconciliation.Tests/Support/{UsageChainAggregator,FixturePaths,RealReconciliationEnvironment}.cs`、`tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`、`tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`（门控真实对账）
-- How to run/verify: `dotnet build TokenPulse.sln`（0 警告 0 错误）；`dotnet test TokenPulse.sln`（全绿）；单测 `dotnet test tests/TokenPulse.Infrastructure.Tests --filter FullyQualifiedName~OpenClaw`（49 项）；fixture 对账 `dotnet test tests/TokenPulse.Reconciliation.Tests --filter FullyQualifiedName~OpenClawFixture`（2 项）；golden 重录：`OPENCLAW_DIR="$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/openclaw" npx --yes ccusage@20.0.29 openclaw daily --json --offline --timezone UTC > tests/TokenPulse.Reconciliation.Tests/fixtures/golden/openclaw-fixture-daily-v20.0.29.json`（命令已登记 fixtures/golden/README.md）
-- Results: 2026-10-12（含审查修复复验）——`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **674 通过 / 21 跳过 / 0 失败**（基线 623 通过 / 20 跳过 + 本卡新增 51 通过 = 49 单测 + 2 对账，+1 跳过为门控真实对账；审查修复为文档/注释级，无代码行为变化、测试数字不变）；fixture 对账与 CLI golden 全粒度一致——tokens 五分量逐位一致（全期 input 1,002,331 / output 457 / cache_creation 5 / cache_read 109,028 / total 1,111,821），成本经容差一致（唯一浮点累加差异 3e-17 量级），SQLite 优先去重实证（02-02 gpt-5.2 cost 0.51 逐位替换 0.50）；门控真实对账本机无数据 Skip 验证通过。仓库内无真实用户数据（fixtures 全合成）。
+- Related files: `src/Tokenmetry.Core/Abstractions/IOpenClawAdapter.cs`、`src/Tokenmetry.Infrastructure/OpenClaw/OpenClawLogLocator.cs`、`src/Tokenmetry.Infrastructure/OpenClaw/OpenClawLogParser.cs`、`src/Tokenmetry.Infrastructure/OpenClaw/OpenClawSqliteReader.cs`、`src/Tokenmetry.Infrastructure/OpenClaw/OpenClawAdapter.cs`、`src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第十八路）、`src/Tokenmetry.App/DependencyInjection/AppServices.cs`、`tests/Tokenmetry.Infrastructure.Tests/OpenClaw/OpenClawAdapterTests.cs`、`tests/Tokenmetry.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（十八参构造）、`tests/Tokenmetry.Reconciliation.Tests/OpenClawFixtureReconciliationTests.cs`、`tests/Tokenmetry.Reconciliation.Tests/fixtures/openclaw/`（合成双格式 fixture）、`tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/openclaw-fixture-daily-v20.0.29.json`、`tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/README.md`（录制命令）、`tests/Tokenmetry.Reconciliation.Tests/Support/{UsageChainAggregator,FixturePaths,RealReconciliationEnvironment}.cs`、`tests/Tokenmetry.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`、`tests/Tokenmetry.Reconciliation.Tests/RealDataReconciliationTests.cs`（门控真实对账）
+- How to run/verify: `dotnet build Tokenmetry.sln`（0 警告 0 错误）；`dotnet test Tokenmetry.sln`（全绿）；单测 `dotnet test tests/Tokenmetry.Infrastructure.Tests --filter FullyQualifiedName~OpenClaw`（49 项）；fixture 对账 `dotnet test tests/Tokenmetry.Reconciliation.Tests --filter FullyQualifiedName~OpenClawFixture`（2 项）；golden 重录：`OPENCLAW_DIR="$PWD/tests/Tokenmetry.Reconciliation.Tests/fixtures/openclaw" npx --yes ccusage@20.0.29 openclaw daily --json --offline --timezone UTC > tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/openclaw-fixture-daily-v20.0.29.json`（命令已登记 fixtures/golden/README.md）
+- Results: 2026-10-12（含审查修复复验）——`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **674 通过 / 21 跳过 / 0 失败**（基线 623 通过 / 20 跳过 + 本卡新增 51 通过 = 49 单测 + 2 对账，+1 跳过为门控真实对账；审查修复为文档/注释级，无代码行为变化、测试数字不变）；fixture 对账与 CLI golden 全粒度一致——tokens 五分量逐位一致（全期 input 1,002,331 / output 457 / cache_creation 5 / cache_read 109,028 / total 1,111,821），成本经容差一致（唯一浮点累加差异 3e-17 量级），SQLite 优先去重实证（02-02 gpt-5.2 cost 0.51 逐位替换 0.50）；门控真实对账本机无数据 Skip 验证通过。仓库内无真实用户数据（fixtures 全合成）。

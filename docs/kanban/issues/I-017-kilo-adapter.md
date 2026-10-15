@@ -29,7 +29,7 @@ blocked: none
     （蓝本 Auto 口径：Some(0.0) 记 0 不再计价——与 OpenCode 的 &gt;0 过滤不同）
 - [x] fixtures + 单元测试；接入本地采集管道
   - ✅ Infrastructure 20 项单测（临时 SQLite 库，fixtures 全合成）+ 合成 fixture（kilo.db）入仓 +
-    CLI golden 录制逐位一致 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip）；
+    CLI golden 录制逐位一致 + `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip）；
     `IKiloSqliteAdapter` + LocalIngestionDataSource 第九路 concat + App DI 双注册
 
 ## Subtasks
@@ -50,7 +50,7 @@ blocked: none
   WAL、定位器五场景、候选纯函数、Auto 成本语义）
 - [x] 对账：合成 fixture（assistant 过滤 + 五桶 + stored cost 0/0.005 双路径 + user 行 + 坏 JSON）入仓 +
   CLI golden 录制（fixtures/golden/kilo-fixture-daily-v20.0.29.json）+ fixture 对账测试 ×2 +
-  `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasKiloData 数据存在性 Skip）
+  `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（HasKiloData 数据存在性 Skip）
 - [x] 管道接线：`IKiloSqliteAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第九路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**无新增段**——fixture 的 claude-sonnet-4-5 / gpt-5.1 stored cost 非正即短路或缺失行
@@ -92,7 +92,7 @@ Uses_raw_model_when_provider_match_is_not_exact、Stored_zero_cost_records_zero_
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/kilo/kilo.db`（合成数据，覆盖：assistant
+1. 仓库内 fixture `tests/Tokenmetry.Reconciliation.Tests/fixtures/kilo/kilo.db`（合成数据，覆盖：assistant
    过滤、五桶映射、stored cost 0（msg-a）与 0.0（msg-c）按 Auto 记 0 不计价、stored 0.005（msg-b）
    LogCost、user 行、坏 JSON 行）。
 2. 录制 golden：`KILO_DATA_DIR=$PWD/$FX/kilo npx --yes ccusage@20.0.29 kilo daily --json --offline
@@ -110,10 +110,10 @@ tokens，totalCost=$0.005** 逐位一致（claude-sonnet-4-5 1,100/210/100/300�
 为 0/0.0 按蓝本 Auto 记 0；gpt-5.1 500/50/0/0、cost 0.005 LogCost）；诊断 status=Partial、malformed=1、
 skipped=1、records=3、UnpricedModels=∅、0 成本记录 2（与 Auto 口径一一对应）。
 
-### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENMETRY_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_kilo"`。
+1. `TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Real_kilo"`。
 2. 数据存在性门控：定位器（KILO_DATA_DIR / 默认根）下至少一个目录有 kilo.db 才运行（与 CLI 子进程同一套
    探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 kilo daily --json --offline --timezone UTC`（golden）
@@ -186,7 +186,7 @@ fixtures 全部合成，无真实数据入仓）：
 - ⑦ **无 since/until 窗口**：桌面九路适配器统一全量出账、日期过滤/分桶由下游聚合承担（I-008 偏差⑦
   同款架构；Kilo 蓝本无窗口相关特殊逻辑，无损失）。
 
-验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **415 通过 / 12 跳过**
+验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **415 通过 / 12 跳过**
 （I-016 收口基线 393/11 + 新增 20 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账测试
 （本机 Skip））；门控以 KILO_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 / TC-003。
 
@@ -197,7 +197,7 @@ fixtures 全部合成，无真实数据入仓）：
 - **[拆卡] 候选计价端到端接线 → [I-024](I-024-candidate-pricing-wiring.md)**：偏差①（qualified find_exact
   候选计价）的落地路径拆小卡，Bugs 表登记 deferred（I-017-B1）；board.md Todo 加 I-024 行（PM 委托的
   唯一 board 改动）。
-- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；全仓 `dotnet test` **417 通过 / 12 跳过**（本卡零代码
+- 复核：`dotnet build Tokenmetry.sln` 0 警告 0 错误；全仓 `dotnet test` **417 通过 / 12 跳过**（本卡零代码
   改动，增量来自 I-009 审查修复的 2 项单测）；fixture 对账复验不变（golden 逐位一致）。
 
 ## Bugs
@@ -208,24 +208,24 @@ fixtures 全部合成，无真实数据入仓）：
 
 ## Verification
 
-- Related files: `src/TokenPulse.Infrastructure/KiloSqlite/`（KiloSqliteAdapter、KiloMessageParser、
-  KiloDataLocator）、`src/TokenPulse.Infrastructure/SqliteSource/LenientJson.cs`（自 OpenCodeSqlite 上移共享）、
-  `src/TokenPulse.Core/Abstractions/IKiloSqliteAdapter.cs`、
-  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第九路）、
-  `src/TokenPulse.App/DependencyInjection/AppServices.cs`（DI）、
-  `tests/TokenPulse.Infrastructure.Tests/KiloSqlite/KiloSqliteAdapterTests.cs`、
-  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第九适配器）、
-  `tests/TokenPulse.Reconciliation.Tests/`（KiloFixtureReconciliationTests、RealDataReconciliationTests、
+- Related files: `src/Tokenmetry.Infrastructure/KiloSqlite/`（KiloSqliteAdapter、KiloMessageParser、
+  KiloDataLocator）、`src/Tokenmetry.Infrastructure/SqliteSource/LenientJson.cs`（自 OpenCodeSqlite 上移共享）、
+  `src/Tokenmetry.Core/Abstractions/IKiloSqliteAdapter.cs`、
+  `src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第九路）、
+  `src/Tokenmetry.App/DependencyInjection/AppServices.cs`（DI）、
+  `tests/Tokenmetry.Infrastructure.Tests/KiloSqlite/KiloSqliteAdapterTests.cs`、
+  `tests/Tokenmetry.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第九适配器）、
+  `tests/Tokenmetry.Reconciliation.Tests/`（KiloFixtureReconciliationTests、RealDataReconciliationTests、
   Support/UsageChainAggregator、Support/RealReconciliationEnvironment、Support/FixturePaths、
-  CCUsageCli/CcusageGoldenFiles）、`tests/TokenPulse.Reconciliation.Tests/fixtures/kilo/kilo.db`
-  （合成 fixture）、`tests/TokenPulse.Reconciliation.Tests/fixtures/golden/kilo-fixture-daily-v20.0.29.json`
+  CCUsageCli/CcusageGoldenFiles）、`tests/Tokenmetry.Reconciliation.Tests/fixtures/kilo/kilo.db`
+  （合成 fixture）、`tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/kilo-fixture-daily-v20.0.29.json`
   （CLI 录制 golden + README 录制命令）
-- How to run/verify: 全量 `dotnet build TokenPulse.sln && dotnet test TokenPulse.sln`；Kilo 单测
-  `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj --filter "FullyQualifiedName~KiloSqlite"`；
-  fixture 对账 `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Kilo"`；
-  真实对账（有数据机器）`TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests
+- How to run/verify: 全量 `dotnet build Tokenmetry.sln && dotnet test Tokenmetry.sln`；Kilo 单测
+  `dotnet test tests/Tokenmetry.Infrastructure.Tests/Tokenmetry.Infrastructure.Tests.csproj --filter "FullyQualifiedName~KiloSqlite"`；
+  fixture 对账 `dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Kilo"`；
+  真实对账（有数据机器）`TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests
   --filter "FullyQualifiedName~Real_kilo"`（无数据自动 Skip）；golden 重录命令见
-  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`
+  `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/README.md`
 - Results: 2026-10-11 — 构建 0 警告 0 错误；单测 20/20；全仓 415 通过 / 12 跳过；fixture 对账 tokens
   五分量 + cost 两侧逐位一致（全量 input=1,600 / output=260 / cacheCreation=100 / cacheRead=300 /
   total=2,260，cost=$0.005，见 TC-002）；真实数据对账门控测试就绪，本机无 Kilo 数据按门控 Skip，门控

@@ -32,7 +32,7 @@ blocked: none
     provider 归一化前缀推断全分支；reasoning（total − 分量和）并入 output（I-006 口径）；全零行跳过
 - [x] fixtures + 单元测试；接入本地采集管道
   - ✅ Infrastructure 19 项单测（临时 SQLite 库，fixtures 全合成）+ 合成 fixture（sessions.db）入仓 +
-    CLI golden 录制逐位一致 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip）；
+    CLI golden 录制逐位一致 + `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip）；
     `IGooseSqliteAdapter` + LocalIngestionDataSource 第七路 concat + App DI 双注册
 
 ## Subtasks
@@ -53,7 +53,7 @@ blocked: none
   定位器四场景、provider 归一化九分支、越界时间防御）
 - [x] 对账：合成 fixture（accumulated 优先 + 干扰 plain 列 + 秒级时间戳 + 全零/坏 config/坏时间戳行）入仓 +
   CLI golden 录制（fixtures/golden/goose-fixture-daily-v20.0.29.json）+ fixture 对账测试 ×2 +
-  `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasGooseData 数据存在性 Skip）
+  `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（HasGooseData 数据存在性 Skip）
 - [x] 管道接线：`IGooseSqliteAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第七路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**无新增段**——fixture 覆盖的 claude-sonnet-4-5（3/15/0.3/3.75）与 gpt-5.1
@@ -97,7 +97,7 @@ Rejects_timestamp_beyond_datetimeoffset_range）。
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/goose/data/sessions/sessions.db`（合成数据，
+1. 仓库内 fixture `tests/Tokenmetry.Reconciliation.Tests/fixtures/goose/data/sessions/sessions.db`（合成数据，
    覆盖：accumulated 列优先 + plain 干扰值、整数秒时间戳（session-b）、19 字符空格分隔时间（session-a）、
    provider 缺失前缀归一（gpt-5.1 → openai）、tokens 全零行、坏 JSON config 行、不可解析时间戳行）。
 2. 录制 golden：`GOOSE_PATH_ROOT=$PWD/$FX/goose npx --yes ccusage@20.0.29 goose daily --json --offline
@@ -115,10 +115,10 @@ totalCost=$0.006675** 逐位一致；分日 2026-09-14（1,000/200/0/0/1,200，c
 1000×$3/M + 200×$15/M）与 2026-09-15（300/30/0/0/330，gpt-5.1 cost 0.000675 = 300×$1.25/M + 30×$10/M）
 逐位一致；诊断 status=Partial、invalid=2、skipped=1、records=2、UnpricedModels=∅。
 
-### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENMETRY_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_goose"`。
+1. `TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Real_goose"`。
 2. 数据存在性门控：定位器（GOOSE_PATH_ROOT → 三默认候选）下至少一个库文件才运行（与 CLI 子进程同一套
    探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 goose daily --json --offline --timezone UTC`（golden）
@@ -199,7 +199,7 @@ fixtures 全部合成，无真实数据入仓）：
 - ⑦ **u64 → long 边界**：蓝本 token 计数为 u64，统一记录为 long——蓝本 read_token_value 仅正 i64 生效，
   读取层结构性保证非负且 ≤ i64 域，无钳位分支（与 I-009 的 lenient_u64 场景不同）。
 
-验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **370 通过 / 10 跳过**
+验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **370 通过 / 10 跳过**
 （I-009 收口基线 349/9 + 新增 19 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账测试
 （本机 Skip））；门控以 GOOSE_PATH_ROOT 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 / TC-003。
 
@@ -212,7 +212,7 @@ fixtures 全部合成，无真实数据入仓）：
 - **[拆卡] 候选计价端到端接线 → [I-024](I-024-candidate-pricing-wiring.md)**：偏差①（provider 限定候选
   计价）的落地路径拆小卡，Bugs 表登记 deferred（I-012-B1）；board.md Todo 加 I-024 行（PM 委托的唯一
   board 改动）。
-- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；全仓 `dotnet test` **417 通过 / 12 跳过**（本卡零代码
+- 复核：`dotnet build Tokenmetry.sln` 0 警告 0 错误；全仓 `dotnet test` **417 通过 / 12 跳过**（本卡零代码
   改动，增量来自 I-009 审查修复的 2 项单测）；fixture 对账复验不变（golden 逐位一致）。
 
 ## Bugs
@@ -223,23 +223,23 @@ fixtures 全部合成，无真实数据入仓）：
 
 ## Verification
 
-- Related files: `src/TokenPulse.Infrastructure/GooseSqlite/`（GooseSqliteAdapter、GooseSessionMapper、
-  GooseLogLocator）、`src/TokenPulse.Core/Abstractions/IGooseSqliteAdapter.cs`、
-  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第七路）、
-  `src/TokenPulse.App/DependencyInjection/AppServices.cs`（DI）、
-  `tests/TokenPulse.Infrastructure.Tests/GooseSqlite/GooseSqliteAdapterTests.cs`、
-  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第七适配器）、
-  `tests/TokenPulse.Reconciliation.Tests/`（GooseFixtureReconciliationTests、RealDataReconciliationTests、
+- Related files: `src/Tokenmetry.Infrastructure/GooseSqlite/`（GooseSqliteAdapter、GooseSessionMapper、
+  GooseLogLocator）、`src/Tokenmetry.Core/Abstractions/IGooseSqliteAdapter.cs`、
+  `src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第七路）、
+  `src/Tokenmetry.App/DependencyInjection/AppServices.cs`（DI）、
+  `tests/Tokenmetry.Infrastructure.Tests/GooseSqlite/GooseSqliteAdapterTests.cs`、
+  `tests/Tokenmetry.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第七适配器）、
+  `tests/Tokenmetry.Reconciliation.Tests/`（GooseFixtureReconciliationTests、RealDataReconciliationTests、
   Support/UsageChainAggregator、Support/RealReconciliationEnvironment、Support/FixturePaths、
-  CCUsageCli/CcusageGoldenFiles）、`tests/TokenPulse.Reconciliation.Tests/fixtures/goose/data/sessions/sessions.db`
-  （合成 fixture）、`tests/TokenPulse.Reconciliation.Tests/fixtures/golden/goose-fixture-daily-v20.0.29.json`
+  CCUsageCli/CcusageGoldenFiles）、`tests/Tokenmetry.Reconciliation.Tests/fixtures/goose/data/sessions/sessions.db`
+  （合成 fixture）、`tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/goose-fixture-daily-v20.0.29.json`
   （CLI 录制 golden + README 录制命令）
-- How to run/verify: 全量 `dotnet build TokenPulse.sln && dotnet test TokenPulse.sln`；Goose 单测
-  `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj --filter "FullyQualifiedName~GooseSqlite"`；
-  fixture 对账 `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Goose"`；
-  真实对账（有数据机器）`TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests
+- How to run/verify: 全量 `dotnet build Tokenmetry.sln && dotnet test Tokenmetry.sln`；Goose 单测
+  `dotnet test tests/Tokenmetry.Infrastructure.Tests/Tokenmetry.Infrastructure.Tests.csproj --filter "FullyQualifiedName~GooseSqlite"`；
+  fixture 对账 `dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Goose"`；
+  真实对账（有数据机器）`TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests
   --filter "FullyQualifiedName~Real_goose"`（无数据自动 Skip）；golden 重录命令见
-  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`
+  `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/README.md`
 - Results: 2026-10-11 — 构建 0 警告 0 错误；单测 19/19；全仓 370 通过 / 10 跳过；fixture 对账 tokens
   五分量 + cost 两侧逐位一致（全量 input=1,300 / output=230 / cacheCreation=0 / cacheRead=0 / total=1,530，
   cost=$0.006675，见 TC-002）；真实数据对账门控测试就绪，本机无 Goose 数据按门控 Skip，门控链路经

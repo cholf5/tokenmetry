@@ -37,7 +37,7 @@ blocked: none
     不能共享的部分（定位器、行读取/映射、去重键、查询构造）与理由见 Dev Log
 - [x] fixtures + 单元测试；接入本地采集管道
   - ✅ Infrastructure 32 项单测（临时 SQLite 库，fixtures 全合成）+ 合成 fixture（opencode.db）入仓 +
-    CLI golden 录制逐位一致 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip）；
+    CLI golden 录制逐位一致 + `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip）；
     `IOpenCodeSqliteAdapter` + LocalIngestionDataSource 第六路 concat + App DI 双注册
 
 ## Subtasks
@@ -72,7 +72,7 @@ blocked: none
   读取顺序 2 项回归）
 - [x] 对账：合成 fixture（v1+v2+fork+user+坏 JSON+stored cost 双路径+跨表去重）入仓 +
   CLI golden 录制（fixtures/golden/opencode-fixture-daily-v20.0.29.json）+ fixture 对账测试 ×2 +
-  `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasOpenCodeData 数据存在性 Skip）
+  `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（HasOpenCodeData 数据存在性 Skip）
 - [x] 管道接线：`IOpenCodeSqliteAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第六路 concat +
   App DI 双注册（具体类 + 接口）
 
@@ -115,7 +115,7 @@ Undreadable_database_degrades_to_partial、Sorts_records_by_timestamp_across_tab
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/opencode/opencode.db`（合成 SQLite 库，
+1. 仓库内 fixture `tests/Tokenmetry.Reconciliation.Tests/fixtures/opencode/opencode.db`（合成 SQLite 库，
    覆盖：v1/v2 双表、同 message id 跨表去重（v2 的 msg-a 999/999/0.99 被 v1 压制）、fork through 边界拷贝剔除、
    user 行（v1 无 tokens / v2 非 assistant）、坏 JSON 载荷、stored cost 直采（gpt-5.1 0.005）与为 0 走计价
    （claude-sonnet-4-5、gpt-5.1 命中内置快照）两路径、多模型多日）。
@@ -135,10 +135,10 @@ cost 0.03116125：claude 0.03045 = stored 0.01+0.02+计价 0.00045、gpt-5.1 计
 per-model（claude-sonnet-4-5 1,433/243/100/300、gpt-5.1 800/80/20/40）逐位一致；诊断 status=Partial、
 malformed=1、linesSkipped=4（msg-user + v2-user + 两行 fork 拷贝）、dedup=1、records=6、UnpricedModels=∅。
 
-### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENMETRY_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_opencode"`。
+1. `TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Real_opencode"`。
 2. 数据存在性门控：定位器（OPENCODE_DATA_DIR → XDG 默认根）下至少一个目录选出库文件才运行（与 CLI 子进程
    同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 opencode daily --json --offline --timezone UTC`（golden）
@@ -164,7 +164,7 @@ Result: 本机（2026-10-11）**无 OpenCode 数据 → 测试按门控 Skip**�
 MIT License，Copyright (c) 2025 ryoppippi，声明保留在 OpenCodeDataLocator / OpenCodeMessageParser /
 OpenCodeSqliteAdapter 文件头；fixtures 全部合成，无真实数据入仓）：
 
-- **骨架共享方式（AC-3）**：从 I-006 抽出两级共享原语 `src/TokenPulse.Infrastructure/SqliteSource/`——
+- **骨架共享方式（AC-3）**：从 I-006 抽出两级共享原语 `src/Tokenmetry.Infrastructure/SqliteSource/`——
   `SqliteReadonly`（Mode=ReadOnly 打开，WAL 兼容）与 `SqliteTableSchema`（sqlite_master 表存在性 +
   PRAGMA table_info 列集 + 必需列判断），ZCodeSchemaInspector / ZCodeSqliteAdapter 同步改为引用共享
   原语（行为不变，I-006 全部单测零改动通过，避免复制分叉）。**不共享并说明理由**：①定位器——
@@ -238,7 +238,7 @@ OpenCodeSqliteAdapter 文件头；fixtures 全部合成，无真实数据入仓�
   的同款结果（不回退、空列表）；Linux 发现非 UTF-8 目录名的场景（蓝本 discovers_non_utf8）不可复现，登记
   为平台差异。
 
-验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **349 通过 / 9 跳过**
+验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **349 通过 / 9 跳过**
 （基线 315/8 原样保留 + 新增 32 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账测试
 （本机 Skip））；门控以 OPENCODE_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 / TC-003。
 
@@ -262,7 +262,7 @@ OpenCodeSqliteAdapter 文件头；fixtures 全部合成，无真实数据入仓�
   偏差⑤）。
 - **[拆卡] 候选计价端到端接线 → [I-024](I-024-candidate-pricing-wiring.md)**：Bugs 表登记 deferred
   （I-009-B1）；board.md Todo 加 I-024 行（PM 委托的唯一 board 改动）。
-- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；全仓 `dotnet test` **417 通过 / 12 跳过**（新增 2 项
+- 复核：`dotnet build Tokenmetry.sln` 0 警告 0 错误；全仓 `dotnet test` **417 通过 / 12 跳过**（新增 2 项
   OpenCode 单测）；OpenCode 单测 34/34；fixture 对账复验不变（golden 逐位一致）。
 
 ## Bugs
@@ -273,26 +273,26 @@ OpenCodeSqliteAdapter 文件头；fixtures 全部合成，无真实数据入仓�
 
 ## Verification
 
-- Related files: `src/TokenPulse.Infrastructure/OpenCodeSqlite/`（OpenCodeSqliteAdapter、OpenCodeMessageParser、
-  OpenCodeDataLocator）、`src/TokenPulse.Infrastructure/SqliteSource/`（SqliteReadonly、SqliteTableSchema，
-  自 I-006 泛化的共享骨架）、`src/TokenPulse.Infrastructure/ZCodeSqlite/`（改用共享原语，行为不变）、
-  `src/TokenPulse.Core/Abstractions/IOpenCodeSqliteAdapter.cs`、
-  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第六路）、
-  `src/TokenPulse.App/DependencyInjection/AppServices.cs`（DI）、
-  `src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`（moonshot 段）、
-  `tests/TokenPulse.Infrastructure.Tests/OpenCodeSqlite/OpenCodeSqliteAdapterTests.cs`、
-  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第六适配器）、
-  `tests/TokenPulse.Reconciliation.Tests/`（OpenCodeFixtureReconciliationTests、RealDataReconciliationTests、
+- Related files: `src/Tokenmetry.Infrastructure/OpenCodeSqlite/`（OpenCodeSqliteAdapter、OpenCodeMessageParser、
+  OpenCodeDataLocator）、`src/Tokenmetry.Infrastructure/SqliteSource/`（SqliteReadonly、SqliteTableSchema，
+  自 I-006 泛化的共享骨架）、`src/Tokenmetry.Infrastructure/ZCodeSqlite/`（改用共享原语，行为不变）、
+  `src/Tokenmetry.Core/Abstractions/IOpenCodeSqliteAdapter.cs`、
+  `src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第六路）、
+  `src/Tokenmetry.App/DependencyInjection/AppServices.cs`（DI）、
+  `src/Tokenmetry.Core/Pricing/model-pricing-snapshot.json`（moonshot 段）、
+  `tests/Tokenmetry.Infrastructure.Tests/OpenCodeSqlite/OpenCodeSqliteAdapterTests.cs`、
+  `tests/Tokenmetry.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第六适配器）、
+  `tests/Tokenmetry.Reconciliation.Tests/`（OpenCodeFixtureReconciliationTests、RealDataReconciliationTests、
   Support/UsageChainAggregator、Support/RealReconciliationEnvironment、Support/FixturePaths、
-  CCUsageCli/CcusageGoldenFiles）、`tests/TokenPulse.Reconciliation.Tests/fixtures/opencode/opencode.db`
-  （合成 fixture）、`tests/TokenPulse.Reconciliation.Tests/fixtures/golden/opencode-fixture-daily-v20.0.29.json`
+  CCUsageCli/CcusageGoldenFiles）、`tests/Tokenmetry.Reconciliation.Tests/fixtures/opencode/opencode.db`
+  （合成 fixture）、`tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/opencode-fixture-daily-v20.0.29.json`
   （CLI 录制 golden + README 录制命令）
-- How to run/verify: 全量 `dotnet build TokenPulse.sln && dotnet test TokenPulse.sln`；OpenCode 单测
-  `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj --filter "FullyQualifiedName~OpenCodeSqlite"`；
-  fixture 对账 `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~OpenCode"`；
-  真实对账（有数据机器）`TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests
+- How to run/verify: 全量 `dotnet build Tokenmetry.sln && dotnet test Tokenmetry.sln`；OpenCode 单测
+  `dotnet test tests/Tokenmetry.Infrastructure.Tests/Tokenmetry.Infrastructure.Tests.csproj --filter "FullyQualifiedName~OpenCodeSqlite"`；
+  fixture 对账 `dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~OpenCode"`；
+  真实对账（有数据机器）`TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests
   --filter "FullyQualifiedName~Real_opencode"`（无数据自动 Skip）；golden 重录命令见
-  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`
+  `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/README.md`
 - Results: 2026-10-11 — 构建 0 警告 0 错误；单测 32/32；全仓 349 通过 / 9 跳过；fixture 对账 tokens
   五分量 + cost 两侧逐位一致（全量 input=2,233 / output=323 / cacheCreation=120 / cacheRead=340 /
   total=3,016，cost=$0.042626250000000004，见 TC-002）；真实数据对账门控测试就绪，本机无 OpenCode 数据

@@ -50,7 +50,7 @@ Delivered cards:
 Exit criteria 证据：
 - 断网且无 CLI 环境刷新出真实数据：`I-005` 探针冒烟（本机真实 Codex 日志 19 文件 / 2931 记录，快照定价 0 未命中，全程不 spawn 进程）。
 - 对账测试容差内通过：fixture 对账零差异；本机真实 Codex 数据 tokens 全等、cost 与 ccusage v20.0.29 逐分钱一致（$101.3856438）。证据与逐日明细：`docs/reconciliation/2026-10-11-reconciliation.md`。
-- 全部单元测试通过：`dotnet test TokenPulse.sln` 242 通过 / 5 跳过（跳过为 Windows 专属 CLI runner 测试 ×3 与真实数据对账门控测试 ×2，门控开时后者实跑通过）。
+- 全部单元测试通过：`dotnet test Tokenmetry.sln` 242 通过 / 5 跳过（跳过为 Windows 专属 CLI runner 测试 ×3 与真实数据对账门控测试 ×2，门控开时后者实跑通过）。
 
 ### v0.3.5 - 多源数据覆盖（2026-10-11 立项，批次穿插在 v0.4 执行）
 

@@ -31,8 +31,8 @@
 | Codex 报告/成本 | `ccusage/rust/crates/ccusage/src/adapter/codex/report.rs` | Codex 专用 JSON/table 输出和成本计算。 |
 | 通用 token 类型 | `ccusage/rust/crates/ccusage/src/types.rs` | `TokenUsageRaw`、`UsageSummary`、`CodexRawUsage` 等核心结构。 |
 | 通用 Claude 成本 | `ccusage/rust/crates/ccusage/src/cost.rs` | Display/Auto/Calculate 成本模式和缓存 token 成本。 |
-| ccusage-gui 调用 CLI | `ccusage-gui/src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliRunner.cs` | 启动外部 `ccusage` 进程并读取 stdout。 |
-| ccusage-gui 解析 CLI JSON | `ccusage-gui/src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliParser.cs` | 只解析 CLI 的 daily JSON，而非直接解析原始日志。 |
+| ccusage-gui 调用 CLI | `ccusage-gui/src/Tokenmetry.Infrastructure/CCUsageCli/CCUsageCliRunner.cs` | 启动外部 `ccusage` 进程并读取 stdout。 |
+| ccusage-gui 解析 CLI JSON | `ccusage-gui/src/Tokenmetry.Infrastructure/CCUsageCli/CCUsageCliParser.cs` | 只解析 CLI 的 daily JSON，而非直接解析原始日志。 |
 
 ## 3. Claude Code 日志解析流程
 
@@ -394,6 +394,6 @@ cost = non_cached_input * input_price
 - `ccusage/rust/crates/ccusage/src/types.rs`
 - `ccusage/rust/crates/ccusage/src/cost.rs`
 - `ccusage/docs/guide/source-support-qa.md`
-- `ccusage-gui/src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliRunner.cs`
-- `ccusage-gui/src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliParser.cs`
-- `ccusage-gui/src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`
+- `ccusage-gui/src/Tokenmetry.Infrastructure/CCUsageCli/CCUsageCliRunner.cs`
+- `ccusage-gui/src/Tokenmetry.Infrastructure/CCUsageCli/CCUsageCliParser.cs`
+- `ccusage-gui/src/Tokenmetry.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`

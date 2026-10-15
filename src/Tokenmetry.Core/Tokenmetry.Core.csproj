@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Pricing\model-pricing-snapshot.json" LogicalName="Tokenmetry.Core.Pricing.model-pricing-snapshot.json" />
+  </ItemGroup>
+
+</Project>

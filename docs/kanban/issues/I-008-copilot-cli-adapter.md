@@ -42,7 +42,7 @@ blocked: none
     totalNanoAiu credit gap 为 cost-only（0 token）条目落统一记录 unknown 模型。
 - [x] fixtures + 单元测试（含 resume 差分回归）+ 真实数据对账
   - ✅ Infrastructure 16 项单测（fixtures 全合成）+ 对账 fixture 入仓 + CLI golden 录制逐位一致 +
-    `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip；COPILOT_HOME 钉 fixture 时全链路通过）
+    `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip；COPILOT_HOME 钉 fixture 时全链路通过）
 
 ## Subtasks
 
@@ -67,7 +67,7 @@ blocked: none
 - [x] 单元测试 ×16（Infrastructure.Tests/CopilotSession，fixtures 全合成，含 resume 差分/总量守恒回归、
   同 id 重复 shutdown 去重、嵌套目录不发现、COPILOT_HOME 生效、增量重扫幂等）
 - [x] 对账：合成 fixture 入仓 + CLI golden 录制（fixtures/golden/copilot-fixture-daily-v20.0.29.json）+
-  fixture 对账测试（tokens 五分量 + cost 逐位一致）+ TOKENPULSE_RECONCILE_REAL 门控真实对账测试
+  fixture 对账测试（tokens 五分量 + cost 逐位一致）+ TOKENMETRY_RECONCILE_REAL 门控真实对账测试
 - [x] otel 合并 + totalNanoAiu credit gap → 已由 I-023 收口（2026-10-11）：`CopilotLogLocator`
   补 otel/ 递归与 COPILOT_OTEL_FILE_EXPORTER_PATH 单文件收集；`CopilotOtelParser` 四形态解析 +
   互斥去重；`CopilotUsageReconciler` 取优合并（差分移至合并器池化重算）+ credit gap cost-only
@@ -109,7 +109,7 @@ Missing_home_yields_no_data、Incremental_rescan_picks_up_appended_snapshot_once
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/copilot/`（合成数据，覆盖：resume 跨日
+1. 仓库内 fixture `tests/Tokenmetry.Reconciliation.Tests/fixtures/copilot/`（合成数据，覆盖：resume 跨日
    累计差分、同 id 重复 shutdown 去重、uncached 拆分、checkpoint 行、全零模型条目、-1m 后缀归并
    （gpt-5.1-1m → gpt-5.1）、session-state 嵌套目录不发现、坏 JSON 行）。
 2. 录制 golden：`COPILOT_HOME=$PWD/$FX/copilot npx --yes ccusage@20.0.29 copilot daily --json --offline
@@ -128,10 +128,10 @@ cost 0.0537）与 2026-09-15（18,200/2,400/500/3,500/24,600，cost 0.0703625）
 诊断 status=Partial（fixture 故意含 1 行坏 JSON）、malformed=1、invalid=0、records=5、UnpricedModels=∅。
 （以上为 I-008 收口时数字；I-023 扩充 fixture 后已重录 golden，最新数字见 I-023 卡 TC-002。）
 
-### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENMETRY_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_copilot"`。
+1. `TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Real_copilot"`。
 2. 数据存在性门控：`CopilotLogLocator.CollectSessionStateFiles(null)` 非空才运行（COPILOT_HOME →
    ~/.copilot，与 CLI 子进程同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 copilot daily --json --offline --timezone UTC`（golden）
@@ -210,9 +210,9 @@ parse_session_state_file、loader.rs reconcile_session_state_entries 的 session
   缺时区等——并出账；真实 Copilot 数据为 RFC3339 毫秒，仅极端输入下产生两侧差异，且以对账差异
   形式 fail-loud，不会静默漂移。
 
-验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **313 通过 / 8 跳过**
+验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **313 通过 / 8 跳过**
 （HEAD 基线 295/7 + 新增 16 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账测试
-（本机 Skip））；`TOKENPULSE_RECONCILE_REAL=1` 开轮复跑门控套件：codex / zcode / dsh Passed、
+（本机 Skip））；`TOKENMETRY_RECONCILE_REAL=1` 开轮复跑门控套件：codex / zcode / dsh Passed、
 claude / copilot Skip（无数据），无回归；门控 Copilot 对账以 COPILOT_HOME 钉 fixture 验证 Passed。
 对账数字见 TC-002 / TC-003。
 
@@ -233,7 +233,7 @@ claude / copilot Skip（无数据），无回归；门控 Copilot 对账以 COPI
 - **[卡片] 偏差②补对账后果**（零 token 区间在真实机器上会以 MissingInOurs 响亮失败而非静默漂移）、
   **偏差清单补 ⑧**（C# 时间戳解析为蓝本严格 RFC3339 的超集，极端输入 fail-loud）。
 - **[I-023 卡] Background 补蓝本内联测试锚点、AC 补"完成后回勾 I-008 进阶 AC"**。
-- 验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **315 通过 / 8 跳过**
+- 验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **315 通过 / 8 跳过**
   （新增 2 项 dedup key 形状测试）。
 
 ## Bugs
@@ -244,23 +244,23 @@ claude / copilot Skip（无数据），无回归；门控 Copilot 对账以 COPI
 
 ## Verification
 
-- Related files: `src/TokenPulse.Infrastructure/CopilotSession/`（CopilotSessionAdapter、CopilotSessionParser、
-  CopilotLogLocator）、`src/TokenPulse.Core/Abstractions/ICopilotSessionAdapter.cs`、
-  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第五路）、
-  `src/TokenPulse.App/DependencyInjection/AppServices.cs`（DI）、
-  `tests/TokenPulse.Infrastructure.Tests/CopilotSession/CopilotSessionAdapterTests.cs`、
-  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第五适配器）、
-  `tests/TokenPulse.Reconciliation.Tests/`（CopilotFixtureReconciliationTests、RealDataReconciliationTests、
+- Related files: `src/Tokenmetry.Infrastructure/CopilotSession/`（CopilotSessionAdapter、CopilotSessionParser、
+  CopilotLogLocator）、`src/Tokenmetry.Core/Abstractions/ICopilotSessionAdapter.cs`、
+  `src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第五路）、
+  `src/Tokenmetry.App/DependencyInjection/AppServices.cs`（DI）、
+  `tests/Tokenmetry.Infrastructure.Tests/CopilotSession/CopilotSessionAdapterTests.cs`、
+  `tests/Tokenmetry.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第五适配器）、
+  `tests/Tokenmetry.Reconciliation.Tests/`（CopilotFixtureReconciliationTests、RealDataReconciliationTests、
   Support/UsageChainAggregator、Support/RealReconciliationEnvironment、Support/FixturePaths、
-  CCUsageCli/CcusageGoldenFiles）、`tests/TokenPulse.Reconciliation.Tests/fixtures/copilot/`（合成 fixture）、
-  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/copilot-fixture-daily-v20.0.29.json`（CLI 录制 golden +
+  CCUsageCli/CcusageGoldenFiles）、`tests/Tokenmetry.Reconciliation.Tests/fixtures/copilot/`（合成 fixture）、
+  `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/copilot-fixture-daily-v20.0.29.json`（CLI 录制 golden +
   README 录制命令）、`docs/kanban/issues/I-023-copilot-otel-merge.md`（拆卡）
-- How to run/verify: 全量 `dotnet build TokenPulse.sln && dotnet test TokenPulse.sln`；Copilot 单测
-  `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj --filter "FullyQualifiedName~CopilotSession"`；
-  fixture 对账 `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~CopilotFixture"`；
-  真实对账（有数据机器）`TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests
+- How to run/verify: 全量 `dotnet build Tokenmetry.sln && dotnet test Tokenmetry.sln`；Copilot 单测
+  `dotnet test tests/Tokenmetry.Infrastructure.Tests/Tokenmetry.Infrastructure.Tests.csproj --filter "FullyQualifiedName~CopilotSession"`；
+  fixture 对账 `dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~CopilotFixture"`；
+  真实对账（有数据机器）`TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests
   --filter "FullyQualifiedName~Real_copilot"`（无数据自动 Skip）；golden 重录命令见
-  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`
+  `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/README.md`
 - Results: 2026-10-11（含审查修复复验）— 构建 0 警告 0 错误；全仓 315 通过 / 8 跳过（基线 295/7 保留，
   新增 21 项测试：18 单测 + 2 fixture 对账 + 1 门控真实对账）；fixture 对账 tokens 五分量 + cost 两侧
   逐位一致（全量 input=28,200 / output=3,400 / cacheCreation=2,500 / cacheRead=7,500 / total=41,600，

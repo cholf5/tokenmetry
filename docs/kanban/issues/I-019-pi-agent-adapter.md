@@ -67,7 +67,7 @@ blocked: none
   配置非法整组丢弃降级）+ 命名存储端到端（store 独立 agent、模型前缀、项目名、多路径父解析））
 - [x] 对账：合成 fixture（sessions/project-a|b 六会话文件 + subagent-artifacts 诱饵）入仓 + CLI
   golden 录制（fixtures/golden/pi-fixture-daily-v20.0.29.json）+ fixture 对账测试 ×2 +
-  `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasPiData 数据存在性 Skip）
+  `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（HasPiData 数据存在性 Skip）
 - [x] 管道接线：`IPiAgentAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十六路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**无需新增条目**——模型带 "[pi] "/"[store] " 前缀，引擎候选剥离（`[pi] x` 形态）后
@@ -97,7 +97,7 @@ Result: 通过（Infrastructure 27/27，场景清单见 Subtasks）。
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/pi/`（sessions/project-a|b 六会话文件：
+1. 仓库内 fixture `tests/Tokenmetry.Reconciliation.Tests/fixtures/pi/`（sessions/project-a|b 六会话文件：
    父子重放（相对 parentSession）、subagent-artifacts 转录与 run-* 子会话、内建 cost 直采与负成本
    重算、无成本快照现算（含 cacheWrite）、坏行诱饵）。
 2. 录制 golden：`PI_AGENT_DIR=$PWD/$FX/pi/sessions npx --yes ccusage@20.0.29 pi daily --json --offline
@@ -116,10 +116,10 @@ total=14,582 tokens，totalCost=$0.11825** 逐位一致（01-10 [pi] claude-sonn
 负成本重算 0.02125）；01-14 含 cacheWrite 200 现算 cost 0.01911 两侧同价）；诊断 FilesDiscovered=6、
 records=8、UnpricedModels=[]。
 
-### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENMETRY_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_pi"`。
+1. `TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Real_pi"`。
 2. 数据存在性门控：定位器（PI_AGENT_DIR / ~/.pi/agent/sessions）下发现 .jsonl 才运行（与 CLI 子进程
    同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 pi daily --json --offline --timezone UTC`（golden）
@@ -219,7 +219,7 @@ ryoppippi，声明保留在 PiLogLocator / PiSessionParser / PiReplayPlan / PiAg
   同款）；u64 wrapping 算术改 saturating（现实值远小于边界，结果一致）。
 - ⑫ **configuredDataDir 为仓库增强**（非蓝本）：测试钉定入口（env 同规则：trim 非空才生效）。
 
-验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **589 通过 / 19 跳过**
+验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **589 通过 / 19 跳过**
 （I-018 收口基线 560/18 + 新增 27 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账
 测试（本机 Skip））；门控以 PI_AGENT_DIR 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 /
 TC-003。
@@ -239,7 +239,7 @@ TC-003。
   追加 I-019，闭环偏差①的"I-024 已登记"声称。
 - **[P3] TC-002 tokens 总数更正**：total **14,581 → 14,582**（分量和 8360+3475+241+2506；golden
   totals.totalTokens=14582）。
-- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **623 通过 / 20 跳过**
+- 复核：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **623 通过 / 20 跳过**
   （数字随 I-022 收口增长，本卡相关项不回归——pi fixture 对账 2/2 与 CLI golden 逐位一致；门控以
   PI_AGENT_DIR 钉 fixture 复跑通过 1/1 Passed）。
 
@@ -253,24 +253,24 @@ TC-003。
 
 ## Verification
 
-- Related files: `src/TokenPulse.Infrastructure/PiAgent/PiLogLocator.cs`、
-  `src/TokenPulse.Infrastructure/PiAgent/PiSessionParser.cs`、
-  `src/TokenPulse.Infrastructure/PiAgent/PiReplayPlan.cs`、
-  `src/TokenPulse.Infrastructure/PiAgent/PiAgentAdapter.cs`、
-  `src/TokenPulse.Core/Abstractions/IPiAgentAdapter.cs`、
-  `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
-  `src/TokenPulse.App/DependencyInjection/AppServices.cs`、
-  `tests/TokenPulse.Infrastructure.Tests/PiAgent/PiAgentAdapterTests.cs`、
-  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
-  `tests/TokenPulse.Reconciliation.Tests/PiFixtureReconciliationTests.cs`、
-  `tests/TokenPulse.Reconciliation.Tests/fixtures/pi/`、
-  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/pi-fixture-daily-v20.0.29.json`、
-  `tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`、
-  `tests/TokenPulse.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
-  `tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
-- How to run/verify: `dotnet test TokenPulse.sln`（全绿）；fixture 对账
-  `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~PiFixture"`；门控复跑
-  `PI_AGENT_DIR=$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/pi/sessions TOKENPULSE_RECONCILE_REAL=1
-  dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_pi"`。
+- Related files: `src/Tokenmetry.Infrastructure/PiAgent/PiLogLocator.cs`、
+  `src/Tokenmetry.Infrastructure/PiAgent/PiSessionParser.cs`、
+  `src/Tokenmetry.Infrastructure/PiAgent/PiReplayPlan.cs`、
+  `src/Tokenmetry.Infrastructure/PiAgent/PiAgentAdapter.cs`、
+  `src/Tokenmetry.Core/Abstractions/IPiAgentAdapter.cs`、
+  `src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
+  `src/Tokenmetry.App/DependencyInjection/AppServices.cs`、
+  `tests/Tokenmetry.Infrastructure.Tests/PiAgent/PiAgentAdapterTests.cs`、
+  `tests/Tokenmetry.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
+  `tests/Tokenmetry.Reconciliation.Tests/PiFixtureReconciliationTests.cs`、
+  `tests/Tokenmetry.Reconciliation.Tests/fixtures/pi/`、
+  `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/pi-fixture-daily-v20.0.29.json`、
+  `tests/Tokenmetry.Reconciliation.Tests/RealDataReconciliationTests.cs`、
+  `tests/Tokenmetry.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
+  `tests/Tokenmetry.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
+- How to run/verify: `dotnet test Tokenmetry.sln`（全绿）；fixture 对账
+  `dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~PiFixture"`；门控复跑
+  `PI_AGENT_DIR=$PWD/tests/Tokenmetry.Reconciliation.Tests/fixtures/pi/sessions TOKENMETRY_RECONCILE_REAL=1
+  dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Real_pi"`。
 - Results: 全部通过（见 TC-001/002/003 Result 与 Development Log 验证段；收口数字 **589/19**，
   2026-10-12 独立审查修复复核后随批次收口数字 **623/20**，本卡项不回归）。

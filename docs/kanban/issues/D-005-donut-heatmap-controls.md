@@ -63,15 +63,15 @@ Expected:
 
 ### 2026-10-13
 
-- **DonutChart 落地**（`src/TokenPulse.App/Controls/DonutChart.axaml(.cs)`）。
+- **DonutChart 落地**（`src/Tokenmetry.App/Controls/DonutChart.axaml(.cs)`）。
 - **几何实现方式**：每段一个 `Path`，`StreamGeometry` 构造填充环段——外弧（顺时针 ArcSegment）→ 内边连线 → 内弧（逆时针）→ 闭合；0° = 顶部、顺时针为正（等价原型 svg `rotate(-90deg)` 的 dasharray 弧序）。单段 100% 时 ArcSegment 起终点重合退化为零长，拆成两个 180° 半弧（几何纯函数 `BuildRingSegment` 单测覆盖：整环包围盒 = 外径、四分之一环象限正确）。角度分配 `BuildSweeps`（纯函数）：比例扫角 + 末段吃掉累计舍入，角度和恒为 360°，全零/空集返回空。
 - **数据源 API 选型**：选**标准样式属性 + VM 集合**（`Segments` 为 `IEnumerable`，元素 `DonutSegment(Name, Value, Color?)`，init-only 小对象可直接进 `ObservableCollection`；控件订阅 `INotifyCollectionChanged` 增量重建、detach 退订），弃 AttachedProperty——与 ItemsControl 生态绑定习惯一致、XAML 直接可写、可测试性相同，且不引入附加属性样板。段色显式 `Color` 优先，缺省按段序映射 `AppSeries{0..6}Color`（超 7 段循环，对齐原型 `colors[i % colors.length]`，普通资源不随明暗翻转）。
 - **图例**：ItemsControl 行模板 = swatch（7×7 圆角 3）+ 名称（超宽 `CharacterEllipsis`）+ 百分比（`F1`，对齐原型 `toFixed(1)`），行悬停 ToolTip 显示绝对值；环段本体也有 ToolTip。布局坑一次修掉：根布局最初用横向 StackPanel（横向测量给无限宽 → 图例行按名字全宽展开溢出面板），改 `Grid ColumnDefinitions="Auto,*,Auto"` 用 `*` 列把图例约束在环右侧剩余宽度内。
-- **Heatmap 落地**（`src/TokenPulse.App/Controls/Heatmap.axaml(.cs)`）：`UniformGrid` 排格子，`Columns` 可配（默认 7，行数 = ceil(n/Columns)）、`CellHeight` 可配（默认 27，原型值）、格距 6px（原型 gap）。悬停用 `ToolTip.SetTip`（有数据日 `yyyy-MM-dd · N tok` 千分位；补零日 `· 无数据`）。
+- **Heatmap 落地**（`src/Tokenmetry.App/Controls/Heatmap.axaml(.cs)`）：`UniformGrid` 排格子，`Columns` 可配（默认 7，行数 = ceil(n/Columns)）、`CellHeight` 可配（默认 27，原型值）、格距 6px（原型 gap）。悬停用 `ToolTip.SetTip`（有数据日 `yyyy-MM-dd · N tok` 千分位；补零日 `· 无数据`）。
 - **强度色阶映射**：对齐原型 `rgba(76,141,255, .12+v*.78)`——即 `AppSeries0Color`（#4c8dff）的 alpha 线性渐变，纯函数 `IntensityColor(baseColor, ratio)`（ratio ∈ [0,1] → alpha ∈ [0.12, 0.90]，色相保持、深浅单调，headless 单测覆盖端点与单调性）；系列色本就是"跟数据语义不翻转"的令牌，**无需新增令牌**。无数据格（`HasData=false`，I-028 补零日）用 `AppPanelAltBrush` 令牌底 + `AppCardLineBrush` 描边，与最低强度色明显区分；空集合整体呈"暂无数据"文案。样式全部 DynamicResource，明暗自动翻转，无需手工重建。
-- **测试**：新增 headless 12 例（`tests/TokenPulse.App.Headless.Tests/Controls/DonutChartTests.cs`、`HeatmapTests.cs`）：弧段数量/角度和=360°/满圆拆弧/四分之一环象限、1/2/7 段渲染与图例百分比、空数据与全零占位、ObservableCollection 增量更新、明暗截图留档；强度色单调/端点、格子数与列数/行高、tooltip 文案（千分位与"无数据"）、空数据占位、补零格令牌底。注意点：断言空态用"有效可见性"（自身+祖先 IsVisible），子节点 IsVisible 不随父级隐藏翻转。
+- **测试**：新增 headless 12 例（`tests/Tokenmetry.App.Headless.Tests/Controls/DonutChartTests.cs`、`HeatmapTests.cs`）：弧段数量/角度和=360°/满圆拆弧/四分之一环象限、1/2/7 段渲染与图例百分比、空数据与全零占位、ObservableCollection 增量更新、明暗截图留档；强度色单调/端点、格子数与列数/行高、tooltip 文案（千分位与"无数据"）、空数据占位、补零格令牌底。注意点：断言空态用"有效可见性"（自身+祖先 IsVisible），子节点 IsVisible 不随父级隐藏翻转。
 - **预览接线**：与 D-004 共用 `ChartPreviewViewModel`——donut 用真实 `GetAgentBreakdownAsync`（Top6 + "其他"聚合，≤7 段）或 fixture 五段；heatmap 取日序列尾部 35 格。
-- **遗留风险**：①真机悬停手感与"占位环/中心文字"的明暗目检以离屏截图留档为准（本机自动化环境无法拉起桌面会话），真机可经 `TOKENPULSE_PREVIEW_WINDOW=1 dotnet run --project src/TokenPulse.App` 复核；②中心文字当前不自动截断，超长 `CenterTitle` 可能撑出环（页面卡使用时控制字数或后续加 MaxWidth）；③热力图 tooltip 走 Avalonia ToolTip（系统延迟样式），若页面卡要求原型式即时 overlay 再换自绘。
+- **遗留风险**：①真机悬停手感与"占位环/中心文字"的明暗目检以离屏截图留档为准（本机自动化环境无法拉起桌面会话），真机可经 `TOKENMETRY_PREVIEW_WINDOW=1 dotnet run --project src/Tokenmetry.App` 复核；②中心文字当前不自动截断，超长 `CenterTitle` 可能撑出环（页面卡使用时控制字数或后续加 MaxWidth）；③热力图 tooltip 走 Avalonia ToolTip（系统延迟样式），若页面卡要求原型式即时 overlay 再换自绘。
 
 ### 2026-10-13（独立审查修复轮）
 
@@ -91,21 +91,21 @@ Expected:
 
 ## Verification
 
-- Related files: `src/TokenPulse.App/Controls/DonutChart.axaml(.cs)`、`src/TokenPulse.App/Controls/Heatmap.axaml(.cs)`、
-  `src/TokenPulse.App/ViewModels/ChartPreviewViewModel.cs`、`src/TokenPulse.App/Views/StylePreviewView.axaml(.cs)`（演示区）、
-  `tests/TokenPulse.App.Headless.Tests/Controls/DonutChartTests.cs`、`tests/TokenPulse.App.Headless.Tests/Controls/HeatmapTests.cs`、
-  `tests/TokenPulse.App.Headless.Tests/Controls/ChartTestHelpers.cs`
+- Related files: `src/Tokenmetry.App/Controls/DonutChart.axaml(.cs)`、`src/Tokenmetry.App/Controls/Heatmap.axaml(.cs)`、
+  `src/Tokenmetry.App/ViewModels/ChartPreviewViewModel.cs`、`src/Tokenmetry.App/Views/StylePreviewView.axaml(.cs)`（演示区）、
+  `tests/Tokenmetry.App.Headless.Tests/Controls/DonutChartTests.cs`、`tests/Tokenmetry.App.Headless.Tests/Controls/HeatmapTests.cs`、
+  `tests/Tokenmetry.App.Headless.Tests/Controls/ChartTestHelpers.cs`
 - How to run/verify:
-  - TC-001（自动化）：`dotnet test tests/TokenPulse.App.Headless.Tests --filter FullyQualifiedName~DonutChartTests`
+  - TC-001（自动化）：`dotnet test tests/Tokenmetry.App.Headless.Tests --filter FullyQualifiedName~DonutChartTests`
     ——`BuildSweeps` 角度和=360°、单段满圆拆弧（包围盒=外径）、1/2/7 段弧数与图例百分比、空/全零占位、
     ObservableCollection 增量重建、明暗两套渲染（系列色像素命中）。
-  - TC-002（自动化）：`dotnet test tests/TokenPulse.App.Headless.Tests --filter FullyQualifiedName~HeatmapTests`
+  - TC-002（自动化）：`dotnet test tests/Tokenmetry.App.Headless.Tests --filter FullyQualifiedName~HeatmapTests`
     ——强度色 alpha 单调 + 端点 0.12/0.90、格子数/列数/行高、tooltip 文案（千分位 / "无数据"）、补零格令牌底、
     空数据占位、明暗两套渲染。
-  - 明暗目检：截图留档（下）替代真机目检；真机复核入口 `TOKENPULSE_PREVIEW_WINDOW=1 dotnet run --project src/TokenPulse.App`
+  - 明暗目检：截图留档（下）替代真机目检；真机复核入口 `TOKENMETRY_PREVIEW_WINDOW=1 dotnet run --project src/Tokenmetry.App`
     （StylePreviewView"图表控件"区，悬停热力图格子看 tooltip、切明暗按钮看两套配色）。
-  - 截图再生成命令（P2-3）：`TOKENPULSE_CHART_PREVIEW_DIR=docs/design TOKENPULSE_STYLE_PREVIEW_DIR=docs/design
-    dotnet test tests/TokenPulse.App.Headless.Tests`（环境变量未设置时仅断言可渲染，不写文件）。
-- Results: 全仓 `dotnet test TokenPulse.sln` → **908 通过 / 22 跳过 / 0 失败，0 警告**（基线 860 + 48 新增，无回归；
+  - 截图再生成命令（P2-3）：`TOKENMETRY_CHART_PREVIEW_DIR=docs/design TOKENMETRY_STYLE_PREVIEW_DIR=docs/design
+    dotnet test tests/Tokenmetry.App.Headless.Tests`（环境变量未设置时仅断言可渲染，不写文件）。
+- Results: 全仓 `dotnet test Tokenmetry.sln` → **908 通过 / 22 跳过 / 0 失败，0 警告**（基线 860 + 48 新增，无回归；
   审查修复轮净增 11 例）；截图留档 `docs/design/donut-{light,dark}.png`、`docs/design/heatmap-{light,dark}.png` 与
   `docs/design/style-preview-{light,dark}.png`（整页含两控件）。

@@ -36,7 +36,7 @@ blocked: none
     type 判别原样字符串不 trim（" gemini " 不命中）；JSONL sessionId/model 跨行滚动、同 id 事件就地替换
 - [x] fixtures + 单元测试；接入本地采集管道
   - ✅ Infrastructure 19 项单测（临时目录合成数据，fixtures 全合成）+ 合成 fixture（.json/.jsonl 四文件）
-    入仓 + CLI golden 录制逐位一致 + `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip，
+    入仓 + CLI golden 录制逐位一致 + `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（数据存在性 Skip，
     门控以 GEMINI_DATA_DIR 钉 fixture 复跑通过 1/1）；`IGeminiCliAdapter` + LocalIngestionDataSource
     第十路 concat + App DI 双注册
 
@@ -60,7 +60,7 @@ blocked: none
   皆无（含 result.stats:null）不产出、坏文件/坏行计数、跨文件排序、快照定价、缺省目录无数据）
 - [x] 对账：合成 fixture（双格式 + cached 拆分 + id 替换 + stats 双路径 + user/note 行 + unknown 模型）
   入仓 + CLI golden 录制（fixtures/golden/gemini-fixture-daily-v20.0.29.json）+ fixture 对账测试 ×2 +
-  `TOKENPULSE_RECONCILE_REAL` 门控真实对账测试（HasGeminiData 数据存在性 Skip）
+  `TOKENMETRY_RECONCILE_REAL` 门控真实对账测试（HasGeminiData 数据存在性 Skip）
 - [x] 管道接线：`IGeminiCliAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十路 concat +
   App DI 双注册（具体类 + 接口）
 - [x] 定价快照：**新增 google 段**（gemini-2.5-pro / gemini-2.5-flash，取自蓝本
@@ -109,7 +109,7 @@ Missing_configured_directory_yields_no_data）。
 ### TC-002: 合成 fixture 对账（CLI golden 录制，逐位一致）
 
 Steps:
-1. 仓库内 fixture `tests/TokenPulse.Reconciliation.Tests/fixtures/gemini/`（合成数据，覆盖：.json/.jsonl 双格式、
+1. 仓库内 fixture `tests/Tokenmetry.Reconciliation.Tests/fixtures/gemini/`（合成数据，覆盖：.json/.jsonl 双格式、
    messages 数组路径（user 行跳过、cached 拆分 + tool 并入 input）、JSONL meta 行 + 同 id 事件替换 +
    非 gemini 行的 stats、stats models 明细（overlap 扣减）、无 models 整块回退（unknown）、note 行跳过）。
 2. 录制 golden：`GEMINI_DATA_DIR=$PWD/$FX/gemini npx --yes ccusage@20.0.29 gemini daily --json --offline
@@ -127,10 +127,10 @@ tokens，totalCost=$0.00615925** 逐位一致（05-17：pro 1,407/80/0/800 cost 
 cost 0.00007；05-18：pro 1,600/100/0/400 cost 0.00305、flash 800/55/0/100 cost 0.0003805、unknown
 200/40/0/100 cost 0 missingPricing）；诊断 status=Ok、duplicate=1、records=7、UnpricedModels=[unknown]。
 
-### TC-003: 本机真实数据对账（TOKENPULSE_RECONCILE_REAL=1 门控）
+### TC-003: 本机真实数据对账（TOKENMETRY_RECONCILE_REAL=1 门控）
 
 Steps:
-1. `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_gemini"`。
+1. `TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Real_gemini"`。
 2. 数据存在性门控：定位器（GEMINI_DATA_DIR / ~/.gemini/tmp）下发现 .json/.jsonl 才运行（与 CLI 子进程
    同一套探测）；无数据 Skip 而非 Fail（TC-002 口径）。
 3. 运行时两侧对账：CLI `npx --yes ccusage@20.0.29 gemini daily --json --offline --timezone UTC`（golden）
@@ -219,7 +219,7 @@ fixtures 全部合成，无真实数据入仓）：
 - ⑧ **timestamp 理论边界**：蓝本 jiff 支持 year 0，DateTimeOffset 下限 year 1，year 0000 输入按不可解析
   处理（回退 mtime；真实日志不出现）。
 
-验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **438 通过 / 13 跳过**
+验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **438 通过 / 13 跳过**
 （I-017 收口基线 417/12 + 新增 19 项 Infrastructure 单测 + 2 项 fixture 对账测试 + 1 项门控真实对账测试
 （本机 Skip））；门控以 GEMINI_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）。对账数字见 TC-002 / TC-003。
 
@@ -243,7 +243,7 @@ fixtures 全部合成，无真实数据入仓）：
   result.stats）、Missing_stats_with_result_stats_uses_nested_block（stats 缺失 + result.stats）、
   Neither_stats_nor_result_stats_yields_no_events（两者皆无 / result.stats:null → 不产出；顺带把整文件
   stats 分支"无产出计 1 条 LinesSkipped"与 JSONL 行口径对齐）。
-- 复核：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **476 通过 / 15 跳过**
+- 复核：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **476 通过 / 15 跳过**
   （本卡审查修复新增 3 项单测：438/13 → 441/13；441/13 与 I-014 审查修复叠加后全仓 **481 通过 / 15
   跳过**，见 I-014 卡审查修复小节）；fixture 对账 2/2 与 CLI golden 逐位一致不回归；门控以
   GEMINI_DATA_DIR 钉 fixture 复跑通过（1/1 Passed）；审查员最小 fixture 形态（stats:null +
@@ -256,23 +256,23 @@ fixtures 全部合成，无真实数据入仓）：
 
 ## Verification
 
-- Related files: `src/TokenPulse.Infrastructure/GeminiCli/GeminiLogLocator.cs`、
-  `src/TokenPulse.Infrastructure/GeminiCli/GeminiLogParser.cs`、`src/TokenPulse.Infrastructure/GeminiCli/GeminiCliAdapter.cs`、
-  `src/TokenPulse.Infrastructure/JsonSource/SourceFileCollector.cs`、`src/TokenPulse.Infrastructure/JsonSource/EnvDataDirResolver.cs`、
-  `src/TokenPulse.Infrastructure/JsonSource/StrictRfc3339Timestamp.cs`、`src/TokenPulse.Infrastructure/JsonSource/RawTokenUsage.cs`、
-  `src/TokenPulse.Core/Abstractions/IGeminiCliAdapter.cs`、`src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
-  `src/TokenPulse.App/DependencyInjection/AppServices.cs`、`src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`、
-  `tests/TokenPulse.Infrastructure.Tests/GeminiCli/GeminiCliAdapterTests.cs`、
-  `tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
-  `tests/TokenPulse.Reconciliation.Tests/GeminiFixtureReconciliationTests.cs`、
-  `tests/TokenPulse.Reconciliation.Tests/fixtures/gemini/`、
-  `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/gemini-fixture-daily-v20.0.29.json`、
-  `tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`、
-  `tests/TokenPulse.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
-  `tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
-- How to run/verify: `dotnet test TokenPulse.sln`（全绿）；fixture 对账
-  `dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Gemini"`；门控复跑
-  `GEMINI_DATA_DIR=$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/gemini TOKENPULSE_RECONCILE_REAL=1
-  dotnet test tests/TokenPulse.Reconciliation.Tests --filter "FullyQualifiedName~Real_gemini"`。
+- Related files: `src/Tokenmetry.Infrastructure/GeminiCli/GeminiLogLocator.cs`、
+  `src/Tokenmetry.Infrastructure/GeminiCli/GeminiLogParser.cs`、`src/Tokenmetry.Infrastructure/GeminiCli/GeminiCliAdapter.cs`、
+  `src/Tokenmetry.Infrastructure/JsonSource/SourceFileCollector.cs`、`src/Tokenmetry.Infrastructure/JsonSource/EnvDataDirResolver.cs`、
+  `src/Tokenmetry.Infrastructure/JsonSource/StrictRfc3339Timestamp.cs`、`src/Tokenmetry.Infrastructure/JsonSource/RawTokenUsage.cs`、
+  `src/Tokenmetry.Core/Abstractions/IGeminiCliAdapter.cs`、`src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、
+  `src/Tokenmetry.App/DependencyInjection/AppServices.cs`、`src/Tokenmetry.Core/Pricing/model-pricing-snapshot.json`、
+  `tests/Tokenmetry.Infrastructure.Tests/GeminiCli/GeminiCliAdapterTests.cs`、
+  `tests/Tokenmetry.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`、
+  `tests/Tokenmetry.Reconciliation.Tests/GeminiFixtureReconciliationTests.cs`、
+  `tests/Tokenmetry.Reconciliation.Tests/fixtures/gemini/`、
+  `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/gemini-fixture-daily-v20.0.29.json`、
+  `tests/Tokenmetry.Reconciliation.Tests/RealDataReconciliationTests.cs`、
+  `tests/Tokenmetry.Reconciliation.Tests/Support/{FixturePaths,UsageChainAggregator,RealReconciliationEnvironment}.cs`、
+  `tests/Tokenmetry.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`
+- How to run/verify: `dotnet test Tokenmetry.sln`（全绿）；fixture 对账
+  `dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Gemini"`；门控复跑
+  `GEMINI_DATA_DIR=$PWD/tests/Tokenmetry.Reconciliation.Tests/fixtures/gemini TOKENMETRY_RECONCILE_REAL=1
+  dotnet test tests/Tokenmetry.Reconciliation.Tests --filter "FullyQualifiedName~Real_gemini"`。
 - Results: 全部通过（见 TC-001/002/003 Result 与 Development Log 验证段；收口数字 438/13，
   2026-10-12 审查修复后全仓 **481/15**）。

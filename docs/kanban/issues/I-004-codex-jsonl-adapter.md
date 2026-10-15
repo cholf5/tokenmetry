@@ -74,7 +74,7 @@ Result: 通过（`CodexJsonlAdapterTests.Parses_sample_fixture_from_configured_h
 - **有意偏差**（均已在代码注释说明）：① 统一记录要求可解析的 `DateTimeOffset` 时间戳，缺失/空白静默跳过（与蓝本一致），存在但不可解析计 invalid（Claude 适配器同口径）；② token 分量用 `ulong?` 对应 serde u64，超出 long 范围的异常值按 invalid 拒绝（蓝本 u64 直通，实际不可达）；③ 蓝本的 `total == 0 → invalid` 分支与 Disabled 扫描状态已移植/不移植的取舍：前者不可达但逐条对齐保留，后者依赖数据源启停设置（桌面端暂无该设置，NoData 覆盖同等场景）。
 - **接口设计**：独立 `ICodexJsonlAdapter`（与 Claude 接口同形态：`ScanAsync → JsonlScanResult`）。不抽公共接口的理由：两者构造依赖不同（配置根语义分别是 CLAUDE_CONFIG_DIR 式根目录与 CODEX_HOME 式 home），I-005 将独立注册与接线，共享已发生在实现层（引擎/去重器/结果模型），共享接口在接线方案定型（I-005）前只会约束设计。
 
-验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` 207 通过 / 3 跳过（基线 181/3 原样保留，新增 26 项 Codex 测试）。另以本机真实 `~/.codex/sessions` 做过只读 smoke（19 文件 / 5802 记录 / 0 malformed / 全部模型命中快照价 / 二次扫描幂等），仅用于验证，未将任何真实数据带入仓库。
+验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` 207 通过 / 3 跳过（基线 181/3 原样保留，新增 26 项 Codex 测试）。另以本机真实 `~/.codex/sessions` 做过只读 smoke（19 文件 / 5802 记录 / 0 malformed / 全部模型命中快照价 / 二次扫描幂等），仅用于验证，未将任何真实数据带入仓库。
 
 ## Bugs
 
@@ -83,9 +83,9 @@ Result: 通过（`CodexJsonlAdapterTests.Parses_sample_fixture_from_configured_h
 
 ## Verification
 
-- Related files: `src/TokenPulse.Infrastructure/CodexJsonl/`（CodexJsonlAdapter、CodexJsonlFileParser、CodexLogLocator）、`src/TokenPulse.Infrastructure/Jsonl/`（IncrementalJsonlScanner、JsonlFileCollector、JsonlHomePath、JsonlTimestamp、JsonlScanOutput）、`src/TokenPulse.Core/Models/JsonlScanResult.cs`、`src/TokenPulse.Core/Abstractions/ICodexJsonlAdapter.cs`、`tests/TokenPulse.Infrastructure.Tests/CodexJsonl/`、`tests/TokenPulse.Infrastructure.Tests/fixtures/codex/`；Claude 侧改动：`src/TokenPulse.Infrastructure/ClaudeCodeJsonl/ClaudeCodeJsonlAdapter.cs`（接入共享引擎）、`ClaudeCodeLogLocator.cs`（接入共享收集器）、`ClaudeCodeJsonlLineParser.cs`（时间戳解析共用）、`src/TokenPulse.Core/Models/ClaudeCodeScanResult.cs`（兼容别名）
-- How to run/verify: `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj`
-- Results: 2026-10-11 — `dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` 全绿：Core 64 通过、Infrastructure 105 通过 / 3 跳过（含 26 项新增 Codex 测试）、App 38 通过，合计 207 通过 / 3 跳过（基线 181/3 全部保留）
+- Related files: `src/Tokenmetry.Infrastructure/CodexJsonl/`（CodexJsonlAdapter、CodexJsonlFileParser、CodexLogLocator）、`src/Tokenmetry.Infrastructure/Jsonl/`（IncrementalJsonlScanner、JsonlFileCollector、JsonlHomePath、JsonlTimestamp、JsonlScanOutput）、`src/Tokenmetry.Core/Models/JsonlScanResult.cs`、`src/Tokenmetry.Core/Abstractions/ICodexJsonlAdapter.cs`、`tests/Tokenmetry.Infrastructure.Tests/CodexJsonl/`、`tests/Tokenmetry.Infrastructure.Tests/fixtures/codex/`；Claude 侧改动：`src/Tokenmetry.Infrastructure/ClaudeCodeJsonl/ClaudeCodeJsonlAdapter.cs`（接入共享引擎）、`ClaudeCodeLogLocator.cs`（接入共享收集器）、`ClaudeCodeJsonlLineParser.cs`（时间戳解析共用）、`src/Tokenmetry.Core/Models/ClaudeCodeScanResult.cs`（兼容别名）
+- How to run/verify: `dotnet test tests/Tokenmetry.Infrastructure.Tests/Tokenmetry.Infrastructure.Tests.csproj`
+- Results: 2026-10-11 — `dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` 全绿：Core 64 通过、Infrastructure 105 通过 / 3 跳过（含 26 项新增 Codex 测试）、App 38 通过，合计 207 通过 / 3 跳过（基线 181/3 全部保留）
 
 ### 2026-10-11（独立审查修复）
 

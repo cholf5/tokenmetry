@@ -72,8 +72,8 @@ Expected:
 
 ## Verification
 
-- Related files: `src/TokenPulse.App/ViewModels/AgentsViewModel.cs`、`src/TokenPulse.App/Views/AgentsView.axaml(.cs)`、`src/TokenPulse.App/ViewModels/MainWindowViewModel.cs`（CreatePage + OpenSessionsForAgent 含 P1 复选组补入）、`src/TokenPulse.App/Services/AgentCatalogService.cs`（无界超集契约注释）、`tests/TokenPulse.App.Headless.Tests/Shell/DimensionPagesTests.cs`
-- How to run/verify: `dotnet test tests/TokenPulse.App.Headless.Tests/TokenPulse.App.Headless.Tests.csproj`（DimensionPagesTests 24 例）+ 明暗截图目检
+- Related files: `src/Tokenmetry.App/ViewModels/AgentsViewModel.cs`、`src/Tokenmetry.App/Views/AgentsView.axaml(.cs)`、`src/Tokenmetry.App/ViewModels/MainWindowViewModel.cs`（CreatePage + OpenSessionsForAgent 含 P1 复选组补入）、`src/Tokenmetry.App/Services/AgentCatalogService.cs`（无界超集契约注释）、`tests/Tokenmetry.App.Headless.Tests/Shell/DimensionPagesTests.cs`
+- How to run/verify: `dotnet test tests/Tokenmetry.App.Headless.Tests/Tokenmetry.App.Headless.Tests.csproj`（DimensionPagesTests 24 例）+ 明暗截图目检
 - Results: 2026-10-13（审查修复轮后）全套件 987 通过 / 22 跳过 / 0 失败 / 0 警告（基线 962/22/0，新增 25 例）。TC-001 端到端通过（`Agent_row_click_navigates_shell_to_filtered_sessions`）+ P1 死胡同变体回归（`Agent_jump_with_agent_outside_checkbox_snapshot_shows_sessions_and_recovers`）通过；绑定/Top4/成本四态/全局筛选联动/序号防护/Dispose 退订各有用例。截图 `docs/design/agents-light.png`、`docs/design/agents-dark.png`（真实数据：本机 7 天窗口单 Agent ZCode，1261.3M tokens / $0.00 已知为零）。
 
 **独立审查轮（2026-10-13，PM 派独立审查 agent）**：三卡组合审查结论"有问题需修复"——1×P1 + 3×P2；契约演进推导、对账三分支手算、两条跨页途径端到端、TC-001 合计口径、数字裁切修复、三页模式合规全部核实为真。修复（原开发 agent 完成，PM 验收）：

@@ -12,7 +12,7 @@ blocked: none
 
 ## Goal
 
-把内置定价快照（`src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`）与 ccusage 20.0.29 CLI 内嵌 models-dev-pricing.json 的存量价差清零：I-024 已刷新 kimi-k2.6 并补 tiers 段，本卡处理其余被非九源 fixture golden 引用、当时不便随卡改价的条目，并补归一化拼写歧义守卫。
+把内置定价快照（`src/Tokenmetry.Core/Pricing/model-pricing-snapshot.json`）与 ccusage 20.0.29 CLI 内嵌 models-dev-pricing.json 的存量价差清零：I-024 已刷新 kimi-k2.6 并补 tiers 段，本卡处理其余被非九源 fixture golden 引用、当时不便随卡改价的条目，并补归一化拼写歧义守卫。
 
 ## Background
 
@@ -26,7 +26,7 @@ I-024（2026-10-12 独立审查程序化对比，快照 82 条目 vs `../ccusage
 - openai/gpt-5.4：cache_write 3.125 → 2.5（快照旧推导 input×1.25，CLI 显式 input×1.0）
 - openai/gpt-5.5：cache_write 6.25 → 5（同上）
 
-这些条目被非 I-024 九源（Qwen / Copilot / Codex 等）的 fixture golden 引用，改价需随那些源重录 golden（重录命令见 `tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`）。另登记一处引擎差异：蓝本 `normalized_keys`（ccusage-core pricing.rs）对同一归一化拼写挂两个键时置 None（"names neither entry"），桌面归一化趟无此守卫按 rank 取一——当前快照仅 claude-3-5-sonnet / claude-3-5-haiku 两对碰撞且四条价格逐位相同、原拼写趟必先命中，今日无影响；本卡刷新若拆开同价对，点分候选的回退落点可能二义，需一并补守卫。
+这些条目被非 I-024 九源（Qwen / Copilot / Codex 等）的 fixture golden 引用，改价需随那些源重录 golden（重录命令见 `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/README.md`）。另登记一处引擎差异：蓝本 `normalized_keys`（ccusage-core pricing.rs）对同一归一化拼写挂两个键时置 None（"names neither entry"），桌面归一化趟无此守卫按 rank 取一——当前快照仅 claude-3-5-sonnet / claude-3-5-haiku 两对碰撞且四条价格逐位相同、原拼写趟必先命中，今日无影响；本卡刷新若拆开同价对，点分候选的回退落点可能二义，需一并补守卫。
 
 > **开工后修正（2026-10-12，见 Development Log）**：上表"CLI 内嵌值"实为 ../ccusage rust 仓库 HEAD 的内嵌价；对账锚点是 npm `ccusage@20.0.29`（golden 录制版本），两者已漂移。经 CLI 探针逐桶实测，现快照对上述 7 条目**已逐位等于** npm 锚点值，无需改价；按原清单改价反而会破坏对账（qwen3-coder-plus 偏差约 50%）。
 
@@ -35,7 +35,7 @@ I-024（2026-10-12 独立审查程序化对比，快照 82 条目 vs `../ccusage
 - [x] 上述 7 条价差按 CLI 内嵌值核对清零：经探针逐桶核实（I/O/R/W + tiers），现快照值即 npm 20.0.29 锚点值，无需改价；受影响 golden 无改价源、未重录，qwen 两天成本行反算与 golden 逐位吻合，对账套件通过
 - [x] 归一化拼写歧义守卫补齐（同归一化拼写多键 → 归一化趟不命中），蓝本 pricing.rs normalized_keys 语义对齐 + 单测（同价对拆开、跨 provider 碰撞、原拼写/唯一拼写控制组、家族兜底）
 - [x] 刷新来源与录制日登记进快照文件头（`_provenance` 段：npm 20.0.29 锚点 + 2026-10-12 探针核实 + rust HEAD 漂移警示）
-- [x] 全量测试绿（803 通过 / 22 跳过，跳过均为既有门控）；门控真实对账无回归（TOKENPULSE_RECONCILE_REAL=1 实跑 3 项通过）
+- [x] 全量测试绿（803 通过 / 22 跳过，跳过均为既有门控）；门控真实对账无回归（TOKENMETRY_RECONCILE_REAL=1 实跑 3 项通过）
 
 ## Dependencies
 
@@ -67,7 +67,7 @@ Expected（实测 → 快照现值）:
 ### TC-002: 归一化歧义守卫单测（PricingModelMatcherTests，7 例）
 
 Steps:
-1. `dotnet test tests/TokenPulse.Core.Tests` —— 同价对拆开（cla-x-1 / cla.x.1 异价）：原拼写各自可解析、
+1. `dotnet test tests/Tokenmetry.Core.Tests` —— 同价对拆开（cla-x-1 / cla.x.1 异价）：原拼写各自可解析、
    `cla@x.1` 归一化碰撞不指向任何条目（守卫前按顺序取 dashed）、provider 限定档同守卫、
    唯一拼写照常命中、跨 provider 碰撞置 None 且原拼写 rank 趟不受影响、守卫落空后家族兜底可达。
 
@@ -90,8 +90,8 @@ Expected:
   相同且原拼写趟必先命中），为未来拆开同价对消除二义。
 - 快照登记 `_provenance` 头（npm 锚点 + 核实日期 + rust HEAD 漂移警示）；解析器对无 models 键的顶层段
   安全跳过，DeepSeekPricingCatalog 只读 deepseek 段，均不受影响。
-- 验证：全量 `dotnet test TokenPulse.sln` 803 通过 / 22 跳过（跳过均为既有真实数据门控）；
-  `TOKENPULSE_RECONCILE_REAL=1` 实跑真实对账 3 项通过（Codex / Claude 本机真实数据，快照与守卫改动零回归）。
+- 验证：全量 `dotnet test Tokenmetry.sln` 803 通过 / 22 跳过（跳过均为既有真实数据门控）；
+  `TOKENMETRY_RECONCILE_REAL=1` 实跑真实对账 3 项通过（Codex / Claude 本机真实数据，快照与守卫改动零回归）。
 - Bugs：B-001（P2）I-024 审查价差清单对错锚点——已由本卡探针核实并登记 _provenance，避免后续刷新重蹈。
 
 ## Bugs
@@ -102,9 +102,9 @@ Expected:
 
 ## Verification
 
-- Related files: `src/TokenPulse.Core/Services/PricingModelMatcher.cs`（守卫）、
-  `src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`（_provenance 头）、
-  `tests/TokenPulse.Core.Tests/Services/PricingModelMatcherTests.cs`（+7 例）
-- How to run/verify: `dotnet test TokenPulse.sln`；门控 `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests --filter RealData`；
+- Related files: `src/Tokenmetry.Core/Services/PricingModelMatcher.cs`（守卫）、
+  `src/Tokenmetry.Core/Pricing/model-pricing-snapshot.json`（_provenance 头）、
+  `tests/Tokenmetry.Core.Tests/Services/PricingModelMatcherTests.cs`（+7 例）
+- How to run/verify: `dotnet test Tokenmetry.sln`；门控 `TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests --filter RealData`；
   探针复核法与逐桶期望值见本卡 TC-001（可独立重放）
 - Results: 全量 803 通过 / 22 跳过（既有门控）；门控真实对账 3 项实跑通过；golden 文件零改动
