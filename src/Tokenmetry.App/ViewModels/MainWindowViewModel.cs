@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.Core.Abstractions;
+using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
 
 namespace Tokenmetry.App.ViewModels;
@@ -61,6 +62,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>A-12 状态灯红色态绑定（刷新失败）。</summary>
     public bool IsDataSourceError => DataStatusLevel == "error";
+
+    /// <summary>首次使用初始化遮罩可见性：启动探测到 facts 库完全无数据（首次使用）时挂起，
+    /// 启动首轮采集刷新结束（成败均然）摘除——只覆盖"初始化数据"这一阶段，不让遮罩挡住
+    /// 诚实终态（no data 橙 / error 红 由顶栏状态灯呈现）。仅由启动路径
+    /// <see cref="BeginStartupDataRefreshAsync"/> 维护，手动刷新 / 定时器轮次不挂遮罩。</summary>
+    [ObservableProperty]
+    private bool _isInitializingData;
 
     /// <summary>A-12 状态灯橙色态绑定（本轮扫描完成但无数据）。</summary>
     public bool IsDataSourceWarned => DataStatusLevel == "warn";
@@ -260,6 +268,60 @@ public partial class MainWindowViewModel : ViewModelBase
 
         NoteDataSourceStatus("refreshing");
         await _refreshService.TriggerRefreshAsync();
+    }
+
+    /// <summary>
+    /// 启动数据初始化（App.OnFrameworkInitializationCompleted 调用，fire-and-forget）：
+    /// 无论库内有无数据，进程打开就立即触发一轮采集刷新（定时器首跑要等一个完整间隔）；
+    /// 顶栏即时切到"正在扫描"反馈——原先整个首轮期间停留在"启动中…"且毫无可见进展，
+    /// 首启用户只能手动点刷新（本轮不再静默）。
+    /// <para>探测到 facts 库完全无数据（首次使用）时挂全窗口"正在初始化"遮罩
+    /// （<see cref="IsInitializingData"/>），本轮结束（成功 / no data / error 均然）摘除：
+    /// 成功由接线层页面重查填入数据；无数据与失败由顶栏状态灯如实呈现，遮罩不掩盖终态。
+    /// 探测本身失败（查询抛错）按"未知"处理——不挂遮罩但照常刷新，宁可不遮罩不误挡。</para>
+    /// 未注入刷新服务（测试 7 参构造）时如实 no-op。
+    /// </summary>
+    public async Task BeginStartupDataRefreshAsync()
+    {
+        if (_refreshService is null)
+        {
+            return;
+        }
+
+        NoteDataSourceStatus("refreshing");
+        if (await ProbeStoreEmptyAsync())
+        {
+            IsInitializingData = true;
+        }
+
+        try
+        {
+            await _refreshService.TriggerRefreshAsync();
+        }
+        finally
+        {
+            IsInitializingData = false;
+        }
+    }
+
+    /// <summary>
+    /// facts 库无数据探测（启动路径专用）：无界日序列只返回实际有数据的日期（IUsageQueryService
+    /// 契约），空集即库内完全无 usage facts。查询在线程池执行——SQLite 聚合的同步段不上 UI 线程，
+    /// 避免大库首屏卡顿；续体回到 UI 上下文，调用方的属性回写保持 UI 线程亲和。
+    /// 失败返回 false（= 不挂遮罩），异常落最小诊断日志（stderr，同 LoadAgentOptionsAsync 约定）。
+    /// </summary>
+    private async Task<bool> ProbeStoreEmptyAsync()
+    {
+        try
+        {
+            var series = await Task.Run(() => _usageQuery.GetDailySeriesAsync(new UsageQueryFilter()));
+            return series.Count == 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 启动数据探测失败（不显示初始化遮罩）：{ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>

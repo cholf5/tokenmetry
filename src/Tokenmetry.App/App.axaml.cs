@@ -72,10 +72,11 @@ public partial class App : Application
             // A-0：真正退出（托盘「退出」/ OS 会话结束）经生命周期正常收尾——Exit 在两种
             // shutdown 路径都会触发，此处停掉后台刷新定时器（替代此前 Environment.Exit 的跳过）。
             desktop.Exit += (_, _) => refreshService.Stop();
-            // 启动立即首刷：定时器首跑要等一个完整间隔（默认 15 分钟），首启顶栏一直"尚未刷新"；
-            // 触发一次立即刷新（定时器语义不变；启动路径不观察成败返回值），
-            // 回写经 NoteDataRefreshed 内部 marshal 到 UI 线程。
-            _ = refreshService.TriggerRefreshAsync();
+            // 启动数据初始化：进程打开立即触发一轮采集刷新（定时器首跑要等一个完整间隔），
+            // 顶栏即时切到"正在扫描"反馈；探测到库内完全无数据（首次使用）时挂全窗口
+            // "正在初始化"遮罩，本轮结束自动摘除（成败均然）——首启不再是一片空白等用户
+            // 手动点刷新。启动路径不观察成败返回值，回写经 Note* 内部 marshal 到 UI 线程。
+            _ = mainWindowViewModel.BeginStartupDataRefreshAsync();
 
             // A-0：主窗口随启动显示（此前从未 Show——修好托盘前应用启动后没有任何可见界面）
             mainWindow.Show();

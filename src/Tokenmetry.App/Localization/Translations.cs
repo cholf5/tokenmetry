@@ -64,6 +64,10 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(LastUpdatedFormat)] = "最近更新 {0:HH:mm}",
         [nameof(TooltipRefreshNow)] = "立即刷新本地数据",
 
+        // ── 首次初始化遮罩（MainWindow.axaml + MainWindowViewModel）──
+        [nameof(InitializingTitle)] = "正在初始化数据…",
+        [nameof(InitializingSubtitle)] = "首次启动正在扫描本机各 Agent 的会话记录并解析计费，完成后自动显示，无需手动刷新",
+
         // ── 右栏最近会话 + 快速筛选（MainWindow.axaml + SessionsPanelViewModel）──
         [nameof(RecentSessions)] = "最近会话",
         [nameof(ViewAll)] = "查看全部 ↗",
@@ -330,6 +334,10 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(NotRefreshedYet)] = "Not refreshed yet",
         [nameof(LastUpdatedFormat)] = "Updated {0:HH:mm}",
         [nameof(TooltipRefreshNow)] = "Refresh local data now",
+
+        // ── First-run initialization overlay (MainWindow.axaml + MainWindowViewModel) ──
+        [nameof(InitializingTitle)] = "Initializing data…",
+        [nameof(InitializingSubtitle)] = "Scanning local agent session logs on first launch; data will appear automatically — no manual refresh needed",
 
         [nameof(RecentSessions)] = "Recent sessions",
         [nameof(ViewAll)] = "View all ↗",
@@ -665,6 +673,10 @@ public sealed class Translations : INotifyPropertyChanged
     public string NotRefreshedYet => Get();
     public string LastUpdatedFormat => Get();
     public string TooltipRefreshNow => Get();
+
+    // ── 首次初始化遮罩 ──
+    public string InitializingTitle => Get();
+    public string InitializingSubtitle => Get();
 
     // ── 右栏 ──
     public string RecentSessions => Get();

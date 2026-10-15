@@ -96,6 +96,46 @@
             <Setter Property="MinHeight" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
         </Style>
+
+        <!-- 首次初始化遮罩（IsInitializingData）：全窗半透明 scrim + 中央卡片（旋转 ◌ 与品牌/
+             刷新字形同源）——首次使用库内无数据，启动首轮采集扫描期间给醒目的"正在初始化"反馈，
+             覆盖层拦截命中测试，初始化期间不与底层页面交互 -->
+        <Style Selector="Border.overlay-card">
+            <Setter Property="Background" Value="{DynamicResource AppPanelBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="40,32"/>
+        </Style>
+        <Style Selector="TextBlock.overlay-spinner">
+            <Setter Property="FontSize" Value="36"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppLinkBrush}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+            <Setter Property="RenderTransform" Value="rotate(0deg)"/>
+            <Style.Animations>
+                <Animation Duration="0:0:1.4" IterationCount="Infinite">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0"/>
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="TextBlock.overlay-title">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.overlay-subtitle">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="LineHeight" Value="19"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxWidth" Value="330"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
     </Window.Styles>
 
     <!-- D-003 页面路由：CurrentPage（页面 VM）→ 视图。Q-002：旧视图（Dashboard/Reports/
@@ -435,5 +475,25 @@
                 </Grid>
             </Border>
         </Grid>
+
+        <!-- ═══ 首次初始化遮罩（覆盖全窗，ZIndex 压过顶栏与三栏）═══
+             IsInitializingData 仅由启动路径维护：库内完全无数据（首次使用）→ 启动首轮采集
+             扫描期间挂起，轮次结束（成败均然）摘除——no data / error 的诚实终态由顶栏状态灯
+             呈现，遮罩不掩盖结果。测试按 x:Name 定位。 -->
+        <Panel Grid.Row="0" Grid.RowSpan="2" x:Name="InitializingOverlay"
+               ZIndex="100"
+               IsVisible="{Binding IsInitializingData}">
+            <Border Background="{DynamicResource AppOverlayScrimBrush}"/>
+            <Border Classes="overlay-card"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="14">
+                    <TextBlock Classes="overlay-spinner" Text="◌"/>
+                    <TextBlock Classes="overlay-title" TextAlignment="Center"
+                               Text="{Binding InitializingTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="overlay-subtitle" TextAlignment="Center"
+                               Text="{Binding InitializingSubtitle, Source={x:Static loc:Translations.Instance}}"/>
+                </StackPanel>
+            </Border>
+        </Panel>
     </Grid>
 </Window>
