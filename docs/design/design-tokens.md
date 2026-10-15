@@ -9,6 +9,10 @@
 > `AppNavHoverBackgroundBrush`（Dark 侧对应原型 `.sidebar/.topbar/.nav` 选择器原值，Light 为协调补值）
 > 已进 ThemeDictionaries；外壳导航样式（`ListBox.nav-list` 等）留在 `MainWindow.axaml` 的 Window.Styles
 > 内（外壳私有，页面卡勿复用），页面级样式仍从 SharedStyles.axaml 取。
+>
+> 首次初始化遮罩补充：`AppOverlayScrimBrush`（MainWindow.axaml 的 `InitializingOverlay` 专用，
+> 页面底色 90% 不透明，Light/Dark 各一份随明暗翻转；外壳私有样式 `overlay-card` /
+> `overlay-spinner` / `overlay-title` / `overlay-subtitle` 同留 Window.Styles，页面卡勿复用）。
 
 ## 1. 键名前缀约定
 

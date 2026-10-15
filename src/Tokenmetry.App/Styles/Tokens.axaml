@@ -66,6 +66,8 @@
             <!-- D-004 图表 chrome（ScottPlot 轴/网格）← 原型 .chart .gridline/.axis 色值（Light 为协调补值） -->
             <SolidColorBrush x:Key="AppChartGridLineBrush" Color="#d9e1ec"/>
             <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#b9c5d7"/>
+            <!-- 首次初始化全窗遮罩底（MainWindow.axaml）：页面底色 90% 不透明（Light 为协调补值） -->
+            <SolidColorBrush x:Key="AppOverlayScrimBrush" Color="#e6f4f6fa"/>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
@@ -121,6 +123,8 @@
             <!-- D-004 图表 chrome（ScottPlot 轴/网格）← 原型 .chart .gridline{#23344b}/.axis{#35465e}（Dark 原值） -->
             <SolidColorBrush x:Key="AppChartGridLineBrush" Color="#23344b"/>
             <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#35465e"/>
+            <!-- 首次初始化全窗遮罩底（MainWindow.axaml）：页面底色 #0b1120 的 90% 不透明补值 -->
+            <SolidColorBrush x:Key="AppOverlayScrimBrush" Color="#e60b1120"/>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

@@ -79,6 +79,8 @@ public class DesignTokenTests
         // D-004 图表 chrome（.chart .gridline/.axis 色值；Light 为协调补值）
         ["AppChartGridLineBrush"] = ("#d9e1ec", "#23344b"),
         ["AppChartAxisLineBrush"] = ("#b9c5d7", "#35465e"),
+        // 首次初始化全窗遮罩底（MainWindow.axaml；页面底色 90% 不透明，Light 为协调补值）
+        ["AppOverlayScrimBrush"] = ("#e6f4f6fa", "#e60b1120"),
     };
 
     /// <summary>图表系列色（原型 JS colors[] 数组，索引自 0）→ 期望色值，不随明暗翻转。</summary>
