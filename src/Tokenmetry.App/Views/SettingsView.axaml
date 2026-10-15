@@ -60,8 +60,19 @@
                                         BorderThickness="0,1,0,0"
                                         Padding="0,9,0,7">
                                     <Grid ColumnDefinitions="1.6*,1*,0.9*,0.9*" ColumnSpacing="8">
-                                        <TextBlock Grid.Column="0" Classes="table-td" FontWeight="SemiBold"
-                                                   Text="{Binding Agent}" VerticalAlignment="Top"/>
+                                        <!-- 数据源名 + Agent 品牌图标（I-034 补） -->
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                                                    VerticalAlignment="Top">
+                                            <Border Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
+                                                    VerticalAlignment="Center">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Glyph}"/>
+                                                    <Image Classes="agent-logo"/>
+                                                </Panel>
+                                            </Border>
+                                            <TextBlock Classes="table-td" FontWeight="SemiBold"
+                                                       Text="{Binding Agent}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Grid.Column="1" Classes="table-td"
                                                    Classes.status-ok="{Binding IsOk}"
                                                    Classes.status-partial="{Binding IsPartial}"

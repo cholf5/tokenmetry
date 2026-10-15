@@ -166,6 +166,12 @@ public class SettingsPageTests
             new[] { "Claude Code", "Copilot CLI", "Gemini CLI", "ZCode" },
             vm.SourceRows.Select(r => r.Agent).ToArray());
 
+        // 行首 Agent 品牌图标（I-034 补）：变体名从 Agent 名派生（未覆盖的源落 generic → 散列字形）
+        Assert.Equal("claudecode", vm.SourceRows[0].LogoVendor);
+        Assert.Equal("copilot", vm.SourceRows[1].LogoVendor);
+        Assert.Equal("geminicli", vm.SourceRows[2].LogoVendor);
+        Assert.Equal("zai", vm.SourceRows[3].LogoVendor);
+
         window.Close();
         Dispatcher.UIThread.RunJobs();
     }

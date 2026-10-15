@@ -535,6 +535,9 @@ public class DimensionPagesTests
         Assert.Equal("claude-sonnet-4", first.Name);
         Assert.Equal("Claude Code", first.AssociatedAgentText);
         Assert.False(first.IsMultiAgent);
+        // 关联 Agent 图标与文案同源（I-034 补）：显示 Agent 名 → 有图标，且变体识别正确
+        Assert.True(first.HasAssociatedAgentIcon);
+        Assert.Equal("claudecode", first.AssociatedAgentVendor);
         Assert.Equal("4008", first.InputTokensText);
         Assert.Equal("2672", first.OutputTokensText);
         Assert.Equal("668", first.CacheReadTokensText);
@@ -544,10 +547,14 @@ public class DimensionPagesTests
         var multi = host.Vm.Rows[1];
         Assert.Equal("Codex 等 3 个", multi.AssociatedAgentText);
         Assert.True(multi.IsMultiAgent);
+        Assert.True(multi.HasAssociatedAgentIcon); // 多 Agent 共用：图标给主用 Agent
+        Assert.Equal("codex", multi.AssociatedAgentVendor);
         Assert.Equal("$2.54+", multi.CostText); // 混合未知：已知成本下限 + 后缀，不折 0
 
         Assert.Equal("—", host.Vm.Rows[2].AssociatedAgentText); // 无会话数据不猜
+        Assert.False(host.Vm.Rows[2].HasAssociatedAgentIcon);   // 文案为 "—" 时图标整槽隐藏
         Assert.Equal("—", host.Vm.Rows[3].CostText); // 无成本数据
+        Assert.False(host.Vm.Rows[3].HasAssociatedAgentIcon);
     }
 
     [AvaloniaFact]
