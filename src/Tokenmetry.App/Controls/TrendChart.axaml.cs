@@ -44,7 +44,8 @@ public sealed class TrendChartHoverEventArgs : EventArgs
 /// 三形态共用同一 AvaPlot 与 hover helper（crosshair + tooltip + 右缘/上缘裁剪翻转）。
 /// 设计基准：docs/design/ccusage_analytics_prototype.html（.chart 的 barin/barout/line/point、
 /// 图例三色 = :root blue/purple/cyan 变量 → AppAccentBlue/Purple/CyanBrush）。
-/// 数据经样式属性传入（无 DataContext 依赖），变更即整图重建；缩放/平移保留 AvaPlot 默认交互。
+/// 数据经样式属性传入（无 DataContext 依赖），变更即整图重建。
+/// I-032 视觉升级：折线单调平滑（Web 同款观感）+ 零基线面积填充 + 只读交互（不提供缩放/平移）。
 /// ScottPlot 与 Avalonia 同名类型（Pixel/Color 等）按 D-002 纪律全限定处理。
 /// </summary>
 public partial class TrendChart : UserControl
@@ -84,8 +85,11 @@ public partial class TrendChart : UserControl
         set => SetValue(HourlyDistributionProperty, value);
     }
 
-    /// <summary>底层 ScottPlot Plot（宿主页缩放复位等场景；测试用于断言重建后的样式）。</summary>
+    /// <summary>底层 ScottPlot Plot（测试用于断言重建后的样式）。</summary>
     public Plot Plot => PlotControl.Plot;
+
+    /// <summary>输入交互开关（I-032 定案：恒 false——只读视图不提供缩放/平移；测试固化）。</summary>
+    public bool InteractionsEnabled => PlotControl.UserInputProcessor.IsEnabled;
 
     /// <summary>悬停命中变化（IsActive=false 表示离开/未命中）。</summary>
     public event EventHandler<TrendChartHoverEventArgs>? HoverChanged;
@@ -100,6 +104,10 @@ public partial class TrendChart : UserControl
     public TrendChart()
     {
         InitializeComponent();
+
+        // I-032 只读视图定案：不提供缩放/平移（Web 端同款静态观感），关闭 AvaPlot 默认输入响应
+        //（滚轮缩放 / 拖拽平移 / 双击复位）。悬停走本控件自有 Avalonia 事件，不受影响。
+        PlotControl.UserInputProcessor.Disable();
 
         ModeProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
         DailyPointsProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
@@ -169,7 +177,11 @@ public partial class TrendChart : UserControl
     public static bool IsEffectivelyEmpty(IReadOnlyList<DailyUsagePoint>? points) =>
         points is null || points.Count == 0 || points.All(p => !p.HasData);
 
-    /// <summary>轴/网格/文字/背景 chrome（I-027 令牌，按当前 ActualThemeVariant 现取；缺资源时用原型 Dark 值兜底）。</summary>
+    /// <summary>
+    /// 轴/网格/文字/背景 chrome（I-027 令牌，按当前 ActualThemeVariant 现取；缺资源时用原型 Dark 值兜底）。
+    /// I-032 Web 观感：只有水平主网格（纵向网格关）、无边框、无刻度须；底部留极小边距——面积填充
+    /// 与零值线段贴近下缘，同时让 y 轴「0」刻度与首个月份标签错开不重叠。
+    /// </summary>
     private void ApplyChartChrome(Plot plot)
     {
         // 透明背景：让 Avalonia 侧的卡片渐变（AppCardBackgroundBrush）透出来
@@ -177,24 +189,26 @@ public partial class TrendChart : UserControl
         plot.DataBackground.Color = new Color(0, 0, 0, 0);
 
         var grid = TokenColor("AppChartGridLineBrush", new Color(35, 52, 75));
-        var axis = TokenColor("AppChartAxisLineBrush", new Color(53, 70, 94));
         var text = TokenColor("AppMutedTextBrush", new Color(130, 147, 173));
 
-        // 网格 ← 原型 .gridline #23344b（只保留主网格，与原型一致）
-        plot.Grid.MajorLineColor = grid;
-        plot.Grid.MajorLineWidth = 1f;
-        plot.Grid.MinorLineColor = grid;
-        plot.Grid.MinorLineWidth = 0f;
+        // 网格 ← 原型 .gridline #23344b（只保留水平主网格，纵向网格随 I-032 关闭）
+        plot.Grid.XAxisStyle.IsVisible = false;
+        plot.Grid.YAxisStyle.MajorLineStyle.Color = grid;
+        plot.Grid.YAxisStyle.MajorLineStyle.Width = 1f;
+        plot.Grid.YAxisStyle.MinorLineStyle.Width = 0f;
 
-        // 轴（frame / 刻度 / 文字）← 原型 .axis #35465e 与 .chart text #8293ad
-        foreach (var panel in new IAxis[] { plot.Axes.Bottom, plot.Axes.Left })
+        // 边框/刻度须全部隐藏（AppChartAxisLineBrush 不再用于边框；令牌保留供其余消费方使用），
+        // 刻度文字 ← 原型 .chart text #8293ad
+        foreach (var panel in new IAxis[] { plot.Axes.Bottom, plot.Axes.Left, plot.Axes.Top, plot.Axes.Right })
         {
-            panel.FrameLineStyle.Color = axis;
-            panel.MajorTickStyle.Color = axis;
-            panel.MinorTickStyle.Color = axis;
+            panel.FrameLineStyle.Width = 0f;
+            panel.MajorTickStyle.Length = 0f;
+            panel.MinorTickStyle.Length = 0f;
             panel.TickLabelStyle.ForeColor = text;
             panel.TickLabelStyle.FontSize = 10f; // 原型 .chart text{font-size:10px}
         }
+
+        plot.Axes.Margins(left: 0.02, right: 0.02, bottom: 0.03, top: 0.1);
     }
 
     /// <summary>从 Tokens.axaml 现取画刷颜色（普通资源不随明暗翻转，主题翻转资源按变体命中）。</summary>
@@ -208,6 +222,121 @@ public partial class TrendChart : UserControl
         }
 
         return fallback;
+    }
+
+    // ════════════════════════════ 单调平滑曲线（I-032） ════════════════════════════
+
+    /// <summary>
+    /// 单调三次 Hermite 插值（Fritsch–Carlson 限幅，d3 curveMonotoneX 同源算法）密集化采样——
+    /// Web 图表同款平滑曲线，且<b>绝不越过数据包络</b>。usage 序列的常态形状是长期零值 + 单日尖峰，
+    /// Catmull-Rom 在此形状下会甩到零轴以下（伪负 token）并在峰顶过冲，故不用。
+    /// x 必须严格递增（日序列 OADate / 小时 0..23 / 成本 run 均满足）；点数不足或 x 非严格递增时
+    /// 原样返回（退化为直线连接，绝不抛异常）。每段密采样 <paramref name="segmentsPerSpan"/> 份
+    /// 供直线渲染出平滑观感。
+    /// </summary>
+    public static (double[] Xs, double[] Ys) MonotoneDenseCurve(double[] xs, double[] ys, int segmentsPerSpan = 16)
+    {
+        if (xs.Length != ys.Length || xs.Length < 2)
+        {
+            return (xs, ys);
+        }
+
+        var n = xs.Length;
+        var dx = new double[n - 1];
+        var slope = new double[n - 1];
+        for (var i = 0; i < n - 1; i++)
+        {
+            dx[i] = xs[i + 1] - xs[i];
+            if (dx[i] <= 0)
+            {
+                return (xs, ys); // 非严格递增（异常输入）：退化为直线，不除零
+            }
+
+            slope[i] = (ys[i + 1] - ys[i]) / dx[i];
+        }
+
+        // 端点切线 = 单侧差商；内点切线 = 加权调和平均（相邻斜率异号或为零 → 平坦，避免假极值）
+        var tangent = new double[n];
+        tangent[0] = slope[0];
+        tangent[n - 1] = slope[n - 2];
+        for (var i = 1; i < n - 1; i++)
+        {
+            if (slope[i - 1] * slope[i] <= 0)
+            {
+                tangent[i] = 0;
+            }
+            else
+            {
+                var w1 = 2 * dx[i] + dx[i - 1];
+                var w2 = dx[i] + 2 * dx[i - 1];
+                tangent[i] = (w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]);
+            }
+        }
+
+        // Fritsch–Carlson 限幅：切线相对割线过陡时向内收缩，保证段内无过冲
+        for (var i = 0; i < n - 1; i++)
+        {
+            if (Math.Abs(slope[i]) < 1e-12)
+            {
+                tangent[i] = 0;
+                tangent[i + 1] = 0;
+                continue;
+            }
+
+            var a = tangent[i] / slope[i];
+            var b = tangent[i + 1] / slope[i];
+            var s = a * a + b * b;
+            if (s > 9)
+            {
+                var tau = 3 / Math.Sqrt(s);
+                tangent[i] = tau * a * slope[i];
+                tangent[i + 1] = tau * b * slope[i];
+            }
+        }
+
+        var denseXs = new double[(n - 1) * segmentsPerSpan + 1];
+        var denseYs = new double[denseXs.Length];
+        var k = 0;
+        for (var i = 0; i < n - 1; i++)
+        {
+            for (var j = 0; j < segmentsPerSpan; j++)
+            {
+                var h = (double)j / segmentsPerSpan;
+                var h2 = h * h;
+                var h3 = h2 * h;
+                denseXs[k] = xs[i] + h * dx[i];
+                denseYs[k] = (2 * h3 - 3 * h2 + 1) * ys[i]
+                    + (h3 - 2 * h2 + h) * dx[i] * tangent[i]
+                    + (-2 * h3 + 3 * h2) * ys[i + 1]
+                    + (h3 - h2) * dx[i] * tangent[i + 1];
+                k++;
+            }
+        }
+
+        denseXs[k] = xs[n - 1];
+        denseYs[k] = ys[n - 1];
+        return (denseXs, denseYs);
+    }
+
+    /// <summary>
+    /// 平滑折线（单调密集化）+ 可选零基线面积填充（Web 图表 areaStyle 观感；填充色 = 线色 20% 不透明）。
+    /// 悬停拾取不受影响：hover 坐标始终锚在原始数据点（见各 Build* 对 _hoverCoords 的赋值）。
+    /// </summary>
+    private static Scatter AddSmoothLine(Plot plot, double[] xs, double[] ys, Color color, bool areaFill)
+    {
+        var (denseXs, denseYs) = MonotoneDenseCurve(xs, ys);
+        var line = plot.Add.Scatter(denseXs, denseYs);
+        line.LineWidth = 2.5f;
+        line.Color = color;
+        line.MarkerShape = MarkerShape.None;
+        if (areaFill)
+        {
+            line.FillY = true;
+            line.FillYValue = 0;
+            line.FillYColor = color.WithAlpha(0.2);
+        }
+
+        return line;
     }
 
     /// <summary>日趋势：输入/输出堆叠柱（蓝/紫）+ 总量折线（青）+ 补零日辨识（淡化小点）。</summary>
@@ -268,12 +397,10 @@ public partial class TrendChart : UserControl
             plot.Add.Bars(outputBars.ToArray());
         }
 
-        // 总量折线（全部点连续——日历窗口语义：补零日的 0 让 x 轴回归真实日历，不做断线美化）
+        // 总量折线（全部点连续——日历窗口语义：补零日的 0 让 x 轴回归真实日历，不做断线美化）；
+        // 单调平滑（I-032），柱形背景之上不叠面积填充
         var totals = points.Select(p => (double)p.TotalTokens).ToArray();
-        var totalLine = plot.Add.Scatter(xs, totals);
-        totalLine.LineWidth = 2f;
-        totalLine.Color = cyan;
-        totalLine.MarkerShape = MarkerShape.None;
+        AddSmoothLine(plot, xs, totals, cyan, areaFill: false);
 
         // 补零日辨识手法：真实日 = 数据色实心点；补零日 = 网格色淡化小点（I-028 HasData=false 可视化）
         var realCoords = new List<Coordinates>();
@@ -324,13 +451,12 @@ public partial class TrendChart : UserControl
         var ys = points.Select(p => (double)(p.Cost.KnownCostUsd ?? 0m)).ToArray();
         var knownFlags = points.Select(p => p.Cost.KnownCostUsd is { }).ToArray();
 
-        // 连线只覆盖"连续已知成本"的段（≥2 天才成线；孤立已知日靠实心点呈现）
+        // 连线只覆盖"连续已知成本"的段（≥2 天才成线；孤立已知日靠实心点呈现）；平滑（I-032）。
+        // 面积填充刻意不用：已知成本日稀疏时填充块读作"怪柱子"，且断线语义本就声明日间成本未知，
+        // 填充会暗示连续性（视觉诚实性同审查 P2-7 的取向）。
         foreach (var (start, end) in BuildLineRuns(knownFlags))
         {
-            var run = plot.Add.Scatter(xs[start..(end + 1)], ys[start..(end + 1)]);
-            run.LineWidth = 2f;
-            run.Color = cyan;
-            run.MarkerShape = MarkerShape.None;
+            AddSmoothLine(plot, xs[start..(end + 1)], ys[start..(end + 1)], cyan, areaFill: false);
         }
 
         var knownCoords = new List<Coordinates>();
@@ -410,13 +536,16 @@ public partial class TrendChart : UserControl
         var xs = hours.Select(h => (double)h.Hour).ToArray();
         var ys = hours.Select(h => (double)h.TotalTokens).ToArray();
 
-        var hourlyLine = plot.Add.Scatter(xs, ys);
-        hourlyLine.LineWidth = 2f;
-        hourlyLine.Color = cyan;
-        hourlyLine.MarkerShape = MarkerShape.FilledCircle;
-        hourlyLine.MarkerSize = 4f;
-        hourlyLine.MarkerLineColor = panel;
-        hourlyLine.MarkerLineWidth = 1f;
+        // 平滑曲线 + 面积填充（I-032）；标记点独立成散点，仍锚在真实小时值上
+        AddSmoothLine(plot, xs, ys, cyan, areaFill: true);
+
+        var hourCoords = xs.Select((x, i) => new Coordinates(x, ys[i])).ToArray();
+        var hourMarkers = plot.Add.ScatterPoints(hourCoords, cyan);
+        hourMarkers.LineWidth = 0;
+        hourMarkers.MarkerShape = MarkerShape.FilledCircle;
+        hourMarkers.MarkerSize = 4f;
+        hourMarkers.MarkerLineColor = panel;
+        hourMarkers.MarkerLineWidth = 1f;
 
         _hoverCoords = xs.Select((x, i) => new Coordinates(x, ys[i])).ToArray();
         _hoverLabels = hours.Select(h =>

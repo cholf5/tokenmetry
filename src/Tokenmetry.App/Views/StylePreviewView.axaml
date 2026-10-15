@@ -135,7 +135,7 @@
                             </StackPanel>
                         </StackPanel>
                         <c:TrendChart Height="210" Mode="DailyTokens" DailyPoints="{Binding DailyPoints}"/>
-                        <TextBlock Text="悬停数值：token 千分位 / 成本两位小数 USD；左键拖动平移 · 右键拖动/滚轮缩放 · 双击复位"
+                        <TextBlock Text="悬停数值：token 千分位 / 成本两位小数 USD；只读视图：不提供缩放/平移（I-032）"
                                    Foreground="{DynamicResource AppMutedTextBrush}" FontSize="10"/>
                     </StackPanel>
                 </Border>
