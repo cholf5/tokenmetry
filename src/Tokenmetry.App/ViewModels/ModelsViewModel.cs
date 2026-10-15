@@ -41,6 +41,13 @@ public sealed class ModelDetailRowViewModel
             _ => "—",
         };
         IsMultiAgent = row.AgentCount is > 1;
+        // 关联 Agent 的品牌图标（I-034 补）：与 AssociatedAgentText 同源——只有真的显示了 Agent 名
+        // 才给图标（无会话数据 → "—" 时整槽隐藏，不猜）；多 Agent 共用时给主用 Agent 的标。
+        var displayedAgent = row.AgentCount is >= 1 ? row.DominantAgent : null;
+        HasAssociatedAgentIcon = !string.IsNullOrWhiteSpace(displayedAgent);
+        var agentIcon = AgentVisualMap.Resolve(displayedAgent ?? string.Empty);
+        AssociatedAgentGlyph = agentIcon.Glyph.ToString();
+        AssociatedAgentVendor = agentIcon.LogoVendor;
         InputTokensText = TrendChart.FormatCompactTokens(row.InputTokens);
         OutputTokensText = TrendChart.FormatCompactTokens(row.OutputTokens);
         CacheReadTokensText = TrendChart.FormatCompactTokens(row.CacheReadTokens);
@@ -56,6 +63,15 @@ public sealed class ModelDetailRowViewModel
 
     /// <summary>关联 Agent 文案（唯一 → Agent 名；多 Agent → "主用 等 N 个"；无会话数据 → "—"）。</summary>
     public string AssociatedAgentText { get; }
+
+    /// <summary>该行是否给出关联 Agent 图标（无会话数据 → false，视图整槽隐藏）。</summary>
+    public bool HasAssociatedAgentIcon { get; }
+
+    /// <summary>散列兜底字形（lobe 无对应标的 Agent 才显示，见 <see cref="AgentVisualMap"/>）。</summary>
+    public string AssociatedAgentGlyph { get; }
+
+    /// <summary>关联 Agent 的品牌 logo 变体名（AgentChip.Logo → agent-* 伪类取 AppAgentLogo*）。</summary>
+    public string AssociatedAgentVendor { get; }
 
     /// <summary>多 Agent 共用（视图可加聚合提示；单 Agent / 无数据为 false）。</summary>
     public bool IsMultiAgent { get; }

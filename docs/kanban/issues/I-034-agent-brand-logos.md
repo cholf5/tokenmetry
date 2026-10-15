@@ -30,6 +30,8 @@ Agent 图标从 D-008 起的「软色底芯片 + 按名散列字形/色变体」
 - [x] 未覆盖 Agent（Codebuff/Droid/pi-agent 及命名存储）`generic` → 中性前景**散列字形**兜底（诚实回退，不伪造品牌标）
 - [x] 三处视图全部换为行内 logo（AgentsView KPI ×4 / SessionsView 明细 / MainWindow 右栏），行 VM 改 `LogoVendor`
 - [x] **补一处漏网（用户指出）**：Agent 统计页的 Agent **排行表**行首原为「行序映射系列色圆点」（`series-dot` + `AppSeries{N}Brush`），改为 `agent-chip` 品牌 logo——对齐既定口径（模型明细行用 logo；总览模型分布行「有图标用图标、无图标才退回圆点」）。`AgentRankRowViewModel` 的 `DotBrush`/`ResolveSeriesBrush`/`rank` 参数随之删除（该页无图例与之对应，圆点色只是装饰）
+- [x] **再补一处（用户指出）**：模型统计页「模型明细」表的**关联 Agent 列**加 Agent 品牌图标。图标与 `AssociatedAgentText` 同源——唯一 Agent → 该 Agent 的标；多 Agent 共用 → 主用 Agent 的标（文案「主用 等 N 个」的主语即它）；无会话数据（"—"）→ `HasAssociatedAgentIcon=false`，整槽隐藏（不猜，与文案同纪律）
+- [x] **第三处补充（用户指出）**：设置页「已识别的数据源」表行首加 Agent 品牌图标。该表 19 个源（采集管道清单）里 15 个有标、4 个（Droid / Codebuff / pi-agent）回退散列字形；`DataSourceRowViewModel` 增只读派生属性 `LogoVendor`/`Glyph`（不参与 record 相等性）
 - [x] 散列色退场：删 `chip-blue/green/purple/neutral` 四类与 `AgentChip.Variant`（`AppIconChip{Hue}*` 令牌保留——总览/成本页 KPI 卡与样式预览页仍直接用）
 - [x] 生成器 `scripts/generate-brand-logos.py` 一次产出 ModelLogos + AgentLogos 两文件，可复现（pin 版本、遇不支持结构整体失败不写文件）
 - [x] `AgentLogoTests`（8 用例）+ `DesignTokenTests` 白名单扩 `AgentLogoTests.LogoKeys.Values`
@@ -92,6 +94,8 @@ Automated: 由 TC-001 的名单双向断言覆盖（`Vendors` 与 `LogoKeys` 等
 - 2026-10-15：headless 明暗截图目检 16 标 ×2 主题（临时用例，验证后删除）：全部可读；codex 官方彩标的白色圆底在浅色主题下与页面底融合但内部渐变字形清晰，geminicli/openclaw 的近黑元素在深色主题下隐去但主体（渐变星/红爪）仍在——与 I-033 的 kimi「整块不可读」不同，无需为它们切单色策略。
 - 2026-10-15：全量测试通过 1183 用例 0 失败（Core 110 / Infra 647 / App 112 / Reconciliation 49 / Headless 265，跳过 22 为既有平台/真实数据用例）。
 - 2026-10-15（用户指出后补）：Agent 排行的系列色圆点漏了。排查四周 Agent 图标渲染点只找到 3 处（KPI 卡 / 会话明细 / 右栏），漏了排行表——它的行首是 `series-dot`（不引用 AgentVisualMap，所以不在最初的检索范围内）。改法对齐模型侧：模型明细行（ModelsView）列 0 用 `model-chip` logo；总览模型分布行是「`HasModelIcon` → logo，否则退回 `series-dot`」。Agent 排行同理改用 `agent-chip`（未覆盖的 Agent 自动落散列字形，与会话页/右栏一致，尺寸统一为 16×16），`DotBrush` 与 `rank` 参数删除。用 stub 数据渲染整页明暗两套目检（Claude Code / Codex / ZCode / DSH / Gemini CLI / Amp / OpenCode 有标，Cursor 走兜底字形）：KPI 卡与排行行两主题全部正确。
+- 2026-10-15（用户指出后补 2）：模型明细「关联 Agent」列加图标。该列不是裸 Agent 名而是派生文案（唯一 Agent → 名；多 Agent → 「主用 等 N 个」；无会话数据 → "—"），故图标与文案同源取值：`AgentCount >= 1` 时取 `DominantAgent` 解析图标，否则 `HasAssociatedAgentIcon=false` 整槽隐藏（"—" 行不出现无主图标）。`ModelDetailRowViewModel` 增 `HasAssociatedAgentIcon`/`AssociatedAgentGlyph`/`AssociatedAgentVendor`；`DimensionPagesTests.Model_rows_bind_columns_and_associated_agent_variants` 补四项断言（单 Agent→claudecode、多 Agent→codex、两处 "—" 无图标）。stub 数据明暗两套整页目检：单/多 Agents 文案与图标对齐、"—" 行无图标、文案无截断。
+- 2026-10-15（用户指出后补 3）：设置页「已识别的数据源」表行首加图标。该表行来自 `IngestionScanRegistry` 快照（19 个源 = `LocalIngestionDataSource.BuildScanPipeline` 清单），Agent 名与统计页同源，故直接用同一 `AgentVisualMap.Resolve`；`DataSourceRowViewModel` 用只读计算属性 `LogoVendor`/`Glyph`（不动 9 个位置参数的构造签名与 record 相等性语义——同名源恒等）。`SettingsPageTests` 补四项断言（Claude Code→claudecode / Copilot CLI→copilot / Gemini CLI→geminicli / ZCode→zai）。19 源明暗两套整页目检：15 个官方标 + Droid/Codebuff/pi-agent 灰色兜底字形，行高与状态列对齐无偏移。
 
 ## Related files
 

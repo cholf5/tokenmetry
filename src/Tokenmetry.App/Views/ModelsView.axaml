@@ -77,10 +77,23 @@
                                                    VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
-                                    <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding AssociatedAgentText}"
-                                               ToolTip.Tip="{Binding AssociatedAgentText}"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"/>
+                                    <!-- 关联 Agent 列：品牌 logo + 文案（唯一 → Agent 名；多 Agent →
+                                         "主用 等 N 个"；无会话数据 → "—"，此时整槽隐藏不猜） -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                                VerticalAlignment="Center">
+                                        <Border Classes="agent-chip"
+                                                c:AgentChip.Logo="{Binding AssociatedAgentVendor}"
+                                                IsVisible="{Binding HasAssociatedAgentIcon}">
+                                            <Panel>
+                                                <TextBlock Text="{Binding AssociatedAgentGlyph}"/>
+                                                <Image Classes="agent-logo"/>
+                                            </Panel>
+                                        </Border>
+                                        <TextBlock Classes="table-td" Text="{Binding AssociatedAgentText}"
+                                                   ToolTip.Tip="{Binding AssociatedAgentText}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
                                     <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding InputTokensText}"
                                                VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="3" Classes="table-num" Text="{Binding OutputTokensText}"

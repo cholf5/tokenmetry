@@ -67,6 +67,8 @@ public sealed record CaliberItem(string Text, string Badge, string Note);
 /// 数据源表行 VM（S-002）：数据全部来自采集扫描注册表的快照（真实可得，见卡 Dev Log 来源表），
 /// 无行级可变状态——每次进入页面 / 重扫完成后整表重建。状态类布尔驱动 XAML Classes 条件绑定
 /// （status-ok / status-partial / status-nodata / status-pending，颜色复用既有强调色令牌）。
+/// I-034 补：行首附该数据源的 Agent 品牌图标（只读、从 <see cref="Agent"/> 派生，不参与 record
+/// 相等性——同名数据源恒等）。
 /// </summary>
 public sealed record DataSourceRowViewModel(
     string Agent,
@@ -79,6 +81,15 @@ public sealed record DataSourceRowViewModel(
     string LastScanText,
     string RecordCountText)
 {
+    /// <summary>Agent 图标（与统计页/会话页同一 AgentVisualMap 判定；未覆盖的源回退散列字形）。</summary>
+    private AgentVisual Icon => AgentVisualMap.Resolve(Agent);
+
+    /// <summary>品牌 logo 变体名（经 AgentChip.Logo 附加属性 → agent-* 伪类 DynamicResource 取 AppAgentLogo*）。</summary>
+    public string LogoVendor => Icon.LogoVendor;
+
+    /// <summary>散列兜底字形（lobe 无对应标的 Agent 才显示）。</summary>
+    public string Glyph => Icon.Glyph.ToString();
+
     public static DataSourceRowViewModel NotScannedYet(string agent) =>
         new(agent, Translations.Instance.StatusNotScanned, IsOk: false, IsPartial: false, IsNoData: false, IsError: false, IsPending: true, "—", "—");
 }
