@@ -550,6 +550,122 @@ public class TrendChartTests
         Dispatcher.UIThread.RunJobs();
     }
 
+    // ── I-032 视觉升级：单调平滑曲线（纯函数）──
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void MonotoneDenseCurve_degenerate_input_returns_original(int n)
+    {
+        var xs = Enumerable.Range(0, n).Select(i => (double)i).ToArray();
+        var ys = Enumerable.Range(0, n).Select(i => (double)(i * 100)).ToArray();
+        var (outXs, outYs) = TrendChart.MonotoneDenseCurve(xs, ys);
+        Assert.Same(xs, outXs);
+        Assert.Same(ys, outYs);
+    }
+
+    [AvaloniaFact]
+    public void MonotoneDenseCurve_non_increasing_x_returns_original()
+    {
+        var xs = new double[] { 1, 2, 2, 3 };
+        var ys = new double[] { 1, 2, 3, 4 };
+        var (outXs, outYs) = TrendChart.MonotoneDenseCurve(xs, ys);
+        Assert.Same(xs, outXs);
+        Assert.Same(ys, outYs);
+    }
+
+    [AvaloniaFact]
+    public void MonotoneDenseCurve_stays_within_data_envelope_on_spike()
+    {
+        // 尖峰形状（usage 常态）：长期零 + 单日尖峰 + 回落——Catmull-Rom 会甩出负值/过冲，
+        // 单调插值必须贴合包络（峰值不过冲、零段不产生伪负 token）
+        var xs = Enumerable.Range(0, 30).Select(i => (double)i).ToArray();
+        var ys = new double[30];
+        ys[26] = 4.4e8;
+        ys[27] = 4.3e8;
+        ys[28] = 4.35e8;
+        ys[29] = 2.6e8;
+        var (denseXs, denseYs) = TrendChart.MonotoneDenseCurve(xs, ys);
+
+        Assert.Equal((30 - 1) * 16 + 1, denseXs.Length);
+        Assert.Equal(denseXs.Length, denseYs.Length);
+        Assert.Equal(0, denseXs[0]);
+        Assert.Equal(29, denseXs[^1]);
+        Assert.Equal(4.4e8, denseYs.Max());
+        Assert.Equal(0, denseYs.Min());
+        for (var i = 1; i < denseXs.Length; i++)
+        {
+            Assert.True(denseXs[i] > denseXs[i - 1], "密集化采样 x 必须严格递增");
+        }
+    }
+
+    [AvaloniaFact]
+    public void MonotoneDenseCurve_two_points_smooth_without_overshoot()
+    {
+        var (denseXs, denseYs) = TrendChart.MonotoneDenseCurve([0, 1], [0, 1e6]);
+        Assert.Equal(17, denseXs.Length);
+        Assert.Equal(0, denseXs[0]);
+        Assert.Equal(1, denseXs[^1]);
+        Assert.Equal(0, denseYs.Min());
+        Assert.Equal(1e6, denseYs.Max());
+    }
+
+    // ── I-032 视觉升级：只读交互 + Web 风 chrome + 平滑/面积填充按形态生效 ──
+
+    [AvaloniaFact]
+    public void Input_interactions_are_disabled_and_chrome_is_web_style()
+    {
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = ChartTestHelpers.DailyPoints30() };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        Assert.False(chart.InteractionsEnabled); // 滚轮缩放/拖拽平移/双击复位全部关闭
+
+        Assert.False(chart.Plot.Grid.XAxisStyle.IsVisible); // 纵向网格关，只剩水平网格
+        Assert.True(chart.Plot.Grid.YAxisStyle.IsVisible);
+        foreach (var frameWidth in new[]
+        {
+            chart.Plot.Axes.Bottom.FrameLineStyle.Width,
+            chart.Plot.Axes.Top.FrameLineStyle.Width,
+            chart.Plot.Axes.Left.FrameLineStyle.Width,
+            chart.Plot.Axes.Right.FrameLineStyle.Width,
+        })
+        {
+            Assert.Equal(0f, frameWidth); // 四边无边框
+        }
+
+        Assert.Equal(0f, chart.Plot.Axes.Bottom.MajorTickStyle.Length); // 无刻度须
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Line_series_are_dense_smooth_and_area_fill_depends_on_mode()
+    {
+        var points = ChartTestHelpers.DailyPoints30();
+        var daily = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
+        var window = CreateWindow(daily, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var dailyLine = daily.Plot.PlottableList.OfType<ScottPlot.Plottables.Scatter>().Single(s => s.LineWidth > 0);
+        Assert.True(dailyLine.Data.GetScatterPoints().Count > points.Count, "总量折线应经单调密集化平滑");
+        Assert.False(dailyLine.FillY, "柱形态不叠面积填充");
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+
+        var hourly = new TrendChart { Mode = TrendChartMode.HourlyTokens, HourlyDistribution = HourlyFixture() };
+        var hourlyWindow = CreateWindow(hourly, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(hourlyWindow);
+
+        var hourlyLine = hourly.Plot.PlottableList.OfType<ScottPlot.Plottables.Scatter>().Single(s => s.LineWidth > 0);
+        Assert.True(hourlyLine.Data.GetScatterPoints().Count > 24, "小时折线应经单调密集化平滑");
+        Assert.True(hourlyLine.FillY, "小时形态应有零基线面积填充");
+        Assert.True(hourlyLine.FillYColor.Alpha < 255, "面积填充 = 线色半透明");
+        hourlyWindow.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     // ── 格式化口径（对账一致）──
 
     [AvaloniaTheory]
