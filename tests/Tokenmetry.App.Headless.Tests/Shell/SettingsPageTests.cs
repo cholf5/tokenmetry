@@ -16,6 +16,7 @@ using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
+using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
 using Xunit;
@@ -48,6 +49,34 @@ public class SettingsPageTests
         public void Show(string message, Visual? host = null) => Messages.Add(message);
     }
 
+    /// <summary>Stub 查询服务：只真实提供原始模型名候选（模型聚合卡候选清单），其余成员空实现。</summary>
+    private sealed class StubAliasQuery : IUsageQueryService
+    {
+        public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<string>>(["ark/glm-5.3-flash", "glm-5.3-flash"]);
+
+        public Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DailyUsagePoint>>([]);
+
+        public Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new UsageKpiResult());
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DimensionUsageRow>>([]);
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DimensionUsageRow>>([]);
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DimensionUsageRow>>([]);
+
+        public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default) =>
+            Task.FromResult(new SessionListResult());
+
+        public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new HourlyDistributionResult());
+    }
+
     private sealed class StubScanReader : IIngestionScanReader
     {
         public List<string> Registered { get; } = new();
@@ -71,7 +100,9 @@ public class SettingsPageTests
     private static SettingsViewModel CreateViewModel(
         StubScanReader? reader = null,
         StubToast? toast = null,
-        Func<Task<bool>>? refreshAction = null)
+        Func<Task<bool>>? refreshAction = null,
+        IUsageQueryService? query = null,
+        ModelAliasResolver? aliasResolver = null)
     {
         return new SettingsViewModel(
             new AppSettings(),
@@ -80,7 +111,9 @@ public class SettingsPageTests
             new ThemeService(),
             reader ?? new StubScanReader(),
             new BackgroundRefreshService(refreshAction ?? (() => Task.FromResult(true))),
-            toast ?? new StubToast());
+            toast ?? new StubToast(),
+            query,
+            aliasResolver);
     }
 
     [AvaloniaFact]
@@ -319,6 +352,52 @@ public class SettingsPageTests
         Assert.StartsWith("最近更新", shell.LastUpdatedText);           // 2. 外壳时间戳被本轮回写
         Assert.DoesNotContain(vm.SourceRows, r => r.IsPending);         // 3. 一轮真实刷新后 19 源全部有快照
         Assert.Equal(19, vm.SourceRows.Count);
+    }
+
+    [AvaloniaFact]
+    public void Alias_panel_renders_and_autocomplete_text_binds_to_add_rule()
+    {
+        // 模型聚合卡端到端（headless）：面板渲染 → 候选清单 → AutoCompleteBox 键入
+        // （Text 逐键双向绑定到 VM——本功能交互的关键路径）→ 添加规则落行 + 空态消失。
+        var vm = CreateViewModel(query: new StubAliasQuery());
+
+        var window = new Window { Width = 980, Height = 900, Content = new SettingsView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains("模型聚合（别名映射）", texts);
+        Assert.Contains("原始模型名", texts);
+        Assert.Contains("规范名（统计显示名）", texts);
+        Assert.Contains("＋ 添加映射", texts);
+        Assert.Contains("尚无映射规则", texts);
+
+        // 候选清单异步装载（构造 fire-and-forget）→ RunJobs 排空后到位
+        Dispatcher.UIThread.RunJobs();
+
+        var boxes = window.GetVisualDescendants().OfType<AutoCompleteBox>().ToList();
+        Assert.Equal(2, boxes.Count);
+
+        boxes[0].Focus();
+        window.KeyTextInput("ark/glm-5.3-flash");
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("ark/glm-5.3-flash", vm.NewAliasSource);
+
+        boxes[1].Focus();
+        window.KeyTextInput("glm-5.3-flash");
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("glm-5.3-flash", vm.NewAliasTarget);
+
+        vm.AddAliasRuleCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Single(vm.AliasRules);
+        Assert.Empty(vm.NewAliasSource);
+        // 可视树里 IsVisible=false 的元素仍在（空态 TextBlock 只是隐藏），按可见过滤后再断言。
+        texts = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsVisible).Select(t => t.Text).ToList();
+        Assert.Contains("ark/glm-5.3-flash", texts);
+        Assert.Contains("glm-5.3-flash", texts);
+        Assert.DoesNotContain("尚无映射规则", texts);
     }
 
     [AvaloniaFact]

@@ -39,8 +39,20 @@ public interface IUsageQueryService
     /// 模型维度聚合（I-029）：会话数按 dominant_model 归属；空模型键跳过（对齐既有页面口径）。
     /// D-010 契约演进：额外填充 <see cref="DimensionUsageRow.DominantAgent"/> / <see cref="DimensionUsageRow.AgentCount"/>
     /// （同一批 session_facts 按 Agent 计数派生的"关联 Agent"，仅本维度非 null）。
+    /// 模型聚合（别名映射）：服务持有 <see cref="IModelNameResolver"/> 时，facts 的模型键与会话的
+    /// dominant_model 都先经 <see cref="IModelNameResolver.Resolve"/> 归一——不同原始名（大小写 /
+    /// 厂商前缀 / 别名变体）按用户映射合并为规范名一行，会话归属、关联 Agent、token、成本与占比
+    /// 全部在规范名口径上聚合；无映射（恒等）时行为与原契约逐位一致。
     /// </summary>
     Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default);
+
+    /// <summary>
+    /// 原始模型名候选清单（模型别名映射设置页的候选项）：本地数据（usage_facts 的模型键 + 会话的
+    /// dominant_model）中出现过的<b>原始</b>模型名去重——有意绕过别名归一（映射的录入源必须是
+    /// 映射前的名字）。按估算权重降序（facts 行与会话的 TotalTokens 之和）、平局按名称序数，
+    /// 让常用名排在候选列表前面。
+    /// </summary>
+    Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default);
 
     /// <summary>项目维度聚合（I-029）：Key 为原始路径，DisplayName 为归一化项目名（歧义守卫见类型说明）。</summary>
     Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default);
@@ -48,6 +60,8 @@ public interface IUsageQueryService
     /// <summary>
     /// 会话明细列表（I-029）：搜索 + 组合筛选 + 排序 + 分页（契约见 <see cref="SessionListQuery"/>；
     /// <see cref="SessionListQuery.PageSize"/>&lt;= 0 抛 <see cref="ArgumentException"/>，null 才是不分页）。
+    /// <see cref="SessionListQuery.Model"/> 按模型聚合口径过滤：与会话 dominant_model 的<b>别名归一名</b>
+    /// 精确比较（下拉选项来自模型维度聚合，双方同在规范名空间）；搜索词对原始名与归一名都匹配。
     /// </summary>
     Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default);
 

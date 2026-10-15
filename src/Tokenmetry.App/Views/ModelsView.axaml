@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Tokenmetry.App.ViewModels"
              xmlns:loc="using:Tokenmetry.App.Localization"
+             xmlns:c="using:Tokenmetry.App.Controls"
              mc:Ignorable="d"
              x:Class="Tokenmetry.App.Views.ModelsView"
              x:DataType="vm:ModelsViewModel">
@@ -62,10 +63,17 @@
                                     BorderThickness="0,1,0,0"
                                     Padding="0,8,0,2">
                                 <Grid ColumnDefinitions="1.3*,0.9*,56,56,56,56,64" ColumnSpacing="6">
-                                    <TextBlock Grid.Column="0" Classes="table-td" Text="{Binding Name}"
-                                               ToolTip.Tip="{Binding Name}"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"/>
+                                    <!-- 模型列：内置厂商图标 + 名称（图标恒显示，未识别落 generic 中性芯片） -->
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                        <Border Classes="model-chip" c:ModelChip.Vendor="{Binding ModelIcon.Vendor}"
+                                                ToolTip.Tip="{Binding Name}">
+                                            <TextBlock Text="{Binding ModelIcon.Glyph}"/>
+                                        </Border>
+                                        <TextBlock Classes="table-td" Text="{Binding Name}"
+                                                   ToolTip.Tip="{Binding Name}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
                                     <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding AssociatedAgentText}"
                                                ToolTip.Tip="{Binding AssociatedAgentText}"
                                                VerticalAlignment="Center"

@@ -38,4 +38,13 @@ public class AppSettings
 
     /// <summary>用户价格覆盖规则（I-003，exact 模型名匹配，优先级高于远程数据与内置快照）。</summary>
     public List<ModelPricingOverride> PricingOverrides { get; set; } = new();
+
+    /// <summary>
+    /// 模型别名映射（用户配置的模型聚合）：键 = 数据里出现的原始模型名（精确匹配，大小写敏感），
+    /// 值 = 规范名（统计显示与聚合的键）。动机：不同来源对同一模型命名不同（GLM-5.3-Flash /
+    /// glm-5.3-flash / glm-flash-latest / ark/glm-5.3-flash），全靠内置规则无法覆盖，
+    /// 交给用户在设置页维护；查询服务在模型维度聚合与会话筛选时经
+    /// <see cref="Abstractions.IModelNameResolver"/> 消费。空字典 = 不聚合（默认）。
+    /// </summary>
+    public Dictionary<string, string> ModelAliases { get; set; } = new();
 }

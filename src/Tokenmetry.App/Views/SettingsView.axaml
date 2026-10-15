@@ -2,13 +2,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Tokenmetry.App.ViewModels"
              xmlns:loc="using:Tokenmetry.App.Localization"
+             xmlns:c="using:Tokenmetry.App.Controls"
              x:Class="Tokenmetry.App.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
 
     <!--
         S-002 数据源与设置页（原型 #page-settings）：页头 + 已识别的数据源表（真实扫描快照，
         全局重扫——采集管道不支持 per-source，按钮语义如实）+ 统计口径说明区（逐项定案，
-        全部说明样式，不做假开关）+ 既有设置项迁入（主题三态 / 界面语言 / 刷新间隔 / 通知 /
+        全部说明样式，不做假开关）+ 模型聚合卡（用户维护的别名映射，原始名 → 规范名，
+        统计按规范名合并）+ 既有设置项迁入（主题三态 / 界面语言 / 刷新间隔 / 通知 /
         ccusage 命令 / 本地路径）。全部设置项全自动保存（改完即生效并落盘，无保存按钮——
         对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）；重扫操作经 IToastService
         反馈（I-027）。
@@ -106,6 +108,84 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ 模型聚合（别名映射）：原始模型名 → 规范名，统计按规范名合并（规则增删即存即热更新）═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="panel-title" Text="{Binding AliasPanelTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding AliasPanelHint, Source={x:Static loc:Translations.Instance}}"/>
+
+                    <!-- 规则列表（整表随增删重建；目标侧附规范名的厂商图标——统计里显示的是规范名） -->
+                    <ItemsControl ItemsSource="{Binding AliasRules}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AliasRuleRowViewModel">
+                                <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,9,0,7">
+                                    <Grid ColumnDefinitions="*,Auto,*,Auto" ColumnSpacing="8">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                            <Border Classes="model-chip" c:ModelChip.Vendor="{Binding Vendor}">
+                                                <TextBlock Text="{Binding Glyph}"/>
+                                            </Border>
+                                            <TextBlock Classes="table-td" Text="{Binding Alias}"
+                                                       ToolTip.Tip="{Binding Alias}"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Classes="table-td"
+                                                   Foreground="{DynamicResource AppMutedTextBrush}"
+                                                   Text="→" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Classes="table-td" Text="{Binding Target}"
+                                                   ToolTip.Tip="{Binding Target}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <Button Grid.Column="3" Classes="link-btn" VerticalAlignment="Center"
+                                                Content="{Binding AliasRemove, Source={x:Static loc:Translations.Instance}}"
+                                                Command="{Binding $parent[ItemsControl].DataContext.RemoveAliasRuleCommand}"
+                                                CommandParameter="{Binding Alias}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="page-subtitle"
+                               Text="{Binding AliasEmpty, Source={x:Static loc:Translations.Instance}}"
+                               IsVisible="{Binding HasNoAliasRules}"/>
+
+                    <!-- 新增规则：两侧都是「候选下拉 + 自由输入」（AutoCompleteBox） -->
+                    <Grid ColumnDefinitions="*,1.2*" ColumnSpacing="10">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding AliasSourceLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <AutoCompleteBox ItemsSource="{Binding AliasCandidates}"
+                                             Text="{Binding NewAliasSource, Mode=TwoWay}"
+                                             PlaceholderText="{Binding AliasSourcePlaceholder, Source={x:Static loc:Translations.Instance}}"
+                                             TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"
+                                             MinimumPrefixLength="0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding AliasTargetLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <AutoCompleteBox ItemsSource="{Binding AliasCandidates}"
+                                             Text="{Binding NewAliasTarget, Mode=TwoWay}"
+                                             PlaceholderText="{Binding AliasTargetPlaceholder, Source={x:Static loc:Translations.Instance}}"
+                                             TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"
+                                             MinimumPrefixLength="0"/>
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button Classes="Secondary"
+                                Content="{Binding AliasAdd, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding AddAliasRuleCommand}"
+                                VerticalAlignment="Center"/>
+                        <TextBlock Classes="page-subtitle" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Text="{Binding AliasError}"
+                                   Foreground="{DynamicResource AppAccentRedBrush}"
+                                   IsVisible="{Binding AliasError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding AliasCandidatesHint, Source={x:Static loc:Translations.Instance}}"/>
                 </StackPanel>
             </Border>
 

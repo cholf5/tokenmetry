@@ -29,6 +29,8 @@ public sealed class ModelDetailRowViewModel
     public ModelDetailRowViewModel(DimensionUsageRow row)
     {
         Name = row.Key;
+        // 内置厂商图标（ModelVisualMap 按规范名识别；未识别落 generic 中性芯片）。
+        ModelIcon = ModelVisualMap.Resolve(row.Key);
         AssociatedAgentText = row.AgentCount switch
         {
             1 => row.DominantAgent ?? "—",
@@ -48,6 +50,9 @@ public sealed class ModelDetailRowViewModel
     }
 
     public string Name { get; }
+
+    /// <summary>内置厂商图标（品牌色芯片字形 + 变体名，见 <see cref="ModelVisualMap"/>；恒非 null）。</summary>
+    public ModelVisual ModelIcon { get; }
 
     /// <summary>关联 Agent 文案（唯一 → Agent 名；多 Agent → "主用 等 N 个"；无会话数据 → "—"）。</summary>
     public string AssociatedAgentText { get; }
