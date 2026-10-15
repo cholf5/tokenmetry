@@ -128,7 +128,10 @@
                                     <Grid ColumnDefinitions="*,Auto,*,Auto" ColumnSpacing="8">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                                             <Border Classes="model-chip" c:ModelChip.Vendor="{Binding Vendor}">
-                                                <TextBlock Text="{Binding Glyph}"/>
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Glyph}"/>
+                                                    <Image Classes="model-logo"/>
+                                                </Panel>
                                             </Border>
                                             <TextBlock Classes="table-td" Text="{Binding Alias}"
                                                        ToolTip.Tip="{Binding Alias}"

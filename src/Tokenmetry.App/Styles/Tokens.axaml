@@ -170,27 +170,8 @@
         <GradientStop Color="#65b9ff" Offset="1"/>
     </LinearGradientBrush>
 
-    <!--
-        模型图标芯片（ModelVisualMap / ModelChip）：厂商品牌色底，固定不随明暗翻转（品牌色是
-        常量，饱和中深色底 + 白字形在明暗两种面板上都可读；个别极深品牌色取提亮变体保证与
-        暗色卡片的分离度）。未识别厂商（generic）复用 AppIconChipNeutral* 令牌随明暗翻转。
-    -->
-    <SolidColorBrush x:Key="AppModelChipForegroundBrush" Color="#ffffff"/>
-    <SolidColorBrush x:Key="AppModelChipClaudeBackgroundBrush" Color="#d97757"/>
-    <SolidColorBrush x:Key="AppModelChipOpenAIBackgroundBrush" Color="#0fa47f"/>
-    <SolidColorBrush x:Key="AppModelChipGeminiBackgroundBrush" Color="#4c8df6"/>
-    <SolidColorBrush x:Key="AppModelChipGlmBackgroundBrush" Color="#3859ff"/>
-    <SolidColorBrush x:Key="AppModelChipDeepSeekBackgroundBrush" Color="#4d6bfe"/>
-    <SolidColorBrush x:Key="AppModelChipQwenBackgroundBrush" Color="#615ced"/>
-    <SolidColorBrush x:Key="AppModelChipKimiBackgroundBrush" Color="#35385c"/>
-    <SolidColorBrush x:Key="AppModelChipLlamaBackgroundBrush" Color="#0668e1"/>
-    <SolidColorBrush x:Key="AppModelChipGrokBackgroundBrush" Color="#3d3f45"/>
-    <SolidColorBrush x:Key="AppModelChipMistralBackgroundBrush" Color="#ee6a2a"/>
-    <SolidColorBrush x:Key="AppModelChipDoubaoBackgroundBrush" Color="#4e6ef2"/>
-    <SolidColorBrush x:Key="AppModelChipMiniMaxBackgroundBrush" Color="#ef4a5b"/>
-    <SolidColorBrush x:Key="AppModelChipCohereBackgroundBrush" Color="#4e7a66"/>
-    <SolidColorBrush x:Key="AppModelChipErnieBackgroundBrush" Color="#2932e1"/>
-    <SolidColorBrush x:Key="AppModelChipHunyuanBackgroundBrush" Color="#0a5cd5"/>
-    <SolidColorBrush x:Key="AppModelChipPhiBackgroundBrush" Color="#0078d4"/>
+    <!-- 模型厂商 logo（I-031）不在令牌层：是 lobe-icons 静态 SVG 生成的 DrawingImage 资源，
+         见 Styles/ModelLogos.axaml（头部有来源/许可/再生方式）。原「品牌色芯片」时代的
+         AppModelChip*BackgroundBrush 令牌随芯片方案一起移除。 -->
 
 </ResourceDictionary>

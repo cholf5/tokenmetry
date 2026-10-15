@@ -5,10 +5,11 @@ using Avalonia.Controls;
 namespace Tokenmetry.App.Controls;
 
 /// <summary>
-/// 模型图标芯片的厂商附加属性：把行 VM 给出的厂商变体名（<see cref="ViewModels.ModelVisualMap"/>，
-/// claude/openai/…/generic）翻译成挂载控件的伪类（model-*），颜色一律由 SharedStyles.axaml 的
-/// model-* 样式以 DynamicResource 引用令牌——按控件 ActualThemeVariant 解析，明暗翻转与窗口级
-/// RequestedThemeVariant 自动生效。机制与 <see cref="AgentChip"/> 完全同构（VM 不解析画刷纪律）。
+/// 模型图标槽的厂商附加属性：把行 VM 给出的厂商变体名（<see cref="ViewModels.ModelVisualMap"/>，
+/// claude/openai/…/generic）翻译成挂载控件的伪类（model-*），logo/字形由 SharedStyles.axaml 的
+/// model-* 样式给出——logo 源以 DynamicResource 引用 ModelLogos.axaml 的 AppModelLogo*
+/// （openai/grok 单色官方标按 ActualThemeVariant 明暗自动换黑白）。机制与 <see cref="AgentChip"/>
+/// 完全同构（VM 不解析画刷纪律）。
 /// </summary>
 public static class ModelChip
 {

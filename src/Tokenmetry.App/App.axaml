@@ -17,11 +17,14 @@
     </Application.Styles>
 
     <!-- 明暗两套画刷，视图统一用 DynamicResource 引用，切换主题时自动换色。
-         I-027：设计令牌层在 Styles/Tokens.axaml（App* 前缀，命名规范见 docs/design/design-tokens.md）。 -->
+         I-027：设计令牌层在 Styles/Tokens.axaml（App* 前缀，命名规范见 docs/design/design-tokens.md）。
+         模型厂商 logo（I-031）在 Styles/ModelLogos.axaml：由 lobe-icons 静态 SVG 生成的
+         DrawingImage 资源（彩色官方标；openai/grok 单色标随明暗翻转，见该文件头注释）。 -->
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://Tokenmetry.App/Styles/Tokens.axaml" />
+                <ResourceInclude Source="avares://Tokenmetry.App/Styles/ModelLogos.axaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

@@ -1,7 +1,8 @@
 # 设计令牌与样式命名规范（I-027）
 
 来源：UI 原型 `docs/design/ccusage_analytics_prototype.html`（v0.4 设计基准）。
-实现：`src/Tokenmetry.App/Styles/Tokens.axaml`（令牌）+ `src/Tokenmetry.App/Styles/SharedStyles.axaml`（共享样式）。
+实现：`src/Tokenmetry.App/Styles/Tokens.axaml`（令牌）+ `src/Tokenmetry.App/Styles/SharedStyles.axaml`（共享样式）；
+模型厂商 logo 是生成资源（`Styles/ModelLogos.axaml`，见 §7），不在令牌层。
 本文档是 8 个页面卡（D-006 ~ D-013）与 S-002/Q-002 引用的约定。
 
 > D-003 补充：外壳专用令牌 `AppSidebarBackgroundBrush` / `AppTopbarBackgroundBrush` /
@@ -65,6 +66,7 @@
 | `link-btn` | Button | `.linkbtn` | 11px 无边框透明底 + AppLinkBrush（悬停底色保留 Semi 行为） |
 | `chip` | Border | `.chip` | 5px 圆角、Padding 7,3、AppChip 背景/文字（文字色经附加属性继承） |
 | `icon-chip` | Border | `.kpi-icon` | 30×30 圆角 9；颜色按变体给 `AppIconChip{Hue}BackgroundBrush`/`ForegroundBrush`（blue/amber/purple/green/neutral） |
+| `model-chip` | Border | （无原型对应；I-030 起图标槽，I-033 起 logo 化） | 16×16 透明槽：行内官方品牌 logo（`Image.model-logo` ← `AppModelLogo*`），phi/generic 回退字形；厂商经 `ModelChip.Vendor` 附加属性翻译成 model-* 伪类（同 AgentChip 机制），样式规则集中在 SharedStyles |
 | `series-dot` | Border | `.modeldot` | 7×7 圆角 3；颜色给 `AppSeries{N}Brush` |
 | `mini` | ProgressBar | `.mini-track`/`.mini-fill` | 4px 高；Value 0-100 直接驱动填充宽度（内置 PART_Track/PART_Indicator） |
 
@@ -78,3 +80,12 @@ CSS `linear-gradient(θ, ...)`：0deg 指向上、顺时针；方向向量（屏
 ## 6. 令牌 ↔ 原型色值对照
 
 Dark 列全部为原型原值（`:root` 变量 + `.kpi/.chip/.linkbtn/.mini-track/.kpi-icon/.agenticon` 选择器色值）；Light 列为 I-027 设计的协调值（同色相、明度反转、浅底上加深保证对比度）。完整对照见 `Styles/Tokens.axaml` 内逐行注释与 `tests/Tokenmetry.App.Headless.Tests/Styles/DesignTokenTests.cs` 的期望值表（测试与令牌文件同步维护）。
+
+## 7. 模型厂商 logo（I-033，lobe-icons 生成资源）
+
+模型统计页 / 总览模型分布 / 设置页别名行的厂商图标**不是令牌**，而是生成资源：`Styles/ModelLogos.axaml` 由 `scripts/generate-model-logos.py` 从 npm 包 `@lobehub/icons-static-svg@1.95.1`（MIT License, Copyright (c) 2023 LobeHub）的静态 SVG 一次性转换（SVG → `DrawingImage`/`DrawingGroup`/`GeometryDrawing`，path 数据原样保留仅补填充规则前缀）。**勿手改**；再生：`python3 scripts/generate-model-logos.py`（版本 pin 在脚本 LOBE_VERSION，升级即改它重跑）。
+
+- 键名 `AppModelLogo{VendorPascal}`，15 家：Claude / OpenAI / Gemini / Glm(智谱标) / DeepSeek / Qwen / Kimi / Llama(Meta 标) / Grok / Mistral / Doubao / MiniMax / Cohere / Ernie(文心标) / Hunyuan；phi / generic 无官方标，视图层回退 Φ/◇ 字形。
+- 主题策略：官方标无彩色形态（openai/grok）→ ThemeDictionaries Light=黑 / Dark=白；kimi 彩标以白为主体（暗底设计，浅底不可读）→ Light=单色标 / Dark=彩标；其余明暗同用彩色版。单色/彩色的取舍由生成器 VENDORS 表逐厂商显式声明。
+- 渲染：`Border.model-chip` 16×16 槽 + `Panel{TextBlock 字形, Image.model-logo}`；Source 由 model-* 伪类样式经 DynamicResource 给出（必须 DynamicResource——单色版要随明暗切换）。注意 chip 内容包在 Panel 里，样式选择器用**后代组合器**（`Border.model-x Image.model-logo`）而非直接子级 `>`。
+- 键名单入 `DesignTokenTests.AllTokenKeys` Semi 撞名白名单；资源存在性 / 明暗策略 / 样式应用由 `ModelLogoTests` 固化。
