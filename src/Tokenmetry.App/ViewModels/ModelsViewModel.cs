@@ -41,6 +41,15 @@ public sealed class ModelDetailRowViewModel
             _ => "—",
         };
         IsMultiAgent = row.AgentCount is > 1;
+        // 服务商副行（I-036 三元组的第三元）：唯一 provider 出名字，多 provider 出「N 个」，
+        // 无观测不出行（IsVisible=false → 该行模型列回到单行高度）。
+        HasProvider = row.ProviderCount > 0;
+        ProviderText = row.ProviderCount switch
+        {
+            0 => string.Empty,
+            1 => string.Format(CultureInfo.InvariantCulture, Translations.Instance.ProviderSingleFormat, row.Provider),
+            _ => string.Format(CultureInfo.InvariantCulture, Translations.Instance.ProviderMultiFormat, row.ProviderCount),
+        };
         // 关联 Agent 的品牌图标（I-034 补）：与 AssociatedAgentText 同源——只有真的显示了 Agent 名
         // 才给图标（无会话数据 → "—" 时整槽隐藏，不猜）；多 Agent 共用时给主用 Agent 的标。
         var displayedAgent = row.AgentCount is >= 1 ? row.DominantAgent : null;
@@ -75,6 +84,12 @@ public sealed class ModelDetailRowViewModel
 
     /// <summary>多 Agent 共用（视图可加聚合提示；单 Agent / 无数据为 false）。</summary>
     public bool IsMultiAgent { get; }
+
+    /// <summary>该行是否有 provider 观测（false → 副行不渲染）。</summary>
+    public bool HasProvider { get; }
+
+    /// <summary>服务商副行文案（"服务商：zai" / "服务商：2 个"；无观测为空串）。</summary>
+    public string ProviderText { get; }
 
     public string InputTokensText { get; }
 

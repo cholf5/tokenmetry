@@ -80,6 +80,9 @@ public static class ZCodeRecordMapper
                 : row.Directory,
             SessionId = row.SessionId,
             Model = rawModel,
+            // I-036 三元组的 provider：账本自带的 provider_id（自定义源为内部 UUID——如实记录观测值，
+            // 不映射成厂商；未检测到就是空串）。
+            Provider = providerId?.Trim() ?? string.Empty,
             // ZCode 账本不记逐请求成本：Z.ai 限定行走定价引擎（I-003），自定义 provider 行
             // 记 0（蓝本 pricing_model 对非 Z.ai provider 返回 None → 成本 0 + 缺价警告）。
             CostUsd = isZai ? null : 0m,

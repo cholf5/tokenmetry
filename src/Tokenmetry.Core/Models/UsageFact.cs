@@ -42,6 +42,13 @@ public class UsageFact
     /// <summary>模型名（已归一化）；无模型（&lt;synthetic&gt; 等）或该行不含 model 维度时为空串。</summary>
     public string Model { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 服务商（I-036）：这次请求由谁服务——空串 = 未检测。三元组 = agent × model × provider，
+    /// 同一天内同一模型经不同 provider 使用会分成不同的行（不同 provider 价目可能不同）。
+    /// 只有 full 粒度行可能带值；CLI 分解行（day / agent / model / project）恒为空串。
+    /// </summary>
+    public string Provider { get; set; } = string.Empty;
+
     /// <summary>项目路径；该行不含 project 维度时为空串。</summary>
     public string Project { get; set; } = string.Empty;
 

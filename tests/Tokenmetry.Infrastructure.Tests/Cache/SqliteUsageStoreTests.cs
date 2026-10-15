@@ -49,7 +49,24 @@ public class SqliteUsageStoreTests : IAsyncLifetime
         var facts = await _store.GetUsageFactsAsync();
         facts.Should().ContainSingle();
         facts[0].CostUsd.Should().Be(1.23m);
-        MigrationVersions().Should().ContainSingle().Which.Should().Be(1L);
+        // 重复 Initialize 不重跑迁移：全部已注册版本各落账一次、顺序完整（I-036 起有 migration 2）。
+        MigrationVersions().Should().Equal(1L, 2L);
+    }
+
+    /// <summary>I-036：provider 进入维度（三元组 agent × model × provider）——同模型不同 provider 分行的往返。</summary>
+    [Fact]
+    public async Task Upsert_usage_facts_splits_rows_by_provider()
+    {
+        var bare = CreateFullFact(day: "2026-06-19", costUsd: 1.23m);
+        var routed = CreateFullFact(day: "2026-06-19", costUsd: 2.34m);
+        routed.Provider = "openrouter";
+
+        await _store.UpsertUsageFactsAsync(new List<UsageFact> { bare, routed });
+
+        var stored = await _store.GetUsageFactsAsync();
+        stored.Should().HaveCount(2, "同一模型经不同 provider 的出账必须分行（价目可能不同）");
+        stored.Single(fact => fact.Provider == string.Empty).CostUsd.Should().Be(1.23m);
+        stored.Single(fact => fact.Provider == "openrouter").CostUsd.Should().Be(2.34m);
     }
 
     [Fact]
@@ -283,6 +300,108 @@ public class SqliteUsageStoreTests : IAsyncLifetime
             TotalTokens = inputTokens + 80,
             CostUsd = costUsd,
         };
+    }
+
+    /// <summary>
+    /// I-036 migration 2 升级路径：只应用过 migration 1 的库（已发布版本，无 provider 列、
+    /// 主键不含 provider）升级时必须<b>搬数据</b>——旧行全量保留、provider 回填空串（未检测），
+    /// 而不是 DROP 重建把用户历史丢掉。
+    /// </summary>
+    [Fact]
+    public async Task ProviderMigrationUpgradesV1DatabaseAndBackfillsEmptyProvider()
+    {
+        var v1DbPath = Path.Combine(Path.GetTempPath(), $"ccusage-v1-{Guid.NewGuid()}.db");
+        try
+        {
+            await CreateV1FactsDb(v1DbPath);
+
+            var store = new SqliteUsageStore(v1DbPath);
+            await store.InitializeAsync();
+
+            var facts = await store.GetUsageFactsAsync();
+            facts.Should().ContainSingle("migration 2 搬数据：旧库里的用量必须原样保留");
+            facts[0].Model.Should().Be("claude-sonnet-4-20250514");
+            facts[0].CostUsd.Should().Be(1.23m);
+            facts[0].Provider.Should().Be(string.Empty, "旧行没有 provider 观测 → 未检测，绝不猜");
+
+            // 升级后的库按新主键继续可写（同一天同模型换 provider 能另起一行）。
+            var routed = CreateFullFact(day: "2026-06-19", costUsd: 9m);
+            routed.Provider = "openrouter";
+            await store.UpsertUsageFactsAsync(new List<UsageFact> { routed });
+            (await store.GetUsageFactsAsync()).Should().HaveCount(2);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(v1DbPath))
+            {
+                File.Delete(v1DbPath);
+            }
+        }
+    }
+
+    private static async Task CreateV1FactsDb(string dbPath)
+    {
+        using var connection = new SqliteConnection($"Data Source={dbPath}");
+        await connection.OpenAsync();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE schema_migrations (
+                version INTEGER NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL,
+                applied_at TEXT NOT NULL
+            );
+            INSERT INTO schema_migrations (version, name, applied_at)
+                VALUES (1, 'create-facts-schema', '2026-01-01T00:00:00Z');
+
+            CREATE TABLE usage_facts (
+                day TEXT NOT NULL,
+                grain TEXT NOT NULL,
+                agent TEXT NOT NULL DEFAULT '',
+                model TEXT NOT NULL DEFAULT '',
+                project TEXT NOT NULL DEFAULT '',
+                project_display_name TEXT NOT NULL DEFAULT '',
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_ephemeral_5m_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_ephemeral_1h_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+                total_tokens INTEGER NOT NULL DEFAULT 0,
+                cost_usd TEXT,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (day, grain, agent, model, project)
+            );
+
+            CREATE TABLE session_facts (
+                session_id TEXT NOT NULL PRIMARY KEY,
+                agent TEXT NOT NULL DEFAULT '',
+                project TEXT NOT NULL DEFAULT '',
+                project_display_name TEXT NOT NULL DEFAULT '',
+                dominant_model TEXT NOT NULL DEFAULT '',
+                first_seen_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_ephemeral_5m_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_ephemeral_1h_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+                total_tokens INTEGER NOT NULL DEFAULT 0,
+                cost_usd TEXT,
+                updated_at TEXT NOT NULL
+            );
+
+            INSERT INTO usage_facts (
+                day, grain, agent, model, project, project_display_name,
+                input_tokens, output_tokens, cache_creation_tokens,
+                cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
+                cache_read_tokens, total_tokens, cost_usd, updated_at)
+            VALUES (
+                '2026-06-19', 'full', 'Claude Code', 'claude-sonnet-4-20250514', '/p', 'p',
+                100, 50, 10, 0, 0, 20, 180, '1.23', '2026-06-19T00:00:00Z');
+            """;
+        await cmd.ExecuteNonQueryAsync();
     }
 
     private List<long> MigrationVersions()

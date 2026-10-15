@@ -147,6 +147,8 @@ public static class KiloMessageParser
             ProjectPath = ProjectPath,
             SessionId = sessionId,
             Model = modelId,
+            // I-036 三元组的 provider：消息 value.provider_id（与计价候选链同一个值）。
+            Provider = providerId ?? string.Empty,
             // 计价走蓝本 model_candidates 候选链（I-024 接线）：provider 限定名（仅精确门槛）+ 裸名。
             Pricing = new UsagePricingPlan(BuildModelCandidates(modelId, providerId, _ => true)),
             // 蓝本 CostMode::Auto：cost 存在即采用（含 0），缺失才交定价引擎。
