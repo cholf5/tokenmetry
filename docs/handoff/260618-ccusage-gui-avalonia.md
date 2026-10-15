@@ -28,7 +28,7 @@
 
 ### ✅ 已完成
 1. **项目骨架和基础建设**（任务 0.1-0.4）
-   - 三层架构解决方案：`TokenPulse.Core` / `TokenPulse.Infrastructure` / `TokenPulse.App`
+   - 三层架构解决方案：`Tokenmetry.Core` / `Tokenmetry.Infrastructure` / `Tokenmetry.App`
    - xUnit + FluentAssertions 测试框架配置
    - 数据模型：`DailyUsageSummary`, `DashboardSummary`, `AnomalyNotice`, `AppSettings`
 
@@ -66,7 +66,7 @@
 ### 重要背景信息
 - **项目位置**: `./ccusage-gui/`（与上游 ccusage repo 平级）
 - **上游 ccusage**: 本地已安装 CLI，有真实使用数据
-- **缓存位置**: `%LOCALAPPDATA%\TokenPulse\tokenpulse.db`
+- **缓存位置**: `%LOCALAPPDATA%\Tokenmetry\tokenmetry.db`
 - **技术栈**: .NET 8 + Avalonia 11.x + CommunityToolkit.Mvvm + Microsoft.Data.Sqlite
 
 ### 用户的明确要求
@@ -139,8 +139,8 @@
 ## 6. 建议接手路径
 
 ### 第一步：复现和定位问题
-1. 清理缓存：删除 `%LOCALAPPDATA%\TokenPulse\tokenpulse.db`
-2. 运行 App: `cd E:\dev\cholf5\ccusage\ccusage-gui; dotnet run --project src/TokenPulse.App`
+1. 清理缓存：删除 `%LOCALAPPDATA%\Tokenmetry\tokenmetry.db`
+2. 运行 App: `cd E:\dev\cholf5\ccusage\ccusage-gui; dotnet run --project src/Tokenmetry.App`
 3. 点击"刷新数据"按钮
 4. **观察空状态页面显示的红色调试信息** - 这会告诉你：
    - 获取到了多少条数据？
@@ -166,10 +166,10 @@
 4. 确认 `HasData` 被设置为 `true`
 
 ### 关键文件清单
-- 数据源: `src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`
-- 解析器: `src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliParser.cs`
-- ViewModel: `src/TokenPulse.App/ViewModels/DashboardViewModel.cs`
-- Dashboard 服务: `src/TokenPulse.Core/Services/DashboardService.cs`
+- 数据源: `src/Tokenmetry.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`
+- 解析器: `src/Tokenmetry.Infrastructure/CCUsageCli/CCUsageCliParser.cs`
+- ViewModel: `src/Tokenmetry.App/ViewModels/DashboardViewModel.cs`
+- Dashboard 服务: `src/Tokenmetry.Core/Services/DashboardService.cs`
 
 ---
 
@@ -198,8 +198,8 @@
 1. 打开 PowerShell，运行：
    ```powershell
    cd E:\dev\cholf5\ccusage\ccusage-gui
-   del $env:LOCALAPPDATA\TokenPulse\tokenpulse.db -ErrorAction SilentlyContinue
-   dotnet run --project src/TokenPulse.App
+   del $env:LOCALAPPDATA\Tokenmetry\tokenmetry.db -ErrorAction SilentlyContinue
+   dotnet run --project src/Tokenmetry.App
    ```
 2. 在 App 中点击"刷新数据"按钮
 3. **观察红色调试信息**，根据显示内容判断问题所在

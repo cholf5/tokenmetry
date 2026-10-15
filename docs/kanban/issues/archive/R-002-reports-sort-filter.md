@@ -88,9 +88,9 @@ Expected:
 
 ## Related Files
 
-- `src/TokenPulse.App/ViewModels/ReportsViewModel.cs`
-- `src/TokenPulse.App/Views/ReportsView.axaml`
-- `src/TokenPulse.Core/Models/DailyUsageSummary.cs`
+- `src/Tokenmetry.App/ViewModels/ReportsViewModel.cs`
+- `src/Tokenmetry.App/Views/ReportsView.axaml`
+- `src/Tokenmetry.Core/Models/DailyUsageSummary.cs`
 
 ## Dependencies
 
@@ -105,9 +105,9 @@ Expected:
 - 完成 ReportsViewModel 查询状态、完整行缓存、日期范围筛选、agent/model 大小写不敏感筛选、日期/成本/tokens 排序、筛选计数和筛选成本合计。
 - 更新 Reports UI，新增日期范围、agent/model 搜索、排序、降序、应用/清空工具栏和筛选摘要。
 - 补充 App 测试覆盖排序、筛选、合计、清空筛选和无效日期处理。
-- `dotnet test tests\\TokenPulse.App.Tests\\TokenPulse.App.Tests.csproj` 通过：App 13 个测试通过。
-- `dotnet test TokenPulse.sln` 通过：Core 17、Infrastructure 12、App 13，共 42 个测试通过。
-- `dotnet build TokenPulse.sln` 通过：0 warning，0 error。环境提示正在使用 .NET 预览版 SDK（NETSDK1057）。
+- `dotnet test tests\\Tokenmetry.App.Tests\\Tokenmetry.App.Tests.csproj` 通过：App 13 个测试通过。
+- `dotnet test Tokenmetry.sln` 通过：Core 17、Infrastructure 12、App 13，共 42 个测试通过。
+- `dotnet build Tokenmetry.sln` 通过：0 warning，0 error。环境提示正在使用 .NET 预览版 SDK（NETSDK1057）。
 - 未执行 GUI 手动验证；需要在可交互桌面环境中确认 toolbar 布局。
 - 移动到 In Review，等待模拟 review/QA 或人工验收。
 
@@ -118,7 +118,7 @@ Expected:
 - Notes:
   - PR-equivalent Review Summary:
     - 修改点：Reports 增加筛选/排序 query 状态、筛选统计、UI 工具栏和 App 单元测试。
-    - 测试方式：`dotnet test tests\\TokenPulse.App.Tests\\TokenPulse.App.Tests.csproj`、`dotnet test TokenPulse.sln`；构建方式：`dotnet build TokenPulse.sln`。
+    - 测试方式：`dotnet test tests\\Tokenmetry.App.Tests\\Tokenmetry.App.Tests.csproj`、`dotnet test Tokenmetry.sln`；构建方式：`dotnet build Tokenmetry.sln`。
     - 影响范围：Reports ViewModel、Reports Avalonia UI、App 测试。
     - 回归风险：Reports 加载和默认日期倒序保留；主要风险在工具栏布局和纯文本日期输入体验，需要 GUI 手动确认。
 

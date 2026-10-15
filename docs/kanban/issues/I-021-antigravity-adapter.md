@@ -34,7 +34,7 @@ blocked: none
 - [x] `AntigravityParser`（parser.rs 主体）：gen_metadata（必需表，SELECT idx,data ORDER BY idx ASC）→ steps（可选表，table_exists 门 + WHERE metadata IS NOT NULL）→ trajectory_metadata_blob（可选表，ORDER BY rowid ASC 首个有效候选）→ GeneratorMetadata（chat_model field 1 内：usage 4 / retries 17 / generation_info 9→4 时间戳 / model 文本 19,21 / model_id 3）与 StepMetadata（usage 9 / retries 28 / model_info 24 [1,7,12,8] / 时间戳 8 回退 1）→ ModelUsage（字段 1/2/3/4/5/6/7/9/10/11/12）→ 事件构建（token 桶换算 u64 saturating 语义、身份键 response:/provider:/message:、时间戳 rank 3/1/0 链、身份键时间戳回查）→ merge_usage_event / deduplicate_events（loader.rs 同构：共享任一身份键合并到首槽、链式传递）→ model_name_from_id / normalize_antigravity_model 归一化表逐字移植
 - [x] `AntigravityAdapter`（loader.rs）：库发现 → 逐库只读解析（SqliteReadonly + 托管 DEFERRED 事务快照）→ 跨库身份去重 → 时间戳稳定排序 → 统一记录（Agent/ProjectPath "Antigravity"、CostUsd 恒 null 交定价引擎、缺省模型 "gemini-internal-model"）
 - [x] 接线：`IAntigravityAdapter`（Core.Abstractions）+ LocalIngestionDataSource 第十九路 concat + AppServices 单例
-- [x] 单元测试 52 项（tests/TokenPulse.Infrastructure.Tests/Antigravity/，蓝本 paths/parser/loader 内联测试同名场景逐一对齐 + 载荷角落 + env 语义 + 连接池幂等回归守卫 + 仅坏库无有效库显式计数）
+- [x] 单元测试 52 项（tests/Tokenmetry.Infrastructure.Tests/Antigravity/，蓝本 paths/parser/loader 内联测试同名场景逐一对齐 + 载荷角落 + env 语义 + 连接池幂等回归守卫 + 仅坏库无有效库显式计数）
 - [x] fixture（全合成 conversations/**&#47;*.db，protobuf blob 按 spike 验证的蓝本 test_support 编码器 python 手工构造）+ golden 录制（ccusage 20.0.29 antigravity daily --json --offline --timezone UTC，ANTIGRAVITY_DATA_DIR 钉 fixture）+ 对账测试 2 项
 - [x] 门控真实对账就绪（RealDataReconciliationTests.Real_antigravity_data_reconciles_with_cli；本机无数据验证 Skip）
 - [x] I-024 补录 **AG-1**（候选计价链欠账，按 I-020 教训实现时直接登记不声称既有）
@@ -45,7 +45,7 @@ blocked: none
 
 ## Test Cases
 
-### TC-001: 蓝本语义单元测试（tests/TokenPulse.Infrastructure.Tests/Antigravity/AntigravityAdapterTests.cs，52 项）
+### TC-001: 蓝本语义单元测试（tests/Tokenmetry.Infrastructure.Tests/Antigravity/AntigravityAdapterTests.cs，52 项）
 
 Steps:
 1. 蓝本 paths.rs 内联测试同名场景：六独立默认根发现、conversation_dir 双形态 override（结果全体排序）、canonicalize 别名去重（conversations/.. 与根同库折叠）。
@@ -62,7 +62,7 @@ Expected:
 
 Result: ✅ 52 通过 / 0 失败（2026-10-11 首收口 51 项；2026-10-12 独立审查补 N3 用例后 52 项，含蓝本 paths.rs 三例、parser.rs protobuf 语义/归一化表、loader.rs 八例与 propagates_malformed_metadata_errors 同名移植；另 1 项既有 GeminiCli 防泄漏测试命中同名过滤，合计 53）。
 
-### TC-002: fixture 对账（tests/TokenPulse.Reconciliation.Tests/AntigravityFixtureReconciliationTests.cs，2 项）
+### TC-002: fixture 对账（tests/Tokenmetry.Reconciliation.Tests/AntigravityFixtureReconciliationTests.cs，2 项）
 
 Steps:
 1. fixture：fixtures/antigravity/conversations/（全合成 session.db / second.db / unpriced.db / empty.db——gen_metadata 代序续行、"Gemini 2.5 Pro" 文本归一化、model_id 312 映射、steps 同身份副本合并、provider 24 行、trajectory 回退、零用量行、0 字节库、claude-4-sonnet cache_creation、未定价模型；protobuf blob 按蓝本 test_support 编码器 python 手工构造）。
@@ -77,13 +77,13 @@ Result: ✅ 2 通过 / 0 失败（2026-10-11）。对账数字：3 天 × 5 模�
 ### TC-003: 门控本机真实数据对账（RealDataReconciliationTests.Real_antigravity_data_reconciles_with_cli）
 
 Steps:
-1. `TOKENPULSE_RECONCILE_REAL=1` 且本机存在 Antigravity 数据（ANTIGRAVITY_DATA_DIR / 六默认根下有 .db）时运行：CLI antigravity daily --json --offline 与自研全链路对账。
+1. `TOKENMETRY_RECONCILE_REAL=1` 且本机存在 Antigravity 数据（ANTIGRAVITY_DATA_DIR / 六默认根下有 .db）时运行：CLI antigravity daily --json --offline 与自研全链路对账。
 2. 任一条件不满足时 Skip 而非 Fail。
 
 Expected:
 - 本机（无数据）Skip；有数据机器全链路 tokens 精确一致（含 reasoning 的行在 totalTokens/cost 上 fail-loud——统一记录无 extra 字段，见偏差⑤）。
 
-Result: ✅ Skip 验证通过（2026-10-11，TOKENPULSE_RECONCILE_REAL=1 下 Skipped: 1；数据探测复用产品定位器与 CLI 同一套逻辑）。
+Result: ✅ Skip 验证通过（2026-10-11，TOKENMETRY_RECONCILE_REAL=1 下 Skipped: 1；数据探测复用产品定位器与 CLI 同一套逻辑）。
 
 ## Development Log
 
@@ -153,6 +153,6 @@ Result: ✅ Skip 验证通过（2026-10-11，TOKENPULSE_RECONCILE_REAL=1 下 Ski
 
 ## Verification
 
-- Related files: `src/TokenPulse.Core/Abstractions/IAntigravityAdapter.cs`、`src/TokenPulse.Infrastructure/Antigravity/AntigravityLogLocator.cs`、`src/TokenPulse.Infrastructure/Antigravity/AntigravityProtoReader.cs`、`src/TokenPulse.Infrastructure/Antigravity/AntigravityParser.cs`、`src/TokenPulse.Infrastructure/Antigravity/AntigravityAdapter.cs`、`src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第十九路）、`src/TokenPulse.App/DependencyInjection/AppServices.cs`、`tests/TokenPulse.Infrastructure.Tests/Antigravity/AntigravityAdapterTests.cs`、`tests/TokenPulse.Infrastructure.Tests/Antigravity/AntigravityTestSupport.cs`（蓝本 test_support blob 编码器移植）、`tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（十九参构造）、`tests/TokenPulse.Reconciliation.Tests/AntigravityFixtureReconciliationTests.cs`、`tests/TokenPulse.Reconciliation.Tests/fixtures/antigravity/`（全合成四库 fixture）、`tests/TokenPulse.Reconciliation.Tests/fixtures/golden/antigravity-fixture-daily-v20.0.29.json`、`tests/TokenPulse.Reconciliation.Tests/fixtures/golden/README.md`（录制命令）、`tests/TokenPulse.Reconciliation.Tests/Support/{UsageChainAggregator,FixturePaths,RealReconciliationEnvironment}.cs`、`tests/TokenPulse.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`、`tests/TokenPulse.Reconciliation.Tests/RealDataReconciliationTests.cs`（门控真实对账）、`docs/kanban/issues/I-024-candidate-pricing-wiring.md`（AG-1 补录）
-- How to run/verify: `dotnet build TokenPulse.sln`（0 警告 0 错误）；`dotnet test TokenPulse.sln`（全绿）；单测 `dotnet test tests/TokenPulse.Infrastructure.Tests --filter FullyQualifiedName~Antigravity`（53 项 = 本卡 52 + 既有 GeminiCli 防泄漏 1）；fixture 对账 `dotnet test tests/TokenPulse.Reconciliation.Tests --filter FullyQualifiedName~AntigravityFixture`（2 项）；golden 重录：`ANTIGRAVITY_DATA_DIR="$PWD/tests/TokenPulse.Reconciliation.Tests/fixtures/antigravity" npx --yes ccusage@20.0.29 antigravity daily --json --offline --timezone UTC > tests/TokenPulse.Reconciliation.Tests/fixtures/golden/antigravity-fixture-daily-v20.0.29.json`（命令已登记 fixtures/golden/README.md）
-- Results: 2026-10-11——`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` **728 通过 / 22 跳过 / 0 失败**（基线 674 通过 / 21 跳过 + 本卡新增 54 通过 = 52 单测 + 2 对账，+1 跳过为门控真实对账；2026-10-12 独立审查 N3 补用例后复验）；fixture 对账与 CLI golden 全粒度一致——tokens 五分量逐位一致（全期 input 2,550 / output 1,165 / cache_creation 40 / cache_read 2,500 / total 6,255），成本 0.00796 逐位一致（fixture 规避后两侧计价同式）；门控真实对账本机无数据 Skip 验证通过。仓库内无真实用户数据（fixtures 全合成）。未 git commit（PM 独立审查后提交）。
+- Related files: `src/Tokenmetry.Core/Abstractions/IAntigravityAdapter.cs`、`src/Tokenmetry.Infrastructure/Antigravity/AntigravityLogLocator.cs`、`src/Tokenmetry.Infrastructure/Antigravity/AntigravityProtoReader.cs`、`src/Tokenmetry.Infrastructure/Antigravity/AntigravityParser.cs`、`src/Tokenmetry.Infrastructure/Antigravity/AntigravityAdapter.cs`、`src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`（第十九路）、`src/Tokenmetry.App/DependencyInjection/AppServices.cs`、`tests/Tokenmetry.Infrastructure.Tests/Antigravity/AntigravityAdapterTests.cs`、`tests/Tokenmetry.Infrastructure.Tests/Antigravity/AntigravityTestSupport.cs`（蓝本 test_support blob 编码器移植）、`tests/Tokenmetry.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（十九参构造）、`tests/Tokenmetry.Reconciliation.Tests/AntigravityFixtureReconciliationTests.cs`、`tests/Tokenmetry.Reconciliation.Tests/fixtures/antigravity/`（全合成四库 fixture）、`tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/antigravity-fixture-daily-v20.0.29.json`、`tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/README.md`（录制命令）、`tests/Tokenmetry.Reconciliation.Tests/Support/{UsageChainAggregator,FixturePaths,RealReconciliationEnvironment}.cs`、`tests/Tokenmetry.Reconciliation.Tests/CCUsageCli/CcusageGoldenFiles.cs`、`tests/Tokenmetry.Reconciliation.Tests/RealDataReconciliationTests.cs`（门控真实对账）、`docs/kanban/issues/I-024-candidate-pricing-wiring.md`（AG-1 补录）
+- How to run/verify: `dotnet build Tokenmetry.sln`（0 警告 0 错误）；`dotnet test Tokenmetry.sln`（全绿）；单测 `dotnet test tests/Tokenmetry.Infrastructure.Tests --filter FullyQualifiedName~Antigravity`（53 项 = 本卡 52 + 既有 GeminiCli 防泄漏 1）；fixture 对账 `dotnet test tests/Tokenmetry.Reconciliation.Tests --filter FullyQualifiedName~AntigravityFixture`（2 项）；golden 重录：`ANTIGRAVITY_DATA_DIR="$PWD/tests/Tokenmetry.Reconciliation.Tests/fixtures/antigravity" npx --yes ccusage@20.0.29 antigravity daily --json --offline --timezone UTC > tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/antigravity-fixture-daily-v20.0.29.json`（命令已登记 fixtures/golden/README.md）
+- Results: 2026-10-11——`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` **728 通过 / 22 跳过 / 0 失败**（基线 674 通过 / 21 跳过 + 本卡新增 54 通过 = 52 单测 + 2 对账，+1 跳过为门控真实对账；2026-10-12 独立审查 N3 补用例后复验）；fixture 对账与 CLI golden 全粒度一致——tokens 五分量逐位一致（全期 input 2,550 / output 1,165 / cache_creation 40 / cache_read 2,500 / total 6,255），成本 0.00796 逐位一致（fixture 规避后两侧计价同式）；门控真实对账本机无数据 Skip 验证通过。仓库内无真实用户数据（fixtures 全合成）。未 git commit（PM 独立审查后提交）。

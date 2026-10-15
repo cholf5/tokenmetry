@@ -44,7 +44,7 @@ blocked: none
 ### TC-001: 主题三态切换
 
 Steps:
-1. `dotnet run --project src/TokenPulse.App`
+1. `dotnet run --project src/Tokenmetry.App`
 2. 设置页依次切换 日间 / 夜间 / 跟随系统。
 
 Expected:
@@ -53,7 +53,7 @@ Expected:
 ### TC-002: 测试基线
 
 Steps:
-1. `dotnet test TokenPulse.sln`
+1. `dotnet test Tokenmetry.sln`
 
 Expected:
 - 通过数不低于迁移前基线（803 通过 / 22 跳过），无新增失败。
@@ -101,7 +101,7 @@ Expected:
 
 **顺手修复（升级引入的告警）**：Avalonia 12.1.4 将 `RenderTargetBitmap.Save(string, int?)` 标记过时，TrendSpikeView.axaml.cs 验证钩子改用 `Save(string, PngBitmapEncoderOptions)`，恢复 0 警告构建（基线本身无此告警）。
 
-**新增 headless 测试项目 `tests/TokenPulse.App.Headless.Tests`**（12 个用例，全过）：Avalonia 12.1.x 的 Avalonia.Headless.XUnit 基于 xunit v3，与现有 App.Tests 的 xunit 2.5.3 同项目冲突，故独立成项目（xunit.v3 3.2.2 + Microsoft.NET.Test.Sdk + xunit.runner.visualstudio 3.1.5，保持 VSTest 跑法以兼容 `dotnet test TokenPulse.sln`）。用真实 App（App.axaml 原样）headless 启动，覆盖：根主题断言（SemiTheme zh-CN + DataGridSemiTheme）、10 组画刷明暗取值、Semi 资源零冲突运行时复核、ThemeService 三态桥接、6 视图 + MainWindow XAML 实例化、TrendSpike DataGrid 3 列在 Semi 样式下解析。
+**新增 headless 测试项目 `tests/Tokenmetry.App.Headless.Tests`**（12 个用例，全过）：Avalonia 12.1.x 的 Avalonia.Headless.XUnit 基于 xunit v3，与现有 App.Tests 的 xunit 2.5.3 同项目冲突，故独立成项目（xunit.v3 3.2.2 + Microsoft.NET.Test.Sdk + xunit.runner.visualstudio 3.1.5，保持 VSTest 跑法以兼容 `dotnet test Tokenmetry.sln`）。用真实 App（App.axaml 原样）headless 启动，覆盖：根主题断言（SemiTheme zh-CN + DataGridSemiTheme）、10 组画刷明暗取值、Semi 资源零冲突运行时复核、ThemeService 三态桥接、6 视图 + MainWindow XAML 实例化、TrendSpike DataGrid 3 列在 Semi 样式下解析。
 
 **遗留风险**：
 - Avalonia.Controls.DataGrid 12.1.2 与核心包 12.1.4 存在小版本差（官方 12.1 线无 12.1.3/12.1.4 的 DataGrid 包）；依赖约束兼容且测试通过，后续 DataGrid 出新包时可一并跟进。
@@ -124,17 +124,17 @@ Expected:
 ## Verification
 
 - Related files:
-  - `src/TokenPulse.App/TokenPulse.App.csproj`（包版本：Avalonia 12.1.4 / Avalonia.Controls.DataGrid 12.1.2 / Semi.Avalonia 12.1.0.1 / Semi.Avalonia.DataGrid 12.1.0.1 / Irihi.Avalonia.Shared 0.5.0；移除 Avalonia.Themes.Fluent；ScottPlot.Avalonia 5.1.59 不变）
-  - `src/TokenPulse.App/App.axaml`（根主题 FluentTheme → SemiTheme zh-CN + DataGridSemiTheme；自建 ThemeDictionaries 原样保留）
-  - `src/TokenPulse.App/Views/TrendSpikeView.axaml`（I-026 Semi DataGrid 最小演示，绑定本页 Points，随 D-002 临时页同生命周期）
-  - `src/TokenPulse.App/Views/TrendSpikeView.axaml.cs`（CS0618 修复：Save 改用 PngBitmapEncoderOptions）
-  - `tests/TokenPulse.App.Headless.Tests/`（新增：SemiTestAppBuilder.cs、Theming/SemiThemeMigrationTests.cs）
-  - `TokenPulse.sln`（登记新测试项目）
+  - `src/Tokenmetry.App/Tokenmetry.App.csproj`（包版本：Avalonia 12.1.4 / Avalonia.Controls.DataGrid 12.1.2 / Semi.Avalonia 12.1.0.1 / Semi.Avalonia.DataGrid 12.1.0.1 / Irihi.Avalonia.Shared 0.5.0；移除 Avalonia.Themes.Fluent；ScottPlot.Avalonia 5.1.59 不变）
+  - `src/Tokenmetry.App/App.axaml`（根主题 FluentTheme → SemiTheme zh-CN + DataGridSemiTheme；自建 ThemeDictionaries 原样保留）
+  - `src/Tokenmetry.App/Views/TrendSpikeView.axaml`（I-026 Semi DataGrid 最小演示，绑定本页 Points，随 D-002 临时页同生命周期）
+  - `src/Tokenmetry.App/Views/TrendSpikeView.axaml.cs`（CS0618 修复：Save 改用 PngBitmapEncoderOptions）
+  - `tests/Tokenmetry.App.Headless.Tests/`（新增：SemiTestAppBuilder.cs、Theming/SemiThemeMigrationTests.cs）
+  - `Tokenmetry.sln`（登记新测试项目）
 - How to run/verify:
-  - TC-002（自动化，已执行）：`dotnet build TokenPulse.sln`（Debug + Release 均 0 警告 0 错误）+ `dotnet test TokenPulse.sln`。
-  - 主题/画刷/DataGrid/视图加载（自动化，已执行）：`dotnet test tests/TokenPulse.App.Headless.Tests` —— 真实 App.axaml headless 启动，12/12 通过（根主题断言、10 组画刷明暗取值、Semi 零冲突复核、三态桥接、6 视图 + MainWindow 实例化、DataGrid 3 列解析）。
-  - TC-001（人工，**待人工验证**）：`dotnet run --project src/TokenPulse.App`，设置页依次切换 日间/夜间/跟随系统，确认各视图视觉渲染正常、重启后偏好保持。自动化已覆盖三态机制的程序行为（Variant 切换与资源取值），**视觉样式是否崩坏、观感是否符合预期无法自动判定，需人工点击确认**；设置页主题组合框（日间/夜间/跟随系统）的实际点击路径同属此项。
+  - TC-002（自动化，已执行）：`dotnet build Tokenmetry.sln`（Debug + Release 均 0 警告 0 错误）+ `dotnet test Tokenmetry.sln`。
+  - 主题/画刷/DataGrid/视图加载（自动化，已执行）：`dotnet test tests/Tokenmetry.App.Headless.Tests` —— 真实 App.axaml headless 启动，12/12 通过（根主题断言、10 组画刷明暗取值、Semi 零冲突复核、三态桥接、6 视图 + MainWindow 实例化、DataGrid 3 列解析）。
+  - TC-001（人工，**待人工验证**）：`dotnet run --project src/Tokenmetry.App`，设置页依次切换 日间/夜间/跟随系统，确认各视图视觉渲染正常、重启后偏好保持。自动化已覆盖三态机制的程序行为（Variant 切换与资源取值），**视觉样式是否崩坏、观感是否符合预期无法自动判定，需人工点击确认**；设置页主题组合框（日间/夜间/跟随系统）的实际点击路径同属此项。
 - Results:
-  - `dotnet test TokenPulse.sln`：**815 通过 / 22 跳过 / 0 失败**（Core 99+0、Infrastructure 612+3、Reconciliation 49+19、App 43+0、App.Headless 12+0）≥ 迁移前基线 803 / 22 / 0，无回归；新增 12 个 headless 主题迁移用例全过。
+  - `dotnet test Tokenmetry.sln`：**815 通过 / 22 跳过 / 0 失败**（Core 99+0、Infrastructure 612+3、Reconciliation 49+19、App 43+0、App.Headless 12+0）≥ 迁移前基线 803 / 22 / 0，无回归；新增 12 个 headless 主题迁移用例全过。
   - Debug / Release 构建均 0 警告 0 错误（升级引入的 CS0618 已顺手修复）。
   - TC-001 人工部分：待人工验证（见上）。

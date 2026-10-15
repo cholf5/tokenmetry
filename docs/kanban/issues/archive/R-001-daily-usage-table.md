@@ -101,12 +101,12 @@ Expected:
 
 ## Related Files
 
-- `src/TokenPulse.App/ViewModels/ReportsViewModel.cs`
-- `src/TokenPulse.App/Views/ReportsView.axaml`
-- `src/TokenPulse.App/Views/MainWindow.axaml`
-- `src/TokenPulse.App/DependencyInjection/AppServices.cs`
-- `src/TokenPulse.Core/Models/DailyUsageSummary.cs`
-- `src/TokenPulse.Core/Services/CacheService.cs`
+- `src/Tokenmetry.App/ViewModels/ReportsViewModel.cs`
+- `src/Tokenmetry.App/Views/ReportsView.axaml`
+- `src/Tokenmetry.App/Views/MainWindow.axaml`
+- `src/Tokenmetry.App/DependencyInjection/AppServices.cs`
+- `src/Tokenmetry.Core/Models/DailyUsageSummary.cs`
+- `src/Tokenmetry.Core/Services/CacheService.cs`
 
 ## Dependencies
 
@@ -120,8 +120,8 @@ Expected:
 - 创建任务卡，列入 v0.1 当前待办。
 - 开始开发，方案为新增 Reports ViewModel/View，从 CacheService 加载 daily rows，显式按日期倒序映射表格行，并补充排序/格式化测试。
 - 完成 ReportsViewModel、ReportsView、DI/MainWindow 接入和 App 测试项目。
-- `dotnet test TokenPulse.sln` 通过：Core 17、Infrastructure 10、App 3，共 30 个测试通过。
-- `dotnet build TokenPulse.sln` 通过：0 warning，0 error。环境提示正在使用 .NET 预览版 SDK（NETSDK1057）。
+- `dotnet test Tokenmetry.sln` 通过：Core 17、Infrastructure 10、App 3，共 30 个测试通过。
+- `dotnet build Tokenmetry.sln` 通过：0 warning，0 error。环境提示正在使用 .NET 预览版 SDK（NETSDK1057）。
 - 移动到 In Review，等待模拟 review/QA 或人工验收。
 
 ## Review Notes
@@ -131,7 +131,7 @@ Expected:
 - Notes:
   - PR-equivalent Review Summary:
     - 修改点：新增 Reports tab、ReportsViewModel、ReportsView、表格行映射/格式化、App 测试项目，并接入 DI 与 MainWindow。
-    - 测试方式：`dotnet test TokenPulse.sln`；构建方式：`dotnet build TokenPulse.sln`。
+    - 测试方式：`dotnet test Tokenmetry.sln`；构建方式：`dotnet build Tokenmetry.sln`。
     - 影响范围：Avalonia App 主窗口、Reports 页面、测试 solution 配置。
     - 回归风险：Dashboard 刷新流程未改动；Reports 读取缓存需要用户在 Dashboard 刷新后点击 Reports 的“刷新列表”以重新读取最新缓存。
 

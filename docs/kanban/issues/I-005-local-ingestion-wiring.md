@@ -52,7 +52,7 @@ Expected:
 ### TC-002: 回归
 
 Steps:
-1. `dotnet test TokenPulse.sln`。
+1. `dotnet test Tokenmetry.sln`。
 
 Expected:
 - 全部通过，无新增失败。
@@ -65,14 +65,14 @@ Expected:
 
 ### 2026-10-11（实现收口）
 
-**LocalIngestionDataSource**（`src/TokenPulse.Infrastructure/LocalIngestion/`）：管道为 双适配器增量扫描 → PricingEngine 补价 → `ToUsageFacts` / `ToSessionFacts` → `IUsageStore` upsert → 删除旧 CLI 分解行 → 从 store 读回 `ToDailySummaries`。
+**LocalIngestionDataSource**（`src/Tokenmetry.Infrastructure/LocalIngestion/`）：管道为 双适配器增量扫描 → PricingEngine 补价 → `ToUsageFacts` / `ToSessionFacts` → `IUsageStore` upsert → 删除旧 CLI 分解行 → 从 store 读回 `ToDailySummaries`。
 - 补价：对每条记录调 `PriceRecord`——自带 costUSD 的记录走 LogCost 短路原值返回，无成本的按 token 明细计算；每次刷新 `ClearUnpricedModels` 后全量重算，未命中清单始终反映最新一轮。
 - 读回走 facts 存储而非内存聚合：facts 是页面查询的唯一数据面，读回即验证页面将看到的形状（探针确认读回与刷新输出一致）。
 - 空扫描（0 记录）不动存储：保留既有数据（含旧 CLI 行），避免日志目录缺失时清掉用户仅存的历史。
 
 **生命周期决策**：两个适配器注册为单例——`IncrementalJsonlScanner` 持有文件 mtime/大小记账与消息级去重状态，单例才能跨刷新增量解析（真实数据实测：首次 43 ms，第二次 5 ms）；每次新建会退化为全量重扫，浪费 I-001/I-004 的增量设计。适配器非线程安全，而手动刷新与后台定时刷新可能并发进入（`AsyncRelayCommand` 不防重入），`LocalIngestionDataSource` 用 `SemaphoreSlim` 串行化整个管道。
 
-**DI 接线**（`AppServices`）：`LocalIngestionDataSource` 成为默认 `IUsageDataSource`；`ModelsDevPricingClient` 单例同时以 `IRemotePricingSource` 供给定价引擎（用户覆盖来自 `settings.PricingOverrides`）；`CCUsageCliDataSource` 保留注册（构造时仍读 `CcusageCommand` 设置）但不再是默认。不设"切回 CLI"的运行时开关：CLI 行是分解粒度、与本地采集的 full 粒度读取语义不同，混源开关会造成"切回 CLI 后覆盖了 full 行覆盖不了"的半更新状态；对账由 `TokenPulse.Reconciliation.Tests` 承担，手动导入等有 UI 入口时再接线。
+**DI 接线**（`AppServices`）：`LocalIngestionDataSource` 成为默认 `IUsageDataSource`；`ModelsDevPricingClient` 单例同时以 `IRemotePricingSource` 供给定价引擎（用户覆盖来自 `settings.PricingOverrides`）；`CCUsageCliDataSource` 保留注册（构造时仍读 `CcusageCommand` 设置）但不再是默认。不设"切回 CLI"的运行时开关：CLI 行是分解粒度、与本地采集的 full 粒度读取语义不同，混源开关会造成"切回 CLI 后覆盖了 full 行覆盖不了"的半更新状态；对账由 `Tokenmetry.Reconciliation.Tests` 承担，手动导入等有 UI 入口时再接线。
 
 **models.dev 定价刷新**：挂在 `LocalIngestionDataSource.GetDailyUsageAsync` 入口（手动刷新与后台 tick 的共同路径），fire-and-forget 调 `RefreshIfDueAsync`——到期才发请求、单飞、失败静默、20s 超时，绝不阻塞主刷新；本次采集先用内置快照/上次成功数据计价，远程数据到位后下一次刷新自然校正。
 
@@ -97,11 +97,11 @@ Expected:
 
 ## Verification
 
-- Related files: `src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、`src/TokenPulse.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`、`src/TokenPulse.App/DependencyInjection/AppServices.cs`、`src/TokenPulse.App/Services/BackgroundRefreshService.cs`、`src/TokenPulse.App/ViewModels/DashboardViewModel.cs`、`src/TokenPulse.Core/Abstractions/IUsageStore.cs`、`src/TokenPulse.Core/Services/UsageFactsMapper.cs`、`src/TokenPulse.Infrastructure/Cache/SqliteUsageStore.cs`、`src/TokenPulse.App/Views/EmptyStateView.axaml`、`src/TokenPulse.App/Views/SettingsView.axaml`
-- How to run/verify: `dotnet test TokenPulse.sln`；TC-001 以一次性控制台探针等价验证（扫描 → 补价 → facts → 读回，真实 Codex 日志 + 临时库，探针不进仓库，见 Development Log）
+- Related files: `src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、`src/Tokenmetry.Infrastructure/CCUsageCli/CCUsageCliDataSource.cs`、`src/Tokenmetry.App/DependencyInjection/AppServices.cs`、`src/Tokenmetry.App/Services/BackgroundRefreshService.cs`、`src/Tokenmetry.App/ViewModels/DashboardViewModel.cs`、`src/Tokenmetry.Core/Abstractions/IUsageStore.cs`、`src/Tokenmetry.Core/Services/UsageFactsMapper.cs`、`src/Tokenmetry.Infrastructure/Cache/SqliteUsageStore.cs`、`src/Tokenmetry.App/Views/EmptyStateView.axaml`、`src/Tokenmetry.App/Views/SettingsView.axaml`
+- How to run/verify: `dotnet test Tokenmetry.sln`；TC-001 以一次性控制台探针等价验证（扫描 → 补价 → facts → 读回，真实 Codex 日志 + 临时库，探针不进仓库，见 Development Log）
 - Results:
-  - `dotnet build TokenPulse.sln`：0 警告 0 错误。
-  - `dotnet test TokenPulse.sln`：241 通过 / 5 跳过（基线 227/5，新增 14 个测试全绿）；`TOKENPULSE_RECONCILE_REAL=1` 时 242 通过 / 4 跳过（Codex 真实数据对账跑通，Claude 因本机无日志跳过）。
+  - `dotnet build Tokenmetry.sln`：0 警告 0 错误。
+  - `dotnet test Tokenmetry.sln`：241 通过 / 5 跳过（基线 227/5，新增 14 个测试全绿）；`TOKENMETRY_RECONCILE_REAL=1` 时 242 通过 / 4 跳过（Codex 真实数据对账跑通，Claude 因本机无日志跳过）。
   - TC-001 探针：无 CLI 依赖（管道不 spawn 进程）、无 Claude 日志环境下，真实 Codex 日志（19 文件 / 2931 记录）产出 9 个自然日汇总；重复刷新幂等（facts 数不变）；旧 CLI 分解行清除、full 行保留；读回与刷新输出一致；快照定价 0 未命中。
   - 后台刷新调度未改动（`BackgroundRefreshService` 定时器语义与刷新命令不变）。
 

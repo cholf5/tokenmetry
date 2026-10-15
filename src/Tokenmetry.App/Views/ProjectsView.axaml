@@ -1,0 +1,93 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Tokenmetry.App.ViewModels"
+             xmlns:loc="using:Tokenmetry.App.Localization"
+             mc:Ignorable="d"
+             x:Class="Tokenmetry.App.Views.ProjectsView"
+             x:DataType="vm:ProjectsViewModel">
+
+    <!--
+        D-011 项目统计页（原型 #page-projects）：页头 + 项目排行面板（meta「路径归一化后的项目名」）+
+        六列表（项目 / 会话数 / 总 Token / 估算成本 / 占比 / 平均每会话，均值除零保护 → "—"）。
+        名称 = I-029 归一化展示名（歧义守卫下即原始路径——页面如实展示，ToolTip 恒为原始路径）。
+        行点击 → 会话页带项目筛选（决策点 2 定案：右栏页级筛选程序化应用）。
+        排行表 = ListBox 虚拟化（共享 data-table 行配方，Q-002 收编）。
+        Q-002：页面根补 ScrollViewer（同时间/成本/设置页模式）——最小窗口高度下排行面板不再被裁剪。
+    -->
+    <ScrollViewer>
+        <StackPanel Spacing="13" Margin="0,0,0,4">
+
+        <!-- 页头（原型 .pagehead：按工作目录聚合，观察 Token 消耗集中在哪些代码库或任务） -->
+        <StackPanel Spacing="4">
+            <TextBlock Classes="page-title" Text="{Binding Page.Title}"/>
+            <TextBlock Classes="page-subtitle" Text="{Binding Page.Subtitle}"/>
+        </StackPanel>
+
+        <!-- 加载失败（诚实错误态；筛选再变化自动重试） -->
+        <Border Classes="panel" Padding="13" IsVisible="{Binding HasLoadError}">
+            <TextBlock Classes="page-subtitle" Text="{Binding LoadError}"/>
+        </Border>
+
+        <!-- ═══ 项目排行面板 ═══ -->
+        <Border Classes="panel">
+            <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10">
+
+                <DockPanel Grid.Row="0">
+                    <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding MetaClickableForSessions, Source={x:Static loc:Translations.Instance}}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Classes="panel-title" Text="{Binding PanelProjectRankingShort, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                </DockPanel>
+
+                <!-- 表头（列宽与行模板一致） -->
+                <Grid Grid.Row="1" ColumnDefinitions="1.5*,52,56,64,44,56" ColumnSpacing="6" Margin="0,0,0,2">
+                    <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThSessionCount, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="3" Classes="table-th" TextAlignment="Right" Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="4" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="5" Classes="table-th" TextAlignment="Right" Text="{Binding ThAvgPerSession, Source={x:Static loc:Translations.Instance}}"/>
+                </Grid>
+
+                <!-- 排行行（ListBox 虚拟化；SelectedProject = 行点击跳会话页带项目筛选） -->
+                <ListBox Grid.Row="2"
+                         Classes="data-table"
+                         ItemsSource="{Binding Rows}"
+                         SelectedItem="{Binding SelectedProject, Mode=TwoWay}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ProjectRankRowViewModel">
+                            <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                    BorderThickness="0,1,0,0"
+                                    Padding="0,8,0,2">
+                                <Grid ColumnDefinitions="1.5*,52,56,64,44,56" ColumnSpacing="6">
+                                    <TextBlock Grid.Column="0" Classes="table-td" Text="{Binding Name}"
+                                               ToolTip.Tip="{Binding RawPath}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding SessionCountText}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding TotalTokensText}"
+                                               VerticalAlignment="Center"/>
+                                    <!-- 估算成本四态：未知成本呈「未知」，绝不折 0 -->
+                                    <TextBlock Grid.Column="3" Classes="table-num" Text="{Binding CostText}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="4" Classes="table-num" Text="{Binding ShareText}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="5" Classes="table-num" Text="{Binding AverageText}"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- 空态（无行且无错误；错误态下隐藏避免矛盾三重态） -->
+                <TextBlock Grid.Row="2" Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
+                           IsVisible="{Binding ShowEmptyState}"
+                           VerticalAlignment="Top"/>
+            </Grid>
+        </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

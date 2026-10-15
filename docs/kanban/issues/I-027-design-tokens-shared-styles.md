@@ -45,7 +45,7 @@ blocked: none
 ### TC-001: 样式目检
 
 Steps:
-1. `dotnet run --project src/TokenPulse.App` 打开样式预览页。
+1. `dotnet run --project src/Tokenmetry.App` 打开样式预览页。
 2. 切换明暗主题。
 
 Expected:
@@ -61,7 +61,7 @@ Expected:
 
 ### 2026-10-13
 
-**色板文件归属（决策）**：独立 `src/TokenPulse.App/Styles/Tokens.axaml`（令牌：28 组 ThemeDictionaries 画刷明暗各一份 + 7 系列色 Color/Brush 对 + mini 填充渐变 = 71 个资源键）+ `src/TokenPulse.App/Styles/SharedStyles.axaml`（样式类），App.axaml 只挂 `ResourceInclude`/`StyleInclude` 并保留 I-026 的 10 组遗留画刷。理由：App.axaml 已承载根主题 + 遗留画刷，令牌集并入会使其膨胀近一倍；独立文件让 Q-002 清理遗留层时不触碰令牌层；两文件职责分离（"值"与"形"）便于页面卡按需引用。App.axaml 内为 10 组旧画刷补了到新令牌的映射注释（不改名不删除，6 个旧视图零改动继续可用，收敛留 Q-002）。
+**色板文件归属（决策）**：独立 `src/Tokenmetry.App/Styles/Tokens.axaml`（令牌：28 组 ThemeDictionaries 画刷明暗各一份 + 7 系列色 Color/Brush 对 + mini 填充渐变 = 71 个资源键）+ `src/Tokenmetry.App/Styles/SharedStyles.axaml`（样式类），App.axaml 只挂 `ResourceInclude`/`StyleInclude` 并保留 I-026 的 10 组遗留画刷。理由：App.axaml 已承载根主题 + 遗留画刷，令牌集并入会使其膨胀近一倍；独立文件让 Q-002 清理遗留层时不触碰令牌层；两文件职责分离（"值"与"形"）便于页面卡按需引用。App.axaml 内为 10 组旧画刷补了到新令牌的映射注释（不改名不删除，6 个旧视图零改动继续可用，收敛留 Q-002）。
 
 **色板范围（逐项对应）**：Dark 侧不止 `:root` 六个变量——`.kpi/.panel` 的渐变与描边 `#22324a`、`.linkbtn #80adff`、`.chip` 底/字色、`.mini-track #23334b`、`.kpi-icon` 四色软底 + `.agenticon.gray` 中性软底也一并令牌化（28 组画刷，明暗各一份），这是"统一卡片语言"的完整集合。7 个系列色取自原型 JS `colors=['#4c8dff','#12b886','#ffad4d','#a779ff','#48bde3','#8394ae','#f06bc4']`（`:root` 的 --blue/--cyan/--purple/--green/--orange/--red 是另一组强调色，作为 `AppAccent*Brush` 进 ThemeDictionaries 随明暗翻转——图表内用不翻转的系列色，UI 文字/涨跌指示用会翻转的强调色）。
 
@@ -98,24 +98,24 @@ Expected:
 ## Verification
 
 - Related files:
-  - `src/TokenPulse.App/Styles/Tokens.axaml`（新建：28 组 ThemeDictionaries 明暗画刷 + 7 系列色 Color/Brush + AppMiniFillBrush = 71 个资源键；Dark 全为原型原值，逐行注释标注来源选择器）
-  - `src/TokenPulse.App/Styles/SharedStyles.axaml`（新建：card/panel/kpi/page-title/page-subtitle/panel-title/link-btn/chip/icon-chip/series-dot/ProgressBar.mini 共享样式类）
-  - `src/TokenPulse.App/App.axaml`（挂载 Tokens.axaml 与 SharedStyles.axaml；10 组遗留画刷补映射注释，不改名不删除）
-  - `src/TokenPulse.App/Services/ToastService.cs`（新建：IToastService + ToastService，Semi WindowNotificationManager 封装，Show 前 ApplyTemplate 规避模板时序坑）
-  - `src/TokenPulse.App/DependencyInjection/AppServices.cs`（注册 IToastService）
-  - `src/TokenPulse.App/Views/StylePreviewView.axaml(.cs)`（新建临时预览页，零硬编码色值，随 v0.4 页面卡落地删除）
-  - `src/TokenPulse.App/Views/MainWindow.axaml`（新增 Style Preview (I-027) Tab）
+  - `src/Tokenmetry.App/Styles/Tokens.axaml`（新建：28 组 ThemeDictionaries 明暗画刷 + 7 系列色 Color/Brush + AppMiniFillBrush = 71 个资源键；Dark 全为原型原值，逐行注释标注来源选择器）
+  - `src/Tokenmetry.App/Styles/SharedStyles.axaml`（新建：card/panel/kpi/page-title/page-subtitle/panel-title/link-btn/chip/icon-chip/series-dot/ProgressBar.mini 共享样式类）
+  - `src/Tokenmetry.App/App.axaml`（挂载 Tokens.axaml 与 SharedStyles.axaml；10 组遗留画刷补映射注释，不改名不删除）
+  - `src/Tokenmetry.App/Services/ToastService.cs`（新建：IToastService + ToastService，Semi WindowNotificationManager 封装，Show 前 ApplyTemplate 规避模板时序坑）
+  - `src/Tokenmetry.App/DependencyInjection/AppServices.cs`（注册 IToastService）
+  - `src/Tokenmetry.App/Views/StylePreviewView.axaml(.cs)`（新建临时预览页，零硬编码色值，随 v0.4 页面卡落地删除）
+  - `src/Tokenmetry.App/Views/MainWindow.axaml`（新增 Style Preview (I-027) Tab）
   - `docs/design/design-tokens.md`（新建：命名规范 / ThemeDictionaries vs 普通资源规则 / 系列色表 / 样式类表 / 渐变换算公式）
   - `docs/design/style-preview-light.png`、`docs/design/style-preview-dark.png`（headless 整窗离屏截图留档）
-  - `tests/TokenPulse.App.Headless.Tests/Styles/DesignTokenTests.cs`（新建：9 个用例）
-  - `tests/TokenPulse.App.Headless.Tests/Theming/SemiTestAppBuilder.cs`（改：UseSkia + UseHeadlessDrawing=false，截图需要真实 Skia 合成帧）
-  - `tests/TokenPulse.App.Headless.Tests/Theming/SemiThemeMigrationTests.cs`（改：MainWindow TabCount 断言 5→6，因新增预览页 Tab）
+  - `tests/Tokenmetry.App.Headless.Tests/Styles/DesignTokenTests.cs`（新建：9 个用例）
+  - `tests/Tokenmetry.App.Headless.Tests/Theming/SemiTestAppBuilder.cs`（改：UseSkia + UseHeadlessDrawing=false，截图需要真实 Skia 合成帧）
+  - `tests/Tokenmetry.App.Headless.Tests/Theming/SemiThemeMigrationTests.cs`（改：MainWindow TabCount 断言 5→6，因新增预览页 Tab）
 - How to run/verify:
-  - 自动化：`dotnet build TokenPulse.sln`（Debug/Release 均 0 警告 0 错误）+ `dotnet test TokenPulse.sln`。
-  - 令牌/样式/toast/截图（自动化，已执行）：`dotnet test tests/TokenPulse.App.Headless.Tests`（21 用例），覆盖：Dark 色板逐键等于原型原值、Light 协调值、卡片/mini 渐变 stop 与几何、7 系列色明暗不变性、全部新键对 SemiTheme 查重无冲突、panel/kpi/chip 样式在窗口内真实应用令牌（Assert.Same App 资源实例）、mini 进度条按 Value 填充、ToastService 弹出 NotificationCard、预览页 Light/Dark 离屏渲染。
-  - 截图重生成：`TOKENPULSE_STYLE_PREVIEW_DIR=<仓库绝对路径>/docs/design dotnet test tests/TokenPulse.App.Headless.Tests --filter FullyQualifiedName~Style_preview_page_renders`（须用绝对路径，测试宿主 cwd 在 bin 目录）。
-  - TC-001 人工（**待人工验证**）：`dotnet run --project src/TokenPulse.App` → "Style Preview (I-027)" 页 → 点 日间/夜间/跟随系统 观察令牌换色、点 弹出 Toast 验证反馈。明暗观感已有截图佐证，真机点击路径留待 PM。
+  - 自动化：`dotnet build Tokenmetry.sln`（Debug/Release 均 0 警告 0 错误）+ `dotnet test Tokenmetry.sln`。
+  - 令牌/样式/toast/截图（自动化，已执行）：`dotnet test tests/Tokenmetry.App.Headless.Tests`（21 用例），覆盖：Dark 色板逐键等于原型原值、Light 协调值、卡片/mini 渐变 stop 与几何、7 系列色明暗不变性、全部新键对 SemiTheme 查重无冲突、panel/kpi/chip 样式在窗口内真实应用令牌（Assert.Same App 资源实例）、mini 进度条按 Value 填充、ToastService 弹出 NotificationCard、预览页 Light/Dark 离屏渲染。
+  - 截图重生成：`TOKENMETRY_STYLE_PREVIEW_DIR=<仓库绝对路径>/docs/design dotnet test tests/Tokenmetry.App.Headless.Tests --filter FullyQualifiedName~Style_preview_page_renders`（须用绝对路径，测试宿主 cwd 在 bin 目录）。
+  - TC-001 人工（**待人工验证**）：`dotnet run --project src/Tokenmetry.App` → "Style Preview (I-027)" 页 → 点 日间/夜间/跟随系统 观察令牌换色、点 弹出 Toast 验证反馈。明暗观感已有截图佐证，真机点击路径留待 PM。
 - Results:
   - Debug / Release 构建 0 警告 0 错误。
-  - `dotnet test TokenPulse.sln`：**824 通过 / 22 跳过 / 0 失败**（Core 99+0、Infrastructure 612+3、Reconciliation 49+19、App 43+0、App.Headless 21+0）≥ 基线 815 / 22 / 0，无回归；新增 9 个 headless 用例全过（12→21）。
+  - `dotnet test Tokenmetry.sln`：**824 通过 / 22 跳过 / 0 失败**（Core 99+0、Infrastructure 612+3、Reconciliation 49+19、App 43+0、App.Headless 21+0）≥ 基线 815 / 22 / 0，无回归；新增 9 个 headless 用例全过（12→21）。
   - TC-001 截图留档：`docs/design/style-preview-light.png`、`docs/design/style-preview-dark.png`（880×720，整窗合成帧，明暗两套令牌/卡片/进度条/系列色全部可见）；人工目检部分待 PM 执行。

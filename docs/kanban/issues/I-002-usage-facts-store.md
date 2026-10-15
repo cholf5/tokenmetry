@@ -66,11 +66,11 @@ Expected:
 ### 2026-10-11（实现）
 
 - 缓存层重构为 facts 存储，统一记录模型（I-001 产出）成为 facts 的输入形状：
-  - `TokenPulse.Core/Models/UsageFact.cs`：usage_facts 行模型 + `UsageFactGrain` 粒度常量（day / agent / model / project / full）。
-  - `TokenPulse.Core/Models/SessionFact.cs`：session_facts 行模型（session_id、agent、project、dominant model、时间范围、tokens、cost）。
-  - `TokenPulse.Core/Abstractions/IUsageStore.cs`：facts 存储抽象（替代 IUsageCache，后者已删除）。
-  - `TokenPulse.Core/Services/UsageFactsMapper.cs`：双向映射——UsageRecord 聚合为 full 粒度 facts 与 session facts；CLI 的 DailyUsageSummary 分解为 facts 并可无损重建；facts 按日聚合回页面消费的 DailyUsageSummary 形状（含 agent / model / project 三个 breakdown）。
-  - `TokenPulse.Infrastructure/Cache/SqliteUsageStore.cs`：SQLite facts 存储 + 顺序迁移 runner（替代 SqliteUsageCache，后者已删除）。
+  - `Tokenmetry.Core/Models/UsageFact.cs`：usage_facts 行模型 + `UsageFactGrain` 粒度常量（day / agent / model / project / full）。
+  - `Tokenmetry.Core/Models/SessionFact.cs`：session_facts 行模型（session_id、agent、project、dominant model、时间范围、tokens、cost）。
+  - `Tokenmetry.Core/Abstractions/IUsageStore.cs`：facts 存储抽象（替代 IUsageCache，后者已删除）。
+  - `Tokenmetry.Core/Services/UsageFactsMapper.cs`：双向映射——UsageRecord 聚合为 full 粒度 facts 与 session facts；CLI 的 DailyUsageSummary 分解为 facts 并可无损重建；facts 按日聚合回页面消费的 DailyUsageSummary 形状（含 agent / model / project 三个 breakdown）。
+  - `Tokenmetry.Infrastructure/Cache/SqliteUsageStore.cs`：SQLite facts 存储 + 顺序迁移 runner（替代 SqliteUsageCache，后者已删除）。
 - 关键决策：
   - **迁移 runner**：迁移在代码内注册为 `(Version, Name, ApplyAsync)` 有序列表（新增迁移 = 末尾追加一条，禁止修改已发布条目），`schema_migrations` 为 runner 自举表（不占版本号）；每个迁移在独立事务内应用并落账，失败回滚不落账、下次重试；`InitializeAsync` 幂等（快速路径 + 信号量防并发双重执行），公开方法内部也会确保迁移已执行。
   - **grain 列（与 tauri 版的关键差异）**：CLI 数据源只知道日合计、model 拆分和 agent 名单（无 token/成本拆分）、无项目拆分，统一记录聚合则是完整 day × agent × model × project。usage_facts 引入显式 `grain` 列并纳入主键（day, grain, agent, model, project），分解行按粒度路由、full 行自由聚合；不复制 tauri 靠 PRAGMA 探列补 schema 的做法，schema 变更一律走新版本迁移。
@@ -87,7 +87,7 @@ Expected:
   - Reports / Model Breakdown ViewModel 零改动（同一 GetDailyRowsAsync 契约）；DashboardViewModel 仅最小改动（LoadFromCache 读 facts 重建 dashboard，Refresh 落 facts 后重建）。
   - AppServices 最小改动：注册 `SqliteUsageStore → IUsageStore`，启动时跑迁移；未接 IUsageDataSource 数据源选择（I-005）。
   - 未动 CCUsageCli/ 与 ClaudeCodeJsonl/ 适配器代码。
-- 验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` 全绿 135 通过 / 3 跳过（跳过为既有 Windows 专属测试，未改动），净增 17 个测试。TC-001（迁移幂等：同库两次 Initialize，schema_migrations 单行、数据不变）与 TC-002（upsert 幂等：同批写两次行数不变、最新值生效）由单测覆盖并通过。
+- 验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` 全绿 135 通过 / 3 跳过（跳过为既有 Windows 专属测试，未改动），净增 17 个测试。TC-001（迁移幂等：同库两次 Initialize，schema_migrations 单行、数据不变）与 TC-002（upsert 幂等：同批写两次行数不变、最新值生效）由单测覆盖并通过。
 
 ### 2026-10-11（独立审查修复）
 
@@ -106,6 +106,6 @@ Expected:
 
 ## Verification
 
-- Related files: `src/TokenPulse.Core/Models/UsageFact.cs`、`src/TokenPulse.Core/Models/SessionFact.cs`、`src/TokenPulse.Core/Abstractions/IUsageStore.cs`、`src/TokenPulse.Core/Services/UsageFactsMapper.cs`、`src/TokenPulse.Core/Services/CacheService.cs`、`src/TokenPulse.Infrastructure/Cache/SqliteUsageStore.cs`（替换 SqliteUsageCache）、`src/TokenPulse.App/DependencyInjection/AppServices.cs`、`src/TokenPulse.App/ViewModels/DashboardViewModel.cs`、`tests/TokenPulse.Infrastructure.Tests/Cache/SqliteUsageStoreTests.cs`、`tests/TokenPulse.Core.Tests/Services/UsageFactsMapperTests.cs`、`tests/TokenPulse.Core.Tests/Services/CacheServiceTests.cs`
-- How to run/verify: `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj`（全解决方案：`dotnet build TokenPulse.sln && dotnet test TokenPulse.sln`）
+- Related files: `src/Tokenmetry.Core/Models/UsageFact.cs`、`src/Tokenmetry.Core/Models/SessionFact.cs`、`src/Tokenmetry.Core/Abstractions/IUsageStore.cs`、`src/Tokenmetry.Core/Services/UsageFactsMapper.cs`、`src/Tokenmetry.Core/Services/CacheService.cs`、`src/Tokenmetry.Infrastructure/Cache/SqliteUsageStore.cs`（替换 SqliteUsageCache）、`src/Tokenmetry.App/DependencyInjection/AppServices.cs`、`src/Tokenmetry.App/ViewModels/DashboardViewModel.cs`、`tests/Tokenmetry.Infrastructure.Tests/Cache/SqliteUsageStoreTests.cs`、`tests/Tokenmetry.Core.Tests/Services/UsageFactsMapperTests.cs`、`tests/Tokenmetry.Core.Tests/Services/CacheServiceTests.cs`
+- How to run/verify: `dotnet test tests/Tokenmetry.Infrastructure.Tests/Tokenmetry.Infrastructure.Tests.csproj`（全解决方案：`dotnet build Tokenmetry.sln && dotnet test Tokenmetry.sln`）
 - Results: 2026-10-11 — build 0 警告 0 错误；全解决方案 139 通过 / 3 跳过（Windows 专属基线保持），净增 21 个测试（含审查修复后的 4 个回归测试）。TC-001 迁移幂等与 TC-002 upsert 幂等均由单测覆盖并通过；旧库重建路径（含 legacy 表 + 行数据）单测验证不崩溃、旧表清除、facts 可写可读；session_facts roundtrip（含 ephemeral 5m/1h 细分、时区偏移时间戳、cost null 与非 null）通过。审查复核：AC 逐条 ✓，混合粒度/空维度/收缩场景均有测试。

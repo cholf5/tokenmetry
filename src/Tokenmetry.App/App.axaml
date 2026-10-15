@@ -1,0 +1,28 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:semi="https://irihi.tech/semi"
+             x:Class="Tokenmetry.App.App"
+             RequestedThemeVariant="Default">
+             <!-- 启动时 ThemeService 按设置里的 Theme（light / dark / system）改写 RequestedThemeVariant；
+                  Default 表示跟随系统。 -->
+
+    <Application.Styles>
+        <!-- I-026：根主题 FluentTheme → SemiTheme（Locale 用中文，与界面文案一致）。
+             Q-002：DataGridSemiTheme 随 TrendSpike(D-002) 临时页一并移除——生产视图不再使用
+             DataGrid；若未来引入 DataGrid，恢复 <semi:DataGridSemiTheme /> 与两个 DataGrid 包引用即可。 -->
+        <semi:SemiTheme Locale="zh-CN" />
+        <!-- I-027：共享样式（card/panel/kpi、page-title、link-btn、chip、mini 进度条）。
+             须挂在 SemiTheme 之后，类选择器才能覆盖 Semi 的 ControlTheme。 -->
+        <StyleInclude Source="avares://Tokenmetry.App/Styles/SharedStyles.axaml" />
+    </Application.Styles>
+
+    <!-- 明暗两套画刷，视图统一用 DynamicResource 引用，切换主题时自动换色。
+         I-027：设计令牌层在 Styles/Tokens.axaml（App* 前缀，命名规范见 docs/design/design-tokens.md）。 -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Tokenmetry.App/Styles/Tokens.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

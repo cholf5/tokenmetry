@@ -89,9 +89,9 @@ Expected:
 
 ## Related Files
 
-- `src/TokenPulse.App/TokenPulse.App.csproj`
-- `src/TokenPulse.App/app.manifest`
-- `src/TokenPulse.App/Tray/TrayService.cs`
+- `src/Tokenmetry.App/Tokenmetry.App.csproj`
+- `src/Tokenmetry.App/app.manifest`
+- `src/Tokenmetry.App/Tray/TrayService.cs`
 - `README.md`
 - `docs/`
 
@@ -109,9 +109,9 @@ Expected:
 - 完成 Windows extensionless 命令解析：支持 `PATHEXT`，PATH 查找，以及带目录路径的 sibling `.cmd/.exe/.bat` 查找。
 - 补充 CLI runner 测试：PATH shim、显式扩展名命令、带路径 extensionless shim。
 - 新增 `docs/release/windows-publish.md`，记录默认 publish 命令、输出路径、验证清单和已知限制。
-- `dotnet test TokenPulse.sln` 通过：Core 17、Infrastructure 12、App 5，共 34 个测试通过。
-- `dotnet build TokenPulse.sln` 通过：0 warning，0 error。环境提示正在使用 .NET 预览版 SDK（NETSDK1057）。
-- `dotnet publish src\\TokenPulse.App\\TokenPulse.App.csproj -c Release -r win-x64 --self-contained false` 通过，生成 `src/TokenPulse.App/bin/Release/net8.0/win-x64/publish/TokenPulse.App.exe`。
+- `dotnet test Tokenmetry.sln` 通过：Core 17、Infrastructure 12、App 5，共 34 个测试通过。
+- `dotnet build Tokenmetry.sln` 通过：0 warning，0 error。环境提示正在使用 .NET 预览版 SDK（NETSDK1057）。
+- `dotnet publish src\\Tokenmetry.App\\Tokenmetry.App.csproj -c Release -r win-x64 --self-contained false` 通过，生成 `src/Tokenmetry.App/bin/Release/net8.0/win-x64/publish/Tokenmetry.App.exe`。
 - 未执行 GUI 手动启动、真实刷新和托盘验证；需要在可交互 Windows 桌面环境中完成。
 - 移动到 In Review，等待模拟 review/QA 或人工验收。
 
@@ -122,7 +122,7 @@ Expected:
 - Notes:
   - PR-equivalent Review Summary:
     - 修改点：完善 Windows `ccusage` 命令 shim 解析，补充 CLI runner 测试，新增 Windows publish 文档，并验证 framework-dependent 发布产物生成。
-    - 测试方式：`dotnet test TokenPulse.sln`；构建方式：`dotnet build TokenPulse.sln`；发布方式：`dotnet publish src\\TokenPulse.App\\TokenPulse.App.csproj -c Release -r win-x64 --self-contained false`。
+    - 测试方式：`dotnet test Tokenmetry.sln`；构建方式：`dotnet build Tokenmetry.sln`；发布方式：`dotnet publish src\\Tokenmetry.App\\Tokenmetry.App.csproj -c Release -r win-x64 --self-contained false`。
     - 影响范围：Windows 上 CLI 调用可靠性、发布文档、Infrastructure 测试。
     - 回归风险：非 Windows 或已带扩展名命令保持原行为；真实 GUI 启动、刷新、托盘仍需可交互桌面环境手动验证。
 

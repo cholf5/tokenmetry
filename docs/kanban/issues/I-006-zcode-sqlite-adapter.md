@@ -54,7 +54,7 @@ Expected:
 
 Result: 通过（13/13 通过；独立审查后增补 5 项对抗性用例，共 18/18：归一化、zai 并桶、legacy glm 门槛、自定义 provider 0 成本、截断与余量、completed 过滤、无效身份、负值/文本 token 列钳 0、时间列 f64 兜底、NULL 身份静默跳过、跨库无效首现行去重、越界时间、legacy schema、坏 schema 跳过、多根去重、WAL 未提交事务、库缺失、排序）。
 
-### TC-002: 本机真实数据对账（Q-001 harness，TOKENPULSE_RECONCILE_REAL=1 门控）
+### TC-002: 本机真实数据对账（Q-001 harness，TOKENMETRY_RECONCILE_REAL=1 门控）
 
 Steps:
 1. `npx --yes ccusage@20.0.29 zcode daily --json --offline --timezone UTC` 取 CLI 口径。
@@ -85,7 +85,7 @@ Result: 通过——本机 22,315 条记录，自研 input=76,028,203 / output=1
 - **诊断口径**：沿用 JsonlScanDiagnostics——FilesDiscovered=发现的库数、FilesRead=打开且 schema 支持并完成查询的库数、InvalidRecords=行级拒绝（NULL 身份/坏列类型/身份无效/负值/全零，对应蓝本静默跳过的行，此处显式计数）、DuplicateRecords=跨库 id 重复折叠；MalformedLines/LinesSkipped 恒 0（无行解析概念）。状态：有记录且无问题=Ok，有问题=Partial，无记录=NoData。
 - **管道接线**：`IZCodeSqliteAdapter` 单例 + LocalIngestionDataSource 增加第三路扫描（claude/codex/zcode concat）；适配器无扫描状态（与 JSONL 适配器的增量状态不同，注释已说明）；其余成本补价 / facts 落库路径零改动。
 
-验证：`dotnet build TokenPulse.sln` 0 警告 0 错误；`dotnet test TokenPulse.sln` 255 通过 / 6 跳过（基线 242/5 原样保留，新增 13 项 ZCode 单测 + 1 项门控真实对账，门控开时实跑通过）；真实数据对账数字见 TC-002。
+验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` 255 通过 / 6 跳过（基线 242/5 原样保留，新增 13 项 ZCode 单测 + 1 项门控真实对账，门控开时实跑通过）；真实数据对账数字见 TC-002。
 
 ### 2026-10-11（独立第三方审查与修复）
 
@@ -106,6 +106,6 @@ Result: 通过——本机 22,315 条记录，自研 input=76,028,203 / output=1
 
 ## Verification
 
-- Related files: `src/TokenPulse.Infrastructure/ZCodeSqlite/`（ZCodeSqliteAdapter、ZCodeLogLocator、ZCodeSchemaInspector、ZCodeRecordMapper、ZCodeUsageRow）、`src/TokenPulse.Core/Abstractions/IZCodeSqliteAdapter.cs`、`src/TokenPulse.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、`src/TokenPulse.App/DependencyInjection/AppServices.cs`、`src/TokenPulse.Core/Pricing/model-pricing-snapshot.json`（zai 段）、`tests/TokenPulse.Infrastructure.Tests/ZCodeSqlite/ZCodeSqliteAdapterTests.cs`、`tests/TokenPulse.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第三适配器）、`tests/TokenPulse.Reconciliation.Tests/`（RealDataReconciliationTests、Support/UsageChainAggregator、Support/RealReconciliationEnvironment、CCUsageCli/CcusageGoldenFiles）
-- How to run/verify: `dotnet test tests/TokenPulse.Infrastructure.Tests/TokenPulse.Infrastructure.Tests.csproj --filter "FullyQualifiedName~ZCodeSqlite"`；真实对账 `TOKENPULSE_RECONCILE_REAL=1 dotnet test tests/TokenPulse.Reconciliation.Tests/TokenPulse.Reconciliation.Tests.csproj --filter "FullyQualifiedName~Real_zcode"`
+- Related files: `src/Tokenmetry.Infrastructure/ZCodeSqlite/`（ZCodeSqliteAdapter、ZCodeLogLocator、ZCodeSchemaInspector、ZCodeRecordMapper、ZCodeUsageRow）、`src/Tokenmetry.Core/Abstractions/IZCodeSqliteAdapter.cs`、`src/Tokenmetry.Infrastructure/LocalIngestion/LocalIngestionDataSource.cs`、`src/Tokenmetry.App/DependencyInjection/AppServices.cs`、`src/Tokenmetry.Core/Pricing/model-pricing-snapshot.json`（zai 段）、`tests/Tokenmetry.Infrastructure.Tests/ZCodeSqlite/ZCodeSqliteAdapterTests.cs`、`tests/Tokenmetry.Infrastructure.Tests/LocalIngestion/LocalIngestionDataSourceTests.cs`（工厂补第三适配器）、`tests/Tokenmetry.Reconciliation.Tests/`（RealDataReconciliationTests、Support/UsageChainAggregator、Support/RealReconciliationEnvironment、CCUsageCli/CcusageGoldenFiles）
+- How to run/verify: `dotnet test tests/Tokenmetry.Infrastructure.Tests/Tokenmetry.Infrastructure.Tests.csproj --filter "FullyQualifiedName~ZCodeSqlite"`；真实对账 `TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests/Tokenmetry.Reconciliation.Tests.csproj --filter "FullyQualifiedName~Real_zcode"`
 - Results: 2026-10-11 — 构建 0/0；单测 18/18；全仓 260 通过 / 6 跳过；真实对账 tokens 两侧逐位一致（22,315→22,471 条随账本活跃增长，total 2,418,223,974→2,431,819,367），cost 两侧同为 0；独立第三方审计 PASS with minor issues，P1 与可落地 P2 已修复（见 Development Log）
