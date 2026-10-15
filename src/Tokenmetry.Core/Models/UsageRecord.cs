@@ -22,6 +22,17 @@ public class UsageRecord
     public string? Model { get; set; }
 
     /// <summary>
+    /// 服务商 / provider（I-036 三元组的第三元；空串 = 未检测）。
+    /// 两个来源：源适配器直接读到的 provider 字段（ZCode 账本 provider_id、Goose provider_name、
+    /// Kilo / OpenClaw / Hermes / Droid 的 provider 列），或模型名自带的 provider 前缀
+    /// （<c>openrouter/x</c>、<c>ark/glm-5.3-flash</c>——由
+    /// <see cref="Services.PricingModelMatcher.ExtractRequestedProvider"/> 推导）。
+    /// 未检测到就是空串：界面如实显示"未指定"，绝不按模型名猜厂商（厂商看模型的
+    /// <see cref="ModelDefinition.Vendor"/>，那是模型身份的属性，与本字段的"这次请求由谁服务"不同）。
+    /// </summary>
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>
     /// 计价用侧数据（I-024，方案 A）：源适配器按蓝本候选链填充的有序候选 + 匹配走向 +
     /// 计价 output 覆盖，仅供定价引擎使用；null 时按 <see cref="Model"/> 单候选计价（接线前现状）。
     /// 不影响分组 / 显示 / facts 落库（展示口径始终是 <see cref="Model"/>）。

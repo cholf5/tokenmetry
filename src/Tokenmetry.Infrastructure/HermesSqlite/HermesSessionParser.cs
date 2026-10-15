@@ -104,6 +104,9 @@ public static class HermesSessionParser
             ProjectPath = ProjectPath,
             SessionId = row.SessionId,
             Model = row.Model,
+            // I-036 三元组的 provider：会话行自带的 provider（归一化后；归一化不出结果且模型名可推导时
+            // 由模型名推导，与计价候选链同一套口径）。
+            Provider = NormalizeProvider(row.ProviderRaw, row.Model),
             // 计价走蓝本 model_candidates 候选链（I-024 接线）：provider 限定名 + 裸模型名，去重保序。
             // 蓝本"限定名仅 exact-with-fallback 命中时插入"的门槛由引擎精确匹配承载——限定名不能
             // 精确（含 '.'/'@'→'-' 键归一化，HasExactNormalizedPrice 同口径，已进匹配器）命中时

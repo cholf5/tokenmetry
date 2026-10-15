@@ -93,6 +93,8 @@ public static class GooseSessionMapper
             ProjectPath = ProjectPath,
             SessionId = row.Id,
             Model = model,
+            // I-036 三元组的 provider：会话行 ProviderName 的归一化结果（与计价候选链同一个值）。
+            Provider = provider,
             Pricing = new UsagePricingPlan(BuildModelCandidates(model, provider)),
             // Goose 不记逐请求成本，统一交定价引擎（蓝本 calculate_goose_cost 逐行计价同口径）。
             CostUsd = null,

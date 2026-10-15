@@ -53,6 +53,16 @@ public sealed class DimensionUsageRow
     public int? AgentCount { get; init; }
 
     /// <summary>
+    /// 该维度行用到的 provider（仅模型维度填充，I-036）：唯一值时才非空，多个不同 provider 时为空串
+    /// （展示层按 <see cref="ProviderCount"/> 出「N 个」）。空串 = 数据里没有 provider 观测（未检测，
+    /// 界面显示"—"）。Agent / 项目维度恒为空串。
+    /// </summary>
+    public string Provider { get; init; } = string.Empty;
+
+    /// <summary>该维度行涉及的 provider 个数（仅模型维度填充；0 = 无 provider 观测）。</summary>
+    public int ProviderCount { get; init; }
+
+    /// <summary>
     /// 成本占比 = 本行已知成本 / 范围已知成本合计（0..1）。本行含未知成本（<see cref="AggregatedCost.HasUnknownCost"/>）
     /// 或范围已知成本合计为 0 / 无已知成本时为 null——未知部分不可比，不伪造占比。
     /// </summary>

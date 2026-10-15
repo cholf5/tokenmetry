@@ -152,7 +152,8 @@ public class UsageQueryService : IUsageQueryService
             session => ResolveModel(session.DominantModel),
             withProjectDisplayName: false,
             withDominantAgent: true,
-            ct));
+            ct,
+            withProvider: true));
 
     /// <inheritdoc />
     public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
@@ -418,7 +419,8 @@ public class UsageQueryService : IUsageQueryService
         Func<SessionFact, string> sessionKey,
         bool withProjectDisplayName,
         bool withDominantAgent,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool withProvider = false)
     {
         var factRowsByKey = new Dictionary<string, List<UsageFact>>(StringComparer.Ordinal);
         foreach (var dayGroup in (await GetScopedUsageFactsAsync(filter, ct)).GroupBy(fact => fact.Day, StringComparer.Ordinal))
@@ -508,6 +510,25 @@ public class UsageQueryService : IUsageQueryService
                     .First().Key;
             }
 
+            // provider（三元组第三元，仅模型维度）：facts 行自带的观测值去重——唯一值即本行的 provider，
+            // 多个 provider 共用同一模型时留空 + 计数（展示层出「N 个」），无观测为 0（界面"—"）。
+            var provider = string.Empty;
+            var providerCount = 0;
+            if (withProvider && list is not null)
+            {
+                var providers = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var fact in list)
+                {
+                    if (!string.IsNullOrWhiteSpace(fact.Provider))
+                    {
+                        providers.Add(fact.Provider);
+                    }
+                }
+
+                providerCount = providers.Count;
+                provider = providers.Count == 1 ? providers.First() : string.Empty;
+            }
+
             rows.Add(new DimensionUsageRow
             {
                 Key = key,
@@ -522,6 +543,8 @@ public class UsageQueryService : IUsageQueryService
                 Cost = resolvedCost,
                 DominantAgent = dominantAgent,
                 AgentCount = agentCount,
+                Provider = provider,
+                ProviderCount = providerCount,
             });
         }
 
@@ -550,6 +573,8 @@ public class UsageQueryService : IUsageQueryService
                 Cost = row.Cost,
                 DominantAgent = row.DominantAgent,
                 AgentCount = row.AgentCount,
+                Provider = row.Provider,
+                ProviderCount = row.ProviderCount,
                 TokenShare = scopeTotalTokens > 0 ? (decimal?)Math.Round(row.TotalTokens / scopeTotalTokens, 4) : null,
                 CostShare = scopeKnownCost is { } denominator and > 0
                              && !row.Cost.HasUnknownCost

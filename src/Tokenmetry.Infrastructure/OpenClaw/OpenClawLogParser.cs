@@ -319,6 +319,9 @@ public sealed class OpenClawLogParser
             ProjectPath = ProjectPath,
             SessionId = sessionId,
             Model = $"{ModelPrefix}{model}",
+            // I-036 三元组的 provider：会话内最近一次 provider 变更（model_change 事件携带）；
+            // 未观测到即空串（未检测）。
+            Provider = currentProvider ?? string.Empty,
             // 计价走蓝本 OC-1 两级候选链（I-024 接线）：装饰名 "[openclaw] m" 仅精确参与（命中按
             // 装饰名计价），未命中回退裸模型名（raw pricing identity）；匹配走向
             // ExactThenFamilyAcrossCandidates——exact 全候选优先（裸名精确不高于装饰名精确），

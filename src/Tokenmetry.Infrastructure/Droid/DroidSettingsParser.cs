@@ -102,7 +102,7 @@ public sealed class DroidSettingsParser
             }
 
             var sessionId = SessionIdFromFileName(sourceFile);
-            var record = MapRecord(usage.Value, model, sessionId, timestamp, sourceFile);
+            var record = MapRecord(usage.Value, model, sessionId, timestamp, sourceFile, provider);
             return new DroidFileOutcome([record], FilesRead: 1, LinesSkipped: 0, MalformedLines: 0, InvalidRecords: 0);
         }
     }
@@ -326,12 +326,15 @@ public sealed class DroidSettingsParser
 
     /// <summary>统一记录映射：thinkingTokens 并入 OutputTokens（蓝本 cost_usage 同式）；MessageId 置 null
     /// （蓝本 data.message.id 为 "droid:&lt;session&gt;" 合成标识，桌面统一记录无对应语义，Copilot 同款直通）。</summary>
+    /// <param name="provider">I-036 三元组的 provider：settings 的 providerLock 归一化值
+    /// （缺省时由模型名推导——与模型默认值同一套推导，观测与计价两侧同源）。</param>
     private static UsageRecord MapRecord(
         (RawTokenUsage Usage, long ThinkingTokens) usage,
         string model,
         string sessionId,
         DateTimeOffset timestamp,
-        string sourceFile)
+        string sourceFile,
+        string provider)
     {
         return new UsageRecord
         {
@@ -340,6 +343,7 @@ public sealed class DroidSettingsParser
             ProjectPath = ProjectPath,
             SessionId = sessionId,
             Model = model,
+            Provider = provider == "unknown" ? string.Empty : provider,
             CostUsd = null,
             InputTokens = usage.Usage.InputTokens,
             OutputTokens = usage.Usage.OutputTokens.SaturatingAddClamped(usage.ThinkingTokens),

@@ -49,6 +49,28 @@ public class UsageFactsMapperTests
         facts.Should().OnlyContain(fact => fact.Grain == UsageFactGrain.Full);
     }
 
+    /// <summary>
+    /// I-036 三元组：provider 进入 full 粒度分组键——同一模型经不同 provider 使用分成两行；
+    /// 适配器读到的 provider 优先，缺省由模型名的 provider 前缀推导，都没有则空串（未检测）。
+    /// </summary>
+    [Fact]
+    public void ToUsageFacts_SplitsRowsByProviderAndInfersFromModelPrefix()
+    {
+        var observed = CreateRecord(day: 19, hour: 8, inputTokens: 100, outputTokens: 0);
+        observed.Provider = "zai";
+        var inferred = CreateRecord(day: 19, hour: 9, inputTokens: 200, outputTokens: 0, model: "openrouter/glm-4.6");
+        var undetected = CreateRecord(day: 19, hour: 10, inputTokens: 300, outputTokens: 0);
+
+        var facts = UsageFactsMapper.ToUsageFacts(new[] { observed, inferred, undetected }, Utc);
+
+        facts.Should().HaveCount(3, "同一天同一模型但 provider 不同 → 三行");
+        facts.Single(fact => fact.Provider == "zai").InputTokens.Should().Be(100);
+        facts.Single(fact => fact.Provider == "openrouter").InputTokens.Should().Be(200,
+            "适配器没给 provider 时由模型名的前缀推导（观测值优先）");
+        facts.Single(fact => fact.Provider == string.Empty).InputTokens.Should().Be(300,
+            "都检测不到就是空串，绝不按模型名猜厂商");
+    }
+
     [Fact]
     public void ToUsageFacts_NullModelFallsBackToEmptyAndNullCostStaysNull()
     {

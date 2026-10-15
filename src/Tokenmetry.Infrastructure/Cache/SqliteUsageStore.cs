@@ -83,20 +83,73 @@ public class SqliteUsageStore : IUsageStore
                     )
                     """, ct);
             }),
+
+        new(
+            Version: 2,
+            Name: "usage-facts-provider-dimension",
+            ApplyAsync: async (connection, ct) =>
+            {
+                // I-036：三元组 agent × model × provider —— usage_facts 增 provider 维度并进入主键，
+                // 使"同一模型经不同 provider（openrouter / z.ai / 自定义源）使用"成为可区分的行
+                // （不同 provider 价目可能不同，混成一行则成本无法对账）。
+                // 主键变更 SQLite 不支持 ALTER，按标准做法建新表 + 搬数据 + 换名（数据可重建，
+                // 但搬一次比丢一次便宜；旧库里的行 provider 一律回填空串 = 未检测，语义正确）。
+                await ExecuteAsync(connection, """
+                    CREATE TABLE usage_facts_new (
+                        day TEXT NOT NULL,
+                        grain TEXT NOT NULL,
+                        agent TEXT NOT NULL DEFAULT '',
+                        model TEXT NOT NULL DEFAULT '',
+                        provider TEXT NOT NULL DEFAULT '',
+                        project TEXT NOT NULL DEFAULT '',
+                        project_display_name TEXT NOT NULL DEFAULT '',
+                        input_tokens INTEGER NOT NULL DEFAULT 0,
+                        output_tokens INTEGER NOT NULL DEFAULT 0,
+                        cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+                        cache_creation_ephemeral_5m_tokens INTEGER NOT NULL DEFAULT 0,
+                        cache_creation_ephemeral_1h_tokens INTEGER NOT NULL DEFAULT 0,
+                        cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+                        total_tokens INTEGER NOT NULL DEFAULT 0,
+                        cost_usd TEXT,
+                        updated_at TEXT NOT NULL,
+                        PRIMARY KEY (day, grain, agent, model, provider, project)
+                    )
+                    """, ct);
+
+                await ExecuteAsync(connection, """
+                    INSERT INTO usage_facts_new (
+                        day, grain, agent, model, provider, project, project_display_name,
+                        input_tokens, output_tokens, cache_creation_tokens,
+                        cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
+                        cache_read_tokens, total_tokens, cost_usd, updated_at)
+                    SELECT
+                        day, grain, agent, model, '', project, project_display_name,
+                        input_tokens, output_tokens, cache_creation_tokens,
+                        cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
+                        cache_read_tokens, total_tokens, cost_usd, updated_at
+                    FROM usage_facts
+                    """, ct);
+
+                await ExecuteAsync(connection, """
+                    DROP TABLE usage_facts;
+                    ALTER TABLE usage_facts_new RENAME TO usage_facts;
+                    CREATE INDEX IF NOT EXISTS idx_usage_facts_day ON usage_facts (day);
+                    """, ct);
+            }),
     };
 
     private const string UpsertUsageFactSql = """
         INSERT INTO usage_facts (
-            day, grain, agent, model, project, project_display_name,
+            day, grain, agent, model, provider, project, project_display_name,
             input_tokens, output_tokens, cache_creation_tokens,
             cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
             cache_read_tokens, total_tokens, cost_usd, updated_at)
         VALUES (
-            $day, $grain, $agent, $model, $project, $projectDisplayName,
+            $day, $grain, $agent, $model, $provider, $project, $projectDisplayName,
             $inputTokens, $outputTokens, $cacheCreationTokens,
             $cacheCreationEphemeral5mTokens, $cacheCreationEphemeral1hTokens,
             $cacheReadTokens, $totalTokens, $costUsd, $updatedAt)
-        ON CONFLICT(day, grain, agent, model, project) DO UPDATE SET
+        ON CONFLICT(day, grain, agent, model, provider, project) DO UPDATE SET
             project_display_name = excluded.project_display_name,
             input_tokens = excluded.input_tokens,
             output_tokens = excluded.output_tokens,
@@ -141,12 +194,12 @@ public class SqliteUsageStore : IUsageStore
         """;
 
     private const string SelectUsageFactsSql = """
-        SELECT day, grain, agent, model, project, project_display_name,
+        SELECT day, grain, agent, model, provider, project, project_display_name,
             input_tokens, output_tokens, cache_creation_tokens,
             cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
             cache_read_tokens, total_tokens, cost_usd
         FROM usage_facts
-        ORDER BY day, grain, agent, model, project
+        ORDER BY day, grain, agent, model, provider, project
         """;
 
     private const string SelectSessionFactsSql = """
@@ -251,6 +304,7 @@ public class SqliteUsageStore : IUsageStore
         cmd.Parameters.AddWithValue("$grain", fact.Grain);
         cmd.Parameters.AddWithValue("$agent", fact.Agent);
         cmd.Parameters.AddWithValue("$model", fact.Model);
+        cmd.Parameters.AddWithValue("$provider", fact.Provider);
         cmd.Parameters.AddWithValue("$project", fact.Project);
         cmd.Parameters.AddWithValue("$projectDisplayName", fact.ProjectDisplayName);
         cmd.Parameters.AddWithValue("$inputTokens", fact.InputTokens);
@@ -282,16 +336,17 @@ public class SqliteUsageStore : IUsageStore
                 Grain = reader.GetString(1),
                 Agent = reader.GetString(2),
                 Model = reader.GetString(3),
-                Project = reader.GetString(4),
-                ProjectDisplayName = reader.GetString(5),
-                InputTokens = reader.GetInt64(6),
-                OutputTokens = reader.GetInt64(7),
-                CacheCreationTokens = reader.GetInt64(8),
-                CacheCreationEphemeral5mTokens = reader.GetInt64(9),
-                CacheCreationEphemeral1hTokens = reader.GetInt64(10),
-                CacheReadTokens = reader.GetInt64(11),
-                TotalTokens = reader.GetInt64(12),
-                CostUsd = ReadCost(reader, 13),
+                Provider = reader.GetString(4),
+                Project = reader.GetString(5),
+                ProjectDisplayName = reader.GetString(6),
+                InputTokens = reader.GetInt64(7),
+                OutputTokens = reader.GetInt64(8),
+                CacheCreationTokens = reader.GetInt64(9),
+                CacheCreationEphemeral5mTokens = reader.GetInt64(10),
+                CacheCreationEphemeral1hTokens = reader.GetInt64(11),
+                CacheReadTokens = reader.GetInt64(12),
+                TotalTokens = reader.GetInt64(13),
+                CostUsd = ReadCost(reader, 14),
             });
         }
 

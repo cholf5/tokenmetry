@@ -33,6 +33,9 @@ public static class UsageFactsMapper
                 Day = FormatDay(record.Timestamp, tz),
                 Agent = record.Agent ?? string.Empty,
                 Model = record.Model ?? string.Empty,
+                // I-036 三元组的第三元：适配器读到的 provider，缺省由模型名的 provider 前缀推导
+                //（两者都没有则空串 = 未检测，界面显示"未指定"，不猜厂商）。
+                Provider = ResolveProvider(record),
                 Project = record.ProjectPath ?? string.Empty,
             })
             .Select(group => new UsageFact
@@ -41,6 +44,7 @@ public static class UsageFactsMapper
                 Grain = UsageFactGrain.Full,
                 Agent = group.Key.Agent,
                 Model = group.Key.Model,
+                Provider = group.Key.Provider,
                 Project = group.Key.Project,
                 ProjectDisplayName = DeriveProjectDisplayName(group.Key.Project),
                 InputTokens = group.Sum(record => record.InputTokens),
@@ -100,6 +104,20 @@ public static class UsageFactsMapper
     /// <summary>补价侧表命中（按记录引用）用补价结果，否则用记录自带的 costUSD。</summary>
     private static decimal? LookupCost(UsageRecord record, IReadOnlyDictionary<UsageRecord, decimal?>? pricedCosts) =>
         pricedCosts is not null && pricedCosts.TryGetValue(record, out var priced) ? priced : record.CostUsd;
+
+    /// <summary>
+    /// 用量行的服务商（I-036）：适配器读到的 provider 优先，缺省取模型名的 provider 前缀
+    /// （<c>openrouter/x</c>），都没有则空串（未检测）。
+    /// </summary>
+    private static string ResolveProvider(UsageRecord record)
+    {
+        if (!string.IsNullOrWhiteSpace(record.Provider))
+        {
+            return record.Provider.Trim().ToLowerInvariant();
+        }
+
+        return PricingModelMatcher.ExtractRequestedProvider(record.Model) ?? string.Empty;
+    }
 
     /// <summary>
     /// 把 CLI 数据源的每日汇总分解为 facts：日合计（Day 粒度）+ agent / model / project 拆分行。
