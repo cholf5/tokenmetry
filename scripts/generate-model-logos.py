@@ -4,6 +4,9 @@
 数据来源：npm 包 @lobehub/icons-static-svg（版本见 LOBE_VERSION，pin 死不许浮动），
 MIT License, Copyright (c) 2023 LobeHub，https://github.com/lobehub/lobe-icons。
 
+例外：lobe 里的图标本身是旧标/错标时，用 INLINE_MONO_LOGOS 内联官方标的路径数据
+（形状语汇与 SVG 转换完全同路，只是数据不取自 npm 包）。
+
 转换规则（与 SVG 语义一一对应）：
 - <path d> 原样保留，前面拼 F0(evenodd)/F1(nonzero) 填充规则前缀（SVG 默认 nonzero；
   lobe 的 mono 版在根节点声明 evenodd，color 版逐 path 自己声明）。
@@ -33,15 +36,16 @@ LOBE_VERSION = "1.95.1"
 UNPKG = f"https://unpkg.com/@lobehub/icons-static-svg@{LOBE_VERSION}/icons"
 
 # vendor（= ModelVisualMap.Vendors 里的名字）→ (mono 版 lobe id | None, 彩色版 lobe id | None)。
-# 顺序即生成顺序。三種主题策略：
+# 顺序即生成顺序。主题策略：
 #   只有彩色版            → 明暗同用 color；
 #   只有单色版（官方标无彩色形态）→ Light=黑 / Dark=白（lobe 静态 PNG 惯例）；
-#   两者都有且彩标以白为主体（暗底设计，kimi）→ Light=单色黑 / Dark=彩色。
+#   两者都有且彩标以白为主体（暗底设计，kimi）→ Light=单色黑 / Dark=彩色；
+#   内联几何（见 INLINE_MONO_LOGOS）→ Light=黑 / Dark=白（同单色版策略，数据不由 lobe 提供）。
 VENDORS: list[tuple[str, str | None, str | None]] = [
     ("claude", None, "claude-color"),
     ("openai", "openai", None),
     ("gemini", None, "gemini-color"),
-    ("glm", None, "zhipu-color"),  # lobe 无 glm.svg，用智谱官方标
+    ("glm", None, None),  # lobe 的 zhipu 仍是旧标（蓝色圆形图形标）→ INLINE_MONO_LOGOS 内联官方新标
     ("deepseek", None, "deepseek-color"),
     ("qwen", None, "qwen-color"),
     ("kimi", "kimi", "kimi-color"),  # kimi 彩标主体为白色 K，浅色底不可读 → 浅色用单色标
@@ -54,6 +58,20 @@ VENDORS: list[tuple[str, str | None, str | None]] = [
     ("ernie", None, "wenxin-color"),  # lobe 无 ernie.svg，用百度文心官方标
     ("hunyuan", None, "hunyuan-color"),
 ]
+
+# 内联单色几何：lobe 里的图标本身是旧标/错标时的官方标覆盖（vendor → [(fill-rule, path d)]）。
+# 形状语汇与 SVG 转换同路（走 shape_drawing，填充规则/颜色处理一致），只是数据不取自 npm 包；
+# 单色几何按官方标无彩色形态的既有策略给 Light=黑 / Dark=白。坐标空间任取（DrawingImage 由
+# Image Stretch=Uniform 归一，不要求 0 0 24 24，但同一 vendor 的各形状必须同一空间）。
+INLINE_MONO_LOGOS: dict[str, list[tuple[str, str]]] = {
+    # 智谱官方新标（"Z" 三块，官方呈现即中性单色，与 bigmodel.cn 现行 favicon 形状一致）；
+    # lobe-icons 1.95.1 的 zhipu / zhipu-color 仍是旧标（蓝色圆形图形标），故此处内联。
+    "glm": [
+        ("evenodd", "M97 107 H205 L189 129 Q187 134 180 134 H97 Z"),
+        ("evenodd", "M219 107 H309 L178 293 H91 Z"),
+        ("evenodd", "M212 266 H303 V293 H194 Z"),
+    ],
+}
 
 # vendor → 资源键的 Pascal 段（与 Tokens.axaml 旧命名习惯一致：OpenAI / DeepSeek / MiniMax）
 VENDOR_PASCAL = {
@@ -292,6 +310,20 @@ def convert_svg(path: Path, flavor: str, theme_color: str, indent: str = "      
     return f"{indent}<DrawingGroup>\n{inner}\n{indent}</DrawingGroup>"
 
 
+def inline_mono_inner(vendor: str, shapes: list[tuple[str, str]], theme_color: str,
+                      indent: str = "                ") -> str:
+    """内联单色几何 → DrawingImage.Drawing 内部 XML（与 convert_svg 同形：DrawingGroup 包裹）。"""
+    where = f"{vendor}(inline)"
+    drawings = [
+        # 合成 <path> 节点复用 shape_drawing：填充规则前缀与颜色处理与 SVG 路径完全同路
+        shape_drawing(ET.fromstring(f'<path fill-rule="{rule}" d="{d}"/>'),
+                      theme_color, "nonzero", {}, where, indent + "    ")
+        for rule, d in shapes
+    ]
+    inner = "\n".join(drawings)
+    return f"{indent}<DrawingGroup>\n{inner}\n{indent}</DrawingGroup>"
+
+
 def drawing_image(vendor: str, inner: str, indent: str = "    ") -> str:
     key = f"AppModelLogo{VENDOR_PASCAL[vendor]}"
     pad = indent + "    "
@@ -307,8 +339,18 @@ def build_xaml(cache_dir: Path) -> str:
     light_entries: list[str] = []       # ThemeDictionaries Light（单色黑）
     dark_entries: list[str] = []        # ThemeDictionaries Dark（单色白 / kimi 彩色）
 
+    unknown = INLINE_MONO_LOGOS.keys() - {v for v, _, _ in VENDORS}
+    if unknown:
+        die(f"INLINE_MONO_LOGOS 里的 {sorted(unknown)} 不在 VENDORS 表")
+
     for vendor, mono_id, color_id in VENDORS:
-        if mono_id and color_id:        # 双版本：Light=单色黑 / Dark=彩色
+        if vendor in INLINE_MONO_LOGOS:  # 内联单色几何：Light=黑 / Dark=白
+            shapes = INLINE_MONO_LOGOS[vendor]
+            light_entries.append(drawing_image(vendor, inline_mono_inner(
+                vendor, shapes, MONO_LIGHT), indent="        "))
+            dark_entries.append(drawing_image(vendor, inline_mono_inner(
+                vendor, shapes, MONO_DARK), indent="        "))
+        elif mono_id and color_id:      # 双版本：Light=单色黑 / Dark=彩色
             light_entries.append(drawing_image(vendor, convert_svg(
                 fetch(mono_id, cache_dir), "mono", MONO_LIGHT, indent="                "), indent="        "))
             dark_entries.append(drawing_image(vendor, convert_svg(
@@ -318,9 +360,10 @@ def build_xaml(cache_dir: Path) -> str:
                 fetch(mono_id, cache_dir), "mono", MONO_LIGHT, indent="                "), indent="        "))
             dark_entries.append(drawing_image(vendor, convert_svg(
                 fetch(mono_id, cache_dir), "mono", MONO_DARK, indent="                "), indent="        "))
-        else:
-            assert color_id
+        elif color_id:                  # 只有彩色版：明暗同用
             color_entries.append(drawing_image(vendor, convert_svg(fetch(color_id, cache_dir), "color", "")))
+        else:
+            die(f"{vendor}: VENDORS 表里 mono/color 两个 id 全空，且 INLINE_MONO_LOGOS 无内联几何")
 
     theme_block = ""
     if light_entries:
@@ -339,8 +382,9 @@ def build_xaml(cache_dir: Path) -> str:
         f"<!--\n"
         f"        模型厂商 logo 资源（本文件由 scripts/generate-model-logos.py 生成，勿手改）。\n"
         f"        来源：@lobehub/icons-static-svg@{LOBE_VERSION}（https://github.com/lobehub/lobe-icons，\n"
-        f"        MIT License, Copyright (c) 2023 LobeHub）。主题策略：官方标无彩色形态\n"
-        f"        （openai/grok）给 Light=黑 / Dark=白 两套单色；kimi 彩标以白为主体（暗底设计），\n"
+        f"        MIT License, Copyright (c) 2023 LobeHub）；glm 例外——lobe 的 zhipu 仍是旧标，\n"
+        f"        由脚本内联智谱官方新标路径（见 INLINE_MONO_LOGOS）。主题策略：官方标无彩色形态\n"
+        f"        （openai/grok/glm）给 Light=黑 / Dark=白 两套单色；kimi 彩标以白为主体（暗底设计），\n"
         f"        Light 用单色标、Dark 用彩标；其余明暗同用 color 版官方配色。\n"
         f"        phi / generic 无 lobe 对应，视图层回退字形（不在此文件）。\n"
         f"        再生：python3 scripts/generate-model-logos.py\n"

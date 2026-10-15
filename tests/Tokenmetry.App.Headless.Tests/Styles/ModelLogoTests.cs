@@ -18,7 +18,7 @@ namespace Tokenmetry.App.Headless.Tests.Styles;
 /// 1. Vendors 里每个厂商要么有 logo 资源（明暗两变体都可解析为 DrawingImage），
 ///    要么在字形兜底名单里——新增厂商漏配会被点名；
 /// 2. 兜底厂商（phi/generic）没有 logo 资源——生成器名单与兜底语义不漂移；
-/// 3. 单色官方标（openai/grok）Light=黑 / Dark=白 真实翻转；
+/// 3. 单色官方标（openai/grok）与内联几何（glm）Light=黑 / Dark=白 真实翻转；
 /// 4. model-chip 样式在窗口内真实应用：有 logo 厂商显示 Image 且 Source 指向资源，
 ///    兜底厂商显示字形。
 /// </summary>
@@ -102,6 +102,32 @@ public class ModelLogoTests
         {
             Assert.Equal(Colors.Black, MonoLogoColor(app, key, ThemeVariant.Light));
             Assert.Equal(Colors.White, MonoLogoColor(app, key, ThemeVariant.Dark));
+        }
+    }
+
+    [AvaloniaFact]
+    public void Glm_uses_inlined_official_mark_with_mono_flip()
+    {
+        // 智谱官方新标由生成器内联（lobe-icons 1.95.1 的 zhipu 仍是旧标）：三块 "Z" 形几何，
+        // 官方呈现即中性单色 → 走单色策略 Light=黑 / Dark=白（同 openai/grok）。
+        // 形状数一并钉住，防回退成 lobe 的旧单 path 蓝标。
+        var app = Application.Current!;
+
+        foreach (var (variant, expected) in new[]
+                 {
+                     (ThemeVariant.Light, Colors.Black),
+                     (ThemeVariant.Dark, Colors.White),
+                 })
+        {
+            Assert.True(app.TryGetResource("AppModelLogoGlm", variant, out var value),
+                $"{variant} 变体缺少 AppModelLogoGlm");
+            var group = Assert.IsType<DrawingGroup>(Assert.IsType<DrawingImage>(value).Drawing);
+            Assert.Equal(3, group.Children.Count);
+            foreach (var child in group.Children)
+            {
+                var drawing = Assert.IsType<GeometryDrawing>(child);
+                Assert.Equal(expected, Assert.IsAssignableFrom<ISolidColorBrush>(drawing.Brush).Color);
+            }
         }
     }
 
