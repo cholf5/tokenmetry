@@ -364,14 +364,15 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:RecentSessionRowViewModel">
                                     <Grid ColumnDefinitions="30,*" ColumnSpacing="9" Margin="0,12,0,0">
-                                        <!-- 软色底图标：变体经 AgentChip.Variant 附加属性 → chip-* 伪类
-                                             DynamicResource 着色（按控件 ActualThemeVariant，明暗自动翻转） -->
-                                        <Border Grid.Column="0" Width="29" Height="29" CornerRadius="9"
-                                                c:AgentChip.Variant="{Binding ChipVariant}"
+                                        <!-- Agent 图标：品牌 logo 经 AgentChip.Logo 附加属性 → agent-* 伪类
+                                             DynamicResource 取 AppAgentLogo*（单色标按 ActualThemeVariant 翻黑白） -->
+                                        <Border Grid.Column="0" Classes="agent-chip-lg"
+                                                c:AgentChip.Logo="{Binding LogoVendor}"
                                                 VerticalAlignment="Top">
-                                            <TextBlock Text="{Binding IconGlyph}" FontSize="14"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"/>
+                                            <Panel>
+                                                <TextBlock Text="{Binding IconGlyph}"/>
+                                                <Image Classes="agent-logo"/>
+                                            </Panel>
                                         </Border>
                                         <StackPanel Grid.Column="1" Spacing="3" MinWidth="0">
                                             <TextBlock Text="{Binding Agent}" FontSize="11"

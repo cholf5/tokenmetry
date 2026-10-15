@@ -80,16 +80,16 @@
                                         <TextBlock Classes="page-subtitle" Text="{Binding ProjectText}"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
-                                    <!-- Agent（软色底图标 + 名，对齐原型 .agenticon；
-                                         变体经 AgentChip.Variant 附加属性 → chip-* 伪类 DynamicResource 着色，
-                                         按控件 ActualThemeVariant 解析，明暗翻转自动生效） -->
+                                    <!-- Agent（行内品牌 logo + 名，对齐模型列的 model-chip；
+                                         logo 经 AgentChip.Logo 附加属性 → agent-* 伪类 DynamicResource
+                                         取 AppAgentLogo*，单色标按 ActualThemeVariant 明暗翻黑白） -->
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
                                                 VerticalAlignment="Center">
-                                        <Border Width="22" Height="22" CornerRadius="7"
-                                                c:AgentChip.Variant="{Binding ChipVariant}">
-                                            <TextBlock Text="{Binding IconGlyph}" FontSize="11"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"/>
+                                        <Border Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}">
+                                            <Panel>
+                                                <TextBlock Text="{Binding IconGlyph}"/>
+                                                <Image Classes="agent-logo"/>
+                                            </Panel>
                                         </Border>
                                         <TextBlock Classes="table-td" Text="{Binding Agent}"
                                                    VerticalAlignment="Center"

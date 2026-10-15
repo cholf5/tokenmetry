@@ -124,26 +124,121 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
-    <!-- Agent 软色底芯片四变体（D-008，原型 .agenticon 蓝/green/purple/gray 四组；
-         变体伪类经附加属性 AgentChip.Variant 驱动，颜色 DynamicResource 引用令牌，
-         按控件 ActualThemeVariant 解析——明暗翻转与窗口级主题覆盖自动生效）。
-         前景色经 TextBlock.Foreground 附加属性落在 Border 上并继承给子字形。 -->
-    <Style Selector="Border.chip-blue">
-        <Setter Property="Background" Value="{DynamicResource AppIconChipBlueBackgroundBrush}"/>
-        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipBlueForegroundBrush}"/>
-    </Style>
-    <Style Selector="Border.chip-green">
-        <Setter Property="Background" Value="{DynamicResource AppIconChipGreenBackgroundBrush}"/>
-        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipGreenForegroundBrush}"/>
-    </Style>
-    <Style Selector="Border.chip-purple">
-        <Setter Property="Background" Value="{DynamicResource AppIconChipPurpleBackgroundBrush}"/>
-        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
-    </Style>
-    <Style Selector="Border.chip-neutral">
-        <Setter Property="Background" Value="{DynamicResource AppIconChipNeutralBackgroundBrush}"/>
+    <!-- Agent 图标槽（I-034，原 D-008 的「chip-* 四色软色底 + 散列字形」退场）：
+         行内官方品牌 logo（AppAgentLogo* DrawingImage，生成自 lobe-icons，与模型图标同机制），
+         未覆盖的 Agent（Codebuff / Droid / pi-agent 及命名存储）保留散列字形兜底（中性前景随明暗翻转）。
+         两种槽位：agent-chip = 16×16 透明行内槽（会话明细 Agent 列，对齐 model-chip 行高）；
+         agent-chip-lg = 30×30 圆角 9 中性软底（Agent 统计页 KPI 卡 / 右栏最近会话行，保留原型 .kpi-icon
+         的视觉锚点，但底色改中性——原散列色对一个 Agent 无语义）。品牌伪类经附加属性
+         AgentChip.Logo 驱动。（同 ModelChip 机制）。logo 源一律 DynamicResource——单色官方标按明暗
+         给出黑/白两套（AgentLogos.axaml 的 ThemeDictionaries），其余 color 版两主题同值。 -->
+    <Style Selector="Border.agent-chip">
+        <Setter Property="Width" Value="16"/>
+        <Setter Property="Height" Value="16"/>
+        <Setter Property="TextBlock.FontSize" Value="11"/>
+        <Setter Property="TextBlock.FontWeight" Value="SemiBold"/>
+        <Setter Property="TextBlock.TextAlignment" Value="Center"/>
         <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
     </Style>
+    <Style Selector="Border.agent-chip-lg">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="Background" Value="{DynamicResource AppIconChipNeutralBackgroundBrush}"/>
+        <Setter Property="TextBlock.FontSize" Value="15"/>
+        <Setter Property="TextBlock.TextAlignment" Value="Center"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
+    </Style>
+    <!-- 字形（散列兜底）默认隐藏，仅 generic 显示；logo 同理仅命中品牌伪类时显示。 -->
+    <Style Selector="Border.agent-chip TextBlock, Border.agent-chip-lg TextBlock">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.agent-generic TextBlock">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-chip Image.agent-logo">
+        <Setter Property="Width" Value="16"/>
+        <Setter Property="Height" Value="16"/>
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.agent-chip-lg Image.agent-logo">
+        <Setter Property="Width" Value="22"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.agent-claudecode Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoClaudeCode}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-codex Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoCodex}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-geminicli Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoGeminiCli}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-amp Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoAmp}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-openclaw Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoOpenClaw}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-qwen Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoQwen}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-kimi Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoKimi}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-goose Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoGoose}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-opencode Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoOpenCode}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-kilo Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoKilo}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-hermes Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoHermes}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-grok Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoGrok}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-antigravity Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoAntigravity}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-copilot Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoCopilot}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-zai Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoZai}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.agent-dsh Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoDsh}"/>
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <!-- generic：无 lobe 对应，不设 logo 规则——Image 保持隐藏、字形兜底（诚实回退） -->
 
     <!-- 模型图标（ModelVisualMap/ModelChip）：行内官方品牌 logo（AppModelLogo* DrawingImage，
          生成自 lobe-icons，无色块），phi/未识别厂商保留字形兜底（中性前景随明暗翻转）。

@@ -4,9 +4,6 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using Avalonia;
-using Avalonia.Media;
-using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Localization;
@@ -17,8 +14,8 @@ using Tokenmetry.Core.Models;
 namespace Tokenmetry.App.ViewModels;
 
 /// <summary>
-/// D-009 Agent KPI 卡（Top4，原型 #agentKpis 同款：icon-chip + Agent 名 + 紧凑 token 主值 +
-/// "N 会话 · 成本"脚注）。不可变小对象，由 <see cref="AgentsViewModel"/> 整体替换触发绑定刷新。
+/// D-009 Agent KPI 卡（Top4，原型 #agentKpis 同款：图标槽 + Agent 名 + 紧凑 token 主值 +
+/// "N 会话 · 成本"脚注；图标槽 I-034 起为品牌 logo——`agent-chip-lg` 中性软底 + 行内官方标）。不可变小对象，由 <see cref="AgentsViewModel"/> 整体替换触发绑定刷新。
 /// 成本脚注走 <see cref="OverviewViewModel.FormatCost"/> 四态（未知成本绝不折 0，显示「未知」）；
 /// 无任何成本数据显示 "—"（未知纪律同 I-028）。
 /// </summary>
@@ -27,8 +24,9 @@ public sealed class AgentKpiCardViewModel
     public AgentKpiCardViewModel(DimensionUsageRow row)
     {
         Name = row.Key;
-        Glyph = AgentVisualMap.Glyph(row.Key).ToString();
-        ChipVariant = AgentVisualMap.ChipVariant(row.Key);
+        var icon = AgentVisualMap.Resolve(row.Key);
+        Glyph = icon.Glyph.ToString();
+        LogoVendor = icon.LogoVendor;
         TokensText = TrendChart.FormatCompactTokens(row.TotalTokens);
         FootText = string.Format(
             Translations.Instance.AgentKpiFootFormat,
@@ -39,11 +37,11 @@ public sealed class AgentKpiCardViewModel
     /// <summary>Agent 名（维度 Key 即展示名）。</summary>
     public string Name { get; }
 
-    /// <summary>软色底图标字形（AgentVisualMap 稳定散列，同会话页/右栏）。</summary>
+    /// <summary>散列兜底字形（lobe 无对应标的 Agent 才显示，见 AgentVisualMap）。</summary>
     public string Glyph { get; }
 
-    /// <summary>软色底变体名（经 AgentChip.Variant 附加属性 → chip-* 伪类 DynamicResource 着色）。</summary>
-    public string ChipVariant { get; }
+    /// <summary>品牌 logo 变体名（经 AgentChip.Logo 附加属性 → agent-* 伪类 DynamicResource 取 AppAgentLogo*）。</summary>
+    public string LogoVendor { get; }
 
     /// <summary>主数值：总 Token 紧凑格式（同总览 KPI 卡口径）。</summary>
     public string TokensText { get; }
@@ -54,26 +52,35 @@ public sealed class AgentKpiCardViewModel
 
 /// <summary>
 /// D-009 Agent 排行表单行（原型 .table 七列：Agent + 会话数 / 输入 / 输出 / 总 Token / 估算成本 / 占比）。
-/// 不可变小对象；系列圆点 = 行序映射 AppSeries{N}Brush（普通资源不随明暗翻转，无 Application 环境
-/// （纯单测）为 null，视图侧圆点透明，不影响数据可读性——同 OverviewViewModel.DimensionRowViewModel）。
+/// 不可变小对象；行首图标 = 品牌 logo（I-034，与模型明细行同口径——有官方标用标，未覆盖的 Agent 走
+/// 散列字形兜底）。原「行序映射系列色圆点」已退场：Agent 已有品牌标，圆点色在该页无图例对应物，
+/// 与总览模型分布行「有图标用图标、无图标才退回圆点」的既定口径一致。
 /// token 列用紧凑格式（FormatCompactTokens，同 KPI 卡/环心口径）：token 量级无上界，七列定宽布局下
 /// 千分位全数字会被裁切成错值（真实数据 1,261,301,001 实测裁尾）——宁紧凑不裁切，精确值可下钻会话页。
 /// </summary>
 public sealed class AgentRankRowViewModel
 {
-    public AgentRankRowViewModel(DimensionUsageRow row, int rank)
+    public AgentRankRowViewModel(DimensionUsageRow row)
     {
         Name = row.Key;
+        var icon = AgentVisualMap.Resolve(row.Key);
+        Glyph = icon.Glyph.ToString();
+        LogoVendor = icon.LogoVendor;
         SessionCountText = row.SessionCount.ToString("N0", CultureInfo.InvariantCulture);
         InputTokensText = TrendChart.FormatCompactTokens(row.InputTokens);
         OutputTokensText = TrendChart.FormatCompactTokens(row.OutputTokens);
         TotalTokensText = TrendChart.FormatCompactTokens(row.TotalTokens);
         CostText = OverviewViewModel.FormatCost(row.Cost);
         ShareText = OverviewViewModel.FormatShare(row.TokenShare);
-        DotBrush = ResolveSeriesBrush(rank);
     }
 
     public string Name { get; }
+
+    /// <summary>散列兜底字形（lobe 无对应标的 Agent 才显示，见 AgentVisualMap）。</summary>
+    public string Glyph { get; }
+
+    /// <summary>品牌 logo 变体名（经 AgentChip.Logo 附加属性 → agent-* 伪类 DynamicResource 取 AppAgentLogo*）。</summary>
+    public string LogoVendor { get; }
 
     public string SessionCountText { get; }
 
@@ -88,13 +95,6 @@ public sealed class AgentRankRowViewModel
 
     /// <summary>占比文案（0..1 → "36.8%"；无基数 → "—"）。</summary>
     public string ShareText { get; }
-
-    /// <summary>行首圆点画刷（行序映射系列色；可空）。</summary>
-    public IBrush? DotBrush { get; }
-
-    private static IBrush? ResolveSeriesBrush(int index) =>
-        Application.Current?.TryGetResource($"AppSeries{index % 7}Brush", ThemeVariant.Default, out var value) == true
-            && value is IBrush brush ? brush : null;
 }
 
 /// <summary>
@@ -219,7 +219,7 @@ public partial class AgentsViewModel : ViewModelBase, IDisposable, IDataRefreshA
             .OrderByDescending(row => row.TotalTokens)
             .ThenBy(row => row.Key, StringComparer.Ordinal)
             .ToList();
-        Rows = ordered.Select((row, index) => new AgentRankRowViewModel(row, index)).ToList();
+        Rows = ordered.Select(row => new AgentRankRowViewModel(row)).ToList();
 
         // Top4 KPI：token 降序前 4（不足补 null 槽位隐藏；零 token Agent 排序自然靠后）
         Kpi1 = ordered.Count > 0 ? new AgentKpiCardViewModel(ordered[0]) : null;

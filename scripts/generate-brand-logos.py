@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""生成 src/Tokenmetry.App/Styles/ModelLogos.axaml —— lobe-icons 静态 SVG → Avalonia DrawingImage。
+"""生成模型与 Agent 的品牌图标资源（lobe-icons 静态 SVG → Avalonia DrawingImage）：
+
+- src/Tokenmetry.App/Styles/ModelLogos.axaml —— 模型厂商 logo（AppModelLogo*，I-033）
+- src/Tokenmetry.App/Styles/AgentLogos.axaml —— Agent（AI 编程工具）logo（AppAgentLogo*，I-034）
+
+两张表共用同一套 SVG→XAML 转换（shape_drawing / convert_svg / inline_mono_inner），
+只有名单、键前缀与主题策略逐项不同。
 
 数据来源：npm 包 @lobehub/icons-static-svg（版本见 LOBE_VERSION，pin 死不许浮动），
 MIT License, Copyright (c) 2023 LobeHub，https://github.com/lobehub/lobe-icons。
@@ -19,8 +25,8 @@ MIT License, Copyright (c) 2023 LobeHub，https://github.com/lobehub/lobe-icons�
 - 遇到 transform / stroke / mask / <g> / radialGradient 等不支持结构：整体失败、不写文件——
   宁可该厂商回退字形，也不输出失真的 logo。
 
-用法：python3 scripts/generate-model-logos.py
-输出默认写到 src/Tokenmetry.App/Styles/ModelLogos.axaml（--out 可改）。
+用法：python3 scripts/generate-brand-logos.py
+默认写两个文件（--model-out / --agent-out 可改）。
 """
 
 from __future__ import annotations
@@ -41,7 +47,7 @@ UNPKG = f"https://unpkg.com/@lobehub/icons-static-svg@{LOBE_VERSION}/icons"
 #   只有单色版（官方标无彩色形态）→ Light=黑 / Dark=白（lobe 静态 PNG 惯例）；
 #   两者都有且彩标以白为主体（暗底设计，kimi）→ Light=单色黑 / Dark=彩色；
 #   内联几何（见 INLINE_MONO_LOGOS）→ Light=黑 / Dark=白（同单色版策略，数据不由 lobe 提供）。
-VENDORS: list[tuple[str, str | None, str | None]] = [
+MODEL_VENDORS: list[tuple[str, str | None, str | None]] = [
     ("claude", None, "claude-color"),
     ("openai", "openai", None),
     ("gemini", None, "gemini-color"),
@@ -59,6 +65,31 @@ VENDORS: list[tuple[str, str | None, str | None]] = [
     ("hunyuan", None, "hunyuan-color"),
 ]
 
+# Agent（AI 编程工具）→ (mono 版 lobe id | None, 彩色版 lobe id | None)。vendor 名 =
+# AgentVisualMap.Vendors 里的名字，也是 agent-* 伪类后缀。lobe-icons 1.95.1 自带专门的
+# 编程工具标（claudecode / codex / geminicli / amp / goose / opencode / kilocode / hermesagent /
+# openclaw / antigravity / githubcopilot 等），不必拿模型厂商标替代。主题策略同模型表：
+#   只有彩色版 → 明暗同用 color；只有单色版 → Light=黑 / Dark=白；kimi 双版本（暗底设计）。
+# 无 lobe 对应的 Agent（Codebuff / Droid / pi-agent + 命名存储）不进本表，视图层回退字形。
+AGENT_VENDORS: list[tuple[str, str | None, str | None]] = [
+    ("claudecode", None, "claudecode-color"),
+    ("codex", None, "codex-color"),
+    ("geminicli", None, "geminicli-color"),
+    ("amp", None, "amp-color"),
+    ("openclaw", None, "openclaw-color"),
+    ("qwen", None, "qwen-color"),          # lobe 无 qwen-code.svg，用通义官方标（同模型表）
+    ("kimi", "kimi", "kimi-color"),        # 彩标主体为白色 K（暗底设计）→ 同模型表双版本策略
+    ("goose", "goose", None),
+    ("opencode", "opencode", None),
+    ("kilo", "kilocode", None),            # Agent 名 "Kilo"，lobe id 为 kilocode
+    ("hermes", "hermesagent", None),       # Agent 名 "Hermes"，lobe id 为 hermesagent
+    ("grok", "grok", None),                # 同模型表：xAI 官方标无彩色形态
+    ("antigravity", "antigravity", None),  # 彩色版含 <g>/mask/filter（生成器不支持）→ 用单色版
+    ("copilot", "githubcopilot", None),    # 彩色版含 radialGradient/transform → 用 GitHub Copilot 单色标
+    ("zai", "zai", None),                  # ZCode = Z.ai 的编程 CLI → Z.ai 三块 "Z" 标（同模型表 glm 内联标）
+    ("dsh", "deepseek", None),             # DSH 的标与 DeepSeek 同形状、官方呈现为黑色 → 走单色策略
+]
+
 # 内联单色几何：lobe 里的图标本身是旧标/错标时的官方标覆盖（vendor → [(fill-rule, path d)]）。
 # 形状语汇与 SVG 转换同路（走 shape_drawing，填充规则/颜色处理一致），只是数据不取自 npm 包；
 # 单色几何按官方标无彩色形态的既有策略给 Light=黑 / Dark=白。坐标空间任取（DrawingImage 由
@@ -74,12 +105,21 @@ INLINE_MONO_LOGOS: dict[str, list[tuple[str, str]]] = {
 }
 
 # vendor → 资源键的 Pascal 段（与 Tokens.axaml 旧命名习惯一致：OpenAI / DeepSeek / MiniMax）
-VENDOR_PASCAL = {
+MODEL_PASCAL = {
     "claude": "Claude", "openai": "OpenAI", "gemini": "Gemini", "glm": "Glm",
     "deepseek": "DeepSeek", "qwen": "Qwen", "kimi": "Kimi", "llama": "Llama",
     "grok": "Grok", "mistral": "Mistral", "doubao": "Doubao", "minimax": "MiniMax",
     "cohere": "Cohere", "ernie": "Ernie", "hunyuan": "Hunyuan",
     "phi": "Phi", "generic": "Generic",
+}
+
+# Agent vendor → 资源键的 Pascal 段（AgentLogos.axaml 的 AppAgentLogo* 后缀）
+AGENT_PASCAL = {
+    "claudecode": "ClaudeCode", "codex": "Codex", "geminicli": "GeminiCli",
+    "amp": "Amp", "openclaw": "OpenClaw", "qwen": "Qwen", "kimi": "Kimi",
+    "goose": "Goose", "opencode": "OpenCode", "kilo": "Kilo", "hermes": "Hermes",
+    "grok": "Grok", "antigravity": "Antigravity", "copilot": "Copilot",
+    "zai": "Zai", "dsh": "Dsh", "generic": "Generic",
 }
 
 MONO_LIGHT = "#000000"
@@ -96,14 +136,14 @@ REJECTED_ATTRS = ("transform", "stroke", "stroke-width", "mask", "clip-path",
 
 
 def die(msg: str) -> None:
-    raise SystemExit(f"generate-model-logos: {msg}")
+    raise SystemExit(f"generate-brand-logos: {msg}")
 
 
 def fetch(lobe_id: str, cache_dir: Path) -> Path:
     cache = cache_dir / f"{lobe_id}.svg"
     if not cache.exists():
         req = urllib.request.Request(
-            f"{UNPKG}/{lobe_id}.svg", headers={"User-Agent": "tokenmetry-model-logos/1.0"})
+            f"{UNPKG}/{lobe_id}.svg", headers={"User-Agent": "tokenmetry-brand-logos/1.0"})
         with urllib.request.urlopen(req, timeout=30) as resp:
             cache.write_bytes(resp.read())
     return cache
@@ -324,8 +364,9 @@ def inline_mono_inner(vendor: str, shapes: list[tuple[str, str]], theme_color: s
     return f"{indent}<DrawingGroup>\n{inner}\n{indent}</DrawingGroup>"
 
 
-def drawing_image(vendor: str, inner: str, indent: str = "    ") -> str:
-    key = f"AppModelLogo{VENDOR_PASCAL[vendor]}"
+def drawing_image(key_prefix: str, pascal: dict[str, str], vendor: str, inner: str,
+                  indent: str = "    ") -> str:
+    key = f"{key_prefix}{pascal[vendor]}"
     pad = indent + "    "
     return (f'{indent}<DrawingImage x:Key="{key}">\n'
             f'{pad}<DrawingImage.Drawing>\n'
@@ -334,36 +375,53 @@ def drawing_image(vendor: str, inner: str, indent: str = "    ") -> str:
             f'{indent}</DrawingImage>')
 
 
-def build_xaml(cache_dir: Path) -> str:
+@dataclass(frozen=True)
+class LogoSet:
+    """一套图标表的全部参数（模型 / Agent 各一份，共用下面的 build_xaml）。"""
+    vendors: list[tuple[str, str | None, str | None]]
+    pascal: dict[str, str]
+    key_prefix: str                  # AppModelLogo / AppAgentLogo
+    out: str                         # 默认输出路径
+    header: str                      # 文件头注释正文（不含缩进与 -->）
+
+    @property
+    def keys(self) -> list[str]:
+        return [f"{self.key_prefix}{self.pascal[v]}" for v, _, _ in self.vendors]
+
+
+def build_xaml(cache_dir: Path, logo_set: LogoSet) -> str:
     color_entries: list[str] = []       # 明暗同用的彩色版 → 字典级普通资源
     light_entries: list[str] = []       # ThemeDictionaries Light（单色黑）
     dark_entries: list[str] = []        # ThemeDictionaries Dark（单色白 / kimi 彩色）
 
-    unknown = INLINE_MONO_LOGOS.keys() - {v for v, _, _ in VENDORS}
-    if unknown:
-        die(f"INLINE_MONO_LOGOS 里的 {sorted(unknown)} 不在 VENDORS 表")
+    inline = INLINE_MONO_LOGOS if logo_set.key_prefix == "AppModelLogo" else {}
 
-    for vendor, mono_id, color_id in VENDORS:
-        if vendor in INLINE_MONO_LOGOS:  # 内联单色几何：Light=黑 / Dark=白
-            shapes = INLINE_MONO_LOGOS[vendor]
-            light_entries.append(drawing_image(vendor, inline_mono_inner(
-                vendor, shapes, MONO_LIGHT), indent="        "))
-            dark_entries.append(drawing_image(vendor, inline_mono_inner(
-                vendor, shapes, MONO_DARK), indent="        "))
+    unknown = inline.keys() - {v for v, _, _ in logo_set.vendors}
+    if unknown:
+        die(f"INLINE_MONO_LOGOS 里的 {sorted(unknown)} 不在 {logo_set.key_prefix} 表")
+
+    for vendor, mono_id, color_id in logo_set.vendors:
+        if vendor in inline:            # 内联单色几何：Light=黑 / Dark=白
+            shapes = inline[vendor]
+            light_entries.append(drawing_image(logo_set.key_prefix, logo_set.pascal, vendor,
+                                               inline_mono_inner(vendor, shapes, MONO_LIGHT), indent="        "))
+            dark_entries.append(drawing_image(logo_set.key_prefix, logo_set.pascal, vendor,
+                                              inline_mono_inner(vendor, shapes, MONO_DARK), indent="        "))
         elif mono_id and color_id:      # 双版本：Light=单色黑 / Dark=彩色
-            light_entries.append(drawing_image(vendor, convert_svg(
+            light_entries.append(drawing_image(logo_set.key_prefix, logo_set.pascal, vendor, convert_svg(
                 fetch(mono_id, cache_dir), "mono", MONO_LIGHT, indent="                "), indent="        "))
-            dark_entries.append(drawing_image(vendor, convert_svg(
+            dark_entries.append(drawing_image(logo_set.key_prefix, logo_set.pascal, vendor, convert_svg(
                 fetch(color_id, cache_dir), "color", "", indent="                "), indent="        "))
         elif mono_id:                   # 只有单色版：Light=黑 / Dark=白
-            light_entries.append(drawing_image(vendor, convert_svg(
+            light_entries.append(drawing_image(logo_set.key_prefix, logo_set.pascal, vendor, convert_svg(
                 fetch(mono_id, cache_dir), "mono", MONO_LIGHT, indent="                "), indent="        "))
-            dark_entries.append(drawing_image(vendor, convert_svg(
+            dark_entries.append(drawing_image(logo_set.key_prefix, logo_set.pascal, vendor, convert_svg(
                 fetch(mono_id, cache_dir), "mono", MONO_DARK, indent="                "), indent="        "))
         elif color_id:                  # 只有彩色版：明暗同用
-            color_entries.append(drawing_image(vendor, convert_svg(fetch(color_id, cache_dir), "color", "")))
+            color_entries.append(drawing_image(logo_set.key_prefix, logo_set.pascal, vendor,
+                                               convert_svg(fetch(color_id, cache_dir), "color", "")))
         else:
-            die(f"{vendor}: VENDORS 表里 mono/color 两个 id 全空，且 INLINE_MONO_LOGOS 无内联几何")
+            die(f"{vendor}: 表里 mono/color 两个 id 全空，且无内联几何")
 
     theme_block = ""
     if light_entries:
@@ -377,17 +435,11 @@ def build_xaml(cache_dir: Path) -> str:
             "        </ResourceDictionary>\n"
             "    </ResourceDictionary.ThemeDictionaries>\n\n")
 
-    keys = ", ".join(f"AppModelLogo{VENDOR_PASCAL[v]}" for v, _, _ in VENDORS)
+    keys = ", ".join(logo_set.keys)
     header = (
         f"<!--\n"
-        f"        模型厂商 logo 资源（本文件由 scripts/generate-model-logos.py 生成，勿手改）。\n"
-        f"        来源：@lobehub/icons-static-svg@{LOBE_VERSION}（https://github.com/lobehub/lobe-icons，\n"
-        f"        MIT License, Copyright (c) 2023 LobeHub）；glm 例外——lobe 的 zhipu 仍是旧标，\n"
-        f"        由脚本内联智谱官方新标路径（见 INLINE_MONO_LOGOS）。主题策略：官方标无彩色形态\n"
-        f"        （openai/grok/glm）给 Light=黑 / Dark=白 两套单色；kimi 彩标以白为主体（暗底设计），\n"
-        f"        Light 用单色标、Dark 用彩标；其余明暗同用 color 版官方配色。\n"
-        f"        phi / generic 无 lobe 对应，视图层回退字形（不在此文件）。\n"
-        f"        再生：python3 scripts/generate-model-logos.py\n"
+        f"        {logo_set.header}\n"
+        f"        再生：python3 scripts/generate-brand-logos.py\n"
         f"        键清单（App* 前缀，与 Semi 避让）：{keys}\n"
         f"    -->")
 
@@ -400,19 +452,53 @@ def build_xaml(cache_dir: Path) -> str:
             "</ResourceDictionary>\n")
 
 
+MODEL_LOGOS = LogoSet(
+    vendors=MODEL_VENDORS,
+    pascal=MODEL_PASCAL,
+    key_prefix="AppModelLogo",
+    out="src/Tokenmetry.App/Styles/ModelLogos.axaml",
+    header=(
+        f"模型厂商 logo 资源（本文件由 scripts/generate-brand-logos.py 生成，勿手改）。\n"
+        f"        来源：@lobehub/icons-static-svg@{LOBE_VERSION}（https://github.com/lobehub/lobe-icons，\n"
+        f"        MIT License, Copyright (c) 2023 LobeHub）；glm 例外——lobe 的 zhipu 仍是旧标，\n"
+        f"        由脚本内联智谱官方新标路径（见 INLINE_MONO_LOGOS）。主题策略：官方标无彩色形态\n"
+        f"        （openai/grok/glm）给 Light=黑 / Dark=白 两套单色；kimi 彩标以白为主体（暗底设计），\n"
+        f"        Light 用单色标、Dark 用彩标；其余明暗同用 color 版官方配色。\n"
+        f"        phi / generic 无 lobe 对应，视图层回退字形（不在此文件）。"),
+)
+
+AGENT_LOGOS = LogoSet(
+    vendors=AGENT_VENDORS,
+    pascal=AGENT_PASCAL,
+    key_prefix="AppAgentLogo",
+    out="src/Tokenmetry.App/Styles/AgentLogos.axaml",
+    header=(
+        f"Agent（AI 编程工具）logo 资源（本文件由 scripts/generate-brand-logos.py 生成，勿手改）。\n"
+        f"        来源：@lobehub/icons-static-svg@{LOBE_VERSION}（https://github.com/lobehub/lobe-icons，\n"
+        f"        MIT License, Copyright (c) 2023 LobeHub）。主题策略与模型表同路：只有彩色版 → 明暗同用\n"
+        f"        color；只有单色版（goose/opencode/kilo/hermes/grok/antigravity/copilot/zai/dsh）→\n"
+        f"        Light=黑 / Dark=白；kimi 双版本（彩标主体为白，暗底设计）。\n"
+        f"        zai = Z.ai 的编程 CLI ZCode 用 Z.ai 三块 \"Z\" 标（与模型表 glm 内联标同一形状）；\n"
+        f"        dsh = DSH 的标与 DeepSeek 同形状、官方呈现为黑色 → 复用 deepseek 单色几何。\n"
+        f"        未覆盖的 Agent（Codebuff / Droid / pi-agent 及命名存储）视图层回退字形（不在此文件）。"),
+)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default="src/Tokenmetry.App/Styles/ModelLogos.axaml")
+    parser.add_argument("--model-out", default=MODEL_LOGOS.out)
+    parser.add_argument("--agent-out", default=AGENT_LOGOS.out)
     parser.add_argument("--cache-dir", default=None, help="SVG 下载缓存目录（默认临时目录）")
     args = parser.parse_args()
 
     cache_dir = Path(args.cache_dir) if args.cache_dir else Path(tempfile.mkdtemp(prefix="lobe-svg-"))
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    xaml = build_xaml(cache_dir)
-    out = Path(args.out)
-    out.write_text(xaml, encoding="utf-8")
-    print(f"OK：写出 {out}（{len(xaml)} 字符，{len(VENDORS)} 个厂商）")
+    for logo_set, out_path in ((MODEL_LOGOS, args.model_out), (AGENT_LOGOS, args.agent_out)):
+        xaml = build_xaml(cache_dir, logo_set)
+        out = Path(out_path)
+        out.write_text(xaml, encoding="utf-8")
+        print(f"OK：写出 {out}（{len(xaml)} 字符，{len(logo_set.vendors)} 项）")
 
 
 if __name__ == "__main__":

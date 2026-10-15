@@ -6,39 +6,38 @@ using Avalonia.Controls;
 namespace Tokenmetry.App.Controls;
 
 /// <summary>
-/// Agent 软色底芯片的变体附加属性（D-008 审查修复轮 P1）：把行 VM 给出的变体名
-/// （<see cref="ViewModels.AgentVisualMap.ChipVariant"/>：blue/green/purple/neutral）翻译成
-/// 挂载控件的伪类（chip-*），颜色一律由 SharedStyles.axaml 的 chip-* 样式以 DynamicResource
-/// 引用 AppIconChip*Hue 令牌——按控件 ActualThemeVariant 解析，明暗翻转与窗口级
-/// RequestedThemeVariant 自动生效。
-/// 为什么不用 VM 直接解析画刷：AppIconChip* 只在 Tokens.axaml 的 Light/Dark 主题字典
-/// （无 Default 兜底），VM 侧 <c>TryGetResource(key, ThemeVariant.Default)</c> 软失败返回 null
-/// （原 P1 缺陷）；而窗口级主题覆盖（明暗截图）也无法经 Application 级解析正确呈现。
+/// Agent 图标槽的品牌附加属性（I-034）：把行 VM 给出的品牌变体名
+/// （<see cref="ViewModels.AgentVisualMap"/>：claudecode/codex/…/dsh/generic）翻译成挂载控件的
+/// 伪类（agent-*），logo/字形由 SharedStyles.axaml 的 agent-* 样式给出——logo 源以 DynamicResource
+/// 引用 AgentLogos.axaml 的 AppAgentLogo*（单色官方标按 ActualThemeVariant 明暗自动换黑白）。
+/// 机制与 <see cref="ModelChip"/> 完全同构（VM 不解析画刷纪律，同 D-008 审查修复轮 P1 的教训）。
+///
+/// 历史（D-008）：本类原为 <c>Variant</c> 附加属性，把 blue/green/purple/neutral 软色底变体名
+/// 翻译成 chip-* 伪类；I-034 改为品牌 logo 后色块与变体一并退场（散列色对一个 Agent 无语义），
+/// 未识别 Agent 落 generic 伪类 → 中性前景的散列字形兜底。
 /// </summary>
 public static class AgentChip
 {
-    /// <summary>变体名（blue/green/purple/neutral；null/未知 = 不着色，保持诚实回退）。</summary>
-    public static readonly AttachedProperty<string?> VariantProperty =
-        AvaloniaProperty.RegisterAttached<Control, string?>("Variant", typeof(AgentChip));
-
-    private static readonly string[] Variants = ["blue", "green", "purple", "neutral"];
+    /// <summary>品牌变体名（null/未知 = 不着色，保持诚实回退）。</summary>
+    public static readonly AttachedProperty<string?> LogoProperty =
+        AvaloniaProperty.RegisterAttached<Control, string?>("Logo", typeof(AgentChip));
 
     static AgentChip()
     {
-        VariantProperty.Changed.AddClassHandler<Control>(OnVariantChanged);
+        LogoProperty.Changed.AddClassHandler<Control>(OnLogoChanged);
     }
 
-    public static string? GetVariant(Control control) => control.GetValue(VariantProperty);
+    public static string? GetLogo(Control control) => control.GetValue(LogoProperty);
 
-    public static void SetVariant(Control control, string? value) => control.SetValue(VariantProperty, value);
+    public static void SetLogo(Control control, string? value) => control.SetValue(LogoProperty, value);
 
-    private static void OnVariantChanged(Control control, AvaloniaPropertyChangedEventArgs e)
+    private static void OnLogoChanged(Control control, AvaloniaPropertyChangedEventArgs e)
     {
-        var variant = e.NewValue as string;
+        var vendor = e.NewValue as string;
         var classes = (IPseudoClasses)control.Classes;
-        foreach (var name in Variants)
+        foreach (var name in ViewModels.AgentVisualMap.Vendors)
         {
-            classes.Set($"chip-{name}", name == variant);
+            classes.Set($"agent-{name}", name == vendor);
         }
     }
 }

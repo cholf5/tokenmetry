@@ -95,8 +95,9 @@ public sealed class SessionRowViewModel
         // facts 无标题字段（I-002/I-029）：主文本诚实用会话标识 SessionId（同搜索口径），不伪造任务标题
         TitleText = row.SessionId;
         ProjectText = FirstNotEmpty(row.ProjectDisplayName, row.Project, "—");
-        IconGlyph = AgentVisualMap.Glyph(row.Agent).ToString();
-        ChipVariant = AgentVisualMap.ChipVariant(row.Agent);
+        var icon = AgentVisualMap.Resolve(row.Agent);
+        IconGlyph = icon.Glyph.ToString();
+        LogoVendor = icon.LogoVendor;
         ModelText = FirstNotEmpty(row.DominantModel, "—");
         TokensText = row.TotalTokens.ToString("N0", CultureInfo.InvariantCulture);
         CostText = FormatCost(row.CostUsd);
@@ -113,10 +114,11 @@ public sealed class SessionRowViewModel
     /// <summary>副文本 = 项目（归一化展示名优先，歧义守卫下可能是原始路径；空则 "—"）。</summary>
     public string ProjectText { get; }
 
+    /// <summary>散列兜底字形（lobe 无对应标的 Agent 才显示）。</summary>
     public string IconGlyph { get; }
 
-    /// <summary>软色底变体名（颜色经 SharedStyles chip-* 伪类 DynamicResource 呈现，VM 不持画刷）。</summary>
-    public string ChipVariant { get; }
+    /// <summary>品牌 logo 变体名（颜色/图形经 SharedStyles agent-* 伪类 DynamicResource 呈现，VM 不持画刷）。</summary>
+    public string LogoVendor { get; }
 
     public string ModelText { get; }
 

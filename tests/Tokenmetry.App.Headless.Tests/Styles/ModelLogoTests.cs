@@ -24,7 +24,7 @@ namespace Tokenmetry.App.Headless.Tests.Styles;
 /// </summary>
 public class ModelLogoTests
 {
-    /// <summary>vendor → 资源键。与 scripts/generate-model-logos.py 的 VENDOR_PASCAL 同步：
+    /// <summary>vendor → 资源键。与 scripts/generate-brand-logos.py 的 MODEL_PASCAL 同步：
     /// 新增厂商必须同时更新生成器、ModelLogos.axaml（重跑脚本）与本表。</summary>
     internal static readonly Dictionary<string, string> LogoKeys = new()
     {

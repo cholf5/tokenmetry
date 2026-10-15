@@ -10,7 +10,7 @@
              x:DataType="vm:AgentsViewModel">
 
     <!--
-        D-009 Agent 统计页（原型 #page-agents）：页头 + Top4 Agent KPI 卡（icon-chip + Agent 名 +
+        D-009 Agent 统计页（原型 #page-agents）：页头 + Top4 Agent KPI 卡（品牌 logo 槽 + Agent 名 +
         紧凑 token 主值 + "N 会话 · 成本"脚注，未知成本四态）+ Agent 排行面板（七列：Agent / 会话数 /
         输入 / 输出 / 总 Token / 估算成本 / 占比；系列圆点对齐原型 .modeldot）。
         行点击 → 会话页带该 Agent 全局筛选（AgentsViewModel 定案：写顶部栏单选 Agent）。
@@ -38,8 +38,11 @@
                     IsVisible="{Binding Kpi1, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <StackPanel x:DataType="vm:AgentKpiCardViewModel" DataContext="{Binding Kpi1}">
                     <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Border Classes="icon-chip" c:AgentChip.Variant="{Binding ChipVariant}">
-                            <TextBlock Text="{Binding Glyph}"/>
+                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}">
+                            <Panel>
+                                <TextBlock Text="{Binding Glyph}"/>
+                                <Image Classes="agent-logo"/>
+                            </Panel>
                         </Border>
                         <TextBlock Classes="kpi-top" Text="{Binding Name}"
                                    VerticalAlignment="Center"
@@ -54,8 +57,11 @@
                     IsVisible="{Binding Kpi2, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <StackPanel x:DataType="vm:AgentKpiCardViewModel" DataContext="{Binding Kpi2}">
                     <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Border Classes="icon-chip" c:AgentChip.Variant="{Binding ChipVariant}">
-                            <TextBlock Text="{Binding Glyph}"/>
+                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}">
+                            <Panel>
+                                <TextBlock Text="{Binding Glyph}"/>
+                                <Image Classes="agent-logo"/>
+                            </Panel>
                         </Border>
                         <TextBlock Classes="kpi-top" Text="{Binding Name}"
                                    VerticalAlignment="Center"
@@ -70,8 +76,11 @@
                     IsVisible="{Binding Kpi3, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <StackPanel x:DataType="vm:AgentKpiCardViewModel" DataContext="{Binding Kpi3}">
                     <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Border Classes="icon-chip" c:AgentChip.Variant="{Binding ChipVariant}">
-                            <TextBlock Text="{Binding Glyph}"/>
+                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}">
+                            <Panel>
+                                <TextBlock Text="{Binding Glyph}"/>
+                                <Image Classes="agent-logo"/>
+                            </Panel>
                         </Border>
                         <TextBlock Classes="kpi-top" Text="{Binding Name}"
                                    VerticalAlignment="Center"
@@ -86,8 +95,11 @@
                     IsVisible="{Binding Kpi4, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <StackPanel x:DataType="vm:AgentKpiCardViewModel" DataContext="{Binding Kpi4}">
                     <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Border Classes="icon-chip" c:AgentChip.Variant="{Binding ChipVariant}">
-                            <TextBlock Text="{Binding Glyph}"/>
+                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}">
+                            <Panel>
+                                <TextBlock Text="{Binding Glyph}"/>
+                                <Image Classes="agent-logo"/>
+                            </Panel>
                         </Border>
                         <TextBlock Classes="kpi-top" Text="{Binding Name}"
                                    VerticalAlignment="Center"
@@ -131,10 +143,17 @@
                                     BorderThickness="0,1,0,0"
                                     Padding="0,8,0,2">
                                 <Grid ColumnDefinitions="1.5*,52,56,56,56,64,44" ColumnSpacing="6">
+                                    <!-- Agent 列：品牌 logo（I-034，与模型明细行同口径；未覆盖的 Agent
+                                         回退散列字形）。原行序系列色圆点随 Agent logo 化退场 -->
                                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7"
                                                 VerticalAlignment="Center">
-                                        <Border Classes="series-dot" Background="{Binding DotBrush}"
-                                                VerticalAlignment="Center"/>
+                                        <Border Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
+                                                ToolTip.Tip="{Binding Name}">
+                                            <Panel>
+                                                <TextBlock Text="{Binding Glyph}"/>
+                                                <Image Classes="agent-logo"/>
+                                            </Panel>
+                                        </Border>
                                         <TextBlock Classes="table-td" Text="{Binding Name}"
                                                    ToolTip.Tip="{Binding Name}"
                                                    TextTrimming="CharacterEllipsis"/>

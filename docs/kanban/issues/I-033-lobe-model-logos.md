@@ -28,6 +28,7 @@ I-030 的「内置模型图标」实为品牌色圆角芯片 + 字母字形占�
 - [x] openai/grok 单色标 Light=黑 / Dark=白；kimi Light=单色 / Dark=彩标；明暗翻转经 ThemeDictionaries + DynamicResource 自动生效
 - [x] phi/generic 保留 Φ/◇ 字形兜底（中性前景随明暗翻转），有 logo 厂商字形由样式隐藏
 - [x] 生成器 `scripts/generate-model-logos.py` 入库可复现：pin 版本、SVG→XAML 规则成文、遇 transform/未知结构整体失败不写文件（宁可回退字形不失真）
+  - 2026-10-15 追记（I-034）：脚本已改名 `scripts/generate-brand-logos.py` 并泛化为「模型 + Agent」双表双输出（`VENDOR_PASCAL` → `MODEL_PASCAL`，`VENDORS` → `MODEL_VENDORS`）；本卡当时的行为与产出未变，ModelLogos.axaml 重跑后仅头部注释文案变化。
 - [x] 旧「品牌色芯片」令牌清理：AppModelChip*BackgroundBrush ×16 与 ForegroundBrush 删除（grep 确认无引用），AppIconChipNeutral* 保留（Agent 芯片在用）
 - [x] headless 守卫测试 `ModelLogoTests`（6 用例）+ 全量 5 工程测试通过（1196 用例零回归）
 

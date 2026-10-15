@@ -2,14 +2,14 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        模型厂商 logo 资源（本文件由 scripts/generate-model-logos.py 生成，勿手改）。
+        模型厂商 logo 资源（本文件由 scripts/generate-brand-logos.py 生成，勿手改）。
         来源：@lobehub/icons-static-svg@1.95.1（https://github.com/lobehub/lobe-icons，
         MIT License, Copyright (c) 2023 LobeHub）；glm 例外——lobe 的 zhipu 仍是旧标，
         由脚本内联智谱官方新标路径（见 INLINE_MONO_LOGOS）。主题策略：官方标无彩色形态
         （openai/grok/glm）给 Light=黑 / Dark=白 两套单色；kimi 彩标以白为主体（暗底设计），
         Light 用单色标、Dark 用彩标；其余明暗同用 color 版官方配色。
         phi / generic 无 lobe 对应，视图层回退字形（不在此文件）。
-        再生：python3 scripts/generate-model-logos.py
+        再生：python3 scripts/generate-brand-logos.py
         键清单（App* 前缀，与 Semi 避让）：AppModelLogoClaude, AppModelLogoOpenAI, AppModelLogoGemini, AppModelLogoGlm, AppModelLogoDeepSeek, AppModelLogoQwen, AppModelLogoKimi, AppModelLogoLlama, AppModelLogoGrok, AppModelLogoMistral, AppModelLogoDoubao, AppModelLogoMiniMax, AppModelLogoCohere, AppModelLogoErnie, AppModelLogoHunyuan
     -->
 
