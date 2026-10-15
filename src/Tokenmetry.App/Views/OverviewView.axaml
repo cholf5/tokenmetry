@@ -227,7 +227,14 @@
                                     <Grid ColumnDefinitions="*,76,52" ColumnSpacing="10">
                                         <StackPanel Grid.Column="0" Spacing="4">
                                             <StackPanel Orientation="Horizontal" Spacing="7">
+                                                <!-- 模型行：内置厂商芯片（替代系列圆点）；项目行仍用系列色圆点 -->
+                                                <Border Classes="model-chip" c:ModelChip.Vendor="{Binding ModelIcon.Vendor}"
+                                                        IsVisible="{Binding HasModelIcon}"
+                                                        ToolTip.Tip="{Binding Name}">
+                                                    <TextBlock Text="{Binding ModelIcon.Glyph}"/>
+                                                </Border>
                                                 <Border Classes="series-dot" Background="{Binding DotBrush}"
+                                                        IsVisible="{Binding !HasModelIcon}"
                                                         VerticalAlignment="Center"/>
                                                 <TextBlock Classes="table-td" Text="{Binding Name}"
                                                            TextTrimming="CharacterEllipsis"/>

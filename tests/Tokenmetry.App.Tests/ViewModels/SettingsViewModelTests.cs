@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
+using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
 
@@ -413,6 +414,159 @@ public class SettingsViewModelTests
         viewModel.Page.Title.Should().Be("数据源与设置");
         viewModel.Page.Subtitle.Should().Be("多 Agent 统一统计的关键是来源适配、去重和口径透明");    }
 
+
+    // ---- 模型聚合（别名映射）：规则增删即存即热更新 ----
+
+    [Fact]
+    public void Constructor_LoadsExistingAliasRulesAndSeedsResolver()
+    {
+        var settings = new AppSettings();
+        settings.ModelAliases["ark/glm-5.3-flash"] = "glm-5.3-flash";
+        var resolver = new ModelAliasResolver();
+
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), aliasResolver: resolver);
+
+        viewModel.AliasRules.Should().HaveCount(1);
+        viewModel.AliasRules[0].Alias.Should().Be("ark/glm-5.3-flash");
+        viewModel.AliasRules[0].Target.Should().Be("glm-5.3-flash");
+        viewModel.AliasRules[0].Vendor.Should().Be("glm", "规则行图标跟随规范名（统计里显示的是规范名）");
+        viewModel.HasNoAliasRules.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AddAliasRule_PersistsAndHotUpdatesResolver()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var resolver = new ModelAliasResolver();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, aliasResolver: resolver);
+
+        viewModel.NewAliasSource = "  ark/glm-5.3-flash ";
+        viewModel.NewAliasTarget = "glm-5.3-flash";
+        viewModel.AddAliasRuleCommand.Execute(null);
+
+        settings.ModelAliases.Should().ContainKey("ark/glm-5.3-flash").WhoseValue.Should().Be("glm-5.3-flash");
+        store.SaveCalls.Should().Be(1, "改完即落盘（全自动保存纪律）");
+        resolver.Resolve("ark/glm-5.3-flash").Should().Be("glm-5.3-flash", "解析器热更新，统计页查询即时按新映射聚合");
+        viewModel.AliasRules.Should().HaveCount(1);
+        viewModel.AliasRules[0].Vendor.Should().Be("glm");
+        viewModel.NewAliasSource.Should().BeEmpty("添加成功后清空输入框");
+        viewModel.NewAliasTarget.Should().BeEmpty();
+        viewModel.AliasError.Should().BeNull();
+    }
+
+    [Fact]
+    public void AddAliasRule_WithBlankFields_ShowsInlineErrorAndDoesNotPersist()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store);
+
+        viewModel.NewAliasSource = "ark/glm-5.3-flash";
+        viewModel.AddAliasRuleCommand.Execute(null);
+
+        viewModel.AliasError.Should().Be(Translations.Instance.AliasErrorRequired);
+        store.SaveCalls.Should().Be(0);
+        settings.ModelAliases.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AddAliasRule_WithSelfMapping_ShowsInlineErrorAndDoesNotPersist()
+    {
+        // 解析器按原始名精确匹配，字面相同的规则无效果，录入侧劝阻
+        // （"GLM-5.3-Flash" → "glm-5.3-flash" 是大小写变体映射，不受此限，属核心场景）。
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store);
+
+        viewModel.NewAliasSource = "glm-5.3-flash";
+        viewModel.NewAliasTarget = "glm-5.3-flash";
+        viewModel.AddAliasRuleCommand.Execute(null);
+
+        viewModel.AliasError.Should().Be(Translations.Instance.AliasErrorSame);
+        store.SaveCalls.Should().Be(0);
+        settings.ModelAliases.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AddAliasRule_WithCaseVariantMapping_PersistsAndResolves()
+    {
+        // 大小写变体（GLM-5.3-Flash → glm-5.3-flash）是用户场景的核心：精确匹配的合法规则。
+        var settings = new AppSettings();
+        var resolver = new ModelAliasResolver();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), aliasResolver: resolver);
+
+        viewModel.NewAliasSource = "GLM-5.3-Flash";
+        viewModel.NewAliasTarget = "glm-5.3-flash";
+        viewModel.AddAliasRuleCommand.Execute(null);
+
+        settings.ModelAliases.Should().ContainKey("GLM-5.3-Flash").WhoseValue.Should().Be("glm-5.3-flash");
+        resolver.Resolve("GLM-5.3-Flash").Should().Be("glm-5.3-flash");
+        viewModel.AliasError.Should().BeNull();
+    }
+
+    [Fact]
+    public void AddAliasRule_WithDuplicateSource_ReplacesTarget()
+    {
+        var settings = new AppSettings();
+        var resolver = new ModelAliasResolver();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), aliasResolver: resolver);
+
+        viewModel.NewAliasSource = "ark/glm-5.3-flash";
+        viewModel.NewAliasTarget = "GLM-5.3";
+        viewModel.AddAliasRuleCommand.Execute(null);
+        viewModel.NewAliasSource = "ark/glm-5.3-flash";
+        viewModel.NewAliasTarget = "glm-5.3-flash";
+        viewModel.AddAliasRuleCommand.Execute(null);
+
+        settings.ModelAliases.Should().HaveCount(1, "同原始名覆盖旧规则（字典语义）");
+        settings.ModelAliases["ark/glm-5.3-flash"].Should().Be("glm-5.3-flash");
+        resolver.Resolve("ark/glm-5.3-flash").Should().Be("glm-5.3-flash");
+        viewModel.AliasRules.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void RemoveAliasRule_PersistsAndHotUpdatesResolver()
+    {
+        var settings = new AppSettings();
+        settings.ModelAliases["ark/glm-5.3-flash"] = "glm-5.3-flash";
+        var store = new FakeSettingsStore();
+        var resolver = new ModelAliasResolver();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, aliasResolver: resolver);
+
+        viewModel.RemoveAliasRuleCommand.Execute("ark/glm-5.3-flash");
+
+        settings.ModelAliases.Should().BeEmpty();
+        store.SaveCalls.Should().Be(1);
+        resolver.Resolve("ark/glm-5.3-flash").Should().Be("ark/glm-5.3-flash");
+        viewModel.HasNoAliasRules.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RemoveAliasRule_WithUnknownAlias_IsNoOp()
+    {
+        var settings = new AppSettings();
+        settings.ModelAliases["ark/glm-5.3-flash"] = "glm-5.3-flash";
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store);
+
+        viewModel.RemoveAliasRuleCommand.Execute("not-exists");
+
+        store.SaveCalls.Should().Be(0);
+        settings.ModelAliases.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task AliasCandidates_LoadedFromRawModelNames()
+    {
+        var query = new FakeQueryService(["glm-5.3-flash", "ark/glm-5.3-flash"]);
+        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), query: query);
+
+        await viewModel.LoadAliasCandidatesAsync(); // 构造路径 fire-and-forget，测试显式等待
+
+        viewModel.AliasCandidates.Should().Equal("glm-5.3-flash", "ark/glm-5.3-flash");
+    }
+
     // ---- helpers ----
 
     private static readonly DateTimeOffset Now = new(2026, 10, 13, 10, 30, 0, TimeSpan.Zero);
@@ -424,7 +578,9 @@ public class SettingsViewModelTests
         IThemeService? themeService = null,
         FakeScanReader? reader = null,
         FakeToastService? toast = null,
-        BackgroundRefreshService? refreshService = null)
+        BackgroundRefreshService? refreshService = null,
+        IUsageQueryService? query = null,
+        ModelAliasResolver? aliasResolver = null)
     {
         return new SettingsViewModel(
             settings,
@@ -433,7 +589,9 @@ public class SettingsViewModelTests
             themeService ?? new FakeThemeService(),
             reader ?? new FakeScanReader(),
             refreshService ?? new BackgroundRefreshService(() => Task.FromResult(true)),
-            toast ?? new FakeToastService());
+            toast ?? new FakeToastService(),
+            query,
+            aliasResolver);
     }
 
     /// <summary>扫描注册表读取面桩：Registered/快照可变，供重进刷新与重扫完成断言。
@@ -477,6 +635,34 @@ public class SettingsViewModelTests
         {
             LastApplied = themePreference;
         }
+    }
+
+    /// <summary>查询服务桩（模型聚合卡候选清单）：只真实返回原始模型名，其余成员不参与断言。</summary>
+    private sealed class FakeQueryService(IReadOnlyList<string> rawModelNames) : IUsageQueryService
+    {
+        public Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DailyUsagePoint>>([]);
+
+        public Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new UsageKpiResult());
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DimensionUsageRow>>([]);
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DimensionUsageRow>>([]);
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DimensionUsageRow>>([]);
+
+        public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
+            Task.FromResult(rawModelNames);
+
+        public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default) =>
+            Task.FromResult(new SessionListResult());
+
+        public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new HourlyDistributionResult());
     }
 
     private sealed class FakeSettingsStore : IAppSettingsStore

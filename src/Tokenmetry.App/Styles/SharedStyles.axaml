@@ -145,6 +145,91 @@
         <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
     </Style>
 
+    <!-- 模型图标芯片（ModelVisualMap/ModelChip）：品牌色圆角底 + 白字形，模型统计行与总览
+         模型分布行共用。尺寸对齐 11px 表格行高（18×18 圆角 5）；字形颜色经 TextBlock.Foreground
+         继承（白），厂商底色由 model-* 伪类给出（令牌不随明暗翻转，见 Tokens.axaml 注释）。
+         厂商伪类经附加属性 ModelChip.Vendor 驱动（同 AgentChip 机制）。 -->
+    <Style Selector="Border.model-chip">
+        <Setter Property="Width" Value="18"/>
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="TextBlock.FontSize" Value="10"/>
+        <Setter Property="TextBlock.FontWeight" Value="SemiBold"/>
+        <Setter Property="TextBlock.TextAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource AppIconChipNeutralBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-chip > TextBlock">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.model-claude">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipClaudeBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-openai">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipOpenAIBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-gemini">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipGeminiBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-glm">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipGlmBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-deepseek">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipDeepSeekBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-qwen">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipQwenBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-kimi">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipKimiBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-llama">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipLlamaBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-grok">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipGrokBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-mistral">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipMistralBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-doubao">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipDoubaoBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-minimax">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipMiniMaxBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-cohere">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipCohereBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-ernie">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipErnieBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-hunyuan">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipHunyuanBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.model-phi">
+        <Setter Property="Background" Value="{DynamicResource AppModelChipPhiBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppModelChipForegroundBrush}"/>
+    </Style>
+    <!-- generic（未识别 / 「其他」）：保留中性令牌（model-chip 基样式已给）随明暗翻转，无覆盖样式 -->
+
+
     <!-- 图例/表格圆点 ← 原型 .modeldot{width:7px;height:7px;border-radius:3px}，颜色由使用处给 AppSeries{N}Brush -->
     <Style Selector="Border.series-dot">
         <Setter Property="Width" Value="7"/>

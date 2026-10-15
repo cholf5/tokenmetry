@@ -73,7 +73,7 @@ public sealed class KpiCardViewModel
 /// </summary>
 public sealed class DimensionRowViewModel
 {
-    public DimensionRowViewModel(int rank, string name, long tokens, decimal? tokenShare, IBrush? dotBrush)
+    public DimensionRowViewModel(int rank, string name, long tokens, decimal? tokenShare, IBrush? dotBrush, ModelVisual? modelIcon = null)
     {
         Rank = rank;
         Name = name;
@@ -81,6 +81,7 @@ public sealed class DimensionRowViewModel
         ShareText = OverviewViewModel.FormatShare(tokenShare);
         BarValue = tokenShare is { } share ? Math.Clamp((double)(share * 100m), 0d, 100d) : 0d;
         DotBrush = dotBrush;
+        ModelIcon = modelIcon;
     }
 
     /// <summary>排名（1 起；项目表显示，模型表不显示）。</summary>
@@ -100,6 +101,15 @@ public sealed class DimensionRowViewModel
 
     /// <summary>行首圆点画刷（行序映射系列色；可空）。</summary>
     public IBrush? DotBrush { get; }
+
+    /// <summary>
+    /// 内置厂商图标（模型维度行填充，模型统计页同源；null = 非模型行——项目行保留系列色圆点）。
+    /// 模型行恒非 null（未识别厂商落 generic 中性芯片，不回退圆点）。
+    /// </summary>
+    public ModelVisual? ModelIcon { get; }
+
+    /// <summary>本行是否以模型芯片替代系列圆点（模型维度行 true，项目维度行 false）。</summary>
+    public bool HasModelIcon => ModelIcon is not null;
 }
 
 /// <summary>
@@ -283,7 +293,7 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
             DailyPoints = daily;
             AgentSegments = CreateAgentSegments(agents);
             AgentDonutCenterTitle = TrendChart.FormatCompactTokens(kpi.TotalTokens);
-            ModelRows = CreateDimensionRows(models);
+            ModelRows = CreateDimensionRows(models, modelIconResolver: ModelVisualMap.Resolve);
             ProjectRows = CreateDimensionRows(projects);
             TypeSegments = CreateTokenTypeSegments(daily);
             // 环心与上半区 KPI 卡同源（同一次 GetKpiAsync），避免环心/段各算各的口径漂移
@@ -370,9 +380,11 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     /// 模型/项目维度 → 预览表行：TopN、零 token 行不入榜（占比无意义）、防御性按 token 降序
     /// （服务契约已排序，不依赖之）；Name 用归一化展示名（项目维度歧义守卫下可能是原始路径）。
     /// 不加「其他」聚合行（原型同款，见 ModelRows 注释）；bar 值 = TokenShare × 100（见 DimensionRowViewModel）。
+    /// <paramref name="modelIconResolver"/> 非空时行首给内置厂商图标（模型维度；null = 项目维度，
+    /// 保留系列色圆点）。
     /// </summary>
     internal static IReadOnlyList<DimensionRowViewModel> CreateDimensionRows(
-        IReadOnlyList<DimensionUsageRow> rows, int topN = TopN)
+        IReadOnlyList<DimensionUsageRow> rows, int topN = TopN, Func<string, ModelVisual?>? modelIconResolver = null)
     {
         return rows
             .Where(r => r.TotalTokens > 0)
@@ -383,7 +395,8 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
                 row.DisplayName ?? row.Key,
                 row.TotalTokens,
                 row.TokenShare,
-                ResolveSeriesBrush(index)))
+                ResolveSeriesBrush(index),
+                modelIconResolver?.Invoke(row.DisplayName ?? row.Key)))
             .ToList();
     }
 

@@ -146,9 +146,16 @@ public static class AppServices
         services.AddSingleton<IUsageStore>(store);
         services.AddSingleton<CacheService>();
 
+        // 模型名归一解析（别名映射）：AppSettings.ModelAliases 装配，设置页改规则后经
+        // SettingsViewModel.UpdateAliases 热更新；查询服务在模型维度聚合与会话筛选时消费。
+        var aliasResolver = new ModelAliasResolver();
+        aliasResolver.UpdateAliases(settings.ModelAliases);
+        services.AddSingleton(aliasResolver);
+        services.AddSingleton<IModelNameResolver>(aliasResolver);
+
         // UI 聚合查询服务（I-028/I-029）：facts 存储之上的只读聚合面（日序列 / KPI / 维度 / 会话 / 小时分布），
-        // 时区用本机（与采集侧 facts 分桶默认一致）。
-        services.AddSingleton<IUsageQueryService>(new UsageQueryService(store));
+        // 时区用本机（与采集侧 facts 分桶默认一致）；模型维度经别名解析器归一（无映射时恒等）。
+        services.AddSingleton<IUsageQueryService>(new UsageQueryService(store, modelNameResolver: aliasResolver));
 
         // D-008 筛选选项目录（Agent/模型/项目清单）：I-029 维度查询 + 服务层缓存，
         // 全局 Agent 下拉（FilterStateService）与右栏快速筛选共用同一份（单一真相源）。

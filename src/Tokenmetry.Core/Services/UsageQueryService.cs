@@ -22,17 +22,31 @@ namespace Tokenmetry.Core.Services;
 /// "全表读 + 聚合"都会压在 UI 线程上，采集写库提交期间读被锁阻塞时即表现为 UI 冻结。
 /// 因此所有公共查询入口经 <c>Task.Run</c> 把"读 + 聚合"整体移到线程池执行；调用方 await
 /// 恢复到 UI 线程后只做 VM 属性回写（公共入口是唯一的线程边界，内部私有方法不再各自调度）。
+/// <b>模型别名聚合</b>：构造可注入 <see cref="IModelNameResolver"/>（App 从 AppSettings.ModelAliases
+/// 装配，设置页运行时热更新）——模型维度聚合键、会话模型筛选与搜索先经解析器把原始名归一到
+/// 规范名；Agent / 项目维度不受影响。
 /// </summary>
 public class UsageQueryService : IUsageQueryService
 {
     private readonly IUsageStore _store;
     private readonly TimeZoneInfo _timeZone;
 
-    public UsageQueryService(IUsageStore store, TimeZoneInfo? timeZone = null)
+    /// <summary>
+    /// 模型名归一解析（别名映射，可为 null = 恒等）：模型维度聚合与会话筛选经它把原始模型名
+    /// 归一到规范名。null 时 <see cref="ResolveModel"/> 原样返回，聚合行为与无映射逐位一致。
+    /// </summary>
+    private readonly IModelNameResolver? _modelResolver;
+
+    public UsageQueryService(IUsageStore store, TimeZoneInfo? timeZone = null, IModelNameResolver? modelNameResolver = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _timeZone = timeZone ?? TimeZoneInfo.Local;
+        _modelResolver = modelNameResolver;
     }
+
+    /// <summary>模型名归一（恒等兜底）：所有模型维度口径的单点入口。</summary>
+    private string ResolveModel(string rawModelName) =>
+        _modelResolver?.Resolve(rawModelName) ?? rawModelName;
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
@@ -131,7 +145,18 @@ public class UsageQueryService : IUsageQueryService
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-        Task.Run(() => GetDimensionBreakdownAsync(filter, UsageFactGrain.Model, fact => fact.Model, session => session.DominantModel, withProjectDisplayName: false, withDominantAgent: true, ct));
+        Task.Run(() => GetDimensionBreakdownAsync(
+            filter,
+            UsageFactGrain.Model,
+            fact => ResolveModel(fact.Model),
+            session => ResolveModel(session.DominantModel),
+            withProjectDisplayName: false,
+            withDominantAgent: true,
+            ct));
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
+        Task.Run(() => GetRawModelNamesCoreAsync(ct));
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
@@ -163,7 +188,9 @@ public class UsageQueryService : IUsageQueryService
         var model = query.Model;
         if (!string.IsNullOrEmpty(model))
         {
-            rows = rows.Where(row => string.Equals(row.DominantModel, model, StringComparison.Ordinal));
+            // 模型筛选在别名归一后的规范名空间比较（下拉选项来自模型维度聚合，同口径）；
+            // 无映射时 ResolveModel 恒等，行为与原始名精确匹配一致。
+            rows = rows.Where(row => string.Equals(ResolveModel(row.DominantModel), model, StringComparison.Ordinal));
         }
 
         var term = query.SearchTerm?.Trim();
@@ -596,13 +623,53 @@ public class UsageQueryService : IUsageQueryService
         CostUsd = session.CostUsd,
     };
 
-    private static bool MatchesSearch(SessionListRow row, string term) =>
+    /// <summary>搜索词命中：模型列对原始名与别名归一名都匹配（规范名可搜到原始名不同的会话，
+    /// 原始名也保留可搜——会话行显示的是原始名）。</summary>
+    private bool MatchesSearch(SessionListRow row, string term) =>
         row.SessionId.Contains(term, StringComparison.OrdinalIgnoreCase)
         || row.Agent.Contains(term, StringComparison.OrdinalIgnoreCase)
         || row.Project.Contains(term, StringComparison.OrdinalIgnoreCase)
         || row.ProjectDisplayName.Contains(term, StringComparison.OrdinalIgnoreCase)
-        || row.DominantModel.Contains(term, StringComparison.OrdinalIgnoreCase);
+        || row.DominantModel.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || (!string.Equals(row.DominantModel, ResolveModel(row.DominantModel), StringComparison.Ordinal)
+            && ResolveModel(row.DominantModel).Contains(term, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// 原始模型名候选清单（绕过别名归一，映射录入的源必须是映射前的名字）：
+    /// usage_facts 的模型键 + 会话 dominant_model 取并集，权重 = facts TotalTokens 之和 +
+    /// 会话 TotalTokens 之和，降序排列让常用名排在候选列表前面（平局按名称序数稳定）。
+    /// </summary>
+    private async Task<IReadOnlyList<string>> GetRawModelNamesCoreAsync(CancellationToken ct)
+    {
+        var weights = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var fact in await _store.GetUsageFactsAsync(ct))
+        {
+            var model = fact.Model;
+            if (string.IsNullOrWhiteSpace(model) || fact.TotalTokens <= 0)
+            {
+                continue;
+            }
+
+            weights[model] = weights.GetValueOrDefault(model) + fact.TotalTokens;
+        }
+
+        foreach (var session in await _store.GetSessionFactsAsync(ct))
+        {
+            var model = session.DominantModel;
+            if (string.IsNullOrWhiteSpace(model) || session.TotalTokens <= 0)
+            {
+                continue;
+            }
+
+            weights[model] = weights.GetValueOrDefault(model) + session.TotalTokens;
+        }
+
+        return weights
+            .OrderByDescending(pair => pair.Value)
+            .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair => pair.Key)
+            .ToList();
+    }
     /// <summary>排序：主键按查询声明，平局键恒为 SessionId（序数）保证分页稳定。</summary>
     private static IOrderedEnumerable<SessionListRow> SortRows(List<SessionListRow> rows, SessionSortField sortBy, bool descending)
     {

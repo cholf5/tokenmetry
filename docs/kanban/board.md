@@ -18,6 +18,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-030 | 模型聚合（别名映射）+ 内置模型图标 | P1 | 2026-10-15 |
 | B-004 | flaky：CopilotSessionAdapterTests 间歇多计 LinesSkipped | P2 | 2026-10-13 |
 | Q-002 | 旧视图清理与视觉验收打磨 | P2 | 2026-10-13 |
 | S-002 | 数据源与设置页重构（原型版） | P2 | 2026-10-13 |

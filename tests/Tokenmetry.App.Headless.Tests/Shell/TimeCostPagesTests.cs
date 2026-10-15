@@ -116,6 +116,9 @@ public class TimeCostPagesTests
             return Task.FromResult(Daily);
         }
 
+        public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
         public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default)
         {
             HourlyQueries.Add(filter);

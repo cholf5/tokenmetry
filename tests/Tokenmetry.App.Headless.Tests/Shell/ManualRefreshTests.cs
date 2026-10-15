@@ -86,6 +86,9 @@ public class ManualRefreshTests
             return Task.FromResult(new SessionListResult());
         }
 
+        public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
         public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
             Task.FromResult(new HourlyDistributionResult());
     }

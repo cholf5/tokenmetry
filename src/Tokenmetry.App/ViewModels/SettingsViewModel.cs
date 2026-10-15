@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
+using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
 
@@ -82,6 +83,35 @@ public sealed record DataSourceRowViewModel(
         new(agent, Translations.Instance.StatusNotScanned, IsOk: false, IsPartial: false, IsNoData: false, IsError: false, IsPending: true, "—", "—");
 }
 
+/// <summary>
+/// 模型聚合规则单行（AliasRules）：原始模型名 → 规范名，展示侧附规范名的内置厂商图标
+/// （聚合后统计里出现的是规范名，图标跟着规范名走）。不可变小对象，规则增删整表重建。
+/// </summary>
+public sealed class AliasRuleRowViewModel
+{
+    public AliasRuleRowViewModel(string alias, string target)
+    {
+        Alias = alias;
+        Target = target;
+        Icon = ModelVisualMap.Resolve(target);
+    }
+
+    /// <summary>原始模型名（settings.json 字典键原文，删除时按它精确移除）。</summary>
+    public string Alias { get; }
+
+    /// <summary>规范名（统计显示与聚合键）。</summary>
+    public string Target { get; }
+
+    /// <summary>规范名的内置厂商图标（恒非 null）。</summary>
+    public ModelVisual Icon { get; }
+
+    /// <summary>厂商变体名（ModelChip.Vendor 附加属性消费）。</summary>
+    public string Vendor => Icon.Vendor;
+
+    /// <summary>芯片字形。</summary>
+    public char Glyph => Icon.Glyph;
+}
+
 public partial class SettingsViewModel : ViewModelBase, INavigationAware
 {
     public static IReadOnlyList<ThemeOption> ThemeOptions { get; } = new[]
@@ -127,6 +157,15 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     private readonly IIngestionScanReader _scanReader;
     private readonly BackgroundRefreshService _refreshService;
     private readonly IToastService _toastService;
+
+    /// <summary>
+    /// 查询服务（可空：测试/预览无查询环境时为 null，候选清单保持空集——诚实无候选）。
+    /// 供模型聚合卡拉取本地数据出现过的原始模型名作候选项。
+    /// </summary>
+    private readonly IUsageQueryService? _query;
+
+    /// <summary>模型名归一解析器（可空兜底新建空映射）：设置页改规则后热更新，统计页查询即时生效。</summary>
+    private readonly ModelAliasResolver _aliasResolver;
 
     /// <summary>自动保存串行化 gate：文本框逐键触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
@@ -195,6 +234,28 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     /// <summary>数据源表行（"已识别数据源"来自采集层注册表，不手写清单）。</summary>
     public ObservableCollection<DataSourceRowViewModel> SourceRows { get; } = new();
 
+    /// <summary>模型聚合规则行（AliasRules，原始名 → 规范名；增删整表重建）。</summary>
+    public ObservableCollection<AliasRuleRowViewModel> AliasRules { get; } = new();
+
+    /// <summary>无规则空态（规则列表让位提示行）。</summary>
+    public bool HasNoAliasRules => AliasRules.Count == 0;
+
+    /// <summary>新增规则的原始模型名（AutoCompleteBox：候选来自本地数据出现过的原始名，也可自由输入）。</summary>
+    [ObservableProperty]
+    private string _newAliasSource = string.Empty;
+
+    /// <summary>新增规则的规范名（同款候选 + 自由输入；规范名也会进候选供后续规则复用）。</summary>
+    [ObservableProperty]
+    private string _newAliasTarget = string.Empty;
+
+    /// <summary>新增规则的行内校验提示（非空并显示；合法/初始为 null 隐藏）。</summary>
+    [ObservableProperty]
+    private string? _aliasError;
+
+    /// <summary>候选模型原始名（GetRawModelNamesAsync，本地数据全集按用量降序；加载失败保留旧值）。</summary>
+    [ObservableProperty]
+    private IReadOnlyList<string> _aliasCandidates = [];
+
     public SettingsViewModel(
         AppSettings settings,
         AppPaths paths,
@@ -202,7 +263,9 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         IThemeService themeService,
         IIngestionScanReader scanReader,
         BackgroundRefreshService refreshService,
-        IToastService toastService)
+        IToastService toastService,
+        IUsageQueryService? query = null,
+        ModelAliasResolver? aliasResolver = null)
     {
         _settings = settings;
         _store = store;
@@ -210,6 +273,9 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         _scanReader = scanReader;
         _refreshService = refreshService;
         _toastService = toastService;
+        _query = query;
+        _aliasResolver = aliasResolver ?? new ModelAliasResolver();
+        _aliasResolver.UpdateAliases(settings.ModelAliases);
         CacheDbPath = paths.CacheDbPath;
         SettingsFilePath = paths.SettingsFilePath;
         _ccusageCommand = settings.CcusageCommand;
@@ -218,6 +284,8 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         _selectedTheme = ResolveThemeOption(settings.Theme);
         _selectedLanguage = ResolveLanguageOption(settings.Language);
         RebuildSourceRows();
+        RebuildAliasRules();
+        _ = LoadAliasCandidatesAsync();
 
         // 语言切换重译订阅：设置页 VM 为 DI 单例（与外壳同生命周期），直订阅无需退订。
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
@@ -351,15 +419,18 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         OnPropertyChanged(nameof(SourceMetaText));
         OnPropertyChanged(nameof(CaliberRows));
         RebuildSourceRows();
+        RefreshAliasErrorTranslation();
     }
 
     /// <summary>
     /// 单例页重进刷新（INavigationAware）：外壳每次导航进入设置页后重建数据源表，
-    /// 使后台定时刷新 / 上一页期间的扫描结果在重进时可见（生命周期定案见卡 Dev Log）。
+    /// 使后台定时刷新 / 上一页期间的扫描结果在重进时可见（生命周期定案见卡 Dev Log）；
+    /// 模型候选清单同步重拉（新扫描后数据里可能出现新模型名）。
     /// </summary>
     public void OnNavigatedTo()
     {
         RebuildSourceRows();
+        _ = LoadAliasCandidatesAsync();
     }
 
     /// <summary>
@@ -441,6 +512,109 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         JsonlScanStatus.Error => Translations.Instance.StatusError,
         _ => Translations.Instance.StatusNotScanned,
     };
+
+    // ════════════════════ 模型聚合（别名映射）：规则增删 + 热更新 + 候选清单 ════════════════════
+
+    /// <summary>
+    /// 新增映射规则：校验（两侧非空、不得自映射——解析器按原始名精确匹配，字面相同即无效果）
+    /// → 写入 <see cref="AppSettings.ModelAliases"/>（同原始名覆盖旧规则，字典语义）→ 重建规则行 +
+    /// 落盘 + 热更新解析器（统计页查询即时按新映射聚合）。原始名取输入框原文（trim 后），
+    /// 用户可自由键入数据里还没有的名字，为将来出现该名字的来源做准备。
+    /// </summary>
+    [RelayCommand]
+    private void AddAliasRule()
+    {
+        var source = NewAliasSource.Trim();
+        var target = NewAliasTarget.Trim();
+        if (source.Length == 0 || target.Length == 0)
+        {
+            AliasError = Translations.Instance.AliasErrorRequired;
+            return;
+        }
+
+        if (string.Equals(source, target, StringComparison.Ordinal))
+        {
+            AliasError = Translations.Instance.AliasErrorSame;
+            return;
+        }
+
+        AliasError = null;
+        _settings.ModelAliases[source] = target;
+        ApplyAliasSettings();
+        NewAliasSource = string.Empty;
+        NewAliasTarget = string.Empty;
+    }
+
+    /// <summary>移除映射规则（按行的原始名精确移除）→ 重建 + 落盘 + 热更新。</summary>
+    [RelayCommand]
+    private void RemoveAliasRule(string? alias)
+    {
+        if (string.IsNullOrEmpty(alias) || !_settings.ModelAliases.Remove(alias))
+        {
+            return;
+        }
+
+        ApplyAliasSettings();
+    }
+
+    /// <summary>规则变更的公共出口：字典 → 规则行重建 + settings.json 落盘 + 解析器热更新。</summary>
+    private void ApplyAliasSettings()
+    {
+        RebuildAliasRules();
+        PersistSettings();
+        _aliasResolver.UpdateAliases(_settings.ModelAliases);
+    }
+
+    /// <summary>从 AppSettings.ModelAliases 重建规则行（插入序 = 字典序，与 settings.json 一致）。</summary>
+    private void RebuildAliasRules()
+    {
+        AliasRules.Clear();
+        foreach (var (alias, target) in _settings.ModelAliases)
+        {
+            AliasRules.Add(new AliasRuleRowViewModel(alias, target));
+        }
+
+        OnPropertyChanged(nameof(HasNoAliasRules));
+    }
+
+    /// <summary>
+    /// 候选模型原始名（本地数据全集、绕过别名归一）：进入设置页 / 构造时拉取。失败静默保留
+    /// 旧清单（候选是辅助录入，不值得打断页面；下次进入重试）。internal 供测试对账
+    /// （构造路径是 fire-and-forget，测试需要显式等待）。
+    /// </summary>
+    internal async Task LoadAliasCandidatesAsync()
+    {
+        if (_query is null)
+        {
+            return;
+        }
+
+        try
+        {
+            AliasCandidates = await _query.GetRawModelNamesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 模型候选清单加载失败（保留旧值）：{ex.Message}");
+        }
+    }
+
+    /// <summary>校验提示是即时文案（出现时语言），语言切换后重算当前输入的校验结果对齐其余行内提示。</summary>
+    private void RefreshAliasErrorTranslation()
+    {
+        if (AliasError is null)
+        {
+            return;
+        }
+
+        var source = NewAliasSource.Trim();
+        var target = NewAliasTarget.Trim();
+        AliasError = source.Length == 0 || target.Length == 0
+            ? Translations.Instance.AliasErrorRequired
+            : string.Equals(source, target, StringComparison.Ordinal)
+                ? Translations.Instance.AliasErrorSame
+                : null;
+    }
 
     /// <summary>扫描完成时刻 → 展示文案：当日显示 HH:mm，跨日显示 MM-dd HH:mm（本机时区）。</summary>
     internal static string FormatLastScan(DateTimeOffset scannedAt)
