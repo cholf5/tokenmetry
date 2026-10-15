@@ -36,15 +36,27 @@ public class AppSettings
     /// <summary>自定义档结束日（含，yyyy-MM-dd invariant；null = 未选，查询映射不设上界）。</summary>
     public string? CustomToDay { get; set; }
 
-    /// <summary>用户价格覆盖规则（I-003，exact 模型名匹配，优先级高于远程数据与内置快照）。</summary>
+    /// <summary>
+    /// <b>旧</b>用户价格覆盖规则（I-003 字段形状）：I-035 起用户配置统一走
+    /// <see cref="ModelDefinitions"/>，本字段只读不写（装载时转换为模型目录条目，见
+    /// <see cref="ModelDefinitionOverride.FromLegacy"/>）。保留是为了不丢老 settings.json 里已配的价，
+    /// 待下个版本删除。
+    /// </summary>
     public List<ModelPricingOverride> PricingOverrides { get; set; } = new();
 
     /// <summary>
-    /// 模型别名映射（用户配置的模型聚合）：键 = 数据里出现的原始模型名（精确匹配，大小写敏感），
-    /// 值 = 规范名（统计显示与聚合的键）。动机：不同来源对同一模型命名不同（GLM-5.3-Flash /
-    /// glm-5.3-flash / glm-flash-latest / ark/glm-5.3-flash），全靠内置规则无法覆盖，
-    /// 交给用户在设置页维护；查询服务在模型维度聚合与会话筛选时经
-    /// <see cref="Abstractions.IModelNameResolver"/> 消费。空字典 = 不聚合（默认）。
+    /// 用户模型目录条目（I-035）：按模型 ID 逐字段覆盖导入层（内置快照 / models.dev）的价格与元数据，
+    /// ID 不在导入层时即用户自建的模型。价格、厂商、图标、聚合归一由此单点决定——设置页的模型目录区
+    /// 即本列表的编辑器，保存后 <c>ModelCatalog.UpdateUserDefinitions</c> 热更新（无需重启）。
+    /// </summary>
+    public List<ModelDefinitionOverride> ModelDefinitions { get; set; } = new();
+
+    /// <summary>
+    /// 模型别名映射（原始名 → 模型 ID）：键 = 数据里出现的原始模型名（精确匹配，大小写敏感），
+    /// 值 = 模型 ID（或用户自定的规范名）。动机：不同来源对同一模型命名不同
+    /// （GLM-5.3-Flash / glm-flash-latest / ark/glm-5.3-flash），全靠内置规则无法覆盖，
+    /// 交给用户在设置页维护；I-035 起同时被定价引擎消费（关联即对价格生效）。
+    /// 空字典 = 不聚合（默认）。
     /// </summary>
     public Dictionary<string, string> ModelAliases { get; set; } = new();
 }

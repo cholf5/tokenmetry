@@ -422,9 +422,9 @@ public class SettingsViewModelTests
     {
         var settings = new AppSettings();
         settings.ModelAliases["ark/glm-5.3-flash"] = "glm-5.3-flash";
-        var resolver = new ModelAliasResolver();
+        var catalog = new ModelCatalog();
 
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), aliasResolver: resolver);
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), catalog: catalog);
 
         viewModel.AliasRules.Should().HaveCount(1);
         viewModel.AliasRules[0].Alias.Should().Be("ark/glm-5.3-flash");
@@ -434,12 +434,12 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public void AddAliasRule_PersistsAndHotUpdatesResolver()
+    public void AddAliasRule_PersistsAndHotUpdatesCatalog()
     {
         var settings = new AppSettings();
         var store = new FakeSettingsStore();
-        var resolver = new ModelAliasResolver();
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, aliasResolver: resolver);
+        var catalog = new ModelCatalog();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, catalog: catalog);
 
         viewModel.NewAliasSource = "  ark/glm-5.3-flash ";
         viewModel.NewAliasTarget = "glm-5.3-flash";
@@ -447,7 +447,11 @@ public class SettingsViewModelTests
 
         settings.ModelAliases.Should().ContainKey("ark/glm-5.3-flash").WhoseValue.Should().Be("glm-5.3-flash");
         store.SaveCalls.Should().Be(1, "改完即落盘（全自动保存纪律）");
-        resolver.Resolve("ark/glm-5.3-flash").Should().Be("glm-5.3-flash", "解析器热更新，统计页查询即时按新映射聚合");
+        // I-035：规则命中后聚合身份是目录条目 ID（glm-5.3-flash 是快照里的 zai 模型），
+        // 关联方式如实记为「别名」——这条规则同时让计价引擎按该模型计价（此前只影响聚合）。
+        var identity = catalog.ResolveIdentity("ark/glm-5.3-flash");
+        identity.Kind.Should().Be(ModelMatchKind.Alias, "目录热更新，统计页查询即时按新映射聚合");
+        identity.Id.Should().Be("glm-5-3-flash");
         viewModel.AliasRules.Should().HaveCount(1);
         viewModel.AliasRules[0].Vendor.Should().Be("glm");
         viewModel.NewAliasSource.Should().BeEmpty("添加成功后清空输入框");
@@ -493,15 +497,16 @@ public class SettingsViewModelTests
     {
         // 大小写变体（GLM-5.3-Flash → glm-5.3-flash）是用户场景的核心：精确匹配的合法规则。
         var settings = new AppSettings();
-        var resolver = new ModelAliasResolver();
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), aliasResolver: resolver);
+        var catalog = new ModelCatalog();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), catalog: catalog);
 
         viewModel.NewAliasSource = "GLM-5.3-Flash";
         viewModel.NewAliasTarget = "glm-5.3-flash";
         viewModel.AddAliasRuleCommand.Execute(null);
 
         settings.ModelAliases.Should().ContainKey("GLM-5.3-Flash").WhoseValue.Should().Be("glm-5.3-flash");
-        resolver.Resolve("GLM-5.3-Flash").Should().Be("glm-5.3-flash");
+        catalog.ResolveIdentity("GLM-5.3-Flash").Kind.Should().Be(ModelMatchKind.Alias);
+        catalog.ResolveIdentity("GLM-5.3-Flash").Id.Should().Be("glm-5-3-flash");
         viewModel.AliasError.Should().BeNull();
     }
 
@@ -509,8 +514,8 @@ public class SettingsViewModelTests
     public void AddAliasRule_WithDuplicateSource_ReplacesTarget()
     {
         var settings = new AppSettings();
-        var resolver = new ModelAliasResolver();
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), aliasResolver: resolver);
+        var catalog = new ModelCatalog();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), catalog: catalog);
 
         viewModel.NewAliasSource = "ark/glm-5.3-flash";
         viewModel.NewAliasTarget = "GLM-5.3";
@@ -521,24 +526,29 @@ public class SettingsViewModelTests
 
         settings.ModelAliases.Should().HaveCount(1, "同原始名覆盖旧规则（字典语义）");
         settings.ModelAliases["ark/glm-5.3-flash"].Should().Be("glm-5.3-flash");
-        resolver.Resolve("ark/glm-5.3-flash").Should().Be("glm-5.3-flash");
+        catalog.ResolveIdentity("ark/glm-5.3-flash").Kind.Should().Be(ModelMatchKind.Alias);
         viewModel.AliasRules.Should().HaveCount(1);
     }
 
     [Fact]
-    public void RemoveAliasRule_PersistsAndHotUpdatesResolver()
+    public void RemoveAliasRule_PersistsAndHotUpdatesCatalog()
     {
+        // 用目录自己关联不上的原始名——否则删掉规则后名字仍会被目录自动关联，
+        // 测不出"规则移除"这件事（自动关联不是规则）。
         var settings = new AppSettings();
-        settings.ModelAliases["ark/glm-5.3-flash"] = "glm-5.3-flash";
+        settings.ModelAliases["glm46-preview-build"] = "glm-4.6";
         var store = new FakeSettingsStore();
-        var resolver = new ModelAliasResolver();
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, aliasResolver: resolver);
+        var catalog = new ModelCatalog();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, catalog: catalog);
+        catalog.ResolveIdentity("glm46-preview-build").Kind.Should().Be(ModelMatchKind.Alias, "规则已在构造时装入目录");
 
-        viewModel.RemoveAliasRuleCommand.Execute("ark/glm-5.3-flash");
+        viewModel.RemoveAliasRuleCommand.Execute("glm46-preview-build");
 
         settings.ModelAliases.Should().BeEmpty();
         store.SaveCalls.Should().Be(1);
-        resolver.Resolve("ark/glm-5.3-flash").Should().Be("ark/glm-5.3-flash");
+        var identity = catalog.ResolveIdentity("glm46-preview-build");
+        identity.Kind.Should().Be(ModelMatchKind.None);
+        identity.Id.Should().Be("glm46-preview-build");
         viewModel.HasNoAliasRules.Should().BeTrue();
     }
 
@@ -557,14 +567,19 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public async Task AliasCandidates_LoadedFromRawModelNames()
+    public async Task AliasCandidates_ListUnlinkedRawNamesFirst()
     {
-        var query = new FakeQueryService(["glm-5.3-flash", "ark/glm-5.3-flash"]);
+        // I-035：目录自动关联得上的名字不需要人管，候选清单把"关联不上的"排前面——
+        // 这一栏的用途是处理待关联的名字（已关联的仍在清单里，用户可能想覆盖自动关联结果）。
+        var query = new FakeQueryService(["glm-5.3-flash", "ark/glm-5.3-flash", "glm46-preview-build"]);
         var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), query: query);
 
         await viewModel.LoadAliasCandidatesAsync(); // 构造路径 fire-and-forget，测试显式等待
 
-        viewModel.AliasCandidates.Should().Equal("glm-5.3-flash", "ark/glm-5.3-flash");
+        viewModel.AliasCandidates.Should().Equal(
+            "glm46-preview-build",
+            "ark/glm-5.3-flash",
+            "glm-5.3-flash");
     }
 
     // ---- helpers ----
@@ -580,7 +595,7 @@ public class SettingsViewModelTests
         FakeToastService? toast = null,
         BackgroundRefreshService? refreshService = null,
         IUsageQueryService? query = null,
-        ModelAliasResolver? aliasResolver = null)
+        ModelCatalog? catalog = null)
     {
         return new SettingsViewModel(
             settings,
@@ -591,7 +606,7 @@ public class SettingsViewModelTests
             refreshService ?? new BackgroundRefreshService(() => Task.FromResult(true)),
             toast ?? new FakeToastService(),
             query,
-            aliasResolver);
+            catalog);
     }
 
     /// <summary>扫描注册表读取面桩：Registered/快照可变，供重进刷新与重扫完成断言。
@@ -687,5 +702,145 @@ public class SettingsViewModelTests
             SavedSettings = settings;
             return Task.CompletedTask;
         }
+    }
+
+    // ---- 模型目录（I-035）：条目增删改 + 保存即重算 ----
+
+    private static (SettingsViewModel ViewModel, int[] RefreshCalls) CreateCatalogViewModel(
+        AppSettings settings,
+        FakeSettingsStore store,
+        ModelCatalog catalog)
+    {
+        var refreshCalls = new int[1];
+        var viewModel = CreateViewModel(
+            settings,
+            new AppPaths("C:\\tokenmetry"),
+            store,
+            refreshService: new BackgroundRefreshService(() =>
+            {
+                refreshCalls[0]++;
+                return Task.FromResult(true);
+            }),
+            catalog: catalog);
+        return (viewModel, refreshCalls);
+    }
+
+    [Fact]
+    public void SaveModelDefinition_CreatesEntryPersistsAndTriggersReprice()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var catalog = new ModelCatalog();
+        var (viewModel, refreshCalls) = CreateCatalogViewModel(settings, store, catalog);
+
+        viewModel.ModelFormId = "GLM-4.6"; // 大写 + 点号：按约定归一，不算错误
+        viewModel.ModelFormVendor = "zai";
+        viewModel.ModelFormDisplayName = "GLM 4.6 特价";
+        viewModel.ModelFormInput = "1";
+        viewModel.ModelFormOutput = "2";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        settings.ModelDefinitions.Should().ContainSingle();
+        settings.ModelDefinitions[0].Id.Should().Be("glm-4-6", "ID 归一到小写连字符约定");
+        store.SaveCalls.Should().Be(1, "改完即落盘（全自动保存纪律）");
+        catalog.FindById("glm-4-6")!.IsPriceOverridden.Should().BeTrue("目录热更新，统计与计价即时生效");
+        catalog.FindById("glm-4-6")!.InputPerMillion.Should().Be(1m);
+        refreshCalls[0].Should().Be(1, "价格改完必须触发一轮重算，否则数字不会变");
+        viewModel.ModelFormError.Should().BeNull();
+        viewModel.EditingModelId.Should().BeNull("保存后回到新建态");
+    }
+
+    [Fact]
+    public void SaveModelDefinition_WithInvalidId_ShowsInlineErrorAndDoesNotPersist()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var (viewModel, refreshCalls) = CreateCatalogViewModel(settings, store, new ModelCatalog());
+
+        viewModel.ModelFormId = "bad#id";
+        viewModel.ModelFormInput = "1";
+        viewModel.ModelFormOutput = "2";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        viewModel.ModelFormError.Should().Be(Translations.Instance.ModelFormErrorIdInvalid);
+        settings.ModelDefinitions.Should().BeEmpty();
+        store.SaveCalls.Should().Be(0);
+        refreshCalls[0].Should().Be(0);
+    }
+
+    [Fact]
+    public void SaveModelDefinition_WithHalfPrice_ShowsInlineError()
+    {
+        var settings = new AppSettings();
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), new ModelCatalog());
+
+        viewModel.ModelFormId = "glm-4-6";
+        viewModel.ModelFormInput = "1";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        viewModel.ModelFormError.Should().Be(Translations.Instance.ModelFormErrorPricePair);
+        settings.ModelDefinitions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SaveModelDefinition_WithoutPrice_RegistersIdentityOnly()
+    {
+        var settings = new AppSettings();
+        var catalog = new ModelCatalog();
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.ModelFormId = "my-local-model";
+        viewModel.ModelFormVendor = "local";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        catalog.FindById("my-local-model").Should().NotBeNull();
+        catalog.FindById("my-local-model")!.HasPrice.Should().BeFalse("只登记身份，价格留空");
+        catalog.UserEntries.Should().BeEmpty("没有价就不参与计价（绝不折 0）");
+    }
+
+    [Fact]
+    public void EditModelDefinition_LoadsEffectiveValuesAndRemoveRevertsToImported()
+    {
+        var settings = new AppSettings();
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride
+        {
+            Id = "glm-4.6",
+            InputPerMillion = 9m,
+            OutputPerMillion = 90m,
+        });
+        var catalog = new ModelCatalog(userDefinitions: settings.ModelDefinitions);
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.EditModelDefinitionCommand.Execute("glm-4-6");
+
+        viewModel.EditingModelId.Should().Be("glm-4-6");
+        viewModel.ModelFormInput.Should().Be("9");
+        viewModel.ModelFormOutput.Should().Be("90");
+        viewModel.ModelFormVendor.Should().Be("zai", "未覆盖的字段回落导入层");
+
+        viewModel.RemoveModelDefinitionCommand.Execute("glm-4-6");
+
+        settings.ModelDefinitions.Should().BeEmpty();
+        var reverted = catalog.FindById("glm-4-6")!;
+        reverted.IsPriceOverridden.Should().BeFalse();
+        reverted.InputPerMillion.Should().NotBe(9m, "移除覆盖后回到内置快照的价");
+    }
+
+    [Fact]
+    public void CatalogRows_ComeFromTheCatalogAndExposeIdCandidates()
+    {
+        var settings = new AppSettings();
+        var catalog = new ModelCatalog();
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.ModelRows.Should().NotBeEmpty("内置快照条目也在目录里");
+        viewModel.HasNoModelRows.Should().BeFalse();
+        viewModel.ModelIdCandidates.Should().Contain("glm-4-6", "关联目标侧从目录的模型 ID 里挑");
+
+        var row = viewModel.ModelRows.Single(item => item.Id == "glm-4-6");
+        row.Vendor.Should().Be("zai");
+        row.OriginText.Should().Be(Translations.Instance.ModelOriginBuiltin);
+        row.HasPrice.Should().BeTrue();
+        row.IsOverridden.Should().BeFalse();
     }
 }

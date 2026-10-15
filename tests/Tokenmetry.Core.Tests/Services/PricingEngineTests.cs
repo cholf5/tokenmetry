@@ -15,6 +15,8 @@ public class PricingEngineTests
         BuiltinPricingSnapshot.Entries.Should().NotBeEmpty();
         BuiltinPricingSnapshot.SourceUrl.Should().Be("https://models.dev/api.json");
 
+        // I-035：覆盖判定走模型目录（生产路径）——条目里有价、且名字能关联上。
+        var engine = new PricingEngine();
         foreach (var model in new[]
                  {
                      Sonnet46, "claude-sonnet-4-5", "claude-sonnet-5", Opus48, "claude-opus-4-5",
@@ -22,8 +24,9 @@ public class PricingEngineTests
                      "gpt-5", "gpt-5-mini", "gpt-5-nano", "codex", "gpt-5.6-terra",
                  })
         {
-            BuiltinPricingSnapshot.TryMatch(model, out _, out _).Should()
+            engine.TryResolveModelPrice(model, out var resolved).Should()
                 .BeTrue($"snapshot should cover {model}");
+            resolved.Entry.InputPerMillion.Should().BeGreaterThanOrEqualTo(0m);
         }
     }
 
@@ -276,7 +279,7 @@ public class PricingEngineTests
             new() { Model = " ", InputPerMillion = 1m, OutputPerMillion = 2m },
             new() { Model = Sonnet46, InputPerMillion = -1m, OutputPerMillion = 2m },
         });
-        engine.Overrides.Should().BeEmpty();
+        engine.UserDefinitions.Should().BeEmpty();
 
         engine.PriceTokens(Sonnet46, Tokens(1_000_000, 0)).Source.Should().Be(PricingSourceKind.Snapshot);
     }

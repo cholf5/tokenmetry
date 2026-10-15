@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Tokenmetry.Core.Abstractions;
@@ -76,12 +77,28 @@ public static class AppServices
         services.AddSingleton<DashboardService>();
         services.AddSingleton<AnomalyDetector>();
 
-        // 定价引擎（I-003）：models.dev 客户端单例，后台刷新由本地采集数据源的刷新入口触发；
-        // 用户覆盖规则来自设置（引擎支持运行时 UpdateOverrides）。
+        // 定价引擎（I-003）：models.dev 客户端单例，后台刷新由本地采集数据源的刷新入口触发。
+        // I-035 模型目录：价格 / 厂商 / 图标 / 聚合身份的唯一出处，单例共享给计价引擎与查询服务
+        // （两份目录会让"设置页改的价"与"统计用的身份"分叉）。用户层来自设置：ModelDefinitions 是
+        // 新字段，PricingOverrides 是旧字段（只读桥，装载时折算成目录条目，不丢老配置）。
         var pricingClient = new ModelsDevPricingClient();
         services.AddSingleton(pricingClient);
         services.AddSingleton<IRemotePricingSource>(pricingClient);
-        services.AddSingleton(_ => new PricingEngine(pricingClient, settings.PricingOverrides));
+        services.AddSingleton(_ => new ModelCatalog(
+            pricingClient,
+            settings.ModelDefinitions.Concat(
+                settings.PricingOverrides
+                    .Select(ModelDefinitionOverride.FromLegacy)
+                    .Where(definition => definition is not null)
+                    .Select(definition => definition!)
+                    // 新旧同 ID 时以新字段为准（用户已在设置页编辑过这条）。
+                    .Where(legacy => settings.ModelDefinitions.All(
+                        current => !string.Equals(
+                            ModelId.Normalize(current.Id),
+                            ModelId.Normalize(legacy.Id),
+                            StringComparison.OrdinalIgnoreCase)))),
+            settings.ModelAliases));
+        services.AddSingleton(sp => new PricingEngine(catalog: sp.GetRequiredService<ModelCatalog>()));
 
         // 本地采集适配器（I-005 接线）：单例——JSONL 适配器实例持有增量扫描状态（文件 mtime/大小记账 + 消息级
         // 去重），跨刷新只重解析变更文件；ZCode SQLite 适配器无扫描状态（账本单文件持续变化，每次全量重读）；
@@ -146,16 +163,14 @@ public static class AppServices
         services.AddSingleton<IUsageStore>(store);
         services.AddSingleton<CacheService>();
 
-        // 模型名归一解析（别名映射）：AppSettings.ModelAliases 装配，设置页改规则后经
-        // SettingsViewModel.UpdateAliases 热更新；查询服务在模型维度聚合与会话筛选时消费。
-        var aliasResolver = new ModelAliasResolver();
-        aliasResolver.UpdateAliases(settings.ModelAliases);
-        services.AddSingleton(aliasResolver);
-        services.AddSingleton<IModelNameResolver>(aliasResolver);
+        // 模型名归一解析（I-035 起由模型目录承担）：别名映射是目录的一层，查询服务与计价引擎
+        // 共享同一份目录——"设置页关联的名字"因此同时决定聚合与价格（此前只有聚合）。
+        services.AddSingleton<IModelNameResolver>(sp => sp.GetRequiredService<ModelCatalog>());
 
         // UI 聚合查询服务（I-028/I-029）：facts 存储之上的只读聚合面（日序列 / KPI / 维度 / 会话 / 小时分布），
-        // 时区用本机（与采集侧 facts 分桶默认一致）；模型维度经别名解析器归一（无映射时恒等）。
-        services.AddSingleton<IUsageQueryService>(new UsageQueryService(store, modelNameResolver: aliasResolver));
+        // 时区用本机（与采集侧 facts 分桶默认一致）；模型维度经模型目录归一（无映射时恒等）。
+        services.AddSingleton<IUsageQueryService>(sp =>
+            new UsageQueryService(store, modelNameResolver: sp.GetRequiredService<ModelCatalog>()));
 
         // D-008 筛选选项目录（Agent/模型/项目清单）：I-029 维度查询 + 服务层缓存，
         // 全局 Agent 下拉（FilterStateService）与右栏快速筛选共用同一份（单一真相源）。

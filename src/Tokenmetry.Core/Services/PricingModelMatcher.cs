@@ -277,7 +277,13 @@ public static class PricingModelMatcher
         }
     }
 
-    private static string? ExtractRequestedProvider(string? model)
+    /// <summary>
+    /// 从模型名的 provider 前缀推导服务商（<c>openrouter/glm-4.6</c> → <c>openrouter</c>）。
+    /// I-036：源适配器没有 provider 字段时，用量行的 provider 三元组由模型名前缀推导；
+    /// 前缀是采集侧的既有命名事实（各源适配器按蓝本填候选链时已依赖它），不是猜测。
+    /// 无前缀返回 null。
+    /// </summary>
+    public static string? ExtractRequestedProvider(string? model)
     {
         if (string.IsNullOrWhiteSpace(model))
         {

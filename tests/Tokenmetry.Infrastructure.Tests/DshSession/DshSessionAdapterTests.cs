@@ -473,11 +473,12 @@ public class DshSessionAdapterTests : IDisposable
     public async Task Snapshot_deepseek_section_is_not_parsed_as_flat_models()
     {
         // deepseek 段无 models 键：不得产生 flat 价格条目（否则 deepseek 记录会被泛化匹配按 flat 价错算）。
-        var matched = BuiltinPricingSnapshot.TryMatch("deepseek-v4-flash", out var entry, out var key);
+        // I-035 起断言走模型目录（生产路径）：目录里关联不上 deepseek 的 flat 条目，
+        // 其定价由 DeepSeekPricingCatalog 的历史规则承担。
+        var identity = new ModelCatalog().ResolveIdentity("deepseek-v4-flash");
 
-        matched.Should().BeFalse();
-        entry.Should().BeNull();
-        key.Should().BeNull();
+        identity.IsLinked.Should().BeFalse();
+        identity.Definition.Should().BeNull();
     }
 
     [Fact]

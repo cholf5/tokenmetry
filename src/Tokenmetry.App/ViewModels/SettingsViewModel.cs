@@ -123,6 +123,68 @@ public sealed class AliasRuleRowViewModel
     public char Glyph => Icon.Glyph;
 }
 
+/// <summary>
+/// 模型目录单行（I-035 ModelDefinitions）：ID（稳定主键）/ 显示名 / 厂商 / 单价 / 来源。
+/// 不可变小对象，条目增删改后整表重建。来源徽标如实反映三层（内置快照 / 在线 / 用户）+ 是否被
+/// 用户覆盖——用户改过的条目在下次 models.dev 刷新时不会被冲掉，界面必须让人看得出来。
+/// </summary>
+public sealed class ModelDefinitionRowViewModel
+{
+    public ModelDefinitionRowViewModel(ModelDefinition definition)
+    {
+        Id = definition.Id;
+        Label = definition.DisplayLabel;
+        Vendor = string.IsNullOrWhiteSpace(definition.Vendor) ? "—" : definition.Vendor;
+        // 图标：用户显式指定的变体名优先（能骗过内置名推断的模型名靠它拿到正确的标），
+        // 否则按 ID 走内置推断。把变体名当"名字"喂给 ModelVisualMap 是既有判定口径的复用。
+        Icon = ModelVisualMap.Resolve(definition.LogoVendor ?? definition.Id);
+        PriceText = definition.HasPrice
+            ? string.Format(
+                CultureInfo.InvariantCulture,
+                "${0:0.###} / ${1:0.###}",
+                definition.InputPerMillion,
+                definition.OutputPerMillion)
+            : Translations.Instance.ModelPriceMissing;
+        OriginText = definition.Origin switch
+        {
+            ModelDefinitionOrigin.Remote => Translations.Instance.ModelOriginRemote,
+            ModelDefinitionOrigin.User => Translations.Instance.ModelOriginUser,
+            _ => Translations.Instance.ModelOriginBuiltin,
+        };
+        IsOverridden = definition.IsPriceOverridden || definition.IsMetadataOverridden;
+        HasPrice = definition.HasPrice;
+    }
+
+    /// <summary>模型 ID（小写连字符约定；删除 / 编辑按它精确定位）。</summary>
+    public string Id { get; }
+
+    /// <summary>显示名（无显示名时回落 ID）。</summary>
+    public string Label { get; }
+
+    /// <summary>厂商 / 服务商 id（无来源时 "—"）。</summary>
+    public string Vendor { get; }
+
+    /// <summary>图标信息（恒非 null；未识别厂商落 generic）。</summary>
+    public ModelVisual Icon { get; }
+
+    /// <summary>厂商变体名（ModelChip.Vendor 消费）。</summary>
+    public string VendorVariant => Icon.Vendor;
+
+    public char Glyph => Icon.Glyph;
+
+    /// <summary>单价文案："$5 / $25"（input / output，USD / 百万 tokens）；无价时为「未定价」。</summary>
+    public string PriceText { get; }
+
+    /// <summary>来源徽标（内置 / 在线 / 自定义）。</summary>
+    public string OriginText { get; }
+
+    /// <summary>是否被用户改过（价格或元数据）——刷新不会冲掉这些字段。</summary>
+    public bool IsOverridden { get; }
+
+    /// <summary>是否有价（驱动价格列的"未定价"视觉区分）。</summary>
+    public bool HasPrice { get; }
+}
+
 public partial class SettingsViewModel : ViewModelBase, INavigationAware
 {
     public static IReadOnlyList<ThemeOption> ThemeOptions { get; } = new[]
@@ -162,6 +224,14 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         }
     }
 
+    /// <summary>
+    /// 模型目录（I-035）：价格 / 厂商 / 图标的唯一出处，也是"关联"的落点。设置页改完条目即
+    /// 热更新目录（统计页聚合与计价引擎即时生效）并触发一轮刷新——补价在采集管道里执行，
+    /// 改价必须重算才在数字上体现（增量扫描器每轮返回全量记录，故一轮刷新即可全量重算，
+    /// 无需重扫磁盘）。
+    /// </summary>
+    private readonly ModelCatalog _catalog;
+
     private readonly AppSettings _settings;
     private readonly IAppSettingsStore _store;
     private readonly IThemeService _themeService;
@@ -169,14 +239,9 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     private readonly BackgroundRefreshService _refreshService;
     private readonly IToastService _toastService;
 
-    /// <summary>
-    /// 查询服务（可空：测试/预览无查询环境时为 null，候选清单保持空集——诚实无候选）。
-    /// 供模型聚合卡拉取本地数据出现过的原始模型名作候选项。
-    /// </summary>
+    /// <summary>查询服务（可空：测试/预览无查询环境时为 null，候选清单保持空集——诚实无候选）。
+    /// 供模型目录的"手动关联"卡拉取本地数据出现过的原始模型名作候选项。</summary>
     private readonly IUsageQueryService? _query;
-
-    /// <summary>模型名归一解析器（可空兜底新建空映射）：设置页改规则后热更新，统计页查询即时生效。</summary>
-    private readonly ModelAliasResolver _aliasResolver;
 
     /// <summary>自动保存串行化 gate：文本框逐键触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
@@ -276,7 +341,7 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         BackgroundRefreshService refreshService,
         IToastService toastService,
         IUsageQueryService? query = null,
-        ModelAliasResolver? aliasResolver = null)
+        ModelCatalog? catalog = null)
     {
         _settings = settings;
         _store = store;
@@ -285,8 +350,10 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         _refreshService = refreshService;
         _toastService = toastService;
         _query = query;
-        _aliasResolver = aliasResolver ?? new ModelAliasResolver();
-        _aliasResolver.UpdateAliases(settings.ModelAliases);
+        // 目录由 DI 以单例注入（与计价引擎 / 查询服务同一实例）；无注入时兜底新建（测试 / 预览）。
+        _catalog = catalog ?? new ModelCatalog();
+        _catalog.UpdateAliases(settings.ModelAliases);
+        _catalog.UpdateUserDefinitions(settings.ModelDefinitions);
         CacheDbPath = paths.CacheDbPath;
         SettingsFilePath = paths.SettingsFilePath;
         _ccusageCommand = settings.CcusageCommand;
@@ -296,6 +363,7 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         _selectedLanguage = ResolveLanguageOption(settings.Language);
         RebuildSourceRows();
         RebuildAliasRules();
+        RebuildModelRows();
         _ = LoadAliasCandidatesAsync();
 
         // 语言切换重译订阅：设置页 VM 为 DI 单例（与外壳同生命周期），直订阅无需退订。
@@ -430,7 +498,9 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         OnPropertyChanged(nameof(SourceMetaText));
         OnPropertyChanged(nameof(CaliberRows));
         RebuildSourceRows();
+        RebuildModelRows();
         RefreshAliasErrorTranslation();
+        RefreshModelFormTranslation();
     }
 
     /// <summary>
@@ -441,6 +511,8 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     public void OnNavigatedTo()
     {
         RebuildSourceRows();
+        // 目录行随 models.dev 后台刷新变化（来源徽标 / 在线价），重进页面时重读一次。
+        RebuildModelRows();
         _ = LoadAliasCandidatesAsync();
     }
 
@@ -524,6 +596,223 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         _ => Translations.Instance.StatusNotScanned,
     };
 
+    // ════════════════════ 模型目录（I-035）：条目增删改 + 手动关联 + 保存即重算 ════════════════════
+
+    /// <summary>模型目录行（全部条目：内置快照 + models.dev 在线 + 用户自建 / 覆盖）。</summary>
+    public ObservableCollection<ModelDefinitionRowViewModel> ModelRows { get; } = new();
+
+    /// <summary>空态（目录为空——内置快照缺失才会发生）。</summary>
+    public bool HasNoModelRows => ModelRows.Count == 0;
+
+    /// <summary>编辑中的原条目 ID（null = 新建）。改 ID 视为换条目（原条目保留）。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModelFormTitle))]
+    private string? _editingModelId;
+
+    /// <summary>表单标题（新建 / 编辑）。</summary>
+    public string ModelFormTitle => EditingModelId is null
+        ? Translations.Instance.ModelFormCreate
+        : string.Format(CultureInfo.InvariantCulture, Translations.Instance.ModelFormEditFormat, EditingModelId);
+
+    [ObservableProperty]
+    private string _modelFormId = string.Empty;
+
+    [ObservableProperty]
+    private string _modelFormVendor = string.Empty;
+
+    [ObservableProperty]
+    private string _modelFormDisplayName = string.Empty;
+
+    /// <summary>单价输入（USD / 百万 tokens；空 = 不提供价格，只登记身份 / 元数据）。</summary>
+    [ObservableProperty]
+    private string _modelFormInput = string.Empty;
+
+    [ObservableProperty]
+    private string _modelFormOutput = string.Empty;
+
+    /// <summary>表单行内校验提示（非空并显示；合法 / 初始为 null 隐藏）。</summary>
+    [ObservableProperty]
+    private string? _modelFormError;
+
+    /// <summary>目录条目的可选项——"手动关联"的目标侧候选（模型 ID，用户从此处挑或自由输入）。</summary>
+    [ObservableProperty]
+    private IReadOnlyList<string> _modelIdCandidates = [];
+
+    /// <summary>
+    /// 保存条目（新建或覆盖）：ID 按 <see cref="ModelId.Normalize"/> 归一到约定（大写 / 点号自动收敛，
+    /// 不是错误），价格可空但必须成对（只填一半是录入错误，半截价会伪装成已知价）。
+    /// 落 settings.ModelDefinitions → 目录热更新 → 落盘 → 重建表 → 触发一轮重算。
+    /// </summary>
+    [RelayCommand]
+    private void SaveModelDefinition()
+    {
+        var id = ModelId.Normalize(ModelFormId);
+        if (!ModelId.IsValid(id))
+        {
+            ModelFormError = Translations.Instance.ModelFormErrorIdInvalid;
+            return;
+        }
+
+        var inputText = ModelFormInput.Trim();
+        var outputText = ModelFormOutput.Trim();
+        if ((inputText.Length == 0) != (outputText.Length == 0))
+        {
+            ModelFormError = Translations.Instance.ModelFormErrorPricePair;
+            return;
+        }
+
+        decimal? input = null;
+        decimal? output = null;
+        if (inputText.Length > 0)
+        {
+            if (!TryParsePrice(inputText, out var parsedInput) || !TryParsePrice(outputText, out var parsedOutput))
+            {
+                ModelFormError = Translations.Instance.ModelFormErrorPriceNumber;
+                return;
+            }
+
+            input = parsedInput;
+            output = parsedOutput;
+        }
+
+        ModelFormError = null;
+        var definition = new ModelDefinitionOverride
+        {
+            Id = id,
+            Vendor = Blank(ModelFormVendor),
+            DisplayName = Blank(ModelFormDisplayName),
+            InputPerMillion = input,
+            OutputPerMillion = output,
+        };
+
+        // 同 ID 覆盖（编辑既有条目 = 改写这一条的用户层，导入层数据仍在下面垫着）。
+        _settings.ModelDefinitions.RemoveAll(
+            existing => string.Equals(ModelId.Normalize(existing.Id), id, StringComparison.OrdinalIgnoreCase));
+        _settings.ModelDefinitions.Add(definition);
+        ApplyModelSettings();
+        ResetModelForm();
+    }
+
+    /// <summary>把目录条目载入表单（编辑）：用户层有该 ID 就载入用户值，否则载入生效值（导入层）。</summary>
+    [RelayCommand]
+    private void EditModelDefinition(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return;
+        }
+
+        var normalized = ModelId.Normalize(id);
+        var userEntry = _settings.ModelDefinitions.FirstOrDefault(
+            existing => string.Equals(ModelId.Normalize(existing.Id), normalized, StringComparison.OrdinalIgnoreCase));
+        var effective = _catalog.FindById(normalized);
+
+        EditingModelId = normalized;
+        ModelFormId = normalized;
+        ModelFormVendor = userEntry?.Vendor ?? effective?.Vendor ?? string.Empty;
+        ModelFormDisplayName = userEntry?.DisplayName ?? effective?.DisplayName ?? string.Empty;
+        ModelFormInput = userEntry?.InputPerMillion is { } input
+            ? input.ToString(CultureInfo.InvariantCulture)
+            : effective is { HasPrice: true } ? effective.InputPerMillion.ToString(CultureInfo.InvariantCulture) : string.Empty;
+        ModelFormOutput = userEntry?.OutputPerMillion is { } output
+            ? output.ToString(CultureInfo.InvariantCulture)
+            : effective is { HasPrice: true } ? effective.OutputPerMillion.ToString(CultureInfo.InvariantCulture) : string.Empty;
+        ModelFormError = null;
+    }
+
+    /// <summary>移除用户层条目（自建条目随之消失；被覆盖的导入条目回落导入层的价与元数据）。</summary>
+    [RelayCommand]
+    private void RemoveModelDefinition(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return;
+        }
+
+        var normalized = ModelId.Normalize(id);
+        var removed = _settings.ModelDefinitions.RemoveAll(
+            existing => string.Equals(ModelId.Normalize(existing.Id), normalized, StringComparison.OrdinalIgnoreCase));
+        if (removed == 0)
+        {
+            return;
+        }
+
+        ApplyModelSettings();
+        if (string.Equals(EditingModelId, normalized, StringComparison.OrdinalIgnoreCase))
+        {
+            ResetModelForm();
+        }
+    }
+
+    /// <summary>清空表单（新建态）。</summary>
+    [RelayCommand]
+    private void ResetModelForm()
+    {
+        EditingModelId = null;
+        ModelFormId = string.Empty;
+        ModelFormVendor = string.Empty;
+        ModelFormDisplayName = string.Empty;
+        ModelFormInput = string.Empty;
+        ModelFormOutput = string.Empty;
+        ModelFormError = null;
+    }
+
+    /// <summary>
+    /// 目录变更的公共出口：落盘（全自动保存）+ 目录热更新 + 重建表 + 触发一轮重算。
+    /// 重算的必要性：补价发生在采集管道（facts 的 cost_usd 在写在库时算好），改完价格必须让管道
+    /// 重跑一遍才在数字上体现——增量扫描器每轮返回全量记录，故一轮刷新即全量重算（不重扫磁盘）。
+    /// </summary>
+    private void ApplyModelSettings()
+    {
+        PersistSettings();
+        _catalog.UpdateUserDefinitions(_settings.ModelDefinitions);
+        RebuildModelRows();
+        TriggerReprice();
+    }
+
+    /// <summary>从目录重建条目表 + 关联目标候选（模型 ID 清单）。</summary>
+    private void RebuildModelRows()
+    {
+        var definitions = _catalog.Definitions;
+        ModelRows.Clear();
+        foreach (var definition in definitions)
+        {
+            ModelRows.Add(new ModelDefinitionRowViewModel(definition));
+        }
+
+        ModelIdCandidates = definitions.Select(definition => definition.Id).ToList();
+        OnPropertyChanged(nameof(HasNoModelRows));
+    }
+
+    /// <summary>
+    /// 触发一轮重算（fire-and-forget）：与重扫按钮同一容器与单飞槽——正在跑的刷新并入该轮，
+    /// 不追加新的采集轮次。失败静默（页面数据保持上一轮；价格已落盘，下轮刷新自然校正）。
+    /// </summary>
+    private void TriggerReprice()
+    {
+        _toastService.Show(Translations.Instance.ToastRepricing);
+        _ = _refreshService.TriggerRefreshAsync();
+    }
+
+    /// <summary>价格输入解析：非负十进制（InvariantCulture；空串由调用方先判掉）。</summary>
+    private static bool TryParsePrice(string text, out decimal value)
+    {
+        return decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value) && value >= 0m;
+    }
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>刷新语言切换后的命令式文案（表单标题、校验提示）。</summary>
+    private void RefreshModelFormTranslation()
+    {
+        OnPropertyChanged(nameof(ModelFormTitle));
+        if (ModelFormError is not null)
+        {
+            // 校验提示是即时文案：语言切换后按当前输入重算（与别名区同一纪律）。
+            ModelFormError = null;
+        }
+    }
+
     // ════════════════════ 模型聚合（别名映射）：规则增删 + 热更新 + 候选清单 ════════════════════
 
     /// <summary>
@@ -568,12 +857,14 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         ApplyAliasSettings();
     }
 
-    /// <summary>规则变更的公共出口：字典 → 规则行重建 + settings.json 落盘 + 解析器热更新。</summary>
+    /// <summary>规则变更的公共出口：字典 → 规则行重建 + settings.json 落盘 + 目录热更新 + 一轮重算。</summary>
     private void ApplyAliasSettings()
     {
         RebuildAliasRules();
         PersistSettings();
-        _aliasResolver.UpdateAliases(_settings.ModelAliases);
+        _catalog.UpdateAliases(_settings.ModelAliases);
+        RebuildModelRows();
+        TriggerReprice();
     }
 
     /// <summary>从 AppSettings.ModelAliases 重建规则行（插入序 = 字典序，与 settings.json 一致）。</summary>
@@ -592,6 +883,8 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     /// 候选模型原始名（本地数据全集、绕过别名归一）：进入设置页 / 构造时拉取。失败静默保留
     /// 旧清单（候选是辅助录入，不值得打断页面；下次进入重试）。internal 供测试对账
     /// （构造路径是 fire-and-forget，测试需要显式等待）。
+    /// I-035 排序：<b>目录里关联不上的原始名排前面</b>——目录能自动关联的名字不需要人管，
+    /// 待处理的名字才是这一栏的用途（候选仍未过滤掉已关联项：用户可能想覆盖自动关联的结果）。
     /// </summary>
     internal async Task LoadAliasCandidatesAsync()
     {
@@ -602,7 +895,11 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
 
         try
         {
-            AliasCandidates = await _query.GetRawModelNamesAsync();
+            var raw = await _query.GetRawModelNamesAsync();
+            AliasCandidates = raw
+                .OrderBy(name => _catalog.ResolveIdentity(name).IsLinked ? 1 : 0)
+                .ThenBy(name => name, StringComparer.Ordinal)
+                .ToList();
         }
         catch (Exception ex)
         {

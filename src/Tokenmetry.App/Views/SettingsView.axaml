@@ -122,6 +122,121 @@
                 </StackPanel>
             </Border>
 
+            <!-- ═══ 模型目录（I-035）：价格 / 厂商 / 图标的唯一出处；改完即按新价格重算 ═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="panel-title" Text="{Binding CatalogPanelTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding CatalogPanelHint, Source={x:Static loc:Translations.Instance}}"/>
+
+                    <!-- 表头 -->
+                    <Grid ColumnDefinitions="1.3*,0.8*,0.9*,0.5*,Auto" ColumnSpacing="8" Margin="0,0,0,2">
+                        <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThModelId, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="table-th" Text="{Binding ThModelVendor, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="2" Classes="table-th" Text="{Binding ThModelPrice, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="3" Classes="table-th" Text="{Binding ThModelOrigin, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="4" Classes="table-th" Text="{Binding ThModelActions, Source={x:Static loc:Translations.Instance}}"/>
+                    </Grid>
+
+                    <!-- 条目表（内置 + 在线 + 用户；面板内滚动，避免把设置页拉成超长页） -->
+                    <ListBox Classes="data-table" MaxHeight="320" ItemsSource="{Binding ModelRows}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ModelDefinitionRowViewModel">
+                                <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,7,0,5">
+                                    <Grid ColumnDefinitions="1.3*,0.8*,0.9*,0.5*,Auto" ColumnSpacing="8">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                            <Border Classes="model-chip" c:ModelChip.Vendor="{Binding VendorVariant}">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Glyph}"/>
+                                                    <Image Classes="model-logo"/>
+                                                </Panel>
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Classes="table-td" Text="{Binding Id}"
+                                                           ToolTip.Tip="{Binding Label}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Classes="kpi-foot" Text="{Binding Label}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding Vendor}"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <TextBlock Classes="table-td" Text="{Binding PriceText}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <Border Classes="chip" IsVisible="{Binding IsOverridden}">
+                                                <TextBlock Text="{Binding ModelOverriddenBadge, Source={x:Static loc:Translations.Instance}}"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="3" Classes="kpi-foot" Text="{Binding OriginText}"
+                                                   VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <Button Classes="link-btn"
+                                                    Content="{Binding ModelEditButton, Source={x:Static loc:Translations.Instance}}"
+                                                    Command="{Binding $parent[ListBox].DataContext.EditModelDefinitionCommand}"
+                                                    CommandParameter="{Binding Id}"/>
+                                            <Button Classes="link-btn"
+                                                    Content="{Binding ModelRemoveButton, Source={x:Static loc:Translations.Instance}}"
+                                                    Command="{Binding $parent[ListBox].DataContext.RemoveModelDefinitionCommand}"
+                                                    CommandParameter="{Binding Id}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock Classes="page-subtitle"
+                               Text="{Binding CatalogEmpty, Source={x:Static loc:Translations.Instance}}"
+                               IsVisible="{Binding HasNoModelRows}"/>
+
+                    <!-- 新增 / 编辑：ID + 厂商 + 显示名 + 输入 / 输出单价（价格成对可空） -->
+                    <TextBlock Classes="table-th" Text="{Binding ModelFormTitle}"/>
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormIdLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <AutoCompleteBox ItemsSource="{Binding ModelIdCandidates}"
+                                             Text="{Binding ModelFormId, Mode=TwoWay}"
+                                             TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"
+                                             MinimumPrefixLength="0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormVendorLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBox x:Name="ModelFormVendorBox" Text="{Binding ModelFormVendor, Mode=TwoWay}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormDisplayNameLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBox Text="{Binding ModelFormDisplayName, Mode=TwoWay}"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormInputLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBox Text="{Binding ModelFormInput, Mode=TwoWay}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormOutputLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBox Text="{Binding ModelFormOutput, Mode=TwoWay}"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding ModelFormPriceHint, Source={x:Static loc:Translations.Instance}}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button Classes="Secondary"
+                                Content="{Binding ModelFormSave, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding SaveModelDefinitionCommand}"/>
+                        <Button Classes="link-btn"
+                                Content="{Binding ModelFormReset, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding ResetModelFormCommand}"/>
+                        <TextBlock Classes="page-subtitle" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Text="{Binding ModelFormError}"
+                                   Foreground="{DynamicResource AppAccentRedBrush}"
+                                   IsVisible="{Binding ModelFormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- ═══ 模型聚合（别名映射）：原始模型名 → 规范名，统计按规范名合并（规则增删即存即热更新）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="10">
@@ -181,7 +296,8 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Classes="page-subtitle" Text="{Binding AliasTargetLabel, Source={x:Static loc:Translations.Instance}}"/>
-                            <AutoCompleteBox ItemsSource="{Binding AliasCandidates}"
+                            <!-- 目标侧候选 = 目录里的模型 ID（关联的目标是模型，不是另一个名字） -->
+                            <AutoCompleteBox ItemsSource="{Binding ModelIdCandidates}"
                                              Text="{Binding NewAliasTarget, Mode=TwoWay}"
                                              PlaceholderText="{Binding AliasTargetPlaceholder, Source={x:Static loc:Translations.Instance}}"
                                              TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"

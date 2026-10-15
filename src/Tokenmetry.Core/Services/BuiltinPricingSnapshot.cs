@@ -22,17 +22,6 @@ public static class BuiltinPricingSnapshot
 
     public static IReadOnlyList<ModelPriceEntry> Entries { get; } = LoadEntries();
 
-    /// <summary>用内置快照匹配模型价格（精确 + 家族模式）。</summary>
-    public static bool TryMatch(string? model, out ModelPriceEntry match, out string? matchedKey)
-    {
-        return PricingModelMatcher.TryMatchEntries(
-            Entries,
-            model,
-            PricingMatchMode.ExactAndFamily,
-            out match,
-            out matchedKey);
-    }
-
     /// <summary>
     /// 读取内嵌快照原始 JSON（I-007：供 <see cref="DeepSeekPricingCatalog"/> 解析 deepseek 定价规则段）；
     /// 资源缺失 / 读取失败返回 null。

@@ -239,8 +239,40 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ThCost)] = "成本",
         [nameof(TooltipUnknownCostChip)] = "模型价格缺失，成本未知；不计入合计",
         [nameof(AssociatedAgentsMultiFormat)] = "{0} 等 {1} 个",
+        [nameof(ProviderSingleFormat)] = "服务商：{0}",
+        [nameof(ProviderMultiFormat)] = "服务商：{0} 个",
         [nameof(TotalsModelCountFormat)] = "合计（{0} 个模型）",
         [nameof(TotalsUnknownNoteFormat)] = "{0} 个模型成本未知（缺价）：其成本未计入合计，Token 已计入总量。",
+
+        // ── 模型目录（I-035：价格 / 厂商 / 图标的唯一出处）──
+        [nameof(CatalogPanelTitle)] = "模型目录",
+        [nameof(CatalogPanelHint)] = "每个模型一个稳定 ID，价格、厂商、图标都挂在它上面；数据里出现过的模型名关联到这里（自动关联不上的在下面手动指定），统计与计价都按同一份目录走。改完即按新价格重算。",
+        [nameof(CatalogEmpty)] = "目录为空（内置价格快照缺失）",
+        [nameof(ThModelId)] = "模型 ID",
+        [nameof(ThModelVendor)] = "厂商",
+        [nameof(ThModelPrice)] = "单价（输入 / 输出）",
+        [nameof(ThModelOrigin)] = "来源",
+        [nameof(ThModelActions)] = "操作",
+        [nameof(ModelPriceMissing)] = "未定价",
+        [nameof(ModelOriginBuiltin)] = "内置",
+        [nameof(ModelOriginRemote)] = "在线",
+        [nameof(ModelOriginUser)] = "自定义",
+        [nameof(ModelOverriddenBadge)] = "已改",
+        [nameof(ModelFormCreate)] = "新增模型",
+        [nameof(ModelFormEditFormat)] = "编辑：{0}",
+        [nameof(ModelFormIdLabel)] = "模型 ID（自动转小写连字符）",
+        [nameof(ModelFormVendorLabel)] = "厂商",
+        [nameof(ModelFormDisplayNameLabel)] = "显示名（可选）",
+        [nameof(ModelFormInputLabel)] = "输入价（USD / 百万 tokens）",
+        [nameof(ModelFormOutputLabel)] = "输出价（USD / 百万 tokens）",
+        [nameof(ModelFormPriceHint)] = "价格可留空（只登记身份）；填则必须两项都填。缓存写 / 读按输入价 × 1.25 / × 0.1 推导。",
+        [nameof(ModelFormSave)] = "保存",        [nameof(ModelFormReset)] = "清空",
+        [nameof(ModelFormErrorIdInvalid)] = "模型 ID 无效：请用小写字母与数字，段间用连字符（如 glm-4-6）",
+        [nameof(ModelFormErrorPricePair)] = "价格要么都填、要么都留空",
+        [nameof(ModelFormErrorPriceNumber)] = "价格必须是非负数字",
+        [nameof(ModelEditButton)] = "编辑",
+        [nameof(ModelRemoveButton)] = "移除覆盖",
+        [nameof(ToastRepricing)] = "已保存，正在按新价格重算…",
 
         // ── 项目统计页（ProjectsView）──
         [nameof(PanelProjectRankingShort)] = "项目排行",
@@ -270,6 +302,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(KpiFootTokenShareBasis)] = "按 Token 构成展示 · 成本按方向拆价口径待扩展（缓存单列）",
         [nameof(KpiUnpriced)] = "待确认价格",
         [nameof(KpiFootUnpriced)] = "缺价模型数 · 成本不应默认为零 · 全局口径（自启动累计），不随筛选变化",
+        [nameof(KpiFootUnpricedWhere)] = "在「设置 → 模型目录」里给它定价，或把模型名关联到已有条目",
         [nameof(PanelCostBasis)] = "成本计算口径",
         [nameof(ThItem)] = "项目",
         [nameof(ThSuggestedDisplay)] = "建议展示",
@@ -501,6 +534,8 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ThCost)] = "Cost",
         [nameof(TooltipUnknownCostChip)] = "Model price missing — cost unknown; excluded from totals",
         [nameof(AssociatedAgentsMultiFormat)] = "{0} +{1} more",
+        [nameof(ProviderSingleFormat)] = "Provider: {0}",
+        [nameof(ProviderMultiFormat)] = "Providers: {0}",
         [nameof(TotalsModelCountFormat)] = "Total ({0} models)",
         [nameof(TotalsUnknownNoteFormat)] = "{0} models have unknown (unpriced) cost: excluded from the cost total, included in token totals.",
 
@@ -529,6 +564,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(KpiFootTokenShareBasis)] = "Shown by token mix · per-direction price split is planned (cache listed separately)",
         [nameof(KpiUnpriced)] = "Unpriced models",
         [nameof(KpiFootUnpriced)] = "Models without prices · cost must not default to zero · global scope (accumulated since startup), does not follow filters",
+        [nameof(KpiFootUnpricedWhere)] = "Set a price in Settings → Model catalog, or link the model name to an existing entry",
         [nameof(PanelCostBasis)] = "Cost calculation basis",
         [nameof(ThItem)] = "Item",
         [nameof(ThSuggestedDisplay)] = "Suggested display",
@@ -849,8 +885,41 @@ public sealed class Translations : INotifyPropertyChanged
     public string ThCost => Get();
     public string TooltipUnknownCostChip => Get();
     public string AssociatedAgentsMultiFormat => Get();
+    public string ProviderSingleFormat => Get();
+    public string ProviderMultiFormat => Get();
     public string TotalsModelCountFormat => Get();
     public string TotalsUnknownNoteFormat => Get();
+
+    // ── 模型目录（I-035）──
+    public string CatalogPanelTitle => Get();
+    public string CatalogPanelHint => Get();
+    public string CatalogEmpty => Get();
+    public string ThModelId => Get();
+    public string ThModelVendor => Get();
+    public string ThModelPrice => Get();
+    public string ThModelOrigin => Get();
+    public string ThModelActions => Get();
+    public string ModelPriceMissing => Get();
+    public string ModelOriginBuiltin => Get();
+    public string ModelOriginRemote => Get();
+    public string ModelOriginUser => Get();
+    public string ModelOverriddenBadge => Get();
+    public string ModelFormCreate => Get();
+    public string ModelFormEditFormat => Get();
+    public string ModelFormIdLabel => Get();
+    public string ModelFormVendorLabel => Get();
+    public string ModelFormDisplayNameLabel => Get();
+    public string ModelFormInputLabel => Get();
+    public string ModelFormOutputLabel => Get();
+    public string ModelFormPriceHint => Get();
+    public string ModelFormSave => Get();
+    public string ModelFormReset => Get();
+    public string ModelFormErrorIdInvalid => Get();
+    public string ModelFormErrorPricePair => Get();
+    public string ModelFormErrorPriceNumber => Get();
+    public string ModelEditButton => Get();
+    public string ModelRemoveButton => Get();
+    public string ToastRepricing => Get();
 
     // ── 项目统计页 ──
     public string PanelProjectRankingShort => Get();
@@ -880,6 +949,7 @@ public sealed class Translations : INotifyPropertyChanged
     public string KpiFootTokenShareBasis => Get();
     public string KpiUnpriced => Get();
     public string KpiFootUnpriced => Get();
+    public string KpiFootUnpricedWhere => Get();
     public string PanelCostBasis => Get();
     public string ThItem => Get();
     public string ThSuggestedDisplay => Get();
