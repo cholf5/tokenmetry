@@ -99,6 +99,10 @@
                         <TextBlock Classes="kpi-foot"
                                    Text="{Binding KpiFootUnpriced, Source={x:Static loc:Translations.Instance}}"
                                    TextWrapping="Wrap"/>
+                        <!-- I-035：缺价模型的处理入口在设置页的模型目录（关联 / 定价）。
+                             这里只指路，不做跨页跳转（本页定位是"如实说明口径"，动作在设置页）。 -->
+                        <TextBlock Classes="kpi-foot" TextWrapping="Wrap"
+                                   Text="{Binding KpiFootUnpricedWhere, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
                 </Border>
             </Grid>

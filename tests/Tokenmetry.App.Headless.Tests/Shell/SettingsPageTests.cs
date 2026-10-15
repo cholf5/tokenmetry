@@ -102,7 +102,7 @@ public class SettingsPageTests
         StubToast? toast = null,
         Func<Task<bool>>? refreshAction = null,
         IUsageQueryService? query = null,
-        ModelAliasResolver? aliasResolver = null)
+        ModelCatalog? catalog = null)
     {
         return new SettingsViewModel(
             new AppSettings(),
@@ -113,7 +113,7 @@ public class SettingsPageTests
             new BackgroundRefreshService(refreshAction ?? (() => Task.FromResult(true))),
             toast ?? new StubToast(),
             query,
-            aliasResolver);
+            catalog);
     }
 
     [AvaloniaFact]
@@ -381,15 +381,18 @@ public class SettingsPageTests
         // 候选清单异步装载（构造 fire-and-forget）→ RunJobs 排空后到位
         Dispatcher.UIThread.RunJobs();
 
+        // 按占位文案定位（I-035 起页面上有 4 个 AutoCompleteBox：模型目录的表单 ID / 关联目标 +
+        // 本卡的原始名 / 目标；按下标取会在加面板时静默错位）。
         var boxes = window.GetVisualDescendants().OfType<AutoCompleteBox>().ToList();
-        Assert.Equal(2, boxes.Count);
+        var sourceBox = boxes.Single(b => b.PlaceholderText == Translations.Instance.AliasSourcePlaceholder);
+        var targetBox = boxes.Single(b => b.PlaceholderText == Translations.Instance.AliasTargetPlaceholder);
 
-        boxes[0].Focus();
+        sourceBox.Focus();
         window.KeyTextInput("ark/glm-5.3-flash");
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("ark/glm-5.3-flash", vm.NewAliasSource);
 
-        boxes[1].Focus();
+        targetBox.Focus();
         window.KeyTextInput("glm-5.3-flash");
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("glm-5.3-flash", vm.NewAliasTarget);
@@ -456,5 +459,41 @@ public class SettingsPageTests
             window.Close();
             Dispatcher.UIThread.RunJobs();
         }
+    }
+
+    /// <summary>
+    /// I-035 模型目录卡的端到端（headless）：条目表渲染出目录内容 + 表单能把 ID / 价格写进 VM
+    /// （TextBox 双向绑定是这一功能的关键交互路径，绑定写错的话价格永远保存不进去）。
+    /// </summary>
+    [AvaloniaFact]
+    public void Model_catalog_panel_renders_rows_and_form_binds_to_view_model()
+    {
+        var vm = CreateViewModel(catalog: new ModelCatalog());
+
+        var window = new Window { Width = 980, Height = 900, Content = new SettingsView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var texts = window.GetVisualDescendants().OfType<TextBlock>()
+            .Where(text => text.IsVisible)
+            .Select(text => text.Text)
+            .ToList();
+        Assert.Contains("模型目录", texts);
+        Assert.Contains(vm.ModelRows[0].Id, texts);
+        Assert.Contains("模型 ID", texts);
+        Assert.Contains("单价（输入 / 输出）", texts);
+
+        // 表单绑定：厂商输入写回 VM（未绑上的话保存会得到空表单）。按 x:Name 定位——
+        // 页面上还有 ccusage 命令 / 刷新间隔等输入框，按下标取会静默错位
+        // （AutoCompleteBox 也是 TextBox 的子类，OfType<TextBox> 会把它一起捞进来）。
+        var vendorBox = window.GetVisualDescendants().OfType<TextBox>()
+            .Single(box => box.Name == "ModelFormVendorBox");
+        vendorBox.Focus();
+        window.KeyTextInput("zai");
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("zai", vm.ModelFormVendor);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 }

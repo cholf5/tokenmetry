@@ -25,28 +25,42 @@ public readonly record struct ResolvedModelPrice(
 /// </summary>
 public sealed class PricingEngine
 {
-    private readonly IRemotePricingSource? _remoteSource;
+    private readonly ModelCatalog _catalog;
     private readonly ConcurrentDictionary<string, UnpricedModelInfo> _unpricedModels = new(StringComparer.Ordinal);
-    private volatile ModelPricingOverride[] _overrides;
 
-    public PricingEngine(IRemotePricingSource? remoteSource = null, IEnumerable<ModelPricingOverride>? overrides = null)
+    /// <param name="remoteSource">models.dev 远程数据源；<paramref name="catalog"/> 非空时忽略
+    /// （远程数据归目录所有，避免两个源不同步）。</param>
+    /// <param name="overrides">旧用户覆盖规则（I-038 兼容桥）：仅在未注入 <paramref name="catalog"/> 时
+    /// 转为目录用户条目；新代码一律走 <see cref="ModelCatalog.UpdateUserDefinitions"/>。</param>
+    /// <param name="catalog">共享模型目录（I-035）：身份解析与三层计价条目的唯一出处。</param>
+    public PricingEngine(
+        IRemotePricingSource? remoteSource = null,
+        IEnumerable<ModelPricingOverride>? overrides = null,
+        ModelCatalog? catalog = null)
     {
-        _remoteSource = remoteSource;
-        _overrides = (overrides ?? Array.Empty<ModelPricingOverride>())
-            .Where(rule => rule.ToPriceEntry() is not null)
-            .ToArray();
+        _catalog = catalog ?? new ModelCatalog(
+            remoteSource,
+            (overrides ?? Array.Empty<ModelPricingOverride>())
+                .Select(ModelDefinitionOverride.FromLegacy)
+                .Where(definition => definition is not null)
+                .Select(definition => definition!));
     }
+
+    /// <summary>共享模型目录（身份解析 / 用户条目编辑的唯一入口）。</summary>
+    public ModelCatalog Catalog => _catalog;
 
     /// <summary>替换用户覆盖规则（设置保存后调用；线程安全）。</summary>
     public void UpdateOverrides(IEnumerable<ModelPricingOverride> overrides)
     {
-        _overrides = (overrides ?? Array.Empty<ModelPricingOverride>())
-            .Where(rule => rule.ToPriceEntry() is not null)
-            .ToArray();
+        _catalog.UpdateUserDefinitions(
+            (overrides ?? Array.Empty<ModelPricingOverride>())
+                .Select(ModelDefinitionOverride.FromLegacy)
+                .Where(definition => definition is not null)
+                .Select(definition => definition!));
     }
 
-    /// <summary>当前生效的用户覆盖规则（仅有效规则，按设置顺序）。</summary>
-    public IReadOnlyList<ModelPricingOverride> Overrides => _overrides;
+    /// <summary>当前生效的用户目录条目（仅有效条目，按设置顺序）。</summary>
+    public IReadOnlyList<ModelDefinitionOverride> UserDefinitions => _catalog.UserOverrides;
 
     /// <summary>
     /// 为统一记录计价：日志自带 costUSD 时直接采用（LogCost），否则按 token 明细 + 计价计划
@@ -167,28 +181,64 @@ public sealed class PricingEngine
     }
 
     /// <summary>
-    /// 解析模型价格（三级回退），供诊断与对账使用；未命中返回 false。
+    /// 解析模型价格（三级回退 + 家族兜底），供诊断与对账使用；未命中返回 false。
+    /// I-035 的接线点：<b>用户层按模型 ID 命中</b>（<see cref="ModelCatalog.ResolveIdentity"/> 把原始名
+    /// 归一到 ID）——用户在设置页做的关联（别名 / 目录条目）由此对<b>价格</b>生效，此前只作用于统计聚合。
+    /// 导入两层（models.dev 远程 / 内置快照）继续按<b>原始名（别名解析后）</b>走既有匹配口径：
+    /// 快照条目的 <c>MatchPattern</c> 家族匹配是按拼写做包含判定，喂进归一化 ID 会同时打坏
+    /// "点号条目命中点号名"与"子型号精确条目压过家族模式"两条已验证口径（Q-001 对账锚），故不动。
     /// </summary>
     public bool TryResolveModelPrice(string? model, out ResolvedModelPrice resolved)
     {
-        var overrides = _overrides;
-        if (overrides.Length > 0 && TryMatchOverride(overrides, model, out var overrideEntry))
+        var identity = _catalog.ResolveIdentity(model);
+        if (TryResolveUserEntry(identity.Id, out resolved))
         {
-            resolved = new ResolvedModelPrice(overrideEntry, PricingSourceKind.UserOverride, overrideEntry.ToKey());
             return true;
         }
 
-        var remote = _remoteSource?.Current;
-        if (remote is { Entries.Count: > 0 }
-            && PricingModelMatcher.TryMatchEntries(remote.Entries, model, PricingMatchMode.ExactOnly, out var remoteEntry, out var remoteKey))
+        if (TryResolveRemoteEntry(identity.LookupName, out resolved))
         {
-            resolved = new ResolvedModelPrice(remoteEntry, PricingSourceKind.Remote, remoteKey);
             return true;
         }
 
-        if (BuiltinPricingSnapshot.TryMatch(model, out var snapshotEntry, out var snapshotKey))
+        if (PricingModelMatcher.TryMatchEntries(
+                _catalog.SnapshotEntries,
+                identity.LookupName,
+                PricingMatchMode.ExactAndFamily,
+                out var snapshotEntry,
+                out var snapshotKey))
         {
             resolved = new ResolvedModelPrice(snapshotEntry, PricingSourceKind.Snapshot, snapshotKey);
+            return true;
+        }
+
+        resolved = default;
+        return false;
+    }
+
+    /// <summary>用户层：用户目录条目里带价的那一档（按模型 ID 精确匹配）。</summary>
+    private bool TryResolveUserEntry(string modelId, out ResolvedModelPrice resolved)
+    {
+        var userEntries = _catalog.UserEntries;
+        if (userEntries.Count > 0
+            && PricingModelMatcher.TryMatchEntries(userEntries, modelId, PricingMatchMode.ExactOnly, out var entry, out var key))
+        {
+            resolved = new ResolvedModelPrice(entry, PricingSourceKind.UserOverride, key);
+            return true;
+        }
+
+        resolved = default;
+        return false;
+    }
+
+    /// <summary>远程层：models.dev 条目的精确匹配（既有口径，含 provider 前缀优先）。</summary>
+    private bool TryResolveRemoteEntry(string? model, out ResolvedModelPrice resolved)
+    {
+        var remoteEntries = _catalog.RemoteEntries;
+        if (remoteEntries.Count > 0
+            && PricingModelMatcher.TryMatchEntries(remoteEntries, model, PricingMatchMode.ExactOnly, out var entry, out var key))
+        {
+            resolved = new ResolvedModelPrice(entry, PricingSourceKind.Remote, key);
             return true;
         }
 
@@ -212,29 +262,31 @@ public sealed class PricingEngine
     }
 
     /// <summary>
-    /// 精确档逐候选解析（覆盖 → 远程 → 快照精确；不含家族模式）：蓝本 grok calculate_grok_cost_at
+    /// 精确档逐候选解析（用户条目 → 远程 → 快照精确；不含家族模式）：蓝本 grok calculate_grok_cost_at
     /// 第一阶段与 antigravity flash 变体 find_exact_pricing_with_alias 的"全候选精确优先"口径。
+    /// 用户层按归一化 ID 命中（I-035），导入两层仍按候选名原文匹配（见 <see cref="TryResolveModelPrice"/>）。
     /// </summary>
     private bool TryResolveExactAcrossCandidates(IReadOnlyList<string> candidates, out ResolvedModelPrice resolved)
     {
         foreach (var candidate in candidates)
         {
-            var overrides = _overrides;
-            if (overrides.Length > 0 && TryMatchOverride(overrides, candidate, out var overrideEntry))
+            var identity = _catalog.ResolveIdentity(candidate);
+            if (TryResolveUserEntry(identity.Id, out resolved))
             {
-                resolved = new ResolvedModelPrice(overrideEntry, PricingSourceKind.UserOverride, overrideEntry.ToKey());
                 return true;
             }
 
-            var remote = _remoteSource?.Current;
-            if (remote is { Entries.Count: > 0 }
-                && PricingModelMatcher.TryMatchEntries(remote.Entries, candidate, PricingMatchMode.ExactOnly, out var remoteEntry, out var remoteKey))
+            if (TryResolveRemoteEntry(identity.LookupName, out resolved))
             {
-                resolved = new ResolvedModelPrice(remoteEntry, PricingSourceKind.Remote, remoteKey);
                 return true;
             }
 
-            if (PricingModelMatcher.TryMatchEntries(BuiltinPricingSnapshot.Entries, candidate, PricingMatchMode.ExactOnly, out var snapshotEntry, out var snapshotKey))
+            if (PricingModelMatcher.TryMatchEntries(
+                    _catalog.SnapshotEntries,
+                    identity.LookupName,
+                    PricingMatchMode.ExactOnly,
+                    out var snapshotEntry,
+                    out var snapshotKey))
             {
                 resolved = new ResolvedModelPrice(snapshotEntry, PricingSourceKind.Snapshot, snapshotKey);
                 return true;
@@ -245,12 +297,17 @@ public sealed class PricingEngine
         return false;
     }
 
-    /// <summary>家族模式逐候选兜底（仅快照）：蓝本 find（fuzzy）档的桌面化口径。</summary>
+    /// <summary>家族模式逐候选兜底（仅内置快照）：蓝本 find（fuzzy）档的桌面化口径。</summary>
     private bool TryResolveFamilyAcrossCandidates(IReadOnlyList<string> candidates, out ResolvedModelPrice resolved)
     {
         foreach (var candidate in candidates)
         {
-            if (PricingModelMatcher.TryMatchEntries(BuiltinPricingSnapshot.Entries, candidate, PricingMatchMode.ExactAndFamily, out var entry, out var key))
+            if (PricingModelMatcher.TryMatchEntries(
+                    _catalog.SnapshotEntries,
+                    _catalog.ResolveIdentity(candidate).LookupName,
+                    PricingMatchMode.ExactAndFamily,
+                    out var entry,
+                    out var key))
             {
                 resolved = new ResolvedModelPrice(entry, PricingSourceKind.Snapshot, key);
                 return true;
@@ -307,26 +364,6 @@ public sealed class PricingEngine
     private static decimal Price(long tokens, decimal perMillion)
     {
         return tokens * perMillion / 1_000_000m;
-    }
-
-    private static bool TryMatchOverride(ModelPricingOverride[] overrides, string? model, out ModelPriceEntry entry)
-    {
-        var candidates = PricingModelMatcher.GetCandidates(model);
-        foreach (var candidate in candidates)
-        {
-            foreach (var rule in overrides)
-            {
-                var ruleModel = rule.Model.Trim();
-                if (ruleModel.Length > 0 && string.Equals(ruleModel, candidate, StringComparison.OrdinalIgnoreCase))
-                {
-                    entry = rule.ToPriceEntry()!;
-                    return true;
-                }
-            }
-        }
-
-        entry = null!;
-        return false;
     }
 
     private void RecordUnpriced(string? model, TokenUsageDetail tokens)
