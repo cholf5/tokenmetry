@@ -86,6 +86,7 @@ Dark 列全部为原型原值（`:root` 变量 + `.kpi/.chip/.linkbtn/.mini-trac
 模型统计页 / 总览模型分布 / 设置页别名行的厂商图标**不是令牌**，而是生成资源：`Styles/ModelLogos.axaml` 由 `scripts/generate-model-logos.py` 从 npm 包 `@lobehub/icons-static-svg@1.95.1`（MIT License, Copyright (c) 2023 LobeHub）的静态 SVG 一次性转换（SVG → `DrawingImage`/`DrawingGroup`/`GeometryDrawing`，path 数据原样保留仅补填充规则前缀）。**勿手改**；再生：`python3 scripts/generate-model-logos.py`（版本 pin 在脚本 LOBE_VERSION，升级即改它重跑）。
 
 - 键名 `AppModelLogo{VendorPascal}`，15 家：Claude / OpenAI / Gemini / Glm(智谱标) / DeepSeek / Qwen / Kimi / Llama(Meta 标) / Grok / Mistral / Doubao / MiniMax / Cohere / Ernie(文心标) / Hunyuan；phi / generic 无官方标，视图层回退 Φ/◇ 字形。
-- 主题策略：官方标无彩色形态（openai/grok）→ ThemeDictionaries Light=黑 / Dark=白；kimi 彩标以白为主体（暗底设计，浅底不可读）→ Light=单色标 / Dark=彩标；其余明暗同用彩色版。单色/彩色的取舍由生成器 VENDORS 表逐厂商显式声明。
+- 例外（内联几何）：lobe 1.95.1 的 `zhipu` 仍是智谱旧标（蓝色圆形图形标），glm 改用脚本 `INLINE_MONO_LOGOS` 内联的官方新标——三块 "Z" 形几何（坐标空间非 24×24，由 Image 的 Stretch=Uniform 归一，无需换算）。形状语汇与 SVG 转换同路（同一 shape_drawing），只是数据不取自 npm 包。
+- 主题策略：官方标无彩色形态（openai/grok/glm）→ ThemeDictionaries Light=黑 / Dark=白；kimi 彩标以白为主体（暗底设计，浅底不可读）→ Light=单色标 / Dark=彩标；其余明暗同用彩色版。单色/彩色的取舍由生成器 VENDORS 表逐厂商显式声明。
 - 渲染：`Border.model-chip` 16×16 槽 + `Panel{TextBlock 字形, Image.model-logo}`；Source 由 model-* 伪类样式经 DynamicResource 给出（必须 DynamicResource——单色版要随明暗切换）。注意 chip 内容包在 Panel 里，样式选择器用**后代组合器**（`Border.model-x Image.model-logo`）而非直接子级 `>`。
 - 键名单入 `DesignTokenTests.AllTokenKeys` Semi 撞名白名单；资源存在性 / 明暗策略 / 样式应用由 `ModelLogoTests` 固化。

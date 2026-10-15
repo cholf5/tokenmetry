@@ -54,11 +54,11 @@ Automated: ModelLogoTests.Every_vendor_has_logo_or_glyph_fallback_listed / Logo_
 
 ### TC-002: 单色标明暗策略
 
-Steps: TryGetResource 取 OpenAI/Grok/Kimi 的 Light/Dark DrawingImage，下钻 DrawingGroup→GeometryDrawing 断言画刷色。
+Steps: TryGetResource 取 OpenAI/Grok/Glm/Kimi 的 Light/Dark DrawingImage，下钻 DrawingGroup→GeometryDrawing 断言画刷色。
 
-Expected: openai/grok 黑↔白翻转；kimi Light 双 path 全黑、Dark 双 path 首位 #1783FF（彩标）。
+Expected: openai/grok 黑↔白翻转；glm 三块 "Z" 形几何同色黑↔白（官方标无彩色形态）；kimi Light 双 path 全黑、Dark 双 path 首位 #1783FF（彩标）。
 
-Automated: ModelLogoTests.Mono_logos_flip_between_light_and_dark / Kimi_uses_mono_on_light_and_color_on_dark。
+Automated: ModelLogoTests.Mono_logos_flip_between_light_and_dark / Glm_uses_inlined_official_mark_with_mono_flip / Kimi_uses_mono_on_light_and_color_on_dark。
 
 ### TC-003: 芯片样式真实应用
 
@@ -74,3 +74,4 @@ Automated: ModelLogoTests.Chip_styles_show_logo_for_logo_vendors_and_glyph_for_f
 - 2026-10-15：样式首版用 `Border.model-chip > Image` 直接子级选择器，headless 断言 Source=null——视图把内容包进 Panel 后 Image 是「孙级」，`>` 匹配逻辑树直接子级失败；改后代组合器（空格）。守卫测试当场抓住，证明其价值。
 - 2026-10-15：headless 明暗截图目检发现 kimi 彩标（白色 K 主体 + 角落蓝片）在浅色主题只剩蓝片——官方彩标为暗底设计；改为 Light=单色标/Dark=彩标（品牌自身在浅底也是用深色标），生成器引入双版本厂商结构。
 - 2026-10-15：gemini-color 的三层渐变叠加（蓝底 + 绿/红/黄渐变覆盖、stop-opacity 0 收尾）在 DrawingGroup 逐层绘制下还原正确；meta-color 13 个渐变逐 path 内联（各只被一条 path 引用，无共享）。
+- 2026-10-15（用户发现后返工）：lobe 1.95.1 的 `zhipu`/`zhipu-color` 仍是智谱**旧标**（蓝色圆形图形标），与智谱现行官方标（三块 "Z" 形，bigmodel.cn favicon 形状一致）不是一个东西。生成器加 `INLINE_MONO_LOGOS` 内联官方标路径数据（形状走同一 shape_drawing，仅数据不取自 npm 包），glm 改走该分支：VENDORS 表两个 lobe id 置空，主题策略按「官方标无彩色形态」取 Light=黑 / Dark=白。官方呈现色为中性 #2D2D2D，与既有单色标取纯黑的惯例一致，未单开品牌色。**lobe 升级后需回看该表**：若上游换成新标，应删掉内联项改回 `zhipu`。
