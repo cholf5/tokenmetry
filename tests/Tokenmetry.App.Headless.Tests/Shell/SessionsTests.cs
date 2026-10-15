@@ -390,8 +390,8 @@ public class SessionsTests
         // 首页：50 行 + 计数条（X=已加载，Y=过滤后总数）
         Assert.Equal(50, host.Vm.Rows.Count);
         Assert.Equal("显示 50 / 120 条", host.Vm.CountText);
-        // 行 VM 携带软色底语义变体（P1 修复后颜色经 XAML 伪类 DynamicResource 呈现）
-        Assert.Contains(host.Vm.Rows[0].ChipVariant, new[] { "blue", "green", "purple", "neutral" });
+        // 行 VM 携带品牌 logo 变体名（图形/颜色经 XAML agent-* 伪类 DynamicResource 呈现）
+        Assert.Contains(host.Vm.Rows[0].LogoVendor, Tokenmetry.App.ViewModels.AgentVisualMap.Vendors);
         // 默认按 Token 降序（对齐原型首项），平局键 SessionId 序数 → 首行可预期
         var expectedFirst = stub.AllSessions.OrderByDescending(r => r.TotalTokens).ThenBy(r => r.SessionId, StringComparer.Ordinal).First();
         Assert.Equal(expectedFirst.SessionId, host.Vm.Rows[0].SessionId);

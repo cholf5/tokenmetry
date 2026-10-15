@@ -43,8 +43,9 @@ public sealed class RecentSessionRowViewModel
         Agent = row.Agent;
         // facts 无标题字段（I-002/I-029）：标题位诚实用会话标识 SessionId，不伪造任务标题
         TitleText = row.SessionId;
-        IconGlyph = AgentVisualMap.Glyph(row.Agent).ToString();
-        ChipVariant = AgentVisualMap.ChipVariant(row.Agent);
+        var icon = AgentVisualMap.Resolve(row.Agent);
+        IconGlyph = icon.Glyph.ToString();
+        LogoVendor = icon.LogoVendor;
         TokensText = $"{TrendChart.FormatCompactTokens(row.TotalTokens)} tokens";
         TimeText = SessionsViewModel.FormatRelativeTime(row.LastSeenAt);
     }
@@ -55,10 +56,11 @@ public sealed class RecentSessionRowViewModel
 
     public string TitleText { get; }
 
+    /// <summary>散列兜底字形（lobe 无对应标的 Agent 才显示）。</summary>
     public string IconGlyph { get; }
 
-    /// <summary>软色底变体名（颜色经 SharedStyles chip-* 伪类 DynamicResource 呈现，VM 不持画刷）。</summary>
-    public string ChipVariant { get; }
+    /// <summary>品牌 logo 变体名（颜色/图形经 SharedStyles agent-* 伪类 DynamicResource 呈现，VM 不持画刷）。</summary>
+    public string LogoVendor { get; }
 
     public string TokensText { get; }
 

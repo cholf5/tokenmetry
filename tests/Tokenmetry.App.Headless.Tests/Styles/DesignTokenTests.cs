@@ -104,7 +104,8 @@ public class DesignTokenTests
     ];
 
     /// <summary>全部新令牌键（冲突检测用）：主题画刷 + 卡片/填充渐变 + 系列色/类型色 Color/Brush
-    /// + 模型厂商 logo（I-031，ModelLogos.axaml 的 DrawingImage 键）。</summary>
+    /// + 模型厂商 logo（I-033，ModelLogos.axaml）+ Agent 品牌 logo（I-034，AgentLogos.axaml）
+    /// 的 DrawingImage 键。</summary>
     private static readonly string[] AllTokenKeys =
     [
         .. PaletteBrushes.Keys,
@@ -115,6 +116,7 @@ public class DesignTokenTests
         .. TokenTypeColors.Select(s => s.Key),
         .. TokenTypeColors.Select(s => s.Key.Replace("Color", "Brush", StringComparison.Ordinal)),
         .. ModelLogoTests.LogoKeys.Values,
+        .. AgentLogoTests.LogoKeys.Values,
     ];
 
     [AvaloniaFact]
