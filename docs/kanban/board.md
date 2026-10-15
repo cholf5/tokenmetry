@@ -10,6 +10,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
 
+> 2026-10-15：**模型目录批次 I-035/I-036/I-037/S-003/I-038 同日收口**。起点是用户提出的两个问题：缺价模型没有地方设置价格（`PricingOverrides` 当时没有任何 UI 出口），以及 token 聚合的模型映射"不干净"（只影响统计、关联不上价格）。方案见 `docs/plans/2026-10-15-model-registry-design.md`。实施中有一处方案变更：原定"计价挪到查询期 + 拆 cost 来源"经核实不必要——增量扫描器每轮返回全量记录，改价触发一轮刷新即可全量重算，故按更便宜的方案落地（见 I-037 Dev Log）。遗留三项已登记：模型维度按 provider 拆分（需 session_facts 加列）、按 provider 的差异价、Pi/DSH 解析期定价的陈旧边界。
+
 > 2026-10-12：按用户决定一次性建 UI 原型落地批次卡 I-026～I-029 / D-003～D-013 / S-002 / Q-002（17 张）。设计基准 `docs/design/ccusage_analytics_prototype.html`（同日自 ~/Downloads 收入仓库）；选型 Semi.Avalonia（依据见 I-026 Background）。本批是 v0.4 主体的全景规划，执行按依赖顺序逐卡进行：I-026 → I-027 → D-003，I-028/I-029 与主题线并行，随后 D-004/D-005 → D-006 → 其余页面 → Q-002。与「看板保持 5–10 张」的常规策略有意偏离，理由同 2026-10-11 适配器批次。
 
 > 2026-10-11：按用户决定一次性建多源覆盖批次卡 I-006～I-022。蓝本为 ../ccusage/rust/adapters/（Rust 移植版，18 源清单见其 README「Supported Sources」）；DSH 不在 ccusage 支持列表（核实过，README 的 "trendshift" 含 "dsh" 是误匹配），I-007 为自研。与「看板保持 5–10 张」的常规策略有意偏离——本批是一次性全景规划，执行仍按优先级逐卡进行。**2026-10-12 追记：I-006～I-022 十七源适配器全部完成**（对账口径见各卡 TC），多源覆盖批次收口；I-024 候选计价接线随九源收口（UnpricedModels 欠账消除，快照补 tiers 段并刷新 kimi-k2.6）；**I-025 同日收口**：快照 7 条目经 CLI 探针核实已逐位等于 npm 20.0.29 锚点（I-024 审查清单对的是 rust HEAD、与锚点漂移，照单改价会炸对账——详见该卡 B-001），不改价，归一化歧义守卫 + 快照 _provenance 溯源落地。**Todo 清空。**
@@ -18,6 +20,11 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-035 | 模型目录（ModelId 单一身份）+ 计价接线 | P1 | 2026-10-15 |
+| I-036 | provider 三元组（agent × model × provider）落库与查询 | P1 | 2026-10-15 |
+| I-037 | 目录驱动的重算（改价格即生效，不做查询期计价） | P1 | 2026-10-15 |
+| S-003 | 设置页模型目录（价格 / 厂商 / 图标唯一入口 + 关联） | P1 | 2026-10-15 |
+| I-038 | 目录迁移与对账护栏（旧字段兼容 + 信任锚边界） | P2 | 2026-10-15 |
 | I-034 | Agent 品牌 logo 接入（ZCode/DSH 等 16 个 Agent 行内官方标 + 未覆盖者散列字形兜底） | P2 | 2026-10-15 |
 | I-033 | 模型厂商 logo 接入 lobe-icons（官方彩标行内直放 + 单色标明暗翻转） | P2 | 2026-10-15 |
 | I-032 | 趋势图视觉升级（单调平滑曲线 + Web 风 chrome）+ 只读交互（禁用缩放/平移） | P2 | 2026-10-15 |
