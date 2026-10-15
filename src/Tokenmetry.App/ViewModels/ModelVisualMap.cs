@@ -4,19 +4,19 @@ using System.Collections.Generic;
 namespace Tokenmetry.App.ViewModels;
 
 /// <summary>模型图标信息：厂商变体名（驱动 <c>Tokenmetry.App.Controls.ModelChip</c> 附加属性翻译成
-/// model-* 伪类着色）+ 展示字形。不可变，行 VM 持有。</summary>
+/// model-* 伪类，选中 SharedStyles 里的行内官方 logo）+ 兜底字形。不可变，行 VM 持有。</summary>
 /// <param name="Vendor">厂商变体名（claude/openai/…/generic；对应 SharedStyles 的 model-* 样式组）。</param>
-/// <param name="Glyph">芯片内字形（品牌符号或厂商首字母，见 <see cref="ModelVisualMap"/> 规则表）。</param>
+/// <param name="Glyph">无 logo 厂商（phi/generic）的字形兜底；有 logo 的厂商由样式隐藏该字形。</param>
 public sealed record ModelVisual(string Vendor, char Glyph);
 
 /// <summary>
-/// 模型名 → 内置图标的稳定映射（字形 + 品牌色变体）。与 <see cref="AgentVisualMap"/> 同一设计语言：
-/// 品牌色圆角芯片 + 白色字形，颜色由 SharedStyles 的 model-* 伪类经令牌提供（VM 不解析画刷——
-/// 明暗翻转纪律同 AgentVisualMap 审查修复轮 P1 的教训）。
+/// 模型名 → 内置图标的稳定映射（行内官方 logo 变体 + 兜底字形）。与 <see cref="AgentVisualMap"/>
+/// 同一机制：厂商判定走 SharedStyles 的 model-* 伪类（VM 不解析画刷/资源——明暗翻转纪律同
+/// AgentVisualMap 审查修复轮 P1 的教训）；logo 本体是 lobe-icons 静态 SVG 生成的 AppModelLogo*
+/// DrawingImage（见 Styles/ModelLogos.axaml），由伪类样式经 DynamicResource 给出。
 /// 内置规则覆盖主流厂商（Anthropic / OpenAI / Google / 智谱 GLM / DeepSeek / 通义 Qwen /
 /// Moonshot Kimi / Meta Llama / xAI Grok / Mistral / 字节 Doubao / MiniMax / Cohere / 文心 /
-/// 腾讯混元），其余一律落到 generic（中性芯片 + ◇），与截图「其他」行的兜底图标同语义。
-/// 厂商色为固定品牌色（不随明暗翻转，放 Tokens.axaml 普通资源区，与 AppSeries 系列色同理）。
+/// 腾讯混元），其余（含 phi）一律落到 generic/字形兜底，与截图「其他」行的兜底图标同语义。
 /// 匹配只看传入名（模型统计页给的是聚合后的规范名）：大小写不敏感的包含/前缀规则按序判定，
 /// 具体厂商在前、openai 的 o1/o3/o4 前缀判定最后（避免 oxx 误命中）。
 /// </summary>

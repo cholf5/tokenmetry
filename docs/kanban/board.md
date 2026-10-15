@@ -18,6 +18,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-033 | 模型厂商 logo 接入 lobe-icons（官方彩标行内直放 + 单色标明暗翻转） | P2 | 2026-10-15 |
 | I-032 | 趋势图视觉升级（单调平滑曲线 + Web 风 chrome）+ 只读交互（禁用缩放/平移） | P2 | 2026-10-15 |
 | I-031 | 首次启动数据初始化（启动即刷可见反馈 + 全窗口初始化遮罩） | P2 | 2026-10-15 |
 | I-030 | 模型聚合（别名映射）+ 内置模型图标 | P1 | 2026-10-15 |

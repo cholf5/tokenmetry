@@ -103,7 +103,8 @@ public class DesignTokenTests
         ("AppTokenTypeCacheColor", "#38d6a4"),
     ];
 
-    /// <summary>全部新令牌键（冲突检测用）：主题画刷 + 卡片/填充渐变 + 系列色/类型色 Color/Brush。</summary>
+    /// <summary>全部新令牌键（冲突检测用）：主题画刷 + 卡片/填充渐变 + 系列色/类型色 Color/Brush
+    /// + 模型厂商 logo（I-031，ModelLogos.axaml 的 DrawingImage 键）。</summary>
     private static readonly string[] AllTokenKeys =
     [
         .. PaletteBrushes.Keys,
@@ -113,6 +114,7 @@ public class DesignTokenTests
         .. SeriesColors.Select(s => s.Key.Replace("Color", "Brush", StringComparison.Ordinal)),
         .. TokenTypeColors.Select(s => s.Key),
         .. TokenTypeColors.Select(s => s.Key.Replace("Color", "Brush", StringComparison.Ordinal)),
+        .. ModelLogoTests.LogoKeys.Values,
     ];
 
     [AvaloniaFact]
