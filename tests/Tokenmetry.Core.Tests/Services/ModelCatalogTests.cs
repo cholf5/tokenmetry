@@ -273,4 +273,26 @@ public class ModelCatalogTests
 
         catalog.FindById("glm-4-6")!.InputPerMillion.Should().Be(42m);
     }
+
+    [Fact]
+    public void MergeUserDefinitions_FoldsLegacyOverridesAndPrefersNewField()
+    {
+        var settings = new AppSettings();
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride
+        {
+            Id = "glm-5-3-flash",
+            InputPerMillion = 1m,
+            OutputPerMillion = 2m,
+        });
+        settings.PricingOverrides.Add(new ModelPricingOverride { Model = "glm-5.3-flash", InputPerMillion = 9m, OutputPerMillion = 90m });
+        settings.PricingOverrides.Add(new ModelPricingOverride { Model = "my-legacy-model", InputPerMillion = 3m, OutputPerMillion = 4m });
+        settings.PricingOverrides.Add(new ModelPricingOverride { Model = "   ", InputPerMillion = 3m, OutputPerMillion = 4m });
+        settings.PricingOverrides.Add(new ModelPricingOverride { Model = "negative-model", InputPerMillion = -1m, OutputPerMillion = 4m });
+
+        var merged = ModelCatalog.MergeUserDefinitions(settings);
+
+        merged.Should().HaveCount(2, "同 ID 以新字段为准，非法旧规则整条剔除（沿用 FromLegacy 口径）");
+        merged.Single(definition => definition.Id == "glm-5-3-flash").InputPerMillion.Should().Be(1m, "新旧同 ID 时以新字段为准");
+        merged.Single(definition => definition.Id == "my-legacy-model").InputPerMillion.Should().Be(3m, "旧字段折算并入，不丢老配置");
+    }
 }

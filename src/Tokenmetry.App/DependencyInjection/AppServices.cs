@@ -80,23 +80,14 @@ public static class AppServices
         // 定价引擎（I-003）：models.dev 客户端单例，后台刷新由本地采集数据源的刷新入口触发。
         // I-035 模型目录：价格 / 厂商 / 图标 / 聚合身份的唯一出处，单例共享给计价引擎与查询服务
         // （两份目录会让"设置页改的价"与"统计用的身份"分叉）。用户层来自设置：ModelDefinitions 是
-        // 新字段，PricingOverrides 是旧字段（只读桥，装载时折算成目录条目，不丢老配置）。
+        // 新字段，PricingOverrides 是旧字段（只读桥，装载时折算成目录条目，不丢老配置）——
+        // 合并口径在 ModelCatalog.MergeUserDefinitions 一处，设置页热更新也必须走同一份。
         var pricingClient = new ModelsDevPricingClient();
         services.AddSingleton(pricingClient);
         services.AddSingleton<IRemotePricingSource>(pricingClient);
         services.AddSingleton(_ => new ModelCatalog(
             pricingClient,
-            settings.ModelDefinitions.Concat(
-                settings.PricingOverrides
-                    .Select(ModelDefinitionOverride.FromLegacy)
-                    .Where(definition => definition is not null)
-                    .Select(definition => definition!)
-                    // 新旧同 ID 时以新字段为准（用户已在设置页编辑过这条）。
-                    .Where(legacy => settings.ModelDefinitions.All(
-                        current => !string.Equals(
-                            ModelId.Normalize(current.Id),
-                            ModelId.Normalize(legacy.Id),
-                            StringComparison.OrdinalIgnoreCase)))),
+            ModelCatalog.MergeUserDefinitions(settings),
             settings.ModelAliases));
         services.AddSingleton(sp => new PricingEngine(catalog: sp.GetRequiredService<ModelCatalog>()));
 
