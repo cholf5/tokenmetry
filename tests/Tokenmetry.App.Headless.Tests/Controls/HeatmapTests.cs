@@ -10,6 +10,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
+using Tokenmetry.App.Localization;
 using Xunit;
 
 namespace Tokenmetry.App.Headless.Tests.Controls;
@@ -171,6 +172,58 @@ public class HeatmapTests
         Assert.True(Application.Current!.TryGetResource("AppTextBrush", ThemeVariant.Dark, out var text),
             "Dark 变体缺少 AppTextBrush");
         Assert.Same(Assert.IsAssignableFrom<ISolidColorBrush>(text), tooltip.Foreground);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    // ── 语言切换重译（B-007）：tooltip 是 build-time 固化文案，切语言须靠 CurrentLanguage 信号重建 ──
+
+    [AvaloniaFact]
+    public void Tooltips_retranslate_on_language_switch_without_data_change()
+    {
+        // B-007 TC-001：Cells 引用全程不动，zh→en→zh 双语言各一圈只靠语言信号触发 Rebuild
+        var heatmap = new Heatmap { Cells = Cells35(), Columns = 7 };
+        var window = CreateWindow(heatmap, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var original = Translations.Instance.CurrentLanguage;
+        try
+        {
+            Translations.Instance.SetLanguage(AppLanguage.SimplifiedChinese); // TestCulture zh-Hans；基线被污染时原地归位
+            Dispatcher.UIThread.RunJobs();
+
+            // zh 基线（同既有用例口径）：有数据格万档单位、补零格"无数据"
+            var zhTip = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(CellBorders(heatmap)[0]));
+            Assert.Contains("10万 tok", (string)zhTip.Content!);
+            var zhPadded = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(CellBorders(heatmap)[5]));
+            Assert.Contains("无数据", (string)zhPadded.Content!);
+
+            // zh → en：无数据变更，仅语言信号
+            Translations.Instance.SetLanguage(AppLanguage.English);
+            Dispatcher.UIThread.RunJobs();
+
+            var enBorders = CellBorders(heatmap); // Rebuild 重建了 Border，按索引重取同一逻辑格
+            var enTip = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(enBorders[0]));
+            Assert.Contains("100K tok", (string)enTip.Content!);
+            Assert.DoesNotContain("万", (string)enTip.Content!);
+            Assert.Contains("chart-tip", enTip.Classes); // 重译挂载不丢类装饰
+            var enPadded = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(enBorders[5]));
+            Assert.Contains("no data", (string)enPadded.Content!);
+            Assert.DoesNotContain("无数据", (string)enPadded.Content!);
+
+            // en → zh 回一圈（顺带恢复基线，验证反方向重译）
+            Translations.Instance.SetLanguage(AppLanguage.SimplifiedChinese);
+            Dispatcher.UIThread.RunJobs();
+
+            var zhAgain = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(CellBorders(heatmap)[0]));
+            Assert.Contains("10万 tok", (string)zhAgain.Content!);
+        }
+        finally
+        {
+            Translations.Instance.SetLanguage(original); // 进程级单例，恢复基线
+            Dispatcher.UIThread.RunJobs();
+        }
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

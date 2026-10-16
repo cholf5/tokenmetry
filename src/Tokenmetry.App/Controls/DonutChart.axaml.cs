@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using Avalonia;
@@ -107,10 +108,11 @@ public partial class DonutChart : UserControl
     {
         base.OnAttachedToVisualTree(e);
         HookSegmentsCollection();
+        HookTranslationsRetranslate();
         Rebuild();
     }
 
-    /// <summary>脱树退订集合订阅（重挂由 OnAttachedToVisualTree 恢复）。</summary>
+    /// <summary>脱树退订集合与重译订阅（重挂由 OnAttachedToVisualTree 恢复）。</summary>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
@@ -118,6 +120,7 @@ public partial class DonutChart : UserControl
         {
             collection.CollectionChanged -= OnSegmentsCollectionChanged;
         }
+        Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
     }
 
     private void HookSegmentsCollection()
@@ -127,6 +130,29 @@ public partial class DonutChart : UserControl
             collection.CollectionChanged -= OnSegmentsCollectionChanged; // 防重复订阅
             collection.CollectionChanged += OnSegmentsCollectionChanged;
         }
+    }
+
+    /// <summary>重译订阅（B-007）：挂树/脱树对称；先退订再订阅防重复（挂树可能多次发生）。</summary>
+    private void HookTranslationsRetranslate()
+    {
+        Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
+        Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
+    }
+
+    /// <summary>
+    /// 语言切换重译（B-007）：以 PropertyChanged(CurrentLanguage) 作为「每次切换一次」的信号重跑
+    /// Rebuild——build-time 固化文案不重跑就陈旧到下一次数据变更，覆盖两处：分段 tooltip 的
+    /// token 紧凑单位口径（万/亿 vs K/M）与空态中心副题（Translations.Instance.NoData）。
+    /// XAML 直绑 Translations 的空态 EmptyText 由全量 PropertyChanged 自动刷新，不依赖本订阅。
+    /// </summary>
+    private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(Translations.CurrentLanguage))
+        {
+            return;
+        }
+
+        Rebuild();
     }
 
     public System.Collections.IEnumerable? Segments

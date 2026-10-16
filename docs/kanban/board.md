@@ -9,8 +9,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| B-007 | 语言切换后图表 tooltip 文案陈旧（Heatmap/DonutChart 缺 CurrentLanguage 重译订阅） | P3 | S | none | none |
-| Q-003 | 图表 tooltip 测试对称补齐（DonutChart chart-tip/紧凑文案零覆盖） | P3 | S | none | none |
+
+> 2026-10-17：**B-007 / Q-003 收口，Todo 清空**（B-006 遗留双卡一次清账）。Heatmap/DonutChart 挂 `CurrentLanguage` 重译订阅（挂树/脱树对称）→ Rebuild，切语言后 tooltip（单位口径 / "无数据" / 空态副题）即时换语言；DonutChartTests 补 chart-tip 类 + 紧凑文案断言，独立审查复现反向验证锁有效。有意不做：TrendChart 图内 tooltip/轴刻度恒 ASCII（I-032 锁定决策）、非空态 `CenterSubtitle`（属主注入 StyledProperty），留待属主页卡处理。
 
 > 2026-10-16：**B-006 收口（d268368）后的 code review 建 P3 小卡两张**。B-007：Donut/Heatmap 的 Avalonia 弹层 tooltip 是 build-time 固化字符串且控件未订阅 `CurrentLanguage` 重译信号（切语言后陈旧至下次数据重建；热力图"无数据"固化是 B-006 前旧账一并纳入）；Q-003：DonutChartTests 零 tooltip 断言，共享 helper/样式回归时环形图侧静默绿。均为 S 级独立可收。
 
@@ -26,6 +26,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| B-007 | 语言切换后图表 tooltip 文案陈旧（Heatmap/DonutChart 缺 CurrentLanguage 重译订阅） | P3 | 2026-10-17 |
+| Q-003 | 图表 tooltip 测试对称补齐（DonutChart chart-tip/紧凑文案零覆盖） | P3 | 2026-10-17 |
 | B-006 | 图表 hover tooltip 三缺陷（透明无样式气泡 / 配色不随主题 / token 数紧凑单位） | P1 | 2026-10-16 |
 | S-004 | 数据与计价页拆分（数据源/口径/目录/别名 ↔ 应用偏好分离，侧栏 8→9 项） | P2 | 2026-10-16 |
 | I-035 | 模型目录（ModelId 单一身份）+ 计价接线 | P1 | 2026-10-15 |
