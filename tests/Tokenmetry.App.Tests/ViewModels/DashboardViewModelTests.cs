@@ -78,6 +78,22 @@ public class DashboardViewModelTests
     }
 
     [Fact]
+    public void Constructor_WarmsCacheOnly_DoesNotTriggerRefresh()
+    {
+        // 首轮采集刷新由 App 启动路径 BeginStartupDataRefreshAsync 唯一持有；构造时机只热缓存，
+        // 不自触发扫描（旧版在缓存为空时于 UI 线程上内联整条采集管道，冻结首启窗口）。
+        var dataSource = new FakeUsageDataSource(new List<DailyUsageSummary>());
+
+        _ = CreateDashboardViewModel(
+            new FakeUsageStore(),
+            dataSource,
+            new AppSettings(),
+            new FixedDateRangeService("2026-06-19"));
+
+        dataSource.CallCount.Should().Be(0);
+    }
+
+    [Fact]
     public void ShouldShowHistoricalOnlyHintFor_ReturnsTrue_WhenOnlyHistoricalDataExists()
     {
         var summary = new DashboardSummary
@@ -118,8 +134,7 @@ public class DashboardViewModelTests
     [Fact]
     public async Task RefreshAsync_SavesCache_WhenDataSourceDoesNotPersistFacts()
     {
-        // 预置缓存行：构造函数的初始化刷新只在无缓存时触发，保证计数确定性。
-        var store = new FakeUsageStore(new DailyUsageSummary { Date = "2026-06-18", TotalCostUsd = 1m });
+        var store = new FakeUsageStore();
         var viewModel = CreateDashboardViewModel(
             store,
             new FakeUsageDataSource(new List<DailyUsageSummary> { new() { Date = "2026-06-19", TotalCostUsd = 1m } }),
@@ -135,7 +150,7 @@ public class DashboardViewModelTests
     public async Task RefreshAsync_SkipsCacheSave_WhenDataSourcePersistsFacts()
     {
         // I-005：本地采集源已在数据源内部写 facts 并读回，重复落库会把 full 行有损重分解。
-        var store = new FakeUsageStore(new DailyUsageSummary { Date = "2026-06-18", TotalCostUsd = 1m });
+        var store = new FakeUsageStore();
         var viewModel = CreateDashboardViewModel(
             store,
             new FakeUsageDataSource(new List<DailyUsageSummary> { new() { Date = "2026-06-19", TotalCostUsd = 1m } }, persistsFacts: true),
@@ -208,8 +223,11 @@ public class DashboardViewModelTests
 
         public bool PersistsFacts => _persistsFacts;
 
+        public int CallCount { get; private set; }
+
         public Task<List<DailyUsageSummary>> GetDailyUsageAsync(CancellationToken ct = default)
         {
+            CallCount++;
             return Task.FromResult(_rows);
         }
     }

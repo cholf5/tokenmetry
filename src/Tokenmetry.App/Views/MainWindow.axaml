@@ -97,8 +97,8 @@
             <Setter Property="CornerRadius" Value="6"/>
         </Style>
 
-        <!-- 首次初始化遮罩（IsInitializingData）：全窗半透明 scrim + 中央卡片（旋转 ◌ 与品牌/
-             刷新字形同源）——首次使用库内无数据，启动首轮采集扫描期间给醒目的"正在初始化"反馈，
+        <!-- 首次初始化遮罩（IsInitializingData）：全窗半透明 scrim + 中央卡片（旋转虚线圆菊花）
+             ——首次使用库内无数据，启动首轮采集扫描期间给醒目的"正在初始化"反馈，
              覆盖层拦截命中测试，初始化期间不与底层页面交互 -->
         <Style Selector="Border.overlay-card">
             <Setter Property="Background" Value="{DynamicResource AppPanelBrush}"/>
@@ -107,9 +107,17 @@
             <Setter Property="CornerRadius" Value="14"/>
             <Setter Property="Padding" Value="40,32"/>
         </Style>
-        <Style Selector="TextBlock.overlay-spinner">
-            <Setter Property="FontSize" Value="36"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppLinkBrush}"/>
+        <!-- 矢量菊花：Ellipse 虚线圆绕自身几何中心旋转。不用字形旋转——文本旋转中心是布局盒
+             中心（基线 + 行高决定），与字形墨迹中心不重合（◌ U+25CC 内嵌 Inter 不覆盖，由系统
+             回退字体渲染、偏差更大），墨迹绕错误原点公转，视觉上转动不匀、忽上忽下；
+             矢量圆的旋转中心与墨迹中心恒等，转动均匀。 -->
+        <Style Selector="Ellipse.overlay-spinner">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Stroke" Value="{DynamicResource AppLinkBrush}"/>
+            <Setter Property="StrokeThickness" Value="3"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeDashArray" Value="0.01,3.2"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
             <Setter Property="RenderTransform" Value="rotate(0deg)"/>
@@ -488,7 +496,7 @@
             <Border Classes="overlay-card"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel Spacing="14">
-                    <TextBlock Classes="overlay-spinner" Text="◌"/>
+                    <Ellipse Classes="overlay-spinner"/>
                     <TextBlock Classes="overlay-title" TextAlignment="Center"
                                Text="{Binding InitializingTitle, Source={x:Static loc:Translations.Instance}}"/>
                     <TextBlock Classes="overlay-subtitle" TextAlignment="Center"

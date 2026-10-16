@@ -21,6 +21,11 @@ namespace Tokenmetry.App.ViewModels;
 ///       成本异常提醒（AnomalyDetector + ISystemNotification，设置可关）；</item>
 /// <item>成败口径：Status == "error" 即本轮失败（接线层据此向设置页如实上报）。</item>
 /// </list>
+/// 构造时机<b>只热缓存</b>（LoadFromCacheAsync，fire-and-forget），不自触发扫描：首轮采集刷新由
+/// App 启动路径 BeginStartupDataRefreshAsync 唯一持有（毫秒级后必然触发且负责初始化遮罩）。
+/// 旧版在缓存为空（首次使用）时于构造时机内联 RefreshAsync——本 VM 在 UI 线程上构造，整条
+/// 采集管道的续体随之逐段排回 UI 线程，首启窗口冻到扫描结束，且与启动首刷构成双重轮次；
+/// 该行为已删除（调用方线程防护由 LocalIngestionDataSource 公共入口的 Task.Run 兜底）。
 /// KPI 状态属性（TodayCostUsd 等）仅被本类 Status/HasData 计算与测试消费，无 UI 展示；
 /// 若未来需要拆轻量 RefreshCoordinator，须先迁移上述三点并保住 BackgroundRefreshServiceTests
 /// 与 SettingsPageTests 的 P0 回归锁。
@@ -105,17 +110,9 @@ public partial class DashboardViewModel : ViewModelBase
         _dateService = dateService;
         _notification = notification;
         _settings = settings;
-        _ = InitializeAsync();
-    }
-
-    private async Task InitializeAsync()
-    {
-        await LoadFromCacheAsync();
-
-        if (!HasData)
-        {
-            await RefreshAsync();
-        }
+        // 构造时机只热缓存（CacheService 公共入口自身已 Task.Run 隔离，UI 线程构造安全）；
+        // 首轮采集刷新不在构造时机触发——首轮归 BeginStartupDataRefreshAsync（见类注释）。
+        _ = LoadFromCacheAsync();
     }
 
     private async Task LoadFromCacheAsync()
