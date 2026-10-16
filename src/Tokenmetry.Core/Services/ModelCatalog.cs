@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 
@@ -33,7 +34,9 @@ public readonly record struct ModelIdentity(
 /// 逐个命中。全部收敛都是"对<b>已知</b>条目的判定"，不做拼写近似；未命中原样返回——
 /// 这正是"数据里出现的名字都能在配置表里找到关联，找不到就等用户手动关联"的落点。</item>
 /// <item>线程模型：更新（设置保存 / 远程刷新）整体换快照，读取侧无锁；与
-/// <c>PricingEngine.UpdateOverrides</c>、<c>ModelAliasResolver.UpdateAliases</c> 同纪律。</item>
+/// <c>PricingEngine.UpdateOverrides</c>、<c>ModelAliasResolver.UpdateAliases</c> 同纪律。
+/// 身份解析按原始名 memo（计价在采集管道逐记录经此）：缓存随快照整体换新，
+/// 换新顺序"先 state 后缓存"+ 落缓存前核对 state 未换，旧快照的解不可能污染新缓存。</item>
 /// </list>
 /// </summary>
 public sealed class ModelCatalog : IModelNameResolver
@@ -44,6 +47,9 @@ public sealed class ModelCatalog : IModelNameResolver
 
     /// <summary>用户条目原始配置（未装订）；装订后的表在 <see cref="_state"/> 里。</summary>
     private volatile ModelDefinitionOverride[] _userOverrides = [];
+
+    /// <summary>身份解析 memo（key = 原始模型名）；只随 <see cref="RebuildState"/> 整体换新，不 Clear。</summary>
+    private volatile ConcurrentDictionary<string, ModelIdentity> _identityCache = new(StringComparer.Ordinal);
 
     private volatile State _state;
 
@@ -57,7 +63,7 @@ public sealed class ModelCatalog : IModelNameResolver
         _snapshotEntries = snapshotEntries ?? BuiltinPricingSnapshot.Entries;
         _aliasResolver.UpdateAliases(aliases ?? []);
         _userOverrides = NormalizeOverrides(userDefinitions);
-        _state = Build();
+        RebuildState();
     }
 
     /// <summary>合成后的模型配置表（按 ID 序数排序；含无价条目——无价 ≠ 不存在）。</summary>
@@ -118,14 +124,14 @@ public sealed class ModelCatalog : IModelNameResolver
     public void UpdateUserDefinitions(IEnumerable<ModelDefinitionOverride>? userDefinitions)
     {
         _userOverrides = NormalizeOverrides(userDefinitions);
-        _state = Build();
+        RebuildState();
     }
 
     /// <summary>替换别名映射（原始名 → 模型 ID；设置保存后调用；线程安全）。</summary>
     public void UpdateAliases(IEnumerable<KeyValuePair<string, string>>? aliases)
     {
         _aliasResolver.UpdateAliases(aliases ?? []);
-        _state = Build();
+        RebuildState();
     }
 
     /// <summary>按 ID 取条目（含大小写 / 归一化折叠）；未登记返回 null。</summary>
@@ -150,6 +156,8 @@ public sealed class ModelCatalog : IModelNameResolver
     /// <summary>
     /// 原始模型名 → 身份（含命中条目与关联方式）。解析次序见类型说明；
     /// 未关联时 <see cref="ModelIdentity.Id"/> 为别名解析后的名字，不变更原始名的拼写。
+    /// 结果按原始名 memo（不同模型名集合很小，而计价在采集管道逐记录经此——memo 把
+    /// 家族兜底的全目录扫描从"每条记录"摊到"每个名字一次"）。
     /// </summary>
     public ModelIdentity ResolveIdentity(string? rawModelName)
     {
@@ -158,9 +166,27 @@ public sealed class ModelCatalog : IModelNameResolver
             return new ModelIdentity(rawModelName ?? string.Empty, rawModelName ?? string.Empty, null, ModelMatchKind.None);
         }
 
+        var cache = _identityCache;
+        if (cache.TryGetValue(rawModelName, out var cached))
+        {
+            return cached;
+        }
+
         EnsureCurrent();
         var state = _state;
+        var identity = ResolveIdentityCore(rawModelName, state);
+        if (ReferenceEquals(state, _state))
+        {
+            // 只往取到的快照缓存里落、且仅当 state 未被换过——旧快照的解不可能污染新缓存。
+            cache.TryAdd(rawModelName, identity);
+        }
 
+        return identity;
+    }
+
+    /// <summary>一次身份解析的纯判定（无缓存副作用）；解析次序见类型说明。</summary>
+    private ModelIdentity ResolveIdentityCore(string rawModelName, State state)
+    {
         // 1) 用户别名规则优先（精确、大小写敏感；链式跟进由 ModelAliasResolver 承担）。
         var aliased = _aliasResolver.Resolve(rawModelName);
         if (!string.Equals(aliased, rawModelName.Trim(), StringComparison.Ordinal))
@@ -178,8 +204,8 @@ public sealed class ModelCatalog : IModelNameResolver
         }
 
         // 2) 家族模式（仅快照规则）：候选名包含 pattern 即命中——带日期后缀的历史模型名走这里。
-        var identity = PricingModelMatcher.GetCandidates(aliased);
-        foreach (var candidate in identity)
+        var candidates = PricingModelMatcher.GetCandidates(aliased);
+        foreach (var candidate in candidates)
         {
             var familyHit = LookupFamily(state, candidate);
             if (familyHit is not null)
@@ -257,8 +283,20 @@ public sealed class ModelCatalog : IModelNameResolver
         var state = _state;
         if (!ReferenceEquals(state.Remote, _remoteSource.Current))
         {
-            _state = Build();
+            RebuildState();
         }
+    }
+
+    /// <summary>
+    /// 重建合成快照并整体换新身份 memo（不 Clear：换新即弃旧字典）。顺序必须是"先 state 后缓存"——
+    /// <see cref="ResolveIdentity"/> 落缓存前的守卫依赖"state 未换 ⇒ 缓存也未换"；先换 state 才让该
+    /// 蕴涵成立，反向顺序会让旧快照的解落进新缓存并存活到下一次换新。换新窗口内的读者拿旧缓存
+    /// 最多命中一次旧值，与"整体换快照、读取侧无锁"的既有纪律同口径。
+    /// </summary>
+    private void RebuildState()
+    {
+        _state = Build();
+        _identityCache = new ConcurrentDictionary<string, ModelIdentity>(StringComparer.Ordinal);
     }
 
     private static ModelDefinitionOverride[] NormalizeOverrides(IEnumerable<ModelDefinitionOverride>? userDefinitions)
