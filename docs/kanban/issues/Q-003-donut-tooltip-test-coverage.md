@@ -4,9 +4,9 @@ title: 图表 tooltip 测试对称补齐（DonutChart chart-tip 类与紧凑文�
 type: test
 priority: P3
 size: S
-status: todo
+status: done
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 blocked: none
 ---
 
@@ -23,15 +23,15 @@ blocked: none
 
 ## Acceptance Criteria
 
-- [ ] `DonutChartTests` 至少一条用例断言：分段 Path 的 GetTip 为 ToolTip 实例、Classes 含 "chart-tip"，Content 含紧凑 token 值 + "tok" 后缀（zh-Hans 固定文化）
-- [ ] 反向验证一次：临时破坏 chart-tip 类（去掉 `Classes.Add` 或改类名）→ TC 应红 → 恢复（结果记进卡，证明锁有效）
-- [ ] 全量 `dotnet test Tokenmetry.sln` 全绿
+- [x] `DonutChartTests` 至少一条用例断言：分段 Path 的 GetTip 为 ToolTip 实例、Classes 含 "chart-tip"，Content 含紧凑 token 值 + "tok" 后缀（zh-Hans 固定文化）
+- [x] 反向验证一次：临时破坏 chart-tip 类（去掉 `Classes.Add` 或改类名）→ TC 应红 → 恢复（结果记进卡，证明锁有效）
+- [x] 全量 `dotnet test Tokenmetry.sln` 全绿
 
 ## Subtasks
 
-- [ ] 复用 DonutChartTests 现有分段数据 fixture，补 tooltip 断言（并入现有分段渲染用例或单独新增一条均可）
-- [ ] 反向验证（临时破坏 → 红 → 恢复）
-- [ ] 全量测试
+- [x] 复用 DonutChartTests 现有分段数据 fixture，补 tooltip 断言（并入现有分段渲染用例或单独新增一条均可）
+- [x] 反向验证（临时破坏 → 红 → 恢复）
+- [x] 全量测试
 
 ## Dependencies
 
@@ -68,6 +68,28 @@ Expected: 全绿。
 
 - 建卡（B-006 收口 code review 发现：DonutChartTests 零 tooltip 断言，共享 helper/样式回归时环形图侧静默绿）。
 
+### 2026-10-16（实施，Q-003）
+
+- 补锁：`DonutChartTests` 新增 1 条用例 `Segment_paths_get_chart_tip_tooltips_with_compact_tokens`（单独成条，
+  复用既有 `FiveSegments` 分段 fixture，渲染后取 ArcCanvas 的 5 个分段 Path）：首段（Claude Code 3,600,000）
+  断言 `ToolTip.GetTip(path)` 为显式 ToolTip 实例且 Content 含 `Claude Code: 360万 tok`（zh-Hans 固定文化，
+  万制紧凑 + "tok" 后缀；并 `DoesNotContain "3,600,000"` 锁住"非千分位全量"口径），全 5 段断言
+  `Classes` 含 "chart-tip"——断言形态与 HeatmapTests 同源（GetTip/类挂载/文案三类）。
+- 反向验证（TC-002，B-006 TC-002 同诚实口径）：临时注释掉 `ChartTooltips.Set` 内
+  `tooltip.Classes.Add(ChartTipClass)`（src/Tokenmetry.App/Controls/ChartTooltips.cs 唯一类挂载点）→
+  单跑该用例**红**：`Failed!  - Failed: 1, Passed: 0`，`Assert.All() Failure: 5 out of 5 items did not pass`，
+  逐段 `Assert.Contains() Failure: Item not found in collection`（DonutChartTests.cs:226 的 chart-tip 断言）→
+  立即恢复源码 → 同用例**回绿**（`Passed!  - Failed: 0, Passed: 1`）；`git status` 证实
+  ChartTooltips.cs 无残留改动（不在修改清单中）。锁有效。
+- 全量 `dotnet test Tokenmetry.sln` 绿（Passed 1271 / Failed 0，Headless 280→284；其中 B-007 本日
+  并入 DonutChartTests 的 2 条重译用例共用本次补的断言面，互为补充）。
+
+### 2026-10-17（收口）
+
+- 独立审查（新 subagent、零共享上下文）通过：断言形态与 HeatmapTests 先例一致、锁面精确（ToolTip
+  实例 + chart-tip 类 × 5 段 + 紧凑文案非千分位）；反向验证为审查者独立复现——注释 `Classes.Add`
+  → 恰好本用例红（Assert.All 5/5 段缺类）→ 恢复全绿，锁有效性成立；全量 1271 绿；未发现问题。
+
 ## Bugs
 
 | ID | Severity | Description | Status | Resolution |
@@ -77,4 +99,4 @@ Expected: 全绿。
 
 - Related files: `tests/Tokenmetry.App.Headless.Tests/Controls/DonutChartTests.cs`（预期改动点）；参照 `HeatmapTests.cs` 断言形态；被锁实现 `src/Tokenmetry.App/Controls/ChartTooltips.cs`、`DonutChart.axaml.cs`、`src/Tokenmetry.App/Styles/SharedStyles.axaml`
 - How to run/verify: 按名过滤单跑 DonutChartTests；全量 `dotnet test Tokenmetry.sln`
-- Results: 待执行（建卡时未做）
+- Results: 完成（2026-10-16）。TC-001：`Segment_paths_get_chart_tip_tooltips_with_compact_tokens` 绿（ToolTip 实例 + chart-tip 类 × 5 段 + `Claude Code: 360万 tok` 紧凑文案，非千分位全量）。TC-002：反向验证红→恢复绿（红 = `Failed: 1`，Assert.All 5/5 段缺失 chart-tip；恢复后 `Passed: 1`；ChartTooltips.cs 无残留改动），详见 Development Log。TC-003：全量 `dotnet test Tokenmetry.sln` = Passed 1271 / Failed 0（Headless 280→284）。

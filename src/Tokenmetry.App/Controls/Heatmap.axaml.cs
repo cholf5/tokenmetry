@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -74,10 +75,11 @@ public partial class Heatmap : UserControl
     {
         base.OnAttachedToVisualTree(e);
         HookCellsCollection();
+        HookTranslationsRetranslate();
         Rebuild();
     }
 
-    /// <summary>脱树退订集合订阅（重挂由 OnAttachedToVisualTree 恢复）。</summary>
+    /// <summary>脱树退订集合与重译订阅（重挂由 OnAttachedToVisualTree 恢复）。</summary>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
@@ -85,6 +87,7 @@ public partial class Heatmap : UserControl
         {
             collection.CollectionChanged -= OnCellsCollectionChanged;
         }
+        Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
     }
 
     private void HookCellsCollection()
@@ -94,6 +97,29 @@ public partial class Heatmap : UserControl
             collection.CollectionChanged -= OnCellsCollectionChanged; // 防重复订阅
             collection.CollectionChanged += OnCellsCollectionChanged;
         }
+    }
+
+    /// <summary>重译订阅（B-007）：挂树/脱树对称；先退订再订阅防重复（挂树可能多次发生）。</summary>
+    private void HookTranslationsRetranslate()
+    {
+        Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
+        Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
+    }
+
+    /// <summary>
+    /// 语言切换重译（B-007）：以 PropertyChanged(CurrentLanguage) 作为「每次切换一次」的信号重跑
+    /// Rebuild——tooltip（<see cref="BuildCellTooltip"/>：token 紧凑单位 + "无数据"样板）是 build-time
+    /// 固化字符串，不重跑就陈旧到下一次数据变更。XAML 直绑 Translations 的空态 EmptyText 由全量
+    /// PropertyChanged 自动刷新，不依赖本订阅。
+    /// </summary>
+    private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(Translations.CurrentLanguage))
+        {
+            return;
+        }
+
+        Rebuild();
     }
 
     public System.Collections.IEnumerable? Cells
