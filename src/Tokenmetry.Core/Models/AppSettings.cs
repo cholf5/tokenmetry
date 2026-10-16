@@ -11,7 +11,7 @@ public class AppSettings
     public string CcusageCommand { get; set; } = "ccusage";
     public bool AnomalyNotificationsEnabled { get; set; } = true;
     public bool ShowDebugInfo { get; set; } = true;
-    public int RefreshMinutes { get; set; } = 15;
+    public int RefreshMinutes { get; set; } = 1;
 
     /// <summary>外观主题偏好：light（日间）/ dark（夜间）/ system（跟随系统）。</summary>
     public string Theme { get; set; } = "system";
