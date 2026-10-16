@@ -843,4 +843,53 @@ public class SettingsViewModelTests
         row.HasPrice.Should().BeTrue();
         row.IsOverridden.Should().BeFalse();
     }
+
+    [Fact]
+    public void SettingsViewModelConstruction_KeepsLegacyPricingOverridesPriced()
+    {
+        // 装配层回归钉（I-038 TC-001 的 App 缝）：AppServices 已把旧 PricingOverrides 折算进目录，
+        // 设置页 VM 构造（随外壳启动发生）此前用裸 ModelDefinitions 热更新，把旧配置从目录里冲掉——
+        // 用户的旧价格覆盖启动即静默失效。合并口径收敛到 ModelCatalog.MergeUserDefinitions 后，
+        // 装配与热更新必须同源。
+        var settings = new AppSettings();
+        settings.PricingOverrides.Add(new ModelPricingOverride { Model = "glm-5.3-flash", InputPerMillion = 9m, OutputPerMillion = 90m });
+        var catalog = new ModelCatalog(userDefinitions: ModelCatalog.MergeUserDefinitions(settings));
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.ModelRows.Should().Contain(row => row.Id == "glm-5-3-flash", "旧字段条目在目录表里可见");
+        catalog.FindById("glm-5-3-flash")!.IsPriceOverridden.Should().BeTrue("VM 构造后旧价仍是用户覆盖");
+        catalog.UserEntries.Should().Contain(entry => entry.ModelId == "glm-5-3-flash" && entry.InputPerMillion == 9m);
+    }
+
+    [Fact]
+    public void RemoveModelDefinition_AlsoRemovesLegacyOnlyRule()
+    {
+        var settings = new AppSettings();
+        settings.PricingOverrides.Add(new ModelPricingOverride { Model = "my-legacy-model", InputPerMillion = 3m, OutputPerMillion = 4m });
+        var catalog = new ModelCatalog(userDefinitions: ModelCatalog.MergeUserDefinitions(settings));
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.RemoveModelDefinitionCommand.Execute("my-legacy-model");
+
+        settings.PricingOverrides.Should().BeEmpty("纯旧字段条目显式移除时连旧规则一起删（此前该行移除静默无效）");
+        catalog.UserEntries.Should().NotContain(entry => entry.ModelId == "my-legacy-model");
+    }
+
+    [Fact]
+    public void SaveModelDefinition_ClearsShadowedLegacyRule()
+    {
+        var settings = new AppSettings();
+        settings.PricingOverrides.Add(new ModelPricingOverride { Model = "glm-4.6", InputPerMillion = 3m, OutputPerMillion = 30m });
+        var catalog = new ModelCatalog(userDefinitions: ModelCatalog.MergeUserDefinitions(settings));
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.ModelFormId = "glm-4-6";
+        viewModel.ModelFormInput = "1";
+        viewModel.ModelFormOutput = "2";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        settings.PricingOverrides.Should().BeEmpty("新字段接管该 ID 后清掉被遮蔽的旧规则，防止删除新条目时旧价复活");
+        settings.ModelDefinitions.Should().ContainSingle();
+        catalog.FindById("glm-4-6")!.InputPerMillion.Should().Be(1m, "生效价以新字段为准");
+    }
 }

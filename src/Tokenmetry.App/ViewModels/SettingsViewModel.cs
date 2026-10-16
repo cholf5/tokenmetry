@@ -351,9 +351,11 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         _toastService = toastService;
         _query = query;
         // 目录由 DI 以单例注入（与计价引擎 / 查询服务同一实例）；无注入时兜底新建（测试 / 预览）。
+        // 用户层必须走共享合并口径（含旧 PricingOverrides 折算）——只传新字段会把 AppServices
+        // 装配进去的旧配置从目录里冲掉，用户旧价格覆盖启动即静默失效。
         _catalog = catalog ?? new ModelCatalog();
         _catalog.UpdateAliases(settings.ModelAliases);
-        _catalog.UpdateUserDefinitions(settings.ModelDefinitions);
+        _catalog.UpdateUserDefinitions(ModelCatalog.MergeUserDefinitions(settings));
         CacheDbPath = paths.CacheDbPath;
         SettingsFilePath = paths.SettingsFilePath;
         _ccusageCommand = settings.CcusageCommand;
@@ -688,6 +690,13 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         // 同 ID 覆盖（编辑既有条目 = 改写这一条的用户层，导入层数据仍在下面垫着）。
         _settings.ModelDefinitions.RemoveAll(
             existing => string.Equals(ModelId.Normalize(existing.Id), id, StringComparison.OrdinalIgnoreCase));
+
+        // 新字段已接管的 ID，旧字段里被遮蔽的同 ID 规则一并清掉：留着会在用户日后删除新条目时
+        // 把旧价"复活"（重新成为生效规则）。这是用户显式编辑驱动的删除，不违反旧字段只读桥的
+        // 本意（不新增、不迁移，只清已被接管的规则）。
+        _settings.PricingOverrides.RemoveAll(
+            existing => string.Equals(ModelId.Normalize(existing.Model), id, StringComparison.OrdinalIgnoreCase));
+
         _settings.ModelDefinitions.Add(definition);
         ApplyModelSettings();
         ResetModelForm();
@@ -720,7 +729,11 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         ModelFormError = null;
     }
 
-    /// <summary>移除用户层条目（自建条目随之消失；被覆盖的导入条目回落导入层的价与元数据）。</summary>
+    /// <summary>
+    /// 移除条目：新字段条目整条删；纯旧字段（PricingOverrides）条目在目录里同样可见，
+    /// 用户显式移除时连旧字段规则一并删——否则"移除"对该行静默无效。自建条目随之消失；
+    /// 被覆盖的导入条目回落导入层的价与元数据。
+    /// </summary>
     [RelayCommand]
     private void RemoveModelDefinition(string? id)
     {
@@ -732,7 +745,9 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         var normalized = ModelId.Normalize(id);
         var removed = _settings.ModelDefinitions.RemoveAll(
             existing => string.Equals(ModelId.Normalize(existing.Id), normalized, StringComparison.OrdinalIgnoreCase));
-        if (removed == 0)
+        var removedLegacy = _settings.PricingOverrides.RemoveAll(
+            existing => string.Equals(ModelId.Normalize(existing.Model), normalized, StringComparison.OrdinalIgnoreCase));
+        if (removed == 0 && removedLegacy == 0)
         {
             return;
         }
@@ -765,7 +780,8 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
     private void ApplyModelSettings()
     {
         PersistSettings();
-        _catalog.UpdateUserDefinitions(_settings.ModelDefinitions);
+        // 与装配同一份合并口径：旧 PricingOverrides 折算条目在热更新后仍留在目录里。
+        _catalog.UpdateUserDefinitions(ModelCatalog.MergeUserDefinitions(_settings));
         RebuildModelRows();
         TriggerReprice();
     }

@@ -86,6 +86,31 @@ public sealed class ModelCatalog : IModelNameResolver
     /// <summary>内置快照条目（计价第三档，含家族匹配规则）。</summary>
     public IReadOnlyList<ModelPriceEntry> SnapshotEntries => _state.SnapshotEntries;
 
+    /// <summary>
+    /// 设置 → 用户层条目的唯一合并口径（I-038 兼容桥）：新字段 <c>ModelDefinitions</c> 全量收下，
+    /// 旧字段 <c>PricingOverrides</c> 经 <see cref="ModelDefinitionOverride.FromLegacy"/> 折算后并入，
+    /// 新旧同 ID 时以新字段为准（用户已在设置页编辑过这条）。旧字段在 settings.json 里只读不写，
+    /// 合并每次现算、无状态。<b>所有</b>装配与热更新入口（AppServices 装配、设置页 VM 构造与保存）
+    /// 都必须经这里——单独传 <c>ModelDefinitions</c> 会把旧字段折算出的条目从目录里冲掉，
+    /// 用户的旧价格覆盖随之静默失效（I-038 TC-001 在引擎直连层测不到这个缝）。
+    /// </summary>
+    public static IReadOnlyList<ModelDefinitionOverride> MergeUserDefinitions(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        var current = settings.ModelDefinitions.Where(definition => definition is not null).ToList();
+        var legacy = settings.PricingOverrides
+            .Select(ModelDefinitionOverride.FromLegacy)
+            .Where(definition => definition is not null)
+            .Select(definition => definition!)
+            // 新旧同 ID 时以新字段为准（用户已在设置页编辑过这条）。
+            .Where(legacyOverride => current.All(definition => !string.Equals(
+                ModelId.Normalize(definition.Id),
+                ModelId.Normalize(legacyOverride.Id),
+                StringComparison.OrdinalIgnoreCase)));
+        return current.Concat(legacy).ToArray();
+    }
+
     /// <summary>用户条目原始配置（设置页编辑对象的回读；含未生效的无效条目）。</summary>
     public IReadOnlyList<ModelDefinitionOverride> UserOverrides => _userOverrides;
 
