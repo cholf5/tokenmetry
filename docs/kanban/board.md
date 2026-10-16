@@ -9,6 +9,10 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
+| B-007 | 语言切换后图表 tooltip 文案陈旧（Heatmap/DonutChart 缺 CurrentLanguage 重译订阅） | P3 | S | none | none |
+| Q-003 | 图表 tooltip 测试对称补齐（DonutChart chart-tip/紧凑文案零覆盖） | P3 | S | none | none |
+
+> 2026-10-16：**B-006 收口（d268368）后的 code review 建 P3 小卡两张**。B-007：Donut/Heatmap 的 Avalonia 弹层 tooltip 是 build-time 固化字符串且控件未订阅 `CurrentLanguage` 重译信号（切语言后陈旧至下次数据重建；热力图"无数据"固化是 B-006 前旧账一并纳入）；Q-003：DonutChartTests 零 tooltip 断言，共享 helper/样式回归时环形图侧静默绿。均为 S 级独立可收。
 
 > 2026-10-16：**S-004 数据与计价页拆分收口**（用户决策）。S-002 的合并页「数据源与设置」沿"影响数字的口径 vs 应用偏好"拆为「数据与计价」（数据源 / 口径 / 模型目录 / 别名映射）与「设置」（主题 / 语言 / 刷新 / 通知 / 路径）两个页签，侧栏 8→9 项；行为语义零变化，P0 重扫回归锁随迁。pivot 文档 §5 同日追记。
 
