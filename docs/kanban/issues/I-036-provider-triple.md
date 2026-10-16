@@ -20,14 +20,14 @@ blocked: none
 
 - **不设硬门槛**：约 6 类源有真 provider 字段，其余源只能用模型名前缀推导（`openrouter/x`、`ark/glm-...`——`PricingModelMatcher` 本来就在剥这个前缀做 provider 限定匹配）。两种都拿不到就是空串 = **未检测**，界面显示"—"；绝不按模型名猜厂商（那会与"模型身份上的 Vendor"混淆，见 I-035）。强制用户补全才能统计会把"打开就知道花了多少钱"变成"打开先填表"。
 - **两个概念不共用一个词**：行级 Provider = 这次请求由谁服务（本卡）；条目级 Vendor = 这个模型属于哪个厂商（I-035 的 `ModelDefinition.Vendor`）。
-- 主键变更：SQLite 不支持 ALTER 主键，migration 2 建新表 + 搬数据 + 换名（数据可由采集重建，但搬一次比丢一次便宜）；旧行 provider 回填空串，语义正确。
+- 主键变更：SQLite 不支持 ALTER 主键；且 provider 进入主键后旧行与新行永不合并（upsert 冲突键不同），搬数据 = 升级后同源重采集双算。migration 2 整表重建为空、不搬数据——升级后由本地采集首轮全量重建（增量扫描器每轮返回全量记录；发布时库龄尚在上游日志保留期内，数据可重建）。这是迁移纪律"丢弃"分支的一次特赦，此后不得再清（纪律见 `SqliteUsageStore` Migrations 列表旁注释块）。
 - 模型名索引同时被身份解析复用：`ExtractRequestedProvider` 从私有改为公开（I-035 的候选名推导与 I-036 的 provider 推导同源，两处口径必须是一个实现）。
 
 ## Acceptance Criteria
 
 - [x] `UsageRecord.Provider` + `UsageFact.Provider`（空串 = 未检测；CLI 分解行恒空）
 - [x] `UsageFactsMapper` 把 provider 并入 full 粒度分组键（同模型不同 provider 分行），并在记录没有 provider 时由模型名前缀推导
-- [x] migration 2：`usage_facts` 加 provider 列 + 主键改为 (day, grain, agent, model, provider, project)，旧库搬数据不丢
+- [x] migration 2：`usage_facts` 加 provider 列 + 主键改为 (day, grain, agent, model, provider, project)，整表重建为空（不搬数据，升级后采集首轮重建——见 Background）
 - [x] 六个有 provider 观测的源补录：ZCode / Droid / Goose / Hermes / Kilo / OpenClaw
 - [x] 查询侧：模型维度行汇总 provider（唯一值给名字，多值给计数，无观测为 0）；Agent / 项目维度恒不报
 - [x] 模型统计页模型列加服务商副行（无观测时整行不渲染，列高不变）
@@ -52,11 +52,11 @@ Steps: 同一 day / agent / model / project 写两行，provider 分别空串与
 
 Expected: 两行都在，各自成本正确（`Upsert_usage_facts_splits_rows_by_provider`）。
 
-### TC-002: 旧库升级不丢数据
+### TC-002: 旧库升级重建为空、采集可继续写
 
 Steps: 手工建只应用过 migration 1 的库（无 provider 列）+ 一行 full 事实 → `InitializeAsync`。
 
-Expected: 行保留、`CostUsd` 逐位一致、`Provider` 为空串（未检测）；升级后该库仍可按新主键写入新行（`ProviderMigrationUpgradesV1DatabaseAndBackfillsEmptyProvider`）。
+Expected: 旧行不搬（facts 为空——主键换了语义，搬 = 升级后双算）；升级后的表可按新主键写入并读回 provider 维度（`ProviderMigrationRebuildsFactsTableEmptyForRescan`）。
 
 ### TC-003: provider 推导优先级
 
@@ -73,4 +73,5 @@ Expected: 多 provider 行 `Provider=""`、`ProviderCount=2` 且 token 合计不
 ## Dev Log
 
 - 2026-10-15：实施完成。迁移测试断言从"只有 migration 1"改为 `[1, 2]` 并新增 v1 升级用例。
-- 遗留：**模型维度行未按 provider 拆分**（当前是"汇总展示 + facts 已分行"）。拆分需 `session_facts` 同步加 provider 列（会话数 / 关联 Agent 才能按新粒度归属），属查询层后续改动；facts 已具备三元组，届时无需再动 schema。
+- 2026-10-16（审查修正）：migration 2 由"建新表 + 搬数据 + 换名"改为**整表重建为空、不搬数据**（Background 与 TC-002 已同步）。原实现保留旧行（provider 回填空串），但 provider 进入主键后旧行与新行永不合并——升级后首轮采集为六个开始写 provider 的源及一切带前缀模型名生成新行，旧行残留 = 升级前历史在所有聚合里双算。丢弃合法性窗口：发布时库龄尚在上游日志保留期内，可由采集全量重建；此后库即保留期外历史唯一存放处，迁移不得再清（纪律落在本库 Migrations 列表旁注释块）。
+- 遗留：**模型维度行未按 provider 拆分**（当前是"汇总展示 + facts 已分行"）。拆分需 `session_facts` 同步加 provider 列（会话数 / 关联 Agent 才能按新粒度归属），属查询层后续改动；facts 已具备三元组，届时无需再动 schema。届时 provider 不进 session 主键，旧行回填空串（"未检测"，语义诚实）即可，无需清数据。
