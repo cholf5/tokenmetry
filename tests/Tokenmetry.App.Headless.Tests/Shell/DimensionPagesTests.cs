@@ -318,7 +318,7 @@ public class DimensionPagesTests
     {
         var catalog = new AgentCatalogService(stub);
         var panel = new SessionsPanelViewModel(toast, stub, catalog, filters);
-        return new MainWindowViewModel(filters, AppServices.Get<SettingsViewModel>(), panel, stub, catalog, toast,
+        return new MainWindowViewModel(filters, AppServices.Get<SettingsViewModel>(), AppServices.Get<DataPricingViewModel>(), panel, stub, catalog, toast,
             AppServices.Get<Core.Services.PricingEngine>());
     }
 

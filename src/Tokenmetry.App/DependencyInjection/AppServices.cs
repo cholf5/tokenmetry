@@ -177,15 +177,17 @@ public static class AppServices
         // Q-002：DashboardViewModel 为后台采集刷新锚点（无视图挂载，headless VM——定案见其类型注释）；
         // 旧 ReportsViewModel / ModelBreakdownViewModel / TrendSpikeViewModel 随旧视图一并移除。
         services.AddTransient<DashboardViewModel>();
-        // S-002：设置页 VM 仍为单例生命周期（MainWindowViewModel 持有同一实例，外壳 CreatePage 复用，
-        // 主题选中态跨导航保持）；数据源表刷新经 INavigationAware.OnNavigatedTo（重进刷新，定案见卡 Dev Log）。
+        // S-002/S-004：设置页与数据与计价页 VM 均为单例生命周期（MainWindowViewModel 持有同一实例，
+        // 外壳 CreatePage 复用，主题选中态 / 数据源表跨导航保持）；数据与计价页的数据源表刷新经
+        // INavigationAware.OnNavigatedTo（重进刷新，定案见 S-002 卡 Dev Log）。
         services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<DataPricingViewModel>();
         // D-003 右栏最近会话骨架（D-008 接真实数据）
         services.AddTransient<SessionsPanelViewModel>();
 
-        // S-002 审查修复（P0）：后台刷新服务在容器内正常注册——设置页 VM 的嵌套构造注入与顶层
-        // Get<T> 解析到同一实例。此前"late map（RegisterInstance 只拦截顶层 Get<T>，嵌套构造注入
-        // 不经过它）+ 兜底空转实例"的设计使真机重扫命中兜底实例成假成功，两者均已删除（late map
+        // S-002 审查修复（P0）：后台刷新服务在容器内正常注册——设置页 / 数据与计价页 VM 的嵌套
+        // 构造注入与顶层 Get<T> 解析到同一实例。此前"late map（RegisterInstance 只拦截顶层 Get<T>，
+        // 嵌套构造注入不经过它）+ 兜底空转实例"的设计使真机重扫命中兜底实例成假成功，两者均已删除（late map
         // 无其余调用方，兜底实例由 BackgroundRefreshWiring 的"未接线如实失败"语义取代）。
         // 刷新动作经 BackgroundRefreshWiring 执行：dashboard 与外壳 VM 在 App 启动序列就绪后 Attach；
         // headless 测试宿主不执行启动序列，其下未接线重扫得到明确的"扫描失败"而非假成功。

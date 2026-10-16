@@ -415,6 +415,7 @@ public class OverviewBottomTests
         var shell = new MainWindowViewModel(
             new FilterStateService(),
             AppServices.Get<SettingsViewModel>(),
+            AppServices.Get<DataPricingViewModel>(),
             AppServices.Get<SessionsPanelViewModel>(),
             AppServices.Get<IUsageQueryService>(),
             AppServices.Get<AgentCatalogService>(),

@@ -6,7 +6,7 @@ using Tokenmetry.App.Localization;
 
 namespace Tokenmetry.App.ViewModels;
 
-/// <summary>外壳导航的 8 个固定页面（D-003，与原型 .nav data-page 一一对应）。</summary>
+/// <summary>外壳导航的 9 个固定页面（D-003 建立八页结构；S-004 拆出数据与计价页）。</summary>
 public enum PageId
 {
     Overview,
@@ -16,6 +16,7 @@ public enum PageId
     Projects,
     Time,
     Cost,
+    DataPricing,
     Settings,
 }
 
@@ -27,7 +28,7 @@ public enum PageId
 /// （实测：不发则侧栏标签 / 页头标题在语言切换后保持旧语言，导航重建才更新）。
 /// 描述符为 ShellPages.All 进程级单例（应用级生命周期），直订阅语言切换无需退订；
 /// 实例间共享同一 Id，切换时各自 raise 自己的三个文案属性。
-/// PlannedSections 仅占位页渲染（当前 8 页全部有真实 VM，占位路径不可达），保持中文原文不接 i18n。
+/// PlannedSections 仅占位页渲染（当前 9 页全部有真实 VM，占位路径不可达），保持中文原文不接 i18n。
 /// </summary>
 public sealed class PageDescriptor : INotifyPropertyChanged
 {
@@ -60,6 +61,7 @@ public sealed class PageDescriptor : INotifyPropertyChanged
         PageId.Projects => Translations.Instance.NavProjects,
         PageId.Time => Translations.Instance.NavTime,
         PageId.Cost => Translations.Instance.NavCost,
+        PageId.DataPricing => Translations.Instance.NavDataPricing,
         _ => Translations.Instance.NavSettings,
     };
 
@@ -72,6 +74,7 @@ public sealed class PageDescriptor : INotifyPropertyChanged
         PageId.Projects => Translations.Instance.ProjectsTitle,
         PageId.Time => Translations.Instance.TimeTitle,
         PageId.Cost => Translations.Instance.CostTitle,
+        PageId.DataPricing => Translations.Instance.DataPricingTitle,
         _ => Translations.Instance.SettingsTitle,
     };
 
@@ -84,6 +87,7 @@ public sealed class PageDescriptor : INotifyPropertyChanged
         PageId.Projects => Translations.Instance.ProjectsSubtitle,
         PageId.Time => Translations.Instance.TimeSubtitle,
         PageId.Cost => Translations.Instance.CostSubtitle,
+        PageId.DataPricing => Translations.Instance.DataPricingSubtitle,
         _ => Translations.Instance.SettingsSubtitle,
     };
 
@@ -101,7 +105,7 @@ public sealed class PageDescriptor : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
-/// <summary>8 个页面的固定注册表（顺序即导航顺序）。</summary>
+/// <summary>9 个页面的固定注册表（顺序即导航顺序）。</summary>
 public static class ShellPages
 {
     public static IReadOnlyList<PageDescriptor> All { get; } =
@@ -138,6 +142,9 @@ public static class ShellPages
             "D-013",
             ["成本 KPI 行（估算总成本 · 输入 / 输出占比 · 待确认价格）",
              "计费口径说明（实际计费 · 价格表估算 · 未知成本）"]),
+        new(PageId.DataPricing, "⌗",
+            "S-004",
+            []),
         new(PageId.Settings, "⚙",
             "S-002",
             []),

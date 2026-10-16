@@ -15,7 +15,7 @@ using Tokenmetry.Core.Services;
 namespace Tokenmetry.App.ViewModels;
 
 /// <summary>
-/// D-003 应用外壳 VM：持有 8 项导航、当前页面（经路由 DataTemplates 映射到视图）、
+/// D-003 应用外壳 VM：持有 9 项导航、当前页面（经路由 DataTemplates 映射到视图）、
 /// 顶部栏全局筛选（FilterStateService）与数据状态展示。
 /// </summary>
 public partial class MainWindowViewModel : ViewModelBase
@@ -81,7 +81,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ? string.Format(Translations.Instance.LastUpdatedFormat, at.LocalDateTime)
         : Translations.Instance.NotRefreshedYet;
 
-    /// <summary>侧栏 8 项导航（顺序同原型 .nav）。</summary>
+    /// <summary>侧栏 9 项导航（顺序同 ShellPages 注册表）。</summary>
     public IReadOnlyList<NavigationItemViewModel> NavigationItems { get; } = NavigationItemViewModel.CreateDefaults();
 
     /// <summary>全局筛选状态（顶部栏 ComboBox 直接绑定；各页 VM 经 PropertyChanged 订阅）。</summary>
@@ -90,12 +90,17 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>右侧最近会话栏（D-008 真实数据接线：最近会话 Top6 + 会话页级快速筛选状态持有者）。</summary>
     public SessionsPanelViewModel SessionsPanel { get; }
 
-    /// <summary>设置页沿用既有 SettingsViewModel/SettingsView（S-002 才重构为原型版）。</summary>
+    /// <summary>S-004 拆分后两个单例页：设置页（应用偏好）与数据与计价页（数据源/口径/目录/别名），
+    /// MainWindowViewModel 持有同一实例，外壳 CreatePage 复用。</summary>
     public SettingsViewModel Settings { get; }
+
+    /// <summary>数据与计价页 VM（数据源表 / 口径 / 模型目录 / 别名映射），DI 单例同上。</summary>
+    public DataPricingViewModel DataPricing { get; }
 
     public MainWindowViewModel(
         FilterStateService filters,
         SettingsViewModel settings,
+        DataPricingViewModel dataPricing,
         SessionsPanelViewModel sessionsPanel,
         IUsageQueryService usageQuery,
         AgentCatalogService agentCatalog,
@@ -105,6 +110,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         _filters = filters;
         Settings = settings;
+        DataPricing = dataPricing;
         SessionsPanel = sessionsPanel;
         _usageQuery = usageQuery;
         _agentCatalog = agentCatalog;
@@ -160,16 +166,18 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         // 页面 VM 每次导航新建，旧实例先退订全局筛选（实现 IDisposable 的页面 VM 约定，
-        // 见 PagePlaceholderViewModel/OverviewViewModel）；Settings 是 DI 单例，不属于本方法生命周期管理。
+        // 见 PagePlaceholderViewModel/OverviewViewModel）；Settings/DataPricing 是 DI 单例，
+        // 不属于本方法生命周期管理。
         (CurrentPage as IDisposable)?.Dispose();
         CurrentPage = CreatePage(value.Page.Id);
-        // S-002：单例页（设置页）重进刷新钩子——新页面就位后通知导航进入，数据源表按最新扫描快照重建。
+        // S-002：单例页重进刷新钩子——新页面就位后通知导航进入，数据与计价页的数据源表按最新扫描快照重建。
         (CurrentPage as INavigationAware)?.OnNavigatedTo();
     }
 
     private ViewModelBase CreatePage(PageId id) => id switch
     {
         PageId.Settings => Settings,
+        PageId.DataPricing => DataPricing,
         // D-006/D-007：总览为真实页（KPI + 趋势 + Agent 环形 + 模型/项目/构成/成本趋势），
         // 随全局筛选刷新；GoToPage 经构造回调注入（「查看详情 ↗」跳模型/项目页），
         // 页面 VM 不反向引用本类型（Action<PageId> 单向注入，见 D-007 Dev Log 选型）。
@@ -237,7 +245,7 @@ public partial class MainWindowViewModel : ViewModelBase
         GoToPage(PageId.Sessions);
     }
 
-    /// <summary>顶部栏设置入口：导航到数据源与设置页。</summary>
+    /// <summary>顶部栏设置入口：导航到设置页（应用偏好；数据源与计价在数据与计价页）。</summary>
     [RelayCommand]
     private void OpenSettings()
     {
@@ -253,7 +261,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>
     /// 顶栏手动刷新（⟳ 按钮）：经容器内同一 <see cref="BackgroundRefreshService"/> 单飞槽触发一轮
-    /// 采集刷新——与定时器 / 托盘「立即刷新」/ 设置页重扫同一合并语义（在跑的轮次直接并入等待，
+    /// 采集刷新——与定时器 / 托盘「立即刷新」/ 数据与计价页重扫同一合并语义（在跑的轮次直接并入等待，
     /// 不重复扫描）。触发即回写顶栏"正在扫描本地数据…"（状态灯绿），轮次结束的状态回写由
     /// BackgroundRefreshWiring 统一完成（NoteDataRefreshed / NoteDataSourceStatus / 页面重查），
     /// 本命令不重复维护终态。未接线（测试构造未注入刷新服务）时如实 no-op。
@@ -363,7 +371,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// 不重查则扫描入库后可见页面停留在旧数据（手动刷新按钮的可见效果依赖本回调）。
     /// 由接线层线程池线程调用，内部 marshal 到 UI 线程（页面 VM 按 UI 线程亲和设计）。
     /// 重查经各页 <see cref="IDataRefreshAware.OnDataRefreshedAsync"/>（LoadAsync 序号防护保证
-    /// 并发安全）；设置页不实现该接口（数据源表由重扫路径与 OnNavigatedTo 重建）。
+    /// 并发安全）；数据与计价页不实现该接口（数据源表由重扫路径与 OnNavigatedTo 重建）。
     /// </summary>
     public void RefreshCurrentPageData()
     {
