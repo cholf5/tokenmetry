@@ -344,9 +344,46 @@ public class LocalIngestionDataSourceTests : IDisposable
         await act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task GetDailyUsage_RunsPipeline_OffTheCallerSynchronizationContext()
+    {
+        // 首启冻结回归锁（线程防护见 GetDailyUsageAsync 入口注释）：调用线程挂着同步上下文
+        // （真实应用里是 UI 线程的 AvaloniaSynchronizationContext）发起采集时，管道体必须先经
+        // Task.Run 移出调用线程——否则 19 源扫描从同步前缀起就内联在调用线程上，续体逐段排回
+        // 调用方上下文，首启全量扫描把 UI 线程冻到扫描结束。观测点用 Claude 桩（管道第一个源，
+        // 其入口必然落在同步前缀内），记录实际执行线程与当时的同步上下文。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+
+        var callerThread = Environment.CurrentManagedThreadId;
+        var started = new TaskCompletionSource<(int ThreadId, SynchronizationContext? Context)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var source = CreateSource(
+            store, claudeRoot, codexHome,
+            claudeAdapter: new RecordingClaudeAdapter(started));
+
+        var originalContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
+        Task<List<DailyUsageSummary>> task;
+        try
+        {
+            task = source.GetDailyUsageAsync();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(originalContext);
+        }
+
+        var observed = await started.Task;
+        await task;
+
+        observed.ThreadId.Should().NotBe(callerThread, "管道体必须经 Task.Run 移出调用线程执行");
+        observed.Context.Should().BeNull("线程池上没有同步上下文；观察到调用线程的上下文即管道内联在调用方执行");
+    }
+
     // ---- helpers ----
 
-    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null, string? dshHome = null, IZCodeSqliteAdapter? zcodeAdapter = null)
+    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null, string? dshHome = null, IZCodeSqliteAdapter? zcodeAdapter = null, IClaudeCodeJsonlAdapter? claudeAdapter = null)
     {
         pricingEngine ??= new PricingEngine(overrides: new[]
         {
@@ -355,7 +392,7 @@ public class LocalIngestionDataSourceTests : IDisposable
         });
 
         return new LocalIngestionDataSource(
-            new ClaudeCodeJsonlAdapter(configuredRoot: claudeRoot),
+            claudeAdapter ?? new ClaudeCodeJsonlAdapter(configuredRoot: claudeRoot),
             new CodexJsonlAdapter(configuredHome: codexHome),
             zcodeAdapter ?? new ZCodeSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "zcode-missing")),
             new DshSessionAdapter(configuredHome: dshHome ?? Path.Combine(Path.GetDirectoryName(claudeRoot)!, "dsh-missing")),
@@ -509,5 +546,23 @@ public class LocalIngestionDataSourceTests : IDisposable
 
         private static (string, string, string, string, string) Key(UsageFact fact)
             => (fact.Day, fact.Grain, fact.Agent, fact.Model, fact.Project);
+    }
+
+    /// <summary>记录管道执行线程与同步上下文的 Claude 桩（管道第一个源，入口必然落在
+    /// GetDailyUsageAsync 的同步前缀内——正是旧实现内联执行调用线程的位置）。</summary>
+    private sealed class RecordingClaudeAdapter : IClaudeCodeJsonlAdapter
+    {
+        private readonly TaskCompletionSource<(int ThreadId, SynchronizationContext? Context)> _started;
+
+        public RecordingClaudeAdapter(TaskCompletionSource<(int ThreadId, SynchronizationContext? Context)> started)
+        {
+            _started = started;
+        }
+
+        public Task<ClaudeCodeScanResult> ScanAsync(CancellationToken ct = default)
+        {
+            _started.TrySetResult((Environment.CurrentManagedThreadId, SynchronizationContext.Current));
+            return Task.FromResult(new ClaudeCodeScanResult { Diagnostics = { Status = JsonlScanStatus.NoData } });
+        }
     }
 }

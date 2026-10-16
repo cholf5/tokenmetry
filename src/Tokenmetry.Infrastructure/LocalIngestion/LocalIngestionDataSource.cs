@@ -163,7 +163,17 @@ public class LocalIngestionDataSource : IUsageDataSource
         }
     }
 
-    public async Task<List<DailyUsageSummary>> GetDailyUsageAsync(CancellationToken ct = default)
+    public Task<List<DailyUsageSummary>> GetDailyUsageAsync(CancellationToken ct = default) =>
+        Task.Run(() => GetDailyUsageCoreAsync(ct));
+
+    /// <summary>
+    /// 管道主体。公共入口经 <c>Task.Run</c> 整体移到线程池（线程模型同
+    /// <see cref="Tokenmetry.Core.Services.CacheService"/> 的公共入口约定：调用方可能在 UI 线程，
+    /// 而 <c>Microsoft.Data.Sqlite</c> 的 *Async API 同步完成、JSONL 读取多为缓冲同步完成——不隔离
+    /// 的话整条 19 源管道的续体会逐段排回调用方上下文，首启全量扫描曾在 UI 线程上内联执行
+    /// （DashboardViewModel 构造初始化触发），把窗口冻住到扫描结束）。
+    /// </summary>
+    private async Task<List<DailyUsageSummary>> GetDailyUsageCoreAsync(CancellationToken ct)
     {
         await _ingestionGate.WaitAsync(ct);
         try
