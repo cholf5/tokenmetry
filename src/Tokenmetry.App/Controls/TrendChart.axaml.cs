@@ -162,8 +162,7 @@ public partial class TrendChart : UserControl
         _crosshair.MarkerSize = 10;
 
         _tooltip = plot.Add.Tooltip(0, 0, string.Empty, 0, 0);
-        _tooltip.IsVisible = false;
-        _tooltip.LabelPadding = 6;
+        ApplyTooltipChrome(_tooltip);
 
         EmptyState.IsVisible = _hoverLabels.Length == 0;
         PlotControl.Refresh();
@@ -209,6 +208,25 @@ public partial class TrendChart : UserControl
         }
 
         plot.Axes.Margins(left: 0.02, right: 0.02, bottom: 0.03, top: 0.1);
+    }
+
+    /// <summary>
+    /// 悬停 tooltip（ScottPlot Tooltip plottable）令牌化气泡（B-006）：库默认为"透明气泡底 +
+    /// 黑字黑框"（FillStyle/LabelStyle 全默认色），深色卡片上整体隐形、浅色下也是无底色的黑骨架，
+    /// 观感同"没有样式"。统一改为 chip 底色 + 卡片描边 + 正文文字色，按 ActualThemeVariant 现取
+    /// （与 <see cref="ApplyChartChrome"/> 同模式，ScottPlot 不吃 DynamicResource，主题翻转经整图重建换色；
+    /// 可视化双份悬浮提示——Avalonia ToolTip 一侧的 token 配色在同源令牌上，见 SharedStyles 的 chart-tip）。
+    /// 注意 Tooltip.Padding 兼作气泡圆角半径（px），与 LabelPadding 叠加成文字与气泡边的内距。
+    /// </summary>
+    private void ApplyTooltipChrome(Tooltip tooltip)
+    {
+        tooltip.IsVisible = false;
+        tooltip.LabelPadding = 6;
+        tooltip.Padding = 6; // 圆角半径对齐 Avalonia ToolTip（chart-tip 类）的 CornerRadius 6
+        tooltip.FillColor = TokenColor("AppChipBackgroundBrush", new Color(27, 44, 68)); // #1b2c44（原型 .chip 底）
+        tooltip.LineColor = TokenColor("AppCardLineBrush", new Color(34, 50, 74)); // #22324a（.kpi/.panel 描边）
+        tooltip.LabelStyle.ForeColor = TokenColor("AppTextBrush", new Color(232, 238, 249)); // #e8eef9（:root text）
+        tooltip.LabelStyle.FontSize = 12f;
     }
 
     /// <summary>从 Tokens.axaml 现取画刷颜色（普通资源不随明暗翻转，主题翻转资源按变体命中）。</summary>
@@ -549,7 +567,7 @@ public partial class TrendChart : UserControl
 
         _hoverCoords = xs.Select((x, i) => new Coordinates(x, ys[i])).ToArray();
         _hoverLabels = hours.Select(h =>
-            $"{h.Hour:00}:00\n{FormatTokens(h.TotalTokens)} tok\n{h.SessionCount:N0} sessions").ToArray();
+            $"{h.Hour:00}:00\n{FormatCompactTooltipValue(h.TotalTokens)} tok\n{h.SessionCount:N0} sessions").ToArray();
 
         plot.Axes.SetLimitsX(-0.5, 23.5);
         StyleTokenAxisFormatter(plot.Axes.Left, compact: true);
@@ -703,7 +721,8 @@ public partial class TrendChart : UserControl
 
     /// <summary>
     /// 日形态 tooltip 文本（ScottPlot 内渲染，保持 ASCII 避免 CJK 字形缺失；中文说明走事件/状态行）。
-    /// 成本行按 <see cref="AggregatedCost"/> 四态区分（审查 P1-1，契约"不要只读 KnownCostUsd"）：
+    /// token 数为紧凑短单位（B-006 问题 3：千分位全量 5-9 位数字在悬浮气泡里不可读），成本行按
+    /// <see cref="AggregatedCost"/> 四态区分（审查 P1-1，契约"不要只读 KnownCostUsd"）：
     /// (x,*) 已知成本（+ 下限标记）；(null,true) 全未知 → "cost unknown"；(null,false) 无成本数据 → 不显示成本行。
     /// </summary>
     public static string DailyTooltipText(DailyUsagePoint p)
@@ -716,9 +735,9 @@ public partial class TrendChart : UserControl
         var lines = new List<string>
         {
             p.Day,
-            $"in  {FormatTokens(p.InputTokens)}",
-            $"out {FormatTokens(p.OutputTokens)}",
-            $"tot {FormatTokens(p.TotalTokens)} tok",
+            $"in  {FormatCompactTooltipValue(p.InputTokens)}",
+            $"out {FormatCompactTooltipValue(p.OutputTokens)}",
+            $"tot {FormatCompactTooltipValue(p.TotalTokens)} tok",
         };
 
         if (p.Cost.KnownCostUsd is { } known)
@@ -745,8 +764,14 @@ public partial class TrendChart : UserControl
             ? $"{p.Day}\ncost unknown"
             : $"{p.Day}\nno cost data";
 
-    /// <summary>token 千分位（对账口径）；ScottPlot 轴刻度/tooltip 共用。</summary>
-    public static string FormatTokens(long tokens) => tokens.ToString("N0", CultureInfo.InvariantCulture);
+    /// <summary>
+    /// 图内 tooltip 的 token 数：紧凑短单位（K/M/B/T/Q，FormatCompact tickPrecision=false 全精度档），
+    /// 与轴刻度 <see cref="FormatCompactAxisValue"/> 同制（同一处软件约束的两份精度档）。
+    /// ScottPlot 内渲染无 CJK 字形，中文 UI 也恒为 ASCII 单位；Avalonia 弹层（环形图/热力图 tooltips）
+    /// 的 token 数走 <see cref="FormatCompactTokens"/>——随 UI 语言给万/亿口径、并复用同一进位算法。
+    /// 成本行保持 <see cref="FormatCostUsd"/> 两位小数（对账口径）；千分位全量数值只在明细/导出口径出现。
+    /// </summary>
+    public static string FormatCompactTooltipValue(double tokens) => FormatCompact(tokens, EnglishUnits, tickPrecision: false);
 
     /// <summary>
     /// 成本两位小数 USD（对账口径）。HasUnknownCost=true 时以 "+" 结尾表示"已知成本下限，实际更高"；

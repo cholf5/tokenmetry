@@ -319,7 +319,7 @@ public class TimeCostPagesTests
         Assert.True(cells[2].HasData);
         Assert.Equal(1200, cells[2].Value);
 
-        Assert.Equal("2026-03-10 · 6,750 tok", Heatmap.BuildCellTooltip(cells[0]));
+        Assert.Equal("2026-03-10 · 6750 tok", Heatmap.BuildCellTooltip(cells[0])); // B-006 为 token 数改紧凑单位口径
         Assert.Equal("2026-03-11 · 无数据", Heatmap.BuildCellTooltip(cells[1]));
     }
 

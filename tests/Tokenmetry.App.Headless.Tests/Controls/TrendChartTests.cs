@@ -22,11 +22,12 @@ namespace Tokenmetry.App.Headless.Tests.Controls;
 /// <summary>
 /// D-004 TrendChart 的 headless 验证：
 /// 1. 三形态渲染出图（系列色像素存在）+ 明暗两套；
-/// 2. hover helper：裁剪翻转纯函数四象限、悬停事件与 tooltip 文案（token 千分位 / 成本四态口径）、
+/// 2. hover helper：裁剪翻转纯函数四象限、悬停事件与 tooltip 文案（token 紧凑单位 / 成本对账四态口径）、
 ///    补零日文案辨识、成本形态断线；
 /// 3. 明暗切换触发整图重建（轴文字色随令牌变化）；
 /// 4. 空数据诚实空态（空集与全补零窗口，环境无关）；
-/// 5. I-028 真实日序列联调冒烟（不依赖本机 facts 是否有数据）。
+/// 5. I-028 真实日序列联调冒烟（不依赖本机 facts 是否有数据）；
+/// 6. B-006 tooltip 气泡令牌化（chip 底 / 卡片描边 / 文字色随明暗变体现取）。
 /// </summary>
 public class TrendChartTests
 {
@@ -156,7 +157,7 @@ public class TrendChartTests
     // ── hover helper：悬停管线（事件 + tooltip 文案口径）──
 
     [AvaloniaFact]
-    public void Hover_on_real_day_fires_event_with_reconciliation_formatted_text()
+    public void Hover_on_real_day_fires_event_with_compact_tokens_and_reconciled_cost()
     {
         var points = ChartTestHelpers.DailyPoints30();
         var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
@@ -171,8 +172,12 @@ public class TrendChartTests
 
         Assert.NotNull(received);
         Assert.True(received!.IsActive);
-        Assert.Contains("tot " + real.TotalTokens.ToString("N0", CultureInfo.InvariantCulture) + " tok", received.LabelText);
-        Assert.Contains("in  " + real.InputTokens.ToString("N0", CultureInfo.InvariantCulture), received.LabelText);
+        // token 数紧凑短单位（B-006 问题 3）：fixture 首个真实日 402,000/154,000/556,000 → 402K/154K/556K
+        Assert.Contains("tot 556K tok", received.LabelText);
+        Assert.Contains("in  402K", received.LabelText);
+        Assert.Contains("out 154K", received.LabelText);
+        Assert.DoesNotContain("556,000", received.LabelText); // 不再千分位全量——气泡内 5-9 位数字不可读
+        // 成本行保持对账口径（两位小数 USD）
         Assert.Contains($"${real.Cost.KnownCostUsd!.Value.ToString("F2", CultureInfo.InvariantCulture)}", received.LabelText);
         Assert.False(received.LabelText!.Contains('+'), "非未知成本日不应带 '+' 下限标记");
 
@@ -268,6 +273,66 @@ public class TrendChartTests
         var lightTickColor = chart.Plot.Axes.Bottom.TickLabelStyle.ForeColor;
         Assert.Equal(Color.Parse("#66788f"), ToAvalonia(lightTickColor)); // Light AppMutedTextBrush
         Assert.NotEqual(darkTickColor, lightTickColor);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    // ── B-006 tooltip 气泡令牌化：chip 底 / 卡片描边 / 文字色随明暗变体现取（整图重建替新实例）──
+
+    [AvaloniaFact]
+    public void Tooltip_bubble_colors_follow_theme_tokens()
+    {
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = ChartTestHelpers.DailyPoints30() };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var darkTooltip = chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Tooltip>().Single();
+        Assert.Equal(Color.Parse("#1b2c44"), ToAvalonia(darkTooltip.FillColor)); // Dark AppChipBackgroundBrush
+        Assert.Equal(Color.Parse("#22324a"), ToAvalonia(darkTooltip.LineColor)); // Dark AppCardLineBrush
+        Assert.Equal(Color.Parse("#e8eef9"), ToAvalonia(darkTooltip.LabelStyle.ForeColor)); // Dark AppTextBrush
+        Assert.Equal(12f, darkTooltip.LabelStyle.FontSize);
+
+        window.RequestedThemeVariant = ThemeVariant.Light;
+        Dispatcher.UIThread.RunJobs();
+
+        var lightTooltip = chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Tooltip>().Single();
+        Assert.Equal(Color.Parse("#e3ecfb"), ToAvalonia(lightTooltip.FillColor)); // Light AppChipBackgroundBrush
+        Assert.Equal(Color.Parse("#d8e0eb"), ToAvalonia(lightTooltip.LineColor)); // Light AppCardLineBrush
+        Assert.Equal(Color.Parse("#1c2735"), ToAvalonia(lightTooltip.LabelStyle.ForeColor)); // Light AppTextBrush
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Hover_renders_themed_bubble_pixels_and_archives()
+    {
+        // 像素级回归锁（视觉问题只断 style 属性不够）：库默认透明气泡在深色卡上整块隐形——
+        // 修复后 chip 底（#1b2c44）必须以精确色值出现在合成帧（卡片 #121e31/#101a2b、
+        // 网格 #23344b 与它都不可在该容差位混淆），且有近白文字像素；移开后气泡像素应消失。
+        var points = ChartTestHelpers.DailyPoints30();
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        var before = ChartTestHelpers.RenderFrame(window);
+        Assert.False(ChartTestHelpers.FrameContainsColor(before, Color.Parse("#1b2c44"), tolerance: 1),
+            "未悬停时不应有气泡底色像素");
+
+        var real = ChartTestHelpers.FirstRealPoint(points);
+        chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(real.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
+        var frame = ChartTestHelpers.RenderFrame(window);
+
+        var bubble = Color.Parse("#1b2c44"); // chip 底 = Dark AppChipBackgroundBrush（与卡片/网格不可容差重合）
+        Assert.True(ChartTestHelpers.FrameContainsColor(frame, bubble, tolerance: 1), "悬停帧缺少精确气泡底色像素");
+        // 文字为 12px 抗锯齿字形，实色核可能被混色，用近白宽容差
+        Assert.True(ChartTestHelpers.FrameContainsColor(frame, Color.Parse("#e8eef9"), tolerance: 28), "悬停帧缺少气泡文字像素");
+        ChartTestHelpers.SaveArchive(frame, ArchiveDir, "trendchart-hover-dark.png");
+
+        // 远离数据 → HideHover → 气泡像素消失（状态收尾）
+        var firstDay = DateTime.Parse(points[0].Day, CultureInfo.InvariantCulture).ToOADate();
+        chart.ShowHoverAt(new ScottPlot.Coordinates(firstDay - 3650, 0));
+        var after = ChartTestHelpers.RenderFrame(window);
+        Assert.False(ChartTestHelpers.FrameContainsColor(after, bubble, tolerance: 1), "移开后气泡底色像素应消失");
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -454,9 +519,12 @@ public class TrendChartTests
             Cost = cost,
         };
 
-        // (x, false) 已知成本：$x.xx，无 "+"、无 unknown 文案
+        // (x, false) 已知成本：$x.xx，无 "+"、无 unknown 文案；token 数为紧凑短单位（B-006 问题 3）
         var known = TrendChart.DailyTooltipText(Point(new AggregatedCost(12.5m, hasUnknownCost: false)));
         Assert.Contains("$12.50", known);
+        Assert.Contains("in  1.23K", known);
+        Assert.Contains("out 567", known);
+        Assert.Contains("tot 1.8K tok", known);
         Assert.DoesNotContain("+", known);
         Assert.DoesNotContain("cost unknown", known);
 
@@ -668,12 +736,21 @@ public class TrendChartTests
 
     // ── 格式化口径（对账一致）──
 
+    // ── 紧凑口径：图内 tooltip 的 token 数（恒 ASCII 短单位，与轴刻度同制、语言无关）──
+
     [AvaloniaTheory]
     [InlineData(0, "0")]
-    [InlineData(1_234_567, "1,234,567")]
-    [InlineData(-42, "-42")]
-    public void FormatTokens_uses_thousands_separator(long tokens, string expected) =>
-        Assert.Equal(expected, TrendChart.FormatTokens(tokens));
+    [InlineData(42, "42")]
+    [InlineData(1_234, "1.23K")]
+    [InlineData(1_500, "1.5K")]
+    [InlineData(402_000, "402K")]
+    [InlineData(1_234_567, "1.23M")]
+    [InlineData(999_999_999, "1B")]   // 尾数取整越档（"1000M"）升入上一档
+    [InlineData(1_261_301_001, "1.26B")]
+    [InlineData(2_500_000_000_000, "2.5T")]
+    [InlineData(1e15, "1Q")]
+    public void FormatCompactTooltipValue_uses_ascii_short_units(double value, string expected) =>
+        Assert.Equal(expected, TrendChart.FormatCompactTooltipValue(value));
 
     // ── 紧凑数值单位制（调用时点按 UI 语言取制；单例语言每用例保存恢复，同 TranslationsTests 约定）──
 

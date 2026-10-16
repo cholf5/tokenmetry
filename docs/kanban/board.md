@@ -22,6 +22,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| B-006 | 图表 hover tooltip 三缺陷（透明无样式气泡 / 配色不随主题 / token 数紧凑单位） | P1 | 2026-10-16 |
 | S-004 | 数据与计价页拆分（数据源/口径/目录/别名 ↔ 应用偏好分离，侧栏 8→9 项） | P2 | 2026-10-16 |
 | I-035 | 模型目录（ModelId 单一身份）+ 计价接线 | P1 | 2026-10-15 |
 | I-036 | provider 三元组（agent × model × provider）落库与查询 | P1 | 2026-10-15 |

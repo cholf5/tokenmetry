@@ -243,7 +243,8 @@ public partial class DonutChart : UserControl
                 // 段间无缝拼接（原型 stroke-dasharray 相邻段无缝）
                 Stroke = null,
             };
-            ToolTip.SetTip(path, $"{segments[i].Name}: {segments[i].Value.ToString("N0", CultureInfo.InvariantCulture)} tok");
+            // 图表悬浮提示（B-006）：chart-tip 类装饰（App 令牌配色）+ token 紧凑单位（随 UI 语言万/亿或 K/M）
+            ChartTooltips.Set(path, $"{segments[i].Name}: {TrendChart.FormatCompactTokens(segments[i].Value)} tok");
             ArcCanvas.Children.Add(path);
 
             var percent = total > 0 ? segments[i].Value / total * 100 : 0;
