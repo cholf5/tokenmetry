@@ -428,4 +428,19 @@
         <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
     </Style>
 
+    <!-- 图表悬浮提示（B-006）：DonutChart/Heatmap 的 ToolTip 统一挂 chart-tip 类（ChartTooltips.Set）。
+         Semi 12.1 默认 ToolTip 配色错配且不随本应用令牌（Light 浅底白字 / Dark 深底黑字，均不可读），
+         这里换成本应用令牌：chip 底 + 卡片描边 + 正文文字色；圆角 6 / 内距 10,7 / 字号 12 与
+         TrendChart 的 ScottPlot 气泡（ApplyTooltipChrome，令牌相同）在两套悬浮面上观感一致。
+         边距/圆角/字号跟随原型弹层语汇，配色必须用令牌（DynamicResource 随明暗翻转）。 -->
+    <Style Selector="ToolTip.chart-tip">
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="10,7"/>
+        <Setter Property="FontSize" Value="12"/>
+    </Style>
+
 </Styles>

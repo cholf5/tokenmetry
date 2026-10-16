@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Globalization;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -160,7 +159,8 @@ public partial class Heatmap : UserControl
                 Margin = new Thickness(CellGap / 2),
                 VerticalAlignment = VerticalAlignment.Stretch,
             };
-            ToolTip.SetTip(border, BuildCellTooltip(cell));
+            // 图表悬浮提示（B-006）：chart-tip 类装饰（App 令牌配色）；文案见 BuildCellTooltip
+            ChartTooltips.Set(border, BuildCellTooltip(cell));
             CellsGrid.Children.Add(border);
         }
     }
@@ -177,9 +177,9 @@ public partial class Heatmap : UserControl
         return new SolidColorBrush(IntensityColor(seriesColor, ratio));
     }
 
-    /// <summary>悬停 tooltip：当日数值（token 千分位口径）或"无数据"。</summary>
+    /// <summary>悬停 tooltip：当日数值（token 紧凑单位，随 UI 语言的万/亿或 K/M 口径）或"无数据"。</summary>
     public static string BuildCellTooltip(HeatmapCell cell) => cell.HasData
-        ? $"{cell.Label} · {cell.Value.ToString("N0", CultureInfo.InvariantCulture)} tok"
+        ? $"{cell.Label} · {TrendChart.FormatCompactTokens(cell.Value)} tok"
         : string.Format(Translations.Instance.HeatmapNoDataTooltip, cell.Label);
 
     /// <summary>强度色基准 = AppSeries0Color（原型 rgba(76,141,255,α) 即 #4c8dff；普通资源不随明暗翻转）。</summary>

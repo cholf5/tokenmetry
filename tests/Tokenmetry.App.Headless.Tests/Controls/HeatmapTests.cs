@@ -18,9 +18,10 @@ namespace Tokenmetry.App.Headless.Tests.Controls;
 /// D-005 Heatmap 的 headless 验证（TC-002 热力图悬停）：
 /// 1. 强度色纯函数：alpha 单调、色相保持、端点等于原型 0.12/0.9；
 /// 2. 格子数 = 数据条数、列数/行高可配；
-/// 3. 悬停 tooltip：有数据日 token 千分位数值、补零日"无数据"；
-/// 4. 空数据占位；
-/// 5. 明暗两套渲染 + 截图留档。
+/// 3. 悬停 tooltip：有数据日 token 紧凑单位数值（随 UI 语言）、补零日"无数据"（B-006 同步换口径）；
+/// 4. tooltip 统一挂 chart-tip 类（App 令牌配色，Semi 默认配色断层不进图表）；
+/// 5. 空数据占位；
+/// 6. 明暗两套渲染 + 截图留档。
 /// </summary>
 public class HeatmapTests
 {
@@ -131,13 +132,45 @@ public class HeatmapTests
         var borders = CellBorders(heatmap);
         Assert.All(borders, b => Assert.NotNull(ToolTip.GetTip(b)));
 
-        // 有数据格：token 千分位
+        // 有数据格：token 紧凑单位（zh-Hans 测试文化 → 万档；同落 10 根热力柱可读）。
+        // GetTip 返回 chart-tip 装饰的 ToolTip 实例，文案在 Content 里。
         var withValue = borders[0];
-        Assert.Contains("100,000 tok", (string)ToolTip.GetTip(withValue)!);
+        var withValueTip = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(withValue));
+        Assert.Contains("10万 tok", (string)withValueTip.Content!);
+        Assert.DoesNotContain("100,000", (string)withValueTip.Content!);
 
         // 补零格（HasData=false）：诚实"无数据"
         var padded = borders[5];
-        Assert.Contains("无数据", (string)ToolTip.GetTip(padded)!);
+        var paddedTip = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(padded));
+        Assert.Contains("无数据", (string)paddedTip.Content!);
+
+        // 悬浮层挂 chart-tip 类（B-006）：显式 ToolTip 实例 + SharedStyles 令牌规则
+        Assert.Contains("chart-tip", withValueTip.Classes);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Chart_tip_class_tokens_apply_on_open()
+    {
+        // chart-tip 类的真实生效（不只挂类）：显示后实例属性 = App 令牌画刷（DynamicResource 同实例）
+        var heatmap = new Heatmap { Cells = Cells35(), Columns = 7 };
+        var window = CreateWindow(heatmap, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var border = CellBorders(heatmap)[0];
+        var tooltip = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(border));
+
+        ToolTip.SetIsOpen(border, true);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(Application.Current!.TryGetResource("AppChipBackgroundBrush", ThemeVariant.Dark, out var chip),
+            "Dark 变体缺少 AppChipBackgroundBrush");
+        Assert.Same(Assert.IsAssignableFrom<ISolidColorBrush>(chip), tooltip.Background);
+        Assert.True(Application.Current!.TryGetResource("AppTextBrush", ThemeVariant.Dark, out var text),
+            "Dark 变体缺少 AppTextBrush");
+        Assert.Same(Assert.IsAssignableFrom<ISolidColorBrush>(text), tooltip.Foreground);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

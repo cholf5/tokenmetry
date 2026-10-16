@@ -70,6 +70,7 @@
 | `agent-chip` / `agent-chip-lg` | Border | （原 D-008 的 `.agenticon` 软色底芯片，I-034 起 logo 化） | `agent-chip` = 16×16 透明行内槽（会话明细 Agent 列，对齐 model-chip）；`agent-chip-lg` = 30×30 圆角 9 中性软底（Agent 统计页 KPI 卡 / 右栏最近会话行）。内容 `Panel{TextBlock 字形, Image.agent-logo}`，品牌经 `AgentChip.Logo` 附加属性翻译成 agent-* 伪类 → `AppAgentLogo*`（见 §8） |
 | `series-dot` | Border | `.modeldot` | 7×7 圆角 3；颜色给 `AppSeries{N}Brush` |
 | `mini` | ProgressBar | `.mini-track`/`.mini-fill` | 4px 高；Value 0-100 直接驱动填充宽度（内置 PART_Track/PART_Indicator） |
+| `chart-tip` | ToolTip | （原型无 tooltip，B-006 补） | 图表悬浮提示统一装饰：chip 底 + 卡片描边 + AppTextBrush 文字、圆角 6 / Padding 10,7 / 字号 12；控件经 `ChartTooltips.Set` 挂类（Donut/Heatmap）。ScottPlot 图内气泡（TrendChart）不适用本类，但走同源令牌（`ApplyTooltipChrome`）与同一文案口径 |
 
 ## 5. 渐变角度换算（CSS → Avalonia）
 
