@@ -892,4 +892,64 @@ public class SettingsViewModelTests
         settings.ModelDefinitions.Should().ContainSingle();
         catalog.FindById("glm-4-6")!.InputPerMillion.Should().Be(1m, "生效价以新字段为准");
     }
+
+    [Fact]
+    public void SaveModelDefinition_WithUnchangedImportedPrice_DoesNotPinPriceOverride()
+    {
+        var settings = new AppSettings();
+        var catalog = new ModelCatalog();
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.EditModelDefinitionCommand.Execute("glm-4-6"); // 表单预填导入层生效价
+        viewModel.ModelFormDisplayName = "改名不改价";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        var saved = settings.ModelDefinitions.Single();
+        saved.InputPerMillion.Should().BeNull("未改动的生效价不落用户覆盖——models.dev 刷新继续更新该价");
+        saved.DisplayName.Should().Be("改名不改价");
+        catalog.FindById("glm-4-6")!.HasPrice.Should().BeTrue("元数据覆盖后价仍由导入层供给");
+        catalog.FindById("glm-4-6")!.IsPriceOverridden.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SaveModelDefinition_WithChangedPrice_PinsPriceOverride()
+    {
+        var settings = new AppSettings();
+        var catalog = new ModelCatalog();
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.EditModelDefinitionCommand.Execute("glm-4-6");
+        viewModel.ModelFormInput = "9";
+        viewModel.ModelFormOutput = "90";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        settings.ModelDefinitions.Single().InputPerMillion.Should().Be(9m, "改动过的价就是用户覆盖");
+        catalog.FindById("glm-4-6")!.IsPriceOverridden.Should().BeTrue();
+    }
+
+    [Fact]
+    public void SaveModelDefinition_EditingUserCreatedModel_KeepsItsPrice()
+    {
+        // 用户自建条目的价格只存在新字段里：编辑元数据时预填的是用户自己的价，
+        // 必须原样保留——若按生效价比较清空，Bind 找不到导入层，重启后价格就丢了。
+        var settings = new AppSettings();
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride
+        {
+            Id = "my-local-model",
+            DisplayName = "本地模型",
+            InputPerMillion = 7m,
+            OutputPerMillion = 70m,
+        });
+        var catalog = new ModelCatalog(userDefinitions: ModelCatalog.MergeUserDefinitions(settings));
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.EditModelDefinitionCommand.Execute("my-local-model");
+        viewModel.ModelFormDisplayName = "本地模型改";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        var saved = settings.ModelDefinitions.Single();
+        saved.InputPerMillion.Should().Be(7m, "自建条目的价必须落盘保留");
+        saved.DisplayName.Should().Be("本地模型改");
+        catalog.FindById("my-local-model")!.HasPrice.Should().BeTrue();
+    }
 }

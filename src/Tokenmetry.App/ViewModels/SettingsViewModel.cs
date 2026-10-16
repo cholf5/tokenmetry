@@ -678,6 +678,23 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         }
 
         ModelFormError = null;
+
+        // 只想改显示名 / 厂商时，预填进表单的生效价不应被"保存"成用户价格覆盖——那会把跟随
+        // models.dev 的价钉死（刷新不再更新）。仅当该 ID 此前没有用户价（表单里的价来自导入层）
+        // 且与生效价一致时，价格留空 = 只覆盖元数据。用户自建条目（价格只存在新字段里，清掉
+        // 重启即丢）与已覆盖条目（预填的是用户自己的价）不在此列，价格照写。
+        var existingUserEntry = _settings.ModelDefinitions.FirstOrDefault(
+            existing => string.Equals(ModelId.Normalize(existing.Id), id, StringComparison.OrdinalIgnoreCase));
+        if (input is { } parsedIn && output is { } parsedOut
+            && existingUserEntry is not { InputPerMillion: not null, OutputPerMillion: not null }
+            && _catalog.FindById(id) is { HasPrice: true } effectivePrice
+            && parsedIn == effectivePrice.InputPerMillion
+            && parsedOut == effectivePrice.OutputPerMillion)
+        {
+            input = null;
+            output = null;
+        }
+
         var definition = new ModelDefinitionOverride
         {
             Id = id,
@@ -824,7 +841,7 @@ public partial class SettingsViewModel : ViewModelBase, INavigationAware
         OnPropertyChanged(nameof(ModelFormTitle));
         if (ModelFormError is not null)
         {
-            // 校验提示是即时文案：语言切换后按当前输入重算（与别名区同一纪律）。
+            // 校验提示是即时文案，不跨语言保留：切换后清空，下次保存按当前输入重新校验。
             ModelFormError = null;
         }
     }
