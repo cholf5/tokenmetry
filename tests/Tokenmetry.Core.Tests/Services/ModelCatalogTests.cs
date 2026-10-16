@@ -295,4 +295,18 @@ public class ModelCatalogTests
         merged.Single(definition => definition.Id == "glm-5-3-flash").InputPerMillion.Should().Be(1m, "新旧同 ID 时以新字段为准");
         merged.Single(definition => definition.Id == "my-legacy-model").InputPerMillion.Should().Be(3m, "旧字段折算并入，不丢老配置");
     }
+
+    [Fact]
+    public void ResolveIdentity_MemoReflectsCatalogUpdatesOnSameInstance()
+    {
+        // 身份解析按原始名 memo（计价热路径）：目录换新（别名 / 用户条目）必须即时穿透缓存。
+        var catalog = new ModelCatalog();
+        catalog.ResolveIdentity("my-raw-name").IsLinked.Should().BeFalse("先解析一次，把结果装进 memo");
+
+        catalog.UpdateAliases(new[] { new KeyValuePair<string, string>("my-raw-name", "glm-4-6") });
+        catalog.ResolveIdentity("my-raw-name").Kind.Should().Be(ModelMatchKind.Alias, "别名更新即时生效（memo 不跨换新存活）");
+
+        catalog.UpdateUserDefinitions(new[] { new ModelDefinitionOverride { Id = "my-own-model" } });
+        catalog.ResolveIdentity("my-own-model").Kind.Should().Be(ModelMatchKind.Exact, "用户条目更新即时生效");
+    }
 }
