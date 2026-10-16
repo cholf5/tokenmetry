@@ -193,7 +193,9 @@ public static class AppServices
         // headless 测试宿主不执行启动序列，其下未接线重扫得到明确的"扫描失败"而非假成功。
         var refreshWiring = new BackgroundRefreshWiring();
         services.AddSingleton(refreshWiring);
-        services.AddSingleton(new BackgroundRefreshService(refreshWiring.RunRefreshAsync, settings.RefreshMinutes));
+        // 间隔下限钳到 1 分钟：settings.json 手改可绕过设置页 1–1440 校验，非正数会让
+        // Timer 构造（dueTime/period ≤0）抛异常崩启动；默认已在 AppSettings 层改为 1 分钟。
+        services.AddSingleton(new BackgroundRefreshService(refreshWiring.RunRefreshAsync, Math.Max(1, settings.RefreshMinutes)));
 
         _provider = services.BuildServiceProvider();
 

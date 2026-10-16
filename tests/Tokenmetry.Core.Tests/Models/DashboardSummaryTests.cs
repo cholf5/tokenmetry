@@ -32,6 +32,6 @@ public class DashboardSummaryTests
     {
         var settings = new AppSettings();
         settings.AnomalyNotificationsEnabled.Should().BeTrue();
-        settings.RefreshMinutes.Should().Be(15);
+        settings.RefreshMinutes.Should().Be(1);
     }
 }

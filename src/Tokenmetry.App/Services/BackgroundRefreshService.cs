@@ -71,7 +71,7 @@ public class BackgroundRefreshService
         public readonly TaskCompletionSource<bool> Done = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    public BackgroundRefreshService(Func<Task<bool>> refreshAction, int refreshMinutes = 15)
+    public BackgroundRefreshService(Func<Task<bool>> refreshAction, int refreshMinutes = 1)
     {
         _refreshAction = refreshAction;
         _refreshMinutes = refreshMinutes;

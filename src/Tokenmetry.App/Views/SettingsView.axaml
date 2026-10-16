@@ -58,7 +58,7 @@
 
                     <StackPanel Spacing="4">
                         <TextBlock Classes="page-subtitle" Text="{Binding LabelRefreshInterval, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="15" Width="220"
+                        <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="1" Width="220"
                                  HorizontalAlignment="Left"/>
                         <!-- 全自动保存的行内校验：非法输入显示提示且不落盘（保留上一个合法值） -->
                         <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
