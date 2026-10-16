@@ -22,7 +22,7 @@ namespace Tokenmetry.App.Headless.Tests.Shell;
 
 /// <summary>
 /// D-003 三栏应用外壳的自动化验证（headless，真实 App.axaml + Semi）：
-/// 1. 三栏结构（顶部栏 / 左侧导航 / 主内容路由 / 右侧最近会话栏）与 8 项导航；
+/// 1. 三栏结构（顶部栏 / 左侧导航 / 主内容路由 / 右侧最近会话栏）与 9 项导航；
 /// 2. 导航切换路由（总览真实页 D-006 / 占位视图 / 设置页真实视图）与选中态；
 /// 3. 全局筛选状态（FilterStateService）变更通知到达订阅页 VM、跨线程写入 marshal 到 UI 线程；
 /// 4. 右栏最近会话 + 快速筛选骨架、顶部栏筛选与数据状态；
@@ -37,6 +37,7 @@ public class AppShellTests
     private static MainWindowViewModel CreateIsolatedShellViewModel() =>
         new(new FilterStateService(),
             AppServices.Get<SettingsViewModel>(),
+            AppServices.Get<DataPricingViewModel>(),
             AppServices.Get<SessionsPanelViewModel>(),
             AppServices.Get<IUsageQueryService>(),
             AppServices.Get<AgentCatalogService>(),
@@ -57,10 +58,11 @@ public class AppShellTests
         // D-008 起右栏另有最近会话 ListBox，外壳导航列表按 nav-list 类精确选取
         var navList = window.GetVisualDescendants().OfType<ListBox>().Single(lb => lb.Classes.Contains("nav-list"));
 
-        // 8 项导航，文案与顺序对齐原型 .nav（总览 / 会话 / Agent / 模型 / 项目 / 时间 / 成本 / 设置）
-        Assert.Equal(8, navList.ItemCount);
+        // 9 项导航（S-004 拆分后），文案与顺序对齐 ShellPages 注册表（总览 / 会话 / Agent / 模型 /
+        // 项目 / 时间 / 成本 / 数据与计价 / 设置）
+        Assert.Equal(9, navList.ItemCount);
         Assert.Equal(
-            new[] { "总览", "会话明细", "Agent 统计", "模型统计", "项目统计", "时间分析", "成本分析", "数据源与设置" },
+            new[] { "总览", "会话明细", "Agent 统计", "模型统计", "项目统计", "时间分析", "成本分析", "数据与计价", "设置" },
             ((MainWindowViewModel)window.DataContext!).NavigationItems.Select(i => i.Page.Label).ToArray());
 
         // 三栏列宽：原型 .shell 184 / * / 276
@@ -116,7 +118,7 @@ public class AppShellTests
         Assert.Equal(PageId.Projects, projects.Page.Id);
         Assert.True(window.GetVisualDescendants().OfType<ProjectsView>().Any());
 
-        // 切到时间分析 / 成本分析（D-012/D-013 真实页，非占位——8 个导航页全部真实化）
+        // 切到时间分析 / 成本分析（D-012/D-013 真实页，非占位——9 个导航页全部真实化）
         vm.SelectedNavigation = vm.NavigationItems[5];
         Dispatcher.UIThread.RunJobs();
         var time = Assert.IsType<TimeViewModel>(vm.CurrentPage);
@@ -129,14 +131,20 @@ public class AppShellTests
         Assert.Equal(PageId.Cost, cost.Page.Id);
         Assert.True(window.GetVisualDescendants().OfType<CostAnalysisView>().Any());
 
-        // 切到数据源与设置：路由到 SettingsView（S-002 原地重构：数据源表 + 口径区 + 设置项迁入）
+        // 切到数据与计价：路由到 DataPricingView（S-004 拆分：数据源表 + 口径区 + 目录 + 别名）
         vm.SelectedNavigation = vm.NavigationItems[7];
+        Dispatcher.UIThread.RunJobs();
+        Assert.Same(vm.DataPricing, vm.CurrentPage);
+        Assert.True(window.GetVisualDescendants().OfType<DataPricingView>().Any());
+        // S-002：单例页重进刷新（INavigationAware.OnNavigatedTo）——数据源表按真实采集注册表重建，
+        // 行数 = 管道注册的 19 个数据源（快照有无随本机扫描而定，行数环境无关）
+        Assert.Equal(19, vm.DataPricing.SourceRows.Count);
+
+        // 切到设置：路由到 SettingsView（S-004 拆分后收缩为应用偏好）
+        vm.SelectedNavigation = vm.NavigationItems[8];
         Dispatcher.UIThread.RunJobs();
         Assert.Same(vm.Settings, vm.CurrentPage);
         Assert.True(window.GetVisualDescendants().OfType<SettingsView>().Any());
-        // S-002：单例页重进刷新（INavigationAware.OnNavigatedTo）——数据源表按真实采集注册表重建，
-        // 行数 = 管道注册的 19 个数据源（快照有无随本机扫描而定，行数环境无关）
-        Assert.Equal(19, vm.Settings.SourceRows.Count);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

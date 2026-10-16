@@ -28,8 +28,8 @@ public class PageDescriptorTests : IDisposable
         {
             Translations.Instance.SetLanguage(AppLanguage.English);
 
-            descriptor.Label.Should().Be("Data & settings");
-            descriptor.Title.Should().Be("Data & settings");
+            descriptor.Label.Should().Be("Settings");
+            descriptor.Title.Should().Be("Settings");
             raised.Should().Contain(nameof(PageDescriptor.Label));
             raised.Should().Contain(nameof(PageDescriptor.Title));
             raised.Should().Contain(nameof(PageDescriptor.Subtitle));
@@ -42,7 +42,7 @@ public class PageDescriptorTests : IDisposable
     }
 
     [Fact]
-    public void ShellPages_AllEightPages_ResolveDistinctLabelsPerLanguage()
+    public void ShellPages_AllNinePages_ResolveDistinctLabelsPerLanguage()
     {
         Translations.Instance.SetLanguage(AppLanguage.English);
 

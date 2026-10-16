@@ -112,6 +112,7 @@ public class ManualRefreshTests
         var shell = new MainWindowViewModel(
             filters,
             AppServices.Get<SettingsViewModel>(),
+            AppServices.Get<DataPricingViewModel>(),
             panel,
             query,
             catalog,

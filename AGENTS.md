@@ -1,6 +1,6 @@
 # AGENTS.md — Tokenmetry
 
-本地优先、托盘常驻的 AI 编程 token/成本监控桌面应用（Avalonia）。产品定位 **Opinionated Usage Stats**：固定信息架构（总览/Agent/模型/项目/会话/时间/成本分析/设置），不做面板平台、插件、布局自定义——立场与理由见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`（改动产品方向前必读）。
+本地优先、托盘常驻的 AI 编程 token/成本监控桌面应用（Avalonia）。产品定位 **Opinionated Usage Stats**：固定信息架构（总览/Agent/模型/项目/会话/时间/成本分析/数据与计价/设置），不做面板平台、插件、布局自定义——立场与理由见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`（改动产品方向前必读）。
 
 ## 常用命令
 

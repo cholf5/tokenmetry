@@ -226,7 +226,7 @@ public class TimeCostPagesTests
         var catalog = new AgentCatalogService(stub);
         var panel = new SessionsPanelViewModel(toast, stub, catalog, filters);
         return new MainWindowViewModel(
-            filters, AppServices.Get<SettingsViewModel>(), panel, stub, catalog, toast, engine);
+            filters, AppServices.Get<SettingsViewModel>(), AppServices.Get<DataPricingViewModel>(), panel, stub, catalog, toast, engine);
     }
 
     /// <summary>最小 toast stub（避免与 DimensionPagesTests 的私有嵌套类型耦合）。</summary>

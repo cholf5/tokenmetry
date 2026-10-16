@@ -107,6 +107,7 @@ public class StartupInitializationTests
         var shell = new MainWindowViewModel(
             filters,
             AppServices.Get<SettingsViewModel>(),
+            AppServices.Get<DataPricingViewModel>(),
             panel,
             stubQuery,
             catalog,

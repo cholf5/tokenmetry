@@ -735,6 +735,7 @@ public class SessionsTests
         var shell = new MainWindowViewModel(
             filters,
             AppServices.Get<SettingsViewModel>(),
+            AppServices.Get<DataPricingViewModel>(),
             new SessionsPanelViewModel(new StubToast(), failStub, catalog, filters),
             failStub,
             catalog,

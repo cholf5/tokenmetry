@@ -34,7 +34,8 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(NavProjects)] = "项目统计",
         [nameof(NavTime)] = "时间分析",
         [nameof(NavCost)] = "成本分析",
-        [nameof(NavSettings)] = "数据源与设置",
+        [nameof(NavDataPricing)] = "数据与计价",
+        [nameof(NavSettings)] = "设置",
         [nameof(OverviewTitle)] = "Token 使用概览",
         [nameof(OverviewSubtitle)] = "统一查看不同 Agent 的使用量、成本与工作负载",
         [nameof(SessionsTitle)] = "会话明细",
@@ -49,8 +50,10 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(TimeSubtitle)] = "识别使用高峰、工作时段分布与长会话",
         [nameof(CostTitle)] = "成本分析",
         [nameof(CostSubtitle)] = "区分真实计费、模型价格估算与无法估价的数据",
-        [nameof(SettingsTitle)] = "数据源与设置",
-        [nameof(SettingsSubtitle)] = "多 Agent 统一统计的关键是来源适配、去重和口径透明",
+        [nameof(DataPricingTitle)] = "数据与计价",
+        [nameof(DataPricingSubtitle)] = "多 Agent 统一统计的关键是来源适配、去重和口径透明",
+        [nameof(SettingsTitle)] = "设置",
+        [nameof(SettingsSubtitle)] = "主题、语言与刷新偏好；改完即生效并自动保存",
 
         // ── 顶部栏（MainWindow.axaml + MainWindowViewModel）──
         [nameof(TopbarTimeRange)] = "时间范围",
@@ -302,7 +305,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(KpiFootTokenShareBasis)] = "按 Token 构成展示 · 成本按方向拆价口径待扩展（缓存单列）",
         [nameof(KpiUnpriced)] = "待确认价格",
         [nameof(KpiFootUnpriced)] = "缺价模型数 · 成本不应默认为零 · 全局口径（自启动累计），不随筛选变化",
-        [nameof(KpiFootUnpricedWhere)] = "在「设置 → 模型目录」里给它定价，或把模型名关联到已有条目",
+        [nameof(KpiFootUnpricedWhere)] = "在「数据与计价 → 模型目录」里给它定价，或把模型名关联到已有条目",
         [nameof(PanelCostBasis)] = "成本计算口径",
         [nameof(ThItem)] = "项目",
         [nameof(ThSuggestedDisplay)] = "建议展示",
@@ -339,7 +342,8 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(NavProjects)] = "Projects",
         [nameof(NavTime)] = "Time",
         [nameof(NavCost)] = "Cost",
-        [nameof(NavSettings)] = "Data & settings",
+        [nameof(NavDataPricing)] = "Data & pricing",
+        [nameof(NavSettings)] = "Settings",
         [nameof(OverviewTitle)] = "Token usage overview",
         [nameof(OverviewSubtitle)] = "Usage, cost and workload across agents, in one place",
         [nameof(SessionsTitle)] = "Session details",
@@ -354,8 +358,10 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(TimeSubtitle)] = "Spot peak hours, working-time distribution and long sessions",
         [nameof(CostTitle)] = "Cost analysis",
         [nameof(CostSubtitle)] = "Separate real billing, price-table estimates and unpriced data",
-        [nameof(SettingsTitle)] = "Data & settings",
-        [nameof(SettingsSubtitle)] = "Source adapters, deduplication and transparent methodology are what make cross-agent stats trustworthy",
+        [nameof(DataPricingTitle)] = "Data & pricing",
+        [nameof(DataPricingSubtitle)] = "Source adapters, deduplication and transparent methodology are what make cross-agent stats trustworthy",
+        [nameof(SettingsTitle)] = "Settings",
+        [nameof(SettingsSubtitle)] = "Theme, language and refresh preferences; every change applies and saves automatically",
 
         [nameof(TopbarTimeRange)] = "Range",
         [nameof(TopbarAgent)] = "Agent",
@@ -564,7 +570,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(KpiFootTokenShareBasis)] = "Shown by token mix · per-direction price split is planned (cache listed separately)",
         [nameof(KpiUnpriced)] = "Unpriced models",
         [nameof(KpiFootUnpriced)] = "Models without prices · cost must not default to zero · global scope (accumulated since startup), does not follow filters",
-        [nameof(KpiFootUnpricedWhere)] = "Set a price in Settings → Model catalog, or link the model name to an existing entry",
+        [nameof(KpiFootUnpricedWhere)] = "Set a price in Data & pricing → Model catalog, or link the model name to an existing entry",
         [nameof(PanelCostBasis)] = "Cost calculation basis",
         [nameof(ThItem)] = "Item",
         [nameof(ThSuggestedDisplay)] = "Suggested display",
@@ -680,6 +686,7 @@ public sealed class Translations : INotifyPropertyChanged
     public string NavProjects => Get();
     public string NavTime => Get();
     public string NavCost => Get();
+    public string NavDataPricing => Get();
     public string NavSettings => Get();
     public string OverviewTitle => Get();
     public string OverviewSubtitle => Get();
@@ -695,6 +702,8 @@ public sealed class Translations : INotifyPropertyChanged
     public string TimeSubtitle => Get();
     public string CostTitle => Get();
     public string CostSubtitle => Get();
+    public string DataPricingTitle => Get();
+    public string DataPricingSubtitle => Get();
     public string SettingsTitle => Get();
     public string SettingsSubtitle => Get();
 

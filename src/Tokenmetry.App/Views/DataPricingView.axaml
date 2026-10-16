@@ -1,0 +1,321 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Tokenmetry.App.ViewModels"
+             xmlns:loc="using:Tokenmetry.App.Localization"
+             xmlns:c="using:Tokenmetry.App.Controls"
+             x:Class="Tokenmetry.App.Views.DataPricingView"
+             x:DataType="vm:DataPricingViewModel">
+
+    <!--
+        S-004 数据与计价页（自 S-002 合并页拆出）：页头 + 已识别的数据源表（真实扫描快照，
+        全局重扫——采集管道不支持 per-source，语义见按钮文案）+ 统计口径说明区（逐项定案，
+        全部说明样式，不做假开关）+ 模型目录卡（价格 / 厂商 / 图标唯一出处）+ 模型聚合卡
+        （用户维护的别名映射，原始名 → 规范名，统计按规范名合并）。
+        条目与规则改完即落盘并热更新（对齐 stupid-dict；重扫操作经 IToastService 反馈，I-027）。
+    -->
+    <ScrollViewer>
+        <StackPanel Spacing="13" Margin="0,0,0,4">
+
+            <!-- 页头（原型 .pagehead） -->
+            <StackPanel Spacing="4">
+                <TextBlock Classes="page-title" Text="{Binding Page.Title}"/>
+                <TextBlock Classes="page-subtitle" Text="{Binding Page.Subtitle}"/>
+            </StackPanel>
+
+            <!-- ═══ 已识别的数据源（widepanel）：行 = 采集扫描注册表快照，无手写清单 ═══ -->
+            <Border Classes="panel">
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                    <!-- panelhead：标题 + meta + 全局重扫（per-source 重扫不支持，语义见按钮文案） -->
+                    <DockPanel Grid.Row="0" LastChildFill="True">
+                        <Button DockPanel.Dock="Right"
+                                Classes="Secondary"
+                                Content="{Binding ScanButtonText}"
+                                Command="{Binding RescanCommand}"
+                                IsEnabled="{Binding !IsScanning}"
+                                VerticalAlignment="Center"/>
+                        <TextBlock DockPanel.Dock="Right"
+                                   Classes="page-subtitle"
+                                   Margin="0,0,12,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding SourceMetaText}"/>
+                        <TextBlock Classes="panel-title" Text="{Binding SourcesPanelTitle, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                    </DockPanel>
+
+                    <!-- 表头（原型 .table：数据源 / 状态 / 最近扫描 / 记录数；per-source 重扫列不设——
+                         采集管道为单信号量串行全源扫描，逐行重扫按钮会是假能力） -->
+                    <Grid Grid.Row="1" ColumnDefinitions="1.6*,1*,0.9*,0.9*" ColumnSpacing="8" Margin="0,0,0,2">
+                        <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThSource, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="table-th" Text="{Binding ThStatus, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="2" Classes="table-th" Text="{Binding ThLastScan, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="3" Classes="table-th" Text="{Binding ThRecords, Source={x:Static loc:Translations.Instance}}" TextAlignment="Right"/>
+                    </Grid>
+
+                    <!-- 数据源行（整表随快照重建；状态着色经 status-* 类条件绑定） -->
+                    <ItemsControl Grid.Row="2" ItemsSource="{Binding SourceRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DataSourceRowViewModel">
+                                <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,9,0,7">
+                                    <Grid ColumnDefinitions="1.6*,1*,0.9*,0.9*" ColumnSpacing="8">
+                                        <!-- 数据源名 + Agent 品牌图标（I-034 补） -->
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                                                    VerticalAlignment="Top">
+                                            <Border Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
+                                                    VerticalAlignment="Center">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Glyph}"/>
+                                                    <Image Classes="agent-logo"/>
+                                                </Panel>
+                                            </Border>
+                                            <TextBlock Classes="table-td" FontWeight="SemiBold"
+                                                       Text="{Binding Agent}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Classes="table-td"
+                                                   Classes.status-ok="{Binding IsOk}"
+                                                   Classes.status-partial="{Binding IsPartial}"
+                                                   Classes.status-nodata="{Binding IsNoData}"
+                                                   Classes.status-error="{Binding IsError}"
+                                                   Classes.status-pending="{Binding IsPending}"
+                                                   Text="{Binding StatusText}"/>
+                                        <TextBlock Grid.Column="2" Classes="table-td"
+                                                   Text="{Binding LastScanText}"/>
+                                        <TextBlock Grid.Column="3" Classes="table-num"
+                                                   Text="{Binding RecordCountText}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+
+            <!-- ═══ 统计口径：逐项定案为说明样式（S-002 Dev Log），不做假开关 ═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="panel-title" Text="{Binding CaliberTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <ItemsControl ItemsSource="{Binding CaliberRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CaliberItem">
+                                <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,9,0,7">
+                                    <Grid ColumnDefinitions="1.6*,1.8*" ColumnSpacing="12">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                            <Border Classes="chip" VerticalAlignment="Top">
+                                                <TextBlock Text="{Binding Badge}"/>
+                                            </Border>
+                                            <TextBlock Classes="table-td" FontWeight="SemiBold"
+                                                       Text="{Binding Text}" TextWrapping="Wrap"
+                                                       VerticalAlignment="Top"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Classes="page-subtitle"
+                                                   Text="{Binding Note}" TextWrapping="Wrap"
+                                                   VerticalAlignment="Top"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ 模型目录（I-035）：价格 / 厂商 / 图标的唯一出处；改完即按新价格重算 ═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="panel-title" Text="{Binding CatalogPanelTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding CatalogPanelHint, Source={x:Static loc:Translations.Instance}}"/>
+
+                    <!-- 表头 -->
+                    <Grid ColumnDefinitions="1.3*,0.8*,0.9*,0.5*,Auto" ColumnSpacing="8" Margin="0,0,0,2">
+                        <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThModelId, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="table-th" Text="{Binding ThModelVendor, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="2" Classes="table-th" Text="{Binding ThModelPrice, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="3" Classes="table-th" Text="{Binding ThModelOrigin, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="4" Classes="table-th" Text="{Binding ThModelActions, Source={x:Static loc:Translations.Instance}}"/>
+                    </Grid>
+
+                    <!-- 条目表（内置 + 在线 + 用户；面板内滚动，避免把页面拉成超长页） -->
+                    <ListBox Classes="data-table" MaxHeight="320" ItemsSource="{Binding ModelRows}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ModelDefinitionRowViewModel">
+                                <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,7,0,5">
+                                    <Grid ColumnDefinitions="1.3*,0.8*,0.9*,0.5*,Auto" ColumnSpacing="8">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                            <Border Classes="model-chip" c:ModelChip.Vendor="{Binding VendorVariant}">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Glyph}"/>
+                                                    <Image Classes="model-logo"/>
+                                                </Panel>
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Classes="table-td" Text="{Binding Id}"
+                                                           ToolTip.Tip="{Binding Label}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Classes="kpi-foot" Text="{Binding Label}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding Vendor}"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <TextBlock Classes="table-td" Text="{Binding PriceText}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <Border Classes="chip" IsVisible="{Binding IsOverridden}">
+                                                <TextBlock Text="{Binding ModelOverriddenBadge, Source={x:Static loc:Translations.Instance}}"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="3" Classes="kpi-foot" Text="{Binding OriginText}"
+                                                   VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <Button Classes="link-btn"
+                                                    Content="{Binding ModelEditButton, Source={x:Static loc:Translations.Instance}}"
+                                                    Command="{Binding $parent[ListBox].DataContext.EditModelDefinitionCommand}"
+                                                    CommandParameter="{Binding Id}"/>
+                                            <Button Classes="link-btn"
+                                                    Content="{Binding ModelRemoveButton, Source={x:Static loc:Translations.Instance}}"
+                                                    Command="{Binding $parent[ListBox].DataContext.RemoveModelDefinitionCommand}"
+                                                    CommandParameter="{Binding Id}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock Classes="page-subtitle"
+                               Text="{Binding CatalogEmpty, Source={x:Static loc:Translations.Instance}}"
+                               IsVisible="{Binding HasNoModelRows}"/>
+
+                    <!-- 新增 / 编辑：ID + 厂商 + 显示名 + 输入 / 输出单价（价格成对可空） -->
+                    <TextBlock Classes="table-th" Text="{Binding ModelFormTitle}"/>
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormIdLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <AutoCompleteBox ItemsSource="{Binding ModelIdCandidates}"
+                                             Text="{Binding ModelFormId, Mode=TwoWay}"
+                                             TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"
+                                             MinimumPrefixLength="0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormVendorLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBox x:Name="ModelFormVendorBox" Text="{Binding ModelFormVendor, Mode=TwoWay}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormDisplayNameLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBox Text="{Binding ModelFormDisplayName, Mode=TwoWay}"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormInputLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBox Text="{Binding ModelFormInput, Mode=TwoWay}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormOutputLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBox Text="{Binding ModelFormOutput, Mode=TwoWay}"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding ModelFormPriceHint, Source={x:Static loc:Translations.Instance}}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button Classes="Secondary"
+                                Content="{Binding ModelFormSave, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding SaveModelDefinitionCommand}"/>
+                        <Button Classes="link-btn"
+                                Content="{Binding ModelFormReset, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding ResetModelFormCommand}"/>
+                        <TextBlock Classes="page-subtitle" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Text="{Binding ModelFormError}"
+                                   Foreground="{DynamicResource AppAccentRedBrush}"
+                                   IsVisible="{Binding ModelFormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ 模型聚合（别名映射）：原始模型名 → 规范名，统计按规范名合并（规则增删即存即热更新）═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="panel-title" Text="{Binding AliasPanelTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding AliasPanelHint, Source={x:Static loc:Translations.Instance}}"/>
+
+                    <!-- 规则列表（整表随增删重建；目标侧附规范名的厂商图标——统计里显示的是规范名） -->
+                    <ItemsControl ItemsSource="{Binding AliasRules}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AliasRuleRowViewModel">
+                                <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,9,0,7">
+                                    <Grid ColumnDefinitions="*,Auto,*,Auto" ColumnSpacing="8">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                            <Border Classes="model-chip" c:ModelChip.Vendor="{Binding Vendor}">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Glyph}"/>
+                                                    <Image Classes="model-logo"/>
+                                                </Panel>
+                                            </Border>
+                                            <TextBlock Classes="table-td" Text="{Binding Alias}"
+                                                       ToolTip.Tip="{Binding Alias}"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Classes="table-td"
+                                                   Foreground="{DynamicResource AppMutedTextBrush}"
+                                                   Text="→" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Classes="table-td" Text="{Binding Target}"
+                                                   ToolTip.Tip="{Binding Target}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <Button Grid.Column="3" Classes="link-btn" VerticalAlignment="Center"
+                                                Content="{Binding AliasRemove, Source={x:Static loc:Translations.Instance}}"
+                                                Command="{Binding $parent[ItemsControl].DataContext.RemoveAliasRuleCommand}"
+                                                CommandParameter="{Binding Alias}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="page-subtitle"
+                               Text="{Binding AliasEmpty, Source={x:Static loc:Translations.Instance}}"
+                               IsVisible="{Binding HasNoAliasRules}"/>
+
+                    <!-- 新增规则：两侧都是「候选下拉 + 自由输入」（AutoCompleteBox） -->
+                    <Grid ColumnDefinitions="*,1.2*" ColumnSpacing="10">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding AliasSourceLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <AutoCompleteBox ItemsSource="{Binding AliasCandidates}"
+                                             Text="{Binding NewAliasSource, Mode=TwoWay}"
+                                             PlaceholderText="{Binding AliasSourcePlaceholder, Source={x:Static loc:Translations.Instance}}"
+                                             TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"
+                                             MinimumPrefixLength="0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Classes="page-subtitle" Text="{Binding AliasTargetLabel, Source={x:Static loc:Translations.Instance}}"/>
+                            <!-- 目标侧候选 = 目录里的模型 ID（关联的目标是模型，不是另一个名字） -->
+                            <AutoCompleteBox ItemsSource="{Binding ModelIdCandidates}"
+                                             Text="{Binding NewAliasTarget, Mode=TwoWay}"
+                                             PlaceholderText="{Binding AliasTargetPlaceholder, Source={x:Static loc:Translations.Instance}}"
+                                             TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"
+                                             MinimumPrefixLength="0"/>
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button Classes="Secondary"
+                                Content="{Binding AliasAdd, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding AddAliasRuleCommand}"
+                                VerticalAlignment="Center"/>
+                        <TextBlock Classes="page-subtitle" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Text="{Binding AliasError}"
+                                   Foreground="{DynamicResource AppAccentRedBrush}"
+                                   IsVisible="{Binding AliasError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding AliasCandidatesHint, Source={x:Static loc:Translations.Instance}}"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

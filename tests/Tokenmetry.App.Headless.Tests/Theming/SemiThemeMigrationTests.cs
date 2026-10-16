@@ -89,6 +89,7 @@ public class SemiThemeMigrationTests
     [InlineData(typeof(TimeAnalysisView))]
     [InlineData(typeof(CostAnalysisView))]
     [InlineData(typeof(SettingsView))]
+    [InlineData(typeof(DataPricingView))]
     [InlineData(typeof(PagePlaceholderView))]
     [InlineData(typeof(StylePreviewView))]
     public void Existing_views_instantiate_without_xaml_errors_under_Semi(Type viewType)
@@ -107,11 +108,11 @@ public class SemiThemeMigrationTests
             DataContext = AppServices.Get<MainWindowViewModel>(),
         };
         // I-026/I-027 时代为 6 个 Tab 的 TabControl；D-003 起替换为三栏外壳，此断言随结构演进：
-        // 导航为 8 项 ListBox（原型 .nav），旧 TabControl 不复存在。
+        // 导航为 9 项 ListBox（原型 .nav 八页 + S-004 拆出的数据与计价页），旧 TabControl 不复存在。
         Assert.Null(window.FindLogicalDescendantOfType<TabControl>());
         var navList = window.FindLogicalDescendantOfType<ListBox>();
         Assert.NotNull(navList);
-        Assert.Equal(8, navList!.ItemCount);
+        Assert.Equal(9, navList!.ItemCount);
     }
 
     [AvaloniaFact]

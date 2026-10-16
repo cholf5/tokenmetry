@@ -18,7 +18,7 @@
     <!--
         D-003 三栏应用外壳（原型 .app/.topbar/.shell/.sidebar/.sessions-panel）：
         顶部栏 = 全局筛选（时间范围 + Agent）+ 数据状态 + 设置入口；
-        左侧栏 = 品牌 + 8 项导航；中间 = 页面路由（ContentControl + DataTemplates）；
+        左侧栏 = 品牌 + 9 项导航；中间 = 页面路由（ContentControl + DataTemplates）；
         右侧栏 = 最近会话（D-008 真实数据）+ 快速筛选（会话页级，关系定案见 SessionsPanelViewModel）。
         窗口 chrome 沿用系统边框（2026-10-12 卡内决策，不复刻原型 mac 红绿灯）。
         最小尺寸 960×640：184 + ≥420 主内容 + 276 三栏不破（原型 .shell 最小列宽同源）。
@@ -147,7 +147,7 @@
     </Window.Styles>
 
     <!-- D-003 页面路由：CurrentPage（页面 VM）→ 视图。Q-002：旧视图（Dashboard/Reports/
-         ModelBreakdown/TrendSpike/EmptyState）已删除，仅剩 8 个真实页 + 设置页 + 未知兜底占位；
+         ModelBreakdown/TrendSpike/EmptyState）已删除，S-004 起为 9 个真实页 + 未知兜底占位；
          StylePreviewView 为 dev-only 预览宿主（无导航入口，TOKENMETRY_PREVIEW_WINDOW=1 才打开）。 -->
     <Window.DataTemplates>
         <DataTemplate DataType="vm:OverviewViewModel">
@@ -176,6 +176,9 @@
         </DataTemplate>
         <DataTemplate DataType="vm:SettingsViewModel">
             <views:SettingsView/>
+        </DataTemplate>
+        <DataTemplate DataType="vm:DataPricingViewModel">
+            <views:DataPricingView/>
         </DataTemplate>
     </Window.DataTemplates>
 
@@ -252,7 +255,7 @@
                     </StackPanel>
                 </Border>
                 <!-- 手动刷新（⟳）：经 BackgroundRefreshService 单飞槽触发一轮采集刷新（与定时器 /
-                     托盘「立即刷新」/ 设置页重扫同一合并语义）；扫描进行中按钮禁用并切换为
+                     托盘「立即刷新」/ 数据与计价页重扫同一合并语义）；扫描进行中按钮禁用并切换为
                      进行中字形，轮次结束的状态/时间戳/页面重查回写由 BackgroundRefreshWiring 统一完成 -->
                 <Button Grid.Column="4"
                         Classes="icon-btn"
@@ -268,7 +271,7 @@
                                    IsVisible="{Binding RefreshDataCommand.IsRunning}"/>
                     </Panel>
                 </Button>
-                <!-- 设置入口（导航到数据源与设置页） -->
+                <!-- 设置入口（导航到设置页；数据源与计价在侧栏「数据与计价」） -->
                 <Button Grid.Column="5"
                         Classes="icon-btn"
                         Content="⚙"
