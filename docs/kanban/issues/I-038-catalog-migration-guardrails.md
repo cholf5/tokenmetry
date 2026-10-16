@@ -56,4 +56,5 @@ Expected: 与 ccusage 锚点的既有对账结果不变（49 通过 / 19 个需�
 ## Dev Log
 
 - 2026-10-15：实施完成。全量测试绿。
+- 2026-10-16（审查修正，本卡复核项的落实）：migration 2 改为整表重建不搬数据（原实现升级后双算，详见 I-036 Dev Log），"已发布迁移一律只追加"复核结论随之细化为迁移纪律两条，落在本库 `Migrations` 列表旁注释块与 AGENTS.md。本卡 TC-001 只覆盖引擎直连路径的缺口由 `SettingsViewModel` 装配层测试补上（旧字段经 `ModelCatalog.MergeUserDefinitions` 合并后构造设置页 VM，旧价仍生效）。
 - 待办（下一版）：删除 `AppSettings.PricingOverrides` / `ModelPricingOverride` / `PricingEngine.UpdateOverrides` 三处旧桥（届时确认无用户 settings.json 仍依赖）。

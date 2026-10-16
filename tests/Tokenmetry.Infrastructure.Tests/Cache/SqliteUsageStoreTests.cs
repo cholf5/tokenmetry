@@ -304,11 +304,12 @@ public class SqliteUsageStoreTests : IAsyncLifetime
 
     /// <summary>
     /// I-036 migration 2 升级路径：只应用过 migration 1 的库（已发布版本，无 provider 列、
-    /// 主键不含 provider）升级时必须<b>搬数据</b>——旧行全量保留、provider 回填空串（未检测），
-    /// 而不是 DROP 重建把用户历史丢掉。
+    /// 主键不含 provider）升级时<b>不搬数据</b>——provider 进入主键后旧行与新行永不合并，
+    /// 原样保留 = 升级后同源重采集双算。整表重建为空，历史由本地采集首轮全量重建
+    /// （增量扫描器每轮返回全量记录；发布时库龄尚在上游日志保留期内，数据可重建）。
     /// </summary>
     [Fact]
-    public async Task ProviderMigrationUpgradesV1DatabaseAndBackfillsEmptyProvider()
+    public async Task ProviderMigrationRebuildsFactsTableEmptyForRescan()
     {
         var v1DbPath = Path.Combine(Path.GetTempPath(), $"ccusage-v1-{Guid.NewGuid()}.db");
         try
@@ -318,17 +319,18 @@ public class SqliteUsageStoreTests : IAsyncLifetime
             var store = new SqliteUsageStore(v1DbPath);
             await store.InitializeAsync();
 
+            // 旧行不搬（主键换了语义，搬 = 双算）；表结构已带 provider 维度、可写。
             var facts = await store.GetUsageFactsAsync();
-            facts.Should().ContainSingle("migration 2 搬数据：旧库里的用量必须原样保留");
-            facts[0].Model.Should().Be("claude-sonnet-4-20250514");
-            facts[0].CostUsd.Should().Be(1.23m);
-            facts[0].Provider.Should().Be(string.Empty, "旧行没有 provider 观测 → 未检测，绝不猜");
+            facts.Should().BeEmpty("migration 2 不搬数据：升级后由采集首轮全量重建");
 
-            // 升级后的库按新主键继续可写（同一天同模型换 provider 能另起一行）。
             var routed = CreateFullFact(day: "2026-06-19", costUsd: 9m);
             routed.Provider = "openrouter";
             await store.UpsertUsageFactsAsync(new List<UsageFact> { routed });
-            (await store.GetUsageFactsAsync()).Should().HaveCount(2);
+
+            var rebuilt = await store.GetUsageFactsAsync();
+            rebuilt.Should().ContainSingle("重建后的表按新主键（含 provider）正常读写");
+            rebuilt[0].Provider.Should().Be("openrouter");
+            rebuilt[0].CostUsd.Should().Be(9m);
         }
         finally
         {

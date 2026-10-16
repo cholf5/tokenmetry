@@ -20,7 +20,7 @@ dotnet run --project src/Tokenmetry.App
 ## 架构边界（三层，禁止反向依赖）
 
 - **Tokenmetry.Core**：模型、适配器接口（`Abstractions/`，每个 agent 源一个 `I*Adapter`）、业务服务（查询/定价/异常检测）、内置价格快照（`Pricing/model-pricing-snapshot.json`）。无 UI 依赖。
-- **Tokenmetry.Infrastructure**：每 agent 源一个目录的采集适配器（ClaudeCodeJsonl / CodexJsonl / ZCodeSqlite / DshSession / GeminiCli / GooseSqlite 等 ~20 个）、`Cache/SqliteUsageStore`（usage_facts + session_facts + `schema_migrations` 顺序迁移 runner——改表必须新增迁移，勿 DROP 重建）、ModelsDev 定价客户端、CCUsageCli 集成。
+- **Tokenmetry.Infrastructure**：每 agent 源一个目录的采集适配器（ClaudeCodeJsonl / CodexJsonl / ZCodeSqlite / DshSession / GeminiCli / GooseSqlite 等 ~20 个）、`Cache/SqliteUsageStore`（usage_facts + session_facts + `schema_migrations` 顺序迁移 runner——改表必须新增迁移；全局版本即 `schema_migrations` 账本，业务代码不做数据版本分支；迁移必须让旧语义的行消失：新维度进主键时在迁移内转换或丢弃，不进主键时回填语义诚实的默认值，细则见 `SqliteUsageStore` Migrations 列表旁注释块）、ModelsDev 定价客户端、CCUsageCli 集成。
 - **Tokenmetry.App**：Avalonia UI（Semi.Avalonia 主题）、ViewModels（CommunityToolkit.Mvvm，`AvaloniaUseCompiledBindingsByDefault=true` → XAML 必须写 `x:DataType`）、DI 注册集中在 `DependencyInjection/AppServices.cs`、托盘、i18n。
 
 新增 agent 数据源的固定套路：Core/Abstractions 加接口 → Infrastructure 建目录实现适配器 → AppServices.cs 注册 DI → Infrastructure.Tests 加 fixture 用例。

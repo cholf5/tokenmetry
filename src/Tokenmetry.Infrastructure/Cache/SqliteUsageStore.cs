@@ -24,7 +24,15 @@ internal sealed record Migration(int Version, string Name, Func<SqliteConnection
 /// </summary>
 public class SqliteUsageStore : IUsageStore
 {
-    // 迁移列表：新增迁移 = 追加一条（版本号递增），不修改既有条目。
+    // 迁移纪律（2026-10-16 定稿，新迁移动手前必读）：
+    // 1. 改表 = 在末尾追加新版本迁移，不修改既有条目；全局版本就是 schema_migrations 账本，
+    //    版本判断收敛在 ApplyMigrationsAsync 一处，业务 / 查询代码永远只面对当前语义——
+    //    哪天需要按数据版本分支，说明漏了一个迁移，补迁移而不是在代码里分支。
+    // 2. 迁移必须让旧语义的行在迁移后消失：
+    //    - 新维度进主键（行身份变了）→ 旧行要么在迁移内 SQL 转换，要么丢弃。丢弃仅在
+    //      "数据仍可从上游重建"的窗口内合法（本库龄 < 上游日志保留期；上游会清旧数据，
+    //      超窗后本库就是那段历史唯一的存放处，不得再清）。
+    //    - 新维度不进主键 → 回填的默认值必须语义诚实（如 provider '' = 未检测），无需转换。
     private static readonly IReadOnlyList<Migration> Migrations = new Migration[]
     {
         new(
@@ -92,10 +100,14 @@ public class SqliteUsageStore : IUsageStore
                 // I-036：三元组 agent × model × provider —— usage_facts 增 provider 维度并进入主键，
                 // 使"同一模型经不同 provider（openrouter / z.ai / 自定义源）使用"成为可区分的行
                 // （不同 provider 价目可能不同，混成一行则成本无法对账）。
-                // 主键变更 SQLite 不支持 ALTER，按标准做法建新表 + 搬数据 + 换名（数据可重建，
-                // 但搬一次比丢一次便宜；旧库里的行 provider 一律回填空串 = 未检测，语义正确）。
+                // 主键变更 SQLite 不支持 ALTER；且 provider 进入主键后，旧行（无 provider 维度）与新行
+                // 主键不同、upsert 永不合并，原样搬数据 = 升级后历史用量在所有聚合里双算。所以迁移
+                // 不搬数据，整表重建为空——升级后由本地采集首轮全量重建（增量扫描器每轮返回全量记录）。
+                // 这是上面纪律第 2 条"丢弃"分支的一次特赦：本迁移发布时库龄尚在上游日志保留期内，
+                // 全部数据可重建；此后不得再清（见 Migrations 列表旁的迁移纪律）。
                 await ExecuteAsync(connection, """
-                    CREATE TABLE usage_facts_new (
+                    DROP TABLE usage_facts;
+                    CREATE TABLE usage_facts (
                         day TEXT NOT NULL,
                         grain TEXT NOT NULL,
                         agent TEXT NOT NULL DEFAULT '',
@@ -116,25 +128,7 @@ public class SqliteUsageStore : IUsageStore
                     )
                     """, ct);
 
-                await ExecuteAsync(connection, """
-                    INSERT INTO usage_facts_new (
-                        day, grain, agent, model, provider, project, project_display_name,
-                        input_tokens, output_tokens, cache_creation_tokens,
-                        cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
-                        cache_read_tokens, total_tokens, cost_usd, updated_at)
-                    SELECT
-                        day, grain, agent, model, '', project, project_display_name,
-                        input_tokens, output_tokens, cache_creation_tokens,
-                        cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
-                        cache_read_tokens, total_tokens, cost_usd, updated_at
-                    FROM usage_facts
-                    """, ct);
-
-                await ExecuteAsync(connection, """
-                    DROP TABLE usage_facts;
-                    ALTER TABLE usage_facts_new RENAME TO usage_facts;
-                    CREATE INDEX IF NOT EXISTS idx_usage_facts_day ON usage_facts (day);
-                    """, ct);
+                await ExecuteAsync(connection, "CREATE INDEX IF NOT EXISTS idx_usage_facts_day ON usage_facts (day)", ct);
             }),
     };
 
