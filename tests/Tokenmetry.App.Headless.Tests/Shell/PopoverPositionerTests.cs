@@ -55,4 +55,39 @@ public class PopoverPositionerTests
         Assert.Equal(0, pos.X);
         Assert.Equal(0, pos.Y);
     }
+
+    [Fact]
+    public void AnchorBelow_puts_card_under_icon_right_aligned_and_clamps()
+    {
+        var anchor = new PixelRect(1840, 8, 22, 22); // 菜单栏图标（interop frame，屏幕坐标系）
+        var cardSize = new Size(438, 600);
+        var workArea = new PixelRect(0, 25, 1920, 1055); // menu bar 已扣
+
+        var pos = PopoverPositioner.AnchorBelow(anchor, cardSize, workArea, gap: 4, rightOverlap: 8);
+
+        // 未越界：卡片顶缘 = 图标底缘 + 4；右缘越过图标右缘 8
+        Assert.Equal(1840 + 22 - 438 + 8, pos.X);
+        Assert.Equal(8 + 22 + 4, pos.Y);
+
+        // 贴屏幕右缘 → 右缘不越出工作区
+        var clamped = PopoverPositioner.AnchorBelow(
+            new PixelRect(1910, 8, 22, 22), cardSize, workArea, 4, 8);
+        Assert.Equal(1920 - 438, clamped.X);
+    }
+
+    [Fact]
+    public void Cocoa_frame_converts_to_avalonia_top_down_coords()
+    {
+        // 主屏 1440x900（Cocoa frame origin (0,0)），菜单栏图标窗口在顶部：
+        // cocoa frame y=878 h=22（顶缘 900）→ Avalonia top = 900 - 900 = 0
+        var converted = MacTrayInterop.ConvertCocoaFrameToAvaloniaCoords(100, 878, 22, 22, primaryScreenCocoaMaxY: 900);
+        Assert.Equal(0, converted.Y);
+        Assert.Equal(100, converted.X);
+        Assert.Equal(22, converted.Width);
+        Assert.Equal(22, converted.Height);
+
+        // 纵轴翻转：cocoa 越靠下（y 小）→ avalonia 越靠下（y 大）
+        var lower = MacTrayInterop.ConvertCocoaFrameToAvaloniaCoords(100, 400, 22, 22, 900);
+        Assert.True(lower.Y > converted.Y);
+    }
 }

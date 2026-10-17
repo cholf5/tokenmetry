@@ -25,12 +25,11 @@ blocked: none
 
 ## Acceptance Criteria
 
-- [x] macOS：托盘入口进弹窗（**平台事实修正**：Avalonia 在 macOS 从不 raise `TrayIcon.Clicked`——入口经托盘菜单「快捷信息窗」项，见 Dev Log 留证），再点菜单项 / 失焦 / Esc 收起；右键菜单行为不变
+- [x] macOS：**点托盘图标直接 Toggle 弹窗**（CodexBar 同款，B2 升级项实施——自管 NSStatusItem interop，见 Dev Log），右键弹原生菜单；失焦 / Esc / 再点收起
 - [x] Windows：托盘**左键**直接 Toggle 弹窗（Win32 WM_LBUTTONUP → Clicked 真实触发，源码核实）；右键菜单不变；菜单项入口冗余共享
 - [x] 壳层零业务逻辑、零数据查询（只装配 D-015 UserControl）；主题随应用明暗设置
 - [x] 主窗唤回 / 托盘菜单 / S-005 关窗分派行为零变化（回归锁）
 - [ ] 真机目检：明暗 × 1x/2x 截图留档（headless 只验装配与收起逻辑）——移交用户
-- [ ] （待用户决策）macOS 真·左键弹层需自建 NSStatusItem interop——见 Dev Log 升级项
 
 ## Subtasks
 
@@ -85,8 +84,18 @@ Steps: macOS / Windows 真机点击托盘，明暗两态 × 1x/2x 截图。Expec
 - **落地修正（零 interop 台阶内）**：托盘菜单在成本行下方新增「快捷信息窗」项（`TrayQuickInfo`，仅装配弹层控制器时出现）→ 命令 Toggle 弹层。macOS：点图标开菜单（与以前一致）→ 菜单项进弹窗；Windows：左键直弹 + 菜单项冗余共享。语言切换就地重译（不换菜单实例，沿用 A-0 纪律）。
 - **升级项（待用户决策，不开即不做）**：macOS 实现"点图标直接弹层"需**放弃 Avalonia TrayIcon 在 macOS 的菜单挂载**，经 .NET Objective-C interop 自建 NSStatusItem（自管 mouseDown/mouseUp + 右键弹自有菜单）——远超本卡预授权的"一个 CGRect"锚定 interop，涉及真菜单替换与点击语义自管，风险与工作量都是独立卡级别。当前菜单项入口已可用，升级需求由真机使用体验决定。
 
+### 2026-10-17（B2 升级项实施：用户拍板"点图标直接弹层，CodexBar 同款" → NSStatusItem interop 落地）
+
+- **授权与范围变化**：用户真机用后明确要 CodexBar 交互（点图标出面板，拒绝菜单项中转）——上一条"待用户决策"的升级项就此授权，超出原 CGRect 预授权范围，按卡留证实施。
+- **机制**（`Tray/MacTrayInterop.cs`）：自建 `NSStatusItem`（NSSquareStatusItemLength）→ 取其 button 的**实际类** → `objc_allocateClassPair` 派生无 ivar 子类 + `object_setClass` 装到实例（KVO 同款手法）→ 重写 `mouseUp:`（左键 Toggle 弹层；先调 super 保系统高亮语义）与 `rightMouseDown:`（弹自有 NSMenu）。菜单项 target-action 全指向动态类实例、按 tag 回派托管命令（与 Avalonia 菜单同构：成本行 + 快捷信息窗 + 打开主窗/立即刷新/设置/退出）。仅用 `[UnmanagedCallersOnly]` 静态 IMP——不涉 ObjectiveCMarshal，无 GC 生命周期耦合。`setAutoenablesItems:NO` + 显式 `setEnabled`（target 不在 responder 链上，默认自动启用会误灰）。
+- **图标**：复用 `tray-icon-template.png` 模板资产（NSData→NSImage→setSize（菜单字号×4/3，同 Avalonia SetIcon 公式）→setTemplate:YES，随明暗反色）；tooltip 经 `setToolTip:` 真实可渲染。
+- **精确锚定（顺带解决近似问题）**：`[[button window] frame]` → Cocoa→Avalonia 换算（对齐 Avalonia.Native `ConvertPointY`：`avaloniaY = 主屏 cocoa maxY − cocoaY`，main.mm:560 已核实）→ `PopoverPositioner.AnchorBelow`（图标正下方 4px、右缘过图标 8px，工作区钳制）。macOS 不再"工作区右上近似"。
+- **双轨与回落**：`TrayService` 按 `OperatingSystem.IsMacOS() && !TOKENMETRY_HEADLESS` 分派——mac 生产走 interop（安装异常自动回落 Avalonia 托盘 + stderr 诊断，托盘常驻语义不打折）；Windows 与 headless 测试宿主走 Avalonia 托盘（测试基建在 SemiTestAppBuilder 打 `TOKENMETRY_HEADLESS=1` 标记）。
+- **验证**：headless 全量 1314 Passed（+2：AnchorBelow 钳制 / Cocoa→Avalonia 换算纯函数对账）；真机冒烟——进程存活、stderr 无回落消息，System Events（辅助功能授权）查到进程 menu bar 2 **有且仅有一个 "status menu" 状态项**（interops 安装成功的客观证据；若回落会同时出现 Avalonia 兜底项与诊断消息）。左键/右键/锚点的最终目检移交用户。
+- **约束记录**：仅 Apple Silicon（arm64）验证过 ABI（NSRect/NSPoint 经寄存器传返；Intel 的 objc_msgSend_stret 路径未实现——如需 Intel 支持再立卡）；Cocoa 调用全在主线程，DashboardViewModel 后台回写经 `RunOnUIThread` marshal；NSMenuItem 手工 retain/release 配对（不依赖外层 autorelease pool）。
+
 ## Verification
 
-- Related files: `src/Tokenmetry.App/Tray/StatusPopoverWindow.axaml(.cs)`、`src/Tokenmetry.App/Tray/StatusPopoverController.cs`、`src/Tokenmetry.App/Tray/PopoverPositioner.cs`、`src/Tokenmetry.App/Tray/TrayService.cs`、`src/Tokenmetry.App/ViewModels/MainWindowViewModel.cs`、`src/Tokenmetry.App/App.axaml.cs`
-- How to run/verify: headless = `dotnet test tests/Tokenmetry.App.Headless.Tests --filter "StatusPopoverShell|PopoverPositioner"`（TC-001 托盘分派 Toggle/复用窗实例/Esc 收起/可见期查询 + 锚定钳制纯函数）；TC-002 全量 `dotnet test Tokenmetry.sln`（TrayServiceTests/CloseToTrayBehaviorTests/AppShellTests 回归全绿）
-- Results: **全量 1310 Passed / 0 Failed**（新增 9 例壳层/定位 + 9 例内容层）；真机目检（macOS/Windows 点托盘，明暗 × 1x/2x 截图）移交用户——macOS 本机直接运行即可验证锚点近似是否可接受。
+- Related files: `src/Tokenmetry.App/Tray/MacTrayInterop.cs`（macOS interop 状态项）、`src/Tokenmetry.App/Tray/StatusPopoverWindow.axaml(.cs)`、`src/Tokenmetry.App/Tray/StatusPopoverController.cs`、`src/Tokenmetry.App/Tray/PopoverPositioner.cs`、`src/Tokenmetry.App/Tray/TrayService.cs`（双轨分派）、`src/Tokenmetry.App/ViewModels/MainWindowViewModel.cs`、`src/Tokenmetry.App/App.axaml.cs`
+- How to run/verify: headless = `dotnet test tests/Tokenmetry.App.Headless.Tests --filter "StatusPopoverShell|PopoverPositioner"`（托盘分派 / Toggle / Esc / 菜单项 / 锚定与坐标换算纯函数）；TC-002 全量 `dotnet test Tokenmetry.sln`；真机 = macOS 点图标直弹（B2 交互）/ 右键菜单 / Windows 左键直弹
+- Results: **全量 1314 Passed / 0 Failed**；真机冒烟 interop 安装成功（System Events 见唯一 "status menu" 状态项，无回落诊断）；明暗 × 1x/2x 截图与点击手感目检移交用户。

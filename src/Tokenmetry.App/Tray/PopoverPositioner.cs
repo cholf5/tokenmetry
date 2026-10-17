@@ -29,6 +29,16 @@ internal static class PopoverPositioner
         return ClampToArea(new PixelPoint((int)Math.Round(x), (int)Math.Round(y)), workingArea, windowSize);
     }
 
+    /// <summary>macOS 精确锚定（interop 图标 frame）：卡片顶缘在图标正下方 gap、右缘越过图标右缘
+    /// rightOverlap（CodexBar 同款），越界钳回工作区。入参为<b>可见卡片</b>矩形（不含投影边距——
+    /// 调用方把返回值左移/上移边距得到窗口位置）。</summary>
+    public static PixelPoint AnchorBelow(PixelRect anchor, Size cardSize, PixelRect workingArea, double gap, double rightOverlap)
+    {
+        var x = anchor.X + anchor.Width - cardSize.Width + rightOverlap;
+        var y = anchor.Y + anchor.Height + gap;
+        return ClampToArea(new PixelPoint((int)Math.Round(x), (int)Math.Round(y)), workingArea, cardSize);
+    }
+
     private static PixelPoint ClampToArea(PixelPoint point, PixelRect area, Size size)
     {
         var minX = area.X;

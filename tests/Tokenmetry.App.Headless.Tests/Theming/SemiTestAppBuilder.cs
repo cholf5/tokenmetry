@@ -28,6 +28,10 @@ public static class SemiTestAppBuilder
         AppServices.PathsOverride ??= new AppPaths(Path.Combine(
             Path.GetTempPath(), "ccusage-headless-tests", Guid.NewGuid().ToString("N")));
 
+        // D-016：headless 宿主标记——TrayService 据此跳过 macOS interop 托盘（不自管 NSStatusItem），
+        // 保持 Avalonia TrayIcon 路径供测试断言；真实桌面不设此变量。
+        Environment.SetEnvironmentVariable("TOKENMETRY_HEADLESS", "1");
+
         return AppBuilder.Configure<App>()
             .UseSkia() // 注册 Skia 渲染/字体后端（UseHeadlessDrawing=false 时 IPlatformRenderInterface/IFontManagerImpl 由此提供）
             .UseHeadless(new AvaloniaHeadlessPlatformOptions
