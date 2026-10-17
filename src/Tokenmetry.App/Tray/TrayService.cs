@@ -16,9 +16,10 @@ namespace Tokenmetry.App.Tray;
 /// <summary>
 /// A-0 托盘常驻（v0.5 规格 docs/plans/2026-10-11-opinionated-usage-stats-pivot.md §5）：
 /// 图标常驻，tooltip 与菜单首行展示今日成本；菜单 = 打开主窗 / 立即刷新 / 设置 / 退出。
-/// D-014：macOS 状态栏图标本身直显当日用量——KPI 更新即把「紧凑 tokens · 成本」重绘成
-/// alpha-only 文字位图（<see cref="TrayStatusIconRenderer"/>），无数据/扫描中/刷新失败三态降级；
-/// Windows 侧行为零变化（仍 tooltip + 菜单首行，CreateIcon 资产路径不动）。
+/// <para>macOS 状态栏文本直显（D-014 位图方案）经真机取证不可行：Avalonia 12.1.4
+/// trayicon.mm 把状态项写死为方形（NSSquareStatusItemLength，无 setLength、无托管出口），
+/// 宽文字位图被中段裁剪（卡内 B1）——回落模板资产，状态栏文本信息窗改由 D-015/D-016
+/// 点开弹窗承接（用户 2026-10-17 决策 C）。</para>
 /// <para>挂载唯一路径是 <see cref="TrayIcon.SetIcons"/>（Application 的 Icons 附加属性变更才触发
 /// 平台 Attach，仅 new TrayIcon{} 不会出现在托盘）。关窗隐藏（不退出）的拦截在
 /// MainWindow.OnClosing；真正退出走 <see cref="ExitApp"/> → desktop.Shutdown()，
@@ -38,14 +39,6 @@ public class TrayService
     private NativeMenuItem? _refreshItem;
     private NativeMenuItem? _settingsItem;
     private NativeMenuItem? _exitItem;
-    // 最近一次渲染到状态栏的字形（null = 纯模板图标态）；相同字形跳过重绘，
-    // 一分钟的周期刷新里 IsLoading 抖动不会让状态栏闪动
-    private string? _lastStatusGlyph;
-
-    /// <summary>headless 可断言接缝（沿 MainWindow.ActiveHintWindow 先例）：headless 宿主的
-    /// WindowIcon.Save 是 no-op，字节级对比图标内容不可用；字形是状态栏当前语义的唯一可靠
-    /// 观测面（null = 模板图标态）。真机观感归 D-014 TC-002 目检。</summary>
-    internal string? LastStatusGlyph => _lastStatusGlyph;
 
     public TrayService(Window mainWindow) : this(mainWindow, null, null, null)
     {
@@ -103,11 +96,11 @@ public class TrayService
 
         TrayIcon.SetIcons(Application.Current!, new TrayIcons { _trayIcon });
 
-        // 今日成本联动：KPI 更新（含首轮刷新）即回写 tooltip、菜单首行与 macOS 状态栏文字位图
+        // 今日成本联动：KPI 更新（含首轮刷新）即回写 tooltip 与菜单首行
         if (_dashboard != null)
         {
             _dashboard.PropertyChanged += OnDashboardPropertyChanged;
-            RefreshCostPresentation();
+            UpdateToolTip(BuildCostText(_dashboard.TodayCostUsd, _dashboard.HasData));
         }
     }
 
@@ -145,7 +138,7 @@ public class TrayService
 
         if (_dashboard != null)
         {
-            RefreshCostPresentation();
+            UpdateToolTip(BuildCostText(_dashboard.TodayCostUsd, _dashboard.HasData));
         }
         else
         {
@@ -166,28 +159,11 @@ public class TrayService
         }
     }
 
-    /// <summary>今日成本联动（KPI 更新 / 扫描态 / 失败态 / 语言切换共用同一入口）：tooltip 与
-    /// 菜单首行按既有 TrayCostFormat 口径回写；macOS 状态栏另走文字位图重绘（D-014）。</summary>
-    private void RefreshCostPresentation()
-    {
-        if (_dashboard is null)
-        {
-            return;
-        }
-
-        UpdateToolTip(BuildCostText(_dashboard.TodayCostUsd, _dashboard.HasData));
-        UpdateStatusImage();
-    }
-
     private void OnDashboardPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(DashboardViewModel.TodayCostUsd)
-            or nameof(DashboardViewModel.TodayTokens)
-            or nameof(DashboardViewModel.HasData)
-            or nameof(DashboardViewModel.IsLoading)
-            or nameof(DashboardViewModel.Status))
+        if (e.PropertyName is nameof(DashboardViewModel.TodayCostUsd) or nameof(DashboardViewModel.HasData))
         {
-            RefreshCostPresentation();
+            UpdateToolTip(BuildCostText(_dashboard!.TodayCostUsd, _dashboard.HasData));
         }
     }
 
@@ -195,44 +171,6 @@ public class TrayService
         => hasData
             ? string.Format(Translations.Instance.TrayCostFormat, todayCostUsd.ToString("F2", CultureInfo.InvariantCulture))
             : Translations.Instance.TrayCostNoData;
-
-    /// <summary>状态栏字形的纯函数分派（沿 ResolveUserCloseAction 模式，headless 可直接单测）：
-    /// 有数据 → 紧凑文本；无数据 → "—"；首轮扫描中尚无值 → "…"；刷新失败 → null 回落纯模板
-    /// 图标——本轮失败后今日数字不可信，宁可少显示也不留陈旧数字（验收口径）。扫描中若已有值
-    /// 则保持原文案（一分钟的周期刷新不该让状态栏闪动，值仍是最后一次成功扫描的真值）。</summary>
-    internal static string? ResolveStatusGlyph(string status, bool hasData, bool isLoading, decimal todayCostUsd, long todayTokens)
-    {
-        if (status == "error")
-        {
-            return null;
-        }
-
-        if (!hasData)
-        {
-            return isLoading ? "…" : "—";
-        }
-
-        return TrayStatusText.Build(todayCostUsd, todayTokens);
-    }
-
-    /// <summary>macOS：按当前数据态重绘状态栏图标（文字位图 / 三态降级）；Windows 零变化。</summary>
-    private void UpdateStatusImage()
-    {
-        if (!OperatingSystem.IsMacOS() || _trayIcon is null || _dashboard is null)
-        {
-            return;
-        }
-
-        var glyph = ResolveStatusGlyph(
-            _dashboard.Status, _dashboard.HasData, _dashboard.IsLoading, _dashboard.TodayCostUsd, _dashboard.TodayTokens);
-        if (glyph == _lastStatusGlyph)
-        {
-            return;
-        }
-
-        _lastStatusGlyph = glyph;
-        _trayIcon.Icon = glyph is null ? CreateIcon() : TrayStatusIconRenderer.Render(glyph);
-    }
 
     private void ShowWindow()
     {

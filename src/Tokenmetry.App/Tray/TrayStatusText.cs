@@ -4,12 +4,14 @@ using System.Globalization;
 namespace Tokenmetry.App.Tray;
 
 /// <summary>
-/// 状态栏直显文本（D-014）的紧凑格式化：纯数据文本，无词可译——沿用户原型
-/// （docs/design/tokenmetry_statusbar_prototype.html 底部 tray chip）的 ASCII 口径
-/// <c>42.4K · $12.46</c>，不随 UI 语言换单位制。中文万/亿口径仍归图表/弹层
-/// （TrendChart.FormatCompactTokens，D-015 消费），状态栏与弹层的口径差异是原型自身的选择。
+/// 紧凑 tokens+成本格式化（D-014 关卡后保留，D-015 弹层复用）：纯数据文本，无词可译——沿
+/// 用户原型（docs/design/tokenmetry_statusbar_prototype.html 底部 tray chip）的 ASCII 口径
+/// <c>42.4K · $12.46</c>，不随 UI 语言换单位制。中文万/亿口径仍归图表
+/// （TrendChart.FormatCompactTokens），紧凑 chip 与图表的口径差异是原型自身的选择。
 /// <para>尾数精度与越档守卫对齐图表 FormatCompact 的阶梯规则（≥1000 取整、≥100 一位小数、
 /// 其余两位；取整越档升入上一档），单位阶梯取千进制 K/M/B/T。</para>
+/// <para>D-014 状态栏直显经真机取证不可行（Avalonia 方形状态项中段裁剪宽位图，卡内 B1），
+/// 状态栏回落模板图标；本格式化器及测试原样保留。</para>
 /// </summary>
 internal static class TrayStatusText
 {

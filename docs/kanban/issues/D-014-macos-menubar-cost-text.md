@@ -1,13 +1,13 @@
 ---
 id: D-014
-title: 状态栏直显今日用量（模板图标 → 动态文字位图，不走 NSStatusItem interop）
+title: 状态栏直显今日用量（位图方案真机不可行 B1 → 决策 C 回落模板图标，关卡）
 type: feature
 priority: P2
 size: M
-status: todo
+status: done
 created: 2026-10-17
 updated: 2026-10-17
-blocked: 真机反馈裁剪 bug（B1），出路决策待用户定
+blocked: none
 ---
 
 ## Goal
@@ -26,18 +26,18 @@ macOS 菜单栏（及 Windows 托盘可选）图标直接渲染「42.4K · $12.4
 
 ## Acceptance Criteria
 
-- [x] macOS 状态栏直接渲染当日成本文本（紧凑格式），KPI 更新即重绘，无需展开菜单——**代码侧达成，真机被 B1 裁剪阻塞（见 Bugs）**
+- [ ] macOS 状态栏直接渲染当日成本文本——**未交付**：B1 取证位图方案不可行（Avalonia 方形状态项裁剪宽位图、托管无长度出口），用户决策 C 关卡回落模板图标；文本信息改由菜单首行 + D-015/D-016 弹窗承接
 - [x] 明暗菜单栏两态 + 1x/2x DPI 截图留档目检——真机目检已做（2026-10-17 用户截图）：不是画质问题，是**方形裁剪**，位图方案在 macOS 出不了可读文本
-- [x] 无数据 / 异常态有诚实降级（"—" 或回落纯模板图标），不留陈旧数字
+- [x] 无数据 / 异常态有诚实降级（"—" 或回落纯模板图标），不留陈旧数字——降级分派随位图路径一并撤除，语义记录在案
 - [x] Windows 行为零变化（仍 tooltip + 菜单首行；`CreateIcon` 的 Windows 资产路径不动）
-- [ ] 位图方案不可行的证据已记录（B1），**出路决策待定**：升级 interop（真文字）/ 方形紧凑字妥协 / 回落模板图标关卡或等上游——不静默搁置
+- [x] 位图方案不可行的证据已记录（B1）且**决策已做（C：回落模板图标、关卡）**，不静默搁置
 
 ## Subtasks
 
 - [x] TrayService：macOS 分支动态位图渲染（文字 → alpha-only 位图 → WindowIcon），挂 Dashboard KPI 信号重绘
 - [x] 紧凑成本格式化（独立 TrayStatusText，阶梯规则与图表 FormatCompact 对齐、单位制沿原型 ASCII；为何无 Translations 新键见 Dev Log）
 - [x] 无数据 / 扫描中 / 刷新失败三态降级字形（`ResolveStatusGlyph` 纯函数：— / … / 模板回落）
-- [ ] 真机 macOS 截图验证（明暗 × 1x/2x）——移交用户；TrayServiceTests 回归部分已绿
+- [x] 真机 macOS 截图验证（明暗 × 1x/2x）——用户目检完成：发现 B1 裁剪（非画质问题）
 
 ## Dependencies
 
@@ -67,7 +67,7 @@ Expected: 数字可读不糊；暗色菜单栏白字、亮色黑字（template �
 
 | ID | Severity | Description | Status | Resolution |
 |---|---|---|---|---|
-| B1 | P1（规格级，阻塞） | 真机（macOS arm64，2026-10-17 用户截图）：状态栏只见「M ·」而非全文本。根因：Avalonia 12.1.4 `trayicon.mm` L15 `statusItemWithLength: NSSquareStatusItemLength` 固定方形（~24pt）且全文件无 `setLength`，NSStatusBarButton 不随图片加宽 → 宽位图按 17pt 高缩放后水平**中段被裁**。本机今日文本 "324.2M · $0.00"（facts 库 324,221,037 tokens / $0.00），中段恰为「M ·」，证据闭环。非画质调优可解（24pt 内塞下全文本 = 不可读）；托管侧无出口（`MacOSProperties` 仅 IsTemplateIcon、`TrayIcon` 无长度属性、`IAvnTrayIcon` vtable 无 SetLength）。 | open | 决策待定（interop 真文字 / 方形紧凑字妥协 / 回落模板关卡） |
+| B1 | P1（规格级，阻塞） | 真机（macOS arm64，2026-10-17 用户截图）：状态栏只见「M ·」而非全文本。根因：Avalonia 12.1.4 `trayicon.mm` L15 `statusItemWithLength: NSSquareStatusItemLength` 固定方形（~24pt）且全文件无 `setLength`，NSStatusBarButton 不随图片加宽 → 宽位图按 17pt 高缩放后水平**中段被裁**。本机今日文本 "324.2M · $0.00"（facts 库 324,221,037 tokens / $0.00），中段恰为「M ·」，证据闭环。非画质调优可解（24pt 内塞下全文本 = 不可读）；托管侧无出口（`MacOSProperties` 仅 IsTemplateIcon、`TrayIcon` 无长度属性、`IAvnTrayIcon` vtable 无 SetLength）。 | closed | 用户决策 **C：回落模板图标、关卡**（2026-10-17）。位图路径（渲染器/字形分派/托盘接线）撤除；`TrayStatusText` 格式化器与测试保留，D-015 弹层复用。上游 `setLength` 修复可另议（未承诺）。 |
 
 ## Development Log
 
@@ -95,8 +95,16 @@ Expected: 数字可读不糊；暗色菜单栏白字、亮色黑字（template �
 - 出路三选（已向用户提交决策）：**A. 升级 interop（卡内预留方案②）**——自建 NSStatusItem（`NSVariableStatusItemLength`）+ `button.title` 真文字（顺带免位图：任意 DPI 锐利、系统自动反色），但菜单/点击/tooltip 全原生重建（objc_msgSend P/Invoke 估 300–500 行），只能真机验证，Windows 路径不动；**B. 方形紧凑字妥协**——24pt 内渲染 3–4 字符（"324M" 或 "$0"），成本/tokens 二选一，偏离原型规格，快；**C. 回落模板图标关卡**——文本放弃，看板数走菜单首行 + D-015/D-016 弹窗，另可给 Avalonia 提上游 `setLength` 修复（周期不可控）。
 - 卡片状态回退 todo（blocked: B1 决策）；headless 断言与格式化器（TrayStatusText / ResolveStatusGlyph）无论哪条出路都保留复用。
 
+### 2026-10-17（用户决策 C：回落模板图标、关卡，收口）
+
+- 三选出路提交用户（A interop 真文字 / B 方形紧凑字妥协 / C 回落关卡），**用户选 C**。
+- 落地内容：`TrayService` 撤除 macOS 文字位图路径（`RefreshCostPresentation`/`UpdateStatusImage`/`_lastStatusGlyph`/`LastStatusGlyph` 接缝、扩展的 KPI 订阅全部还原为 tooltip+菜单首行原语义）；删除 `TrayStatusIconRenderer.cs` 与 `ResolveStatusGlyph`（无生产消费者，不做死代码——三态语义已在本卡 Dev Log 存档，D-015 banner 三态是另一套状态模型，届时按需重建）；`TrayStatusText` 格式化器及 19 条纯函数测试**保留**（D-015 弹层 chip 复用，注释已改写指向 D-015）。
+- 回归：全量 `dotnet test Tokenmetry.sln` = Passed 1292 / Failed 0（App.Tests 151→145 撤 ResolveStatusGlyph 六例，Headless 289→287 撤托盘位图两例，其余不动）。
+- 重启真机即恢复三柱模板图标（本轮回退正是回到 0f05cab 之前的托盘形态；`dotnet run --project src/Tokenmetry.App` 无需任何配置）。
+- 有意不做：Avalonia 上游 `setLength` 修复未提交（外发动作待用户另起话头）；状态栏文本路线的下一站是 D-015/D-016 弹窗（点击即见全量 chip），若未来仍要免点击文本，走 interop 方案②并携本卡 B1 证据开新卡。
+
 ## Verification
 
-- Related files: `src/Tokenmetry.App/Tray/TrayService.cs`、`src/Tokenmetry.App/Tray/TrayStatusText.cs`、`src/Tokenmetry.App/Tray/TrayStatusIconRenderer.cs`；测试 `tests/Tokenmetry.App.Tests/Tray/TrayStatusTextTests.cs`、`tests/Tokenmetry.App.Headless.Tests/Shell/TrayServiceTests.cs`
-- How to run/verify: 真机 = 菜单栏直显紧凑 tokens · 成本、明暗反色、1x/2x 锐度、三态降级（见「真机人工核验」节）。自动验证 = TC-001 + TrayStatusTextTests。
-- Results: 自动部分完成（2026-10-17）。全量 Passed 1300 / Failed 0；TC-002 真机目检移交用户，画质不可接受时按 Acceptance #5 决策。
+- Related files: `src/Tokenmetry.App/Tray/TrayService.cs`（回落后=原始 A-0 语义）、`src/Tokenmetry.App/Tray/TrayStatusText.cs`（保留，D-015 复用）；测试 `tests/Tokenmetry.App.Tests/Tray/TrayStatusTextTests.cs`
+- How to run/verify: 真机重启应用 → 状态栏恢复三柱模板图标，成本出口=菜单首行/tooltip（与 S-005 时点一致）
+- Results: 关卡收口（2026-10-17，决策 C）。全量 Passed 1292 / Failed 0；格式化器随 D-015 复活。

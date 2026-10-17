@@ -9,9 +9,10 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| D-014 | 状态栏直显今日用量（位图方案被 B1 方形裁剪阻塞，出路决策待定：interop / 妥协 / 回落） | P2 | M | B1 决策 | none |
-| D-015 | 状态栏快捷信息窗 · 内容层（共享 UserControl：KPI + 构成 + Top4 Agent + 三态 banner） | P2 | M | none | none（D-014 已收，可随时开工） |
+| D-015 | 状态栏快捷信息窗 · 内容层（共享 UserControl：KPI + 构成 + Top4 Agent + 三态 banner） | P2 | M | none | none |
 | D-016 | 状态栏快捷信息窗 · 壳层（macOS 顶部锚定 / Windows flyout，复用 D-015） | P2 | S | none | D-015 |
+
+> 2026-10-17（晚四）：**D-014 决策 C 收口**。用户三选一定案：**回落模板图标、关卡**——状态栏文本直显经 B1 取证在 Avalonia TrayIcon 上不可行，文本信息走菜单首行 + D-015/D-016 弹窗。位图路径（渲染器/字形分派/托盘接线）撤除回归原 A-0 语义；`TrayStatusText` 格式化器及纯函数测试保留给 D-015 复用。全量 1292 Passed。上游 `setLength` 修复未承诺，若未来仍要免点击文本走 interop 方案②携 B1 证据开新卡。
 
 > 2026-10-17（晚三）：**D-014 回退 Todo**。真机目检（用户截图）发现状态栏只见「M ·」——Avalonia 12.1.4 `trayicon.mm` `statusItemWithLength: NSSquareStatusItemLength` 固定方形且无 `setLength`，宽文字位图中段被裁（本机文本 "324.2M · $0.00" 中段恰为 M ·，证据链闭环记入卡内 B1）。**结论：硬裁剪非画质问题，位图方案在 macOS 不可行**，调优不可解。出路三选待用户决策：A 升级 interop（NSStatusItem 真文字，卡内预留方案②）；B 方形紧凑字妥协（3–4 字符）；C 回落模板图标关卡（等 D-015/016 或上游）。格式化器/降级分派/headless 断言按出路复用。
 
@@ -37,6 +38,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-014 | 状态栏直显今日用量（位图方案真机不可行 B1 → 决策 C 回落模板图标，关卡） | P2 | 2026-10-17 |
 | S-005 | 关窗行为开关（关窗=托盘可关）+ 首次关窗托盘一次性提示 | P2 | 2026-10-17 |
 | B-007 | 语言切换后图表 tooltip 文案陈旧（Heatmap/DonutChart 缺 CurrentLanguage 重译订阅） | P3 | 2026-10-17 |
 | Q-003 | 图表 tooltip 测试对称补齐（DonutChart chart-tip/紧凑文案零覆盖） | P3 | 2026-10-17 |
