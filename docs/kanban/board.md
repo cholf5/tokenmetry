@@ -17,6 +17,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-17（晚七）：**D-016 B2 升级项实施——macOS 点图标直接弹层（CodexBar 同款，用户拍板）**。自建 NSStatusItem interop（`MacTrayInterop`）：objc_allocateClassPair 派生按钮子类接管 `mouseUp:`/`rightMouseDown:`（无 ivar + 静态 IMP，不涉 ObjectiveCMarshal），左键 Toggle 弹层、右键弹同构原生 NSMenu；图标复用模板资产 setTemplate；顺带拿到图标精确 frame——`ConvertPointY` 公式对齐后弹窗锚定从"工作区右上近似"升级为"图标正下方右缘对齐"。TrayService 双轨：mac 生产走 interop（异常自动回落 Avalonia 托盘+菜单项入口），Windows/headless 走 Avalonia（测试宿主打 TOKENMETRY_HEADLESS 标记）。真机冒烟：stderr 无回落 + System Events 查得唯一 "status menu" 状态项；headless 1314 Passed（+2 纯函数对账）。约束：仅 arm64 验证过 ABI（Intel stret 未实现，需则立卡）；点击手感/明暗截图移交用户。
 
+> 2026-10-18（B3）：**D-016 真机反馈二连修——左键直弹落位闭环**。①左键无反应根因：NSButton 在 mouseDown 跟踪循环内消费 mouse-up，`mouseUp:` 重写不派发——改 target/action（button → 动态类 `tokenmetryTrayButtonAction:` IMP → Toggle）；②修正确过程中 SelSetAction 漏赋值的空 selector SIGSEGV（.ips 三连）；③锚定经 AX 探针闭环：状态窗口顶贴栏顶（高 30=栏高），可视单元 24×24 钳定，AppKit constrainFrameRect 强制窗口顶≥栏底（不受应用控制）——最终弹窗贴栏底弹出（卡片顶=栏底+6px）、右缘对齐图标，AXPress 三连击验证开/收/开。顺手修 Reload 测试的跨零点日期敏感缺陷。全量 1314 绿。点击手感/明暗截图仍待用户目检。
+
 > 2026-10-17（晚四）：**D-014 决策 C 收口**。用户三选一定案：**回落模板图标、关卡**——状态栏文本直显经 B1 取证在 Avalonia TrayIcon 上不可行，文本信息走菜单首行 + D-015/D-016 弹窗。位图路径（渲染器/字形分派/托盘接线）撤除回归原 A-0 语义；`TrayStatusText` 格式化器及纯函数测试保留给 D-015 复用。全量 1292 Passed。上游 `setLength` 修复未承诺，若未来仍要免点击文本走 interop 方案②携 B1 证据开新卡。
 
 > 2026-10-17（晚三）：**D-014 回退 Todo**。真机目检（用户截图）发现状态栏只见「M ·」——Avalonia 12.1.4 `trayicon.mm` `statusItemWithLength: NSSquareStatusItemLength` 固定方形且无 `setLength`，宽文字位图中段被裁（本机文本 "324.2M · $0.00" 中段恰为 M ·，证据链闭环记入卡内 B1）。**结论：硬裁剪非画质问题，位图方案在 macOS 不可行**，调优不可解。出路三选待用户决策：A 升级 interop（NSStatusItem 真文字，卡内预留方案②）；B 方形紧凑字妥协（3–4 字符）；C 回落模板图标关卡（等 D-015/016 或上游）。格式化器/降级分派/headless 断言按出路复用。

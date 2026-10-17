@@ -94,6 +94,13 @@ Steps: macOS / Windows 真机点击托盘，明暗两态 × 1x/2x 截图。Expec
 - **验证**：headless 全量 1314 Passed（+2：AnchorBelow 钳制 / Cocoa→Avalonia 换算纯函数对账）；真机冒烟——进程存活、stderr 无回落消息，System Events（辅助功能授权）查到进程 menu bar 2 **有且仅有一个 "status menu" 状态项**（interops 安装成功的客观证据；若回落会同时出现 Avalonia 兜底项与诊断消息）。左键/右键/锚点的最终目检移交用户。
 - **约束记录**：仅 Apple Silicon（arm64）验证过 ABI（NSRect/NSPoint 经寄存器传返；Intel 的 objc_msgSend_stret 路径未实现——如需 Intel 支持再立卡）；Cocoa 调用全在主线程，DashboardViewModel 后台回写经 `RunOnUIThread` marshal；NSMenuItem 手工 retain/release 配对（不依赖外层 autorelease pool）。
 
+### 2026-10-18（B3：真机反馈"左键没反应"两连修 + 锚定落位核实）
+
+- **B3-1 左键无反应**：右键菜单正常（interop 链路通），左键死——取证 AppKit 行为：NSButton（NSStatusBarButton 的基类）在 `mouseDown:` 内自进跟踪循环并把 mouse-up 消费掉，**子类重写 `mouseUp:` 根本不会被派发**（首版实现踩坑）；点击的正规出口是 **target/action**。修正：删 mouseUp 重写，`[button setTarget:setAction:]` 指向动态类实例的 `tokenmetryTrayButtonAction:` IMP → 左键 Toggle。
+- **B3-2 空 selector 段错误**：修正过程中 `SelSetAction` 声明了漏赋值，`objc_msgSend` 收到 NULL selector → SIGSEGV 三连崩（.ips 留档）。教训：selector 缓存集中一处、按名字逐一赋值，无编译期防护。
+- **B3-3 锚定落位（探针实测闭环）**：System Events AXPress 模拟点击 + AX 读窗位，三轮探针拿到真值——状态窗口 frame (2118,1410,38,30)（cocoa）= 顶贴菜单栏顶（top-down y=0、高 30=栏高），AX 可视图标 (2125,3,24,24)；锚定取窗口 frame 顶对齐钳到 24 可视单元（HGT 标准单元）。**位置不再变化的原因 = AppKit constrainFrameRect**：普通窗口被强制压到菜单栏之下（设 y=14 被改写为 30=栏底），不受 Avalonia/应用控制。最终形态：弹窗顶=栏底（30），可见卡片顶=栏底+6px（ShadowMargins.Top=6，兼作投影晕染），右缘对齐图标——CodexBar 观感。AXPress 三连击验证 开→收→开 + 位置落位。
+- **测试**：headless 全量 309 绿 + 全仓 1314 绿；修复 `Reload_populates_kpi_segments_and_top_agents` 的日期敏感缺陷（fixture "最近活动"固定 10-17 20:00，跨零点成"昨日"→产品逻辑如实留空→断言失败；改相对当前时刻）。
+
 ## Verification
 
 - Related files: `src/Tokenmetry.App/Tray/MacTrayInterop.cs`（macOS interop 状态项）、`src/Tokenmetry.App/Tray/StatusPopoverWindow.axaml(.cs)`、`src/Tokenmetry.App/Tray/StatusPopoverController.cs`、`src/Tokenmetry.App/Tray/PopoverPositioner.cs`、`src/Tokenmetry.App/Tray/TrayService.cs`（双轨分派）、`src/Tokenmetry.App/ViewModels/MainWindowViewModel.cs`、`src/Tokenmetry.App/App.axaml.cs`
