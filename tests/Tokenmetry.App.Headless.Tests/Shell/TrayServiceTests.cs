@@ -5,7 +5,12 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Tray;
+using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
+using Tokenmetry.Core.Abstractions;
+using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Services;
+using Tokenmetry.Infrastructure.Notifications;
 using Xunit;
 
 namespace Tokenmetry.App.Headless.Tests.Shell;
@@ -16,8 +21,10 @@ namespace Tokenmetry.App.Headless.Tests.Shell;
 /// 1. Initialize 经 TrayIcon.SetIcons 注册托盘（唯一挂载路径，修复前图标永不出现）；
 /// 2. 菜单规格 = 今日成本行 + 打开主窗 / 立即刷新 / 设置 / 退出（v0.5 规格docs/plans §5）；
 /// 3. UpdateToolTip 回写 tooltip 与菜单首行（修复前为死方法，托盘永远不显示成本）；
-/// 4. 用户关窗 = 隐藏到托盘（可再唤回），不真正销毁窗口（修复前关窗即退出）。
-/// 真机托盘出现 / 退出进程不在 headless 能力内，留给发布文档人工核验项。
+/// 4. 用户关窗 = 隐藏到托盘（可再唤回），不真正销毁窗口（修复前关窗即退出）；
+/// 5. D-014：KPI 更新即把状态栏图标替换成文字位图（非模板资产），刷新失败回落模板资产；
+///    三态字形的分派逻辑在 App.Tests 的 TrayStatusTextTests 纯函数覆盖。
+/// 真机托盘出现 / 退出进程 / 文字位图明暗与 DPI 画质不在 headless 能力内，留给发布文档人工核验项。
 /// </summary>
 public class TrayServiceTests : IDisposable
 {
@@ -127,4 +134,90 @@ public class TrayServiceTests : IDisposable
 
     private static NativeMenuItem? CostItem(TrayIcon icon) =>
         icon.Menu?.Items.OfType<NativeMenuItem>().FirstOrDefault(i => i.Header?.StartsWith("今日成本") == true);
+
+    // ── D-014：状态栏文字位图（TC-001 headless 可测部分）──
+    // 注意：headless 宿主的 WindowIcon.Save 是 no-op（写出零字节），图标内容只能经
+    // TrayService.LastStatusGlyph（internal 接缝）断言字形语义，图标实例换新另证重绘发生。
+
+    [AvaloniaFact]
+    public void Today_kpi_update_replaces_icon_with_text_bitmap_and_syncs_menu_row()
+    {
+        var dashboard = CreateDashboard();
+        var tray = new TrayService(_window, dashboard, null, null);
+        tray.Initialize();
+        var icon = SingleRegisteredIcon();
+        Assert.NotNull(icon);
+        var noDataIcon = icon!.Icon;
+        Assert.NotNull(noDataIcon);
+        Assert.Equal("—", tray.LastStatusGlyph); // 无数据初态：诚实降级
+
+        dashboard.TodayCostUsd = 12.46m;
+        dashboard.TodayTokens = 42400;
+        dashboard.HasData = true;
+
+        var statusIcon = icon.Icon;
+        Assert.NotSame(noDataIcon, statusIcon); // 图标被替换（非静止模板资产）
+        Assert.Equal("42.4K · $12.46", tray.LastStatusGlyph);
+        Assert.Equal("今日成本：$12.46", CostItem(icon)!.Header); // 菜单首行与位图同一信号同步
+
+        // 有值扫描中（周期刷新）：字形不变则不重绘，状态栏不闪动
+        dashboard.IsLoading = true;
+        Assert.Same(statusIcon, icon.Icon);
+        Assert.Equal("42.4K · $12.46", tray.LastStatusGlyph);
+    }
+
+    [AvaloniaFact]
+    public void Refresh_failure_falls_back_to_template_asset_instead_of_stale_number()
+    {
+        var dashboard = CreateDashboard();
+        var tray = new TrayService(_window, dashboard, null, null);
+        tray.Initialize();
+        var icon = SingleRegisteredIcon();
+        Assert.NotNull(icon);
+
+        dashboard.TodayCostUsd = 12.46m;
+        dashboard.TodayTokens = 42400;
+        dashboard.HasData = true;
+        var statusIcon = icon.Icon!;
+        Assert.NotEqual("—", tray.LastStatusGlyph);
+
+        dashboard.Status = "error";
+        dashboard.HasData = false;
+
+        // 字形置 null = UpdateStatusImage 按 CreateIcon() 回落纯模板资产（同 Initialize 资产路径），
+        // 不留陈旧数字；图标实例换新证明重绘确已发生
+        Assert.Null(tray.LastStatusGlyph);
+        Assert.NotSame(statusIcon, icon.Icon);
+    }
+
+    private static DashboardViewModel CreateDashboard()
+    {
+        // TrayService 只消费 PropertyChanged；VM 构造时机只热缓存（空 store 无副作用）
+        return new DashboardViewModel(
+            new DashboardService(new DateRangeService()),
+            new CacheService(new EmptyUsageStore()),
+            new MockUsageDataSource(),
+            new AnomalyDetector(),
+            new DateRangeService(),
+            new NullSystemNotification(),
+            new AppSettings());
+    }
+
+    /// <summary>空 facts store：仅满足 DashboardViewModel 构造的热缓存路径，返回空集。</summary>
+    private sealed class EmptyUsageStore : IUsageStore
+    {
+        public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task ReplaceUsageFactsByDayAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<UsageFact>> GetUsageFactsAsync(CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<UsageFact>>([]);
+
+        public Task UpsertSessionFactsAsync(IReadOnlyList<SessionFact> facts, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<SessionFact>> GetSessionFactsAsync(CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<SessionFact>>([]);
+
+        public Task DeleteDecompositionFactsAsync(CancellationToken ct = default) => Task.CompletedTask;
+    }
 }
