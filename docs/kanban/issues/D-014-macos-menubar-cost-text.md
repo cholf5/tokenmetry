@@ -1,8 +1,8 @@
 ---
 id: D-014
-title: macOS 状态栏直显今日成本（模板图标 → 动态成本位图，不走 NSStatusItem interop）
+title: 状态栏直显今日用量（模板图标 → 动态文字位图，不走 NSStatusItem interop）
 type: feature
-priority: P3
+priority: P2
 size: M
 status: todo
 created: 2026-10-17
@@ -12,7 +12,7 @@ blocked: none
 
 ## Goal
 
-macOS 菜单栏图标直接渲染「今日 $12.5」级缩略成本，无需展开菜单——补齐 A-0「托盘常驻显示今日成本」（pivot §5）在 Mac 上的另一半。
+macOS 菜单栏（及 Windows 托盘可选）图标直接渲染「42.4K · $12.46」级紧凑用量文本，无需展开菜单——补齐 A-0「托盘常驻显示今日成本」（pivot §5）的另一半，也是状态栏快捷信息窗（D-015/D-016）的入口价值前提。
 
 ## Background
 
@@ -22,6 +22,7 @@ macOS 菜单栏图标直接渲染「今日 $12.5」级缩略成本，无需展�
   - ② 原生 interop（iStat 菜单类做法）：NSStatusItem + NSTextField，需 unsafe/objc interop 层，工程量大，**本阶段不做**；仅当位图方案画质不可接受且证据充分时再议。
 - 可复用路径：`TrayService.CreateIcon()` 已有运行时换图入口；`Dashboard.PropertyChanged → UpdateToolTip(BuildCostText(...))` 已有成本联动管线（KPI 更新即回写），重绘挂钩同一信号。
 - 约束：保持 template 单色语义（macOS template icon 是 alpha 蒙版位图，跟随明暗菜单栏自动反色——文字位图同样必须 alpha-only，禁用彩字）；紧凑数字格式（$12.50 → $12.5 / $1.2k）宽度才放得下；无数据 / 扫描中态有诚实降级字形。
+- **原型补充规格**（2026-10-17 状态栏路线定稿，原型 `docs/design/tokenmetry_statusbar_prototype.html` 底部 tray chip）：状态栏文本 = 紧凑 tokens + 成本（`42.4K · $12.46`）；Warn 态可切警告字形（`⚠ 38.2K/min`，可选）。Windows 托盘 tooltip 已有成本展示，Windows 侧是否同步上文字位图在本卡实施时决策（macOS 优先——tooltip 在 Mac 渲染不出）。
 
 ## Acceptance Criteria
 
@@ -64,3 +65,4 @@ Expected: 数字可读不糊；暗色菜单栏白字、亮色黑字（template �
 ### 2026-10-17
 
 - 建卡（S-005 实施会话顺带定案的规格缺口）：Mac 状态栏成本唯一出口是菜单首行，状态栏本身零信息；方案选定纯托管位图渲染，interop 方案明确不在本阶段。
+- 2026-10-17（晚）状态栏路线定稿：升 P2，标题从「macOS 状态栏直显今日成本」放宽为「状态栏直显今日用量」，并入原型 tray chip 规格（紧凑 tokens + 成本，Warn 态可选）；popover 路线拆 D-015（内容层）/ D-016（壳层），本卡是其入口前提。

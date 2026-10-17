@@ -9,7 +9,11 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| D-014 | macOS 状态栏直显今日成本（模板图标→动态成本位图，不走 NSStatusItem interop） | P3 | M | none | none |
+| D-014 | 状态栏直显今日用量（模板图标→动态文字位图，不走 NSStatusItem interop） | P2 | M | none | none |
+| D-015 | 状态栏快捷信息窗 · 内容层（共享 UserControl：KPI + 构成 + Top4 Agent + 三态 banner） | P2 | M | none | none（建议 D-014 先行） |
+| D-016 | 状态栏快捷信息窗 · 壳层（macOS 顶部锚定 / Windows flyout，复用 D-015） | P2 | S | none | D-015 |
+
+> 2026-10-17（晚）：**状态栏路线定稿——用户经 ChatGPT 产出 UI 原型，原样收入 `docs/design/tokenmetry_statusbar_prototype.html`**（沿 ccusage_analytics 原型先例：原型为设计参照，落地按卡内修正项偏离，不改原型）。CodexBar 式「状态栏文本 + 点击弹固定内容面板」确认采纳：内容层一份（D-015：今日 KPI 三格 + Token 构成 + 主要 Agent Top4 + 三态 banner，全走 IUsageQueryService 同源；六条修正项卡内锁定——真品牌图标 / 全令牌化 + 亮色变体 / 最小 10px / 速率=刷新差值÷间隔 / footer 左键改语义 / 点击行为收敛既有导航）、壳层分平台（D-016：macOS 顶部近似锚定先行、Windows GetCursorPos flyout，零 interop 台阶式升级）；D-014 升 P2 并入 tray 文字规格（紧凑 tokens + 成本）。常驻正当性定调：数据重启可补扫不丢失，常驻价值 = 状态栏 + 未来推送；默认关窗行为待状态栏落地后复评（S-005 开关已是用户侧出口）。
 
 > 2026-10-17：**S-005 关窗行为收口（用户提案直接落地）+ D-014 建卡**。A-0「关窗即托盘」补齐两缺口：设置页「关闭窗口时最小化到系统托盘」开关（默认开，关闭后点 X 即经生命周期退出）+ 首次关窗一次性模态提示窗（in-app toast 在主窗隐藏后无处渲染、Avalonia 无跨平台系统通知 API——balloon 需 Win32 内部句柄、macOS 通知需 interop+权限流程，模态窗是零 interop 且关窗时点告知的方案）。Mac 状态栏直显成本（tooltip 在 Mac 渲染不出，成本唯一出口是菜单首行）立 D-014 单独处理；OS 级 balloon/toast 有意不做（不成比例，待真系统通知需求成卡）。
 
