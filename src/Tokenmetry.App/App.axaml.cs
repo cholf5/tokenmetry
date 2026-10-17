@@ -48,7 +48,11 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindowViewModel = DependencyInjection.AppServices.Get<MainWindowViewModel>();
-            var mainWindow = new MainWindow
+            // S-005：主窗持有关窗行为依赖（设置单例 + 落盘 store）——OnClosing 据此分派
+            // 隐藏到托盘 / 首关一次性提示 / 关窗即退出。
+            var mainWindow = new MainWindow(
+                settings,
+                DependencyInjection.AppServices.Get<IAppSettingsStore>())
             {
                 DataContext = mainWindowViewModel,
             };

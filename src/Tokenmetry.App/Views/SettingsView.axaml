@@ -7,7 +7,7 @@
 
     <!--
         S-004 设置页（自 S-002 合并页拆出后收缩为应用偏好）：外观与通用（主题三态 / 界面语言 /
-        刷新间隔 / 通知 / ccusage 命令）+ 本地路径（只读说明）。数据源 / 统计口径 / 模型目录 /
+        刷新间隔 / 通知 / 关窗行为 / ccusage 命令）+ 本地路径（只读说明）。数据源 / 统计口径 / 模型目录 /
         别名映射在数据与计价页（DataPricingView）。全部设置项全自动保存（改完即生效并落盘，
         无保存按钮——对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）。
     -->
@@ -82,6 +82,15 @@
                          按假开关红线删除——诚实优先，未来有调试出口再恢复。 -->
                     <CheckBox Content="{Binding CheckAnomalyNotifications, Source={x:Static loc:Translations.Instance}}"
                               IsChecked="{Binding AnomalyNotificationsEnabled}"/>
+
+                    <!-- S-005：关窗行为（关窗=托盘常驻为 A-0 默认；消费者 = MainWindow.OnClosing 的关窗分派，
+                         开关关闭后点关闭按钮即退出进程） -->
+                    <StackPanel Spacing="4">
+                        <CheckBox Content="{Binding CheckMinimizeToTrayOnClose, Source={x:Static loc:Translations.Instance}}"
+                                  IsChecked="{Binding MinimizeToTrayOnClose}"/>
+                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                                   Text="{Binding CheckMinimizeToTrayOnCloseHint, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

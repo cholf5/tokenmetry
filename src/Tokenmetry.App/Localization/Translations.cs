@@ -104,6 +104,10 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(TrayRefreshNow)] = "立即刷新",
         [nameof(TraySettings)] = "设置",
         [nameof(TrayExit)] = "退出",
+        // S-005：首次"关窗=托盘"的一次性提示窗（MainWindow 模态弹窗——in-app toast 在主窗隐藏后无处渲染）
+        [nameof(TrayHintTitle)] = "已最小化到系统托盘",
+        [nameof(TrayHintBody)] = "Tokenmetry 将继续在系统托盘运行，后台采集刷新不中断。可从托盘菜单重新打开主窗或彻底退出；本提示只显示一次，关闭行为可在「设置」页更改。",
+        [nameof(TrayHintOk)] = "知道了",
 
         // ── 设置页（SettingsView / SettingsViewModel）──
         [nameof(SourcesPanelTitle)] = "已识别的数据源",
@@ -164,6 +168,9 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(LabelCcusageCli)] = "ccusage CLI（对账 / 手动导入）",
         [nameof(CcusageHint)] = "应用默认直读本地会话日志，无需安装 ccusage；此命令仅对账 / 手动导入时使用，下次启动生效。",
         [nameof(CheckAnomalyNotifications)] = "启用异常通知（应用内 toast 提示）",
+        // S-005：关窗行为开关（消费者 = MainWindow.OnClosing 的关窗分派）
+        [nameof(CheckMinimizeToTrayOnClose)] = "关闭窗口时最小化到系统托盘",
+        [nameof(CheckMinimizeToTrayOnCloseHint)] = "关闭主窗后应用仍在托盘运行、继续定时刷新；彻底退出用托盘菜单「退出」。关闭此开关后，点关闭按钮将直接退出应用。",
         [nameof(LocalPathsTitle)] = "本地路径",
         [nameof(LabelCacheDb)] = "缓存数据库",
         [nameof(LabelSettingsFile)] = "设置文件",
@@ -408,6 +415,9 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(TrayRefreshNow)] = "Refresh now",
         [nameof(TraySettings)] = "Settings",
         [nameof(TrayExit)] = "Quit",
+        [nameof(TrayHintTitle)] = "Minimized to the tray",
+        [nameof(TrayHintBody)] = "Tokenmetry keeps running in the system tray and background refresh continues. Reopen the window from the tray menu or quit there; this notice shows once, and the close behavior can be changed in Settings.",
+        [nameof(TrayHintOk)] = "Got it",
 
         [nameof(SourcesPanelTitle)] = "Recognized data sources",
         [nameof(ThSource)] = "Source",
@@ -467,6 +477,8 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(LabelCcusageCli)] = "ccusage CLI (reconciliation / manual import)",
         [nameof(CcusageHint)] = "The app reads local session logs directly — ccusage is not required; this command is only used for reconciliation / manual import and takes effect on next start.",
         [nameof(CheckAnomalyNotifications)] = "Enable anomaly notifications (in-app toast)",
+        [nameof(CheckMinimizeToTrayOnClose)] = "Minimize to the system tray on close",
+        [nameof(CheckMinimizeToTrayOnCloseHint)] = "After closing, the app keeps running in the tray with scheduled refresh; quit via the tray menu. When off, the close button exits the app.",
         [nameof(LocalPathsTitle)] = "Local paths",
         [nameof(LabelCacheDb)] = "Cache database",
         [nameof(LabelSettingsFile)] = "Settings file",
@@ -756,6 +768,9 @@ public sealed class Translations : INotifyPropertyChanged
     public string TrayRefreshNow => Get();
     public string TraySettings => Get();
     public string TrayExit => Get();
+    public string TrayHintTitle => Get();
+    public string TrayHintBody => Get();
+    public string TrayHintOk => Get();
 
     // ── 设置页 ──
     public string SourcesPanelTitle => Get();
@@ -816,6 +831,8 @@ public sealed class Translations : INotifyPropertyChanged
     public string LabelCcusageCli => Get();
     public string CcusageHint => Get();
     public string CheckAnomalyNotifications => Get();
+    public string CheckMinimizeToTrayOnClose => Get();
+    public string CheckMinimizeToTrayOnCloseHint => Get();
     public string LocalPathsTitle => Get();
     public string LabelCacheDb => Get();
     public string LabelSettingsFile => Get();

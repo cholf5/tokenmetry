@@ -90,6 +90,10 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _anomalyNotificationsEnabled;
 
+    /// <summary>关窗行为（S-005）：true = 关窗最小化到托盘（默认）；false = 关窗即退出。消费者 = MainWindow.OnClosing。</summary>
+    [ObservableProperty]
+    private bool _minimizeToTrayOnClose;
+
     /// <summary>刷新间隔的行内校验提示（非法输入时非空并显示；合法/初始为 null 隐藏）。</summary>
     [ObservableProperty]
     private string? _refreshMinutesError;
@@ -114,6 +118,7 @@ public partial class SettingsViewModel : ViewModelBase
         _ccusageCommand = settings.CcusageCommand;
         _refreshMinutesText = settings.RefreshMinutes.ToString();
         _anomalyNotificationsEnabled = settings.AnomalyNotificationsEnabled;
+        _minimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
         _selectedTheme = ResolveThemeOption(settings.Theme);
         _selectedLanguage = ResolveLanguageOption(settings.Language);
 
@@ -187,6 +192,13 @@ public partial class SettingsViewModel : ViewModelBase
     partial void OnAnomalyNotificationsEnabledChanged(bool value)
     {
         _settings.AnomalyNotificationsEnabled = value;
+        PersistSettings();
+    }
+
+    /// <summary>关窗行为开关：勾选即存（消费者 = MainWindow.OnClosing 的关窗分派；下次关窗即按新值生效）。</summary>
+    partial void OnMinimizeToTrayOnCloseChanged(bool value)
+    {
+        _settings.MinimizeToTrayOnClose = value;
         PersistSettings();
     }
 
