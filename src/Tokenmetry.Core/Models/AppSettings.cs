@@ -25,6 +25,20 @@ public class AppSettings
     public string Language { get; set; } = "system";
 
     /// <summary>
+    /// 关窗行为（S-005）：true（默认，A-0 托盘常驻语义）= 用户关窗（点 X / Alt+F4 / 程序内 Close()）
+    /// 隐藏到托盘、进程常驻（后台刷新不中断）；false = 用户关窗即退出进程（仍走 desktop.Shutdown
+    /// 生命周期收尾，同托盘「退出」）。消费者 = MainWindow.OnClosing 的关窗分派；UI 出口 = 设置页。
+    /// </summary>
+    public bool MinimizeToTrayOnClose { get; set; } = true;
+
+    /// <summary>
+    /// 「已最小化到托盘」首次关窗提示的一次性状态位（S-005）：非用户偏好、无 UI 出口——提示展示过
+    /// 即置位并落盘，此后不再打扰。消费者 = MainWindow.OnClosing；与 MinimizeToTrayOnClose 同时写入
+    /// 共享的 settings.json（保存为临时文件 + 原子 Move，两侧写同一 AppSettings 单例）。
+    /// </summary>
+    public bool CloseToTrayHintShown { get; set; }
+
+    /// <summary>
     /// 顶部栏时间范围档（Tokenmetry.App 的 TimeRange 枚举名，如 "Last7Days"）；未知值由
     /// FilterStatePersistence 解析处如实回落默认档。存字符串：枚举在 App 层，Core 不依赖 UI。
     /// </summary>

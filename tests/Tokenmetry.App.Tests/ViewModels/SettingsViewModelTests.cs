@@ -121,6 +121,25 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public void MinimizeToTrayOnCloseToggle_PersistsImmediately()
+    {
+        // S-005：关窗行为开关全自动保存；消费者 = MainWindow.OnClosing 的关窗分派。
+        var settings = new AppSettings { MinimizeToTrayOnClose = true };
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store);
+
+        viewModel.MinimizeToTrayOnClose = false;
+
+        settings.MinimizeToTrayOnClose.Should().BeFalse();
+        store.SaveCalls.Should().Be(1);
+
+        viewModel.MinimizeToTrayOnClose = true;
+
+        settings.MinimizeToTrayOnClose.Should().BeTrue();
+        store.SaveCalls.Should().Be(2);
+    }
+
+    [Fact]
     public void SettingsChange_WhenStoreFails_KeepsUiEffectiveAndDoesNotThrow()
     {
         // best-effort 自动保存：磁盘失败不阻断 UI 已生效的更改（诊断日志，下次更改重试）。
