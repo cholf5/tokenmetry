@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tokenmetry Status Bar</title>
+<style>
+:root{--bg:#0b121f;--p:#111d2d;--p2:#162439;--line:#293a53;--t:#edf4ff;--m:#8494ab;--b:#55a0ff;--u:#a47bff;--g:#38d6a4;--o:#ffb84d}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 65% 20%,#203554 0,#0b121f 40%,#080e17 100%);color:var(--t);font:13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{height:100vh;display:grid;place-items:center}.hint{position:fixed;top:28px;color:#8292aa;font-size:12px}.controls{position:fixed;top:58px;background:#101a29;border:1px solid var(--line);padding:4px;border-radius:8px}.controls button{border:0;background:none;color:#8292aa;padding:6px 10px;border-radius:5px}.controls .on{background:#20344e;color:white}
+.popup{width:438px;background:linear-gradient(155deg,#152236,#0d1726);border:1px solid #334760;border-radius:15px;box-shadow:0 25px 80px #0009;overflow:hidden}
+.head{height:52px;display:flex;align-items:center;gap:9px;padding:0 15px;border-bottom:1px solid #24344a}.logo{width:27px;height:27px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(140deg,#3986ed,#8a68e9);font-weight:800}.brand{font-weight:700}.live{font-size:10px;color:var(--g);display:flex;gap:5px;align-items:center}.live i{width:6px;height:6px;background:var(--g);border-radius:50%;box-shadow:0 0 9px var(--g)}.head button{margin-left:auto;background:none;border:0;color:#8b9cb3;font-size:16px}
+.body{padding:16px}.banner{display:none;background:#172a42;border:1px solid #2b4c70;border-radius:9px;padding:9px 10px;margin-bottom:13px}.banner.show{display:flex;gap:9px}.banner.warn{background:#30281b;border-color:#674d29}.bdot{width:8px;height:8px;margin-top:4px;border-radius:50%;background:var(--b)}.warn .bdot{background:var(--o)}.bt{font-size:11px;font-weight:650}.bs{font-size:9px;color:#91a1b7;margin-top:1px}
+.stats{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:13px}.lab{font-size:10px;color:var(--m)}.num{font-size:22px;font-weight:750;letter-spacing:-.5px;margin-top:3px}.small .num{font-size:17px}.cap{font-size:9px;color:#71839b;margin-top:2px}
+.bar{height:9px;margin:14px 0 9px;background:#233149;border-radius:5px;overflow:hidden;display:flex}.bar b{height:100%}.in{width:63.3%;background:var(--b)}.out{width:31%;background:var(--u)}.cache{width:5.7%;background:var(--g)}
+.break{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.metric{background:#101a29;border:1px solid #223149;border-radius:8px;padding:8px}.mt{color:#a5b3c7;font-size:10px}.mv{font-size:12px;margin-top:4px}.mp{font-size:9px;color:#71839b}
+.hr{height:1px;background:#24344a;margin:15px 0}.sect{display:flex;align-items:center;margin-bottom:7px}.sect strong{font-size:11px}.sect button{margin-left:auto;border:0;background:none;color:#78b0ff;font-size:10px}
+.agent{display:grid;grid-template-columns:25px 1fr auto;gap:8px;padding:7px 0}.ai{width:25px;height:25px;border-radius:7px;display:grid;place-items:center;background:#203957;color:#9ac5ff}.an{font-size:11px}.as{font-size:9px;color:#71839b}.track{height:3px;background:#223149;border-radius:3px;margin-top:5px}.track i{display:block;height:100%;background:var(--b);border-radius:3px}.ar{text-align:right;font-size:11px}.ar small{display:block;color:#71839b;font-size:9px;margin-top:1px}
+.foot{display:flex;gap:7px}.foot button{flex:1;border-radius:8px;padding:9px;border:1px solid #30445f;background:#18283e;color:#c9d8eb;font-size:10px}.foot .primary{background:#347cec;border-color:#4c91fa;color:#fff;font-weight:650}
+.tray{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);height:40px;padding:0 13px 0 9px;display:flex;align-items:center;gap:8px;border:1px solid #354962;background:#111c2cdd;border-radius:12px;box-shadow:0 12px 40px #0007}.tray .logo{width:23px;height:23px}.tv{font-size:11px}.chev{color:#8293aa}
+.toast{position:fixed;bottom:75px;left:50%;transform:translateX(-50%);background:#1d3047;border:1px solid #3c5877;padding:8px 12px;border-radius:8px;font-size:10px}
+</style></head>
+<body><div class="wrap">
+<div class="hint">Tokenmetry · Status Bar Prototype</div>
+<div class="controls"><button class="on" data-s="idle">Idle</button><button data-s="active">Active</button><button data-s="warn">Warning</button></div>
+<div class="popup">
+<div class="head"><div class="logo">T</div><span class="brand">Tokenmetry</span><span class="live"><i></i><span id="live">实时</span></span><button id="gear">⚙</button></div>
+<div class="body">
+<div class="banner" id="banner"><i class="bdot"></i><div><div class="bt" id="bt"></div><div class="bs" id="bs"></div></div></div>
+<div class="stats"><div><div class="lab">今日 Token</div><div class="num" id="tokens">42,381</div><div class="cap">跨所有 Agent</div></div><div class="small"><div class="lab">估算成本</div><div class="num">$12.46</div><div class="cap">USD · 估算</div></div><div class="small"><div class="lab">缓存命中</div><div class="num">68%</div><div class="cap">cache read</div></div></div>
+<div class="bar"><b class="in"></b><b class="out"></b><b class="cache"></b></div>
+<div class="break"><div class="metric"><div class="mt">● 输入</div><div class="mv">26,843</div><div class="mp">63.3%</div></div><div class="metric"><div class="mt">● 输出</div><div class="mv">13,124</div><div class="mp">31.0%</div></div><div class="metric"><div class="mt">● 缓存</div><div class="mv">2,414</div><div class="mp">5.7%</div></div></div>
+<div class="hr"></div><div class="sect"><strong>主要 Agent</strong><button id="details">查看详情 →</button></div>
+<div class="agent"><div class="ai">✳</div><div><div class="an">Claude Code</div><div class="as">当前会话 · 8.2K/min</div><div class="track"><i style="width:49%"></i></div></div><div class="ar">20,624<small>48.7%</small></div></div>
+<div class="agent"><div class="ai">◈</div><div><div class="an">Codex</div><div class="as">最近活动 · 3.1K/min</div><div class="track"><i style="width:32%"></i></div></div><div class="ar">13,582<small>32.1%</small></div></div>
+<div class="agent"><div class="ai">⬡</div><div><div class="an">Cursor</div><div class="as">最近活动 · 1.4K/min</div><div class="track"><i style="width:12%"></i></div></div><div class="ar">5,261<small>12.4%</small></div></div>
+<div class="agent"><div class="ai">◉</div><div><div class="an">GitHub Copilot</div><div class="as">最近活动 · 0.6K/min</div><div class="track"><i style="width:7%"></i></div></div><div class="ar">2,914<small>6.8%</small></div></div>
+<div class="hr"></div><div class="foot"><button id="session">当前 Session · 8.4K</button><button class="primary" id="dashboard">打开完整统计 →</button></div>
+</div></div>
+<div class="tray"><div class="logo">T</div><span class="tv" id="tray">42.4K · $12.46</span><span class="chev">⌃</span></div></div>
+<script>
+const S={idle:["实时","","",false,"42,381","42.4K · $12.46"],active:["LIVE","Claude Code 正在工作","当前速度 8.2K tokens/min · 当前 Session 8.4K",true,"50,802","Claude Code · 8.2K/min"],warn:["注意","检测到异常 Token 使用","Claude Code · 当前速度约为平时的 4.8×",true,"64,219","⚠ 38.2K/min"]};
+function state(k){let s=S[k],b=document.querySelector(".banner");document.querySelectorAll(".controls button").forEach(x=>x.classList.toggle("on",x.dataset.s===k));b.classList.toggle("show",s[3]);b.classList.toggle("warn",k==="warn");document.getElementById("live").textContent=s[0];document.getElementById("bt").textContent=s[1];document.getElementById("bs").textContent=s[2];document.getElementById("tokens").textContent=s[4];document.getElementById("tray").textContent=s[5]}
+function toast(x){document.querySelector(".toast")?.remove();let t=document.createElement("div");t.className="toast";t.textContent=x;document.body.append(t);setTimeout(()=>t.remove(),1600)}
+document.querySelectorAll(".controls button").forEach(b=>b.onclick=()=>state(b.dataset.s));
+document.getElementById("gear").onclick=()=>toast("Tokenmetry 设置");document.getElementById("details").onclick=()=>toast("Agent 详细统计");document.getElementById("session").onclick=()=>toast("当前 Session");document.getElementById("dashboard").onclick=()=>toast("Tokenmetry Dashboard");
+state("idle");
+</script></body></html>
