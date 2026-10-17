@@ -12,10 +12,12 @@ namespace Tokenmetry.App.Tray;
 /// <c>TrayIcon.Clicked</c> 在 macOS 从不 raise（官方文档 + trayicon.mm 无点击回调），点图标直接
 /// 弹层必须绕开 Avalonia 托盘、经 ObjC runtime 自管状态项。
 /// <para><b>机制</b>：自建 NSStatusItem → 取其 button 的实际类 → objc_allocateClassPair 派生
-/// 子类 + object_setClass 装到实例上（KVO 同款经典手法），重写 <c>mouseUp:</c>（左键；super 调用
-/// 保留系统高亮语义）与 <c>rightMouseDown:</c>（右键弹自有 NSMenu）。菜单项 target-action 指向
-/// 同一个动态类实例，按 tag 回派托管命令；只用无 ivar 的类对（实例尺寸不变）+
-/// [UnmanagedCallersOnly] 静态 IMP——不涉 ObjectiveCMarshal，无 GC 对象生命周期耦合。</para>
+/// 子类 + object_setClass 装到实例上（KVO 同款经典手法），重写 <c>rightMouseDown:</c>（右键弹
+/// 自有 NSMenu）。<b>左键走 target/action</b>：button 的 target 指向动态类实例、action 为
+/// <c>tokenmetryTrayButtonAction:</c>——NSButton 在 mouseDown 跟踪循环内消费 mouse-up，
+/// <c>mouseUp:</c> 重写根本不会被派发（B3 留证），target/action 是点击的唯一正规出口。菜单项
+/// 同指该实例，按 tag 回派托管命令；只用无 ivar 的类对（实例尺寸不变）+ [UnmanagedCallersOnly]
+/// 静态 IMP——不涉 ObjectiveCMarshal，无 GC 对象生命周期耦合。</para>
 /// <para><b>坐标</b>：Cocoa 屏幕坐标纵轴向上，与 Avalonia（macOS 上为 Cocoa 点、纵轴向下）的
 /// 换算对齐 Avalonia.Native 的 ConvertPointY 公式：<c>avaloniaY = 主屏 cocoa maxY − cocoaY</c>
 /// （main.mm:560）。据此拿到图标精确 frame，弹窗锚定不再是"工作区右上近似"。</para>
@@ -50,7 +52,6 @@ internal static unsafe class MacTrayInterop
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern long MsgSendLong(IntPtr receiver, IntPtr selector);
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern NSPoint MsgSendPoint(IntPtr receiver, IntPtr selector);
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern NSRect MsgSendRect(IntPtr receiver, IntPtr selector);
-    [DllImport(LibObjC, EntryPoint = "objc_msgSendSuper")] private static extern void MsgSendSuper(ref ObjCSuper super, IntPtr selector);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct NSPoint { public double X, Y; }
@@ -61,17 +62,14 @@ internal static unsafe class MacTrayInterop
     [StructLayout(LayoutKind.Sequential)]
     private struct NSRect { public double X, Y, Width, Height; }
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct ObjCSuper { public IntPtr Receiver; public IntPtr SuperClass; }
-
     // ── 缓存的 selector ──
     private static IntPtr SelButton, SelStatusItemWithLength, SelFrame, SelWindow, SelScreens,
-        SelObjectAtIndex, SelSetImage, SelSetTemplate, SelSetToolTip, SelSetTarget, SelSetTag,
-        SelSetEnabled, SelSetTitle, SelAddItem, SelSeparatorItem, SelSetAutoenables, SelAlloc,
-        SelInit, SelInitWithUtf8, SelRelease, SelMouseUp, SelRightMouseDown, SelMenuAction,
-        SelTag, SelMouseLocation, SelDataWithBytesLength, SelInitWithData, SelSetSize,
-        SelMenuFontOfSize, SelPointSize, SelSystemStatusBar, SelInitWithTitle, SelInitWith3,
-        SelPopUpMenu, SelGetSize;
+        SelObjectAtIndex, SelSetImage, SelSetTemplate, SelSetToolTip, SelSetTarget, SelSetAction,
+        SelSetTag, SelSetEnabled, SelSetTitle, SelAddItem, SelSeparatorItem, SelSetAutoenables,
+        SelAlloc, SelInit, SelInitWithUtf8, SelRelease, SelRightMouseDown, SelMenuAction,
+        SelButtonAction, SelTag, SelMouseLocation, SelDataWithBytesLength, SelInitWithData,
+        SelSetSize, SelMenuFontOfSize, SelPointSize, SelSystemStatusBar, SelInitWithTitle,
+        SelInitWith3, SelPopUpMenu, SelGetSize;
 
     // ── 运行时状态（单状态项，进程生命周期）──
     private static IntPtr _button, _menu, _target;
@@ -130,19 +128,19 @@ internal static unsafe class MacTrayInterop
         var statusItem = MsgSend(statusBar, SelStatusItemWithLength, -2.0);
         _button = MsgSend(statusItem, SelButton);
 
-        // 2. 从按钮的实际类派生子类（不假设恰好是 NSStatusBarButton），重写左键 / 右键 / 菜单 action
+        // 2. 从按钮的实际类派生子类（不假设恰好是 NSStatusBarButton），重写右键；左键走 target/action
         var buttonClass = objc_allocateClassPair(object_getClass(_button), "TokenmetryTrayStatusButton", 0);
         if (buttonClass == IntPtr.Zero)
         {
             throw new InvalidOperationException("objc_allocateClassPair failed");
         }
 
-        var impMouseUp = (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)&ButtonMouseUpImp;
         var impRightDown = (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)&ButtonRightMouseDownImp;
         var impMenuAction = (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)&MenuItemActionImp;
-        if (!class_addMethod(buttonClass, SelMouseUp, impMouseUp, "v@:@")
-            || !class_addMethod(buttonClass, SelRightMouseDown, impRightDown, "v@:@")
-            || !class_addMethod(buttonClass, SelMenuAction, impMenuAction, "v@:@"))
+        var impButtonAction = (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)&TrayButtonActionImp;
+        if (!class_addMethod(buttonClass, SelRightMouseDown, impRightDown, "v@:@")
+            || !class_addMethod(buttonClass, SelMenuAction, impMenuAction, "v@:@")
+            || !class_addMethod(buttonClass, SelButtonAction, impButtonAction, "v@:@"))
         {
             throw new InvalidOperationException("class_addMethod failed");
         }
@@ -161,12 +159,15 @@ internal static unsafe class MacTrayInterop
 
         SetTooltip(tooltip);
 
-        // 4. 装子类到按钮实例（此后左右键事件进托管 IMP）
+        // 4. 装子类到按钮实例，并设左键 target/action（NSButton 在 mouseDown 跟踪循环内消费
+        //    mouse-up，mouseUp: 重写不会被派发——target/action 是点击的唯一正规出口，B3 留证）
+        _target = MsgSend(MsgSend(buttonClass, SelAlloc), SelInit);
         _ = object_setClass(_button, buttonClass);
+        MsgSend(_button, SelSetTarget, _target);
+        MsgSend(_button, SelSetAction, SelButtonAction);
 
         // 5. 菜单（右键）：与 Avalonia 路径同构的成本行 + 分隔 + 功能项；autoenables 关闭——
         //    target 不在 responder 链上，默认自动启用会误灰，可用性由 setEnabled 显式控制
-        _target = MsgSend(MsgSend(buttonClass, SelAlloc), SelInit);
         _menu = MsgSend(MsgSend(objc_getClass("NSMenu"), SelAlloc), SelInitWithTitle, CreateNSString("Tokenmetry"));
         MsgSend(_menu, SelSetAutoenables, (IntPtr)0);
         for (var index = 0; index < items.Count; index++)
@@ -211,6 +212,7 @@ internal static unsafe class MacTrayInterop
         SelSetTemplate = Sel("setTemplate:");
         SelSetToolTip = Sel("setToolTip:");
         SelSetTarget = Sel("setTarget:");
+        SelSetAction = Sel("setAction:");
         SelSetTag = Sel("setTag:");
         SelSetEnabled = Sel("setEnabled:");
         SelSetTitle = Sel("setTitle:");
@@ -221,9 +223,9 @@ internal static unsafe class MacTrayInterop
         SelInit = Sel("init");
         SelInitWithUtf8 = Sel("initWithUTF8String:");
         SelRelease = Sel("release");
-        SelMouseUp = Sel("mouseUp:");
         SelRightMouseDown = Sel("rightMouseDown:");
         SelMenuAction = Sel("tokenmetryMenuItemAction:");
+        SelButtonAction = Sel("tokenmetryTrayButtonAction:");
         SelTag = Sel("tag");
         SelMouseLocation = Sel("mouseLocation");
         SelDataWithBytesLength = Sel("dataWithBytes:length:");
@@ -241,14 +243,13 @@ internal static unsafe class MacTrayInterop
 
     // ── IMP（仅主线程进入；异常必须在托管侧吃干净，跨 ObjC 边界抛出即崩进程）──
 
+    /// <summary>左键 action（button target-action，跟踪循环结束发 action；仅主线程进入，
+    /// 异常必须在托管侧吃干净——跨 ObjC 边界抛出即崩进程）。</summary>
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void ButtonMouseUpImp(IntPtr self, IntPtr sel, IntPtr sender)
+    private static void TrayButtonActionImp(IntPtr self, IntPtr sel, IntPtr sender)
     {
         try
         {
-            // super mouseUp：恢复系统高亮状态（target/action 未设，super 不会重复发 action）
-            var super = new ObjCSuper { Receiver = self, SuperClass = class_getSuperclass(object_getClass(self)) };
-            MsgSendSuper(ref super, SelMouseUp);
             _leftClick?.Invoke();
         }
         catch (Exception ex)
@@ -319,8 +320,15 @@ internal static unsafe class MacTrayInterop
         }
     }
 
+    /// <summary>标准状态单元尺寸（Apple Human Interface Guidelines：菜单栏图标 24×24 可视区）。
+    /// NSStatusBarButton 的 frame 往往更高（含命中扩展区，实测高于可视单元十余磅），直接用它锚定
+    /// 弹窗会悬空——钳到可视单元。</summary>
+    private const double VisibleCellSide = 24;
+
     /// <summary>图标按钮在 Avalonia 屏幕坐标系中的矩形（Cocoa 点 ≈ Avalonia DIP，macOS Scaling=1）。
-    /// 供弹窗精确锚定（图标正下方、右缘对齐）。</summary>
+    /// 取宿主状态窗口 frame 后**顶对齐钳到可视单元**：状态窗口含命中扩展（实测比可视单元高十余磅、
+    /// 悬垂到菜单栏之下），直接用会让弹窗悬空；窗口顶 = 可视图标顶（均为栏内上缘），钳高即可。
+    /// 锚定"图标正下方、右缘对齐"。</summary>
     public static bool TryGetStatusItemFrame(out PixelRect frame)
     {
         frame = default;
@@ -335,9 +343,10 @@ internal static unsafe class MacTrayInterop
             return false;
         }
 
-        var buttonFrame = MsgSendRect(window, SelFrame);
-        frame = ConvertCocoaFrameToAvaloniaCoords(
-            buttonFrame.X, buttonFrame.Y, buttonFrame.Width, buttonFrame.Height, GetPrimaryScreenCocoaMaxY());
+        var winFrame = MsgSendRect(window, SelFrame);   // 屏幕 cocoa 坐标（纵轴向上）
+        var rect = ConvertCocoaFrameToAvaloniaCoords(
+            winFrame.X, winFrame.Y, winFrame.Width, winFrame.Height, GetPrimaryScreenCocoaMaxY());
+        frame = new PixelRect(rect.X, rect.Y, rect.Width, (int)Math.Min(rect.Height, VisibleCellSide));
         return true;
     }
 

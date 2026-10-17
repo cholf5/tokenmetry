@@ -18,8 +18,10 @@ namespace Tokenmetry.App.Tray;
 /// </summary>
 public partial class StatusPopoverWindow : Window
 {
-    /// <summary>投影渲染留白（左,上,右,下）：可见卡片 = 窗口内容矩形内缩该边距。</summary>
-    internal static readonly Thickness ShadowMargins = new(30, 16, 30, 34);
+    /// <summary>投影渲染留白（左,上,右,下）：可见卡片 = 窗口内容矩形内缩该边距。
+    /// 上留白 6 = macOS AppKit constrainFrameRect 把窗口顶压到菜单栏底之后的贴合间隙
+    /// （弹窗"贴着菜单栏下方 6px 弹出"），同时给投影留出少量向上晕染。</summary>
+    internal static readonly Thickness ShadowMargins = new(30, 6, 30, 34);
 
     public StatusPopoverWindow()
     {

@@ -108,12 +108,14 @@ public class StatusPopoverTests
     [AvaloniaFact]
     public async Task Reload_populates_kpi_segments_and_top_agents()
     {
+        // 最近活动时刻取相对当前时间（当日判定随真实日历；固定时刻会在跨零点后变"昨日"）
+        var lastSeen = DateTimeOffset.Now;
         var stub = new StubQueryService
         {
             Kpi = FixtureKpi(),
             Daily = FixtureDaily(),
             Agents = FixtureAgents(),
-            Sessions = [Session("Claude Code", T0)],
+            Sessions = [Session("Claude Code", lastSeen)],
         };
         var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
 
@@ -144,7 +146,7 @@ public class StatusPopoverTests
         Assert.Equal((20624 / 42381m * 100m).ToString("F1", CultureInfo.InvariantCulture) + "%", first.ShareText);
         Assert.Equal((double)(20624 / 42381m * 100m), first.BarValue, 6);
         Assert.Equal(
-            string.Format(Translations.Instance.PopoverRowLastActiveFormat, T0.LocalDateTime),
+            string.Format(Translations.Instance.PopoverRowLastActiveFormat, lastSeen.LocalDateTime),
             first.Subtitle);
         Assert.False(first.BarValue < 0);
 

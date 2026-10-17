@@ -144,6 +144,9 @@ public sealed class StatusPopoverController
                 Math.Max(1, windowSize.Width - margins.Left - margins.Right),
                 Math.Max(1, windowSize.Height - margins.Top - margins.Bottom));
             var cardPos = PopoverPositioner.AnchorBelow(anchor, cardSize, screen.WorkingArea, BelowIconGap * screen.Scaling, RightOverlap * screen.Scaling);
+            // macOS 的 AppKit constrainFrameRect 会把普通窗口压到菜单栏之下（实测设 y=14 被改写为
+            // 30=栏底）——窗口顶最终 ≥ workArea.Y；可见卡片顶 = 窗口顶 + ShadowMargins.Top（6），
+            // 即"贴着菜单栏下方 6px 弹出"（CodexBar 观感）。锚定钳制已保证 x；y 交给约束兜底。
             window.Position = new PixelPoint(
                 cardPos.X - (int)Math.Round(margins.Left),
                 cardPos.Y - (int)Math.Round(margins.Top));
