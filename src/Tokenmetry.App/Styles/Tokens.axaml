@@ -68,6 +68,16 @@
             <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#b9c5d7"/>
             <!-- 首次初始化全窗遮罩底（MainWindow.axaml）：页面底色 90% 不透明（Light 为协调补值） -->
             <SolidColorBrush x:Key="AppOverlayScrimBrush" Color="#e6f4f6fa"/>
+            <!-- D-015 状态栏快捷信息窗三态 banner（原型 .banner/.banner.warn 选择器色值，Light 为协调补值）：
+                 活动态蓝调 / 告警态橙调，随明暗翻转 -->
+            <SolidColorBrush x:Key="AppBannerActiveBackgroundBrush" Color="#dce9fb"/>
+            <SolidColorBrush x:Key="AppBannerActiveLineBrush" Color="#b9d2f2"/>
+            <SolidColorBrush x:Key="AppBannerWarnBackgroundBrush" Color="#f7ecd4"/>
+            <SolidColorBrush x:Key="AppBannerWarnLineBrush" Color="#e0c491"/>
+            <!-- 品牌色表面上的文字（D-015 弹层头部 "T" logo 芯片 / footer 主按钮）：两主题恒白 -->
+            <SolidColorBrush x:Key="AppOnBrandForegroundBrush" Color="#ffffff"/>
+            <!-- D-016 弹窗外投影色（无边框透明窗的 Border BoxShadow 在壳层代码取用）：浅色侧更淡 -->
+            <Color x:Key="AppPopoverShadowColor">#40000000</Color>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
@@ -125,6 +135,16 @@
             <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#35465e"/>
             <!-- 首次初始化全窗遮罩底（MainWindow.axaml）：页面底色 #0b1120 的 90% 不透明补值 -->
             <SolidColorBrush x:Key="AppOverlayScrimBrush" Color="#e60b1120"/>
+            <!-- D-015 状态栏快捷信息窗三态 banner ← 原型 .banner{background:#172a42;border:#2b4c70}/
+                 .banner.warn{background:#30281b;border:#674d29}（Dark 原值） -->
+            <SolidColorBrush x:Key="AppBannerActiveBackgroundBrush" Color="#172a42"/>
+            <SolidColorBrush x:Key="AppBannerActiveLineBrush" Color="#2b4c70"/>
+            <SolidColorBrush x:Key="AppBannerWarnBackgroundBrush" Color="#30281b"/>
+            <SolidColorBrush x:Key="AppBannerWarnLineBrush" Color="#674d29"/>
+            <!-- 品牌色表面上的文字（两主题恒白） -->
+            <SolidColorBrush x:Key="AppOnBrandForegroundBrush" Color="#ffffff"/>
+            <!-- D-016 弹窗外投影色：暗色侧更重 -->
+            <Color x:Key="AppPopoverShadowColor">#a6000000</Color>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>
@@ -168,6 +188,14 @@
     <LinearGradientBrush x:Key="AppMiniFillBrush" StartPoint="0%,50%" EndPoint="100%,50%">
         <GradientStop Color="#3e7df0" Offset="0"/>
         <GradientStop Color="#65b9ff" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- D-015 弹层头部品牌芯片底 ← 原型 .logo linear-gradient(140deg,#3986ed,#8a68e9)。
+         与 mini 填充同理不随明暗翻转（品牌渐变恒定，文字用 AppOnBrandForegroundBrush）。
+         140deg 换算（§5，方形 27×27）：方向 (0.643, 0.766)，起止 (4.7%,-4.0%) → (95.3%,104.0%)。 -->
+    <LinearGradientBrush x:Key="AppPopoverLogoBackgroundBrush" StartPoint="4.7%,-4%" EndPoint="95.3%,104%">
+        <GradientStop Color="#3986ed" Offset="0"/>
+        <GradientStop Color="#8a68e9" Offset="1"/>
     </LinearGradientBrush>
 
     <!-- 模型厂商 logo（I-031）不在令牌层：是 lobe-icons 静态 SVG 生成的 DrawingImage 资源，

@@ -33,6 +33,7 @@ public class TrayService
     private readonly DashboardViewModel? _dashboard;
     private readonly MainWindowViewModel? _shell;
     private readonly BackgroundRefreshService? _refreshService;
+    private readonly StatusPopoverController? _popover;
     private TrayIcon? _trayIcon;
     private NativeMenuItem? _costItem;
     private NativeMenuItem? _openItem;
@@ -44,12 +45,13 @@ public class TrayService
     {
     }
 
-    public TrayService(Window mainWindow, DashboardViewModel? dashboard, MainWindowViewModel? shell, BackgroundRefreshService? refreshService)
+    public TrayService(Window mainWindow, DashboardViewModel? dashboard, MainWindowViewModel? shell, BackgroundRefreshService? refreshService, StatusPopoverController? popover = null)
     {
         _mainWindow = mainWindow;
         _dashboard = dashboard;
         _shell = shell;
         _refreshService = refreshService;
+        _popover = popover;
     }
 
     public void Initialize()
@@ -86,7 +88,7 @@ public class TrayService
                 }
             }
         };
-        _trayIcon.Clicked += (_, _) => ShowWindow();
+        _trayIcon.Clicked += (_, _) => OnTrayClicked();
 
         if (OperatingSystem.IsMacOS())
         {
@@ -171,6 +173,20 @@ public class TrayService
         => hasData
             ? string.Format(Translations.Instance.TrayCostFormat, todayCostUsd.ToString("F2", CultureInfo.InvariantCulture))
             : Translations.Instance.TrayCostNoData;
+
+    /// <summary>托盘左键分派（D-016）：有弹层控制器 → Toggle 弹窗（开着收起 / 关着弹出，D-015
+    /// 内容层承载）；未装配（headless 旧构造 / 测试）维持 A-0 直开主窗。右键 NativeMenu 不动。</summary>
+    internal void OnTrayClicked()
+    {
+        if (_popover is { } popover)
+        {
+            popover.Toggle();
+        }
+        else
+        {
+            ShowWindow();
+        }
+    }
 
     private void ShowWindow()
     {

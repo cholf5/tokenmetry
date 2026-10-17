@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:Tokenmetry.App.Views"
+        x:Class="Tokenmetry.App.Tray.StatusPopoverWindow"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        CanResize="False"
+        Topmost="True"
+        Width="498"
+        SizeToContent="Height"
+        Title="Tokenmetry">
+    <!-- [D-016] 状态栏快捷信息窗 · 壳层：无边框透明窗承载 D-015 内容层（内容 100% 复用，
+         本壳零业务逻辑零数据查询）。不进任务栏、不算主窗——主窗生命周期与 S-005 关窗分派
+         不受影响（Hide 不 Close，OnLastWindowClose 不会误判退出）。
+         宽 498 = 内容卡 438 + 两侧投影边距 30×2；四周 Margin 是 BoxShadow 的渲染留白（不裁影），
+         投影色取令牌 AppPopoverShadowColor（随明暗翻转，代码 Behind 按 ActualThemeVariant 取）。 -->
+    <Border x:Name="ShadowHost" Margin="30,16,30,34" HorizontalAlignment="Stretch">
+        <views:StatusPopoverView/>
+    </Border>
+</Window>

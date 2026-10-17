@@ -4,7 +4,7 @@ title: 状态栏快捷信息窗 · 内容层（跨平台共享 UserControl：今
 type: feature
 priority: P2
 size: M
-status: todo
+status: done
 created: 2026-10-17
 updated: 2026-10-17
 blocked: none
@@ -32,19 +32,19 @@ CodexBar 式「点击状态栏弹固定内容面板」的**内容层**：一个�
 
 ## Acceptance Criteria
 
-- [ ] UserControl 按原型信息架构实现三态：Idle（实时）/ Active（工作中 banner）/ Warn（异常 banner，接 AnomalyDetector 既有输出与 `ISystemNotification` 同源信号）
-- [ ] 数据全走 IUsageQueryService / DashboardViewModel 既有回写，除修正项 4 的差值速率外零新口径
-- [ ] 明暗两套令牌目检（StylePreviewView 挂预览，沿 D-004/D-005 先例）+ headless 断言不硬编码色
-- [ ] i18n 全走 Translations（zh 源 + en 覆盖）；空态诚实（无数据 / 扫描中 / 首轮无速率）
-- [ ] 内容层零平台 API（纯 UserControl，壳在 D-016；Windows/macOS 可同卡 headless 验证）
-- [ ] 全量测试绿
+- [x] UserControl 按原型信息架构实现三态：Idle（实时）/ Active（工作中 banner）/ Warn（异常 banner，接 AnomalyDetector 既有输出与 `ISystemNotification` 同源信号）
+- [x] 数据全走 IUsageQueryService / DashboardViewModel 既有回写，除修正项 4 的差值速率外零新口径
+- [x] 明暗两套令牌目检（StylePreviewView 挂预览，沿 D-004/D-005 先例）+ headless 断言不硬编码色
+- [x] i18n 全走 Translations（zh 源 + en 覆盖）；空态诚实（无数据 / 扫描中 / 首轮无速率）
+- [x] 内容层零平台 API（纯 UserControl，壳在 D-016；Windows/macOS 可同卡 headless 验证）
+- [x] 全量测试绿
 
 ## Subtasks
 
-- [ ] UserControl + ViewModel（今日 KPI / 构成条 / Top4 agent 行 / banner 三态机）
-- [ ] 速率差值计算挂 DashboardViewModel 回写（含降级路径）
-- [ ] Translations 键 + StylePreviewView 预览挂载
-- [ ] headless 测试（三态 / 切语言重译 / 令牌断言）+ 全量回归
+- [x] UserControl + ViewModel（今日 KPI / 构成条 / Top4 agent 行 / banner 三态机）
+- [x] 速率差值计算挂 DashboardViewModel 回写（含降级路径）
+- [x] Translations 键 + StylePreviewView 预览挂载
+- [x] headless 测试（三态 / 切语言重译 / 令牌断言）+ 全量回归
 
 ## Dependencies
 
@@ -75,8 +75,16 @@ Steps: `dotnet test Tokenmetry.sln`。Expected: 全绿。
 
 - 建卡（状态栏路线定稿，原型同日入库）。六条修正项在卡内锁定；速率口径明确为「刷新差值 ÷ 间隔」的派生数据，不做实时流。
 
+### 2026-10-17（实施收口，与 D-016 同日同批落地）
+
+- **落地文件**：`ViewModels/StatusPopoverViewModel.cs`（VM + `StatusPopoverAgentRowViewModel` + `RefreshRateTracker` 三态/速率机）、`Views/StatusPopoverView.axaml(.cs)`（内容层，438px 卡）、`Controls/ProportionalColumns.cs`（构成条占比 → Grid 列定义的附加属性翻译）、`Localization/Translations.cs` 17 键、`Styles/Tokens.axaml` 7 组新令牌、`DashboardViewModel` 增 `AnomalyDetected` 事件（Warn 态同源信号，无论 toast 开关 raise）、`StylePreviewView` 三态演示区。
+- **六条修正项逐条记录**：① Agent 图标 = `agent-chip-lg` + `AgentChip.Logo`（I-034 机制，未识别落 generic 散列字形），不用 unicode 字形；② 全部颜色 DynamicResource（构成条三段用 `AppTokenType*Brush` 与总览页 Token 构成同令牌；banner/投影/logo 渐变新增 `AppBanner*`/`AppPopoverShadowColor`/`AppPopoverLogoBackgroundBrush` 令牌，明暗走 ThemeDictionaries 或普通资源——headless 断言固化为「剔注释后零 hex 字面量」）；③ 最小字号 10px；④ 速率 = 相邻两轮今日 tokens 差值 ÷ 轮间隔，有效窗口 45–90s（上限卡定「>1 分钟降级」，下限防"缓存热载 → 首扫完成"的离线积压被几秒除出荒谬速率）；首轮只定基线不显速率；降级「最近活动 hh:mm」取自最近会话探针查询（仅当日显示时间，跨日诚实留空），分 Agent 速率由相邻两次 Agent 查询快照对同公式配对；⑤ footer 二选一取**「最近会话 →」直达会话页**（「当前 Session」与 banner 信息重复，删）；⑥ 点击收敛既有导航：agent 行 → `OpenSessionsForAgent`（D-009 路由转 public，非新增）、「查看详情」→ Agent 页、「打开完整统计」→ 总览页、⚙ → 设置页、「最近会话」→ 会话页。
+- **XAML 限制绕行**：Avalonia 12 对 `Grid.ColumnDefinitions` 不支持任何绑定（XAML 编译器按内容-adder 属性拒收 Binding/ReflectionBinding），构成条段宽经 `ProportionalColumns.Shares` 附加属性翻译（AgentChip 同款机制，VM 只给 `double[]` 权重）。
+- **诚实空态**：全零（KPI/构成/Agent 皆 0）→ `IsNoData` + KPI "—"（零 token 不冒充数字）；扫描中头部灯切「扫描中…」；首轮无速率 = 仅基线。
+- **瞬态语义**：banner 文案按出现时语言（Translations 既定取舍）；`LiveText` 经视图 CurrentLanguage 订阅重算（B-007 挂树/脱树对称）。
+
 ## Verification
 
-- Related files（待实施）: `src/Tokenmetry.App/Controls/`（或 Views/）、`ViewModels/`、`Localization/Translations.cs`
-- How to run/verify: headless = TC-001~003；目检 = StylePreviewView（TOKENMETRY_PREVIEW_WINDOW=1）明暗两态对照原型
-- Results: 未实施
+- Related files: `src/Tokenmetry.App/ViewModels/StatusPopoverViewModel.cs`、`src/Tokenmetry.App/Views/StatusPopoverView.axaml(.cs)`、`src/Tokenmetry.App/Controls/ProportionalColumns.cs`、`Localization/Translations.cs`、`Styles/Tokens.axaml`、`ViewModels/DashboardViewModel.cs`、`Views/StylePreviewView.axaml(.cs)`
+- How to run/verify: headless = `dotnet test tests/Tokenmetry.App.Headless.Tests --filter StatusPopover`（TC-001 三态 / TC-002 切语言 / 令牌断言 + 速率跟踪器纯函数 18 例）；目检 = `TOKENMETRY_PREVIEW_WINDOW=1` 明暗两态对照原型（三态按钮驱动 demo）
+- Results: **全量 `dotnet test Tokenmetry.sln` 1310 Passed / 0 Failed**（增量 18 例）；三态、速率窗口、降级路径、语言重译、零硬编码色均已锁；真机明暗目检随 D-016 TC-003 一并移交用户。

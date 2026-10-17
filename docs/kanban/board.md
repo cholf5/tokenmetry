@@ -9,8 +9,9 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| D-015 | 状态栏快捷信息窗 · 内容层（共享 UserControl：KPI + 构成 + Top4 Agent + 三态 banner） | P2 | M | none | none |
-| D-016 | 状态栏快捷信息窗 · 壳层（macOS 顶部锚定 / Windows flyout，复用 D-015） | P2 | S | none | D-015 |
+| （空） | | | | | |
+
+> 2026-10-17（晚五）：**D-015/D-016 状态栏快捷信息窗收口（同批落地，Todo 清空）**。内容层（D-015：`StatusPopoverView` 438px 卡 = 三格 KPI + Token 构成条 + Agent Top4 + 三态 banner，数据全走 IUsageQueryService / DashboardViewModel 既有回写）与壳层（D-016：无边框透明窗 + 失焦/Esc/再点收起，Windows `GetCursorPos` 光标上方 / macOS 主屏工作区右上零 interop 近似）一次成对实现；托盘左键改 Toggle 弹层，右键菜单不动。修正项六条逐条落卡（footer 取「最近会话 →」）；速率窗口实现为 45–90s（下限防启动缓存热载误判，卡内留证）；`DashboardViewModel` 增 `AnomalyDetected` 同源事件（无论 toast 开关）。XAML 限制留档：`Grid.ColumnDefinitions` 不可绑定 → `ProportionalColumns` 附加属性翻译。全量 1310 Passed（+18）；真机明暗 × 1x/2x 目检（含 macOS 锚点近似可否接受）移交用户。
 
 > 2026-10-17（晚四）：**D-014 决策 C 收口**。用户三选一定案：**回落模板图标、关卡**——状态栏文本直显经 B1 取证在 Avalonia TrayIcon 上不可行，文本信息走菜单首行 + D-015/D-016 弹窗。位图路径（渲染器/字形分派/托盘接线）撤除回归原 A-0 语义；`TrayStatusText` 格式化器及纯函数测试保留给 D-015 复用。全量 1292 Passed。上游 `setLength` 修复未承诺，若未来仍要免点击文本走 interop 方案②携 B1 证据开新卡。
 
@@ -38,6 +39,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-016 | 状态栏快捷信息窗 · 壳层（macOS 顶部锚定 / Windows flyout，复用 D-015） | P2 | 2026-10-17 |
+| D-015 | 状态栏快捷信息窗 · 内容层（共享 UserControl：KPI + 构成 + Top4 Agent + 三态 banner） | P2 | 2026-10-17 |
 | D-014 | 状态栏直显今日用量（位图方案真机不可行 B1 → 决策 C 回落模板图标，关卡） | P2 | 2026-10-17 |
 | S-005 | 关窗行为开关（关窗=托盘可关）+ 首次关窗托盘一次性提示 | P2 | 2026-10-17 |
 | B-007 | 语言切换后图表 tooltip 文案陈旧（Heatmap/DonutChart 缺 CurrentLanguage 重译订阅） | P3 | 2026-10-17 |

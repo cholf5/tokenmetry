@@ -1,0 +1,322 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Tokenmetry.App.ViewModels"
+             xmlns:loc="using:Tokenmetry.App.Localization"
+             xmlns:c="using:Tokenmetry.App.Controls"
+             mc:Ignorable="d"
+             x:Class="Tokenmetry.App.Views.StatusPopoverView"
+             x:DataType="vm:StatusPopoverViewModel">
+    <!-- [D-015] 状态栏快捷信息窗 · 内容层（跨平台共享 UserControl，壳层在 D-016）：
+         信息架构按原型 docs/design/tokenmetry_statusbar_prototype.html 锁定——头部三态灯 +
+         三格 KPI + Token 构成条 + 主要 Agent Top4 + 三态 banner + footer 快捷入口。
+         落地偏离原型（卡内修正项）：Agent 图标用真品牌标（agent-chip 机制）/ 颜色全令牌化
+         DynamicResource（本文件零硬编码色值，headless 断言固化）/ 最小字号 10px /
+         构成条三段色与总览页 Token 构成同令牌（AppTokenType*，不随明暗翻转）。
+         数据全走 IUsageQueryService / DashboardViewModel 既有回写（口径见 StatusPopoverViewModel）。 -->
+    <UserControl.Styles>
+        <!-- 卡片壳：438px 固定宽（原型 .popup），投影由 D-016 壳层窗负责（Border BoxShadow 需要透明窗留边） -->
+        <Style Selector="Border.popover-card">
+            <Setter Property="Width" Value="438"/>
+            <Setter Property="CornerRadius" Value="15"/>
+            <Setter Property="Background" Value="{DynamicResource AppPanelBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <!-- 头部（52px）：底描边 ← 原型 .head border-bottom -->
+        <Style Selector="Border.popover-head">
+            <Setter Property="Height" Value="52"/>
+            <Setter Property="Padding" Value="15,0"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+        <Style Selector="Border.popover-logo">
+            <Setter Property="Width" Value="27"/>
+            <Setter Property="Height" Value="27"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="{DynamicResource AppPopoverLogoBackgroundBrush}"/>
+        </Style>
+        <!-- 状态灯：Idle 绿 / Active 蓝 / Warn 橙（随 VM 态类切换；原型 .live 的绿色点同语义） -->
+        <Style Selector="Ellipse.popover-live-dot">
+            <Setter Property="Width" Value="6"/>
+            <Setter Property="Height" Value="6"/>
+            <Setter Property="Fill" Value="{DynamicResource AppAccentGreenBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.popover-live-dot.active">
+            <Setter Property="Fill" Value="{DynamicResource AppAccentBlueBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.popover-live-dot.warn">
+            <Setter Property="Fill" Value="{DynamicResource AppAccentOrangeBrush}"/>
+        </Style>
+        <Style Selector="Button.popover-icon-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Padding" Value="4,0"/>
+        </Style>
+        <!-- 三态 banner ← 原型 .banner（Active 蓝调）/ .banner.warn（橙调） -->
+        <Style Selector="Border.popover-banner">
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Padding" Value="10,9"/>
+            <Setter Property="Margin" Value="0,0,0,13"/>
+            <Setter Property="Background" Value="{DynamicResource AppBannerActiveBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBannerActiveLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.popover-banner.warn">
+            <Setter Property="Background" Value="{DynamicResource AppBannerWarnBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBannerWarnLineBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.popover-banner-dot">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Height" Value="8"/>
+            <Setter Property="Fill" Value="{DynamicResource AppAccentBlueBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.popover-banner-dot.warn">
+            <Setter Property="Fill" Value="{DynamicResource AppAccentOrangeBrush}"/>
+        </Style>
+        <!-- KPI 三格与 metric 卡 ← 原型 .stats/.metric；字号 22/17/12/10（修正项 3：下限 10） -->
+        <Style Selector="TextBlock.popover-cap">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="Border.popover-seg-card">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Ellipse.popover-seg-dot">
+            <Setter Property="Width" Value="6"/>
+            <Setter Property="Height" Value="6"/>
+        </Style>
+        <!-- Agent 行：透明整行按钮（点击 → 会话页），行内 30×30 品牌芯片 + mini bar -->
+        <Style Selector="Button.popover-agent-row">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0,7"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="Button.popover-agent-row:pointer /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <!-- footer 双按钮 ← 原型 .foot；主按钮走品牌蓝 + 恒白文字 -->
+        <Style Selector="Button.popover-btn">
+            <Setter Property="Padding" Value="9"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="Button.popover-btn.primary">
+            <Setter Property="Background" Value="{DynamicResource AppAccentBlueBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBlueBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppOnBrandForegroundBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.popover-hr">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Margin" Value="0,15"/>
+            <Setter Property="Background" Value="{DynamicResource AppCardLineBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="popover-card">
+        <StackPanel>
+            <!-- 头部：品牌 + 状态灯 + ⚙ -->
+            <Border Classes="popover-head">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" VerticalAlignment="Center">
+                    <Border Grid.Column="0" Classes="popover-logo">
+                        <TextBlock Text="T" FontWeight="Bold" FontSize="14"
+                                   Foreground="{DynamicResource AppOnBrandForegroundBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="Tokenmetry" FontWeight="Bold" FontSize="13"
+                               Margin="9,0,0,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource AppTextBrush}"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5"
+                                Margin="12,0,0,0" VerticalAlignment="Center">
+                        <Ellipse Classes="popover-live-dot"
+                                 Classes.active="{Binding StateClassActive}"
+                                 Classes.warn="{Binding StateClassWarn}"/>
+                        <TextBlock x:Name="LiveTextBlock" Text="{Binding LiveText}" FontSize="10"
+                                   Foreground="{DynamicResource AppMutedTextBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button Grid.Column="4" Classes="popover-icon-btn" Content="⚙"
+                            Command="{Binding OpenSettingsCommand}"
+                            VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <StackPanel Margin="16">
+                <!-- 三态 banner（Idle 隐藏） -->
+                <Border Classes="popover-banner" Classes.warn="{Binding IsBannerWarn}"
+                        IsVisible="{Binding IsBannerVisible}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+                        <Ellipse Grid.Column="0" Classes="popover-banner-dot"
+                                 Classes.warn="{Binding IsBannerWarn}"
+                                 VerticalAlignment="Top" Margin="0,4,0,0"/>
+                        <StackPanel Grid.Column="1" Spacing="1">
+                            <TextBlock Text="{Binding BannerTitle}" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextBrush}"/>
+                            <TextBlock Text="{Binding BannerSubtitle}" FontSize="10"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource AppMutedTextBrush}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- KPI 三格 ← 原型 .stats（1.3fr / 1fr / 1fr） -->
+                <Grid ColumnDefinitions="1.3*,*,*" ColumnSpacing="13">
+                    <StackPanel Grid.Column="0" Spacing="3">
+                        <TextBlock Classes="popover-cap"
+                                   Text="{Binding PopoverTodayTokens, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Text="{Binding TodayTokensText}" FontSize="22" FontWeight="Bold"
+                                   LetterSpacing="-0.5" Foreground="{DynamicResource AppTextBrush}"/>
+                        <TextBlock Classes="popover-cap"
+                                   Text="{Binding PopoverTodayTokensCap, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="3">
+                        <TextBlock Classes="popover-cap"
+                                   Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Text="{Binding TodayCostText}" FontSize="17" FontWeight="Bold"
+                                   Foreground="{DynamicResource AppTextBrush}"/>
+                        <TextBlock Classes="popover-cap"
+                                   Text="{Binding MetaEstimateUsd, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="3">
+                        <TextBlock Classes="popover-cap"
+                                   Text="{Binding PopoverCacheHit, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Text="{Binding CacheShareText}" FontSize="17" FontWeight="Bold"
+                                   Foreground="{DynamicResource AppTextBrush}"/>
+                        <TextBlock Classes="popover-cap"
+                                   Text="{Binding PopoverCacheCaption, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Token 构成条 ← 原型 .bar（in/out/cache 三段，段宽 = 占比星号权重；
+                     ColumnDefinitions 不能在 XAML 绑定，经 ProportionalColumns 附加属性翻译） -->
+                <Border Height="9" CornerRadius="5" Margin="0,14,0,9" ClipToBounds="True"
+                        Background="{DynamicResource AppMiniTrackBrush}">
+                    <Grid c:ProportionalColumns.Shares="{Binding SegmentShares}">
+                        <Border Grid.Column="0" Background="{DynamicResource AppTokenTypeInputBrush}"/>
+                        <Border Grid.Column="1" Background="{DynamicResource AppTokenTypeOutputBrush}"/>
+                        <Border Grid.Column="2" Background="{DynamicResource AppTokenTypeCacheBrush}"/>
+                    </Grid>
+                </Border>
+
+                <!-- 构成 metric 三卡 ← 原型 .break -->
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="7">
+                    <Border Grid.Column="0" Classes="popover-seg-card">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Ellipse Classes="popover-seg-dot" Fill="{DynamicResource AppTokenTypeInputBrush}"/>
+                                <TextBlock Text="{Binding LegendInput, Source={x:Static loc:Translations.Instance}}"
+                                           FontSize="10" Foreground="{DynamicResource AppTextBrush}"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding InputTokensText}" FontSize="12"
+                                       Foreground="{DynamicResource AppTextBrush}"/>
+                            <TextBlock Text="{Binding InputShareText}" FontSize="10" Classes="popover-cap"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Classes="popover-seg-card">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Ellipse Classes="popover-seg-dot" Fill="{DynamicResource AppTokenTypeOutputBrush}"/>
+                                <TextBlock Text="{Binding LegendOutput, Source={x:Static loc:Translations.Instance}}"
+                                           FontSize="10" Foreground="{DynamicResource AppTextBrush}"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding OutputTokensText}" FontSize="12"
+                                       Foreground="{DynamicResource AppTextBrush}"/>
+                            <TextBlock Text="{Binding OutputShareText}" FontSize="10" Classes="popover-cap"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Classes="popover-seg-card">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Ellipse Classes="popover-seg-dot" Fill="{DynamicResource AppTokenTypeCacheBrush}"/>
+                                <TextBlock Text="{Binding PopoverSegCache, Source={x:Static loc:Translations.Instance}}"
+                                           FontSize="10" Foreground="{DynamicResource AppTextBrush}"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding CacheTokensText}" FontSize="12"
+                                       Foreground="{DynamicResource AppTextBrush}"/>
+                            <TextBlock Text="{Binding CacheSegShareText}" FontSize="10" Classes="popover-cap"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Border Classes="popover-hr"/>
+
+                <!-- 主要 Agent 区头 -->
+                <Grid Margin="0,0,0,7" ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding PopoverTopAgents, Source={x:Static loc:Translations.Instance}}"
+                               FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}"/>
+                    <Button Grid.Column="1" Classes="link-btn"
+                            Content="{Binding ViewDetails, Source={x:Static loc:Translations.Instance}}"
+                            Command="{Binding OpenAgentDetailsCommand}"/>
+                </Grid>
+
+                <!-- Agent Top4 行（点击 → 会话页带该 Agent 筛选） -->
+                <ItemsControl ItemsSource="{Binding TopAgents}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:StatusPopoverAgentRowViewModel">
+                            <Button Classes="popover-agent-row"
+                                    Command="{Binding $parent[ItemsControl].((vm:StatusPopoverViewModel)DataContext).OpenAgentRowCommand}"
+                                    CommandParameter="{Binding AgentId}">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                    <Border Grid.Column="0" Classes="agent-chip-lg"
+                                            c:AgentChip.Logo="{Binding LogoVendor}">
+                                        <Panel>
+                                            <TextBlock Text="{Binding Glyph}"/>
+                                            <Image Classes="agent-logo"/>
+                                        </Panel>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Spacing="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontSize="11"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource AppTextBrush}"/>
+                                        <TextBlock Text="{Binding Subtitle}" FontSize="10"
+                                                   IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Foreground="{DynamicResource AppMutedTextBrush}"
+                                                   Margin="0,1,0,0"/>
+                                        <ProgressBar Classes="mini" Value="{Binding BarValue}" Margin="0,5,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TokensText}" FontSize="11" TextAlignment="Right"
+                                                   Foreground="{DynamicResource AppTextBrush}"/>
+                                        <TextBlock Text="{Binding ShareText}" FontSize="10" TextAlignment="Right"
+                                                   Classes="popover-cap" Margin="0,1,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 诚实空态（今日无数据） -->
+                <TextBlock Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
+                           IsVisible="{Binding IsNoData}" FontSize="11"
+                           Foreground="{DynamicResource AppMutedTextBrush}"
+                           Margin="0,4,0,0"/>
+
+                <Border Classes="popover-hr"/>
+
+                <!-- footer：最近会话 → 会话页（修正项 5）/ 打开完整统计 → 总览页（主按钮） -->
+                <Grid ColumnDefinitions="*,1.4*" ColumnSpacing="7">
+                    <Button Grid.Column="0" Classes="popover-btn"
+                            Content="{Binding PopoverRecentSessions, Source={x:Static loc:Translations.Instance}}"
+                            Command="{Binding OpenRecentSessionsCommand}"/>
+                    <Button Grid.Column="1" Classes="popover-btn primary"
+                            Content="{Binding PopoverOpenStats, Source={x:Static loc:Translations.Instance}}"
+                            Command="{Binding OpenStatsCommand}"/>
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

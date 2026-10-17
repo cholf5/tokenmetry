@@ -109,6 +109,25 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(TrayHintBody)] = "Tokenmetry 将继续在系统托盘运行，后台采集刷新不中断。可从托盘菜单重新打开主窗或彻底退出；本提示只显示一次，关闭行为可在「设置」页更改。",
         [nameof(TrayHintOk)] = "知道了",
 
+        // ── 状态栏快捷信息窗（D-015 StatusPopoverView / StatusPopoverViewModel）──
+        [nameof(PopoverLiveIdle)] = "实时",
+        [nameof(PopoverLiveActive)] = "工作中",
+        [nameof(PopoverLiveWarn)] = "注意",
+        [nameof(PopoverScanning)] = "扫描中…",
+        [nameof(PopoverTodayTokens)] = "今日 Token",
+        [nameof(PopoverTodayTokensCap)] = "跨所有 Agent",
+        [nameof(PopoverCacheHit)] = "缓存命中",
+        [nameof(PopoverCacheCaption)] = "缓存读取",
+        [nameof(PopoverSegCache)] = "缓存",
+        [nameof(PopoverTopAgents)] = "主要 Agent",
+        [nameof(PopoverRecentSessions)] = "最近会话 →",
+        [nameof(PopoverOpenStats)] = "打开完整统计 →",
+        [nameof(PopoverActiveBannerTitleFormat)] = "{0} 正在工作",
+        [nameof(PopoverActiveBannerTitle)] = "正在工作",
+        [nameof(PopoverActiveBannerSubtitleFormat)] = "当前速度 {0} · 按刷新增量估算",
+        [nameof(PopoverRowRateFormat)] = "当前 {0}",
+        [nameof(PopoverRowLastActiveFormat)] = "最近活动 {0:HH:mm}",
+
         // ── 设置页（SettingsView / SettingsViewModel）──
         [nameof(SourcesPanelTitle)] = "已识别的数据源",
         [nameof(ThSource)] = "数据源",
@@ -418,6 +437,25 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(TrayHintTitle)] = "Minimized to the tray",
         [nameof(TrayHintBody)] = "Tokenmetry keeps running in the system tray and background refresh continues. Reopen the window from the tray menu or quit there; this notice shows once, and the close behavior can be changed in Settings.",
         [nameof(TrayHintOk)] = "Got it",
+
+        // ── 状态栏快捷信息窗（D-015）──
+        [nameof(PopoverLiveIdle)] = "Live",
+        [nameof(PopoverLiveActive)] = "Working",
+        [nameof(PopoverLiveWarn)] = "Alert",
+        [nameof(PopoverScanning)] = "Scanning…",
+        [nameof(PopoverTodayTokens)] = "Today's tokens",
+        [nameof(PopoverTodayTokensCap)] = "Across all agents",
+        [nameof(PopoverCacheHit)] = "Cache hit",
+        [nameof(PopoverCacheCaption)] = "cache read",
+        [nameof(PopoverSegCache)] = "Cache",
+        [nameof(PopoverTopAgents)] = "Top agents",
+        [nameof(PopoverRecentSessions)] = "Recent sessions →",
+        [nameof(PopoverOpenStats)] = "Open full stats →",
+        [nameof(PopoverActiveBannerTitleFormat)] = "{0} is working",
+        [nameof(PopoverActiveBannerTitle)] = "Working now",
+        [nameof(PopoverActiveBannerSubtitleFormat)] = "Current rate {0} · from refresh delta",
+        [nameof(PopoverRowRateFormat)] = "Now {0}",
+        [nameof(PopoverRowLastActiveFormat)] = "Last activity {0:HH:mm}",
 
         [nameof(SourcesPanelTitle)] = "Recognized data sources",
         [nameof(ThSource)] = "Source",
@@ -771,6 +809,25 @@ public sealed class Translations : INotifyPropertyChanged
     public string TrayHintTitle => Get();
     public string TrayHintBody => Get();
     public string TrayHintOk => Get();
+
+    // ── 状态栏快捷信息窗（D-015）──
+    public string PopoverLiveIdle => Get();
+    public string PopoverLiveActive => Get();
+    public string PopoverLiveWarn => Get();
+    public string PopoverScanning => Get();
+    public string PopoverTodayTokens => Get();
+    public string PopoverTodayTokensCap => Get();
+    public string PopoverCacheHit => Get();
+    public string PopoverCacheCaption => Get();
+    public string PopoverSegCache => Get();
+    public string PopoverTopAgents => Get();
+    public string PopoverRecentSessions => Get();
+    public string PopoverOpenStats => Get();
+    public string PopoverActiveBannerTitleFormat => Get();
+    public string PopoverActiveBannerTitle => Get();
+    public string PopoverActiveBannerSubtitleFormat => Get();
+    public string PopoverRowRateFormat => Get();
+    public string PopoverRowLastActiveFormat => Get();
 
     // ── 设置页 ──
     public string SourcesPanelTitle => Get();

@@ -94,6 +94,17 @@ public partial class DashboardViewModel : ViewModelBase
 
     public bool IsDebugInfoVisible => _settings.ShowDebugInfo && !string.IsNullOrWhiteSpace(DebugInfo);
 
+    /// <summary>异常检测的展示载荷（D-015）：标题与用户文案在 raise 点按 Kind 取串
+    /// （FormatAnomalyMessage 同口径），订阅方直接展示，不再接触 Core 数据结构。</summary>
+    public sealed record AnomalyRaised(string Title, string Message);
+
+    /// <summary>
+    /// AnomalyDetector 既有输出的同源信号（D-015 弹层 Warn 态消费）：RefreshAsync 内检测到异常时，
+    /// 与 ISystemNotification 通知同一循环逐条 raise。通知可被设置关掉，本事件不关——订阅方
+    /// （状态栏弹层）是"当前状态"的展示面，与"是否弹 toast"的偏好正交。
+    /// </summary>
+    public event EventHandler<AnomalyRaised>? AnomalyDetected;
+
     public DashboardViewModel(
         DashboardService dashboardService,
         CacheService cacheService,
@@ -200,15 +211,23 @@ public partial class DashboardViewModel : ViewModelBase
                 var recentHistory = rows.Take(7).ToList();
                 var anomalies = _anomalyDetector.DetectAnomalies(today, recentHistory, minAbsoluteCost: 0.05m);
 
-                if (_settings.AnomalyNotificationsEnabled && anomalies.Any())
+                if (anomalies.Any())
                 {
                     foreach (var anomaly in anomalies)
                     {
                         // 用户可见文案在 App 层按 Kind 实时取串（Core 的 AnomalyNotice.Message 是
                         // 数据层细节，不直接展示——语言跟随 UI）；未知 Kind 如实回落原文。
-                        await _notification.ShowAsync(
+                        if (_settings.AnomalyNotificationsEnabled)
+                        {
+                            await _notification.ShowAsync(
+                                Translations.Instance.AnomalyToastTitle,
+                                FormatAnomalyMessage(anomaly, recentHistory.Count));
+                        }
+
+                        // 同源信号：无论 toast 开关，检测到异常即 raise（D-015 弹层 Warn 态；见事件注释）
+                        AnomalyDetected?.Invoke(this, new AnomalyRaised(
                             Translations.Instance.AnomalyToastTitle,
-                            FormatAnomalyMessage(anomaly, recentHistory.Count));
+                            FormatAnomalyMessage(anomaly, recentHistory.Count)));
                     }
                 }
             }
