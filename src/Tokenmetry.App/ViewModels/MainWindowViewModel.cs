@@ -204,13 +204,14 @@ public partial class MainWindowViewModel : ViewModelBase
     /// D-009 Agent 排行行点击 → 会话页带该 Agent 筛选（决策点 2 定案：全局途径——顶部栏单选 Agent
     /// 是 Agent 维度的跨页筛选宿主，落地后可见、可经「所有 Agent」清除）。目标 Agent 不在选项清单
     /// （目录加载失败窗口期）时如实补入选项，不静默丢弃跳转。
+    /// D-016 起状态栏弹层的 Agent 行点击同走本路由（public——既有路由的公开，非新增）。
     /// <b>竞态安全依赖的不变量（审查修复轮 P2 锁定）</b>：AgentCatalogService 的目录查询恒为
     /// <b>无界严格超集</b>（<see cref="UsageQueryFilter"/> 无界、facts 存在即在清单中）——因此
     /// "快照缺 X" 只可能因 X 晚于快照入库；此处的判重补入（AgentOption record 值相等 + AgentId 键判重）
     /// 才能保持幂等。目录查询语义一旦收窄（如随当前筛选收窄）本兜底即失效，改动前先读
     /// AgentCatalogService 的无界超集契约。
     /// </summary>
-    private void OpenSessionsForAgent(string agentId)
+    public void OpenSessionsForAgent(string agentId)
     {
         var option = _filters.AgentOptions.FirstOrDefault(o => o.Id == agentId);
         if (option is null)

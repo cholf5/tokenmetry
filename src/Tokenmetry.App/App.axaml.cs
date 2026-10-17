@@ -7,7 +7,9 @@ using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
 using Tokenmetry.App.Tray;
 using Tokenmetry.App.Services;
+using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Services;
 
 namespace Tokenmetry.App;
 
@@ -62,7 +64,15 @@ public partial class App : Application
             // 联动、「立即刷新」「设置」菜单都依赖容器内同一实例。
             var dashboard = DependencyInjection.AppServices.Get<DashboardViewModel>();
             var refreshService = DependencyInjection.AppServices.Get<BackgroundRefreshService>();
-            var trayService = new TrayService(mainWindow, dashboard, mainWindowViewModel, refreshService);
+            // D-016：状态栏快捷信息窗（托盘左键弹层）——内容层 D-015 查询 IUsageQueryService 同源
+            // 管线，速率挂 dashboard 每轮回写，Agent 行/设置/打开统计经外壳既有导航命令唤回主窗。
+            var popover = new Tray.StatusPopoverController(
+                mainWindow,
+                mainWindowViewModel,
+                DependencyInjection.AppServices.Get<IUsageQueryService>(),
+                dashboard,
+                DependencyInjection.AppServices.Get<DateRangeService>());
+            var trayService = new TrayService(mainWindow, dashboard, mainWindowViewModel, refreshService, popover);
             trayService.Initialize();
 
             // D-003/Q-002：DashboardViewModel 无视图挂载（旧视图已清理），作为后台采集刷新锚点保留——

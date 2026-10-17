@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Tokenmetry.App.ViewModels"
              xmlns:c="using:Tokenmetry.App.Controls"
+             xmlns:views="using:Tokenmetry.App.Views"
              mc:Ignorable="d"
              x:Class="Tokenmetry.App.Views.StylePreviewView"
              x:DataType="vm:ChartPreviewViewModel">
@@ -247,6 +248,24 @@
                     </StackPanel>
                 </Border>
             </Grid>
+
+            <!-- ═══ D-015 状态栏快捷信息窗演示（三态按钮驱动 demo VM，随真数据开关）═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Classes="panel-title" Text="状态栏快捷信息窗（D-015）" VerticalAlignment="Center"/>
+                        <TextBlock Text="StatusPopoverView · 内容层跨平台共享，壳层 D-016" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="11" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Idle（实时）" Click="OnPopoverIdleClick"/>
+                        <Button Content="Active（工作中）" Click="OnPopoverActiveClick"/>
+                        <Button Content="Warn（异常）" Click="OnPopoverWarnClick"/>
+                        <Button Content="无数据" Click="OnPopoverNoDataClick"/>
+                        <Button Content="真实数据" Click="OnPopoverRealDataClick"/>
+                    </StackPanel>
+                    <views:StatusPopoverView x:Name="PopoverDemo" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
 
         </StackPanel>
     </ScrollViewer>
