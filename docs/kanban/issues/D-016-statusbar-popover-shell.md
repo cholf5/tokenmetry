@@ -25,11 +25,12 @@ blocked: none
 
 ## Acceptance Criteria
 
-- [x] macOS：托盘左键弹 popover（圆角 + 投影），再点托盘 / 失焦 / Esc 收起；右键菜单行为不变
-- [x] Windows：同交互；锚点 = 光标上方且不越出屏幕工作区
+- [x] macOS：托盘入口进弹窗（**平台事实修正**：Avalonia 在 macOS 从不 raise `TrayIcon.Clicked`——入口经托盘菜单「快捷信息窗」项，见 Dev Log 留证），再点菜单项 / 失焦 / Esc 收起；右键菜单行为不变
+- [x] Windows：托盘**左键**直接 Toggle 弹窗（Win32 WM_LBUTTONUP → Clicked 真实触发，源码核实）；右键菜单不变；菜单项入口冗余共享
 - [x] 壳层零业务逻辑、零数据查询（只装配 D-015 UserControl）；主题随应用明暗设置
 - [x] 主窗唤回 / 托盘菜单 / S-005 关窗分派行为零变化（回归锁）
 - [ ] 真机目检：明暗 × 1x/2x 截图留档（headless 只验装配与收起逻辑）——移交用户
+- [ ] （待用户决策）macOS 真·左键弹层需自建 NSStatusItem interop——见 Dev Log 升级项
 
 ## Subtasks
 
@@ -73,6 +74,16 @@ Steps: macOS / Windows 真机点击托盘，明暗两态 × 1x/2x 截图。Expec
 - **坐标单位取证（实现前核实 Avalonia 12.1.4 源码）**：`Screen.Bounds/WorkingArea` 与 `Window.Position` 平台内同空间——Windows 全链路物理像素（`GetWindowRect/SetWindowPos` 原样），macOS 全链路 Cocoa 点（NSScreen.frame，Scaling=1）。锚定统一公式：窗口 DIP 尺寸 × `screen.Scaling` 换入屏幕坐标系；`GetCursorPos` 物理像素在 Windows 直接可用。
 - **交互时序**：Show → 定位 → Activate（首帧后定位，SizeToContent=Height 需布局完成才知窗高）；收起三通道 = 再点托盘（Toggle）/ Deactivated → Hide / Esc → Hide；Hide 不 Close——OnLastWindowClose 不会把弹层收起误判为退出（S-005 语义不受影响）。
 - **有意的近似**：macOS 锚点为主屏工作区（menu bar 之下）右上 + 8/6px，不追真实图标位置（零 interop 台阶第一级）；真机偏差不可接受时按卡升级 `NSStatusItem.button.frame` 最小 interop（需留证）。
+
+### 2026-10-17（真机反馈 B2：「状态栏跟以前一样」→ macOS 点击事件取证与入口修正）
+
+- **用户真机反馈看不到弹层**。取证（Avalonia 12.1.4 源码）：
+  1. `src/Avalonia.Controls/TrayIcon.cs` 对 `Clicked` 事件文档原文——"Note, this is only supported on Win32 and some Linux DEs, **on OSX this event is not raised**"；
+  2. `native/Avalonia.Native/src/OSX/trayicon.mm`（121 行全文）没有任何点击回调——`SetMenu` 直接 `[_native setMenu:]`，NSStatusItem 一旦挂菜单，**任何**鼠标按下都由系统打开菜单，按钮的 action/target 被接管；
+  3. 反证 Windows：`src/Windows/Avalonia.Win32/TrayIconImpl.cs` `WM_LBUTTONUP → OnClicked`、`WM_RBUTTONUP → 菜单`，与本卡交互设计完全一致。
+- **结论**：本卡 Background 里「托盘左键弹 popover / 右键保留 NativeMenu」的两键分工在 **Windows 成立、macOS 不可能**（零 interop 下无左键事件可接）。原 A-0 时代的 macOS 主窗唤回实际一直走菜单「打开主窗」项，Clicked→ShowWindow 路径在 macOS 从未生效过（headless 验证的是接线逻辑，验不出平台差异——教训记录）。
+- **落地修正（零 interop 台阶内）**：托盘菜单在成本行下方新增「快捷信息窗」项（`TrayQuickInfo`，仅装配弹层控制器时出现）→ 命令 Toggle 弹层。macOS：点图标开菜单（与以前一致）→ 菜单项进弹窗；Windows：左键直弹 + 菜单项冗余共享。语言切换就地重译（不换菜单实例，沿用 A-0 纪律）。
+- **升级项（待用户决策，不开即不做）**：macOS 实现"点图标直接弹层"需**放弃 Avalonia TrayIcon 在 macOS 的菜单挂载**，经 .NET Objective-C interop 自建 NSStatusItem（自管 mouseDown/mouseUp + 右键弹自有菜单）——远超本卡预授权的"一个 CGRect"锚定 interop，涉及真菜单替换与点击语义自管，风险与工作量都是独立卡级别。当前菜单项入口已可用，升级需求由真机使用体验决定。
 
 ## Verification
 

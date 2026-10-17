@@ -36,6 +36,7 @@ public class TrayService
     private readonly StatusPopoverController? _popover;
     private TrayIcon? _trayIcon;
     private NativeMenuItem? _costItem;
+    private NativeMenuItem? _popoverItem;
     private NativeMenuItem? _openItem;
     private NativeMenuItem? _refreshItem;
     private NativeMenuItem? _settingsItem;
@@ -69,6 +70,14 @@ public class TrayService
         _settingsItem = new NativeMenuItem { Header = Translations.Instance.TraySettings, Command = new RelayCommand(OpenSettings) };
         _exitItem = new NativeMenuItem { Header = Translations.Instance.TrayExit, Command = new RelayCommand(ExitApp) };
 
+        // D-016 快捷信息窗菜单项：macOS 上 TrayIcon.Clicked 不 raise（官方契约 + trayicon.mm 无点击
+        // 回调，任何点击都打开 NativeMenu）——点击图标的既有体验保持"开菜单"，弹层经本菜单项进入；
+        // Windows 左键已直弹弹层，此项为冗余但一致的入口。仅装配了弹层控制器时出现。
+        if (_popover is { } popover)
+        {
+            _popoverItem = new NativeMenuItem { Header = Translations.Instance.TrayQuickInfo, Command = new RelayCommand(popover.Toggle) };
+        }
+
         _trayIcon = new TrayIcon
         {
             IsVisible = true,
@@ -88,6 +97,11 @@ public class TrayService
                 }
             }
         };
+        if (_popoverItem is { } popoverItem)
+        {
+            _trayIcon.Menu!.Items.Insert(2, popoverItem); // 成本行 + 分隔线之后，首区第三位
+        }
+
         _trayIcon.Clicked += (_, _) => OnTrayClicked();
 
         if (OperatingSystem.IsMacOS())
@@ -116,6 +130,11 @@ public class TrayService
         if (e.PropertyName != nameof(Translations.CurrentLanguage) || _trayIcon is null)
         {
             return;
+        }
+
+        if (_popoverItem is { } popover)
+        {
+            popover.Header = Translations.Instance.TrayQuickInfo;
         }
 
         if (_openItem is { } open)
@@ -161,6 +180,9 @@ public class TrayService
         }
     }
 
+    /// <summary>「快捷信息窗」菜单项（headless 测试断言与命令触发用；未装配弹层时为 null）。</summary>
+    internal NativeMenuItem? PopoverItemForTest => _popoverItem;
+
     private void OnDashboardPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(DashboardViewModel.TodayCostUsd) or nameof(DashboardViewModel.HasData))
@@ -175,7 +197,10 @@ public class TrayService
             : Translations.Instance.TrayCostNoData;
 
     /// <summary>托盘左键分派（D-016）：有弹层控制器 → Toggle 弹窗（开着收起 / 关着弹出，D-015
-    /// 内容层承载）；未装配（headless 旧构造 / 测试）维持 A-0 直开主窗。右键 NativeMenu 不动。</summary>
+    /// 内容层承载）；未装配（headless 旧构造 / 测试）维持 A-0 直开主窗。右键 NativeMenu 不动。
+    /// <b>平台事实（实施留证）</b>：本事件仅 Win32/部分 Linux DE 会 raise——macOS 上 Avalonia
+    /// 从不 raise（TrayIcon.cs 文档原文 "on OSX this event is not raised"，trayicon.mm 亦无点击
+    /// 回调，任何点击都打开 NativeMenu），macOS 的弹层入口是「快捷信息窗」菜单项。</summary>
     internal void OnTrayClicked()
     {
         if (_popover is { } popover)
