@@ -4,10 +4,10 @@ title: 状态栏直显今日用量（模板图标 → 动态文字位图，不�
 type: feature
 priority: P2
 size: M
-status: done
+status: todo
 created: 2026-10-17
 updated: 2026-10-17
-blocked: none
+blocked: 真机反馈裁剪 bug（B1），出路决策待用户定
 ---
 
 ## Goal
@@ -26,11 +26,11 @@ macOS 菜单栏（及 Windows 托盘可选）图标直接渲染「42.4K · $12.4
 
 ## Acceptance Criteria
 
-- [x] macOS 状态栏直接渲染当日成本文本（紧凑格式），KPI 更新即重绘，无需展开菜单
-- [ ] 明暗菜单栏两态 + 1x/2x DPI 截图留档目检不糊（真机截图，headless 渲染不采信）——**移交用户目检（2026-10-17 实施会话，见「真机人工核验」节）**
+- [x] macOS 状态栏直接渲染当日成本文本（紧凑格式），KPI 更新即重绘，无需展开菜单——**代码侧达成，真机被 B1 裁剪阻塞（见 Bugs）**
+- [x] 明暗菜单栏两态 + 1x/2x DPI 截图留档目检——真机目检已做（2026-10-17 用户截图）：不是画质问题，是**方形裁剪**，位图方案在 macOS 出不了可读文本
 - [x] 无数据 / 异常态有诚实降级（"—" 或回落纯模板图标），不留陈旧数字
 - [x] Windows 行为零变化（仍 tooltip + 菜单首行；`CreateIcon` 的 Windows 资产路径不动）
-- [ ] 若位图方案画质不可接受，卡内记录截图证据与结论后决策：调优 or 升级 interop 方案 or 关卡明示放弃（不静默搁置）——随上项目检结论处理
+- [ ] 位图方案不可行的证据已记录（B1），**出路决策待定**：升级 interop（真文字）/ 方形紧凑字妥协 / 回落模板图标关卡或等上游——不静默搁置
 
 ## Subtasks
 
@@ -67,6 +67,7 @@ Expected: 数字可读不糊；暗色菜单栏白字、亮色黑字（template �
 
 | ID | Severity | Description | Status | Resolution |
 |---|---|---|---|---|
+| B1 | P1（规格级，阻塞） | 真机（macOS arm64，2026-10-17 用户截图）：状态栏只见「M ·」而非全文本。根因：Avalonia 12.1.4 `trayicon.mm` L15 `statusItemWithLength: NSSquareStatusItemLength` 固定方形（~24pt）且全文件无 `setLength`，NSStatusBarButton 不随图片加宽 → 宽位图按 17pt 高缩放后水平**中段被裁**。本机今日文本 "324.2M · $0.00"（facts 库 324,221,037 tokens / $0.00），中段恰为「M ·」，证据闭环。非画质调优可解（24pt 内塞下全文本 = 不可读）；托管侧无出口（`MacOSProperties` 仅 IsTemplateIcon、`TrayIcon` 无长度属性、`IAvnTrayIcon` vtable 无 SetLength）。 | open | 决策待定（interop 真文字 / 方形紧凑字妥协 / 回落模板关卡） |
 
 ## Development Log
 
@@ -86,6 +87,13 @@ Expected: 数字可读不糊；暗色菜单栏白字、亮色黑字（template �
 - 自检探针（临时测试落盘 PNG，已删）：headless 渲染 `42.4K · $12.46` 位图经 Pillow 合白底目检——字形完整清晰、alpha 满量程（0→255）、RGB 全 0，template 语义正确；不能替代真机明暗/DPI 目检。
 - 有意不做：Warn 态警告字形（`⚠ 38.2K/min`，可选未做）——速率=刷新差值÷间隔的口径归 D-015 内容层，速率计算不该寄生在托盘；Windows 侧同步上文字位图（tooltip + 菜单首行已达标，本卡 Windows 零变化）。
 - 测试结果：`dotnet test Tokenmetry.sln` 全绿 = Passed 1300 / Failed 0（Core 159 / Reconciliation 49 / App.Tests 151 / Infrastructure 652 / Headless 289）；其中本卡新增 TrayStatusTextTests 23 条（格式化 + 四态分派）+ TrayServiceTests 2 条（KPI 更新换图 + 菜单首行同步；失败回落模板）。
+
+### 2026-10-17（真机目检反馈：B1 裁剪，位图方案在 macOS 不可行，出路决策待定）
+
+- 用户真机截图：状态栏只显示「M ·」。取证链（全部落实）：① 模板资产是三柱图字形，排除旧构建干扰（跑的确实是新构建）；② 本机 facts 库 `2026-10-17` 行 = 324,221,037 tokens / $0.00 → 应渲染文本 "324.2M · $0.00"，方形按钮中段裁剪恰好剩「M ·」，与截图逐字吻合；③ 安装版 12.1.4 tag 的 `trayicon.mm` 与 master 一致：`statusItemWithLength: NSSquareStatusItemLength` 写死、无 `setLength`；④ 托管侧三处（`MacOSProperties`/`TrayIcon`/`IAvnTrayIcon`）均无长度出口。
+- **结论：这是硬裁剪不是画质问题**——方案①（位图）在 Avalonia TrayIcon 上的天花板就是方形 ~24pt，调 `LogicalFontSize`/紧凑口径都救不了（塞得下的文本不可读）。Acceptance #5 预案触发。
+- 出路三选（已向用户提交决策）：**A. 升级 interop（卡内预留方案②）**——自建 NSStatusItem（`NSVariableStatusItemLength`）+ `button.title` 真文字（顺带免位图：任意 DPI 锐利、系统自动反色），但菜单/点击/tooltip 全原生重建（objc_msgSend P/Invoke 估 300–500 行），只能真机验证，Windows 路径不动；**B. 方形紧凑字妥协**——24pt 内渲染 3–4 字符（"324M" 或 "$0"），成本/tokens 二选一，偏离原型规格，快；**C. 回落模板图标关卡**——文本放弃，看板数走菜单首行 + D-015/D-016 弹窗，另可给 Avalonia 提上游 `setLength` 修复（周期不可控）。
+- 卡片状态回退 todo（blocked: B1 决策）；headless 断言与格式化器（TrayStatusText / ResolveStatusGlyph）无论哪条出路都保留复用。
 
 ## Verification
 
