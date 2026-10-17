@@ -9,9 +9,10 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| D-014 | 状态栏直显今日用量（模板图标→动态文字位图，不走 NSStatusItem interop） | P2 | M | none | none |
-| D-015 | 状态栏快捷信息窗 · 内容层（共享 UserControl：KPI + 构成 + Top4 Agent + 三态 banner） | P2 | M | none | none（建议 D-014 先行） |
+| D-015 | 状态栏快捷信息窗 · 内容层（共享 UserControl：KPI + 构成 + Top4 Agent + 三态 banner） | P2 | M | none | none（D-014 已收，可随时开工） |
 | D-016 | 状态栏快捷信息窗 · 壳层（macOS 顶部锚定 / Windows flyout，复用 D-015） | P2 | S | none | D-015 |
+
+> 2026-10-17（晚二）：**D-014 收口**（TrayService/TrayStatusText/TrayStatusIconRenderer，全量 1300 Passed）。紧凑口径沿原型 ASCII（K/M/B/T，不随 UI 语言，有意偏离图表万/亿）；三态降级 = 无数据「—」/ 首轮扫描「…」/ 刷新失败回落纯模板图标；2x 像素空间渲染依据 Avalonia.Native trayicon.mm 的 17pt 统一缩放。**TC-002 真机目检（明暗 × 1x/2x 锐度）移交用户**，画质不可接受时按卡内 Acceptance #5 决策。D-015/D-016 解除等待。
 
 > 2026-10-17（晚）：**状态栏路线定稿——用户经 ChatGPT 产出 UI 原型，原样收入 `docs/design/tokenmetry_statusbar_prototype.html`**（沿 ccusage_analytics 原型先例：原型为设计参照，落地按卡内修正项偏离，不改原型）。CodexBar 式「状态栏文本 + 点击弹固定内容面板」确认采纳：内容层一份（D-015：今日 KPI 三格 + Token 构成 + 主要 Agent Top4 + 三态 banner，全走 IUsageQueryService 同源；六条修正项卡内锁定——真品牌图标 / 全令牌化 + 亮色变体 / 最小 10px / 速率=刷新差值÷间隔 / footer 左键改语义 / 点击行为收敛既有导航）、壳层分平台（D-016：macOS 顶部近似锚定先行、Windows GetCursorPos flyout，零 interop 台阶式升级）；D-014 升 P2 并入 tray 文字规格（紧凑 tokens + 成本）。常驻正当性定调：数据重启可补扫不丢失，常驻价值 = 状态栏 + 未来推送；默认关窗行为待状态栏落地后复评（S-005 开关已是用户侧出口）。
 
@@ -33,6 +34,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-014 | 状态栏直显今日用量（模板图标→动态文字位图，不走 NSStatusItem interop；真机目检移交用户） | P2 | 2026-10-17 |
 | S-005 | 关窗行为开关（关窗=托盘可关）+ 首次关窗托盘一次性提示 | P2 | 2026-10-17 |
 | B-007 | 语言切换后图表 tooltip 文案陈旧（Heatmap/DonutChart 缺 CurrentLanguage 重译订阅） | P3 | 2026-10-17 |
 | Q-003 | 图表 tooltip 测试对称补齐（DonutChart chart-tip/紧凑文案零覆盖） | P3 | 2026-10-17 |
