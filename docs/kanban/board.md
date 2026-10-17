@@ -13,6 +13,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-17（晚五）：**D-015/D-016 状态栏快捷信息窗收口（同批落地，Todo 清空）**。内容层（D-015：`StatusPopoverView` 438px 卡 = 三格 KPI + Token 构成条 + Agent Top4 + 三态 banner，数据全走 IUsageQueryService / DashboardViewModel 既有回写）与壳层（D-016：无边框透明窗 + 失焦/Esc/再点收起，Windows `GetCursorPos` 光标上方 / macOS 主屏工作区右上零 interop 近似）一次成对实现；托盘左键改 Toggle 弹层，右键菜单不动。修正项六条逐条落卡（footer 取「最近会话 →」）；速率窗口实现为 45–90s（下限防启动缓存热载误判，卡内留证）；`DashboardViewModel` 增 `AnomalyDetected` 同源事件（无论 toast 开关）。XAML 限制留档：`Grid.ColumnDefinitions` 不可绑定 → `ProportionalColumns` 附加属性翻译。全量 1310 Passed（+18）；真机明暗 × 1x/2x 目检（含 macOS 锚点近似可否接受）移交用户。
 
+> 2026-10-17（晚六）：**D-016 真机反馈修正（B2）——macOS 点击事件取证**。用户反馈"状态栏跟以前一样"：Avalonia `TrayIcon.Clicked` 在 macOS 从不 raise（TrayIcon.cs 文档原文 + trayicon.mm 无点击回调，任何点击被 NSStatusItem 菜单接管；Windows WM_LBUTTONUP 正常）——左键/右键分工只在 Windows 成立，晚五注记中"托盘左键改 Toggle 弹层"仅对 Windows 成立。零 interop 内修正：托盘菜单新增「快捷信息窗」项 Toggle 弹层（macOS 唯一入口，Windows 冗余共享）；"自建 NSStatusItem interop 实现真·左键弹层"登记为待用户决策的升级项（超出预授权的 CGRect 锚定 interop，独立卡级）。全量 1312 Passed（+2）。另：状态栏图标本身不变是 D-014 决策 C 的既定语义（模板图标），弹层价值在菜单项/左键（Win）之后。
+
 > 2026-10-17（晚四）：**D-014 决策 C 收口**。用户三选一定案：**回落模板图标、关卡**——状态栏文本直显经 B1 取证在 Avalonia TrayIcon 上不可行，文本信息走菜单首行 + D-015/D-016 弹窗。位图路径（渲染器/字形分派/托盘接线）撤除回归原 A-0 语义；`TrayStatusText` 格式化器及纯函数测试保留给 D-015 复用。全量 1292 Passed。上游 `setLength` 修复未承诺，若未来仍要免点击文本走 interop 方案②携 B1 证据开新卡。
 
 > 2026-10-17（晚三）：**D-014 回退 Todo**。真机目检（用户截图）发现状态栏只见「M ·」——Avalonia 12.1.4 `trayicon.mm` `statusItemWithLength: NSSquareStatusItemLength` 固定方形且无 `setLength`，宽文字位图中段被裁（本机文本 "324.2M · $0.00" 中段恰为 M ·，证据链闭环记入卡内 B1）。**结论：硬裁剪非画质问题，位图方案在 macOS 不可行**，调优不可解。出路三选待用户决策：A 升级 interop（NSStatusItem 真文字，卡内预留方案②）；B 方形紧凑字妥协（3–4 字符）；C 回落模板图标关卡（等 D-015/016 或上游）。格式化器/降级分派/headless 断言按出路复用。
