@@ -3,9 +3,10 @@ using Tokenmetry.App.Tray;
 namespace Tokenmetry.App.Tests.Tray;
 
 /// <summary>
-/// D-014 状态栏直显文本的纯格式化与三态分派（headless 集成行为见 Headless 的 TrayServiceTests）：
+/// 紧凑 tokens+成本格式化（D-014 关卡后保留，D-015 弹层复用）：
 /// 紧凑口径沿原型 tray chip（42.4K · $12.46，ASCII 千进制，语言无关——有意偏离图表的万/亿口径），
-/// 尾数精度与越档守卫对齐图表 FormatCompact；字形分派覆盖有值 / 无数据 / 扫描中 / 刷新失败四态。
+/// 尾数精度与越档守卫对齐图表 FormatCompact。D-014 状态栏文本直显经真机取证不可行
+/// （Avalonia 方形状态项裁剪宽位图，卡内 B1），字形分派随托盘接线一并撤除。
 /// </summary>
 public class TrayStatusTextTests
 {
@@ -47,18 +48,5 @@ public class TrayStatusTextTests
     {
         // 有历史数据但今日为 0：如实显示 0，不伪装成降级态
         TrayStatusText.Build(0m, 0).Should().Be("0 · $0.00");
-    }
-
-    [Theory]
-    [InlineData("ok", true, false, 12.46, 42400, "42.4K · $12.46")]
-    [InlineData("ok", false, false, 0, 0, "—")]
-    [InlineData("ok", false, true, 0, 0, "…")]
-    [InlineData("ok", true, true, 12.46, 42400, "42.4K · $12.46")] // 周期刷新保持最后真值，不闪动
-    [InlineData("error", true, false, 12.46, 42400, null)] // 刷新失败回落模板图标，不留陈旧数字
-    [InlineData("error", false, true, 0, 0, null)]
-    public void ResolveStatusGlyph_dispatches_four_states(
-        string status, bool hasData, bool isLoading, decimal costUsd, long tokens, string? expected)
-    {
-        TrayService.ResolveStatusGlyph(status, hasData, isLoading, costUsd, tokens).Should().Be(expected);
     }
 }
