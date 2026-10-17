@@ -26,6 +26,8 @@ public sealed class StatusPopoverController
     private const double TopRightGapY = 6;
     private const double AboveCursorGap = 10;
     private const double AboveCursorRightOverlap = 14;
+    private const double BelowIconGap = 4;
+    private const double RightOverlap = 8;
 
     private readonly Window _mainWindow;
     private readonly MainWindowViewModel? _shell;
@@ -131,9 +133,24 @@ public sealed class StatusPopoverController
                 AboveCursorGap * screen.Scaling,
                 AboveCursorRightOverlap * screen.Scaling);
         }
+        else if (OperatingSystem.IsMacOS() && MacTrayInterop.TryGetStatusItemFrame(out var anchor))
+        {
+            // 精确锚定（interop 图标 frame，CodexBar 同款：图标正下方、右缘对齐）。
+            // frame 与屏幕坐标同单位（macOS Scaling=1，Cocoa 点）；按可见卡片计算后内移投影边距。
+            var screen = ScreenContaining(screens, anchor) ?? screens.Primary ?? screens.All[0];
+            var windowSize = ScreenSize(window, screen);
+            var margins = StatusPopoverWindow.ShadowMargins * screen.Scaling;
+            var cardSize = new Size(
+                Math.Max(1, windowSize.Width - margins.Left - margins.Right),
+                Math.Max(1, windowSize.Height - margins.Top - margins.Bottom));
+            var cardPos = PopoverPositioner.AnchorBelow(anchor, cardSize, screen.WorkingArea, BelowIconGap * screen.Scaling, RightOverlap * screen.Scaling);
+            window.Position = new PixelPoint(
+                cardPos.X - (int)Math.Round(margins.Left),
+                cardPos.Y - (int)Math.Round(margins.Top));
+        }
         else
         {
-            // macOS（卡定零 interop 近似）与其余平台回落：主屏工作区右上
+            // 近似回落（非 mac / interop 未装 / frame 不可得）：主屏工作区右上
             var screen = screens.Primary ?? screens.All[0];
             window.Position = PopoverPositioner.AnchorTopRight(
                 screen.WorkingArea,
@@ -141,6 +158,12 @@ public sealed class StatusPopoverController
                 TopRightGapX * screen.Scaling,
                 TopRightGapY * screen.Scaling);
         }
+    }
+
+    private static Screen? ScreenContaining(Screens screens, PixelRect rect)
+    {
+        var center = new PixelPoint(rect.X + rect.Width / 2, rect.Y + rect.Height / 2);
+        return screens.ScreenFromPoint(center);
     }
 
     private static Size ScreenSize(Window window, Screen screen)
