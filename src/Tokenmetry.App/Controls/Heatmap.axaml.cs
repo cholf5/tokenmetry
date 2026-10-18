@@ -7,6 +7,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Transformation;
+using Avalonia.Threading;
 using Tokenmetry.App.Localization;
 
 namespace Tokenmetry.App.Controls;
@@ -38,6 +40,26 @@ public partial class Heatmap : UserControl
 
     /// <summary>格子间距（原型 gap:6px，均分到格子的四周 Margin 3px）。</summary>
     public const double CellGap = 6;
+
+    /// <summary>渐入：单格时长（ms，Motion.FastMs 档）。</summary>
+    public const double CellFadeMs = 120;
+
+    /// <summary>渐入：起步 stagger 间隔（ms）。</summary>
+    public const double CellStaggerStartMs = 15;
+
+    /// <summary>渐入：时间线总时长封顶（ms）——格子多时压缩间隔，不无限拉长。</summary>
+    public const double StaggerCapMs = 600;
+
+    /// <summary>
+    /// stagger 间隔（纯函数）：总时长 = 单格 + (格数-1)×间隔 ≤ 封顶；少格走起步间隔，下限 0。
+    /// </summary>
+    public static double StaggerIntervalMs(int cellCount) => cellCount <= 1
+        ? 0
+        : Math.Max(0, Math.Min(CellStaggerStartMs, (StaggerCapMs - CellFadeMs) / (cellCount - 1)));
+
+    /// <summary>第 index 格的渐入延迟（纯函数）= index×间隔。</summary>
+    public static double StaggerDelayMs(int cellIndex, int cellCount) =>
+        cellIndex * StaggerIntervalMs(cellCount);
 
     public static readonly StyledProperty<System.Collections.IEnumerable?> CellsProperty =
         AvaloniaProperty.Register<Heatmap, System.Collections.IEnumerable?>(nameof(Cells));
@@ -79,7 +101,7 @@ public partial class Heatmap : UserControl
         Rebuild();
     }
 
-    /// <summary>脱树退订集合与重译订阅（重挂由 OnAttachedToVisualTree 恢复）。</summary>
+    /// <summary>脱树退订集合与重译订阅（重挂由 OnAttachedToVisualTree 恢复）；作废进行中的渐入时间线。</summary>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
@@ -88,6 +110,7 @@ public partial class Heatmap : UserControl
             collection.CollectionChanged -= OnCellsCollectionChanged;
         }
         Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
+        _staggerGeneration++;
     }
 
     private void HookCellsCollection()
@@ -142,6 +165,11 @@ public partial class Heatmap : UserControl
 
     private void OnCellsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => Rebuild();
 
+    // ── stagger 渐入（motion design）──
+
+    /// <summary>时间线代数：Rebuild/脱树即作废旧时间线（帧回调闭包据此自杀）。</summary>
+    private int _staggerGeneration;
+
     /// <summary>
     /// 强度色纯函数（headless 单测覆盖）：ratio ∈ [0,1] 线性映射到 [MinAlpha, MaxAlpha] 透明度，
     /// 色相保持基准色（同色系 alpha 渐变 → 深浅与强度单调一致）。ratio 越大颜色越实。
@@ -170,8 +198,9 @@ public partial class Heatmap : UserControl
 
         var max = cells.Where(c => c.HasData).Select(c => c.Value).DefaultIfEmpty(0).Max();
         var baseColor = ResolveSeriesColor();
-        var cardLine = ResolveBrush("AppCardLineBrush", Color.Parse("#22324a"));
 
+        var i = 0;
+        var entrances = new List<(Border Cell, double Delay)>(cells.Count);
         foreach (var cell in cells)
         {
             var background = BuildCellBrush(cell, max, baseColor);
@@ -179,16 +208,93 @@ public partial class Heatmap : UserControl
             {
                 CornerRadius = new CornerRadius(5),
                 BorderThickness = new Thickness(1),
-                BorderBrush = cardLine,
                 Background = background,
                 Height = CellHeight,
                 Margin = new Thickness(CellGap / 2),
                 VerticalAlignment = VerticalAlignment.Stretch,
             };
+            border.Classes.Add("hm-cell");
             // 图表悬浮提示（B-006）：chart-tip 类装饰（App 令牌配色）；文案见 BuildCellTooltip
             ChartTooltips.Set(border, BuildCellTooltip(cell));
             CellsGrid.Children.Add(border);
+            RunCellEntrance(border, StaggerDelayMs(i, cells.Count));
+            entrances.Add((border, StaggerDelayMs(i, cells.Count)));
+            i++;
         }
+
+        StartStagger(entrances);
+    }
+
+    /// <summary>
+    /// 单格渐入初态（motion design）：Opacity 0 + Scale 0.85（进度由 <see cref="StartStagger"/> 按帧推进）。
+    /// 只动 Opacity/RenderTransform，不碰布局属性。
+    /// </summary>
+    private static void RunCellEntrance(Border cell, double delayMs)
+    {
+        cell.Opacity = 0;
+        cell.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+        cell.RenderTransform = TransformOperations.Parse("scale(0.85)");
+    }
+
+    /// <summary>
+    /// 驱动整板 stagger 渐入：请求合成帧回调，每帧按时间线重算每格 Opacity + TransformOperations
+    /// ("scale()")，全部到位即不再请求（静止零开销）。Avalonia 12 的 Animation 管线动不了
+    /// RenderTransform（无公开 animator，RunAsync 只收 Visual），DispatcherTimer 在 headless 测试里
+    /// 又不随 RunJobs/tick 推进——合成帧回调（TopLevel.RequestAnimationFrame）两侧皆可。
+    /// </summary>
+    private void StartStagger(IReadOnlyList<(Border Cell, double Delay)> targets)
+    {
+        _staggerGeneration++;
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
+        {
+            // 无宿主（脱树后属性变更触发 Rebuild 的边界）：直接落到终态，不残留中间态
+            foreach (var (cell, _) in targets)
+            {
+                cell.Opacity = 1;
+                cell.RenderTransform = TransformOperations.Parse("scale(1)");
+            }
+
+            return;
+        }
+
+        var generation = _staggerGeneration;
+        var start = (TimeSpan?)null;
+        Action<TimeSpan> frame = null!;
+        frame = timestamp =>
+        {
+            if (generation != _staggerGeneration)
+            {
+                return; // 重建/脱树后旧时间线作废
+            }
+
+            start ??= timestamp;
+            var elapsed = (timestamp - start.Value).TotalMilliseconds;
+            var done = true;
+            foreach (var (cell, delay) in targets)
+            {
+                var t = Math.Clamp((elapsed - delay) / CellFadeMs, 0, 1);
+                if (t < 1)
+                {
+                    done = false;
+                }
+
+                var eased = Tokenmetry.App.Styles.Motion.EaseOut.Ease(t);
+                cell.Opacity = eased;
+                cell.RenderTransform = TransformOperations.Parse($"scale({0.85 + 0.15 * eased:0.####})");
+            }
+
+            if (!done)
+            {
+                topLevel.RequestAnimationFrame(frame);
+            }
+        };
+        topLevel.RequestAnimationFrame(frame);
     }
 
     /// <summary>格子底色：有数据日按强度取系列色 alpha 渐变；无数据日取次面板底色（空态可辨）。</summary>
