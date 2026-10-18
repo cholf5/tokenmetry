@@ -92,9 +92,10 @@ public sealed class SessionRowViewModel
     {
         SessionId = row.SessionId;
         Agent = row.Agent;
-        // facts 无标题字段（I-002/I-029）：主文本诚实用会话标识 SessionId（同搜索口径），不伪造任务标题
-        TitleText = row.SessionId;
-        ProjectText = FirstNotEmpty(row.ProjectDisplayName, row.Project, "—");
+        // facts 无标题字段（I-002/I-029，隐私红线不存会话内容）：主文本升级为项目展示名
+        // （"这是哪个项目的活"），会话标识降为副文本 + tooltip——诚实且比 UUID 有信息量
+        TitleText = FirstNotEmpty(row.ProjectDisplayName, row.Project, row.SessionId);
+        SessionIdText = row.SessionId;
         var icon = AgentVisualMap.Resolve(row.Agent);
         IconGlyph = icon.Glyph.ToString();
         LogoVendor = icon.LogoVendor;
@@ -108,11 +109,11 @@ public sealed class SessionRowViewModel
 
     public string Agent { get; }
 
-    /// <summary>主文本 = 会话标识 SessionId（无标题字段的诚实呈现，见构造）。</summary>
+    /// <summary>主文本 = 项目展示名（空则原始路径，再空则会话标识），见构造。</summary>
     public string TitleText { get; }
 
-    /// <summary>副文本 = 项目（归一化展示名优先，歧义守卫下可能是原始路径；空则 "—"）。</summary>
-    public string ProjectText { get; }
+    /// <summary>副文本 = 会话标识（tooltip 挂完整 SessionId 可复制）。</summary>
+    public string SessionIdText { get; }
 
     /// <summary>散列兜底字形（lobe 无对应标的 Agent 才显示）。</summary>
     public string IconGlyph { get; }

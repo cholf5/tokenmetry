@@ -501,6 +501,40 @@ public class SessionsTests
         Assert.Equal("$0.50", known.CostText);
     }
 
+    // ── 6b. 行元数据映射（右栏撤除定案：项目名升主文本，会话标识降副文本 + tooltip）──
+
+    [AvaloniaFact]
+    public void Session_row_main_text_prefers_project_display_name()
+    {
+        var vm = new SessionRowViewModel(new SessionListRow
+        {
+            SessionId = "abc-123",
+            Agent = "Claude Code",
+            Project = "/work/alpha",
+            ProjectDisplayName = "alpha",
+            DominantModel = "claude-sonnet-4",
+        });
+
+        Assert.Equal("alpha", vm.TitleText); // 项目名升主文本（"这是哪个项目的活"，比 UUID 有信息量）
+        Assert.Equal("abc-123", vm.SessionIdText); // 会话标识降副文本（tooltip 可复制完整 ID）
+    }
+
+    [AvaloniaFact]
+    public void Session_row_falls_back_to_raw_project_then_session_id()
+    {
+        var noDisplay = new SessionRowViewModel(new SessionListRow
+        {
+            SessionId = "sid-1", Agent = "Codex", Project = "/work/beta", ProjectDisplayName = "",
+        });
+        Assert.Equal("/work/beta", noDisplay.TitleText); // 无展示名回退原始路径
+
+        var noProject = new SessionRowViewModel(new SessionListRow
+        {
+            SessionId = "sid-2", Agent = "Codex", Project = "", ProjectDisplayName = "",
+        });
+        Assert.Equal("sid-2", noProject.TitleText); // 项目全空回落会话标识，不显示空行
+    }
+
     // ── 7. 虚拟化（≥1 万行 fixture）──
 
     [AvaloniaFact]

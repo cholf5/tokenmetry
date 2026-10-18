@@ -73,11 +73,11 @@
                                     BorderThickness="0,1,0,0"
                                     Padding="0,8,0,2">
                                 <Grid ColumnDefinitions="2*,60,1.2*,72,58,68" ColumnSpacing="8">
-                                    <!-- 会话（标识 + 项目副文本；SessionId 截断） -->
-                                    <StackPanel Grid.Column="0" Spacing="3">
+                                    <!-- 会话（项目主文本 + 会话标识副文本；tooltip 挂完整 SessionId 可复制） -->
+                                    <StackPanel Grid.Column="0" Spacing="3" ToolTip.Tip="{Binding SessionIdText}">
                                         <TextBlock Classes="table-td" Text="{Binding TitleText}"
                                                    TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Classes="page-subtitle" Text="{Binding ProjectText}"
+                                        <TextBlock Classes="page-subtitle" Text="{Binding SessionIdText}"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                     <!-- Agent（行内品牌 logo + 名，对齐模型列的 model-chip；
