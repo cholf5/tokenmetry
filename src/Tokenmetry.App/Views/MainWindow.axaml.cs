@@ -43,6 +43,64 @@ public partial class MainWindow : Window
         InitializeComponent();
         _settings = settings;
         _settingsStore = settingsStore;
+
+        // 页面进场（motion design）：Content 替换即重播；只动 Opacity/RenderTransform，
+        // 不做退出动画（固定信息架构没有方向语义）
+        PageHost.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ContentControl.ContentProperty && PageHost.Content is not null)
+            {
+                RunPageEntrance();
+            }
+        };
+    }
+
+    // ── 页面进场过渡（motion design §5）──
+
+    /// <summary>时间线代数：Content 连续替换时新进场作废旧进场。</summary>
+    private int _pageEntranceGeneration;
+
+    /// <summary>
+    /// 页面进场：淡入 + 轻上浮（克制取向：只有进场无退出）。TopLevel.RequestAnimationFrame
+    /// 帧回调驱动（Avalonia 12 的 Animation 管线无法对 Transform 实例 RunAsync），180ms ease-out；
+    /// 结束清 RenderTransform 不残留。无宿主 TopLevel（首屏绑定早于挂树）直接落终态。
+    /// </summary>
+    private void RunPageEntrance()
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
+        {
+            return;
+        }
+
+        var generation = ++_pageEntranceGeneration;
+        PageHost.Opacity = 0;
+        PageHost.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(8px)");
+        var start = (System.TimeSpan?)null;
+        Action<System.TimeSpan> frame = null!;
+        frame = timestamp =>
+        {
+            if (generation != _pageEntranceGeneration)
+            {
+                return; // 连续换页：新进场接管，旧时间线自杀
+            }
+
+            start ??= timestamp;
+            var t = Math.Clamp((timestamp - start.Value).TotalMilliseconds / Tokenmetry.App.Styles.Motion.NormalMs, 0, 1);
+            var eased = Tokenmetry.App.Styles.Motion.EaseOut.Ease(t);
+            PageHost.Opacity = eased;
+            PageHost.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse($"translateY({8 - 8 * eased:0.###}px)");
+            if (t < 1)
+            {
+                topLevel.RequestAnimationFrame(frame);
+            }
+            else
+            {
+                PageHost.Opacity = 1;
+                PageHost.RenderTransform = null;
+            }
+        };
+        topLevel.RequestAnimationFrame(frame);
     }
 
     /// <summary>
