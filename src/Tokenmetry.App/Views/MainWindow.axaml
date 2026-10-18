@@ -32,9 +32,24 @@
         </Style>
         <Style Selector="Ellipse.status-dot.warn">
             <Setter Property="Fill" Value="{DynamicResource AppAccentOrangeBrush}"/>
+            <!-- 异常态呼吸（motion design §7）：仅 warn/error 循环吸引注意；正常绿常亮 -->
+            <Style.Animations>
+                <Animation Duration="0:0:2" IterationCount="Infinite">
+                    <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1"/></KeyFrame>
+                    <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.4"/></KeyFrame>
+                    <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1"/></KeyFrame>
+                </Animation>
+            </Style.Animations>
         </Style>
         <Style Selector="Ellipse.status-dot.error">
             <Setter Property="Fill" Value="{DynamicResource AppAccentRedBrush}"/>
+            <Style.Animations>
+                <Animation Duration="0:0:2" IterationCount="Infinite">
+                    <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1"/></KeyFrame>
+                    <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.4"/></KeyFrame>
+                    <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1"/></KeyFrame>
+                </Animation>
+            </Style.Animations>
         </Style>
         <!-- 侧栏导航列表（原型 .nav）：透明底、条目 8px 圆角、悬停/选中走 D-003 外壳令牌 -->
         <Style Selector="ListBox.nav-list">
@@ -49,6 +64,13 @@
             <Setter Property="MinHeight" Value="40"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Margin" Value="0,0,0,5"/>
+            <!-- hover 渐变（motion design §6）：底色/前景 120ms 过渡，不跳变 -->
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="ListBox.nav-list ListBoxItem:pointerover">
             <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
@@ -75,6 +97,30 @@
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="FontSize" Value="14"/>
+            <!-- hover 渐变（motion design §6） -->
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <!-- 刷新进行中（motion design §6）：「◌」字形手柄式旋转（复用初始化菊花的矢量旋转手法，
+             文本旋转中心是布局盒中心的注意事项同 overlay-spinner 注释——此处旋转的就是字形盒，
+             偏差可接受；结束随 IsVisible 隐没即停） -->
+        <Style Selector="TextBlock.refresh-running-glyph">
+            <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+            <Setter Property="RenderTransform" Value="rotate(0deg)"/>
+            <Style.Animations>
+                <Animation Duration="0:0:1.4" IterationCount="Infinite">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0"/>
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
         </Style>
 
         <!-- 顶部栏筛选标签（.select 语义的静态说明文字） -->
@@ -280,6 +326,7 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    IsVisible="{Binding !RefreshDataCommand.IsRunning}"/>
                         <TextBlock Text="◌"
+                                   Classes="refresh-running-glyph"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    IsVisible="{Binding RefreshDataCommand.IsRunning}"/>
                     </Panel>
@@ -370,6 +417,7 @@
                IsVisible="{Binding IsInitializingData}">
             <Border Background="{DynamicResource AppOverlayScrimBrush}"/>
             <Border Classes="overlay-card"
+                    x:Name="OverlayCard"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel Spacing="14">
                     <Ellipse Classes="overlay-spinner"/>
