@@ -182,8 +182,8 @@ public static class AppServices
         // INavigationAware.OnNavigatedTo（重进刷新，定案见 S-002 卡 Dev Log）。
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<DataPricingViewModel>();
-        // D-003 右栏最近会话骨架（D-008 接真实数据）
-        services.AddTransient<SessionsPanelViewModel>();
+        // 右栏（SessionsPanelViewModel）已随 2026-10-18 右栏撤除删除：最近会话直接删、
+        // 快速筛选并入顶栏全局四维（docs/plans/2026-10-18-right-rail-removal-design.md）。
 
         // S-002 审查修复（P0）：后台刷新服务在容器内正常注册——设置页 / 数据与计价页 VM 的嵌套
         // 构造注入与顶层 Get<T> 解析到同一实例。此前"late map（RegisterInstance 只拦截顶层 Get<T>，

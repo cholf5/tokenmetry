@@ -87,9 +87,6 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>全局筛选状态（顶部栏 ComboBox 直接绑定；各页 VM 经 PropertyChanged 订阅）。</summary>
     public FilterStateService Filters => _filters;
 
-    /// <summary>右侧最近会话栏（D-008 真实数据接线：最近会话 Top6 + 会话页级快速筛选状态持有者）。</summary>
-    public SessionsPanelViewModel SessionsPanel { get; }
-
     /// <summary>S-004 拆分后两个单例页：设置页（应用偏好）与数据与计价页（数据源/口径/目录/别名），
     /// MainWindowViewModel 持有同一实例，外壳 CreatePage 复用。</summary>
     public SettingsViewModel Settings { get; }
@@ -101,7 +98,6 @@ public partial class MainWindowViewModel : ViewModelBase
         FilterStateService filters,
         SettingsViewModel settings,
         DataPricingViewModel dataPricing,
-        SessionsPanelViewModel sessionsPanel,
         IUsageQueryService usageQuery,
         AgentCatalogService agentCatalog,
         IToastService toastService,
@@ -111,7 +107,6 @@ public partial class MainWindowViewModel : ViewModelBase
         _filters = filters;
         Settings = settings;
         DataPricing = dataPricing;
-        SessionsPanel = sessionsPanel;
         _usageQuery = usageQuery;
         _agentCatalog = agentCatalog;
         _toastService = toastService;
@@ -124,10 +119,10 @@ public partial class MainWindowViewModel : ViewModelBase
         CurrentPage = CreatePage(PageId.Overview);
         // 外壳 VM 与应用同生命周期，直订阅语言切换信号（重译顶栏命令式文案），无需退订。
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
-        // D-008：外壳启动时异步拉取真实 Agent 清单（AgentCatalogService 缓存，单一真相源），
-        // 拉到后写入 FilterStateService（顶部栏全局下拉刷新）；右栏复选组共用同一份缓存。
-        // 失败诚实保持 [所有 Agent]，不伪造占位清单（见 AgentCatalogService / FilterStateService 注释）。
-        _ = LoadAgentOptionsAsync();
+        // D-008：外壳启动时异步拉取真实筛选选项（AgentCatalogService 缓存，单一真相源），
+        // 拉到后写入 FilterStateService（顶部栏 Agent/Model/Project 三个全局下拉刷新）。
+        // 失败诚实保持各维度 [全部] 单选项，不伪造占位清单（见 AgentCatalogService / FilterStateService 注释）。
+        _ = LoadFilterOptionsAsync();
     }
 
     /// <summary>
@@ -143,18 +138,37 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private async Task LoadAgentOptionsAsync()
+    private async Task LoadFilterOptionsAsync()
     {
+        // 三份选项各自独立加载：一份失败不影响其余两份（诚实保持哨兵，下次启动重试）
         try
         {
-            var options = await _agentCatalog.GetAgentOptionsAsync();
-            _filters.UpdateAgentOptions(options);
+            var agents = await _agentCatalog.GetAgentOptionsAsync();
+            _filters.UpdateAgentOptions(agents);
         }
         catch (Exception ex)
         {
-            // 选项加载失败保持初始 [所有 Agent]（诚实空集，不伪造占位清单），下次启动重试（服务层缓存未写入）；
-            // 审查修复轮 P2-3：静默吞异常不利排查，补一条最小诊断日志（stderr，不影响 UI）。
             Console.Error.WriteLine($"[Tokenmetry] 全局 Agent 选项加载失败（保持\"所有 Agent\"单选项）：{ex.Message}");
+        }
+
+        try
+        {
+            var models = await _agentCatalog.GetModelOptionsAsync();
+            _filters.UpdateModelOptions(models);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 全局模型选项加载失败（保持\"全部模型\"单选项）：{ex.Message}");
+        }
+
+        try
+        {
+            var projects = await _agentCatalog.GetProjectOptionsAsync();
+            _filters.UpdateProjectOptions(projects);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 全局项目选项加载失败（保持\"全部项目\"单选项）：{ex.Message}");
         }
     }
 
@@ -184,14 +198,14 @@ public partial class MainWindowViewModel : ViewModelBase
         PageId.Overview => new OverviewViewModel(ShellPages.For(id), _filters, _usageQuery, GoToPage),
         // D-009/D-010/D-011：Agent / 模型 / 项目统计为真实页（随全局筛选刷新）。D-009 行点击经
         // OpenSessionsForAgent 跳会话页（全局单选 Agent 途径，见 AgentsViewModel 定案）；D-011 行点击
-        // 经 OpenSessionsForProject 跳会话页（右栏页级项目筛选程序化应用，见 ProjectsViewModel 定案）；
+        // 经 OpenSessionsForProject 跳会话页（全局 Project 筛选途径——右栏撤除定案，见 ProjectsViewModel 定案）；
         // D-010 无行点击下钻。页面 VM 不反向引用本类型（回调单向注入，同 D-007 选型）。
         PageId.Agents => new AgentsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForAgent),
         PageId.Models => new ModelsViewModel(ShellPages.For(id), _filters, _usageQuery),
         PageId.Projects => new ProjectsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForProject),
-        // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；Agent 复选/模型/项目
-        // 页级筛选状态由右栏 SessionsPanelViewModel 持有，页面经其提交事件触发重查（定案见各自类型说明）。
-        PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery, SessionsPanel, _toastService),
+        // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；筛选全部来自
+        // 顶栏全局四维（FilterStateService），页内只留搜索/排序（右栏撤除定案见类型说明）。
+        PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery, _toastService),
         // D-012：时间分析为真实页（小时分布 + 活跃日历热力图 + 观察项表），随全局筛选刷新。
         PageId.Time => new TimeViewModel(ShellPages.For(id), _filters, _usageQuery),
         // D-013：成本分析为真实页（KPI 四卡 + 口径说明表）；待确认价格卡与定价引擎同一单例
@@ -220,29 +234,26 @@ public partial class MainWindowViewModel : ViewModelBase
             _filters.UpdateAgentOptions([.. _filters.AgentOptions, option]);
         }
 
-        // 审查修复轮 P1：右栏复选组是启动期目录快照，可能不含后台刷新后新增的 Agent——只补全局
-        // 选项会落进会话页 ResolveAgentScope 的 Empty 死胡同（复选组全勾但不含目标 → 交集空，
-        // 硬呈"显示 0 / 0 条"，且「清除」只重勾已知复选项救不回）。同步补入一个<b>已勾选</b>的
-        // 复选项，让页级交集继续成立；状态在右栏可见、可手动反勾 / 经「清除」复位。
-        // 复选组为空（目录未加载 / 无数据的诚实兜底态）时不补入：count==0 分支本身已按
-        // Single(全局) 兜底，补入反而会伪装成"目录只含 X"的已加载态。
-        if (SessionsPanel.AgentFilterCount > 0 && SessionsPanel.AgentFilters.All(a => a.AgentId != agentId))
-        {
-            SessionsPanel.AgentFilters.Add(new AgentQuickFilterViewModel(agentId, option.Label));
-        }
-
         _filters.Agent = option;
         GoToPage(PageId.Sessions);
     }
 
     /// <summary>
-    /// D-011 项目排行行点击 → 会话页带该项目筛选（决策点 2 定案：页级途径——项目维度无全局宿主，
-    /// 写入右栏页级筛选并程序化立即应用；落地后右栏可见、「清除」可复位）。状态先写后导航，
-    /// 会话页首查即带上筛选。
+    /// D-011 项目排行行点击 → 会话页带该项目筛选（右栏撤除定案：改走全局 Project 筛选——
+    /// 项目维度自此有全局宿主，落地后顶栏可见、「全部项目」可复位）。状态先写后导航，
+    /// 会话页首查即带上筛选。目标项目不在选项清单（启动期快照缺新项目）时如实补入，
+    /// 不静默丢弃跳转（无界超集契约同 OpenSessionsForAgent）。
     /// </summary>
     private void OpenSessionsForProject(string projectPath, string? label)
     {
-        SessionsPanel.ApplyExternalProjectFilter(projectPath, label);
+        var option = _filters.ProjectOptions.FirstOrDefault(o => o.Path == projectPath);
+        if (option is null)
+        {
+            option = new ProjectFilterOption(projectPath, label ?? projectPath);
+            _filters.UpdateProjectOptions([.. _filters.ProjectOptions, option]);
+        }
+
+        _filters.Project = option;
         GoToPage(PageId.Sessions);
     }
 
@@ -368,7 +379,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 后台采集刷新轮次完成后重查当前页面与右栏最近会话：页面 VM 只在导航 / 全局筛选变化时查询，
+    /// 后台采集刷新轮次完成后重查当前页面：页面 VM 只在导航 / 全局筛选变化时查询，
     /// 不重查则扫描入库后可见页面停留在旧数据（手动刷新按钮的可见效果依赖本回调）。
     /// 由接线层线程池线程调用，内部 marshal 到 UI 线程（页面 VM 按 UI 线程亲和设计）。
     /// 重查经各页 <see cref="IDataRefreshAware.OnDataRefreshedAsync"/>（LoadAsync 序号防护保证
@@ -382,8 +393,6 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 _ = refreshable.OnDataRefreshedAsync();
             }
-
-            _ = SessionsPanel.ReloadRecentSessionsAsync();
         });
     }
 

@@ -102,13 +102,11 @@ public class StartupInitializationTests
         var filters = new FilterStateService();
         var toast = new StubToast();
         var catalog = new AgentCatalogService(stubQuery);
-        var panel = new SessionsPanelViewModel(toast, stubQuery, catalog, filters);
         // AppServices 由 headless 宿主初始化（同 ManualRefreshTests.CreateShell 的装配方式）
         var shell = new MainWindowViewModel(
             filters,
             AppServices.Get<SettingsViewModel>(),
             AppServices.Get<DataPricingViewModel>(),
-            panel,
             stubQuery,
             catalog,
             toast,

@@ -61,10 +61,9 @@ public sealed class ProjectRankRowViewModel
 /// DisplayName = 归一化名，歧义守卫见 <see cref="DimensionUsageRow.DisplayName"/>）。
 /// 数据随全局筛选联动重查（GlobalFilterMapper 同 Overview/Agents 纪律）；展示维度全部行
 /// （服务已按 token 降序，此处防御性重排，不依赖服务排序契约）。
-/// <b>行点击跳转（D-009/D-011 决策点 2 定案：页级途径）</b>：项目维度无全局宿主（FilterStateService
-/// 无项目维度），唯一已审定宿主是右栏快速筛选的项目下拉（D-008 会话页级筛选状态）——经构造注入
-/// 回调由外壳把 (原始路径, 展示名) 写入 SessionsPanelViewModel.ApplyExternalProjectFilter
-/// （程序化立即应用，右栏可见、「清除」可复位，无隐藏过滤态）后导航会话页。
+/// <b>行点击跳转（右栏撤除定案：全局 Project 筛选途径）</b>：项目维度自 2026-10-18 起有全局宿主
+/// （FilterStateService.Project，顶栏四维之一）——经构造注入回调由外壳把 (原始路径, 展示名)
+/// 写入全局 Project 筛选（OpenSessionsForProject，落地后顶栏可见、「全部项目」可复位）后导航会话页。
 /// 生命周期 / 线程 / 序号防护纪律同 <see cref="OverviewViewModel"/>。
 /// </summary>
 public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefreshAware

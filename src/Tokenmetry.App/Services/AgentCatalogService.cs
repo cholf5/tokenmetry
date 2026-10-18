@@ -103,17 +103,17 @@ public sealed class ModelFilterOption : INotifyPropertyChanged, IEquatable<Model
 
 /// <summary>
 /// 筛选选项目录服务（D-008 定案：Agent 清单接线）：从 I-029 维度聚合查询拉取真实的
-/// Agent / 模型 / 项目清单，供全局 Agent 下拉（FilterStateService.UpdateAgentOptions 单一真相源）
-/// 与右栏快速筛选（复选组 / 模型 / 项目下拉）共用。
-/// 缓存策略：首次请求时查询并缓存整个应用生命周期——页面/右栏每次导航初始化都调用，
+/// Agent / 模型 / 项目清单，供顶部栏全局筛选三下拉（FilterStateService.UpdateAgent/Model/ProjectOptions
+/// 单一真相源）共用（右栏撤除后右栏复选组已不存在）。
+/// 缓存策略：首次请求时查询并缓存整个应用生命周期——页面每次导航初始化都调用，
 /// 但只有第一次真正打查询服务（避免每次导航重拉；facts 变化由后台刷新后的下次启动体现，
 /// 选项清单陈旧一个会话周期是可接受取舍，记录于 D-008 Dev Log）。
 /// 查询用无界 <see cref="UsageQueryFilter"/>（全部时间、全部 Agent）——选项清单描述数据全集，
 /// 不随当前筛选收窄；排序按 token 降序（防御性重排，不依赖服务排序契约）。
 /// <b>无界超集语义是契约的一部分（审查修复轮 P2 锁定，勿收窄）</b>：D-009/D-011 外部跳转
-/// （OpenSessionsForAgent / ApplyExternalProjectFilter）对"快照缺项"的判重补入，依赖本清单
+/// （OpenSessionsForAgent / OpenSessionsForProject）对"快照缺项"的判重补入，依赖本清单
 /// 恒为无界严格超集 + 选项 record 值相等重绑才保持幂等——目录查询一旦随筛选收窄，补入兜底即失效。
-/// 加载失败抛出给调用方（外壳把 Agent 清单失败处理为保持 [所有 Agent]，诚实不伪造）。
+/// 加载失败抛出给调用方（外壳把选项加载失败处理为保持 [全部] 哨兵，诚实不伪造）。
 /// </summary>
 public sealed class AgentCatalogService
 {

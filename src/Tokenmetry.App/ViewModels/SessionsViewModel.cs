@@ -138,15 +138,12 @@ public sealed class SessionRowViewModel
 }
 
 /// <summary>
-/// D-008 会话明细页 VM（原型 #page-sessions）：搜索 + 排序（页面内）与 Agent 复选 / 模型 / 项目
-/// （右栏快速筛选，<see cref="SessionsPanelViewModel"/> 持有状态）共同驱动明细表查询。
-/// <b>筛选关系定案</b>：全局筛选（顶部栏时间范围 + 单选 Agent）= 跨页上下文；右栏复选组/模型/项目 =
-/// 会话页级快捷筛选；页面查询 = 两者交集。I-029 的 <see cref="UsageQueryFilter.Agent"/> 是单值，
-/// 复选集映射：全勾 → 不过滤（null）；恰勾 1 个 → 该 Agent；真子集（勾 2..N-1 个）→ 按已选 Agent
-/// 逐个查询（PageSize=null）合并 + 与服务同口径排序后客户端分页（并集无法在一次单值过滤里表达，
-/// 不改已审定的查询契约，取舍记录于 D-008 Dev Log）。复选全不勾 → 诚实空结果（不发查询）。
+/// D-008 会话明细页 VM（原型 #page-sessions）：搜索 + 排序页内；筛选全部来自顶栏全局四维
+/// （时间 + Agent + Model + Project，<see cref="FilterStateService"/>）。原右栏页级快速筛选
+/// （Agent 复选组/模型/项目）已随右栏撤除并入顶栏全局筛选
+/// （2026-10-18 右栏撤除定案：docs/plans/2026-10-18-right-rail-removal-design.md）。
 /// 生命周期 / 线程 / 序号防护纪律同 <see cref="OverviewViewModel"/>：每次导航新建实例、
-/// 外壳 Dispose 退订（全局筛选 + 右栏事件 + 防抖定时器）、FilterStateService 通知已在 UI 线程。
+/// 外壳 Dispose 退订（全局筛选 + 防抖定时器）、FilterStateService 通知已在 UI 线程。
 /// 搜索防抖：300ms 重启式（每次击键重启定时器，停顿才重查——每击键全量过滤+排序代价随总数线性
 /// 增长，且快速输入的中间态必然被覆盖）；headless 测试不驱动 DispatcherTimer 时钟，
 /// 经 <see cref="CommitSearchForTests"/> 直调提交（任务卡允许"虚拟时间或直接调命令"）。
@@ -165,7 +162,6 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
 
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
-    private readonly SessionsPanelViewModel _panel;
     private readonly IToastService _toast;
 
     /// <summary>加载序号：重置型加载自增；跨 await 序号不一致的响应/异常直接丢弃（同 OverviewViewModel）。</summary>
@@ -178,9 +174,6 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
 
     /// <summary>当前已加载页码（重置型加载归 1；加载更多递增）。</summary>
     private int _page = 1;
-
-    /// <summary>真子集合并模式的客户端全集（与 Rows 分页联动；其余模式为 null）。</summary>
-    private List<SessionListRow>? _subsetRows;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CountText), nameof(HasMore), nameof(HasRows), nameof(ShowEmptyState), nameof(ShowCountLine))]
@@ -208,17 +201,14 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
         PageDescriptor page,
         FilterStateService filters,
         IUsageQueryService query,
-        SessionsPanelViewModel panel,
         IToastService toast)
     {
         Page = page;
         _filters = filters;
         _query = query;
-        _panel = panel;
         _toast = toast;
 
         filters.PropertyChanged += OnFilterPropertyChanged;
-        panel.QuickFiltersCommitted += OnQuickFiltersCommitted;
         _ = LoadAsync();
     }
 
@@ -255,8 +245,6 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
             _ = LoadAsync();
         }
     }
-
-    private void OnQuickFiltersCommitted(object? sender, EventArgs e) => _ = LoadAsync();
 
     partial void OnSearchTextChanged(string value)
     {
@@ -321,89 +309,14 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
         _ = LoadAsync();
     }
 
-    // ── Agent 复选集 → 查询范围（D-008 定案，internal 供测试对账）──
-
-    internal enum SessionAgentScopeMode
-    {
-        /// <summary>不过滤（复选组未加载兜底 / 全勾；全局 Agent 未选）。</summary>
-        NoRestriction,
-
-        /// <summary>单值过滤（恰勾 1 个，或全局单选 Agent 与复选集有交集）。</summary>
-        Single,
-
-        /// <summary>真子集并集（勾 2..N-1 个）：逐 Agent 查询合并 + 客户端分页。</summary>
-        SubsetMerge,
-
-        /// <summary>复选全不勾 / 与全局单选无交集：诚实空结果，不发查询。</summary>
-        Empty,
-    }
-
-    internal sealed record SessionAgentScope(SessionAgentScopeMode Mode, IReadOnlyList<string> Agents);
-
-    /// <summary>
-    /// 右栏复选集 + 全局单选 Agent → 本次查询的 Agent 范围。全局 Agent 是单值时与复选集取交集
-    /// （交集命中 → Single；否则 Empty）；全局未选时：复选组未加载（<see cref="SessionsPanelViewModel.AgentFilterCount"/>=0）
-    /// → NoRestriction 兜底（选项未加载不应假装无会话），全不勾 → Empty，全勾 → NoRestriction，
-    /// 恰 1 个 → Single，真子集 → SubsetMerge。
-    /// 审查修复轮（P2-1）：全局已选 Agent 而<b>复选组尚未加载完成</b>（AgentFilterCount=0，启动竞态窗口）
-    /// 时同样走 Single(全局) 兜底——此前该分支对空复选集取交集得 Empty，页面假呈"没有匹配的会话"
-    /// 且选项到位后无重查；兜底语义与复选组未加载的 NoRestriction 分支一致（全局单选继续生效，
-    /// 复选组就绪后的首次提交恢复交集语义，无需强制重查）。
-    /// </summary>
-    internal SessionAgentScope ResolveAgentScope()
-    {
-        var globalAgent = _filters.Agent.Id == AgentOption.AllId ? null : _filters.Agent.Id;
-        var checkedIds = _panel.CheckedAgentIds;
-
-        if (globalAgent is { } agent)
-        {
-            return _panel.AgentFilterCount == 0 || checkedIds.Contains(agent)
-                ? new SessionAgentScope(SessionAgentScopeMode.Single, [agent])
-                : new SessionAgentScope(SessionAgentScopeMode.Empty, []);
-        }
-
-        if (_panel.AgentFilterCount == 0 || checkedIds.Count == _panel.AgentFilterCount)
-        {
-            return new SessionAgentScope(SessionAgentScopeMode.NoRestriction, []);
-        }
-
-        return checkedIds.Count switch
-        {
-            0 => new SessionAgentScope(SessionAgentScopeMode.Empty, []),
-            1 => new SessionAgentScope(SessionAgentScopeMode.Single, checkedIds),
-            _ => new SessionAgentScope(SessionAgentScopeMode.SubsetMerge, checkedIds),
-        };
-    }
-
-    /// <summary>本次查询的过滤参数（全局时间窗口 + Agent 范围）。internal 供测试断言映射。</summary>
-    internal UsageQueryFilter BuildEffectiveFilter(SessionAgentScope scope)
-    {
-        var global = GlobalFilterMapper.Build(_filters);
-        if (scope.Mode is not (SessionAgentScopeMode.Single or SessionAgentScopeMode.SubsetMerge)
-            || scope.Agents.Count == 0)
-        {
-            return global;
-        }
-
-        // SubsetMerge 情况下全局 Agent 必为 null（见 ResolveAgentScope），Single 时覆盖为该 Agent
-        return new UsageQueryFilter
-        {
-            FromDay = global.FromDay,
-            ToDay = global.ToDay,
-            Agent = scope.Agents[0],
-        };
-    }
-
-    /// <summary>组装 I-029 会话列表查询（页面状态 → 契约参数）。internal 供测试断言映射。</summary>
-    internal SessionListQuery BuildSessionQuery(UsageQueryFilter filter, bool unbounded, int page)
+    /// <summary>组装 I-029 会话列表查询（页面状态 + 顶栏全局筛选 → 契约参数）。internal 供测试断言映射。</summary>
+    internal SessionListQuery BuildSessionQuery(UsageQueryFilter filter, int page, bool unbounded = false)
     {
         var term = SearchText.Trim();
         return new SessionListQuery
         {
             Filter = filter,
             SearchTerm = term.Length == 0 ? null : term,
-            Project = _panel.SelectedProjectPath,
-            Model = _panel.SelectedModelName,
             SortBy = SelectedSort.Field,
             SortDescending = SelectedSort.SortDescending,
             Page = page,
@@ -419,73 +332,33 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
     {
         var sequence = ++_loadSequence;
         _page = 1;
-        _subsetRows = null;
-        var scope = ResolveAgentScope();
-        var filter = BuildEffectiveFilter(scope);
+        var filter = GlobalFilterMapper.Build(_filters);
 
         try
         {
-            List<SessionListRow> rows;
-            long totalCount;
-
-            if (scope.Mode == SessionAgentScopeMode.Empty)
+            var result = await _query.GetSessionsAsync(BuildSessionQuery(filter, page: 1));
+            if (sequence != _loadSequence)
             {
-                rows = [];
-                totalCount = 0;
-            }
-            else if (scope.Mode == SessionAgentScopeMode.SubsetMerge)
-            {
-                // 真子集并集：逐已选 Agent 查询（PageSize=null 不分页），VM 合并 + 同口径排序 + 客户端分页
-                var merged = new List<SessionListRow>();
-                long total = 0;
-                foreach (var agent in scope.Agents)
-                {
-                    var result = await _query.GetSessionsAsync(
-                        BuildSessionQuery(BuildEffectiveFilter(new SessionAgentScope(SessionAgentScopeMode.Single, [agent])), unbounded: true, page: 1));
-                    if (sequence != _loadSequence)
-                    {
-                        return;
-                    }
-
-                    merged.AddRange(result.Rows);
-                    total += result.TotalCount;
-                }
-
-                _subsetRows = SortForSubset(merged, SelectedSort.Field, SelectedSort.SortDescending);
-                totalCount = total;
-                rows = TakeClientPage(_subsetRows, 1);
-            }
-            else
-            {
-                var result = await _query.GetSessionsAsync(BuildSessionQuery(filter, unbounded: false, page: 1));
-                if (sequence != _loadSequence)
-                {
-                    return;
-                }
-
-                rows = result.Rows.ToList();
-                totalCount = result.TotalCount;
+                return;
             }
 
-            Rows = new ObservableCollection<SessionRowViewModel>(rows.Select(MapRow));
-            TotalCount = totalCount;
+            Rows = new ObservableCollection<SessionRowViewModel>(result.Rows.Select(MapRow));
+            TotalCount = result.TotalCount;
             LoadError = null;
         }
         catch (Exception ex)
         {
             if (sequence != _loadSequence)
             {
-                return; // 旧请求的失败不覆盖新请求的状态
+                return;
             }
 
-            // 失败语义（审查修复轮 P2-2）：只置错误态，不清已加载行/总数——重置型加载失败
-            // 保留上一次成功数据（与 LoadMore 追加失败不清数据的纪律对齐）；
-            // 首查即失败时 Rows 本就为空，空态经 ShowEmptyState 让位于错误面板。
+            // 失败语义（审查修复轮 P2-2）：只置错误态，不清已加载行/总数——保留上一次成功数据。
             LoadError = string.Format(Translations.Instance.LoadErrorFormat, ex.Message);
         }
     }
 
-    /// <summary>「加载更多」：页码 +1 追加下一页（仅 paged 模式走服务分页；subset 模式从客户端全集续取）。</summary>
+    /// <summary>「加载更多」：页码 +1 追加下一页（服务分页；追加失败不清已加载数据）。</summary>
     [RelayCommand]
     private async Task LoadMoreAsync()
     {
@@ -499,22 +372,14 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
         List<SessionListRow> append;
         try
         {
-            if (_subsetRows is { } merged)
+            var result = await _query.GetSessionsAsync(
+                BuildSessionQuery(GlobalFilterMapper.Build(_filters), page: nextPage));
+            if (sequence != _loadSequence)
             {
-                append = TakeClientPage(merged, nextPage);
+                return; // 筛选已变：旧页追加作废
             }
-            else
-            {
-                var scope = ResolveAgentScope();
-                var result = await _query.GetSessionsAsync(
-                    BuildSessionQuery(BuildEffectiveFilter(scope), unbounded: false, page: nextPage));
-                if (sequence != _loadSequence)
-                {
-                    return; // 筛选已变：旧页追加作废
-                }
 
-                append = result.Rows.ToList();
-            }
+            append = result.Rows.ToList();
         }
         catch (Exception ex)
         {
@@ -536,31 +401,6 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
         {
             Rows.Add(row);
         }
-    }
-
-    // ── subset 合并模式的同口径排序 / 客户端分页（镜像 UsageQueryService.SortRows，含未知成本不折 0）──
-
-    internal static List<SessionListRow> SortForSubset(List<SessionListRow> rows, SessionSortField sortBy, bool descending)
-    {
-        IOrderedEnumerable<SessionListRow> ordered = sortBy switch
-        {
-            SessionSortField.TotalTokens => descending
-                ? rows.OrderByDescending(row => row.TotalTokens)
-                : rows.OrderBy(row => row.TotalTokens),
-            SessionSortField.Cost => descending
-                ? rows.OrderByDescending(row => row.CostUsd ?? decimal.MinValue)
-                : rows.OrderBy(row => row.CostUsd ?? decimal.MinValue),
-            _ => descending
-                ? rows.OrderByDescending(row => row.LastSeenAt)
-                : rows.OrderBy(row => row.LastSeenAt),
-        };
-        return ordered.ThenBy(row => row.SessionId, StringComparer.Ordinal).ToList();
-    }
-
-    private static List<SessionListRow> TakeClientPage(List<SessionListRow> source, int page)
-    {
-        var skip = (long)(page - 1) * PageSize;
-        return skip >= source.Count ? [] : source.Skip((int)skip).Take(PageSize).ToList();
     }
 
     private static SessionRowViewModel MapRow(SessionListRow row) => new(row);
@@ -588,7 +428,6 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
     {
         _disposed = true;
         _filters.PropertyChanged -= OnFilterPropertyChanged;
-        _panel.QuickFiltersCommitted -= OnQuickFiltersCommitted;
         _searchTimer?.Stop();
     }
 }

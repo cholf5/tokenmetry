@@ -44,8 +44,6 @@ public class ManualRefreshTests
 
         public int ProjectCalls { get; private set; }
 
-        public int RecentTopNCalls { get; private set; }
-
         public Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default)
         {
             KpiCalls++;
@@ -76,15 +74,8 @@ public class ManualRefreshTests
             return Task.FromResult<IReadOnlyList<DimensionUsageRow>>(Array.Empty<DimensionUsageRow>());
         }
 
-        public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default)
-        {
-            if (query.PageSize == SessionsPanelViewModel.RecentTopN)
-            {
-                RecentTopNCalls++;
-            }
-
-            return Task.FromResult(new SessionListResult());
-        }
+        public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default) =>
+            Task.FromResult(new SessionListResult());
 
         public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<string>>([]);
@@ -107,13 +98,11 @@ public class ManualRefreshTests
         var filters = new FilterStateService();
         var toast = new StubToast();
         var catalog = new AgentCatalogService(query);
-        var panel = new SessionsPanelViewModel(toast, query, catalog, filters);
         // AppServices 由 headless 宿主初始化（同 DimensionPagesTests.CreateShell 的装配方式）
         var shell = new MainWindowViewModel(
             filters,
             AppServices.Get<SettingsViewModel>(),
             AppServices.Get<DataPricingViewModel>(),
-            panel,
             query,
             catalog,
             toast,
@@ -162,7 +151,6 @@ public class ManualRefreshTests
                 new AppSettings());
             var (shell, query) = CreateShell();
             var kpiBaseline = query.KpiCalls;
-            var recentBaseline = query.RecentTopNCalls;
 
             var wiring = new BackgroundRefreshWiring();
             wiring.Attach(dashboard, shell);
@@ -170,7 +158,6 @@ public class ManualRefreshTests
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(query.KpiCalls > kpiBaseline, "刷新轮完成后当前可见页（总览）重查");
-            Assert.True(query.RecentTopNCalls > recentBaseline, "右栏最近会话同步重查");
             Assert.StartsWith("最近更新", shell.LastUpdatedText);
             Assert.False(shell.IsDataSourceError, "成功轮不点亮错误状态灯");
         }
