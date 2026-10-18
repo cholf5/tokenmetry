@@ -692,7 +692,8 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     // ════════════════════ 模型聚合（别名映射）：规则增删 + 热更新 + 候选清单 ════════════════════
 
     /// <summary>
-    /// 新增映射规则：校验（两侧非空、不得自映射——解析器按原始名精确匹配，字面相同即无效果）
+    /// 新增映射规则：校验（两侧非空、不得自映射——解析器按原始名精确匹配，字面相同即无效果、
+    /// 目标须为目录里已存在的模型 ID——悬空重定向会把身份解析带偏）
     /// → 写入 <see cref="AppSettings.ModelAliases"/>（同原始名覆盖旧规则，字典语义）→ 重建规则行 +
     /// 落盘 + 热更新解析器（统计页查询即时按新映射聚合）。原始名取输入框原文（trim 后），
     /// 用户可自由键入数据里还没有的名字，为将来出现该名字的来源做准备。
@@ -711,6 +712,14 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         if (string.Equals(source, target, StringComparison.Ordinal))
         {
             AliasError = Translations.Instance.AliasErrorSame;
+            return;
+        }
+
+        if (_catalog.FindById(target) is null)
+        {
+            // 目标必须是目录里已存在的模型 ID：落空的重定向会在身份解析里压掉原始名命中
+            // （解析端另有回落兜底，录入侧直接劝阻）。
+            AliasError = Translations.Instance.AliasErrorTargetUnknown;
             return;
         }
 
@@ -797,7 +806,9 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
             ? Translations.Instance.AliasErrorRequired
             : string.Equals(source, target, StringComparison.Ordinal)
                 ? Translations.Instance.AliasErrorSame
-                : null;
+                : _catalog.FindById(target) is null
+                    ? Translations.Instance.AliasErrorTargetUnknown
+                    : null;
     }
 
     /// <summary>扫描完成时刻 → 展示文案：当日显示 HH:mm，跨日显示 MM-dd HH:mm（本机时区）。</summary>
