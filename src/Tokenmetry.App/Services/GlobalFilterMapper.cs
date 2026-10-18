@@ -7,25 +7,30 @@ namespace Tokenmetry.App.Services;
 /// 全局筛选 → 查询参数的统一映射（D-008 抽出，此前内联在 OverviewViewModel.BuildQueryFilter）：
 /// 时间窗口按本地自然日含端点、今天收口（今日；7/30/90 天；All 双端无界；Custom 按起止日期，
 /// 未选侧不设界限、起止倒置自动换序、跨度超日序列物化上限时收口上限——见 Build 注释）；
-/// Agent.Id 直传（<see cref="AgentOption.AllId"/> → null 不过滤，查询服务语义为空白不过滤）。
+/// Agent.Id 直传（<see cref="AgentOption.AllId"/> → null 不过滤，查询服务语义为空白不过滤）；
+/// Model/Project 取选中选项的查询值（哨兵 All 的 Model/Path 为 null = 不过滤，空白同样不过滤）。
 /// 会话列表（I-029）的时间口径同样按 first_seen_at 的本地自然日比较，共用本映射。
 /// internal 供页面 VM 与测试对账。
 /// </summary>
 internal static class GlobalFilterMapper
 {
-    /// <summary>全局筛选状态 → <see cref="UsageQueryFilter"/>（页面 VM 统一入口；自定义档从状态读起止日期）。</summary>
+    /// <summary>全局筛选状态 → <see cref="UsageQueryFilter"/>（页面 VM 统一入口；自定义档从状态读起止日期，
+    /// Model/Project 取选中选项的查询值——哨兵 All 的 Model/Path 为 null = 不过滤）。</summary>
     public static UsageQueryFilter Build(FilterStateService filters)
     {
         ArgumentNullException.ThrowIfNull(filters);
-        return Build(filters.TimeRange, filters.Agent, filters.CustomFromDate, filters.CustomToDate);
+        return Build(filters.TimeRange, filters.Agent, filters.CustomFromDate, filters.CustomToDate,
+            filters.Model.Model, filters.Project.Path);
     }
 
-    /// <summary>全局筛选（时间范围 + 单选 Agent + 自定义起止）→ <see cref="UsageQueryFilter"/>（纯函数，internal 供测试对账）。</summary>
+    /// <summary>全局筛选（时间范围 + 单选 Agent + 自定义起止 + Model/Project 查询值）→ <see cref="UsageQueryFilter"/>（纯函数，internal 供测试对账）。</summary>
     public static UsageQueryFilter Build(
         TimeRangeOption range,
         AgentOption agent,
         DateTimeOffset? customFrom = null,
-        DateTimeOffset? customTo = null)
+        DateTimeOffset? customTo = null,
+        string? model = null,
+        string? project = null)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
         DateOnly? fromDay;
@@ -65,6 +70,8 @@ internal static class GlobalFilterMapper
             FromDay = fromDay is { } from ? UsageQueryFilter.FormatDay(from) : null,
             ToDay = toDay is { } to ? UsageQueryFilter.FormatDay(to) : null,
             Agent = agent.Id == AgentOption.AllId ? null : agent.Id,
+            Model = string.IsNullOrWhiteSpace(model) ? null : model,
+            Project = string.IsNullOrWhiteSpace(project) ? null : project,
         };
     }
 
