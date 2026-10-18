@@ -429,4 +429,39 @@ public class DonutChartTests
             Dispatcher.UIThread.RunJobs();
         }
     }
+
+    // ── 扫入时间线（motion design）：段延迟 40ms、单段 240ms、CubicEaseOut ──
+
+    [AvaloniaFact]
+    public void Sweep_at_is_zero_before_delay_and_final_after_duration()
+    {
+        Assert.Equal(0, DonutChart.SweepAt(elapsedMs: 0, index: 2, finalSweep: 90));   // 未到延迟
+        Assert.Equal(0, DonutChart.SweepAt(39, 1, 90));                                // 延迟边界前
+        Assert.Equal(90, DonutChart.SweepAt(1000, 0, 90));                             // 完成后取终值
+        Assert.Equal(90, DonutChart.SweepAt(1000, 5, 90));
+    }
+
+    [AvaloniaFact]
+    public void Sweep_at_is_monotonic_easeout_within_window()
+    {
+        double previous = 0;
+        for (var t = 10.0; t <= 280; t += 10)
+        {
+            var sweep = DonutChart.SweepAt(t, index: 0, finalSweep: 120);
+            Assert.InRange(sweep, previous, 120);
+            Assert.True(sweep >= previous);
+            previous = sweep;
+        }
+
+        // ease-out：前半程进度超过线性一半
+        Assert.True(DonutChart.SweepAt(120, 0, 240) > 120 * (120.0 / 240));
+    }
+
+    [AvaloniaFact]
+    public void Sweep_total_covers_last_segment()
+    {
+        Assert.Equal(0, DonutChart.SweepTotalMs(0));
+        Assert.Equal(240, DonutChart.SweepTotalMs(1));
+        Assert.Equal((3 - 1) * 40 + 240, DonutChart.SweepTotalMs(3));
+    }
 }
