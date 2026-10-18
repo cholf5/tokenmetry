@@ -7,6 +7,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Tokenmetry.App.Localization;
 
 namespace Tokenmetry.App.Controls;
@@ -121,6 +122,7 @@ public partial class DonutChart : UserControl
             collection.CollectionChanged -= OnSegmentsCollectionChanged;
         }
         Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
+        _sweepTimer?.Stop();
     }
 
     private void HookSegmentsCollection()
@@ -187,6 +189,12 @@ public partial class DonutChart : UserControl
 
     private void OnSegmentsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => Rebuild();
 
+    // ── 扫入动画（motion design）──
+    private DispatcherTimer? _sweepTimer;
+
+    /// <summary>扫入签名（段值序列）：值未变（如语言切换重译）不重播动画。</summary>
+    private string? _lastSweepSignature;
+
     // ════════════════════════════ 几何与渲染 ════════════════════════════
 
     /// <summary>
@@ -213,6 +221,27 @@ public partial class DonutChart : UserControl
 
         return result;
     }
+
+    /// <summary>扫入动画：单段时长（ms，Motion.SlowMs 档）。</summary>
+    public const double SweepDurationMs = 240;
+
+    /// <summary>扫入动画：段间 stagger（ms）。</summary>
+    public const double SweepStaggerMs = 40;
+
+    /// <summary>
+    /// 第 index 段在时间线 elapsedMs 的当前扫角（纯函数）：段延迟 = index×stagger，
+    /// 单段窗口内 CubicEaseOut 从 0 长到 finalSweep（与全局缓动同源）。
+    /// </summary>
+    public static double SweepAt(double elapsedMs, int index, double finalSweep)
+    {
+        var t = Math.Clamp((elapsedMs - index * SweepStaggerMs) / SweepDurationMs, 0, 1);
+        var eased = 1 - Math.Pow(1 - t, 3);
+        return finalSweep * eased;
+    }
+
+    /// <summary>时间线总时长（ms）：最后一段完成时刻。</summary>
+    public static double SweepTotalMs(int segmentCount) =>
+        segmentCount <= 0 ? 0 : (segmentCount - 1) * SweepStaggerMs + SweepDurationMs;
 
     /// <summary>重建弧段 + 图例 + 中心/空态可见性（数据/属性变化与首次挂树时调用）。</summary>
     public void Rebuild()
@@ -258,17 +287,25 @@ public partial class DonutChart : UserControl
         var total = segments.Sum(s => s.Value);
         var legendItems = new List<DonutLegendItem>();
 
+        // 扫入签名（motion design）：段值序列未变（语言切换重译等）不重播动画
+        var signature = string.Join("|", segments.Select(s => s.Value.ToString("R", CultureInfo.InvariantCulture)));
+        var animate = signature != _lastSweepSignature;
+        _lastSweepSignature = signature;
+
+        var sweepPaths = new List<(Avalonia.Controls.Shapes.Path Path, double Start, double Final)>();
         for (var i = 0; i < segments.Count; i++)
         {
             var (start, sweep) = sweeps[i];
             var brush = new SolidColorBrush(ResolveColor(segments[i], i));
             var path = new Avalonia.Controls.Shapes.Path
             {
-                Data = BuildRingSegment(centerX, centerY, outerRadius, innerRadius, start, sweep),
                 Fill = brush,
                 // 段间无缝拼接（原型 stroke-dasharray 相邻段无缝）
                 Stroke = null,
             };
+            sweepPaths.Add((path, start, sweep));
+            path.Data = BuildRingSegment(centerX, centerY, outerRadius, innerRadius, start,
+                animate ? SweepAt(0, i, sweep) : sweep);
             // 图表悬浮提示（B-006）：chart-tip 类装饰（App 令牌配色）+ token 紧凑单位（随 UI 语言万/亿或 K/M）
             ChartTooltips.Set(path, $"{segments[i].Name}: {TrendChart.FormatCompactTokens(segments[i].Value)} tok");
             ArcCanvas.Children.Add(path);
@@ -280,9 +317,64 @@ public partial class DonutChart : UserControl
                 brush));
         }
 
+        if (animate)
+        {
+            StartSweep(sweepPaths, centerX, centerY, outerRadius, innerRadius);
+            // 中心数字与弧段同步淡入（克制：只此一处用整组 opacity，不做逐段）
+            CenterTitleText.Opacity = 0;
+            CenterSubtitleText.Opacity = 0;
+            // 注意不能写 Styles.Motion：Control.Styles 实例属性会遮蔽命名空间段
+            _ = Tokenmetry.App.Styles.Motion.FadeIn(Tokenmetry.App.Styles.Motion.NormalMs).RunAsync(CenterTitleText);
+            _ = Tokenmetry.App.Styles.Motion.FadeIn(Tokenmetry.App.Styles.Motion.NormalMs).RunAsync(CenterSubtitleText);
+        }
+
         LegendList.ItemsSource = legendItems;
         CenterTitleText.Text = CenterTitle;
         CenterSubtitleText.Text = CenterSubtitle;
+    }
+
+    /// <summary>驱动扫入：DispatcherTimer 每 tick 重生成弧段几何，全部到位即停。</summary>
+    private void StartSweep(
+        List<(Avalonia.Controls.Shapes.Path Path, double Start, double Final)> targets,
+        double centerX, double centerY, double outerRadius, double innerRadius)
+    {
+        _sweepTimer?.Stop();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        var elapsed = 0.0;
+        var total = SweepTotalMs(targets.Count);
+        // 先声明再赋值：lambda 内引用 timer，不能在 timer 自身初始化式里引用（CS0841）
+        DispatcherTimer timer = null!;
+        timer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) =>
+        {
+            elapsed += 16;
+            var done = true;
+            for (var i = 0; i < targets.Count; i++)
+            {
+                var (path, start, final) = targets[i];
+                var sweep = SweepAt(elapsed, i, final);
+                if (sweep < final)
+                {
+                    done = false;
+                }
+
+                path.Data = BuildRingSegment(centerX, centerY, outerRadius, innerRadius, start, sweep);
+            }
+
+            if (done)
+            {
+                timer.Stop();
+                if (_sweepTimer == timer)
+                {
+                    _sweepTimer = null;
+                }
+            }
+        });
+        _sweepTimer = timer;
+        timer.Start();
     }
 
     /// <summary>段色：显式 Color 优先，否则按段序取 AppSeries{i%7}Color（不随明暗翻转的普通资源）。</summary>
