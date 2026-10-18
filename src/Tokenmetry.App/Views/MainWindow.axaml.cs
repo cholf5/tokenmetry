@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -50,22 +51,34 @@ public partial class MainWindow : Window
         {
             if (e.Property == ContentControl.ContentProperty && PageHost.Content is not null)
             {
-                RunPageEntrance();
+                RunFadeUpEntrance(PageHost);
+            }
+        };
+
+        // 初始化遮罩卡片进场（motion design §7）：遮罩每次显示时轻上浮淡入；淡出不做
+        //（IsVisible 硬切，设计偏差已在计划记录）。纯 XAML 挂载动画在此行不通——
+        // Style.Animations 在样式首次挂载（启动、遮罩不可见）即播放完毕
+        InitializingOverlay.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Visual.IsVisibleProperty && InitializingOverlay.IsVisible)
+            {
+                RunFadeUpEntrance(OverlayCard);
             }
         };
     }
 
-    // ── 页面进场过渡（motion design §5）──
+    // ── 进场过渡（motion design §5/§7）──
 
-    /// <summary>时间线代数：Content 连续替换时新进场作废旧进场。</summary>
-    private int _pageEntranceGeneration;
+    /// <summary>进场时间线代数（按目标分账）：目标被连续触发时新进场作废旧进场。</summary>
+    private readonly Dictionary<Visual, int> _fadeUpGenerations = new();
 
     /// <summary>
-    /// 页面进场：淡入 + 轻上浮（克制取向：只有进场无退出）。TopLevel.RequestAnimationFrame
-    /// 帧回调驱动（Avalonia 12 的 Animation 管线无法对 Transform 实例 RunAsync），180ms ease-out；
-    /// 结束清 RenderTransform 不残留。无宿主 TopLevel（首屏绑定早于挂树）直接落终态。
+    /// 淡入 + 轻上浮进场（页面主区 / 初始化遮罩卡共用）：Opacity 0→1 + translateY 8px→0，
+    /// 180ms ease-out（Motion.NormalMs）。TopLevel.RequestAnimationFrame 帧回调驱动
+    /// （Avalonia 12 的 Animation 管线无法对 Transform 实例 RunAsync），结束清 RenderTransform
+    /// 不残留；无宿主 TopLevel（首屏绑定早于挂树）直接落终态。
     /// </summary>
-    private void RunPageEntrance()
+    private void RunFadeUpEntrance(Visual target)
     {
         var topLevel = TopLevel.GetTopLevel(this);
         if (topLevel is null)
@@ -73,31 +86,32 @@ public partial class MainWindow : Window
             return;
         }
 
-        var generation = ++_pageEntranceGeneration;
-        PageHost.Opacity = 0;
-        PageHost.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(8px)");
+        var generation = _fadeUpGenerations.TryGetValue(target, out var g) ? g + 1 : 1;
+        _fadeUpGenerations[target] = generation;
+        target.Opacity = 0;
+        target.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(8px)");
         var start = (System.TimeSpan?)null;
         Action<System.TimeSpan> frame = null!;
         frame = timestamp =>
         {
-            if (generation != _pageEntranceGeneration)
+            if (_fadeUpGenerations.TryGetValue(target, out var current) && current != generation)
             {
-                return; // 连续换页：新进场接管，旧时间线自杀
+                return; // 连续触发：新进场接管，旧时间线自杀
             }
 
             start ??= timestamp;
             var t = Math.Clamp((timestamp - start.Value).TotalMilliseconds / Tokenmetry.App.Styles.Motion.NormalMs, 0, 1);
             var eased = Tokenmetry.App.Styles.Motion.EaseOut.Ease(t);
-            PageHost.Opacity = eased;
-            PageHost.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse($"translateY({8 - 8 * eased:0.###}px)");
+            target.Opacity = eased;
+            target.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse($"translateY({8 - 8 * eased:0.###}px)");
             if (t < 1)
             {
                 topLevel.RequestAnimationFrame(frame);
             }
             else
             {
-                PageHost.Opacity = 1;
-                PageHost.RenderTransform = null;
+                target.Opacity = 1;
+                target.RenderTransform = null;
             }
         };
         topLevel.RequestAnimationFrame(frame);

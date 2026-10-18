@@ -433,6 +433,9 @@
         <Setter Property="Padding" Value="0,8"/>
         <Setter Property="MinHeight" Value="0"/>
         <Setter Property="CornerRadius" Value="6"/>
+        <!-- hover 不挂 BrushTransition（motion design §6 偏差）：headless 合成器不推进刷过渡、
+             行 hover 有实例级回归锁（DesignTokenTests），渐变收益不抵契约松动；导航/图标按钮
+             的 hover 渐变保留 -->
     </Style>
     <Style Selector="ListBox.data-table ListBoxItem:pointerover">
         <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
@@ -494,6 +497,22 @@
                 <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut"/>
             </Transitions>
         </Setter>
+    </Style>
+
+    <!-- Toast 卡片（motion design §7）：入场淡入（WindowNotificationManager 底部中央弹出，
+         Semi 模板观感保留，仅补 240ms 淡入；不做位移——模板 RenderTransform 归 Semi 管辖；
+         淡出由通知宿主自身的关闭路径处理，规格 §7 的 180ms 淡出偏差已在计划确认记录）。 -->
+    <Style Selector="NotificationCard">
+        <Style.Animations>
+            <Animation Duration="0:0:0.24" Easing="CubicEaseOut">
+                <KeyFrame Cue="0%">
+                    <Setter Property="Opacity" Value="0"/>
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                    <Setter Property="Opacity" Value="1"/>
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
     </Style>
 
 </Styles>
