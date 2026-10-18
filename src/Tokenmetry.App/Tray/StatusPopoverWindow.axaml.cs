@@ -44,7 +44,18 @@ public partial class StatusPopoverWindow : Window
         InitializeComponent();
         ShadowHost.Margin = ShadowMargins;
         Deactivated += (_, _) => Hide();
+        Activated += OnActivated;
         ApplyAcrylic(); // XAML inflate 期 hint 即设即报（B5 踩坑留证），ctor 末尾协商结果已可用
+    }
+
+    /// <summary>激活后再成形一次：平台可能在 Show/激活序列里重申透明模式（重新垫
+    /// windowBackgroundColor，B6 四角灰底的嫌疑路径），此处幂等重跑把垫色压回透明。</summary>
+    private void OnActivated(object? sender, EventArgs e)
+    {
+        if (IsAcrylic)
+        {
+            ApplyAcrylic();
+        }
     }
 
     /// <summary>控制器锚定用边距：毛玻璃形态窗口已贴合卡片（零边距），否则用投影留白。</summary>

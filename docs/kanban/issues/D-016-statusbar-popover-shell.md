@@ -126,6 +126,13 @@ Steps: macOS / Windows 真机点击托盘，明暗两态 × 1x/2x 截图。Expec
 - **回落语义不变**：协商失败 → 投影形态（B5 之前观感：498 窗 + 边距 + BoxShadow + 不透明 15px 卡）；控制器锚定边距改读实例 `EffectiveShadowMargins`（acrylic 态零边距），静态 ShadowMargins 常量仍为回落态单一来源。
 - **真机核账**：AXPress 三连过；弹窗 (2051,30,438,437)——宽=卡宽（原 498）、X=状态窗口左缘（图标可视左 2058−7）、Y=栏底；stderr 干净（interop 无异常）。blur 成形/明暗观感 headless 不可验证，移交用户目检（本轮重点：是否已是"整面板一块毛玻璃"、圆角贴合、原生投影可见）。
 
+### 2026-10-18（B6 返工：四角灰底——interop 根本没跑，描述符误判）
+
+- **用户目检**：CodexBar 式全毛玻璃不再追求（试多轮 ROI 判断，用户定调放弃），保留现面板；但四角圆角外有灰色背影，去掉即收工。
+- **根因（一次性 stderr 诊断留证）**：`TryGetPlatformHandle()` 实测 descriptor=**NSWindow**（句柄即 NSWindow 指针），B6 首版按"必为 NSView"校验直接放弃——**interop 从未执行**：blur 视图未裁圆角、窗口垫色未置透明（Avalonia 对 Blur 模式垫的 windowBackgroundColor 从四角圆角外露出 = 灰底）、投影未开。
+- **修正**：描述符双形态接法（NSWindow 直用 / NSView 走 `[view window]`）；内容容器层（AutoFitContentView）同步裁圆角——内容与 blur 全部收敛进圆角，窗口 alpha 轮廓走圆角，系统投影形状正确；壳窗 Activated 幂等再成形一次（防平台在 Show/激活序列重申透明模式重新垫色）；interop 增加每进程一次性 stderr 诊断（描述符/视图命中/各步骤留证）。
+- **真机核账**：诊断日志 "blur 视图 #2 已成形（圆角 15、垫色置透明、开投影）"；弹窗 (2051,30,438,437) 不变，AXPress 三连过；全量 1314 绿。四角是否已净、投影观感移交用户目检（若仍有残余，下一杠杆是 setHasShadow:NO）。
+
 ## Verification
 
 - Related files: `src/Tokenmetry.App/Tray/MacTrayInterop.cs`（macOS interop 状态项）、`src/Tokenmetry.App/Tray/StatusPopoverWindow.axaml(.cs)`、`src/Tokenmetry.App/Tray/StatusPopoverController.cs`、`src/Tokenmetry.App/Tray/PopoverPositioner.cs`、`src/Tokenmetry.App/Tray/TrayService.cs`（双轨分派）、`src/Tokenmetry.App/ViewModels/MainWindowViewModel.cs`、`src/Tokenmetry.App/App.axaml.cs`
