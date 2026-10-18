@@ -118,6 +118,7 @@ I-004 备忘提到的新版 ccusage compaction 去重逻辑：本机 19 个真�
 1. **显式 `costUSD: null`**：CLI 整条丢弃；自研保留并按快照计价。真实 Claude 日志中缺失成本时字段通常整体缺省而非显式 null，fixture 亦按真实形态构造；若未来对账出现"我们比 CLI 多计"的解析类差异，优先检查该形态。
 2. **`message.id` 缺失的记录**（如部分 `model:"auto"` 快照）：CLI 整条丢弃；自研按蓝本 claude.rs 保留（id null 合法、sessionId 回退文件推导）。本机无真实 Claude 日志，分歧影响面未知，已用既有单测钉住蓝本行为。
 3. 其余已知规则（costUSD 优先、5m/1h 倍率、-fast、synthetic、去重、累计快照守卫、UTC 分桶）实测两侧一致，见 §1.2。
+4. **ZCode 非 Z.ai provider 行的成本**（2026-10-18 起）：CLI 对自定义 provider 行计 0（missingPricing / totalCost 0 口径）；自研改为 `CostUsd = null` 交三级计价引擎（用户条目 → models.dev → 内置快照），可解析时计入成本、不可解析时如实未定价。这是为可用性做的**有意分歧**（旧口径的哨兵 0 会经 LogCost 短路压掉用户的全部目录配置），定案见 `docs/plans/2026-10-18-zcode-custom-provider-pricing-design.md`。对账时 ZCode 自定义 provider 部分的 cost 差异属预期，不算解析回归。
 
 ## 7. 对产品立场的意义
 
