@@ -375,4 +375,22 @@ public class DesignTokenTests
             Dispatcher.UIThread.RunJobs();
         }
     }
+
+    // ── 动效令牌（motion design）：资源值与 Styles/Motion.cs 常量镜像，两处必须同步 ──
+
+    [AvaloniaFact]
+    public void Motion_duration_tokens_mirror_code_constants()
+    {
+        Assert.Equal(120d, GetMotionMs("AppMotionFastMs"));
+        Assert.Equal(180d, GetMotionMs("AppMotionNormalMs"));
+        Assert.Equal(240d, GetMotionMs("AppMotionSlowMs"));
+    }
+
+    private static double GetMotionMs(string key)
+    {
+        Assert.True(Application.Current!.TryGetResource(key, ThemeVariant.Default, out var value),
+            $"缺少动效令牌 {key}");
+        Assert.IsType<double>(value);
+        return (double)value!;
+    }
 }
