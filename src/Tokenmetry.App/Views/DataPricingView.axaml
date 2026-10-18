@@ -308,14 +308,17 @@
         </StackPanel>
         </ScrollViewer>
 
-        <!-- 模型编辑 / 新建弹层（定案二）：遮罩点击或 Esc 关闭，视觉令牌走既有 AppOverlayScrimBrush -->
-        <Border Background="{DynamicResource AppOverlayScrimBrush}"
+        <!-- 模型编辑 / 新建弹层（定案二）：遮罩点击或 Esc 关闭，视觉令牌走既有 AppOverlayScrimBrush；
+             TabNavigation=Cycle 把 Tab 焦点圈定在弹层内 -->
+        <Border x:Name="ModelEditOverlay"
+                Background="{DynamicResource AppOverlayScrimBrush}"
                 IsVisible="{Binding IsModelEditOpen}"
+                KeyboardNavigation.TabNavigation="Cycle"
                 Tapped="OnModelEditScrimTapped"
                 KeyDown="OnModelEditOverlayKeyDown">
             <Border Classes="panel" MaxWidth="620" Margin="24"
                     VerticalAlignment="Center" HorizontalAlignment="Center">
-                <c:ModelEditDialog/>
+                <c:ModelEditDialog x:Name="ModelEditDialogControl"/>
             </Border>
         </Border>
     </Grid>

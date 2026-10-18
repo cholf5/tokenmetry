@@ -421,7 +421,8 @@ public class DataPricingPageTests
     [AvaloniaFact]
     public void ModelCatalog_EditButtonOpensOverlayAndEscCloses()
     {
-        // 定案二端到端：行上「编辑」→ 弹层可见 + ID 框预填；Esc 关闭（经弹层内焦点元素冒泡到 overlay）。
+        // 定案二端到端：行上「编辑」→ 弹层可见 + ID 框预填 + 自动聚焦（真实用户流，不手动补焦点）；
+        // Esc 自弹层内焦点元素冒泡到 overlay 关闭。
         var vm = CreateViewModel(catalog: new ModelCatalog());
         var window = new Window { Width = 980, Height = 900, Content = new DataPricingView { DataContext = vm } };
         window.Show();
@@ -431,6 +432,7 @@ public class DataPricingPageTests
             .First(b => ReferenceEquals(b.Command, vm.EditModelDefinitionCommand));
         Assert.False(vm.IsModelEditOpen);
 
+        editButton.Focus(); // 模拟真实点击：焦点在行按钮上（遮罩之外）
         editButton.Command.Execute(editButton.CommandParameter); // 按钮命令与参数绑定的走线检查
         Dispatcher.UIThread.RunJobs();
 
@@ -440,17 +442,49 @@ public class DataPricingPageTests
             .First(b => b.Child is Tokenmetry.App.Controls.ModelEditDialog);
         Assert.True(dialogCard.IsEffectivelyVisible, "弹层卡片在遮罩之上可见");
 
-        // 弹层内控件持有焦点（真实用户流：打开即聚焦 ID 框），Esc 自焦点元素冒泡到 overlay 关闭
         var idBox = window.GetVisualDescendants().OfType<AutoCompleteBox>()
             .First(box => box.Name == "IdBox" && box.IsEffectivelyVisible);
-        idBox.Focus();
-        Dispatcher.UIThread.RunJobs();
+        var focusedProbe = window.GetVisualDescendants().OfType<InputElement>()
+            .FirstOrDefault(element => element.IsFocused);
+        Assert.True(
+            focusedProbe is not null
+            && (ReferenceEquals(focusedProbe, idBox) || idBox.GetVisualDescendants().Contains(focusedProbe)),
+            $"弹层打开即自动聚焦 ID 框（AutoCompleteBox 会把焦点落到其内部文本框）；实际焦点：{focusedProbe?.GetType().Name ?? "无"}");
 
         window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, "\u001b");
         Dispatcher.UIThread.RunJobs();
 
         Assert.False(vm.IsModelEditOpen, "Esc 关闭弹层");
         Assert.False(dialogCard.IsEffectivelyVisible);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void ModelCatalog_MaskClickClosesOverlayWithoutSaving()
+    {
+        // 与焦点无关的兜底关闭路径（定案二）：点遮罩空白处关闭，点到弹层卡片内部不误关。
+        var vm = CreateViewModel(catalog: new ModelCatalog());
+        var window = new Window { Width = 980, Height = 900, Content = new DataPricingView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        vm.EditModelDefinitionCommand.Execute(vm.ModelRows[0].Id);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(vm.IsModelEditOpen);
+
+        // 点弹层卡片内部（窗口中央）：Source 是卡片，不关
+        window.MouseDown(new Point(490, 450), MouseButton.Left, RawInputModifiers.None);
+        window.MouseUp(new Point(490, 450), MouseButton.Left, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(vm.IsModelEditOpen, "点弹层卡片内部不误关");
+
+        // 点遮罩空白（左缘，卡片 MaxWidth=620 居中，980 宽窗口两侧留白）：关闭
+        window.MouseDown(new Point(30, 450), MouseButton.Left, RawInputModifiers.None);
+        window.MouseUp(new Point(30, 450), MouseButton.Left, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(vm.IsModelEditOpen, "点遮罩空白关闭弹层");
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

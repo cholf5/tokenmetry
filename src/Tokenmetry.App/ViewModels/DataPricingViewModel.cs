@@ -596,10 +596,19 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
 
         ModelFormError = null;
 
+        // 缓存价按输入价体系推导：没有 input（自建无价条目）时缓存价无处锚定，落盘只会得到
+        // 被装订层忽略的死数据，录入侧直接劝阻。
+        if (input is null && (cacheWrite is not null || cacheRead is not null))
+        {
+            ModelFormError = Translations.Instance.ModelFormErrorCacheNeedsInputPair;
+            return;
+        }
+
         // 只想改显示名 / 厂商时，预填进表单的生效价不应被"保存"成用户价格覆盖——那会把跟随
         // models.dev 的价钉死（刷新不再更新）。仅当该 ID 此前没有用户价（表单里的价来自导入层）
-        // 且与生效价一致时，价格留空 = 只覆盖元数据。用户自建条目（价格只存在新字段里，清掉
-        // 重启即丢）与已覆盖条目（预填的是用户自己的价）不在此列，价格照写。
+        // 且与生效价一致时，全部留空 = 只覆盖元数据（导入层会原样回供这些值，含显式为 0 的缓存价）。
+        // 用户自建条目（价格只存在新字段里，清掉重启即丢）与已覆盖条目（预填的是用户自己的价）
+        // 不在此列，价格照写。
         var existingUserEntry = _settings.ModelDefinitions.FirstOrDefault(
             existing => string.Equals(ModelId.Normalize(existing.Id), id, StringComparison.OrdinalIgnoreCase));
         if (input is { } parsedIn && output is { } parsedOut
@@ -608,17 +617,16 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
             && parsedIn == effectivePrice.InputPerMillion
             && parsedOut == effectivePrice.OutputPerMillion)
         {
-            input = null;
-            output = null;
-            // 缓存价同口径：预填的生效缓存价是按 input 推导的数（×1.25 / ×0.1），元数据级编辑
-            // 不把它钉死成用户覆盖——未改动的缓存价留空，继续跟随推导；改过的照写。
-            if (cacheWrite is { } parsedWrite && parsedWrite == effectivePrice.CacheWritePerMillion)
+            // 缓存价有任一改动 ⇒ 用户在做价格覆盖：整组照写（Bind 的价格覆盖成对生效，只落
+            // 缓存价会被整组丢弃；且覆盖生效后导入层不再回供缓存价，未改动的另一价也按表单
+            // 所见钉住，不做"表单显示 0、落盘变推导 0.75"的静默偷换）。
+            var cacheChanged = cacheWrite is { } parsedWrite && parsedWrite != effectivePrice.CacheWritePerMillion
+                || cacheRead is { } parsedRead && parsedRead != effectivePrice.CacheReadPerMillion;
+            if (!cacheChanged)
             {
+                input = null;
+                output = null;
                 cacheWrite = null;
-            }
-
-            if (cacheRead is { } parsedRead && parsedRead == effectivePrice.CacheReadPerMillion)
-            {
                 cacheRead = null;
             }
         }

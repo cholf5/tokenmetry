@@ -122,6 +122,25 @@
         <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
     </Style>
+    <!-- Semi 的 ToggleButton 模板在 :pointerover / :pressed 伪类下直写模板内 ContentPresenter 的
+         背景（ButtonSolidPrimaryPointeroverBackground 等），优先级高于控件级 Background setter——
+         不反制的话，选中 chip 悬停/按压会闪现主题主色。模板级选择器把四态全部钉在同一组令牌上。 -->
+    <Style Selector="ToggleButton.filter-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppChipTextBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.filter-chip:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppChipTextBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.filter-chip:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.filter-chip:checked:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+    </Style>
 
     <!-- 图标软色底容器 ← 原型 .kpi-icon{width:30px;height:30px;border-radius:9px;…;font-size:15px}，
          背景/前景色由使用处按变体给 AppIconChip{Hue}BackgroundBrush / ForegroundBrush -->
