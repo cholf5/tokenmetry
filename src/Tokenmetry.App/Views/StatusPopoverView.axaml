@@ -17,8 +17,10 @@
          数据全走 IUsageQueryService / DashboardViewModel 既有回写（口径见 StatusPopoverViewModel）。 -->
     <UserControl.Styles>
         <!-- 卡片壳：438px 固定宽（原型 .popup），投影由 D-016 壳层窗负责（Border BoxShadow 需要透明窗留边）；
-             毛玻璃变体（D-016 B5）由壳层窗协商到 AcrylicBlur 时切 acrylic 类启用，默认保持不透明——
-             系统透明效果关闭 / RDP / 旧 Win10 等回落场景文字对比度不受影响 -->
+             毛玻璃变体（D-016 B5/B6）由壳层窗协商到 AcrylicBlur 时切 acrylic 类启用，默认保持不透明——
+             系统透明效果关闭 / RDP / 旧 Win10 等回落场景文字对比度不受影响。
+             acrylic-square（仅 Windows）：窗口贴合卡片后圆角交给 DWM 原生（Win11 8px / Win10 方形），
+             本卡改方形去描边——描边画在系统裁剪之外会出现角部断线 -->
         <Style Selector="Border.popover-card">
             <Setter Property="Width" Value="438"/>
             <Setter Property="CornerRadius" Value="15"/>
@@ -28,6 +30,10 @@
         </Style>
         <Style Selector="Border.popover-card.acrylic">
             <Setter Property="Background" Value="{DynamicResource AppPopoverCardBackgroundBrush}"/>
+        </Style>
+        <Style Selector="Border.popover-card.acrylic.acrylic-square">
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
         </Style>
         <!-- 头部（52px）：底描边 ← 原型 .head border-bottom -->
         <Style Selector="Border.popover-head">
