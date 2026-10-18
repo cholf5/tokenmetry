@@ -310,6 +310,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ModelFormErrorIdInvalid)] = "模型 ID 无效：请用小写字母与数字，段间用连字符（如 glm-4-6）",
         [nameof(ModelFormErrorPricePair)] = "价格要么都填、要么都留空",
         [nameof(ModelFormErrorPriceNumber)] = "价格必须是非负数字",
+        [nameof(ModelFormErrorCacheNeedsInputPair)] = "缓存价需与输入 / 输出价一起填写（缓存价按输入价体系推导）",
         [nameof(ModelEditButton)] = "编辑",
         [nameof(ModelRemoveButton)] = "移除覆盖",
         [nameof(ToastRepricing)] = "已保存，正在按新价格重算…",
@@ -668,6 +669,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ModelFormCacheWriteLabel)] = "Cache write price",
         [nameof(ModelFormCacheReadLabel)] = "Cache read price",
         [nameof(ModelFormCancel)] = "Cancel",
+        [nameof(ModelFormErrorCacheNeedsInputPair)] = "Cache prices require input / output prices (cache derives from the input price)",
     };
 
     private static readonly string[] AllPropertyNames = typeof(Translations)
@@ -1035,6 +1037,7 @@ public sealed class Translations : INotifyPropertyChanged
     public string ModelFormErrorIdInvalid => Get();
     public string ModelFormErrorPricePair => Get();
     public string ModelFormErrorPriceNumber => Get();
+    public string ModelFormErrorCacheNeedsInputPair => Get();
     public string ModelEditButton => Get();
     public string ModelRemoveButton => Get();
     public string ToastRepricing => Get();

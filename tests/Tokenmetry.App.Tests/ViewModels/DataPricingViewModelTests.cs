@@ -832,7 +832,9 @@ public class DataPricingViewModelTests
     [Fact]
     public void SaveModelDefinition_WithChangedCachePrice_PinsCacheOverride()
     {
-        // 用户改过的缓存价就是用户覆盖：改动即落盘，不受不钉守卫影响。
+        // 用户改过的缓存价就是价格覆盖：断言到目录层（计价真正读的地方），settings.json 落值
+        // 但装订层丢弃 = 静默无效（Bind 的 HasPriceOverride 要求 in/out 成对，故缓存价有改动时
+        // 整组价格覆盖照写，in/out 连同钉住）。
         var settings = new AppSettings();
         var catalog = new ModelCatalog();
         var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
@@ -845,6 +847,50 @@ public class DataPricingViewModelTests
         var saved = settings.ModelDefinitions.Single();
         saved.CacheWritePerMillion.Should().Be(0.5m, "改动的缓存价是显式覆盖");
         saved.CacheReadPerMillion.Should().Be(0.05m);
+        saved.InputPerMillion.Should().NotBeNull("Bind 的价格覆盖整组生效：缓存价有改动时 in/out 一并钉住，否则缓存价被静默丢弃");
+        catalog.FindById("glm-4-6")!.CacheWritePerMillion.Should().Be(0.5m, "计价层必须真的读到用户的缓存价");
+        catalog.FindById("glm-4-6")!.CacheReadPerMillion.Should().Be(0.05m);
+        catalog.FindById("glm-4-6")!.IsPriceOverridden.Should().BeTrue();
+    }
+
+    [Fact]
+    public void SaveModelDefinition_MetadataOnlyEdit_KeepsExplicitZeroCacheWrite()
+    {
+        // 特性化锁（glm-4.6 快照 cache_write 显式为 0，非推导缺省）：元数据级编辑后全部留空，
+        // 导入层原样回供缓存价（0 / 0.11），绝不能落到"表单显示 0、落盘变推导 0.75"的静默偷换。
+        var settings = new AppSettings();
+        var catalog = new ModelCatalog();
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+        var effective = catalog.FindById("glm-4-6")!;
+        effective.CacheWritePerMillion.Should().Be(0m, "前置：快照对 glm-4.6 显式标 0 缓存写价");
+
+        viewModel.EditModelDefinitionCommand.Execute("glm-4-6");
+        viewModel.ModelFormDisplayName = "只改显示名";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        settings.ModelDefinitions.Single().InputPerMillion.Should().BeNull("元数据级编辑不落价格覆盖");
+        var merged = catalog.FindById("glm-4-6")!;
+        merged.CacheWritePerMillion.Should().Be(0m, "显式 0 缓存写价不得被推导缺省（×1.25）静默替换");
+        merged.CacheReadPerMillion.Should().Be(effective.CacheReadPerMillion);
+    }
+
+    [Fact]
+    public void SaveModelDefinition_WithCachePriceWithoutInput_ShowsInlineError()
+    {
+        // 自建无价条目只填缓存价：缓存价按输入价体系推导，没有 input 就没有可计价的锚，
+        // 落盘只会得到一条被装订层忽略的死数据——录入侧直接劝阻。
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, store, catalog: new ModelCatalog());
+
+        viewModel.AddModelDefinitionCommand.Execute(null);
+        viewModel.ModelFormId = "my-own-model";
+        viewModel.ModelFormCacheWrite = "0.075";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        viewModel.ModelFormError.Should().Be(Translations.Instance.ModelFormErrorCacheNeedsInputPair);
+        store.SaveCalls.Should().Be(0);
+        settings.ModelDefinitions.Should().BeEmpty();
     }
 
     // ---- helpers ----
