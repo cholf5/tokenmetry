@@ -684,6 +684,55 @@ public class DataPricingViewModelTests
         untouched.CanRemove.Should().BeFalse("从未覆盖过的条目不该出现假按钮");
     }
 
+    [Fact]
+    public void ModelRows_SearchTextFiltersByIdLabelAndVendor()
+    {
+        var viewModel = CreateViewModel(new AppSettings(), new FakeSettingsStore(), catalog: new ModelCatalog());
+
+        viewModel.ModelRows.Should().NotBeEmpty("内置快照应有条目");
+        viewModel.ModelSearchText = "glm";
+        viewModel.ModelRows.Should().OnlyContain(r =>
+            r.Id.Contains("glm", StringComparison.OrdinalIgnoreCase)
+            || r.Label.Contains("glm", StringComparison.OrdinalIgnoreCase)
+            || r.Vendor.Contains("glm", StringComparison.OrdinalIgnoreCase));
+
+        viewModel.ModelSearchText = "no-such-model-anywhere-xz";
+        viewModel.HasNoMatchingRows.Should().BeTrue("目录非空但无匹配 → 无匹配空态");
+        viewModel.HasNoModelRows.Should().BeFalse("目录真空空态不受过滤影响");
+
+        viewModel.ModelSearchText = string.Empty;
+        viewModel.HasNoMatchingRows.Should().BeFalse();
+        viewModel.ModelRows.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void ModelRows_FilterChipsUnionThenIntersectWithText()
+    {
+        var settings = new AppSettings();
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride { Id = "glm-4.6", InputPerMillion = 1m, OutputPerMillion = 3m });
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride { Id = "my-own-model", InputPerMillion = 2m, OutputPerMillion = 8m });
+        var viewModel = CreateViewModel(settings, new FakeSettingsStore(), catalog: new ModelCatalog());
+        var unfilteredCount = viewModel.ModelRows.Count; // 全不选 = 不过滤（快照层全集 + 用户自建条目，无在线层）
+
+        viewModel.FilterUser = true;
+        viewModel.ModelRows.Should().ContainSingle("只选自定义 chip → 只剩用户自建条目（覆盖导入层不改 Origin，见 Bind）")
+            .Which.Id.Should().Be("my-own-model");
+
+        viewModel.FilterBuiltin = true;
+        viewModel.ModelRows.Should().HaveCount(unfilteredCount, "内置 ∪ 自定义 = 全集（目录无在线层；不钉死快照规模）");
+
+        viewModel.FilterOverridden = true;
+        viewModel.ModelRows.Select(r => r.Id).Should().BeEquivalentTo(
+            new[] { "glm-4-6", "my-own-model" },
+            "叠加已覆盖 chip 取交集：覆盖的导入条目与自建条目都算被用户改过");
+
+        viewModel.ModelSearchText = "gpt";
+        viewModel.ModelRows.Should().BeEmpty("chip 与文本取交集");
+
+        // 候选清单（别名目标下拉）不受浏览过滤影响。
+        viewModel.ModelIdCandidates.Should().NotBeEmpty();
+    }
+
     // ---- helpers ----
 
     private static readonly DateTimeOffset Now = new(2026, 10, 13, 10, 30, 0, TimeSpan.Zero);
