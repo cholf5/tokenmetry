@@ -454,8 +454,42 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     /// <summary>模型目录行（全部条目：内置快照 + models.dev 在线 + 用户自建 / 覆盖）。</summary>
     public ObservableCollection<ModelDefinitionRowViewModel> ModelRows { get; } = new();
 
-    /// <summary>空态（目录为空——内置快照缺失才会发生）。</summary>
-    public bool HasNoModelRows => ModelRows.Count == 0;
+    /// <summary>目录浏览过滤：搜索文本（ID / 显示名 / 厂商，大小写不敏感子串）。</summary>
+    [ObservableProperty]
+    private string _modelSearchText = string.Empty;
+
+    partial void OnModelSearchTextChanged(string value) => RebuildModelRows();
+
+    // 四个筛选 chip：前三个是来源维度（选中项并集），已覆盖是正交维度；全不选 = 不过滤。
+    // 全部走整表重建（既有模式），与别名热更新、语言切换共用 RebuildModelRows 出口。
+    [ObservableProperty]
+    private bool _filterBuiltin;
+
+    [ObservableProperty]
+    private bool _filterRemote;
+
+    [ObservableProperty]
+    private bool _filterUser;
+
+    [ObservableProperty]
+    private bool _filterOverridden;
+
+    partial void OnFilterBuiltinChanged(bool value) => RebuildModelRows();
+
+    partial void OnFilterRemoteChanged(bool value) => RebuildModelRows();
+
+    partial void OnFilterUserChanged(bool value) => RebuildModelRows();
+
+    partial void OnFilterOverriddenChanged(bool value) => RebuildModelRows();
+
+    /// <summary>目录全量条目数（区分「目录真空」与「无匹配」两个空态）。</summary>
+    private int _catalogDefinitionCount;
+
+    /// <summary>目录真空（内置快照缺失才会发生）——与「有目录但过滤后无匹配」区分。</summary>
+    public bool HasNoModelRows => _catalogDefinitionCount == 0;
+
+    /// <summary>目录非空但搜索 / 筛选后无匹配。</summary>
+    public bool HasNoMatchingRows => _catalogDefinitionCount > 0 && ModelRows.Count == 0;
 
     /// <summary>编辑中的原条目 ID（null = 新建）。改 ID 视为换条目（原条目保留）。</summary>
     [ObservableProperty]
@@ -654,18 +688,47 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         TriggerReprice();
     }
 
-    /// <summary>从目录重建条目表 + 关联目标候选（模型 ID 清单）。</summary>
+    /// <summary>从目录重建条目表（应用浏览过滤谓词）+ 关联目标候选（模型 ID 清单，不受过滤影响）。</summary>
     private void RebuildModelRows()
     {
         var definitions = _catalog.Definitions;
+        _catalogDefinitionCount = definitions.Count;
         ModelRows.Clear();
         foreach (var definition in definitions)
         {
-            ModelRows.Add(new ModelDefinitionRowViewModel(definition));
+            var row = new ModelDefinitionRowViewModel(definition);
+            if (MatchesCatalogFilter(row))
+            {
+                ModelRows.Add(row);
+            }
         }
 
         ModelIdCandidates = definitions.Select(definition => definition.Id).ToList();
         OnPropertyChanged(nameof(HasNoModelRows));
+        OnPropertyChanged(nameof(HasNoMatchingRows));
+    }
+
+    /// <summary>目录浏览谓词：来源 chip 并集 → 已覆盖 chip → 文本三字段子串，依次取交集。</summary>
+    private bool MatchesCatalogFilter(ModelDefinitionRowViewModel row)
+    {
+        var originSelected = FilterBuiltin || FilterRemote || FilterUser;
+        if (originSelected
+            && !(FilterBuiltin && row.Origin == ModelDefinitionOrigin.Snapshot)
+            && !(FilterRemote && row.Origin == ModelDefinitionOrigin.Remote)
+            && !(FilterUser && row.Origin == ModelDefinitionOrigin.User))
+        {
+            return false;
+        }
+
+        if (FilterOverridden && !row.IsOverridden)
+        {
+            return false;
+        }
+
+        return ModelSearchText.Length == 0
+            || row.Id.Contains(ModelSearchText, StringComparison.OrdinalIgnoreCase)
+            || row.Label.Contains(ModelSearchText, StringComparison.OrdinalIgnoreCase)
+            || row.Vendor.Contains(ModelSearchText, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

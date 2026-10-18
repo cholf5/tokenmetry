@@ -278,6 +278,12 @@ public sealed class Translations : INotifyPropertyChanged
         // ── 模型目录（I-035：价格 / 厂商 / 图标的唯一出处）──
         [nameof(CatalogPanelTitle)] = "模型目录",
         [nameof(CatalogPanelHint)] = "每个模型一个稳定 ID，价格、厂商、图标都挂在它上面；数据里出现过的模型名关联到这里（自动关联不上的在下面手动指定），统计与计价都按同一份目录走。改完即按新价格重算。",
+        [nameof(ModelSearchPlaceholder)] = "搜索模型 ID / 显示名 / 厂商",
+        [nameof(FilterChipBuiltin)] = "内置",
+        [nameof(FilterChipRemote)] = "在线",
+        [nameof(FilterChipUser)] = "自定义",
+        [nameof(FilterChipOverridden)] = "已覆盖",
+        [nameof(CatalogNoMatch)] = "没有匹配的条目",
         [nameof(CatalogEmpty)] = "目录为空（内置价格快照缺失）",
         [nameof(ThModelId)] = "模型 ID",
         [nameof(ThModelVendor)] = "厂商",
@@ -648,6 +654,14 @@ public sealed class Translations : INotifyPropertyChanged
 
         [nameof(AnomalyToastTitle)] = "AI cost anomaly alert",
         [nameof(AnomalyCostSpikeFormat)] = "Today's cost is {1:0.0}× the {0}-day average",
+
+        // ── 模型目录（I-035 搜索 / 筛选；既有目录键暂无英文覆盖，zh 兜底）──
+        [nameof(ModelSearchPlaceholder)] = "Search model ID / display name / vendor",
+        [nameof(FilterChipBuiltin)] = "Built-in",
+        [nameof(FilterChipRemote)] = "Remote",
+        [nameof(FilterChipUser)] = "Custom",
+        [nameof(FilterChipOverridden)] = "Overridden",
+        [nameof(CatalogNoMatch)] = "No matching entries",
     };
 
     private static readonly string[] AllPropertyNames = typeof(Translations)
@@ -983,6 +997,12 @@ public sealed class Translations : INotifyPropertyChanged
     public string CatalogPanelTitle => Get();
     public string CatalogPanelHint => Get();
     public string CatalogEmpty => Get();
+    public string ModelSearchPlaceholder => Get();
+    public string FilterChipBuiltin => Get();
+    public string FilterChipRemote => Get();
+    public string FilterChipUser => Get();
+    public string FilterChipOverridden => Get();
+    public string CatalogNoMatch => Get();
     public string ThModelId => Get();
     public string ThModelVendor => Get();
     public string ThModelPrice => Get();
