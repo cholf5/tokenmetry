@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Tokenmetry.App.ViewModels"
+             xmlns:loc="using:Tokenmetry.App.Localization"
+             xmlns:c="using:Tokenmetry.App.Controls"
+             x:Class="Tokenmetry.App.Controls.ModelEditDialog"
+             x:DataType="vm:DataPricingViewModel">
+    <!-- 模型编辑 / 新建弹层（定案二）：表单控件自 DataPricingView 常驻内联表单整体迁入，
+         字段与校验逻辑复用 VM 既有属性，视图只挪不重写。打开时聚焦 ID 框（代码后置）。 -->
+    <StackPanel Spacing="10">
+        <TextBlock Classes="panel-title" Text="{Binding ModelFormTitle}"/>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+            <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Classes="page-subtitle" Text="{Binding ModelFormIdLabel, Source={x:Static loc:Translations.Instance}}"/>
+                <AutoCompleteBox x:Name="IdBox"
+                                 ItemsSource="{Binding ModelIdCandidates}"
+                                 Text="{Binding ModelFormId, Mode=TwoWay}"
+                                 TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"
+                                 MinimumPrefixLength="0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Classes="page-subtitle" Text="{Binding ModelFormVendorLabel, Source={x:Static loc:Translations.Instance}}"/>
+                <TextBox x:Name="ModelFormVendorBox" Text="{Binding ModelFormVendor, Mode=TwoWay}"/>
+            </StackPanel>
+        </Grid>
+        <StackPanel Spacing="4">
+            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormDisplayNameLabel, Source={x:Static loc:Translations.Instance}}"/>
+            <TextBox Text="{Binding ModelFormDisplayName, Mode=TwoWay}"/>
+        </StackPanel>
+        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
+            <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Classes="page-subtitle" Text="{Binding ModelFormInputLabel, Source={x:Static loc:Translations.Instance}}"/>
+                <TextBox Text="{Binding ModelFormInput, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Classes="page-subtitle" Text="{Binding ModelFormOutputLabel, Source={x:Static loc:Translations.Instance}}"/>
+                <TextBox Text="{Binding ModelFormOutput, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Classes="page-subtitle" Text="{Binding ModelFormCacheWriteLabel, Source={x:Static loc:Translations.Instance}}"/>
+                <TextBox Text="{Binding ModelFormCacheWrite, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="3" Spacing="4">
+                <TextBlock Classes="page-subtitle" Text="{Binding ModelFormCacheReadLabel, Source={x:Static loc:Translations.Instance}}"/>
+                <TextBox Text="{Binding ModelFormCacheRead, Mode=TwoWay}"/>
+            </StackPanel>
+        </Grid>
+        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                   Text="{Binding ModelFormPriceHint, Source={x:Static loc:Translations.Instance}}"/>
+        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                   Text="{Binding ModelFormError}"
+                   Foreground="{DynamicResource AppAccentRedBrush}"
+                   IsVisible="{Binding ModelFormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+        <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+            <Button Classes="Secondary"
+                    Content="{Binding ModelFormSave, Source={x:Static loc:Translations.Instance}}"
+                    Command="{Binding SaveModelDefinitionCommand}"/>
+            <Button Classes="link-btn"
+                    Content="{Binding ModelFormCancel, Source={x:Static loc:Translations.Instance}}"
+                    Command="{Binding CancelModelEditCommand}"/>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

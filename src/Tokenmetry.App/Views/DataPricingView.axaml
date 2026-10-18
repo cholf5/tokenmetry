@@ -13,7 +13,8 @@
         （用户维护的别名映射，原始名 → 规范名，统计按规范名合并）。
         条目与规则改完即落盘并热更新（对齐 stupid-dict；重扫操作经 IToastService 反馈，I-027）。
     -->
-    <ScrollViewer>
+    <Grid>
+        <ScrollViewer>
         <StackPanel Spacing="13" Margin="0,0,0,4">
 
             <!-- 页头（原型 .pagehead） -->
@@ -218,49 +219,8 @@
                                Text="{Binding CatalogNoMatch, Source={x:Static loc:Translations.Instance}}"
                                IsVisible="{Binding HasNoMatchingRows}"/>
 
-                    <!-- 新增 / 编辑：ID + 厂商 + 显示名 + 输入 / 输出单价（价格成对可空） -->
-                    <TextBlock Classes="table-th" Text="{Binding ModelFormTitle}"/>
-                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
-                        <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormIdLabel, Source={x:Static loc:Translations.Instance}}"/>
-                            <AutoCompleteBox ItemsSource="{Binding ModelIdCandidates}"
-                                             Text="{Binding ModelFormId, Mode=TwoWay}"
-                                             TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"
-                                             MinimumPrefixLength="0"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="4">
-                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormVendorLabel, Source={x:Static loc:Translations.Instance}}"/>
-                            <TextBox x:Name="ModelFormVendorBox" Text="{Binding ModelFormVendor, Mode=TwoWay}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" Spacing="4">
-                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormDisplayNameLabel, Source={x:Static loc:Translations.Instance}}"/>
-                            <TextBox Text="{Binding ModelFormDisplayName, Mode=TwoWay}"/>
-                        </StackPanel>
-                    </Grid>
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                        <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormInputLabel, Source={x:Static loc:Translations.Instance}}"/>
-                            <TextBox Text="{Binding ModelFormInput, Mode=TwoWay}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="4">
-                            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormOutputLabel, Source={x:Static loc:Translations.Instance}}"/>
-                            <TextBox Text="{Binding ModelFormOutput, Mode=TwoWay}"/>
-                        </StackPanel>
-                    </Grid>
-                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                               Text="{Binding ModelFormPriceHint, Source={x:Static loc:Translations.Instance}}"/>
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button Classes="Secondary"
-                                Content="{Binding ModelFormSave, Source={x:Static loc:Translations.Instance}}"
-                                Command="{Binding SaveModelDefinitionCommand}"/>
-                        <Button Classes="link-btn"
-                                Content="{Binding ModelFormReset, Source={x:Static loc:Translations.Instance}}"
-                                Command="{Binding ResetModelFormCommand}"/>
-                        <TextBlock Classes="page-subtitle" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Text="{Binding ModelFormError}"
-                                   Foreground="{DynamicResource AppAccentRedBrush}"
-                                   IsVisible="{Binding ModelFormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                    </StackPanel>
+                    <!-- 新增 / 编辑表单已迁入 Controls/ModelEditDialog（页内 Modal 弹层，定案二）：
+                         卡片头「新增模型」按钮与行上「编辑」链接触发 IsModelEditOpen。 -->
                 </StackPanel>
             </Border>
 
@@ -346,5 +306,17 @@
                 </StackPanel>
             </Border>
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+
+        <!-- 模型编辑 / 新建弹层（定案二）：遮罩点击或 Esc 关闭，视觉令牌走既有 AppOverlayScrimBrush -->
+        <Border Background="{DynamicResource AppOverlayScrimBrush}"
+                IsVisible="{Binding IsModelEditOpen}"
+                Tapped="OnModelEditScrimTapped"
+                KeyDown="OnModelEditOverlayKeyDown">
+            <Border Classes="panel" MaxWidth="620" Margin="24"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+                <c:ModelEditDialog/>
+            </Border>
+        </Border>
+    </Grid>
 </UserControl>
