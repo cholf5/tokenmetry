@@ -110,6 +110,19 @@
         <Setter Property="TextBlock.FontSize" Value="10"/>
     </Style>
 
+    <!-- filter-chip（模型目录筛选）：Semi ToggleButton 收敛为 .chip 的小号标签观感，选中态用导航强调色 -->
+    <Style Selector="ToggleButton.filter-chip">
+        <Setter Property="Padding" Value="9,3"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppChipTextBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.filter-chip:checked">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+    </Style>
+
     <!-- 图标软色底容器 ← 原型 .kpi-icon{width:30px;height:30px;border-radius:9px;…;font-size:15px}，
          背景/前景色由使用处按变体给 AppIconChip{Hue}BackgroundBrush / ForegroundBrush -->
     <Style Selector="Border.icon-chip">

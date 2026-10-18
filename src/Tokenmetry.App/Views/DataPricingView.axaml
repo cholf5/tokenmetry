@@ -123,9 +123,34 @@
             <!-- ═══ 模型目录（I-035）：价格 / 厂商 / 图标的唯一出处；改完即按新价格重算 ═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="10">
-                    <TextBlock Classes="panel-title" Text="{Binding CatalogPanelTitle, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                               Text="{Binding CatalogPanelHint, Source={x:Static loc:Translations.Instance}}"/>
+                    <DockPanel LastChildFill="True">
+                        <Button DockPanel.Dock="Right"
+                                Classes="Secondary"
+                                VerticalAlignment="Center"
+                                Content="{Binding ModelFormCreate, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding AddModelDefinitionCommand}"/>
+                        <StackPanel Spacing="10">
+                            <TextBlock Classes="panel-title" Text="{Binding CatalogPanelTitle, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                                       Text="{Binding CatalogPanelHint, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- 搜索 + 来源筛选（定案一）：文本对 ID / 显示名 / 厂商做子串匹配，chip 多选并集、全不选不过滤 -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <TextBox Watermark="{Binding ModelSearchPlaceholder, Source={x:Static loc:Translations.Instance}}"
+                                 Text="{Binding ModelSearchText, Mode=TwoWay}"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <ToggleButton Classes="filter-chip" IsChecked="{Binding FilterBuiltin}"
+                                          Content="{Binding FilterChipBuiltin, Source={x:Static loc:Translations.Instance}}"/>
+                            <ToggleButton Classes="filter-chip" IsChecked="{Binding FilterRemote}"
+                                          Content="{Binding FilterChipRemote, Source={x:Static loc:Translations.Instance}}"/>
+                            <ToggleButton Classes="filter-chip" IsChecked="{Binding FilterUser}"
+                                          Content="{Binding FilterChipUser, Source={x:Static loc:Translations.Instance}}"/>
+                            <ToggleButton Classes="filter-chip" IsChecked="{Binding FilterOverridden}"
+                                          Content="{Binding FilterChipOverridden, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </Grid>
 
                     <!-- 表头 -->
                     <Grid ColumnDefinitions="1.3*,0.8*,0.9*,0.5*,Auto" ColumnSpacing="8" Margin="0,0,0,2">
@@ -176,6 +201,7 @@
                                                     Command="{Binding $parent[ListBox].DataContext.EditModelDefinitionCommand}"
                                                     CommandParameter="{Binding Id}"/>
                                             <Button Classes="link-btn"
+                                                    IsVisible="{Binding CanRemove}"
                                                     Content="{Binding ModelRemoveButton, Source={x:Static loc:Translations.Instance}}"
                                                     Command="{Binding $parent[ListBox].DataContext.RemoveModelDefinitionCommand}"
                                                     CommandParameter="{Binding Id}"/>
@@ -188,6 +214,9 @@
                     <TextBlock Classes="page-subtitle"
                                Text="{Binding CatalogEmpty, Source={x:Static loc:Translations.Instance}}"
                                IsVisible="{Binding HasNoModelRows}"/>
+                    <TextBlock Classes="page-subtitle"
+                               Text="{Binding CatalogNoMatch, Source={x:Static loc:Translations.Instance}}"
+                               IsVisible="{Binding HasNoMatchingRows}"/>
 
                     <!-- 新增 / 编辑：ID + 厂商 + 显示名 + 输入 / 输出单价（价格成对可空） -->
                     <TextBlock Classes="table-th" Text="{Binding ModelFormTitle}"/>
