@@ -135,23 +135,42 @@ public class TrendChartTests
         TimeZoneId = TimeZoneInfo.Local.Id,
     };
 
-    // ── hover helper：翻转纯函数（TC-002 遗留的右缘/上缘裁剪）──
+    // ── 浮窗锚点（motion design）：右偏 14px / 垂直居中 / 右半翻转 / 数据区夹回 ──
 
     [AvaloniaFact]
-    public void Tooltip_alignment_flips_at_right_and_top_edges()
+    public void Tooltip_origin_sits_right_of_point_and_vertically_centered()
     {
-        const double left = 0, top = 0, width = 400, height = 200;
+        var origin = TrendChart.ComputeTooltipOrigin(
+            100, 150, dataLeft: 0, dataTop: 0, dataWidth: 400, dataHeight: 300,
+            tooltipWidth: 90, tooltipHeight: 60);
+        Assert.Equal(114, origin.X);           // 100 + 14
+        Assert.Equal(120, origin.Y);           // 150 - 60/2
+    }
 
-        // 左下区：气泡向右上伸（LowerLeft）
-        Assert.Equal(ScottPlot.Alignment.LowerLeft, TrendChart.ComputeTooltipAlignment(100, 150, left, top, width, height));
-        // 左上区：气泡向右下伸（UpperLeft，避免顶出数据区）
-        Assert.Equal(ScottPlot.Alignment.UpperLeft, TrendChart.ComputeTooltipAlignment(100, 50, left, top, width, height));
-        // 右下区：气泡向左上伸（LowerRight，避免右缘裁剪）
-        Assert.Equal(ScottPlot.Alignment.LowerRight, TrendChart.ComputeTooltipAlignment(300, 150, left, top, width, height));
-        // 右上区（最不利点）：气泡向左下伸（UpperRight）
-        Assert.Equal(ScottPlot.Alignment.UpperRight, TrendChart.ComputeTooltipAlignment(300, 50, left, top, width, height));
-        // 中心线上取任意一侧均为合法象限（稳定性）
-        Assert.Equal(ScottPlot.Alignment.LowerLeft, TrendChart.ComputeTooltipAlignment(200, 200, left, top, width, height));
+    [AvaloniaFact]
+    public void Tooltip_origin_flips_to_left_half_when_point_in_right_half()
+    {
+        var origin = TrendChart.ComputeTooltipOrigin(
+            300, 150, 0, 0, 400, 300, 90, 60);
+        Assert.Equal(300 - 14 - 90, origin.X); // 右半 → 气泡伸向左侧
+        Assert.Equal(120, origin.Y);
+    }
+
+    [AvaloniaFact]
+    public void Tooltip_origin_clamps_into_data_rect()
+    {
+        // 垂直：顶部点（气泡一半越上缘）夹回 dataTop
+        var top = TrendChart.ComputeTooltipOrigin(100, 5, 0, 0, 400, 300, 90, 60);
+        Assert.Equal(0, top.Y);
+        // 垂直：底部点夹回 dataBottom - 高度
+        var bottom = TrendChart.ComputeTooltipOrigin(100, 295, 0, 0, 400, 300, 90, 60);
+        Assert.Equal(300 - 60, bottom.Y);
+        // 水平：左半宽气泡（向右伸越右缘）夹回 dataRight - 宽度
+        var wide = TrendChart.ComputeTooltipOrigin(190, 150, 0, 0, 400, 300, 250, 60);
+        Assert.Equal(400 - 250, wide.X);
+        // 水平：气泡比数据区宽（右半翻转后越左界）夹回 dataLeft
+        var narrow = TrendChart.ComputeTooltipOrigin(45, 150, 0, 0, 60, 300, 90, 60);
+        Assert.Equal(0, narrow.X);
     }
 
     // ── hover helper：悬停管线（事件 + tooltip 文案口径）──

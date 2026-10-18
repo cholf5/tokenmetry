@@ -637,10 +637,16 @@ public partial class TrendChart : UserControl
         _crosshair.Position = coords;
 
         // 右缘/上缘裁剪翻转（D-002 遗留收口）：把数据点映到像素，按象限选气泡伸出方向
-        var alignment = ComputeTooltipAlignment(
-            MapToPixelX(coords.X, limits, dataRect),
-            MapToPixelY(coords.Y, limits, dataRect),
-            dataRect.Left, dataRect.Top, dataRect.Width, dataRect.Height);
+        //（Task 3 浮层化后本段随 ScottPlot Tooltip 一起移除，象限判定由 ComputeTooltipOrigin 承接）
+        var pointPixelX = MapToPixelX(coords.X, limits, dataRect);
+        var pointPixelY = MapToPixelY(coords.Y, limits, dataRect);
+        var alignment = (pointPixelY < dataRect.Top + dataRect.Height / 2, pointPixelX > dataRect.Left + dataRect.Width / 2) switch
+        {
+            (true, false) => Alignment.UpperLeft,
+            (true, true) => Alignment.UpperRight,
+            (false, false) => Alignment.LowerLeft,
+            (false, true) => Alignment.LowerRight,
+        };
 
         _tooltip.IsVisible = true;
         _tooltip.TipLocation = coords;
@@ -691,24 +697,26 @@ public partial class TrendChart : UserControl
         PlotControl.Refresh();
     }
 
+    /// <summary>浮窗与数据点的水平间距（px）：气泡错开圆点，不盖点。</summary>
+    public const double TooltipGapPx = 14;
+
     /// <summary>
-    /// tooltip 裁剪翻转纯函数（headless 单测覆盖）：锚点像素落在数据区右半 → 气泡向左伸（*Right），
-    /// 上半 → 气泡向下伸（Upper*）。ScottPlot Label 对齐语义（D-002 实测）：锚点是气泡的对应角，
-    /// UpperLeft = 气泡自锚点向右下延伸、LowerLeft = 向右上延伸，故上象限选 Upper*、右象限选 *Right。
+    /// 浮窗左上角像素位置（纯函数，headless 单测覆盖）：默认在数据点右侧
+    /// <see cref="TooltipGapPx"/> 处、垂直居中；点落在数据区右半时气泡翻到左侧；
+    /// 越界时夹回数据区（右缘翻转后仍越界 → 贴右缘内侧）。取代旧 ComputeTooltipAlignment
+    /// 四象限枚举——Avalonia 浮层直接用像素坐标，不再依赖 ScottPlot 对齐语义。
     /// </summary>
-    public static Alignment ComputeTooltipAlignment(
-        double pointPixelX, double pointPixelY,
-        double dataLeft, double dataTop, double dataWidth, double dataHeight)
+    public static Avalonia.Point ComputeTooltipOrigin(
+        double pointX, double pointY,
+        double dataLeft, double dataTop, double dataWidth, double dataHeight,
+        double tooltipWidth, double tooltipHeight)
     {
-        var rightHalf = pointPixelX > dataLeft + dataWidth / 2;
-        var topHalf = pointPixelY < dataTop + dataHeight / 2;
-        return (topHalf, rightHalf) switch
-        {
-            (true, false) => Alignment.UpperLeft,
-            (true, true) => Alignment.UpperRight,
-            (false, false) => Alignment.LowerLeft,
-            (false, true) => Alignment.LowerRight,
-        };
+        var rightHalf = pointX > dataLeft + dataWidth / 2;
+        var x = rightHalf ? pointX - TooltipGapPx - tooltipWidth : pointX + TooltipGapPx;
+        var y = pointY - tooltipHeight / 2;
+        x = Math.Clamp(x, dataLeft, Math.Max(dataLeft, dataLeft + dataWidth - tooltipWidth));
+        y = Math.Clamp(y, dataTop, Math.Max(dataTop, dataTop + dataHeight - tooltipHeight));
+        return new Avalonia.Point(x, y);
     }
 
     private static double MapToPixelX(double x, AxisLimits limits, ScottPlot.PixelRect dataRect) =>
