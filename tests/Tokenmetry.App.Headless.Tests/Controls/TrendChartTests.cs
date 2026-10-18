@@ -362,6 +362,35 @@ public class TrendChartTests
         Dispatcher.UIThread.RunJobs();
     }
 
+    [AvaloniaFact]
+    public void Tooltip_reentry_snaps_to_new_anchor_instead_of_gliding()
+    {
+        // 规格 §3(4)：隐藏后插值状态复位到新锚点（避免从旧位滑入）。HideHover 为淡出保持
+        // IsVisible=true，重进判定不能依赖 IsVisible——若不复位，重悬停时气泡从旧锚点滑过整图。
+        var points = ChartTestHelpers.DailyPoints30();
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var overlay = chart.FindControl<Border>("HoverTip")!;
+        var translate = Assert.IsType<Avalonia.Media.TranslateTransform>(overlay.RenderTransform);
+
+        var first = ChartTestHelpers.FirstRealPoint(points);
+        var last = points.Last(p => p.HasData);
+        chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(first.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
+        var firstX = translate.X;
+
+        // 离开（HideHover 淡出）→ 远端重进：浮窗应立即贴住新锚点，而不是从 firstX 滑过去
+        chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(points[0].Day, CultureInfo.InvariantCulture).ToOADate() - 3650, 0));
+        chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(last.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
+
+        Assert.True(Math.Abs(translate.X - firstX) > 100,
+            $"重进后浮窗应贴新锚点（复位插值状态），实测仍在旧位附近：X={translate.X:0.#}（旧位 {firstX:0.#}）");
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     private static Avalonia.Media.Color ToAvalonia(ScottPlot.Color color) =>
         Avalonia.Media.Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);
 
