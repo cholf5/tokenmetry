@@ -610,6 +610,17 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         {
             input = null;
             output = null;
+            // 缓存价同口径：预填的生效缓存价是按 input 推导的数（×1.25 / ×0.1），元数据级编辑
+            // 不把它钉死成用户覆盖——未改动的缓存价留空，继续跟随推导；改过的照写。
+            if (cacheWrite is { } parsedWrite && parsedWrite == effectivePrice.CacheWritePerMillion)
+            {
+                cacheWrite = null;
+            }
+
+            if (cacheRead is { } parsedRead && parsedRead == effectivePrice.CacheReadPerMillion)
+            {
+                cacheRead = null;
+            }
         }
 
         var definition = new ModelDefinitionOverride
