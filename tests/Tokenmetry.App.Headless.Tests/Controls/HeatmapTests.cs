@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -311,6 +312,19 @@ public class HeatmapTests
         {
             var heatmap = new Heatmap { Cells = Cells35(), Columns = 7 };
             var window = CreateWindow(heatmap, variant);
+            ChartTestHelpers.RenderFrame(window);
+
+            // stagger 渐入走满再取帧（motion design 测试基建）：合成帧时间戳走真实墙钟，
+            // Sleep 推进墙钟 + tick 出帧拿到新时间戳（动画总时长 ≤ 630ms，150ms×若干轮充分）
+            var cells = heatmap.GetVisualDescendants().OfType<Avalonia.Controls.Border>()
+                .Where(b => b.Classes.Contains("hm-cell")).ToList();
+            for (var i = 0; i < 10 && cells.Any(c => c.Opacity < 0.999); i++)
+            {
+                Thread.Sleep(150);
+                Dispatcher.UIThread.RunJobs();
+                Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            }
+
             var frame = ChartTestHelpers.RenderFrame(window);
 
             // 最强档 ≈ rgba(76,141,255,0.9)，帧里应能找到该色相的高 alpha 命中
@@ -321,5 +335,26 @@ public class HeatmapTests
             window.Close();
             Dispatcher.UIThread.RunJobs();
         }
+    }
+
+    // ── stagger 间隔（motion design）：间隔 15ms 起步，总时长封顶 600ms ──
+
+    [AvaloniaFact]
+    public void Stagger_interval_compresses_to_cap_total_duration()
+    {
+        Assert.Equal(0, Heatmap.StaggerIntervalMs(0));
+        Assert.Equal(0, Heatmap.StaggerIntervalMs(1));
+        Assert.Equal(15, Heatmap.StaggerIntervalMs(7));    // 少格：走起步间隔
+        // 多格：压缩间隔使 120 + (count-1)×interval ≤ 600（计划原三元断言为恒真式，按其注简化为守卫式）
+        var bigInterval = Heatmap.StaggerIntervalMs(200);
+        Assert.Equal((Heatmap.StaggerCapMs - Heatmap.CellFadeMs) / 199, bigInterval, 6);
+        Assert.True(Heatmap.CellFadeMs + (199 * bigInterval) <= Heatmap.StaggerCapMs + 1e-9);
+    }
+
+    [AvaloniaFact]
+    public void Stagger_delay_is_index_times_interval()
+    {
+        Assert.Equal(0, Heatmap.StaggerDelayMs(0, 35));
+        Assert.Equal(2 * Heatmap.StaggerIntervalMs(35), Heatmap.StaggerDelayMs(2, 35));
     }
 }

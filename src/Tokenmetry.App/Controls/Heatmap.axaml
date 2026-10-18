@@ -17,4 +17,19 @@
                    Foreground="{DynamicResource AppMutedTextBrush}"
                    IsVisible="False"/>
     </Panel>
+    <UserControl.Styles>
+        <!-- 格子悬停高亮（motion design）：描边渐变到正文色 + 略提亮；BorderBrush 由样式供给
+             （code-behind 不再设本地值，本地值会压过样式） -->
+        <Style Selector="Border.hm-cell">
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.hm-cell:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+    </UserControl.Styles>
 </UserControl>
