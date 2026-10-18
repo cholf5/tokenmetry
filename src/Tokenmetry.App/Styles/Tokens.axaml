@@ -76,6 +76,9 @@
             <SolidColorBrush x:Key="AppBannerWarnLineBrush" Color="#e0c491"/>
             <!-- 品牌色表面上的文字（D-015 弹层头部 "T" logo 芯片 / footer 主按钮）：两主题恒白 -->
             <SolidColorBrush x:Key="AppOnBrandForegroundBrush" Color="#ffffff"/>
+            <!-- D-016 弹窗卡片毛玻璃半透明面（壳层协商到 AcrylicBlur 时由壳层切 acrylic 类启用；
+                 基调与 AppPanelBrush 同源，回落不透明时观感连续）——透明度 90% 为目检起点，TC-003 可调 -->
+            <SolidColorBrush x:Key="AppPopoverCardBackgroundBrush" Color="#e6ffffff"/>
             <!-- D-016 弹窗外投影色（无边框透明窗的 Border BoxShadow 在壳层代码取用）：浅色侧更淡 -->
             <Color x:Key="AppPopoverShadowColor">#40000000</Color>
         </ResourceDictionary>
@@ -143,6 +146,8 @@
             <SolidColorBrush x:Key="AppBannerWarnLineBrush" Color="#674d29"/>
             <!-- 品牌色表面上的文字（两主题恒白） -->
             <SolidColorBrush x:Key="AppOnBrandForegroundBrush" Color="#ffffff"/>
+            <!-- D-016 弹窗卡片毛玻璃半透明面（同 Light 侧说明）：原型 panel #111c2e 的 90% 不透明 -->
+            <SolidColorBrush x:Key="AppPopoverCardBackgroundBrush" Color="#e6111c2e"/>
             <!-- D-016 弹窗外投影色：暗色侧更重 -->
             <Color x:Key="AppPopoverShadowColor">#a6000000</Color>
         </ResourceDictionary>

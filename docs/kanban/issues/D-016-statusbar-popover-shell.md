@@ -6,7 +6,7 @@ priority: P2
 size: S
 status: done
 created: 2026-10-17
-updated: 2026-10-17
+updated: 2026-10-18
 blocked: none
 ---
 
@@ -100,6 +100,21 @@ Steps: macOS / Windows 真机点击托盘，明暗两态 × 1x/2x 截图。Expec
 - **B3-2 空 selector 段错误**：修正过程中 `SelSetAction` 声明了漏赋值，`objc_msgSend` 收到 NULL selector → SIGSEGV 三连崩（.ips 留档）。教训：selector 缓存集中一处、按名字逐一赋值，无编译期防护。
 - **B3-3 锚定落位（探针实测闭环）**：System Events AXPress 模拟点击 + AX 读窗位，三轮探针拿到真值——状态窗口 frame (2118,1410,38,30)（cocoa）= 顶贴菜单栏顶（top-down y=0、高 30=栏高），AX 可视图标 (2125,3,24,24)；锚定取窗口 frame 顶对齐钳到 24 可视单元（HGT 标准单元）。**位置不再变化的原因 = AppKit constrainFrameRect**：普通窗口被强制压到菜单栏之下（设 y=14 被改写为 30=栏底），不受 Avalonia/应用控制。最终形态：弹窗顶=栏底（30），可见卡片顶=栏底+6px（ShadowMargins.Top=6，兼作投影晕染），右缘对齐图标——CodexBar 观感。AXPress 三连击验证 开→收→开 + 位置落位。
 - **测试**：headless 全量 309 绿 + 全仓 1314 绿；修复 `Reload_populates_kpi_segments_and_top_agents` 的日期敏感缺陷（fixture "最近活动"固定 10-17 20:00，跨零点成"昨日"→产品逻辑如实留空→断言失败；改相对当前时刻）。
+
+### 2026-10-18（B4：弹窗水平位置改右弹优先——用户反馈"太靠左"）
+
+- **反馈与方向确认**：旧 `AnchorBelow` 右缘对齐图标右缘（+8 overlap）使卡片整体向图标**左侧**延伸，观感"太靠左"；Mac 惯例（NSPopover 系）是卡片左缘贴图标左缘、向右下展开。语义改为右弹优先：`cardX = anchor.X`，右缘越出工作区才整体左移贴工作区右缘、超宽钳左缘 ≥ 工作区左——后两步由既有 `ClampToArea` 承担，纯函数体只改 x 基准；`rightOverlap` 参数删除（右弹语义下无意义）。Windows 的 `AnchorAboveCursor` 分支不动（托盘贴屏幕底部，光标上方向左展开是平台惯例）。
+- **锚定基准二选一（目检基准）**：采用 interop 返回的状态窗口 frame 左缘（B3 实测比 AX 可视图标左缘偏左 7px）——弹窗覆盖整个状态项命中区；若目检想贴可视图标，改 `TryGetStatusItemFrame` 即可（注释已留）。
+- **取证基建**：`TrayButtonActionImp` 失败日志从 Message 升级为 `类型: Message + StackTrace`——B5 的生产独有 NRE 只有 Message 无法定位的教训反哺。
+- **真机核账**：AXPress 开→收→开三连通过；图标可视单元 (2092,3,24,24) → 弹窗 (2055,30,498,477)：卡片左缘 = 窗左+边距 30 = 2085 = 状态窗口左缘（右弹成立）、右缘 2523 < 2560 未触钳制、Y=30=栏底（constrainFrameRect 既定）。
+
+### 2026-10-18（B5：毛玻璃——两平台一套 AcrylicBlur + 协商失败回落不透明）
+
+- **平台结论（先评估后动手）**：Avalonia 12.1.4 的 `TransparencyLevelHint=AcrylicBlur` 是跨平台一等能力（macOS Avalonia.Native vibrancy / Windows WinRT backdrop + AccentPolicy 兼容路径，Win10 1803+/Win11 均覆盖，本地包 DLL 符号取证），零 interop——"只有 Mac 能做"不成立。平台统一性：两平台对瞬态浮层各有原生材质（macOS vibrancy / Fluent acrylic——微软规范 transient surface 用 acrylic、长驻窗口用 Mica），让各平台渲染各自材质即设计语言层的统一；跨平台不变锚是内容层（信息架构/令牌/交互）。
+- **实现**：`StatusPopoverWindow` hint 改 `AcrylicBlur`（`SystemDecorations=None` + 透明底不变，回落时窗体仍透明承载投影）；内容卡新增 `popover-card.acrylic` 变体样式（`AppPopoverCardBackgroundBrush` 半透明面，ThemeDictionaries 明暗各一份 `#E6FFFFFF`/`#E6111C2E`，与 `AppPanelBrush` 同基调——回落不透明时观感连续，DesignTokenTests 期望表同步）；壳层 code-behind 按 `ActualTransparencyLevel` 切类：AcrylicBlur 生效 → 加 acrylic 类，协商失败（系统透明效果关闭 / RDP / 旧 Win10 / 平台不支持 → 回落 Transparent/None）不切类保持不透明，文字对比度不破。macOS 辅助功能"减少透明度"与 Windows"透明效果"开关是对称回落情形，回落分支两平台共同需要。
+- **踩坑（生产独有，headless 全绿不可见）**：Avalonia.Native 对 hint **即设即报**——XAML inflate 期（构造函数内、`InitializeComponent` 尚未给 `ShadowHost` 字段赋值）`ActualTransparencyLevel` 就经 `OnPropertyChanged` 同步到达（堆栈：set_TransparencyLevelHint → TopLevelImpl.SetTransparencyLevelHint → set_TransparencyLevel → HandleTransparencyLevelChanged → OnPropertyChanged 全同步），首版 `UpdateAcrylicCard` 直接 `ShadowHost.GetVisualDescendants()` NRE，被托盘左键 catch 吃掉后回落开主窗。修复：`ShadowHost?.` 空守卫跳过，OnOpened 与其后真实变更用当前值重评（初始协商不丢）。定位靠新加的堆栈日志（B4 条目）。
+- **有意不做**：Win11 官方瞬态 backdrop（`DWMWA_SYSTEMBACKDROP_TYPE=DWMSBT_TRANSIENTWINDOW`，单调用 P/Invoke）v1 不做——Avalonia 原生路径视觉足够，不开 interop 战线；毛玻璃铺满窗口矩形（含 6/30/34px 投影边距带）的 fringe 观感待目检，不佳再收窄边距（留目检决策，不预设）；卡片刷透明度 90% 为目检起点。
+- **验证**：headless 全量 1314 绿；真机 AXPress 三连 + 落位核账全过、stderr 干净；acrylic 渲染观感（明暗 × 1x/2x）headless 不可验证，移交用户目检。
 
 ## Verification
 

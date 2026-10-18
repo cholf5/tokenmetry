@@ -254,7 +254,8 @@ internal static unsafe class MacTrayInterop
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[Tokenmetry] 托盘左键处理失败：{ex.Message}");
+            // 堆栈必须留：B4 曾遇生产独有 NRE（headless 全绿、真机炸），只有 Message 无法定位
+            Console.Error.WriteLine($"[Tokenmetry] 托盘左键处理失败：{ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
         }
     }
 
@@ -328,7 +329,7 @@ internal static unsafe class MacTrayInterop
     /// <summary>图标按钮在 Avalonia 屏幕坐标系中的矩形（Cocoa 点 ≈ Avalonia DIP，macOS Scaling=1）。
     /// 取宿主状态窗口 frame 后**顶对齐钳到可视单元**：状态窗口含命中扩展（实测比可视单元高十余磅、
     /// 悬垂到菜单栏之下），直接用会让弹窗悬空；窗口顶 = 可视图标顶（均为栏内上缘），钳高即可。
-    /// 锚定"图标正下方、右缘对齐"。</summary>
+    /// 锚定"图标正下方、左缘对齐右弹"（B4；窗口左缘与 AX 可视图标左缘实测差 7px，目检基准）。</summary>
     public static bool TryGetStatusItemFrame(out PixelRect frame)
     {
         frame = default;

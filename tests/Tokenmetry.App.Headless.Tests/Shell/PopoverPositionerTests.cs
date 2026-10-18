@@ -57,22 +57,28 @@ public class PopoverPositionerTests
     }
 
     [Fact]
-    public void AnchorBelow_puts_card_under_icon_right_aligned_and_clamps()
+    public void AnchorBelow_puts_card_under_icon_left_aligned_and_expands_right()
     {
-        var anchor = new PixelRect(1840, 8, 22, 22); // 菜单栏图标（interop frame，屏幕坐标系）
+        var anchor = new PixelRect(200, 8, 22, 22); // 菜单栏图标（interop frame，屏幕坐标系）
         var cardSize = new Size(438, 600);
         var workArea = new PixelRect(0, 25, 1920, 1055); // menu bar 已扣
 
-        var pos = PopoverPositioner.AnchorBelow(anchor, cardSize, workArea, gap: 4, rightOverlap: 8);
+        var pos = PopoverPositioner.AnchorBelow(anchor, cardSize, workArea, gap: 4);
 
-        // 未越界：卡片顶缘 = 图标底缘 + 4；右缘越过图标右缘 8
-        Assert.Equal(1840 + 22 - 438 + 8, pos.X);
+        // 右弹优先：卡片左缘贴图标左缘、顶缘 = 图标底缘 + 4
+        Assert.Equal(200, pos.X);
         Assert.Equal(8 + 22 + 4, pos.Y);
 
-        // 贴屏幕右缘 → 右缘不越出工作区
+        // 右侧放不下 → 整体左移，右缘贴工作区右缘
         var clamped = PopoverPositioner.AnchorBelow(
-            new PixelRect(1910, 8, 22, 22), cardSize, workArea, 4, 8);
+            new PixelRect(1840, 8, 22, 22), cardSize, workArea, 4);
         Assert.Equal(1920 - 438, clamped.X);
+        Assert.Equal(8 + 22 + 4, clamped.Y);
+
+        // 超宽卡片 → 钳左缘 ≥ 工作区左
+        var oversized = PopoverPositioner.AnchorBelow(
+            new PixelRect(200, 8, 22, 22), new Size(2500, 600), workArea, 4);
+        Assert.Equal(0, oversized.X);
     }
 
     [Fact]
