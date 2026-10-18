@@ -31,5 +31,23 @@
                        Foreground="{DynamicResource AppMutedTextBrush}"
                        TextAlignment="Center"/>
         </StackPanel>
+        <!-- 悬停浮窗（motion design）：Avalonia 层浮层替代 ScottPlot 自绘 Tooltip。
+             位置 = 数据点像素锚点（ComputeTooltipOrigin：右偏 14px、右半翻转、数据区夹回），
+             由 code-behind DispatcherTimer 每帧 lerp（≈0.25）平滑移动；显隐走 SharedStyles
+             chart-hovertip 的 Opacity transition。IsHitTestVisible=False 不挡图表交互。 -->
+        <Border x:Name="HoverTip"
+                Classes="chart-hovertip"
+                IsHitTestVisible="False"
+                IsVisible="False">
+            <Border.RenderTransform>
+                <TranslateTransform/>
+            </Border.RenderTransform>
+            <!-- Foreground/FontSize 直接落在 TextBlock 本地（元素值 > Semi 全局默认样式）：
+                 与 chart-tip 同源（AppTextBrush + 12px）。TextElement 附加属性经 Border 继承
+                 实测会被 Semi 的 TextBlock 默认样式盖过，故不设在 Border 样式上。 -->
+            <TextBlock x:Name="HoverTipText" TextWrapping="NoWrap"
+                       Foreground="{DynamicResource AppTextBrush}"
+                       FontSize="12"/>
+        </Border>
     </Panel>
 </UserControl>

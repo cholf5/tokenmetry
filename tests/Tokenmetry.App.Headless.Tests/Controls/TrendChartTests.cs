@@ -297,28 +297,30 @@ public class TrendChartTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    // ── B-006 tooltip 气泡令牌化：chip 底 / 卡片描边 / 文字色随明暗变体现取（整图重建替新实例）──
+    // ── 浮窗（motion design）：Avalonia 浮层替代 ScottPlot Tooltip plottable ──
 
     [AvaloniaFact]
-    public void Tooltip_bubble_colors_follow_theme_tokens()
+    public void Hover_overlay_replaces_scottplot_tooltip_plottable()
     {
-        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = ChartTestHelpers.DailyPoints30() };
+        var points = ChartTestHelpers.DailyPoints30();
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
         var window = CreateWindow(chart, ThemeVariant.Dark);
         ChartTestHelpers.RenderFrame(window);
 
-        var darkTooltip = chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Tooltip>().Single();
-        Assert.Equal(Color.Parse("#1b2c44"), ToAvalonia(darkTooltip.FillColor)); // Dark AppChipBackgroundBrush
-        Assert.Equal(Color.Parse("#22324a"), ToAvalonia(darkTooltip.LineColor)); // Dark AppCardLineBrush
-        Assert.Equal(Color.Parse("#e8eef9"), ToAvalonia(darkTooltip.LabelStyle.ForeColor)); // Dark AppTextBrush
-        Assert.Equal(12f, darkTooltip.LabelStyle.FontSize);
+        // ScottPlot Tooltip plottable 已移除（浮窗职责移交 Avalonia Border 浮层）
+        Assert.Empty(chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Tooltip>());
 
-        window.RequestedThemeVariant = ThemeVariant.Light;
+        var overlay = chart.FindControl<Border>("HoverTip");
+        Assert.NotNull(overlay);
+        Assert.True(overlay!.Classes.Contains("chart-hovertip"));
+        Assert.False(overlay.IsVisible);
+
+        // ShowHoverAt 后浮层可见、文本与悬停标签同源
+        var first = ChartTestHelpers.FirstRealPoint(points);
+        chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(first.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
         Dispatcher.UIThread.RunJobs();
-
-        var lightTooltip = chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Tooltip>().Single();
-        Assert.Equal(Color.Parse("#e3ecfb"), ToAvalonia(lightTooltip.FillColor)); // Light AppChipBackgroundBrush
-        Assert.Equal(Color.Parse("#d8e0eb"), ToAvalonia(lightTooltip.LineColor)); // Light AppCardLineBrush
-        Assert.Equal(Color.Parse("#1c2735"), ToAvalonia(lightTooltip.LabelStyle.ForeColor)); // Light AppTextBrush
+        Assert.True(overlay.IsVisible);
+        Assert.Equal(TrendChart.DailyTooltipText(first), overlay.FindControl<TextBlock>("HoverTipText")!.Text);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -338,7 +340,9 @@ public class TrendChartTests
             "未悬停时不应有气泡底色像素");
 
         var real = ChartTestHelpers.FirstRealPoint(points);
+        var overlay = chart.FindControl<Border>("HoverTip")!;
         chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(real.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
+        PumpUntilOverlaySettled(overlay, targetOpacity: 1); // 淡入过渡走满（headless 动画钟只在 RunJobs/渲染 tick 推进）
         var frame = ChartTestHelpers.RenderFrame(window);
 
         var bubble = Color.Parse("#1b2c44"); // chip 底 = Dark AppChipBackgroundBrush（与卡片/网格不可容差重合）
@@ -350,6 +354,7 @@ public class TrendChartTests
         // 远离数据 → HideHover → 气泡像素消失（状态收尾）
         var firstDay = DateTime.Parse(points[0].Day, CultureInfo.InvariantCulture).ToOADate();
         chart.ShowHoverAt(new ScottPlot.Coordinates(firstDay - 3650, 0));
+        PumpUntilOverlaySettled(overlay, targetOpacity: 0); // 120ms 淡出走满再取帧
         var after = ChartTestHelpers.RenderFrame(window);
         Assert.False(ChartTestHelpers.FrameContainsColor(after, bubble, tolerance: 1), "移开后气泡底色像素应消失");
 
@@ -359,6 +364,31 @@ public class TrendChartTests
 
     private static Avalonia.Media.Color ToAvalonia(ScottPlot.Color color) =>
         Avalonia.Media.Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);
+
+    /// <summary>
+    /// 浮窗显隐过渡（chart-hovertip 的 120ms Opacity transition）走满（motion design 测试基建）：
+    /// headless 下动画钟只在 RunJobs / 渲染 tick 推进且推进不均匀——隔离跑每批推进 ~30ms，
+    /// 全量跑因其他窗口的任务抢占每批推进很小（实测全量跑 20 轮泵不完 120ms 过渡），
+    /// 墙钟 Sleep 无效——按显式目标值循环泵到位再补 2 轮让合成器跟上（上限 500 轮防死循环）；
+    /// 目标值必须显式传入（HideHover 后 IsVisible 仍 true，读控件状态推不出"淡出"方向）。
+    /// </summary>
+    private static void PumpUntilOverlaySettled(Border overlay, double targetOpacity)
+    {
+        var settled = false;
+        for (var i = 0; i < 500 && !(settled = Math.Abs(overlay.Opacity - targetOpacity) <= 0.001); i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+
+        if (settled)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+    }
 
     // ── 空态（审查 P1-2：空集与"全补零窗口"都呈诚实空态，环境无关）──
 
