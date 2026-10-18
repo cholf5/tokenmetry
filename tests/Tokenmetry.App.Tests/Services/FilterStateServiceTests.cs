@@ -73,10 +73,26 @@ public class FilterStateServiceTests : IDisposable
         FilterStateService.AffectsQueries(string.Empty).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.TimeRange)).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.Agent)).Should().BeTrue();
+        FilterStateService.AffectsQueries(nameof(FilterStateService.Model)).Should().BeTrue();
+        FilterStateService.AffectsQueries(nameof(FilterStateService.Project)).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.CustomFromDate)).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.CustomToDate)).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.Display)).Should().BeFalse();
         FilterStateService.AffectsQueries(nameof(FilterStateService.AgentOptions)).Should().BeFalse();
+    }
+
+    // Model/Project 默认哨兵断言不触 setter，留在本项目；依赖 setter / UpdateXxxOptions
+    // （SetOnUi 经 Dispatcher）的用例在 Tokenmetry.App.Headless.Tests（[AvaloniaFact]）。
+
+    [Fact]
+    public void Model_project_defaults_are_all_sentinels()
+    {
+        var filters = new FilterStateService();
+
+        filters.Model.Should().BeSameAs(ModelFilterOption.All);
+        filters.Project.Should().BeSameAs(ProjectFilterOption.All);
+        filters.ModelOptions.Should().ContainSingle().Which.Should().BeSameAs(ModelFilterOption.All);
+        filters.ProjectOptions.Should().ContainSingle().Which.Should().BeSameAs(ProjectFilterOption.All);
     }
 }
 

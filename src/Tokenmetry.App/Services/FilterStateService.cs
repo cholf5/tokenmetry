@@ -150,6 +150,10 @@ public sealed class FilterStateService : ObservableObject
     private TimeRangeOption _timeRange = TimeRangeOption.Default;
     private AgentOption _agent = AgentOption.All;
     private IReadOnlyList<AgentOption> _agentOptions = [AgentOption.All];
+    private ModelFilterOption _model = ModelFilterOption.All;
+    private ProjectFilterOption _project = ProjectFilterOption.All;
+    private IReadOnlyList<ModelFilterOption> _modelOptions = [ModelFilterOption.All];
+    private IReadOnlyList<ProjectFilterOption> _projectOptions = [ProjectFilterOption.All];
     private DateTimeOffset? _customFromDate;
     private DateTimeOffset? _customToDate;
 
@@ -168,6 +172,8 @@ public sealed class FilterStateService : ObservableObject
         string.IsNullOrEmpty(propertyName)
         || propertyName == nameof(TimeRange)
         || propertyName == nameof(Agent)
+        || propertyName == nameof(Model)
+        || propertyName == nameof(Project)
         || propertyName == nameof(CustomFromDate)
         || propertyName == nameof(CustomToDate);
 
@@ -234,8 +240,28 @@ public sealed class FilterStateService : ObservableObject
         set => SetOnUi(() => SetProperty(ref _agent, value));
     }
 
-    /// <summary>筛选汇总展示串（如「最近 7 天 · 所有 Agent」），任一维度变化都会通知。</summary>
-    public string Display => $"{TimeRange.Label} · {Agent.Label}";
+    /// <summary>模型筛选（顶栏全局）。默认全部模型（不过滤）。查询值 = ModelFilterOption.Model（规范名）。</summary>
+    public ModelFilterOption Model
+    {
+        get => _model;
+        set => SetOnUi(() => SetProperty(ref _model, value));
+    }
+
+    /// <summary>项目筛选（顶栏全局）。默认全部项目（不过滤）。查询值 = ProjectFilterOption.Path（原始路径）。</summary>
+    public ProjectFilterOption Project
+    {
+        get => _project;
+        set => SetOnUi(() => SetProperty(ref _project, value));
+    }
+
+    /// <summary>模型选项清单（初始仅"全部模型"哨兵——诚实：真实清单未加载前不冒充选项）。</summary>
+    public IReadOnlyList<ModelFilterOption> ModelOptions => _modelOptions;
+
+    /// <summary>项目选项清单（初始仅"全部项目"哨兵，语义同 <see cref="ModelOptions"/>）。</summary>
+    public IReadOnlyList<ProjectFilterOption> ProjectOptions => _projectOptions;
+
+    /// <summary>筛选汇总展示串（如「最近 7 天 · 所有 Agent · 全部模型 · 全部项目」），任一维度变化都会通知。</summary>
+    public string Display => $"{TimeRange.Label} · {Agent.Label} · {Model.Label} · {Project.Label}";
 
     private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -247,17 +273,25 @@ public sealed class FilterStateService : ObservableObject
         }
     }
 
-    /// <summary>
-    /// 替换 Agent 选项清单并通知（D-008：AgentCatalogService 从 I-029 维度查询拉到真实清单后调用，
-    /// 顶部栏 ComboBox 经 PropertyChanged(AgentOptions) 刷新；非 UI 线程调用时 marshal，同属性 setter 语义）。
-    /// 当前选中项（默认"所有 Agent"）不受清单替换影响。Display 不依赖本清单，不发 Display 通知。
-    /// 注意不走 SetProperty（其 CallerMemberName 在方法内会解析成方法名），显式给出属性名。
-    /// </summary>
+    /// <summary>在 UI 线程执行 apply（非 UI 线程调用时 marshal，同属性 setter 语义）。</summary>
+    private void RunOnUi(Action apply)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            apply();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(apply);
+        }
+    }
+
+    /// <summary>替换 Agent 选项清单并通知（D-008：AgentCatalogService 拉到真实清单后调用）。
+    /// 通知不走 SetProperty（其 CallerMemberName 在方法内会解析成方法名），显式给出属性名。</summary>
     public void UpdateAgentOptions(IReadOnlyList<AgentOption> options)
     {
         ArgumentNullException.ThrowIfNull(options);
-
-        void Apply()
+        RunOnUi(() =>
         {
             if (ReferenceEquals(_agentOptions, options))
             {
@@ -266,16 +300,39 @@ public sealed class FilterStateService : ObservableObject
 
             _agentOptions = options;
             OnPropertyChanged(nameof(AgentOptions));
-        }
+        });
+    }
 
-        if (Dispatcher.UIThread.CheckAccess())
+    /// <summary>替换模型选项清单并通知（右栏撤除后顶栏 Model 下拉的数据源，同 Agent 装载路径）。</summary>
+    public void UpdateModelOptions(IReadOnlyList<ModelFilterOption> options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        RunOnUi(() =>
         {
-            Apply();
-        }
-        else
+            if (ReferenceEquals(_modelOptions, options))
+            {
+                return;
+            }
+
+            _modelOptions = options;
+            OnPropertyChanged(nameof(ModelOptions));
+        });
+    }
+
+    /// <summary>替换项目选项清单并通知（右栏撤除后顶栏 Project 下拉的数据源，同 Agent 装载路径）。</summary>
+    public void UpdateProjectOptions(IReadOnlyList<ProjectFilterOption> options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        RunOnUi(() =>
         {
-            Dispatcher.UIThread.Post(Apply);
-        }
+            if (ReferenceEquals(_projectOptions, options))
+            {
+                return;
+            }
+
+            _projectOptions = options;
+            OnPropertyChanged(nameof(ProjectOptions));
+        });
     }
 
     private void SetOnUi(Func<bool> apply)
