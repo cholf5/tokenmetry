@@ -58,6 +58,8 @@ public sealed class Translations : INotifyPropertyChanged
         // ── 顶部栏（MainWindow.axaml + MainWindowViewModel）──
         [nameof(TopbarTimeRange)] = "时间范围",
         [nameof(TopbarAgent)] = "Agent",
+        [nameof(TopbarModel)] = "模型",
+        [nameof(TopbarProject)] = "项目",
         [nameof(StatusStarting)] = "启动中…",
         [nameof(StatusScanning)] = "正在扫描本地数据…",
         [nameof(StatusNoLocalData)] = "未检出本地数据",
@@ -403,6 +405,8 @@ public sealed class Translations : INotifyPropertyChanged
 
         [nameof(TopbarTimeRange)] = "Range",
         [nameof(TopbarAgent)] = "Agent",
+        [nameof(TopbarModel)] = "Model",
+        [nameof(TopbarProject)] = "Project",
         [nameof(StatusStarting)] = "Starting…",
         [nameof(StatusScanning)] = "Scanning local data…",
         [nameof(StatusNoLocalData)] = "No local data found",
@@ -786,6 +790,8 @@ public sealed class Translations : INotifyPropertyChanged
     // ── 顶部栏 ──
     public string TopbarTimeRange => Get();
     public string TopbarAgent => Get();
+    public string TopbarModel => Get();
+    public string TopbarProject => Get();
     public string StatusStarting => Get();
     public string StatusScanning => Get();
     public string StatusNoLocalData => Get();

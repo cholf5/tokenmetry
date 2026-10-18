@@ -416,7 +416,6 @@ public class OverviewBottomTests
             new FilterStateService(),
             AppServices.Get<SettingsViewModel>(),
             AppServices.Get<DataPricingViewModel>(),
-            AppServices.Get<SessionsPanelViewModel>(),
             AppServices.Get<IUsageQueryService>(),
             AppServices.Get<AgentCatalogService>(),
             AppServices.Get<IToastService>(),

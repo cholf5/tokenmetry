@@ -16,12 +16,13 @@
         Background="{DynamicResource AppBackgroundBrush}">
 
     <!--
-        D-003 三栏应用外壳（原型 .app/.topbar/.shell/.sidebar/.sessions-panel）：
-        顶部栏 = 全局筛选（时间范围 + Agent）+ 数据状态 + 设置入口；
-        左侧栏 = 品牌 + 9 项导航；中间 = 页面路由（ContentControl + DataTemplates）；
-        右侧栏 = 最近会话（D-008 真实数据）+ 快速筛选（会话页级，关系定案见 SessionsPanelViewModel）。
+        D-003 两栏应用外壳（原型 .app/.topbar/.shell/.sidebar；原 .sessions-panel 已删）：
+        顶部栏 = 全局筛选四维（时间范围 + Agent + Model + Project）+ 数据状态 + 设置入口；
+        左侧栏 = 品牌 + 9 项导航；中间 = 页面路由（ContentControl + DataTemplates）。
+        2026-10-18 右栏撤除：最近会话/快速筛选定案见 docs/plans/2026-10-18-right-rail-removal-design.md；
+        筛选全部并入顶栏四维（FilterStateService）。
         窗口 chrome 沿用系统边框（2026-10-12 卡内决策，不复刻原型 mac 红绿灯）。
-        最小尺寸 960×640：184 + ≥420 主内容 + 276 三栏不破（原型 .shell 最小列宽同源）。
+        最小尺寸 960×640：184 + ≥776 主内容两栏不破（原三栏 276 列归还主内容）。
     -->
 
     <Window.Styles>
@@ -81,20 +82,6 @@
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-
-        <!-- 右栏最近会话列表（原型 .sessionlist）：透明 ListBox，行距在行模板里；
-             点击 = toast 占位下钻（D-008 定案），Semi 默认选中底色保留作点击反馈 -->
-        <Style Selector="ListBox.session-list">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-        </Style>
-        <Style Selector="ListBox.session-list ListBoxItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="0,0,0,0"/>
-            <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
         </Style>
 
         <!-- 首次初始化遮罩（IsInitializingData）：全窗半透明 scrim + 中央卡片（旋转虚线圆菊花）
@@ -189,7 +176,7 @@
                 Background="{DynamicResource AppTopbarBackgroundBrush}"
                 BorderBrush="{DynamicResource AppLineBrush}"
                 BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="18,0" VerticalAlignment="Center">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" Margin="18,0" VerticalAlignment="Center">
                 <!-- 全局时间范围（今日/7/30/90/全部/自定义，默认 7 天，写入 FilterStateService）；
                      自定义档追加起止 DatePicker（未选侧 = 不设界限，映射规则见 GlobalFilterMapper） -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
@@ -228,8 +215,34 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </StackPanel>
+                <!-- 全局模型筛选（选项 = AgentCatalogService 模型维度缓存，查询值 = 规范名） -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">
+                    <TextBlock Classes="topbar-label" Text="{Binding TopbarModel, Source={x:Static loc:Translations.Instance}}"/>
+                    <ComboBox MinWidth="124"
+                              ItemsSource="{Binding Filters.ModelOptions}"
+                              SelectedItem="{Binding Filters.Model, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="svc:ModelFilterOption">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+                <!-- 全局项目筛选（选项 = 项目维度缓存，查询值 = 原始路径） -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">
+                    <TextBlock Classes="topbar-label" Text="{Binding TopbarProject, Source={x:Static loc:Translations.Instance}}"/>
+                    <ComboBox MinWidth="130"
+                              ItemsSource="{Binding Filters.ProjectOptions}"
+                              SelectedItem="{Binding Filters.Project, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="svc:ProjectFilterOption">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
                 <!-- 数据状态（轻量实现：就绪 + 最近刷新时间；真实状态接线 TODO 见 MainWindowViewModel） -->
-                <Border Grid.Column="3"
+                <Border Grid.Column="5"
                         Background="{DynamicResource AppPanelAltBrush}"
                         BorderBrush="{DynamicResource AppLineBrush}"
                         BorderThickness="1"
@@ -257,7 +270,7 @@
                 <!-- 手动刷新（⟳）：经 BackgroundRefreshService 单飞槽触发一轮采集刷新（与定时器 /
                      托盘「立即刷新」/ 数据与计价页重扫同一合并语义）；扫描进行中按钮禁用并切换为
                      进行中字形，轮次结束的状态/时间戳/页面重查回写由 BackgroundRefreshWiring 统一完成 -->
-                <Button Grid.Column="4"
+                <Button Grid.Column="6"
                         Classes="icon-btn"
                         Command="{Binding RefreshDataCommand}"
                         IsEnabled="{Binding !RefreshDataCommand.IsRunning}"
@@ -272,7 +285,7 @@
                     </Panel>
                 </Button>
                 <!-- 设置入口（导航到设置页；数据源与计价在侧栏「数据与计价」） -->
-                <Button Grid.Column="5"
+                <Button Grid.Column="7"
                         Classes="icon-btn"
                         Content="⚙"
                         Command="{Binding OpenSettingsCommand}"
@@ -280,8 +293,8 @@
             </Grid>
         </Border>
 
-        <!-- ═══ 三栏（.shell：184 / * / 276）═══ -->
-        <Grid Grid.Row="1" ColumnDefinitions="184,*,276">
+        <!-- ═══ 两栏（.shell：184 / *；原 276 右栏已撤除，空间归还主内容）═══ -->
+        <Grid Grid.Row="1" ColumnDefinitions="184,*">
 
             <!-- 左侧导航（.sidebar） -->
             <Border Grid.Column="0"
@@ -344,151 +357,9 @@
                             x:Name="PageHost"
                             Margin="22,22,22,30"
                             Content="{Binding CurrentPage}"/>
-
-            <!-- 右侧最近会话栏（.sessions-panel，骨架） -->
-            <Border Grid.Column="2"
-                    x:Name="SessionsPanelBorder"
-                    Width="276"
-                    Background="{DynamicResource AppSidebarBackgroundBrush}"
-                    BorderBrush="{DynamicResource AppLineBrush}"
-                    BorderThickness="1,0,0,0">
-                <Grid RowDefinitions="Auto,*,Auto" Margin="13,18">
-                    <DockPanel Grid.Row="0">
-                        <Button DockPanel.Dock="Right"
-                                Classes="link-btn"
-                                Content="{Binding ViewAll, Source={x:Static loc:Translations.Instance}}"
-                                Command="{Binding GoToPageCommand}"
-                                CommandParameter="{x:Static vm:PageId.Sessions}"/>
-                        <TextBlock Classes="panel-title" FontSize="14" Text="{Binding RecentSessions, Source={x:Static loc:Translations.Instance}}"/>
-                    </DockPanel>
-
-                    <StackPanel Grid.Row="1"
-                                x:DataType="vm:SessionsPanelViewModel"
-                                DataContext="{Binding SessionsPanel}"
-                                Margin="0,10,0,0">
-                        <!-- 最近会话（D-008 真实数据：全局筛选映射 + 最近活动 Top6；行观感对齐原型 .session）。
-                             点击行 = toast 占位下钻（SessionsPanelViewModel.SelectedRecentSession）。 -->
-                        <ListBox Classes="session-list"
-                                 IsVisible="{Binding HasRecentSessions}"
-                                 ItemsSource="{Binding RecentSessions}"
-                                 SelectedItem="{Binding SelectedRecentSession, Mode=TwoWay}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:RecentSessionRowViewModel">
-                                    <Grid ColumnDefinitions="30,*" ColumnSpacing="9" Margin="0,12,0,0">
-                                        <!-- Agent 图标：品牌 logo 经 AgentChip.Logo 附加属性 → agent-* 伪类
-                                             DynamicResource 取 AppAgentLogo*（单色标按 ActualThemeVariant 翻黑白） -->
-                                        <Border Grid.Column="0" Classes="agent-chip-lg"
-                                                c:AgentChip.Logo="{Binding LogoVendor}"
-                                                VerticalAlignment="Top">
-                                            <Panel>
-                                                <TextBlock Text="{Binding IconGlyph}"/>
-                                                <Image Classes="agent-logo"/>
-                                            </Panel>
-                                        </Border>
-                                        <StackPanel Grid.Column="1" Spacing="3" MinWidth="0">
-                                            <TextBlock Text="{Binding Agent}" FontSize="11"
-                                                       Foreground="{DynamicResource AppTextBrush}"/>
-                                            <TextBlock Text="{Binding TitleText}" FontSize="11"
-                                                       Foreground="{DynamicResource AppMutedTextBrush}"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <Grid ColumnDefinitions="*,Auto">
-                                                <TextBlock Grid.Column="0" Text="{Binding TokensText}" FontSize="10"
-                                                           Foreground="{DynamicResource AppMutedTextBrush}"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" FontSize="10"
-                                                           Foreground="{DynamicResource AppMutedTextBrush}"/>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                        <!-- 诚实空态（无数据/加载失败前）/ 错误态（加载失败） -->
-                        <TextBlock Text="{Binding NoRecentSessions, Source={x:Static loc:Translations.Instance}}"
-                                   FontSize="12"
-                                   Foreground="{DynamicResource AppMutedTextBrush}"
-                                   HorizontalAlignment="Center"
-                                   IsVisible="{Binding !HasRecentSessions}"/>
-                        <TextBlock Text="{Binding RecentError}"
-                                   FontSize="11"
-                                   TextWrapping="Wrap"
-                                   Foreground="{DynamicResource AppMutedTextBrush}"
-                                   HorizontalAlignment="Center"
-                                   IsVisible="{Binding RecentError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                    </StackPanel>
-
-                    <StackPanel Grid.Row="2"
-                                x:DataType="vm:SessionsPanelViewModel"
-                                DataContext="{Binding SessionsPanel}"
-                                Margin="0,16,0,0">
-                        <!-- 快速筛选（原型 .filterbox；D-008：会话页级筛选，提交驱动会话明细页重查） -->
-                        <Border Background="{DynamicResource AppPanelBrush}"
-                                BorderBrush="{DynamicResource AppLineBrush}"
-                                BorderThickness="1"
-                                CornerRadius="10"
-                                Padding="13">
-                            <StackPanel Spacing="10">
-                                <DockPanel>
-                                    <Button DockPanel.Dock="Right"
-                                            Classes="link-btn"
-                                            Content="{Binding ClearFilters, Source={x:Static loc:Translations.Instance}}"
-                                            Command="{Binding ClearQuickFiltersCommand}"/>
-                                    <TextBlock Classes="panel-title" Text="{Binding QuickFilter, Source={x:Static loc:Translations.Instance}}"/>
-                                </DockPanel>
-                                <StackPanel Spacing="5">
-                                    <TextBlock Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}" FontSize="11"
-                                               Foreground="{DynamicResource AppMutedTextBrush}"/>
-                                    <ItemsControl ItemsSource="{Binding AgentFilters}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:AgentQuickFilterViewModel">
-                                                <CheckBox Content="{Binding Label}"
-                                                          IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                                                          Margin="0,2"/>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="{Binding LabelModels, Source={x:Static loc:Translations.Instance}}" FontSize="11"
-                                               Foreground="{DynamicResource AppMutedTextBrush}"/>
-                                    <ComboBox Width="210"
-                                              HorizontalAlignment="Left"
-                                              HorizontalContentAlignment="Stretch"
-                                              ItemsSource="{Binding ModelFilterOptions}"
-                                              SelectedItem="{Binding ModelFilter, Mode=TwoWay}">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate x:DataType="svc:ModelFilterOption">
-                                                <TextBlock Text="{Binding Label}"/>
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                </StackPanel>
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}" FontSize="11"
-                                               Foreground="{DynamicResource AppMutedTextBrush}"/>
-                                    <ComboBox Width="210"
-                                              HorizontalAlignment="Left"
-                                              HorizontalContentAlignment="Stretch"
-                                              ItemsSource="{Binding ProjectFilterOptions}"
-                                              SelectedItem="{Binding ProjectFilter, Mode=TwoWay}">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate x:DataType="svc:ProjectFilterOption">
-                                                <TextBlock Text="{Binding Label}"/>
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                </StackPanel>
-                                <Button Classes="Primary"
-                                        Content="{Binding ApplyFilters, Source={x:Static loc:Translations.Instance}}"
-                                        HorizontalAlignment="Stretch"
-                                        Command="{Binding ApplyQuickFiltersCommand}"/>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Grid>
-            </Border>
         </Grid>
 
-        <!-- ═══ 首次初始化遮罩（覆盖全窗，ZIndex 压过顶栏与三栏）═══
+        <!-- ═══ 首次初始化遮罩（覆盖全窗，ZIndex 压过顶栏与两栏）═══
              IsInitializingData 仅由启动路径维护：库内完全无数据（首次使用）→ 启动首轮采集
              扫描期间挂起，轮次结束（成败均然）摘除——no data / error 的诚实终态由顶栏状态灯
              呈现，遮罩不掩盖结果。测试按 x:Name 定位。 -->

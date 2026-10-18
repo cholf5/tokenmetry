@@ -38,14 +38,13 @@ public class AppShellTests
         new(new FilterStateService(),
             AppServices.Get<SettingsViewModel>(),
             AppServices.Get<DataPricingViewModel>(),
-            AppServices.Get<SessionsPanelViewModel>(),
             AppServices.Get<IUsageQueryService>(),
             AppServices.Get<AgentCatalogService>(),
             AppServices.Get<IToastService>(),
             AppServices.Get<Core.Services.PricingEngine>());
 
     [AvaloniaFact]
-    public void Shell_has_three_columns_with_topbar_sidebar_and_sessions_panel()
+    public void Shell_has_two_columns_with_topbar_and_sidebar()
     {
         var window = new MainWindow { DataContext = AppServices.Get<MainWindowViewModel>() };
         window.Show(); // 挂入视觉树触发模板应用（GetVisualDescendants 需要）
@@ -53,9 +52,11 @@ public class AppShellTests
 
         var topBar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TopBar");
         var sidebar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "Sidebar");
-        var sessionsPanel = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "SessionsPanelBorder");
         var pageHost = window.GetVisualDescendants().OfType<ContentControl>().First(b => b.Name == "PageHost");
-        // D-008 起右栏另有最近会话 ListBox，外壳导航列表按 nav-list 类精确选取
+        // 外壳固化为两栏（2026-10-18 右栏撤除定案）：SessionsPanelBorder 不得存在
+        Assert.DoesNotContain(window.GetVisualDescendants().OfType<Border>(),
+            b => b.Name == "SessionsPanelBorder");
+        // 右栏最近会话 ListBox 已随撤栏消失，外壳导航列表按 nav-list 类精确选取
         var navList = window.GetVisualDescendants().OfType<ListBox>().Single(lb => lb.Classes.Contains("nav-list"));
 
         // 9 项导航（S-004 拆分后），文案与顺序对齐 ShellPages 注册表（总览 / 会话 / Agent / 模型 /
@@ -65,13 +66,11 @@ public class AppShellTests
             new[] { "总览", "会话明细", "Agent 统计", "模型统计", "项目统计", "时间分析", "成本分析", "数据与计价", "设置" },
             ((MainWindowViewModel)window.DataContext!).NavigationItems.Select(i => i.Page.Label).ToArray());
 
-        // 三栏列宽：原型 .shell 184 / * / 276
+        // 两栏列宽：原型 .shell 184 / *（原 276 右栏列已归还主内容）
         Assert.Equal(184, sidebar.Width);
-        Assert.Equal(276, sessionsPanel.Width);
         Assert.Same(window.DataContext, pageHost.DataContext); // 主内容区绑定 CurrentPage 所在 VM
         Assert.Equal(new Thickness(0, 0, 0, 1), topBar.BorderThickness);
         Assert.Equal(new Thickness(0, 0, 1, 0), sidebar.BorderThickness);
-        Assert.Equal(new Thickness(1, 0, 0, 0), sessionsPanel.BorderThickness);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -158,17 +157,17 @@ public class AppShellTests
         var filters = new FilterStateService();
         var placeholder = new PagePlaceholderViewModel(ShellPages.For(PageId.Time), filters);
 
-        // 默认筛选：最近 7 天 · 所有 Agent，占位页可观测
-        Assert.Equal("最近 7 天 · 所有 Agent", placeholder.CurrentFilterDisplay);
+        // 默认筛选：最近 7 天 · 所有 Agent · 全部模型 · 全部项目（四维汇总，右栏撤除定案），占位页可观测
+        Assert.Equal("最近 7 天 · 所有 Agent · 全部模型 · 全部项目", placeholder.CurrentFilterDisplay);
 
         // 切时间范围 → 通知到达订阅页 VM
         filters.TimeRange = TimeRangeOption.Options[1];
-        Assert.Equal("最近 7 天 · 所有 Agent", filters.Display);
+        Assert.Equal("最近 7 天 · 所有 Agent · 全部模型 · 全部项目", filters.Display);
         Assert.Equal(filters.Display, placeholder.CurrentFilterDisplay);
 
         // 切 Agent → 同样可观测
         filters.Agent = new AgentOption("Codex", "Codex");
-        Assert.Equal("最近 7 天 · Codex", filters.Display);
+        Assert.Equal("最近 7 天 · Codex · 全部模型 · 全部项目", filters.Display);
         Assert.Equal(filters.Display, placeholder.CurrentFilterDisplay);
     }
 
@@ -237,7 +236,7 @@ public class AppShellTests
 
         var topBar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TopBar");
         var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
-        Assert.Equal(2, combos.Count);
+        Assert.Equal(4, combos.Count); // 时间范围 + Agent + Model + Project（四维全局筛选，右栏撤除定案）
 
         // 时间范围：默认最近 7 天（对齐原型），今日/7/30/90/全部/自定义 六档选项
         var timeCombo = combos[0];
@@ -272,35 +271,7 @@ public class AppShellTests
     }
 
     [AvaloniaFact]
-    public void Sessions_panel_shows_recent_sessions_region_and_quick_filter_structure()
-    {
-        // 结构性断言（数据条目随本机 facts 与异步加载时序而定，数据口径在 SessionsTests 用 stub 精确对账）：
-        // 最近会话区（空态/列表二选一）+ 快速筛选（Agent 复选组 + 模型/项目下拉 + 清除/应用入口）。
-        var vm = CreateIsolatedShellViewModel();
-        var window = new MainWindow { DataContext = vm };
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
-
-        var panel = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "SessionsPanelBorder");
-        var panelVm = Assert.IsType<SessionsPanelViewModel>(vm.SessionsPanel);
-
-        var texts = panel.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-        Assert.Contains("最近会话", texts);
-        Assert.Contains("快速筛选", texts);
-        // 空态与列表互斥可见（真实数据接线后不再有"骨架说明"文案）
-        Assert.DoesNotContain("会话列表将在会话明细页（D-008）接入真实数据", texts);
-
-        // 应用 / 清除命令在（提交点行为对账在 SessionsTests）
-        Assert.NotNull(panelVm.ApplyQuickFiltersCommand);
-        Assert.NotNull(panelVm.ClearQuickFiltersCommand);
-        Assert.True(panelVm.ClearQuickFiltersCommand.CanExecute(null));
-
-        window.Close();
-        Dispatcher.UIThread.RunJobs();
-    }
-
-    [AvaloniaFact]
-    public void MainWindow_at_minimum_size_keeps_three_columns_intact()
+    public void MainWindow_at_minimum_size_keeps_two_columns_intact()
     {
         var vm = CreateIsolatedShellViewModel();
         var window = new MainWindow
@@ -315,13 +286,13 @@ public class AppShellTests
         Assert.Equal(new Size(960, 640), window.ClientSize);
 
         var sidebar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "Sidebar");
-        var sessionsPanel = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "SessionsPanelBorder");
         var pageHost = window.GetVisualDescendants().OfType<ContentControl>().First(b => b.Name == "PageHost");
 
-        Assert.Equal(184, sidebar.Bounds.Width);
-        Assert.Equal(276, sessionsPanel.Bounds.Width);
-        // 主内容列 960-184-276=500，去掉页边距仍 ≥ 原型 .shell 主列最小宽 420
-        Assert.True(pageHost.Bounds.Width >= 420, $"主内容区宽度 {pageHost.Bounds.Width} 应 ≥ 420");
+        Assert.Equal(184, sidebar.Width);
+        // 主内容列 960-184=776（右栏撤除定案：原 276 列归还主内容），去掉页边距仍 ≥ 700
+        Assert.DoesNotContain(window.GetVisualDescendants().OfType<Border>(),
+            b => b.Name == "SessionsPanelBorder");
+        Assert.True(pageHost.Bounds.Width >= 700, $"主内容区宽度 {pageHost.Bounds.Width} 应 ≥ 700");
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -358,7 +329,7 @@ public class AppShellTests
     [AvaloniaFact]
     public void Keyboard_tab_traversal_reaches_topbar_filters_settings_and_navigation()
     {
-        // Q-002 键盘可达性锁：Tab 遍历主窗口，顶栏两个全局筛选、设置入口、侧栏导航全部可达
+        // Q-002 键盘可达性锁：Tab 遍历主窗口，顶栏四个全局筛选、设置入口、侧栏导航全部可达
         // （可视焦点 ring 的观感属 Semi 控件模板 + 真机复核范畴，headless 只锁遍历可达性）。
         var vm = CreateIsolatedShellViewModel();
         var window = new MainWindow { DataContext = vm };
@@ -367,7 +338,7 @@ public class AppShellTests
 
         var topBar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TopBar");
         var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
-        Assert.Equal(2, combos.Count);
+        Assert.Equal(4, combos.Count); // 时间范围 + Agent + Model + Project（四维全局筛选，右栏撤除定案）
         var settingsButton = topBar.GetVisualDescendants().OfType<Button>()
             .First(b => b.Classes.Contains("icon-btn"));
         var navList = window.GetVisualDescendants().OfType<ListBox>().Single(lb => lb.Classes.Contains("nav-list"));

@@ -24,17 +24,15 @@ using Xunit;
 namespace Tokenmetry.App.Headless.Tests.Shell;
 
 /// <summary>
-/// D-008 会话明细页 + 右栏最近会话联动的自动化验证（headless，真实 App.axaml + Semi）：
-/// 1. 页面状态（搜索/排序/右栏快速筛选/全局筛选）→ I-029 SessionListQuery 的映射对账；
+/// D-008 会话明细页的自动化验证（headless，真实 App.axaml + Semi）：
+/// 1. 页面状态（搜索/排序）+ 顶栏全局四维筛选（时间/Agent/Model/Project）→ I-029 SessionListQuery 的映射对账
+///    （2026-10-18 右栏撤除定案：原右栏页级快速筛选并入顶栏全局筛选，复选集/SubsetMerge 机制随撤删除）；
 /// 2. 搜索防抖（重启式 300ms；headless 不驱动 DispatcherTimer 时钟，经 CommitSearchForTests 直调提交）；
 /// 3. 「加载更多」分页契约（I-029 Page/PageSize，页大小 50）与计数条 "显示 X / Y 条"；
-/// 4. Agent 复选集 → 查询范围（全勾→null / 单勾→单值 / 真子集→逐 Agent 合并 + 客户端分页；
-///    全局单选 Agent 与复选集取交集，无交集→诚实空态不发查询）；
-/// 5. 未知成本列四态呈现（null ≠ 0）；Agent/模型/项目清单目录（单一真相源 + 服务层缓存）；
-/// 6. ≥1 万行 fixture 虚拟化（realized container 数远小于总行数；真机滚动流畅性留人工目检）；
-/// 7. 序号防护（挂起的旧响应不覆盖新选择）与 Dispose 退订（全局筛选 + 右栏事件 + 防抖定时器）；
-/// 8. 右栏最近会话（全局筛选映射 + 最近活动 Top6）与下钻 toast 占位；
-/// 9. 真实查询服务冒烟（同口径直查对账，环境无关）；明暗两套离屏截图留档（docs/design/sessions-*.png）。
+/// 4. 未知成本列四态呈现（null ≠ 0）；Agent/模型/项目清单目录（单一真相源 + 服务层缓存）；
+/// 5. ≥1 万行 fixture 虚拟化（realized container 数远小于总行数；真机滚动流畅性留人工目检）；
+/// 6. 序号防护（挂起的旧响应不覆盖新选择）与 Dispose 退订（全局筛选 + 防抖定时器）；
+/// 7. 真实查询服务冒烟（同口径直查对账，环境无关）；明暗两套离屏截图留档（docs/design/sessions-*.png）。
 /// 分工：会话查询的过滤/排序/分页 SQL 对账在 UsageQueryServiceTests（I-029）已完成，
 /// 本类做"页面状态 → 查询参数 → 行展示"的页面层对账（stub 最小复刻同口径，只承担数据回传）。
 /// </summary>
@@ -88,29 +86,6 @@ public class SessionsTests
 
         public void ReleaseHeldSessions() => _heldSessions?.TrySetResult(_heldResult ?? new SessionListResult());
 
-        /// <summary>
-        /// 让下一次 GetAgentBreakdownAsync 挂起（目录未就绪的启动竞态用例：P2-1）。
-        /// 不用 RunContinuationsAsynchronously：放行时续体需在调用线程（UI 线程）内联走完
-        /// （目录赋值 → 面板初始化 → 最近会话查询）。已返回的挂起任务与"待消费挂起点"分开记账——
-        /// 消费即清 _heldAgents，放行引用 _releasedAgentsTask，否则 Release 会因引用丢失而空转。
-        /// </summary>
-        public void HoldNextAgents(IReadOnlyList<DimensionUsageRow> resultOnRelease)
-        {
-            _heldAgents = new TaskCompletionSource<IReadOnlyList<DimensionUsageRow>>();
-            _heldAgentsResult = resultOnRelease;
-        }
-
-        public void ReleaseHeldAgents()
-        {
-            var task = _releasedAgentsTask;
-            _releasedAgentsTask = null;
-            task?.TrySetResult(_heldAgentsResult ?? Agents);
-        }
-
-        private TaskCompletionSource<IReadOnlyList<DimensionUsageRow>>? _heldAgents;
-        private TaskCompletionSource<IReadOnlyList<DimensionUsageRow>>? _releasedAgentsTask;
-        private IReadOnlyList<DimensionUsageRow>? _heldAgentsResult;
-
         public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default)
         {
             SessionQueries.Add(query);
@@ -119,10 +94,7 @@ public class SessionsTests
                 throw new InvalidOperationException("sessions offline");
             }
 
-            // 挂起只作用于"页面查询"（页大小 50 或合并模式不分页）；右栏最近会话（Top6）不参与挂起，
-            // 否则全局筛选变更时右栏重查会先消费掉挂起点、序号防护用例失真。
-            var isPageQuery = query.PageSize is null || query.PageSize != SessionsPanelViewModel.RecentTopN;
-            if (_heldSessions is { } held && isPageQuery)
+            if (_heldSessions is { } held)
             {
                 _heldSessions = null;
                 return held.Task;
@@ -139,6 +111,16 @@ public class SessionsTests
             if (query.Filter.Agent is { } agent)
             {
                 rows = rows.Where(r => string.Equals(r.Agent, agent, StringComparison.Ordinal));
+            }
+
+            if (query.Filter.Project is { } filterProject)
+            {
+                rows = rows.Where(r => string.Equals(r.Project, filterProject, StringComparison.Ordinal));
+            }
+
+            if (query.Filter.Model is { } filterModel)
+            {
+                rows = rows.Where(r => string.Equals(r.DominantModel, filterModel, StringComparison.Ordinal));
             }
 
             if (query.Project is { } project)
@@ -202,13 +184,6 @@ public class SessionsTests
             if (ThrowOnAgents)
             {
                 throw new InvalidOperationException("agent catalog offline");
-            }
-
-            if (_heldAgents is { } held)
-            {
-                _heldAgents = null;
-                _releasedAgentsTask = held;
-                return held.Task;
             }
 
             return Task.FromResult(Agents);
@@ -295,33 +270,8 @@ public class SessionsTests
         }).ToList();
     }
 
-    /// <summary>手工精排的小型会话集（Agent 交集 / 合并排序用例，token 互不相同）。</summary>
-    private static List<SessionListRow> HandcraftedSessions() => new()
-    {
-        Row("c1", "Claude Code", 500),
-        Row("c2", "Claude Code", 100),
-        Row("x1", "Codex", 900),
-        Row("x2", "Codex", 50),
-        Row("r1", "Cursor", 700),
-        Row("r2", "Cursor", 10),
-    };
-
-    private static SessionListRow Row(string id, string agent, long tokens, decimal? cost = null) => new()
-    {
-        SessionId = id,
-        Agent = agent,
-        Project = $"/tmp/{agent}",
-        ProjectDisplayName = agent,
-        DominantModel = "model-a",
-        FirstSeenAt = DateTimeOffset.Now.AddHours(-1),
-        LastSeenAt = DateTimeOffset.Now,
-        TotalTokens = tokens,
-        CostUsd = cost,
-    };
-
     private sealed record TestHost(
         SessionsViewModel Vm,
-        SessionsPanelViewModel Panel,
         StubQueryService Stub,
         StubToast Toast,
         FilterStateService Filters);
@@ -331,52 +281,65 @@ public class SessionsTests
         stub ??= new StubQueryService();
         filters ??= new FilterStateService();
         var toast = new StubToast();
-        var panel = new SessionsPanelViewModel(toast, stub, new AgentCatalogService(stub), filters);
-        var vm = new SessionsViewModel(ShellPages.For(PageId.Sessions), filters, stub, panel, toast);
-        Dispatcher.UIThread.RunJobs(); // 面板选项/最近会话初始化 + 页面首查完成
-        return new TestHost(vm, panel, stub, toast, filters);
+        var vm = new SessionsViewModel(ShellPages.For(PageId.Sessions), filters, stub, toast);
+        Dispatcher.UIThread.RunJobs(); // 页面首查完成
+        return new TestHost(vm, stub, toast, filters);
     }
 
-    /// <summary>页面查询（页大小 50 或合并模式不分页），剔除右栏最近会话的 Top6 查询。</summary>
+    /// <summary>页面查询记账（右栏撤除后全部 SessionQueries 均为页面查询）。</summary>
     private static List<SessionListQuery> PageQueries(StubQueryService stub) =>
-        stub.SessionQueries.Where(q => q.PageSize is null || q.PageSize != SessionsPanelViewModel.RecentTopN).ToList();
+        stub.SessionQueries.ToList();
 
     // ── 1. 页面状态 → I-029 查询映射（组合筛选）──
 
     [AvaloniaFact]
     public void Combined_filters_map_to_session_list_query()
     {
-        var stub = new StubQueryService
-        {
-            Agents = CatalogAgents(),
-            Models = CatalogModels(),
-            Projects = CatalogProjects(),
-            AllSessions = GenerateSessions(120),
-        };
+        var stub = new StubQueryService { AllSessions = GenerateSessions(120) };
         var host = CreateHost(stub);
 
         host.Filters.TimeRange = TimeRangeOption.Options[2]; // 最近 30 天
         host.Filters.Agent = new AgentOption("Claude Code", "Claude Code");
+        host.Filters.Model = new ModelFilterOption("model-b");
+        host.Filters.Project = new ProjectFilterOption("/tmp/beta");
         host.Vm.SearchText = "algo";
         host.Vm.CommitSearchForTests();
         host.Vm.SelectedSort = host.Vm.SortOptions[1]; // 按成本排序
-        host.Panel.ModelFilter = host.Panel.ModelFilterOptions[^1]; // model-b
-        host.Panel.ProjectFilter = host.Panel.ProjectFilterOptions[^1]; // /tmp/beta
-        host.Panel.ApplyQuickFiltersCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
 
         var query = PageQueries(stub).Last();
         Assert.Equal("algo", query.SearchTerm);
         Assert.Equal(SessionSortField.Cost, query.SortBy);
         Assert.True(query.SortDescending);
-        Assert.Equal("Claude Code", query.Filter.Agent);
         var today = DateOnly.FromDateTime(DateTime.Today);
         Assert.Equal(UsageQueryFilter.FormatDay(today.AddDays(-29)), query.Filter.FromDay);
         Assert.Equal(UsageQueryFilter.FormatDay(today), query.Filter.ToDay);
-        Assert.Equal("model-b", query.Model);
-        Assert.Equal("/tmp/beta", query.Project);
+        // 四维全部进 Filter（右栏撤除定案：Model/Project 不再走 SessionListQuery 页级字段）
+        Assert.Equal("Claude Code", query.Filter.Agent);
+        Assert.Equal("model-b", query.Filter.Model);
+        Assert.Equal("/tmp/beta", query.Filter.Project);
         Assert.Equal(1, query.Page);
         Assert.Equal(SessionsViewModel.PageSize, query.PageSize);
+    }
+
+    [AvaloniaFact]
+    public void Build_session_query_carries_all_four_global_dimensions()
+    {
+        var stub = new StubQueryService { AllSessions = GenerateSessions(120) };
+        var host = CreateHost(stub);
+
+        host.Filters.Agent = new AgentOption("Claude Code");
+        host.Filters.Model = new ModelFilterOption("model-a");
+        host.Filters.Project = new ProjectFilterOption("/tmp/alpha");
+        Dispatcher.UIThread.RunJobs();
+
+        var query = host.Vm.BuildSessionQuery(GlobalFilterMapper.Build(host.Filters), page: 1);
+        Assert.Equal("Claude Code", query.Filter.Agent);
+        Assert.Equal("model-a", query.Filter.Model);
+        Assert.Equal("/tmp/alpha", query.Filter.Project);
+        // 会话契约页级 Model/Project 字段已随右栏撤除停用（恒 null，不再双口径）
+        Assert.Null(query.Model);
+        Assert.Null(query.Project);
     }
 
     // ── 2. 分页渲染 + 加载更多 + 计数条 ──
@@ -453,80 +416,42 @@ public class SessionsTests
         Assert.Equal(SessionSortField.Cost, PageQueries(stub).Last().SortBy);
     }
 
-    // ── 5/6/7. Agent 复选集 → 查询范围（右栏联动定案）──
+    // ── 5. 顶栏全局筛选驱动重查（右栏撤除定案：页级快速筛选并入顶栏全局四维）──
 
     [AvaloniaFact]
-    public void Checkbox_all_checked_maps_to_no_agent_filter()
+    public void Global_agent_filter_drives_page_reload_with_single_value()
     {
-        var stub = new StubQueryService { Agents = CatalogAgents(), AllSessions = GenerateSessions(120) };
+        var stub = new StubQueryService { AllSessions = GenerateSessions(120) };
         var host = CreateHost(stub);
 
-        Assert.Equal(3, host.Panel.AgentFilterCount);
-        Assert.All(host.Panel.AgentFilters, a => Assert.True(a.IsChecked));
-        // 全勾 = 不过滤（页级复选集不收窄；全局 Agent 亦未选）
-        Assert.Null(PageQueries(stub).Last().Filter.Agent);
-    }
-
-    [AvaloniaFact]
-    public void Checkbox_single_agent_maps_to_single_value_filter()
-    {
-        var stub = new StubQueryService { Agents = CatalogAgents(), AllSessions = GenerateSessions(120) };
-        var host = CreateHost(stub);
-
-        host.Panel.AgentFilters[0].IsChecked = false; // Claude Code
-        host.Panel.AgentFilters[2].IsChecked = false; // Cursor
-        host.Panel.ApplyQuickFiltersCommand.Execute(null);
+        host.Filters.Agent = new AgentOption("Codex", "Codex");
         Dispatcher.UIThread.RunJobs();
 
         var query = PageQueries(stub).Last();
         Assert.Equal("Codex", query.Filter.Agent);
-        Assert.Equal(SessionsViewModel.PageSize, query.PageSize); // 单值走服务分页
+        Assert.Equal(SessionsViewModel.PageSize, query.PageSize); // 全局单选走服务分页
+        // stub 同口径过滤：fixture 120 行中 Codex 占 40（i%3==1）
+        Assert.Equal(40, host.Vm.TotalCount);
     }
 
     [AvaloniaFact]
-    public void Checkbox_subset_merges_per_agent_and_sorts_client_side()
+    public void Global_model_and_project_filters_drive_page_reload()
     {
-        var stub = new StubQueryService { Agents = CatalogAgents(), AllSessions = HandcraftedSessions() };
-        var host = CreateHost(stub);
-
-        host.Panel.AgentFilters[2].IsChecked = false; // 只勾 Claude Code + Codex → 真子集
-        host.Panel.ApplyQuickFiltersCommand.Execute(null);
-        Dispatcher.UIThread.RunJobs();
-
-        // 并集无法在单值 Agent 过滤里表达 → 逐已选 Agent 查询（PageSize=null 不分页）
-        var queries = PageQueries(stub).TakeLast(2).ToList();
-        Assert.All(queries, q => Assert.Null(q.PageSize));
-        Assert.Equal(["Claude Code", "Codex"], queries.Select(q => q.Filter.Agent!).ToArray());
-
-        // 合并后按查询排序口径（Token 降序 + SessionId 平局键）排序；4 行 < 页大小 → 首屏即全集
-        Assert.Equal(new[] { "x1", "c1", "c2", "x2" }, host.Vm.Rows.Select(r => r.SessionId).ToArray());
-        Assert.Equal("显示 4 / 4 条", host.Vm.CountText); // Cursor 行被排除，计数如实
-        Assert.False(host.Vm.HasMore);
-    }
-
-    [AvaloniaFact]
-    public void Global_agent_with_unloaded_catalog_falls_back_to_global_single()
-    {
-        // 审查修复轮 P2-1 启动竞态：全局已选 Agent 而 AgentCatalogService 尚未返回（复选组为空）时，
-        // 原实现对空复选集取交集得 Empty → 页面假呈"没有匹配的会话"且选项到位后无重查。
-        // 修复：目录未就绪时走 Single(全局) 兜底（与复选组未加载的 NoRestriction 分支同一原则）。
         var stub = new StubQueryService { AllSessions = GenerateSessions(120) };
-        stub.HoldNextAgents(CatalogAgents()); // 目录查询挂起：页面首查发生时复选组必然未就绪
-        var filters = new FilterStateService();
-        filters.Agent = new AgentOption("Codex", "Codex");
-        var host = CreateHost(stub, filters);
+        var host = CreateHost(stub);
+        var afterInit = PageQueries(stub).Count;
 
-        var first = Assert.Single(PageQueries(stub));
-        Assert.Equal("Codex", first.Filter.Agent); // 全局单选继续生效，而非 Empty 假空态
-        Assert.Equal(40, host.Vm.Rows.Count); // fixture 120 行中 Codex 占 40（i%3==1），stub 按口径过滤
-        Assert.Equal("显示 40 / 40 条", host.Vm.CountText); // Y = 过滤后总数（同真实服务口径）
-
-        // 选项就绪后不强制重查：全选 ∩ 全局单选 = 全局单选，当前页面数据与交集语义一致
-        stub.ReleaseHeldAgents();
+        // 两个维度先后各触发一次重查（FilterStateService.AffectsQueries 口径）
+        host.Filters.Model = new ModelFilterOption("model-b");
+        host.Filters.Project = new ProjectFilterOption("/tmp/project-1");
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(3, host.Panel.AgentFilterCount);
-        Assert.Single(PageQueries(stub));
-        Assert.Equal(40, host.Vm.Rows.Count);
+
+        Assert.Equal(afterInit + 2, PageQueries(stub).Count);
+        var query = PageQueries(stub).Last();
+        Assert.Equal("model-b", query.Filter.Model);
+        Assert.Equal("/tmp/project-1", query.Filter.Project);
+        // stub 同口径过滤：i%2==1 ∧ i%5==1（≡1 mod 10）→ 12 行
+        Assert.Equal(12, host.Vm.TotalCount);
     }
 
     [AvaloniaFact]
@@ -561,27 +486,6 @@ public class SessionsTests
         Assert.Equal("显示 50 / 120 条", host.Vm.CountText);
     }
 
-    [AvaloniaFact]
-    public void Global_agent_intersecting_checkbox_subset_yields_honest_empty()
-    {
-        var stub = new StubQueryService { Agents = CatalogAgents(), AllSessions = HandcraftedSessions() };
-        var host = CreateHost(stub);
-
-        host.Filters.Agent = new AgentOption("Claude Code", "Claude Code");
-        Dispatcher.UIThread.RunJobs();
-        var queriesAfterGlobal = PageQueries(stub).Count;
-        Assert.Equal("Claude Code", PageQueries(stub).Last().Filter.Agent);
-
-        // 复选集不含全局选中的 Agent：交集为空 → 诚实空态，不发查询
-        host.Panel.AgentFilters[0].IsChecked = false;
-        host.Panel.ApplyQuickFiltersCommand.Execute(null);
-        Dispatcher.UIThread.RunJobs();
-
-        Assert.Equal(queriesAfterGlobal, PageQueries(stub).Count);
-        Assert.Empty(host.Vm.Rows);
-        Assert.Equal("显示 0 / 0 条", host.Vm.CountText);
-    }
-
     // ── 6. 未知成本列 ──
 
     [AvaloniaFact]
@@ -602,26 +506,21 @@ public class SessionsTests
     [AvaloniaFact]
     public void Ten_thousand_rows_virtualize_to_viewport_containers()
     {
-        // subset 合并模式（PageSize=null）让客户端真正持有约 2/3 的万行全集：
-        // 首屏取页大小 50，经「加载更多」补齐全部 6,667 行（顺带覆盖子集模式的客户端分页路径），
+        // 全局无过滤的全集分页：首屏取页大小 50，经「加载更多」补齐全部 10,000 行，
         // 再断言 ListBox 只实例化视口内的行（真机滚动流畅性留人工目检，见任务卡 Verification）。
-        var stub = new StubQueryService { Agents = CatalogAgents(), AllSessions = GenerateSessions(10_000) };
+        var stub = new StubQueryService { AllSessions = GenerateSessions(10_000) };
         var host = CreateHost(stub);
 
-        host.Panel.AgentFilters[2].IsChecked = false; // Claude Code + Codex 两个 Agent 的并集
-        host.Panel.ApplyQuickFiltersCommand.Execute(null);
-        Dispatcher.UIThread.RunJobs();
-
         Assert.Equal(50, host.Vm.Rows.Count);
-        Assert.Equal(6_667, host.Vm.TotalCount);
+        Assert.Equal(10_000, host.Vm.TotalCount);
         while (host.Vm.HasMore)
         {
             host.Vm.LoadMoreCommand.Execute(null);
         }
 
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(6_667, host.Vm.Rows.Count);
-        Assert.Equal("显示 6,667 / 6,667 条", host.Vm.CountText);
+        Assert.Equal(10_000, host.Vm.Rows.Count);
+        Assert.Equal("显示 10,000 / 10,000 条", host.Vm.CountText);
 
         var window = new Window { Width = 1280, Height = 800, Content = new SessionsView { DataContext = host.Vm } };
         window.Show();
@@ -630,7 +529,7 @@ public class SessionsTests
         var list = window.GetVisualDescendants().OfType<ListBox>()
             .First(lb => lb.Classes.Contains("data-table")); // Q-002：原 session-table 类收编为共享 data-table
         var realized = list.GetRealizedContainers().ToList();
-        Assert.InRange(realized.Count, 1, 200); // 远小于 6,667 —— 虚拟化生效
+        Assert.InRange(realized.Count, 1, 200); // 远小于 10,000 —— 虚拟化生效
         Assert.True(realized.Count < host.Vm.Rows.Count);
 
         window.Close();
@@ -675,7 +574,6 @@ public class SessionsTests
         host.Vm.Dispose();
         host.Filters.TimeRange = TimeRangeOption.Options[2];
         host.Filters.Agent = new AgentOption("Codex", "Codex");
-        host.Panel.ClearQuickFiltersCommand.Execute(null); // 右栏提交事件不再触达页面
         host.Vm.SearchText = "algo";
         host.Vm.CommitSearchForTests(); // 防抖提交也不应再触发
         Dispatcher.UIThread.RunJobs();
@@ -686,7 +584,7 @@ public class SessionsTests
     // ── 10. Agent 清单目录（单一真相源 + 服务层缓存）──
 
     [AvaloniaFact]
-    public void Agent_catalog_feeds_filter_state_and_panel_checkboxes()
+    public void Agent_catalog_feeds_global_filter_options()
     {
         var stub = new StubQueryService { Agents = CatalogAgents() };
         var catalog = new AgentCatalogService(stub);
@@ -703,12 +601,6 @@ public class SessionsTests
         filters.UpdateAgentOptions(options);
         Assert.True(notified);
         Assert.Equal(options, filters.AgentOptions);
-
-        // 右栏复选组共用同一份缓存（panel 走同一 catalog 实例）
-        var panel = new SessionsPanelViewModel(
-            new StubToast(), stub, catalog, filters);
-        Dispatcher.UIThread.RunJobs();
-        Assert.Equal(new[] { "Claude Code", "Codex", "Cursor" }, panel.AgentFilters.Select(a => a.AgentId).ToArray());
 
         // 缓存：第二次请求不再打查询服务
         var before = stub.SessionQueries.Count;
@@ -736,7 +628,6 @@ public class SessionsTests
             filters,
             AppServices.Get<SettingsViewModel>(),
             AppServices.Get<DataPricingViewModel>(),
-            new SessionsPanelViewModel(new StubToast(), failStub, catalog, filters),
             failStub,
             catalog,
             new StubToast(),
@@ -745,80 +636,7 @@ public class SessionsTests
         Assert.Equal(new[] { AgentOption.All }, filters.AgentOptions);
     }
 
-    // ── 11. 右栏最近会话 ──
-
-    [AvaloniaFact]
-    public void Recent_sessions_follow_global_filter_with_top_n()
-    {
-        var stub = new StubQueryService { AllSessions = GenerateSessions(8) };
-        var filters = new FilterStateService();
-        var host = CreateHost(stub, filters);
-
-        // Top6（对齐原型 slice(0,6)），最近活动降序
-        Assert.Equal(SessionsPanelViewModel.RecentTopN, host.Panel.RecentSessions.Count);
-        Assert.Equal("session-000007", host.Panel.RecentSessions[0].SessionId);
-        Assert.True(host.Panel.HasRecentSessions);
-
-        var recentQuery = stub.SessionQueries[0];
-        Assert.Equal(SessionSortField.LastSeenAt, recentQuery.SortBy);
-        Assert.True(recentQuery.SortDescending);
-        Assert.Equal(SessionsPanelViewModel.RecentTopN, recentQuery.PageSize);
-
-        // 全局筛选切换 → 最近会话重查（映射窗口正确；右栏查询以页大小 = TopN 识别）
-        filters.TimeRange = TimeRangeOption.Options[2];
-        Dispatcher.UIThread.RunJobs();
-        var latest = stub.SessionQueries.Where(q => q.PageSize == SessionsPanelViewModel.RecentTopN).Last();
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        Assert.Equal(UsageQueryFilter.FormatDay(today.AddDays(-29)), latest.Filter.FromDay);
-
-        // 行展示：紧凑 token + 相对时间（fixture 最新行落在未来 27 分钟，时钟偏差防御收敛为「刚刚」）
-        Assert.EndsWith(" tokens", host.Panel.RecentSessions[0].TokensText);
-        Assert.Equal("刚刚", host.Panel.RecentSessions[0].TimeText);
-    }
-
-    // ── 12. 右栏提交点（应用/清除）──
-
-    [AvaloniaFact]
-    public void Panel_apply_and_clear_commit_and_toast()
-    {
-        var stub = new StubQueryService
-        {
-            Agents = CatalogAgents(),
-            Models = CatalogModels(),
-            Projects = CatalogProjects(),
-            AllSessions = GenerateSessions(120),
-        };
-        var host = CreateHost(stub);
-        var afterInit = PageQueries(stub).Count;
-
-        // 改动暂存（勾选/下拉不直接触发重查）
-        host.Panel.AgentFilters[0].IsChecked = false;
-        host.Panel.ModelFilter = host.Panel.ModelFilterOptions[^1];
-        Dispatcher.UIThread.RunJobs();
-        Assert.Equal(afterInit, PageQueries(stub).Count);
-
-        // 应用筛选 → 提交 + toast（原型 applyFilters 同款文案）；剩 2 个勾选 → 真子集逐 Agent 查询
-        host.Panel.ApplyQuickFiltersCommand.Execute(null);
-        Dispatcher.UIThread.RunJobs();
-        Assert.Equal(afterInit + 2, PageQueries(stub).Count);
-        var subsetQueries = PageQueries(stub).TakeLast(2).ToList();
-        Assert.Equal(new[] { "Codex", "Cursor" }, subsetQueries.Select(q => q.Filter.Agent!).ToArray());
-        Assert.All(subsetQueries, q => Assert.Null(q.PageSize)); // 并集走不分页合并
-        Assert.Contains(host.Toast.Messages, m => m.StartsWith("筛选已应用："));
-
-        // 清除 → 复位（全勾 + 全部模型/项目）+ 提交 + toast；全勾 → 单查询不过滤
-        host.Panel.ClearQuickFiltersCommand.Execute(null);
-        Dispatcher.UIThread.RunJobs();
-        Assert.All(host.Panel.AgentFilters, a => Assert.True(a.IsChecked));
-        Assert.Equal(ModelFilterOption.All, host.Panel.ModelFilter);
-        Assert.Equal(ProjectFilterOption.All, host.Panel.ProjectFilter);
-        Assert.Contains("筛选条件已清除", host.Toast.Messages);
-        Assert.Null(PageQueries(stub).Last().Filter.Agent);
-        Assert.Equal(SessionsViewModel.PageSize, PageQueries(stub).Last().PageSize);
-        Assert.Equal(afterInit + 3, PageQueries(stub).Count);
-    }
-
-    // ── 13. 下钻 toast 占位（页面行 + 右栏行）──
+    // ── 13. 下钻 toast 占位（页面行）──
 
     [AvaloniaFact]
     public void Session_row_click_shows_planned_details_toast()
@@ -831,15 +649,6 @@ public class SessionsTests
         Assert.Contains(host.Vm.Rows[0].SessionId, message);
         Assert.Contains("规划中", message);
         Assert.Null(host.Vm.SelectedSession); // 选中态复位，同一行可再次点击
-
-        host.Panel.SelectedRecentSession = null; // 无最近会话（stub 空目录下初始即无）
-        host.Panel.RecentSessions.Clear(); // 直接驱动一行用于点击断言
-        host.Panel.RecentSessions.Add(new RecentSessionRowViewModel(
-            new SessionListRow { SessionId = "s-x", Agent = "Codex", LastSeenAt = DateTimeOffset.Now, TotalTokens = 1_234_567 }));
-        host.Panel.SelectedRecentSession = host.Panel.RecentSessions[0];
-        Assert.Equal(2, host.Toast.Messages.Count);
-        Assert.Contains("s-x", host.Toast.Messages[1]);
-        Assert.Null(host.Panel.SelectedRecentSession);
     }
 
     // ── 14. 相对时间格式 ──
@@ -870,9 +679,7 @@ public class SessionsTests
     {
         var query = AppServices.Get<IUsageQueryService>();
         var filters = new FilterStateService();
-        var panel = new SessionsPanelViewModel(
-            AppServices.Get<IToastService>(), query, new AgentCatalogService(query), filters);
-        var vm = new SessionsViewModel(ShellPages.For(PageId.Sessions), filters, query, panel, AppServices.Get<IToastService>());
+        var vm = new SessionsViewModel(ShellPages.For(PageId.Sessions), filters, query, AppServices.Get<IToastService>());
 
         // 同口径直查（默认筛选 = 最近 7 天 · 所有 Agent · 按 Token 降序 · 首页 50）
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -914,12 +721,12 @@ public class SessionsTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    // ── 16. 明暗截图留档（含右栏）──
+    // ── 16. 明暗截图留档（两栏外壳）──
 
     [AvaloniaFact]
     public void Sessions_page_renders_light_and_dark_screenshots_for_archive()
     {
-        // 整窗外壳截图（含右栏最近会话 + 快速筛选）：真实 DI 数据，条目随本机 facts 而定。
+        // 整窗外壳截图（两栏外壳 + 顶栏四维筛选）：真实 DI 数据，条目随本机 facts 而定。
         var dir = Environment.GetEnvironmentVariable("TOKENMETRY_SESSIONS_PREVIEW_DIR");
 
         foreach (var (variant, fileName) in new (ThemeVariant, string)[]

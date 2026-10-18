@@ -182,6 +182,11 @@ public class DimensionPagesTests
                 rows = rows.Where(r => string.Equals(r.Agent, agent, StringComparison.Ordinal));
             }
 
+            if (query.Filter.Project is { } filterProject)
+            {
+                rows = rows.Where(r => string.Equals(r.Project, filterProject, StringComparison.Ordinal));
+            }
+
             if (query.Project is { } project)
             {
                 rows = rows.Where(r => string.Equals(r.Project, project, StringComparison.Ordinal));
@@ -317,14 +322,13 @@ public class DimensionPagesTests
     private static MainWindowViewModel CreateShell(StubQueryService stub, FilterStateService filters, StubToast toast)
     {
         var catalog = new AgentCatalogService(stub);
-        var panel = new SessionsPanelViewModel(toast, stub, catalog, filters);
-        return new MainWindowViewModel(filters, AppServices.Get<SettingsViewModel>(), AppServices.Get<DataPricingViewModel>(), panel, stub, catalog, toast,
+        return new MainWindowViewModel(filters, AppServices.Get<SettingsViewModel>(), AppServices.Get<DataPricingViewModel>(), stub, catalog, toast,
             AppServices.Get<Core.Services.PricingEngine>());
     }
 
-    /// <summary>页面会话查询（剔除右栏最近会话的 Top6 查询）。</summary>
+    /// <summary>页面会话查询记账（右栏撤除后全部 SessionQueries 均为页面查询）。</summary>
     private static List<SessionListQuery> PageQueries(StubQueryService stub) =>
-        stub.SessionQueries.Where(q => q.PageSize is null || q.PageSize != SessionsPanelViewModel.RecentTopN).ToList();
+        stub.SessionQueries.ToList();
 
     // ══════════════════════════ D-009 Agent 统计页 ══════════════════════════
 
@@ -764,7 +768,8 @@ public class DimensionPagesTests
     [AvaloniaFact]
     public void Project_row_click_navigates_shell_to_filtered_sessions_and_clears()
     {
-        // TC-001 端到端：行点击 = 右栏页级项目筛选程序化应用 + 导航 + 会话页过滤；「清除」可复位
+        // TC-001 端到端（右栏撤除定案）：行点击 = 写入全局 Project 筛选 + 导航 + 会话页过滤；
+        // 顶栏「全部项目」可复位
         var stub = new StubQueryService
         {
             Projects = FixtureProjects(),
@@ -786,22 +791,20 @@ public class DimensionPagesTests
         projects.SelectedProject = projects.Rows[0]; // /work/alpha
         Dispatcher.UIThread.RunJobs();
 
-        // 落地会话页；筛选在右栏下拉可见（ProjectFilter）且首查已带上项目过滤
+        // 落地会话页；全局 Project 筛选已选中该项目（顶栏可见）且首查已带上项目过滤
         var sessions = Assert.IsType<SessionsViewModel>(shell.CurrentPage);
-        var panel = shell.SessionsPanel;
-        Assert.Equal("/work/alpha", panel.ProjectFilter.Path);
-        Assert.Equal("alpha", panel.ProjectFilter.Label);
+        Assert.Equal(PageId.Sessions, sessions.Page.Id);
+        Assert.Equal("/work/alpha", filters.Project.Path);
         var query = Assert.Single(PageQueries(stub));
-        Assert.Equal("/work/alpha", query.Project);
+        Assert.Equal("/work/alpha", query.Filter.Project);
         Assert.Null(query.Filter.Agent); // 全局 Agent 未选
         Assert.Equal(2, sessions.TotalCount); // alpha 两会话
 
-        // 「清除」复位：回到全部项目，重查不再带项目过滤
-        panel.ClearQuickFiltersCommand.Execute(null);
+        // 「全部项目」复位：回到全部项目，重查不再带项目过滤
+        filters.Project = ProjectFilterOption.All;
         Dispatcher.UIThread.RunJobs();
-        Assert.Null(panel.ProjectFilter.Path);
-        Assert.Equal(ProjectFilterOption.All, panel.ProjectFilter);
-        Assert.Null(PageQueries(stub).Last().Project);
+        Assert.Equal(ProjectFilterOption.All, filters.Project);
+        Assert.Null(PageQueries(stub).Last().Filter.Project);
     }
 
     [AvaloniaFact]
@@ -816,7 +819,7 @@ public class DimensionPagesTests
         var filters = new FilterStateService();
         var shell = CreateShell(stub, filters, new StubToast());
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(new[] { ProjectFilterOption.All }, shell.SessionsPanel.ProjectFilterOptions);
+        Assert.Equal(new[] { ProjectFilterOption.All }, filters.ProjectOptions);
 
         stub.Projects = FixtureProjects(); // 目录缓存之后才有数据
         shell.SelectedNavigation = shell.NavigationItems[4]; // 项目统计
@@ -826,19 +829,15 @@ public class DimensionPagesTests
         projects.SelectedProject = projects.Rows[0];
         Dispatcher.UIThread.RunJobs();
 
-        var panel = shell.SessionsPanel;
-        Assert.Equal("/work/alpha", panel.ProjectFilter.Path);
-        Assert.Single(panel.ProjectFilterOptions, o => o.Path == "/work/alpha"); // 追加一次，无重复
+        Assert.Equal("/work/alpha", filters.Project.Path);
+        Assert.Single(filters.ProjectOptions, o => o.Path == "/work/alpha"); // 追加一次，无重复
     }
 
     [AvaloniaFact]
-    public void Agent_jump_with_agent_outside_checkbox_snapshot_shows_sessions_and_recovers()
+    public void Agent_jump_with_agent_outside_catalog_snapshot_shows_sessions()
     {
-        // P1 审查修复回归（死胡同变体）：右栏复选组是启动期目录快照（[Alpha, Beta]），
-        // 新 Agent X 后台刷新入库（目录缓存整个生命周期不刷新）→ Agent 页显示 X → 点击 X 行。
-        // 修复前：只补全局选项 → 会话页 ResolveAgentScope 全局=X、复选组全勾但不含 X → Empty
-        // 硬呈"显示 0 / 0 条"，且「清除」只重勾已知复选项（X 仍不在）救不回。
-        // 修复后：同步补入已勾选的 X 复选项 → Single 模式正常出数，「清除」后仍按全局 X 出数。
+        // 快照缺项变体（右栏撤除后简化）：目录快照（[Alpha, Beta]）不含新 Agent X，后台刷新入库后
+        // Agent 页显示 X → 点击 X 行 → 全局选项如实补入 X（无界超集契约）→ 会话页按全局 X 正常出数。
         var stub = new StubQueryService
         {
             Agents = new[] { DimRow("Alpha", 100), DimRow("Beta", 50) }, // 启动期目录快照：不含 X
@@ -850,9 +849,8 @@ public class DimensionPagesTests
         };
         var filters = new FilterStateService();
         var shell = CreateShell(stub, filters, new StubToast());
-        Dispatcher.UIThread.RunJobs(); // 目录快照落缓存：全局选项 [All, Alpha, Beta]、复选组 [Alpha, Beta]
-        Assert.Equal(2, shell.SessionsPanel.AgentFilterCount);
-        Assert.DoesNotContain(shell.SessionsPanel.AgentFilters, a => a.AgentId == "X");
+        Dispatcher.UIThread.RunJobs(); // 目录快照落缓存：全局选项 [All, Alpha, Beta]
+        Assert.DoesNotContain(filters.AgentOptions, a => a.Id == "X");
 
         stub.Agents = new[] { DimRow("X", 999_999), DimRow("Alpha", 100), DimRow("Beta", 50) }; // 刷新后 X 入库
         shell.SelectedNavigation = shell.NavigationItems[2]; // Agent 统计
@@ -863,38 +861,19 @@ public class DimensionPagesTests
         agents.SelectedAgent = agents.Rows[0]; // 点击 X 行
         Dispatcher.UIThread.RunJobs();
 
-        // 死胡同解除：全局 X + 复选组补入已勾选 X（状态可见）→ 会话页正常出数
+        // 死胡同解除：全局 X（选项补入，顶栏可见可复位）→ 会话页正常出数
         var sessions = Assert.IsType<SessionsViewModel>(shell.CurrentPage);
         Assert.Equal("X", filters.Agent.Id);
-        Assert.Equal(3, shell.SessionsPanel.AgentFilterCount);
-        var appended = Assert.Single(shell.SessionsPanel.AgentFilters, a => a.AgentId == "X");
-        Assert.True(appended.IsChecked);
+        Assert.Single(filters.AgentOptions, a => a.Id == "X"); // 补入一次，无重复
         var jumpQuery = PageQueries(stub).Last();
         Assert.Equal("X", jumpQuery.Filter.Agent);
-        Assert.Equal(1, sessions.TotalCount); // x1 —— 而非修复前的 0/0 死胡同
+        Assert.Equal(1, sessions.TotalCount); // x1
 
-        // 「清除」复位：复选项全部重勾（含补入的 X）→ 全局 X 未动 → 仍按 X 出数（可恢复，非死胡同）
-        shell.SessionsPanel.ClearQuickFiltersCommand.Execute(null);
+        // 「所有 Agent」复位 → 重查不过滤（可恢复，非死胡同）
+        filters.Agent = AgentOption.All;
         Dispatcher.UIThread.RunJobs();
-        Assert.All(shell.SessionsPanel.AgentFilters, a => Assert.True(a.IsChecked));
-        Assert.Equal("X", PageQueries(stub).Last().Filter.Agent);
-        Assert.Equal(1, sessions.TotalCount);
-    }
-
-    [AvaloniaFact]
-    public void ApplyExternalProjectFilter_reuses_existing_option_without_duplicates()
-    {
-        var stub = new StubQueryService { Projects = FixtureProjects() };
-        var filters = new FilterStateService();
-        var catalog = new AgentCatalogService(stub);
-        var panel = new SessionsPanelViewModel(new StubToast(), stub, catalog, filters);
-        Dispatcher.UIThread.RunJobs(); // 选项清单 = fixture 三项
-
-        var before = panel.ProjectFilterOptions.Count;
-        panel.ApplyExternalProjectFilter("/work/beta", "beta");
-
-        Assert.Equal("/work/beta", panel.ProjectFilter.Path);
-        Assert.Equal(before, panel.ProjectFilterOptions.Count); // 已存在 → 不追加
+        Assert.Null(PageQueries(stub).Last().Filter.Agent);
+        Assert.Equal(2, sessions.TotalCount);
     }
 
     // ══════════════════════════ 冒烟与截图 ══════════════════════════
