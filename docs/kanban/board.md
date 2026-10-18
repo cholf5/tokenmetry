@@ -25,6 +25,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-18（B6）：**毛玻璃观感返工——"整面板即原生毛玻璃"（CodexBar 同款）**。用户目检否决 B5（半透明卡浮在更大的方形毛玻璃板上，两层皮 fringe）；取证 Avalonia.Native 12.1.4：AcrylicBlur = AutoFitContentView._blurBehind 铺满窗口矩形，毛玻璃天然窗口级、不随卡片成形。B6 改几何：acrylic 生效时窗口收缩到卡片（498→438、投影边距归零、去 BoxShadow），圆角与成形交平台原生——mac 新 interop 把 blur 视图 layer 裁 15px 圆角 + 窗口垫色置 clearColor + 开系统投影（MacPopoverBlurInterop，全指针/double 传参 Intel 兼容、失败回落方形）；Win11 DWM 原生圆角（Win10 方形=原生观感），卡片 Windows acrylic 态方形去描边。回落语义不变（失败=投影形态=B5 之前观感）。真机核账 (2051,30,438,437) 三连过、stderr 干净；blur 成形/明暗观感移交用户目检。
 
+> 2026-10-18（B6 返工）：**四角灰底根因——interop 从未执行**。一次性 stderr 诊断：TryGetPlatformHandle 实测 descriptor=NSWindow（非首版假设的 NSView），校验直接放弃 → blur 未裁圆角、窗口垫色（windowBackgroundColor）从四角圆角外露出。修正：描述符双形态接法（NSWindow 直用/NSView 走 [view window]）+ 内容容器层同步裁圆角（投影轮廓走圆角）+ Activated 幂等再成形（防平台重申垫色）+ interop 每进程一次性诊断。诊断留证 "blur 视图 #2 已成形（圆角 15、垫色置透明、开投影）"，全量 1314 绿。用户定调：放弃 CodexBar 式全毛玻璃的进一步追求（ROI），保留现面板、灰底移除即收工。
+
 > 2026-10-17（晚四）：**D-014 决策 C 收口**。用户三选一定案：**回落模板图标、关卡**——状态栏文本直显经 B1 取证在 Avalonia TrayIcon 上不可行，文本信息走菜单首行 + D-015/D-016 弹窗。位图路径（渲染器/字形分派/托盘接线）撤除回归原 A-0 语义；`TrayStatusText` 格式化器及纯函数测试保留给 D-015 复用。全量 1292 Passed。上游 `setLength` 修复未承诺，若未来仍要免点击文本走 interop 方案②携 B1 证据开新卡。
 
 > 2026-10-17（晚三）：**D-014 回退 Todo**。真机目检（用户截图）发现状态栏只见「M ·」——Avalonia 12.1.4 `trayicon.mm` `statusItemWithLength: NSSquareStatusItemLength` 固定方形且无 `setLength`，宽文字位图中段被裁（本机文本 "324.2M · $0.00" 中段恰为 M ·，证据链闭环记入卡内 B1）。**结论：硬裁剪非画质问题，位图方案在 macOS 不可行**，调优不可解。出路三选待用户决策：A 升级 interop（NSStatusItem 真文字，卡内预留方案②）；B 方形紧凑字妥协（3–4 字符）；C 回落模板图标关卡（等 D-015/016 或上游）。格式化器/降级分派/headless 断言按出路复用。
