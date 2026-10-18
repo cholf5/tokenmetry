@@ -12,7 +12,8 @@ namespace Tokenmetry.Infrastructure.ZCodeSqlite;
 /// - 计价门槛（蓝本 pricing_model / is_zai_provider）：Z.ai 限定 provider（或无 provider 的 glm-*
 ///   行）走定价引擎（CostUsd=null），且因 Z.ai 把新内容以 cache_creation 桶展示但按标准 input 价
 ///   计费，映射时把 cache_creation 并入 input（总量不变）；其余 provider（内部 UUID 等自定义源）
-///   CostUsd 记 0，与发布版 ccusage CLI 的 missingPricing / totalCost 0 口径一致。
+///   同样 CostUsd=null 交定价引擎——对 CLI missingPricing / totalCost 0 的有意分歧，见
+///   docs/reconciliation/2026-10-11-reconciliation.md §6。
 /// </summary>
 public static class ZCodeRecordMapper
 {
@@ -83,9 +84,11 @@ public static class ZCodeRecordMapper
             // I-036 三元组的 provider：账本自带的 provider_id（自定义源为内部 UUID——如实记录观测值，
             // 不映射成厂商；未检测到就是空串）。
             Provider = providerId?.Trim() ?? string.Empty,
-            // ZCode 账本不记逐请求成本：Z.ai 限定行走定价引擎（I-003），自定义 provider 行
-            // 记 0（蓝本 pricing_model 对非 Z.ai provider 返回 None → 成本 0 + 缺价警告）。
-            CostUsd = isZai ? null : 0m,
+            // ZCode 账本不记逐请求成本：全部行 CostUsd=null 交定价引擎三级解析（2026-10-18 定案；
+            // 旧口径"非 Z.ai 记 0"是 ccusage missingPricing/totalCost 0 的哨兵值，会经
+            // PricingEngine 的 LogCost 短路压掉用户的全部目录配置——见
+            // docs/plans/2026-10-18-zcode-custom-provider-pricing-design.md）。
+            CostUsd = null,
             InputTokens = inputTokens,
             OutputTokens = outputTokens,
             CacheCreationTokens = cacheCreation,
