@@ -770,6 +770,45 @@ public class DataPricingViewModelTests
         store.SaveCalls.Should().Be(1);
     }
 
+    [Fact]
+    public void SaveModelDefinition_PersistsOptionalCachePrices()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, store, catalog: new ModelCatalog());
+
+        viewModel.AddModelDefinitionCommand.Execute(null);
+        viewModel.ModelFormId = "my-own-model";
+        viewModel.ModelFormInput = "0.06";
+        viewModel.ModelFormOutput = "0.21";
+        viewModel.ModelFormCacheWrite = "0.075";
+        viewModel.ModelFormCacheRead = "0.006";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        viewModel.ModelFormError.Should().BeNull();
+        var saved = settings.ModelDefinitions.Single(d => ModelId.Normalize(d.Id) == "my-own-model");
+        saved.CacheWritePerMillion.Should().Be(0.075m);
+        saved.CacheReadPerMillion.Should().Be(0.006m);
+    }
+
+    [Fact]
+    public void SaveModelDefinition_WithInvalidCachePrice_ShowsInlineError()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, store, catalog: new ModelCatalog());
+
+        viewModel.AddModelDefinitionCommand.Execute(null);
+        viewModel.ModelFormId = "my-own-model";
+        viewModel.ModelFormInput = "0.06";
+        viewModel.ModelFormOutput = "0.21";
+        viewModel.ModelFormCacheWrite = "abc";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        viewModel.ModelFormError.Should().Be(Translations.Instance.ModelFormErrorPriceNumber);
+        store.SaveCalls.Should().Be(0);
+    }
+
     // ---- helpers ----
 
     private static readonly DateTimeOffset Now = new(2026, 10, 13, 10, 30, 0, TimeSpan.Zero);

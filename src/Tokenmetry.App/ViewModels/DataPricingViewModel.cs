@@ -517,6 +517,13 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     [ObservableProperty]
     private string _modelFormOutput = string.Empty;
 
+    /// <summary>缓存写 / 读单价输入（USD / 百万 tokens；各自独立可空——缺省由装订层按 input 推导）。</summary>
+    [ObservableProperty]
+    private string _modelFormCacheWrite = string.Empty;
+
+    [ObservableProperty]
+    private string _modelFormCacheRead = string.Empty;
+
     /// <summary>表单行内校验提示（非空并显示；合法 / 初始为 null 隐藏）。</summary>
     [ObservableProperty]
     private string? _modelFormError;
@@ -562,6 +569,31 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
             output = parsedOutput;
         }
 
+        // 缓存两价独立于 in/out 的成对校验：各自可空，填了就必须是合法数字（非法即报既有数字错误）。
+        decimal? cacheWrite = null;
+        decimal? cacheRead = null;
+        if (ModelFormCacheWrite.Trim().Length > 0)
+        {
+            if (!TryParsePrice(ModelFormCacheWrite.Trim(), out var parsedWrite))
+            {
+                ModelFormError = Translations.Instance.ModelFormErrorPriceNumber;
+                return;
+            }
+
+            cacheWrite = parsedWrite;
+        }
+
+        if (ModelFormCacheRead.Trim().Length > 0)
+        {
+            if (!TryParsePrice(ModelFormCacheRead.Trim(), out var parsedRead))
+            {
+                ModelFormError = Translations.Instance.ModelFormErrorPriceNumber;
+                return;
+            }
+
+            cacheRead = parsedRead;
+        }
+
         ModelFormError = null;
 
         // 只想改显示名 / 厂商时，预填进表单的生效价不应被"保存"成用户价格覆盖——那会把跟随
@@ -587,6 +619,8 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
             DisplayName = Blank(ModelFormDisplayName),
             InputPerMillion = input,
             OutputPerMillion = output,
+            CacheWritePerMillion = cacheWrite,
+            CacheReadPerMillion = cacheRead,
         };
 
         // 同 ID 覆盖（编辑既有条目 = 改写这一条的用户层，导入层数据仍在下面垫着）。
@@ -649,6 +683,12 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         ModelFormOutput = userEntry?.OutputPerMillion is { } output
             ? output.ToString(CultureInfo.InvariantCulture)
             : effective is { HasPrice: true } ? effective.OutputPerMillion.ToString(CultureInfo.InvariantCulture) : string.Empty;
+        ModelFormCacheWrite = userEntry?.CacheWritePerMillion is { } write
+            ? write.ToString(CultureInfo.InvariantCulture)
+            : effective is { HasPrice: true } ? effective.CacheWritePerMillion.ToString(CultureInfo.InvariantCulture) : string.Empty;
+        ModelFormCacheRead = userEntry?.CacheReadPerMillion is { } read
+            ? read.ToString(CultureInfo.InvariantCulture)
+            : effective is { HasPrice: true } ? effective.CacheReadPerMillion.ToString(CultureInfo.InvariantCulture) : string.Empty;
         ModelFormError = null;
         IsModelEditOpen = true;
     }
@@ -694,6 +734,8 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         ModelFormDisplayName = string.Empty;
         ModelFormInput = string.Empty;
         ModelFormOutput = string.Empty;
+        ModelFormCacheWrite = string.Empty;
+        ModelFormCacheRead = string.Empty;
         ModelFormError = null;
     }
 

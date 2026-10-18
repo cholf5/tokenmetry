@@ -302,6 +302,9 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ModelFormDisplayNameLabel)] = "显示名（可选）",
         [nameof(ModelFormInputLabel)] = "输入价（USD / 百万 tokens）",
         [nameof(ModelFormOutputLabel)] = "输出价（USD / 百万 tokens）",
+        [nameof(ModelFormCacheWriteLabel)] = "缓存写单价",
+        [nameof(ModelFormCacheReadLabel)] = "缓存读单价",
+        [nameof(ModelFormCancel)] = "取消",
         [nameof(ModelFormPriceHint)] = "价格可留空（只登记身份）；填则必须两项都填。缓存写 / 读按输入价 × 1.25 / × 0.1 推导。",
         [nameof(ModelFormSave)] = "保存",        [nameof(ModelFormReset)] = "清空",
         [nameof(ModelFormErrorIdInvalid)] = "模型 ID 无效：请用小写字母与数字，段间用连字符（如 glm-4-6）",
@@ -662,6 +665,9 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(FilterChipUser)] = "Custom",
         [nameof(FilterChipOverridden)] = "Overridden",
         [nameof(CatalogNoMatch)] = "No matching entries",
+        [nameof(ModelFormCacheWriteLabel)] = "Cache write price",
+        [nameof(ModelFormCacheReadLabel)] = "Cache read price",
+        [nameof(ModelFormCancel)] = "Cancel",
     };
 
     private static readonly string[] AllPropertyNames = typeof(Translations)
@@ -1020,6 +1026,9 @@ public sealed class Translations : INotifyPropertyChanged
     public string ModelFormDisplayNameLabel => Get();
     public string ModelFormInputLabel => Get();
     public string ModelFormOutputLabel => Get();
+    public string ModelFormCacheWriteLabel => Get();
+    public string ModelFormCacheReadLabel => Get();
+    public string ModelFormCancel => Get();
     public string ModelFormPriceHint => Get();
     public string ModelFormSave => Get();
     public string ModelFormReset => Get();
