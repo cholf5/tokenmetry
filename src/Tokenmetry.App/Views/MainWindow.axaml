@@ -352,7 +352,9 @@
                 </DockPanel>
             </Border>
 
-            <!-- 主内容区（页面路由；未落地页面为 PagePlaceholderView 占位） -->
+            <!-- 主内容区（页面路由；未落地页面为 PagePlaceholderView 占位）。
+                 进场过渡（motion design）：code-behind 监听 Content 变更，Opacity 0→1 +
+                 Y 8→0（180ms ease-out，TopLevel.RequestAnimationFrame 驱动），只有进场、无退出动画。 -->
             <ContentControl Grid.Column="1"
                             x:Name="PageHost"
                             Margin="22,22,22,30"
