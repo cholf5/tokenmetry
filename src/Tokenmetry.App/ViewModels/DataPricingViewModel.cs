@@ -113,6 +113,7 @@ public sealed class ModelDefinitionRowViewModel
         };
         IsOverridden = definition.IsPriceOverridden || definition.IsMetadataOverridden;
         HasPrice = definition.HasPrice;
+        Origin = definition.Origin;
     }
 
     /// <summary>模型 ID（小写连字符约定；删除 / 编辑按它精确定位）。</summary>
@@ -143,6 +144,13 @@ public sealed class ModelDefinitionRowViewModel
 
     /// <summary>是否有价（驱动价格列的"未定价"视觉区分）。</summary>
     public bool HasPrice { get; }
+
+    /// <summary>来源枚举（内置 / 在线 / 用户；UI 按它判定移除按钮可见性）。</summary>
+    public ModelDefinitionOrigin Origin { get; }
+
+    /// <summary>是否显示「移除覆盖」按钮：被用户改过（价格 / 元数据）或整条自建——
+    /// 纯导入层条目的移除是静默 no-op，不渲染假按钮。</summary>
+    public bool CanRemove => IsOverridden || Origin == ModelDefinitionOrigin.User;
 }
 
 /// <summary>
