@@ -313,6 +313,23 @@ public class DataPricingViewModelTests
     }
 
     [Fact]
+    public void AddAliasRule_WithUnknownTarget_ShowsInlineErrorAndDoesNotPersist()
+    {
+        // 落空的重定向会把身份解析带偏（悬空目标压掉原始名命中），录入侧直接劝阻。
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, store);
+
+        viewModel.NewAliasSource = "some-raw-name";
+        viewModel.NewAliasTarget = "totally-unknown-target-x";
+        viewModel.AddAliasRuleCommand.Execute(null);
+
+        viewModel.AliasError.Should().Be(Translations.Instance.AliasErrorTargetUnknown);
+        store.SaveCalls.Should().Be(0);
+        settings.ModelAliases.Should().BeEmpty();
+    }
+
+    [Fact]
     public void AddAliasRule_WithCaseVariantMapping_PersistsAndResolves()
     {
         // 大小写变体（GLM-5.3-Flash → glm-5.3-flash）是用户场景的核心：精确匹配的合法规则。

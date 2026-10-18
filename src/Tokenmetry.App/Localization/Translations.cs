@@ -169,6 +169,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(AliasRemove)] = "移除",
         [nameof(AliasErrorRequired)] = "原始模型名与规范名都不能为空",
         [nameof(AliasErrorSame)] = "原始模型名与规范名相同，无需映射",
+        [nameof(AliasErrorTargetUnknown)] = "目标模型不在模型目录中——请从候选中选择已存在的模型 ID",
         [nameof(AliasCandidatesHint)] = "候选来自本机数据中出现过的模型名（按用量排序）；也可输入任意字符串，为尚未出现的来源预留映射。",
         [nameof(AppearanceTitle)] = "外观与通用",
         [nameof(LabelTheme)] = "主题",
@@ -498,6 +499,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(AliasRemove)] = "Remove",
         [nameof(AliasErrorRequired)] = "Both the raw name and the canonical name are required",
         [nameof(AliasErrorSame)] = "Raw name and canonical name are identical — no mapping needed",
+        [nameof(AliasErrorTargetUnknown)] = "The target model is not in the catalog — pick an existing model ID from the candidates",
         [nameof(AliasCandidatesHint)] = "Candidates come from model names seen in local data (ordered by usage); you can also type any string to pre-map a name that has not appeared yet.",
         [nameof(AppearanceTitle)] = "Appearance & general",
         [nameof(LabelTheme)] = "Theme",
@@ -872,6 +874,7 @@ public sealed class Translations : INotifyPropertyChanged
     public string AliasRemove => Get();
     public string AliasErrorRequired => Get();
     public string AliasErrorSame => Get();
+    public string AliasErrorTargetUnknown => Get();
     public string AliasCandidatesHint => Get();
     public string AppearanceTitle => Get();
     public string LabelTheme => Get();
