@@ -9,7 +9,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| （空） | | | | | |
+| D-017 | 右栏撤除 + 顶栏四维全局筛选 + 会话行元数据升级 | P1 | 2026-10-18 | | |
 
 > 2026-10-17（晚五）：**D-015/D-016 状态栏快捷信息窗收口（同批落地，Todo 清空）**。内容层（D-015：`StatusPopoverView` 438px 卡 = 三格 KPI + Token 构成条 + Agent Top4 + 三态 banner，数据全走 IUsageQueryService / DashboardViewModel 既有回写）与壳层（D-016：无边框透明窗 + 失焦/Esc/再点收起，Windows `GetCursorPos` 光标上方 / macOS 主屏工作区右上零 interop 近似）一次成对实现；托盘左键改 Toggle 弹层，右键菜单不动。修正项六条逐条落卡（footer 取「最近会话 →」）；速率窗口实现为 45–90s（下限防启动缓存热载误判，卡内留证）；`DashboardViewModel` 增 `AnomalyDetected` 同源事件（无论 toast 开关）。XAML 限制留档：`Grid.ColumnDefinitions` 不可绑定 → `ProportionalColumns` 附加属性翻译。全量 1310 Passed（+18）；真机明暗 × 1x/2x 目检（含 macOS 锚点近似可否接受）移交用户。
 
