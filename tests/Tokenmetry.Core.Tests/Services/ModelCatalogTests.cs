@@ -111,6 +111,26 @@ public class ModelCatalogTests
     }
 
     [Fact]
+    public void ResolveIdentity_AliasToUnknownTargetFallsBackToRawNameHit()
+    {
+        // 落空的重定向不得压掉原始名的直接命中：别名目标不在目录、但原始名恰好是
+        // 用户条目 ID 时，按原始名条目关联（真实场景：glm-flash-latest 条目 + 悬空别名）。
+        var catalog = new ModelCatalog(
+            userDefinitions: new[]
+            {
+                new ModelDefinitionOverride { Id = "glm-flash-latest", InputPerMillion = 0.06m, OutputPerMillion = 0.21m },
+            },
+            aliases: new[] { new KeyValuePair<string, string>("glm-flash-latest", "totally-unknown-target-x") });
+
+        var identity = catalog.ResolveIdentity("glm-flash-latest");
+
+        identity.Kind.Should().Be(ModelMatchKind.Alias, "关联方式仍如实记为别名（用户显式指派过）");
+        identity.Id.Should().Be("glm-flash-latest");
+        identity.Definition.Should().NotBeNull();
+        identity.IsLinked.Should().BeTrue();
+    }
+
+    [Fact]
     public void ResolveIdentity_DatedVariantHitsFamilyRule()
     {
         var catalog = new ModelCatalog();

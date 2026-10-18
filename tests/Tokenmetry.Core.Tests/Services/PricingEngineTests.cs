@@ -509,6 +509,23 @@ public class PricingEngineTests
         };
     }
 
+    [Fact]
+    public void TryResolveModelPrice_FallingBackAliasStillMatchesUserEntry()
+    {
+        var catalog = new ModelCatalog(
+            userDefinitions: new[]
+            {
+                new ModelDefinitionOverride { Id = "glm-flash-latest", InputPerMillion = 0.06m, OutputPerMillion = 0.21m },
+            });
+        catalog.UpdateAliases(new[] { new KeyValuePair<string, string>("glm-flash-latest", "totally-unknown-target-x") });
+        var engine = new PricingEngine(catalog: catalog);
+
+        var resolved = engine.TryResolveModelPrice("glm-flash-latest", out var price);
+
+        resolved.Should().BeTrue();
+        price.Source.Should().Be(PricingSourceKind.UserOverride);
+    }
+
     private static UsageRecord CreateRecord(
         string model,
         decimal? costUsd,

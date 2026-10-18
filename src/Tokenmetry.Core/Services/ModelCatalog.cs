@@ -191,10 +191,24 @@ public sealed class ModelCatalog : IModelNameResolver
         var aliased = _aliasResolver.Resolve(rawModelName);
         if (!string.Equals(aliased, rawModelName.Trim(), StringComparison.Ordinal))
         {
-            // 规则命中即用户显式指派：无论目录里有没有对应条目，都按规则结果聚合（保持既有语义）；
-            // 目录里恰有该名字时把条目一并带出（价格 / 图标跟着走），关联方式仍如实记为「别名」。
+            // 规则命中即用户显式指派：目录里恰有该名字时把条目一并带出（价格 / 图标跟着走），
+            // 关联方式仍如实记为「别名」。
             var aliasHit = LookupByName(state, aliased);
-            return new ModelIdentity(aliasHit?.Id ?? aliased, aliased, aliasHit, ModelMatchKind.Alias);
+            if (aliasHit is not null)
+            {
+                return new ModelIdentity(aliasHit.Id, aliased, aliasHit, ModelMatchKind.Alias);
+            }
+
+            // 别名落空回落：目标不在目录时不得压掉原始名的直接命中（典型：用户条目按原始名
+            // ID 建了价，又配了一条目标还没进目录的别名）。回落按原始名再查一次，查到就按它
+            // 聚合与计价；仍查不到才返回别名解析名（保持"不猜"）。
+            var fallbackHit = LookupByName(state, rawModelName);
+            if (fallbackHit is not null)
+            {
+                return new ModelIdentity(fallbackHit.Id, rawModelName.Trim(), fallbackHit, ModelMatchKind.Alias);
+            }
+
+            return new ModelIdentity(aliased, aliased, null, ModelMatchKind.Alias);
         }
 
         var hit = LookupByName(state, aliased);
