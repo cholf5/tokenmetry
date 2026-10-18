@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Tokenmetry.App.Localization;
 using Tokenmetry.Core.Models;
 using ScottPlot;
@@ -41,7 +42,8 @@ public sealed class TrendChartHoverEventArgs : EventArgs
 
 /// <summary>
 /// D-004 正式趋势图控件（ScottPlot 5）：日趋势（输入/输出堆叠柱 + 总量折线）、成本折线、小时折线
-/// 三形态共用同一 AvaPlot 与 hover helper（crosshair + tooltip + 右缘/上缘裁剪翻转）。
+/// 三形态共用同一 AvaPlot 与 hover helper（crosshair 准星 + Avalonia 浮层浮窗：像素锚点经
+/// ComputeTooltipOrigin 计算、DispatcherTimer 每帧 lerp 平滑移动，样式见 SharedStyles chart-hovertip）。
 /// 设计基准：docs/design/ccusage_analytics_prototype.html（.chart 的 barin/barout/line/point、
 /// 图例三色 = :root blue/purple/cyan 变量 → AppAccentBlue/Purple/CyanBrush）。
 /// 数据经样式属性传入（无 DataContext 依赖），变更即整图重建。
@@ -95,7 +97,15 @@ public partial class TrendChart : UserControl
     public event EventHandler<TrendChartHoverEventArgs>? HoverChanged;
 
     private Crosshair? _crosshair;
-    private Tooltip? _tooltip;
+
+    // 浮窗插值状态（motion design）：目标位 = ComputeTooltipOrigin 锚点；当前位每帧 lerp 逼近
+    private Avalonia.Point _tipCurrent;   // 浮窗当前像素位置（插值状态）
+    private Avalonia.Point _tipTarget;    // 浮窗目标像素位置
+    private readonly DispatcherTimer _tipTimer;
+
+    /// <summary>浮窗位移变换（Avalonia XAML 不支持对 Transform x:Name，从 Border.RenderTransform 取）。</summary>
+    private Avalonia.Media.TranslateTransform HoverTipTranslate =>
+        (Avalonia.Media.TranslateTransform)HoverTip.RenderTransform!;
 
     /// <summary>悬停候选点（下标与 _hoverLabels 一一对应；拾取在像素 X 空间做最近点匹配）。</summary>
     private Coordinates[] _hoverCoords = Array.Empty<Coordinates>();
@@ -117,6 +127,10 @@ public partial class TrendChart : UserControl
         // 订阅控件自身事件（EffectiveThemeVariant 继承 App/Window 的设置，含 app.TrySetTheme 路径）。
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
         AttachedToVisualTree += (_, _) => RebuildPlot();
+
+        // 浮窗插值时钟：仅在悬停激活/未到位时运行，静止即停（零开销）；16ms ≈ 60fps
+        _tipTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render,
+            (_, _) => TickTipInterpolation());
     }
 
     private void OnActualThemeVariantChanged(object? sender, EventArgs e) => RebuildPlot();
@@ -129,7 +143,6 @@ public partial class TrendChart : UserControl
         var plot = PlotControl.Plot;
         plot.Clear();
         _crosshair = null;
-        _tooltip = null;
         _hoverCoords = Array.Empty<Coordinates>();
         _hoverLabels = Array.Empty<string>();
 
@@ -152,7 +165,8 @@ public partial class TrendChart : UserControl
 
         ApplyChartChrome(plot);
 
-        // 共享 hover 视觉（crosshair + tooltip），初始隐藏
+        // 共享 hover 视觉：crosshair 准星画在图内（ScottPlot plottable），tooltip 走 Avalonia
+        // 浮层（HoverTip，见 ShowHoverAt / TickTipInterpolation），此处随重建一并归位
         _crosshair = plot.Add.Crosshair(0, 0);
         _crosshair.IsVisible = false;
         _crosshair.LineWidth = 1;
@@ -161,8 +175,9 @@ public partial class TrendChart : UserControl
         _crosshair.MarkerShape = MarkerShape.OpenCircle;
         _crosshair.MarkerSize = 10;
 
-        _tooltip = plot.Add.Tooltip(0, 0, string.Empty, 0, 0);
-        ApplyTooltipChrome(_tooltip);
+        _tipTimer.Stop();
+        HoverTip.IsVisible = false;
+        HoverTip.Opacity = 0;
 
         EmptyState.IsVisible = _hoverLabels.Length == 0;
         PlotControl.Refresh();
@@ -208,25 +223,6 @@ public partial class TrendChart : UserControl
         }
 
         plot.Axes.Margins(left: 0.02, right: 0.02, bottom: 0.03, top: 0.1);
-    }
-
-    /// <summary>
-    /// 悬停 tooltip（ScottPlot Tooltip plottable）令牌化气泡（B-006）：库默认为"透明气泡底 +
-    /// 黑字黑框"（FillStyle/LabelStyle 全默认色），深色卡片上整体隐形、浅色下也是无底色的黑骨架，
-    /// 观感同"没有样式"。统一改为 chip 底色 + 卡片描边 + 正文文字色，按 ActualThemeVariant 现取
-    /// （与 <see cref="ApplyChartChrome"/> 同模式，ScottPlot 不吃 DynamicResource，主题翻转经整图重建换色；
-    /// 可视化双份悬浮提示——Avalonia ToolTip 一侧的 token 配色在同源令牌上，见 SharedStyles 的 chart-tip）。
-    /// 注意 Tooltip.Padding 兼作气泡圆角半径（px），与 LabelPadding 叠加成文字与气泡边的内距。
-    /// </summary>
-    private void ApplyTooltipChrome(Tooltip tooltip)
-    {
-        tooltip.IsVisible = false;
-        tooltip.LabelPadding = 6;
-        tooltip.Padding = 6; // 圆角半径对齐 Avalonia ToolTip（chart-tip 类）的 CornerRadius 6
-        tooltip.FillColor = TokenColor("AppChipBackgroundBrush", new Color(27, 44, 68)); // #1b2c44（原型 .chip 底）
-        tooltip.LineColor = TokenColor("AppCardLineBrush", new Color(34, 50, 74)); // #22324a（.kpi/.panel 描边）
-        tooltip.LabelStyle.ForeColor = TokenColor("AppTextBrush", new Color(232, 238, 249)); // #e8eef9（:root text）
-        tooltip.LabelStyle.FontSize = 12f;
     }
 
     /// <summary>从 Tokens.axaml 现取画刷颜色（普通资源不随明暗翻转，主题翻转资源按变体命中）。</summary>
@@ -610,10 +606,10 @@ public partial class TrendChart : UserControl
     public void ShowHoverAt(Avalonia.Point position) =>
         ShowHoverAt(PlotControl.Plot.GetCoordinates(new Pixel(position.X, position.Y)));
 
-    /// <summary>按数据坐标更新悬停视觉（crosshair + tooltip + 事件）；坐标换算后走同一管线。</summary>
+    /// <summary>按数据坐标更新悬停视觉（crosshair + 浮窗 + 事件）；坐标换算后走同一管线。</summary>
     public void ShowHoverAt(Coordinates targetLocation)
     {
-        if (_crosshair is null || _tooltip is null
+        if (_crosshair is null
             || PlotControl.Plot.LastRender.DataRect.Width <= 0
             || _hoverLabels.Length == 0)
         {
@@ -636,23 +632,31 @@ public partial class TrendChart : UserControl
         _crosshair.IsVisible = true;
         _crosshair.Position = coords;
 
-        // 右缘/上缘裁剪翻转（D-002 遗留收口）：把数据点映到像素，按象限选气泡伸出方向
-        //（Task 3 浮层化后本段随 ScottPlot Tooltip 一起移除，象限判定由 ComputeTooltipOrigin 承接）
-        var pointPixelX = MapToPixelX(coords.X, limits, dataRect);
-        var pointPixelY = MapToPixelY(coords.Y, limits, dataRect);
-        var alignment = (pointPixelY < dataRect.Top + dataRect.Height / 2, pointPixelX > dataRect.Left + dataRect.Width / 2) switch
+        // 浮窗（motion design）：目标位 = 数据点像素锚点的错位气泡位；换点不闪现——
+        // 目标变了但插值时钟从当前位置继续滑过去；首次出现直接落在目标位只做淡入
+        var pixel = new Avalonia.Point(
+            MapToPixelX(coords.X, limits, dataRect),
+            MapToPixelY(coords.Y, limits, dataRect));
+        var label = _hoverLabels[index.Value];
+        if (HoverTipText.Text != label)
         {
-            (true, false) => Alignment.UpperLeft,
-            (true, true) => Alignment.UpperRight,
-            (false, false) => Alignment.LowerLeft,
-            (false, true) => Alignment.LowerRight,
-        };
+            HoverTipText.Text = label;
+        }
 
-        _tooltip.IsVisible = true;
-        _tooltip.TipLocation = coords;
-        _tooltip.LabelLocation = coords;
-        _tooltip.LabelAlignment = alignment;
-        _tooltip.LabelText = _hoverLabels[index.Value];
+        HoverTip.Measure(Size.Infinity);
+        var tipSize = HoverTip.DesiredSize;
+        _tipTarget = ComputeTooltipOrigin(pixel.X, pixel.Y, dataRect.Left, dataRect.Top,
+            dataRect.Width, dataRect.Height, tipSize.Width, tipSize.Height);
+        if (!HoverTip.IsVisible)
+        {
+            _tipCurrent = _tipTarget;
+            HoverTipTranslate.X = _tipCurrent.X;
+            HoverTipTranslate.Y = _tipCurrent.Y;
+        }
+
+        HoverTip.IsVisible = true;
+        HoverTip.Opacity = 1;
+        _tipTimer.Start();
 
         HoverChanged?.Invoke(this, new TrendChartHoverEventArgs
         {
@@ -688,13 +692,32 @@ public partial class TrendChart : UserControl
             _crosshair.IsVisible = false;
         }
 
-        if (_tooltip is not null)
-        {
-            _tooltip.IsVisible = false;
-        }
+        _tipTimer.Stop();
+        // 淡出：IsVisible 保持 true、Opacity→0（chart-hovertip transition 120ms）；opacity 0 的
+        // 浮层 IsHitTestVisible=False 不影响交互，代价可忽略，换取平滑淡出
+        HoverTip.Opacity = 0;
 
         HoverChanged?.Invoke(this, new TrendChartHoverEventArgs { IsActive = false, Index = -1, LabelText = null });
         PlotControl.Refresh();
+    }
+
+    /// <summary>浮窗每帧插值：向目标位 lerp（0.25），距离 < 0.5px 即吸附到位并停表。</summary>
+    private void TickTipInterpolation()
+    {
+        var dx = _tipTarget.X - _tipCurrent.X;
+        var dy = _tipTarget.Y - _tipCurrent.Y;
+        if (Math.Abs(dx) < 0.5 && Math.Abs(dy) < 0.5)
+        {
+            _tipCurrent = _tipTarget;
+            _tipTimer.Stop();
+        }
+        else
+        {
+            _tipCurrent = new Avalonia.Point(_tipCurrent.X + dx * 0.25, _tipCurrent.Y + dy * 0.25);
+        }
+
+        HoverTipTranslate.X = _tipCurrent.X;
+        HoverTipTranslate.Y = _tipCurrent.Y;
     }
 
     /// <summary>浮窗与数据点的水平间距（px）：气泡错开圆点，不盖点。</summary>

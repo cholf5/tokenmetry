@@ -475,4 +475,25 @@
         <Setter Property="FontSize" Value="12"/>
     </Style>
 
+    <!-- 图表悬停浮窗（motion design）：TrendChart 内的 Avalonia 浮层，与 chart-tip 同源令牌；
+         位置由 code-behind 每帧插值（点间平滑移动 / 纵向跟随），显隐只做 120ms 淡入淡出；
+         IsHitTestVisible=False 由元素自带，浮层不挡图表交互。 -->
+    <Style Selector="Border.chart-hovertip">
+        <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="10,7"/>
+        <!-- 左上锚定：code-behind 以浮窗左上角像素位（ComputeTooltipOrigin）驱动
+             RenderTransform，拉伸对齐会让整卡背景铺满图表 -->
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="VerticalAlignment" Value="Top"/>
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut"/>
+            </Transitions>
+        </Setter>
+    </Style>
+
 </Styles>
