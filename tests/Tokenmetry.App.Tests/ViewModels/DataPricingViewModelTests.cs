@@ -733,6 +733,43 @@ public class DataPricingViewModelTests
         viewModel.ModelIdCandidates.Should().NotBeEmpty();
     }
 
+    [Fact]
+    public void ModelEditDialog_OpensForEditAndCreate_ClosesOnSaveAndCancel()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, store, catalog: new ModelCatalog());
+
+        viewModel.IsModelEditOpen.Should().BeFalse();
+
+        // 新建入口：清空表单 + 开弹层。
+        viewModel.AddModelDefinitionCommand.Execute(null);
+        viewModel.IsModelEditOpen.Should().BeTrue();
+        viewModel.EditingModelId.Should().BeNull();
+        viewModel.ModelFormId.Should().BeEmpty();
+
+        // 取消：关弹层 + 清表单。
+        viewModel.CancelModelEditCommand.Execute(null);
+        viewModel.IsModelEditOpen.Should().BeFalse();
+        viewModel.ModelFormId.Should().BeEmpty();
+
+        // 编辑入口：预填 + 开弹层；校验失败不关弹层，保存成功才关。
+        viewModel.EditModelDefinitionCommand.Execute("glm-4.6");
+        viewModel.IsModelEditOpen.Should().BeTrue();
+        viewModel.ModelFormId.Should().Be("glm-4-6");
+
+        viewModel.ModelFormInput = "not-a-number";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+        viewModel.IsModelEditOpen.Should().BeTrue("校验失败弹层不关");
+        viewModel.ModelFormError.Should().NotBeNull();
+
+        viewModel.ModelFormInput = "1";
+        viewModel.ModelFormOutput = "3";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+        viewModel.IsModelEditOpen.Should().BeFalse("保存成功关弹层");
+        store.SaveCalls.Should().Be(1);
+    }
+
     // ---- helpers ----
 
     private static readonly DateTimeOffset Now = new(2026, 10, 13, 10, 30, 0, TimeSpan.Zero);
