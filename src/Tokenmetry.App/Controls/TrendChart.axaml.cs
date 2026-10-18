@@ -101,6 +101,8 @@ public partial class TrendChart : UserControl
     // 浮窗插值状态（motion design）：目标位 = ComputeTooltipOrigin 锚点；当前位每帧 lerp 逼近
     private Avalonia.Point _tipCurrent;   // 浮窗当前像素位置（插值状态）
     private Avalonia.Point _tipTarget;    // 浮窗目标像素位置
+    private bool _tipActive;              // 悬停激活中（HideHover 后复位——淡出让 IsVisible 保持
+                                          // true，重进判定不能依赖它，否则从旧锚点滑过整图）
     private readonly DispatcherTimer _tipTimer;
 
     /// <summary>浮窗位移变换（Avalonia XAML 不支持对 Transform x:Name，从 Border.RenderTransform 取）。</summary>
@@ -178,6 +180,7 @@ public partial class TrendChart : UserControl
         _tipTimer.Stop();
         HoverTip.IsVisible = false;
         HoverTip.Opacity = 0;
+        _tipActive = false;
 
         EmptyState.IsVisible = _hoverLabels.Length == 0;
         PlotControl.Refresh();
@@ -647,13 +650,15 @@ public partial class TrendChart : UserControl
         var tipSize = HoverTip.DesiredSize;
         _tipTarget = ComputeTooltipOrigin(pixel.X, pixel.Y, dataRect.Left, dataRect.Top,
             dataRect.Width, dataRect.Height, tipSize.Width, tipSize.Height);
-        if (!HoverTip.IsVisible)
+        if (!_tipActive)
         {
+            // 首次出现（或隐藏后重进）：直接落在目标位只做淡入（规格 §3(4) 隐藏后复位插值状态）
             _tipCurrent = _tipTarget;
             HoverTipTranslate.X = _tipCurrent.X;
             HoverTipTranslate.Y = _tipCurrent.Y;
         }
 
+        _tipActive = true;
         HoverTip.IsVisible = true;
         HoverTip.Opacity = 1;
         _tipTimer.Start();
@@ -696,6 +701,7 @@ public partial class TrendChart : UserControl
         // 淡出：IsVisible 保持 true、Opacity→0（chart-hovertip transition 120ms）；opacity 0 的
         // 浮层 IsHitTestVisible=False 不影响交互，代价可忽略，换取平滑淡出
         HoverTip.Opacity = 0;
+        _tipActive = false;
 
         HoverChanged?.Invoke(this, new TrendChartHoverEventArgs { IsActive = false, Index = -1, LabelText = null });
         PlotControl.Refresh();
