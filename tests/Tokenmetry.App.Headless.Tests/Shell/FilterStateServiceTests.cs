@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Headless.XUnit;
 using Tokenmetry.App.Services;
 using Tokenmetry.Core.Models;
@@ -94,5 +95,32 @@ public class FilterStateServiceTests
         Assert.Equal("2026-02-08", filter.ToDay);
         Assert.Equal("Claude Code", filter.Agent);
         Assert.True(filter.IsRangeValid);
+    }
+
+    [AvaloniaFact]
+    public void Model_change_raises_affects_queries()
+    {
+        var filters = new FilterStateService();
+        var affected = new List<string?>();
+        filters.PropertyChanged += (_, e) => affected.Add(e.PropertyName);
+
+        filters.Model = new ModelFilterOption("claude-sonnet-4");
+
+        Assert.True(FilterStateService.AffectsQueries(nameof(FilterStateService.Model)));
+        Assert.Equal(1, affected.Count(p => p == nameof(FilterStateService.Model)));
+        Assert.Contains("claude-sonnet-4", filters.Display);
+    }
+
+    [AvaloniaFact]
+    public void Update_model_options_replaces_list_and_keeps_selection()
+    {
+        var filters = new FilterStateService();
+        var selected = new ModelFilterOption("gpt-x");
+        filters.Model = selected;
+
+        filters.UpdateModelOptions([ModelFilterOption.All, new ModelFilterOption("claude-sonnet-4"), selected]);
+
+        Assert.Equal(3, filters.ModelOptions.Count);
+        Assert.Same(selected, filters.Model);
     }
 }
