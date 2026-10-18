@@ -135,10 +135,11 @@ public sealed class StatusPopoverController
         else if (OperatingSystem.IsMacOS() && MacTrayInterop.TryGetStatusItemFrame(out var anchor))
         {
             // 精确锚定（interop 图标 frame，B4 右弹优先：左缘贴图标左缘、向右下展开，右侧放不下
-            // 整体左移）。frame 与屏幕坐标同单位（macOS Scaling=1，Cocoa 点）；按可见卡片计算后内移投影边距。
+            // 整体左移）。frame 与屏幕坐标同单位（macOS Scaling=1，Cocoa 点）；按可见卡片计算后内移投影
+            // 边距（毛玻璃形态边距为零——窗口已贴合卡片，B6）。
             var screen = ScreenContaining(screens, anchor) ?? screens.Primary ?? screens.All[0];
             var windowSize = ScreenSize(window, screen);
-            var margins = StatusPopoverWindow.ShadowMargins * screen.Scaling;
+            var margins = window.EffectiveShadowMargins * screen.Scaling;
             var cardSize = new Size(
                 Math.Max(1, windowSize.Width - margins.Left - margins.Right),
                 Math.Max(1, windowSize.Height - margins.Top - margins.Bottom));

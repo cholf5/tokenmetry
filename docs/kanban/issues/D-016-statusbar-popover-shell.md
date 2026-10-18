@@ -116,6 +116,16 @@ Steps: macOS / Windows 真机点击托盘，明暗两态 × 1x/2x 截图。Expec
 - **有意不做**：Win11 官方瞬态 backdrop（`DWMWA_SYSTEMBACKDROP_TYPE=DWMSBT_TRANSIENTWINDOW`，单调用 P/Invoke）v1 不做——Avalonia 原生路径视觉足够，不开 interop 战线；毛玻璃铺满窗口矩形（含 6/30/34px 投影边距带）的 fringe 观感待目检，不佳再收窄边距（留目检决策，不预设）；卡片刷透明度 90% 为目检起点。
 - **验证**：headless 全量 1314 绿；真机 AXPress 三连 + 落位核账全过、stderr 干净；acrylic 渲染观感（明暗 × 1x/2x）headless 不可验证，移交用户目检。
 
+### 2026-10-18（B6：毛玻璃观感返工——"整面板即原生毛玻璃"（CodexBar 同款），消除两层皮 fringe）
+
+- **用户目检否决 B5 观感**：B5 的窗口级毛玻璃铺满整个窗口矩形（含 30/6/34px 投影边距带）——半透明卡片浮在一块更大的方形毛玻璃板上（用户原话："在现有信息窗背后加一些额外的毛玻璃"），而期望是 CodexBar 式"整个背影都是系统毛玻璃"。授权口径：能做就做，做不成回退 B5 之前观感。
+- **根因（12.1.4 源码取证）**：Avalonia.Native 的 AcrylicBlur = `AutoFitContentView._blurBehind`（NSVisualEffectView，BehindWindow + wantsLayer，`SetTransparencyMode(Blur)` 只是解除 hidden）铺满窗口矩形，且窗口垫 windowBackgroundColor；Win32 侧 accent/backdrop 同为窗口矩形。**毛玻璃天然是"窗口级"，不随卡片圆角成形**——唯一解是让窗口贴合卡片、成形交给平台原生。
+- **方案（B6）**：acrylic 生效时窗口几何收缩到卡片（Width 498→438、ShadowMargins→0、去 BoxShadow）——窗口即卡片，fringe 几何消除：
+  - **macOS**：新 interop `MacPopoverBlurInterop.TryShapeBlurBehind`——contentView 子视图里找非隐藏 NSVisualEffectView（AutoFitContentView 另有常驻隐藏的标题栏材质视图，按 isHidden 区分），`layer setCornerRadius:15`（与卡片 CornerRadius 同值）+ `setMasksToBounds`；窗口垫色置 `clearColor`（否则圆角四角露出 Avalonia 垫的 windowBackgroundColor 实色）+ `setHasShadow:YES`（无边框窗默认无影；系统投影随内容 alpha 走圆角形状，替代被去掉的 BoxShadow）。全指针/double 传参——Intel 同样兼容（无 NSRect stret 问题）；headless 句柄非 NSView，env 标记 + 描述符双守卫。
+  - **Windows**：`DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE=DWMWCP_ROUND)` 原生圆角（Win11 系统半径 8px）；Win10 无该属性 → 方形 = Win10 原生 flyout 观感。卡片在 Windows acrylic 态切 `acrylic-square` 类（方形、去描边——描边画在系统裁剪之外会角部断线）；macOS 态保留 15px 圆角 + 描边（与 blur 遮罩同值贴合）。
+- **回落语义不变**：协商失败 → 投影形态（B5 之前观感：498 窗 + 边距 + BoxShadow + 不透明 15px 卡）；控制器锚定边距改读实例 `EffectiveShadowMargins`（acrylic 态零边距），静态 ShadowMargins 常量仍为回落态单一来源。
+- **真机核账**：AXPress 三连过；弹窗 (2051,30,438,437)——宽=卡宽（原 498）、X=状态窗口左缘（图标可视左 2058−7）、Y=栏底；stderr 干净（interop 无异常）。blur 成形/明暗观感 headless 不可验证，移交用户目检（本轮重点：是否已是"整面板一块毛玻璃"、圆角贴合、原生投影可见）。
+
 ## Verification
 
 - Related files: `src/Tokenmetry.App/Tray/MacTrayInterop.cs`（macOS interop 状态项）、`src/Tokenmetry.App/Tray/StatusPopoverWindow.axaml(.cs)`、`src/Tokenmetry.App/Tray/StatusPopoverController.cs`、`src/Tokenmetry.App/Tray/PopoverPositioner.cs`、`src/Tokenmetry.App/Tray/TrayService.cs`（双轨分派）、`src/Tokenmetry.App/ViewModels/MainWindowViewModel.cs`、`src/Tokenmetry.App/App.axaml.cs`
