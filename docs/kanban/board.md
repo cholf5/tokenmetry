@@ -19,6 +19,10 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-18（B3）：**D-016 真机反馈二连修——左键直弹落位闭环**。①左键无反应根因：NSButton 在 mouseDown 跟踪循环内消费 mouse-up，`mouseUp:` 重写不派发——改 target/action（button → 动态类 `tokenmetryTrayButtonAction:` IMP → Toggle）；②修正确过程中 SelSetAction 漏赋值的空 selector SIGSEGV（.ips 三连）；③锚定经 AX 探针闭环：状态窗口顶贴栏顶（高 30=栏高），可视单元 24×24 钳定，AppKit constrainFrameRect 强制窗口顶≥栏底（不受应用控制）——最终弹窗贴栏底弹出（卡片顶=栏底+6px）、右缘对齐图标，AXPress 三连击验证开/收/开。顺手修 Reload 测试的跨零点日期敏感缺陷。全量 1314 绿。点击手感/明暗截图仍待用户目检。
 
+> 2026-10-18（B4）：**弹窗水平位置改右弹优先**。用户反馈"太靠左"——旧"右缘对齐图标+8"语义使卡片整体向图标左侧延伸；`AnchorBelow` 改左缘贴图标左缘（状态窗口 frame 左，比 AX 可视图标左 7px，目检基准留卡）、右缘越出工作区由既有 ClampToArea 整体左移贴右，`rightOverlap` 参数删除；Windows 光标上方分支不动（托盘贴屏底，向上向左展开是平台惯例）。真机核账：图标 (2092,3,24,24) → 弹窗 (2055,30,498,477)，卡片左缘 2085=状态窗口左、右弹未触钳制，开→收→开三连过。
+
+> 2026-10-18（B5）：**毛玻璃两平台一套落地（AcrylicBlur + 协商失败回落不透明）**。评估定论：Avalonia 12 `TransparencyLevelHint=AcrylicBlur` 是跨平台一等能力（mac vibrancy / Win WinRT backdrop，Win10 1803+/Win11），零 interop——"Mac-only 破坏统一性"之问不成立，各平台渲染各自原生瞬态材质即设计语言统一。实现：hint 改 AcrylicBlur + 内容卡 `popover-card.acrylic` 半透明变体（新令牌 `AppPopoverCardBackgroundBrush` 明暗各 #E6FFFFFF/#E6111C2E，与 AppPanelBrush 同基调）+ 壳层按 `ActualTransparencyLevel` 切类，协商失败（透明效果关/RDP/旧 Win10）保持不透明，回落分支与 macOS"减少透明度"对称。踩坑：Avalonia.Native 对 hint 即设即报、XAML inflate 期 ShadowHost 未赋值即回调 → 生产独有 NRE（headless 全绿不可见），空守卫修复；interop 左键失败日志升级带类型+堆栈。明确不做：Win11 官方瞬态 backdrop P/Invoke（原生路径足够）。全量 1314 绿；acrylic 观感（明暗×1x/2x）与投影边距带被模糊铺满的 fringe 取舍移交用户目检。
+
 > 2026-10-17（晚四）：**D-014 决策 C 收口**。用户三选一定案：**回落模板图标、关卡**——状态栏文本直显经 B1 取证在 Avalonia TrayIcon 上不可行，文本信息走菜单首行 + D-015/D-016 弹窗。位图路径（渲染器/字形分派/托盘接线）撤除回归原 A-0 语义；`TrayStatusText` 格式化器及纯函数测试保留给 D-015 复用。全量 1292 Passed。上游 `setLength` 修复未承诺，若未来仍要免点击文本走 interop 方案②携 B1 证据开新卡。
 
 > 2026-10-17（晚三）：**D-014 回退 Todo**。真机目检（用户截图）发现状态栏只见「M ·」——Avalonia 12.1.4 `trayicon.mm` `statusItemWithLength: NSSquareStatusItemLength` 固定方形且无 `setLength`，宽文字位图中段被裁（本机文本 "324.2M · $0.00" 中段恰为 M ·，证据链闭环记入卡内 B1）。**结论：硬裁剪非画质问题，位图方案在 macOS 不可行**，调优不可解。出路三选待用户决策：A 升级 interop（NSStatusItem 真文字，卡内预留方案②）；B 方形紧凑字妥协（3–4 字符）；C 回落模板图标关卡（等 D-015/016 或上游）。格式化器/降级分派/headless 断言按出路复用。

@@ -3,7 +3,7 @@
         xmlns:views="using:Tokenmetry.App.Views"
         x:Class="Tokenmetry.App.Tray.StatusPopoverWindow"
         SystemDecorations="None"
-        TransparencyLevelHint="Transparent"
+        TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
         ShowInTaskbar="False"
         CanResize="False"
@@ -16,7 +16,10 @@
          不受影响（Hide 不 Close，OnLastWindowClose 不会误判退出）。
          宽 498 = 内容卡 438 + 两侧投影边距 30×2；四周 Margin 是 BoxShadow 的渲染留白（不裁影），
          由 code-behind 按 ShadowMargins 常量设置（控制器锚定换算的单一来源）；投影色取令牌
-         AppPopoverShadowColor（随明暗翻转，代码 Behind 按 ActualThemeVariant 取）。 -->
+         AppPopoverShadowColor（随明暗翻转，代码 Behind 按 ActualThemeVariant 取）。
+         毛玻璃（B5）：两平台同一套 AcrylicBlur 提示（macOS Avalonia.Native vibrancy / Windows
+         WinRT backdrop，Win10 1803+ 与 Win11），协商失败（系统透明效果关闭/RDP/旧 Win10）由
+         code-behind 按 ActualTransparencyLevel 回落——卡片保持不透明默认，窗体仍透明承载投影。 -->
     <Border x:Name="ShadowHost" HorizontalAlignment="Stretch">
         <views:StatusPopoverView/>
     </Border>

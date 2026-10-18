@@ -16,13 +16,18 @@
          构成条三段色与总览页 Token 构成同令牌（AppTokenType*，不随明暗翻转）。
          数据全走 IUsageQueryService / DashboardViewModel 既有回写（口径见 StatusPopoverViewModel）。 -->
     <UserControl.Styles>
-        <!-- 卡片壳：438px 固定宽（原型 .popup），投影由 D-016 壳层窗负责（Border BoxShadow 需要透明窗留边） -->
+        <!-- 卡片壳：438px 固定宽（原型 .popup），投影由 D-016 壳层窗负责（Border BoxShadow 需要透明窗留边）；
+             毛玻璃变体（D-016 B5）由壳层窗协商到 AcrylicBlur 时切 acrylic 类启用，默认保持不透明——
+             系统透明效果关闭 / RDP / 旧 Win10 等回落场景文字对比度不受影响 -->
         <Style Selector="Border.popover-card">
             <Setter Property="Width" Value="438"/>
             <Setter Property="CornerRadius" Value="15"/>
             <Setter Property="Background" Value="{DynamicResource AppPanelBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.popover-card.acrylic">
+            <Setter Property="Background" Value="{DynamicResource AppPopoverCardBackgroundBrush}"/>
         </Style>
         <!-- 头部（52px）：底描边 ← 原型 .head border-bottom -->
         <Style Selector="Border.popover-head">

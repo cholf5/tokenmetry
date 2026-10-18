@@ -27,7 +27,6 @@ public sealed class StatusPopoverController
     private const double AboveCursorGap = 10;
     private const double AboveCursorRightOverlap = 14;
     private const double BelowIconGap = 4;
-    private const double RightOverlap = 8;
 
     private readonly Window _mainWindow;
     private readonly MainWindowViewModel? _shell;
@@ -135,15 +134,15 @@ public sealed class StatusPopoverController
         }
         else if (OperatingSystem.IsMacOS() && MacTrayInterop.TryGetStatusItemFrame(out var anchor))
         {
-            // 精确锚定（interop 图标 frame，CodexBar 同款：图标正下方、右缘对齐）。
-            // frame 与屏幕坐标同单位（macOS Scaling=1，Cocoa 点）；按可见卡片计算后内移投影边距。
+            // 精确锚定（interop 图标 frame，B4 右弹优先：左缘贴图标左缘、向右下展开，右侧放不下
+            // 整体左移）。frame 与屏幕坐标同单位（macOS Scaling=1，Cocoa 点）；按可见卡片计算后内移投影边距。
             var screen = ScreenContaining(screens, anchor) ?? screens.Primary ?? screens.All[0];
             var windowSize = ScreenSize(window, screen);
             var margins = StatusPopoverWindow.ShadowMargins * screen.Scaling;
             var cardSize = new Size(
                 Math.Max(1, windowSize.Width - margins.Left - margins.Right),
                 Math.Max(1, windowSize.Height - margins.Top - margins.Bottom));
-            var cardPos = PopoverPositioner.AnchorBelow(anchor, cardSize, screen.WorkingArea, BelowIconGap * screen.Scaling, RightOverlap * screen.Scaling);
+            var cardPos = PopoverPositioner.AnchorBelow(anchor, cardSize, screen.WorkingArea, BelowIconGap * screen.Scaling);
             // macOS 的 AppKit constrainFrameRect 会把普通窗口压到菜单栏之下（实测设 y=14 被改写为
             // 30=栏底）——窗口顶最终 ≥ workArea.Y；可见卡片顶 = 窗口顶 + ShadowMargins.Top（6），
             // 即"贴着菜单栏下方 6px 弹出"（CodexBar 观感）。锚定钳制已保证 x；y 交给约束兜底。

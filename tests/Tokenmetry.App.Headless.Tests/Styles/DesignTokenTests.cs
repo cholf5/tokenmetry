@@ -81,6 +81,8 @@ public class DesignTokenTests
         ["AppChartAxisLineBrush"] = ("#b9c5d7", "#35465e"),
         // 首次初始化全窗遮罩底（MainWindow.axaml；页面底色 90% 不透明，Light 为协调补值）
         ["AppOverlayScrimBrush"] = ("#e6f4f6fa", "#e60b1120"),
+        // D-016 弹窗卡片毛玻璃半透明面（AppPanelBrush 同基调 90% 不透明，acrylic 生效时启用）
+        ["AppPopoverCardBackgroundBrush"] = ("#e6ffffff", "#e6111c2e"),
     };
 
     /// <summary>图表系列色（原型 JS colors[] 数组，索引自 0）→ 期望色值，不随明暗翻转。</summary>
