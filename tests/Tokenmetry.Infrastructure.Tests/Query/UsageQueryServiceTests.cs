@@ -723,6 +723,73 @@ public class UsageQueryServiceTests : IAsyncLifetime
         }
     }
 
+    // ---- 全局 Model / Project 过滤（右栏撤除定案：顶栏四维筛选的查询契约）----
+
+    [Fact]
+    public async Task Kpi_with_model_filter_scopes_to_model()
+    {
+        var kpi = await _service.GetKpiAsync(new UsageQueryFilter { Model = "claude-sonnet-4" });
+
+        // 种子中 claude-sonnet-4 的 full 行：03-10 3600 / 03-11 1750 / 03-14 30 / 03-15 900
+        kpi.TotalTokens.Should().Be(3600 + 1750 + 30 + 900);
+    }
+
+    [Fact]
+    public async Task Kpi_with_project_filter_scopes_to_project_path()
+    {
+        var kpi = await _service.GetKpiAsync(new UsageQueryFilter { Project = "/work/alpha" });
+
+        // /work/alpha 的 full 行：03-10 sonnet 3600 + 03-10 unpriced 150 + 03-11 sonnet 1750
+        // （unpriced 行同属 alpha，与项目维度聚合既有 5500 断言同口径）
+        kpi.TotalTokens.Should().Be(3600 + 150 + 1750);
+    }
+
+    [Fact]
+    public async Task Daily_series_with_model_filter_excludes_other_models()
+    {
+        var points = await _service.GetDailySeriesAsync(new UsageQueryFilter
+        {
+            FromDay = "2026-03-10",
+            ToDay = "2026-03-10",
+            Model = "claude-sonnet-4",
+        });
+
+        // 当天 sonnet 的 full 行 total=3600；gpt-x 行（3000）与无匹配模型行被排除
+        points.Single().TotalTokens.Should().Be(3600);
+    }
+
+    [Fact]
+    public async Task Sessions_with_model_and_project_filter_scope_rows()
+    {
+        var result = await _service.GetSessionsAsync(new SessionListQuery
+        {
+            Filter = new UsageQueryFilter { Model = "claude-sonnet-4", Project = "/work/alpha" },
+            PageSize = null,
+        });
+
+        result.Rows.Should().OnlyContain(row => row.DominantModel == "claude-sonnet-4" && row.Project == "/work/alpha");
+        result.Rows.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task Kpi_previous_period_inherits_model_and_project_filters()
+    {
+        // 双端有界才产生环比；环比窗口 = 等长回看，过滤维度必须原样继承
+        var kpi = await _service.GetKpiAsync(new UsageQueryFilter
+        {
+            FromDay = "2026-03-14",
+            ToDay = "2026-03-20",
+            Model = "claude-sonnet-4",
+            Project = "/work/tools",
+        });
+
+        var previous = kpi.PreviousPeriod;
+        previous.Should().NotBeNull();
+        // 回看窗口 03-07..03-13 内 sonnet 且 /work/tools 无数据 → 0（若过滤未继承，会数到其他项目的行）
+        previous!.SessionCount.Should().Be(0);
+        previous.TotalTokens.Should().Be(0);
+    }
+
     // ---- fixture 与工具 ----
 
     /// <summary>手写 SQL 维度期望行（审查 P2-1：三个维度统一 SQL 对照）。</summary>
