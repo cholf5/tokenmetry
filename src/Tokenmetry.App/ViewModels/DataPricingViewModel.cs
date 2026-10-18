@@ -602,6 +602,27 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         _settings.ModelDefinitions.Add(definition);
         ApplyModelSettings();
         ResetModelForm();
+        IsModelEditOpen = false;
+    }
+
+    /// <summary>模型编辑 / 新建弹层的可见性（页内 overlay；保存成功 / 取消 / 遮罩 / Esc 均关闭）。</summary>
+    [ObservableProperty]
+    private bool _isModelEditOpen;
+
+    /// <summary>新建模型入口：清空表单进新建态并打开弹层（原常驻内联表单的职责接管）。</summary>
+    [RelayCommand]
+    private void AddModelDefinition()
+    {
+        ResetModelForm();
+        IsModelEditOpen = true;
+    }
+
+    /// <summary>取消编辑：清表单并关弹层（遮罩点击 / Esc / 取消按钮同一出口）。</summary>
+    [RelayCommand]
+    private void CancelModelEdit()
+    {
+        ResetModelForm();
+        IsModelEditOpen = false;
     }
 
     /// <summary>把目录条目载入表单（编辑）：用户层有该 ID 就载入用户值，否则载入生效值（导入层）。</summary>
@@ -629,6 +650,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
             ? output.ToString(CultureInfo.InvariantCulture)
             : effective is { HasPrice: true } ? effective.OutputPerMillion.ToString(CultureInfo.InvariantCulture) : string.Empty;
         ModelFormError = null;
+        IsModelEditOpen = true;
     }
 
     /// <summary>
@@ -658,6 +680,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         if (string.Equals(EditingModelId, normalized, StringComparison.OrdinalIgnoreCase))
         {
             ResetModelForm();
+            IsModelEditOpen = false;
         }
     }
 
