@@ -809,6 +809,44 @@ public class DataPricingViewModelTests
         store.SaveCalls.Should().Be(0);
     }
 
+    [Fact]
+    public void SaveModelDefinition_WithUnchangedImportedCachePrices_DoesNotPinCacheOverride()
+    {
+        // 元数据级编辑不钉缓存价（与 in/out 同口径）：预填的生效缓存价是按 input 推导的数
+        // （×1.25 / ×0.1），照抄保存会把推导结果冻结成用户覆盖，models.dev 刷新后与 input 脱钩。
+        var settings = new AppSettings();
+        var catalog = new ModelCatalog();
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.EditModelDefinitionCommand.Execute("glm-4-6"); // 表单预填导入层生效价与推导缓存价
+        viewModel.ModelFormDisplayName = "改名不改缓存价";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        var saved = settings.ModelDefinitions.Single();
+        saved.InputPerMillion.Should().BeNull("未改动的生效价不落用户覆盖（既有口径）");
+        saved.CacheWritePerMillion.Should().BeNull("未改动的推导缓存价同样不落用户覆盖");
+        saved.CacheReadPerMillion.Should().BeNull();
+        catalog.FindById("glm-4-6")!.HasPrice.Should().BeTrue("元数据覆盖后价仍由导入层供给");
+    }
+
+    [Fact]
+    public void SaveModelDefinition_WithChangedCachePrice_PinsCacheOverride()
+    {
+        // 用户改过的缓存价就是用户覆盖：改动即落盘，不受不钉守卫影响。
+        var settings = new AppSettings();
+        var catalog = new ModelCatalog();
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), catalog);
+
+        viewModel.EditModelDefinitionCommand.Execute("glm-4-6");
+        viewModel.ModelFormCacheWrite = "0.5";
+        viewModel.ModelFormCacheRead = "0.05";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        var saved = settings.ModelDefinitions.Single();
+        saved.CacheWritePerMillion.Should().Be(0.5m, "改动的缓存价是显式覆盖");
+        saved.CacheReadPerMillion.Should().Be(0.05m);
+    }
+
     // ---- helpers ----
 
     private static readonly DateTimeOffset Now = new(2026, 10, 13, 10, 30, 0, TimeSpan.Zero);

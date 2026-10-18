@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -378,6 +379,7 @@ public class DataPricingPageTests
     /// <summary>
     /// I-035 模型目录卡的端到端（headless）：条目表渲染出目录内容 + 表单能把 ID / 价格写进 VM
     /// （TextBox 双向绑定是这一功能的关键交互路径，绑定写错的话价格永远保存不进去）。
+    /// 表单已迁入 ModelEditDialog 弹层（定案二）：先经编辑入口打开 Modal，再断言绑定写回。
     /// </summary>
     [AvaloniaFact]
     public void Model_catalog_panel_renders_rows_and_form_binds_to_view_model()
@@ -397,13 +399,79 @@ public class DataPricingPageTests
         Assert.Contains("模型 ID", texts);
         Assert.Contains("单价（输入 / 输出）", texts);
 
-        // 表单绑定：厂商输入写回 VM（未绑上的话保存会得到空表单）。按 x:Name 定位。
+        // 表单绑定：编辑入口打开弹层后，厂商输入写回 VM（未绑上的话保存会得到空表单）。按 x:Name 定位。
+        vm.EditModelDefinitionCommand.Execute(vm.ModelRows[0].Id);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(vm.IsModelEditOpen);
+
         var vendorBox = window.GetVisualDescendants().OfType<TextBox>()
             .Single(box => box.Name == "ModelFormVendorBox");
+        Assert.True(vendorBox.IsEffectivelyVisible, "弹层打开后表单控件可见");
         vendorBox.Focus();
+        Dispatcher.UIThread.RunJobs();
+        vendorBox.SelectAll(); // 编辑态预填了生效厂商，全选后键入 = 整体替换（对齐真实改写动作）
         window.KeyTextInput("zai");
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("zai", vm.ModelFormVendor);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void ModelCatalog_EditButtonOpensOverlayAndEscCloses()
+    {
+        // 定案二端到端：行上「编辑」→ 弹层可见 + ID 框预填；Esc 关闭（经弹层内焦点元素冒泡到 overlay）。
+        var vm = CreateViewModel(catalog: new ModelCatalog());
+        var window = new Window { Width = 980, Height = 900, Content = new DataPricingView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var editButton = window.GetVisualDescendants().OfType<Button>()
+            .First(b => ReferenceEquals(b.Command, vm.EditModelDefinitionCommand));
+        Assert.False(vm.IsModelEditOpen);
+
+        editButton.Command.Execute(editButton.CommandParameter); // 按钮命令与参数绑定的走线检查
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(vm.IsModelEditOpen, "行上编辑按钮打开弹层");
+        Assert.False(string.IsNullOrEmpty(vm.ModelFormId), "编辑态表单预填 ID");
+        var dialogCard = window.GetVisualDescendants().OfType<Border>()
+            .First(b => b.Child is Tokenmetry.App.Controls.ModelEditDialog);
+        Assert.True(dialogCard.IsEffectivelyVisible, "弹层卡片在遮罩之上可见");
+
+        // 弹层内控件持有焦点（真实用户流：打开即聚焦 ID 框），Esc 自焦点元素冒泡到 overlay 关闭
+        var idBox = window.GetVisualDescendants().OfType<AutoCompleteBox>()
+            .First(box => box.Name == "IdBox" && box.IsEffectivelyVisible);
+        idBox.Focus();
+        Dispatcher.UIThread.RunJobs();
+
+        window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, "\u001b");
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(vm.IsModelEditOpen, "Esc 关闭弹层");
+        Assert.False(dialogCard.IsEffectivelyVisible);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void ModelCatalog_UnoverriddenRowHasNoRemoveButton()
+    {
+        // 定案三端到端锁：全新 AppSettings（无用户条目）——目录里所有行 CanRemove=false，
+        // 可视树内不出现任何可见的「移除覆盖」按钮（隐藏不摘除，按钮仍挂在行模板里）。
+        var vm = CreateViewModel(catalog: new ModelCatalog());
+        var window = new Window { Width = 980, Height = 900, Content = new DataPricingView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.DoesNotContain(vm.ModelRows, r => r.CanRemove);
+        var removeButtons = window.GetVisualDescendants().OfType<Button>()
+            .Where(b => ReferenceEquals(b.Command, vm.RemoveModelDefinitionCommand))
+            .ToList();
+        Assert.NotEmpty(removeButtons);
+        Assert.All(removeButtons, b => Assert.False(b.IsEffectivelyVisible, "未覆盖行不渲染可见的移除按钮"));
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -455,6 +523,24 @@ public class DataPricingPageTests
                 frame.Save(path, new PngBitmapEncoderOptions());
                 Assert.True(File.Exists(path), $"截图未生成：{path}");
             }
+
+            // 弹层开启态留档（定案二）：编辑入口打开 Modal 再截一帧（{主题}-modal-open）
+            vm.EditModelDefinitionCommand.Execute(vm.ModelRows[0].Id);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(vm.IsModelEditOpen);
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            var modalFrame = window.CaptureRenderedFrame();
+            Assert.NotNull(modalFrame);
+
+            if (!string.IsNullOrWhiteSpace(ArchiveDir))
+            {
+                var modalPath = Path.Combine(ArchiveDir, fileName.Replace(".png", "-modal-open.png"));
+                modalFrame.Save(modalPath, new PngBitmapEncoderOptions());
+                Assert.True(File.Exists(modalPath), $"截图未生成：{modalPath}");
+            }
+
+            vm.CancelModelEditCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             window.Close();
             Dispatcher.UIThread.RunJobs();
