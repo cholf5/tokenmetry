@@ -229,10 +229,7 @@ public class TrayService
                 MacTrayInterop.SetTooltip(BuildTooltip());
                 if (_macItems is { } items)
                 {
-                    for (var index = 0; index < items.Count; index++)
-                    {
-                        MacTrayInterop.SetItemTitle(index, items[index].Title());
-                    }
+                    WriteMacItemTitles(items);
                 }
             });
             return;
@@ -326,6 +323,24 @@ public class TrayService
         => hasData
             ? string.Format(Translations.Instance.TrayCostFormat, todayCostUsd.ToString("F2", CultureInfo.InvariantCulture))
             : Translations.Instance.TrayCostNoData;
+
+    /// <summary>interop 菜单按安装序号全量重写标题（重译 / 成本行回写共用循环形态）。
+    /// 分隔线必须跳过：其 Title 恒为 null（BuildMacTrayItems 以 null! 占位，无标题可写），
+    /// 与 MacTrayInterop.Install 建项循环同纪律——无脑 Title() 会沿 PropertyChanged 同步链
+    /// 炸 NRE 打断语言切换（真机必现；headless 宿主 _macInterop 恒 false 不可达，测试钉住）。</summary>
+    internal static void WriteMacItemTitles(IReadOnlyList<MacTrayInterop.MacTrayItem> items)
+    {
+        for (var index = 0; index < items.Count; index++)
+        {
+            var spec = items[index];
+            if (spec.IsSeparator)
+            {
+                continue;
+            }
+
+            MacTrayInterop.SetItemTitle(index, spec.Title());
+        }
+    }
 
     private void ShowWindow()
     {

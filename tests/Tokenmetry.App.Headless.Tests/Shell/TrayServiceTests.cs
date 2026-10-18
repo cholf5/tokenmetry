@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -119,6 +120,25 @@ public class TrayServiceTests : IDisposable
         {
             Translations.Instance.SetLanguage(originalLanguage); // 进程级单例，恢复基线
         }
+    }
+
+    [AvaloniaFact]
+    public void WriteMacItemTitles_skips_separator_items_with_null_title()
+    {
+        // interop 语言切换重译回归（真机必现 NRE）：分隔线项 Title 恒为 null（BuildMacTrayItems
+        // 以 null! 占位），重写循环必须与 MacTrayInterop.Install 建项循环同纪律跳过分隔线；
+        // headless 宿主 _macInterop 恒 false 不可达，由本测试直接钉住循环行为。
+        var invoked = new List<int>();
+        var items = new List<MacTrayInterop.MacTrayItem>
+        {
+            new(() => { invoked.Add(0); return "cost"; }, command: null, enabled: false),
+            new(null!, isSeparator: true),
+            new(() => { invoked.Add(2); return "open"; }),
+        };
+
+        TrayService.WriteMacItemTitles(items); // 修复前：items[1].Title() → NullReferenceException
+
+        Assert.Equal(new[] { 0, 2 }, invoked); // 非分隔线项全量重写（保安装序号），分隔线跳过
     }
 
     private static TrayIcon? SingleRegisteredIcon()
