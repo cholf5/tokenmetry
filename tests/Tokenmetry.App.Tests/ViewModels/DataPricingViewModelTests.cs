@@ -667,6 +667,23 @@ public class DataPricingViewModelTests
         catalog.FindById("my-local-model")!.HasPrice.Should().BeTrue();
     }
 
+    [Fact]
+    public void ModelRows_CanRemoveOnlyForUserLayerEntries()
+    {
+        var settings = new AppSettings();
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride { Id = "glm-4.6", InputPerMillion = 1m, OutputPerMillion = 3m });
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride { Id = "my-own-model", InputPerMillion = 2m, OutputPerMillion = 8m });
+        var viewModel = CreateViewModel(settings, new FakeSettingsStore(), catalog: new ModelCatalog());
+
+        var overridden = viewModel.ModelRows.Single(r => r.Id == "glm-4-6");
+        var userCreated = viewModel.ModelRows.Single(r => r.Id == "my-own-model");
+        var untouched = viewModel.ModelRows.First(r => r.Origin == ModelDefinitionOrigin.Snapshot && !r.IsOverridden);
+
+        overridden.CanRemove.Should().BeTrue("被覆盖的导入条目可移除覆盖");
+        userCreated.CanRemove.Should().BeTrue("自建条目可整条删除");
+        untouched.CanRemove.Should().BeFalse("从未覆盖过的条目不该出现假按钮");
+    }
+
     // ---- helpers ----
 
     private static readonly DateTimeOffset Now = new(2026, 10, 13, 10, 30, 0, TimeSpan.Zero);
