@@ -73,18 +73,9 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(InitializingTitle)] = "正在初始化数据…",
         [nameof(InitializingSubtitle)] = "首次启动正在扫描本机各 Agent 的会话记录并解析计费，完成后自动显示，无需手动刷新",
 
-        // ── 右栏最近会话 + 快速筛选（MainWindow.axaml + SessionsPanelViewModel）──
-        [nameof(RecentSessions)] = "最近会话",
-        [nameof(ViewAll)] = "查看全部 ↗",
-        [nameof(NoRecentSessions)] = "暂无最近会话",
-        [nameof(QuickFilter)] = "快速筛选",
-        [nameof(ClearFilters)] = "清除",
+        // ── 会话页（SessionsView 表头 / 行点击 toast；右栏专属 key 已随 2026-10-18 右栏撤除删除）──
         [nameof(LabelModels)] = "模型",
         [nameof(LabelProjectDir)] = "项目 / 目录",
-        [nameof(ApplyFilters)] = "应用筛选",
-        [nameof(RecentErrorFormat)] = "最近会话加载失败：{0}",
-        [nameof(ToastFiltersAppliedFormat)] = "筛选已应用：{0} 个 Agent · {1} · {2}",
-        [nameof(ToastFiltersCleared)] = "筛选条件已清除",
         [nameof(ToastSessionPlannedFormat)] = "会话 {0}：详情视图规划中",
 
         // ── 全局筛选选项（FilterStateService）──
@@ -420,17 +411,8 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(InitializingTitle)] = "Initializing data…",
         [nameof(InitializingSubtitle)] = "Scanning local agent session logs on first launch; data will appear automatically — no manual refresh needed",
 
-        [nameof(RecentSessions)] = "Recent sessions",
-        [nameof(ViewAll)] = "View all ↗",
-        [nameof(NoRecentSessions)] = "No recent sessions",
-        [nameof(QuickFilter)] = "Quick filters",
-        [nameof(ClearFilters)] = "Clear",
         [nameof(LabelModels)] = "Models",
         [nameof(LabelProjectDir)] = "Project / directory",
-        [nameof(ApplyFilters)] = "Apply filters",
-        [nameof(RecentErrorFormat)] = "Failed to load recent sessions: {0}",
-        [nameof(ToastFiltersAppliedFormat)] = "Filters applied: {0} agents · {1} · {2}",
-        [nameof(ToastFiltersCleared)] = "Filters cleared",
         [nameof(ToastSessionPlannedFormat)] = "Session {0}: detail view is planned",
 
         [nameof(TimeRangeToday)] = "Today",
@@ -805,18 +787,9 @@ public sealed class Translations : INotifyPropertyChanged
     public string InitializingTitle => Get();
     public string InitializingSubtitle => Get();
 
-    // ── 右栏 ──
-    public string RecentSessions => Get();
-    public string ViewAll => Get();
-    public string NoRecentSessions => Get();
-    public string QuickFilter => Get();
-    public string ClearFilters => Get();
+    // ── 会话页 ──
     public string LabelModels => Get();
     public string LabelProjectDir => Get();
-    public string ApplyFilters => Get();
-    public string RecentErrorFormat => Get();
-    public string ToastFiltersAppliedFormat => Get();
-    public string ToastFiltersCleared => Get();
     public string ToastSessionPlannedFormat => Get();
 
     // ── 全局筛选选项 ──
