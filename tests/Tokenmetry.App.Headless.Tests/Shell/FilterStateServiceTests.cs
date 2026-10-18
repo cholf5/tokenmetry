@@ -98,6 +98,21 @@ public class FilterStateServiceTests
     }
 
     [AvaloniaFact]
+    public void Build_maps_model_and_project_from_filter_state()
+    {
+        var filters = new FilterStateService
+        {
+            Model = new ModelFilterOption("claude-sonnet-4"),
+            Project = new ProjectFilterOption("/work/alpha"),
+        };
+
+        var filter = GlobalFilterMapper.Build(filters);
+
+        Assert.Equal("claude-sonnet-4", filter.Model);
+        Assert.Equal("/work/alpha", filter.Project);
+    }
+
+    [AvaloniaFact]
     public void Model_change_raises_affects_queries()
     {
         var filters = new FilterStateService();

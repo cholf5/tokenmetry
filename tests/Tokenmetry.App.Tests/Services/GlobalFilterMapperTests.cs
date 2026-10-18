@@ -135,4 +135,14 @@ public class GlobalFilterMapperTests
 
         filter.Agent.Should().BeNull();
     }
+
+    [Fact]
+    public void Build_with_all_sentinels_yields_null_model_and_project()
+    {
+        // 哨兵 All 的 Model/Path 为 null → 不过滤（映射不得把哨兵误传成空串过滤值）
+        var filter = GlobalFilterMapper.Build(new FilterStateService());
+
+        filter.Model.Should().BeNull();
+        filter.Project.Should().BeNull();
+    }
 }
