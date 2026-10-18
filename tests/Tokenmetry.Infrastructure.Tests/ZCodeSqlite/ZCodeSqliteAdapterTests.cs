@@ -39,8 +39,9 @@ public class ZCodeSqliteAdapterTests : IDisposable
         record.CacheReadTokens.Should().Be(25);
         record.OutputTokens.Should().Be(10);
         record.TotalTokens.Should().Be(110);
-        // 自定义 provider：不走定价引擎，CostUsd 记 0（与 CLI missingPricing/0 口径一致）。
-        record.CostUsd.Should().Be(0m);
+        // 自定义 provider：日志不自带成本（null），交定价引擎三级解析（2026-10-18 定案，
+        // 与 CLI missingPricing/0 的有意分歧见 docs/reconciliation/2026-10-11-reconciliation.md §6）。
+        record.CostUsd.Should().BeNull();
 
         var diagnostics = result.Diagnostics;
         diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
@@ -48,7 +49,7 @@ public class ZCodeSqliteAdapterTests : IDisposable
         diagnostics.FilesRead.Should().Be(1);
         diagnostics.InvalidRecords.Should().Be(0);
         diagnostics.DuplicateRecords.Should().Be(0);
-        diagnostics.MissingCostRecords.Should().Be(0);
+        diagnostics.MissingCostRecords.Should().Be(1); // 自定义 provider 行现在也 null 成本，计入 missing。
         diagnostics.UnknownModelRecords.Should().Be(0);
     }
 
@@ -90,13 +91,14 @@ public class ZCodeSqliteAdapterTests : IDisposable
 
         result.Records.Should().HaveCount(2);
         result.Records.Single(record => record.Model == "glm-5.3-flash").CostUsd.Should().BeNull();
-        result.Records.Single(record => record.Model == "ark-code-latest").CostUsd.Should().Be(0m);
-        result.Diagnostics.MissingCostRecords.Should().Be(1);
+        // 自定义 provider 行现在也 CostUsd=null，计入 missing：
+        result.Records.Single(record => record.Model == "ark-code-latest").CostUsd.Should().BeNull();
+        result.Diagnostics.MissingCostRecords.Should().Be(2);
     }
 
-    /// <summary>自定义 provider（内部 UUID 等）：CostUsd 记 0，与发布版 CLI 的 missingPricing/0 一致。</summary>
+    /// <summary>自定义 provider（内部 UUID 等）：CostUsd=null 交定价引擎三级解析（不再记哨兵 0）。</summary>
     [Fact]
-    public async Task Custom_provider_rows_record_zero_cost()
+    public async Task Custom_provider_rows_delegate_to_pricing_engine()
     {
         var home = CreateTempHome();
         var db = CreateDatabase(home, legacy: false);
@@ -107,10 +109,10 @@ public class ZCodeSqliteAdapterTests : IDisposable
         var result = await CreateAdapter(home).ScanAsync();
 
         var record = result.Records.Single();
-        record.CostUsd.Should().Be(0m);
+        record.CostUsd.Should().BeNull("非 Z.ai 行不再记哨兵 0，交定价引擎解析");
         // 非 Z.ai 不做 cache_creation 并入（本行无 creation，验证 input 不变即可）。
         record.InputTokens.Should().Be(40);
-        result.Diagnostics.MissingCostRecords.Should().Be(0);
+        result.Diagnostics.MissingCostRecords.Should().Be(1);
     }
 
     /// <summary>缓存桶截断到 input、computed_total 余量并入 output（对照蓝本 clamp 与 extra tokens 测试）。</summary>
