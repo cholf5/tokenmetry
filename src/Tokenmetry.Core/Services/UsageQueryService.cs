@@ -111,6 +111,8 @@ public class UsageQueryService : IUsageQueryService
                 FromDay = UsageQueryFilter.FormatDay(from.AddDays(-length)),
                 ToDay = UsageQueryFilter.FormatDay(from.AddDays(-1)),
                 Agent = filter.Agent,
+                Model = filter.Model,
+                Project = filter.Project,
             };
             var previousAggregate = await BuildKpiAggregateAsync(previousFilter, ct);
             previous = new KpiPeriodComparison
@@ -282,6 +284,18 @@ public class UsageQueryService : IUsageQueryService
                 continue;
             }
 
+            if (!string.IsNullOrWhiteSpace(filter.Project)
+                && !string.Equals(fact.Project, filter.Project, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.Model)
+                && !string.Equals(ResolveModel(fact.Model), filter.Model, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             scoped.Add(fact);
         }
 
@@ -296,6 +310,18 @@ public class UsageQueryService : IUsageQueryService
         {
             if (!string.IsNullOrWhiteSpace(filter.Agent)
                 && !string.Equals(session.Agent, filter.Agent, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.Project)
+                && !string.Equals(session.Project, filter.Project, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.Model)
+                && !string.Equals(ResolveModel(session.DominantModel), filter.Model, StringComparison.Ordinal))
             {
                 continue;
             }

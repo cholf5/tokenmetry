@@ -24,6 +24,16 @@ public sealed class UsageQueryFilter
     /// <summary>Agent 精确过滤（采集来源名，如 "Claude Code"）；null/空白 = 所有 Agent。</summary>
     public string? Agent { get; init; }
 
+    /// <summary>
+    /// 模型精确过滤（别名归一后的规范名空间，与模型维度聚合同口径）；null/空白 = 所有模型。
+    /// 单维分解行（Day/Agent/Project 粒度）不携带模型维度（空串），Model 过滤时被排除——
+    /// 与 Agent 过滤排除其他粒度分解行的既有语义一致（单维分解行无法归因到其他维度）。
+    /// </summary>
+    public string? Model { get; init; }
+
+    /// <summary>项目精确过滤（原始路径）；null/空白 = 所有项目。粒度语义同 <see cref="Model"/>。</summary>
+    public string? Project { get; init; }
+
     /// <summary>范围是否合法（FromDay ≤ ToDay；无界视为合法）。</summary>
     public bool IsRangeValid =>
         FromDay is null || ToDay is null
