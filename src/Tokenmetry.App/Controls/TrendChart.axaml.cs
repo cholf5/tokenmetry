@@ -30,7 +30,7 @@ public enum TrendChartMode
 /// <summary>悬停状态变化事件（宿主页状态行可订阅；LabelText 与图上 tooltip 同源同格式）。</summary>
 public sealed class TrendChartHoverEventArgs : EventArgs
 {
-    /// <summary>true = 正在悬停某数据点；false = 鼠标离开 / 未命中。</summary>
+    /// <summary>true = 正在悬停某数据点（图内死区驻留期间保持 true，规格 §3(6)）；false = 鼠标离开图表区域 / 未命中且未驻留。</summary>
     public bool IsActive { get; init; }
 
     /// <summary>命中的数据点下标（未命中为 -1）。</summary>
@@ -627,7 +627,15 @@ public partial class TrendChart : UserControl
         var index = PickNearestIndex(MapToPixelX(targetLocation.X, limits, dataRect), limits, dataRect);
         if (index is null)
         {
-            HideHover();
+            // 驻留不变式（规格 §3(6) 反闪烁）：浮窗一旦显示，鼠标仍在图内（PointerMoved 未命中新点）
+            // 就保持现状——crosshair、浮窗、事件都不动；离开图表区域（PointerExited→HideHover）才淡出。
+            // 稀疏图跨节点移动时旧浮窗保持、命中新点后由插值时钟从旧锚点滑过去，不再"旧的消失、新的闪现"。
+            // 未驻留时未命中维持原清除语义（重复清是幂等 no-op）。
+            if (!_tipActive)
+            {
+                HideHover();
+            }
+
             return;
         }
 
@@ -690,7 +698,12 @@ public partial class TrendChart : UserControl
         return bestIndex;
     }
 
-    private void HideHover()
+    /// <summary>
+    /// 结束悬停并淡出浮窗（规格 §3(4)(6)：唯一隐藏入口——鼠标离开图表区域 PointerExited 触发，
+    /// 测试共用同一入口）。与 <see cref="ShowHoverAt(Avalonia.Point)"/> 成对：PointerMoved 未命中
+    /// 不走这里（驻留不变式），只有真正离开图表控件才收尾。
+    /// </summary>
+    public void HideHover()
     {
         if (_crosshair is not null)
         {

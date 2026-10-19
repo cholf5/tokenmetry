@@ -252,7 +252,7 @@ public class TrendChartTests
     }
 
     [AvaloniaFact]
-    public void Hover_outside_data_hides_hover()
+    public void Hover_miss_when_not_pinned_clears_state()
     {
         var points = ChartTestHelpers.DailyPoints30();
         var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
@@ -262,7 +262,8 @@ public class TrendChartTests
         var lastEvent = default(TrendChartHoverEventArgs);
         chart.HoverChanged += (_, e) => lastEvent = e;
 
-        // 远离数据 x 轴的位置（窗口最早日期再往前 10 年）→ 不命中 → IsActive=false
+        // 未驻留时未命中（窗口最早日期再往前 10 年）→ 清除状态 IsActive=false
+        //（驻留中未命中则保持现状，见 Hover_stays_pinned_across_dead_zone_until_pointer_exits）
         var firstDay = DateTime.Parse(points[0].Day, CultureInfo.InvariantCulture).ToOADate();
         chart.ShowHoverAt(new ScottPlot.Coordinates(firstDay - 3650, 0));
 
@@ -351,9 +352,8 @@ public class TrendChartTests
         Assert.True(ChartTestHelpers.FrameContainsColor(frame, Color.Parse("#e8eef9"), tolerance: 28), "悬停帧缺少气泡文字像素");
         ChartTestHelpers.SaveArchive(frame, ArchiveDir, "trendchart-hover-dark.png");
 
-        // 远离数据 → HideHover → 气泡像素消失（状态收尾）
-        var firstDay = DateTime.Parse(points[0].Day, CultureInfo.InvariantCulture).ToOADate();
-        chart.ShowHoverAt(new ScottPlot.Coordinates(firstDay - 3650, 0));
+        // 离开图表区域（HideHover）→ 气泡像素消失（状态收尾）；图内未命中是驻留，不走这里
+        chart.HideHover();
         PumpUntilOverlaySettled(overlay, targetOpacity: 0); // 120ms 淡出走满再取帧
         var after = ChartTestHelpers.RenderFrame(window);
         Assert.False(ChartTestHelpers.FrameContainsColor(after, bubble, tolerance: 1), "移开后气泡底色像素应消失");
@@ -381,11 +381,77 @@ public class TrendChartTests
         var firstX = translate.X;
 
         // 离开（HideHover 淡出）→ 远端重进：浮窗应立即贴住新锚点，而不是从 firstX 滑过去
-        chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(points[0].Day, CultureInfo.InvariantCulture).ToOADate() - 3650, 0));
+        chart.HideHover();
         chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(last.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
 
         Assert.True(Math.Abs(translate.X - firstX) > 100,
             $"重进后浮窗应贴新锚点（复位插值状态），实测仍在旧位附近：X={translate.X:0.#}（旧位 {firstX:0.#}）");
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Hover_stays_pinned_across_dead_zone_until_pointer_exits()
+    {
+        // 驻留不变式（规格 §3(6) 反闪烁）：浮窗一旦显示，鼠标仍在图内移动但未命中新点（死区）
+        // 时保持现状——crosshair、浮窗、事件都不动，命中新点后由插值时钟从旧锚点滑过去；
+        // 只有离开图表区域（PointerExited→HideHover）才淡出。稀疏图（点距远超 15px 拾取半径）
+        // 跨节点移动不再"旧的消失、新的闪现"。
+        var points = new[]
+        {
+            new DailyUsagePoint
+            {
+                Day = "2026-09-01", HasData = true,
+                InputTokens = 100_000, OutputTokens = 50_000, TotalTokens = 150_000,
+                Cost = new AggregatedCost(1.5m, hasUnknownCost: false),
+            },
+            new DailyUsagePoint
+            {
+                Day = "2026-09-15", HasData = true,
+                InputTokens = 200_000, OutputTokens = 100_000, TotalTokens = 300_000,
+                Cost = new AggregatedCost(2.5m, hasUnknownCost: false),
+            },
+        };
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var overlay = chart.FindControl<Border>("HoverTip")!;
+        var translate = Assert.IsType<Avalonia.Media.TranslateTransform>(overlay.RenderTransform);
+        var day1 = DateTime.Parse("2026-09-01", CultureInfo.InvariantCulture).ToOADate();
+        var day15 = DateTime.Parse("2026-09-15", CultureInfo.InvariantCulture).ToOADate();
+
+        chart.ShowHoverAt(new ScottPlot.Coordinates(day1, 0));
+        PumpUntilOverlaySettled(overlay, targetOpacity: 1);
+        Assert.True(overlay.IsVisible);
+        var pinnedX = translate.X;
+        var pinnedText = overlay.FindControl<TextBlock>("HoverTipText")!.Text;
+
+        // 两点正中（像素距任一点 ≫15px 拾取半径）→ 死区未命中：一切保持
+        TrendChartHoverEventArgs? missEvent = null;
+        chart.HoverChanged += (_, e) => missEvent = e;
+        chart.ShowHoverAt(new ScottPlot.Coordinates((day1 + day15) / 2, 0));
+        Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Assert.True(overlay.IsVisible, "死区未命中浮窗应驻留");
+        Assert.True(overlay.Opacity > 0.99, "死区未命中浮窗不应淡出");
+        Assert.Equal(pinnedX, translate.X);
+        Assert.Equal(pinnedText, overlay.FindControl<TextBlock>("HoverTipText")!.Text);
+        Assert.Null(missEvent); // 驻留中不触发 IsActive=false
+        Assert.True(chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Crosshair>().Single().IsVisible,
+            "死区未命中 crosshair 应保持可见");
+
+        // 命中第二点：文案与事件切到新点，浮窗保持可见（插值从旧锚点滑过去，不闪现）
+        chart.ShowHoverAt(new ScottPlot.Coordinates(day15, 0));
+        Assert.True(overlay.IsVisible);
+        Assert.True(overlay.Opacity > 0.99, "换点滑行期间浮窗不应淡出");
+        Assert.Equal(TrendChart.DailyTooltipText(points[1]), overlay.FindControl<TextBlock>("HoverTipText")!.Text);
+
+        // 离开图表区域（PointerExited 同入口）→ 才淡出（headless 动画钟尾段不保证精确落定 0，容差判定）
+        chart.HideHover();
+        PumpUntilOverlaySettled(overlay, targetOpacity: 0);
+        Assert.True(overlay.Opacity < 0.05, "离开图表区域后浮窗应淡出");
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
