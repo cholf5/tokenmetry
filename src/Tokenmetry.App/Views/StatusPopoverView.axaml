@@ -109,6 +109,9 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="0,7"/>
+            <!-- Semi Button 主题默认 HorizontalAlignment=Center（收缩后整行居中），
+                 行钮在垂直 StackPanel 里必须显式撑满，图标列/数字列才能逐行对齐 -->
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         </Style>
         <Style Selector="Button.popover-agent-row:pointer /template/ ContentPresenter">
@@ -118,6 +121,8 @@
         <!-- footer 双按钮 ← 原型 .foot；主按钮走品牌蓝 + 恒白文字 -->
         <Style Selector="Button.popover-btn">
             <Setter Property="Padding" Value="9"/>
+            <!-- 同行钮：覆盖 Semi 主题 Center，按钮须填满 *,1.4* 网格列 -->
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
