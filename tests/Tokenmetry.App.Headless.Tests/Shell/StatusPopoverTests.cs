@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.ViewModels;
@@ -246,6 +247,91 @@ public class StatusPopoverTests
         Assert.Equal("—", vm.TodayTokensText);
         Assert.Equal("—", vm.TodayCostText);
         Assert.All(vm.SegmentShares, share => Assert.Equal(0, share));
+    }
+
+    // ── 布局回归：行钮/footer 按钮须撑满对齐（Semi Button 主题默认 HorizontalAlignment=Center，
+    //    收缩到内容自然宽度后整行居中，左右两列逐行漂移——见 2026-10-19 Top agents 对齐修复）──
+
+    [AvaloniaFact]
+    public async Task Top_agent_rows_stretch_and_align_both_edges()
+    {
+        var stub = new StubQueryService { Kpi = FixtureKpi(), Daily = FixtureDaily(), Agents = FixtureAgents() };
+        var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
+        await vm.ReloadAsync();
+
+        var view = new StatusPopoverView { DataContext = vm };
+        var window = new Window { Content = view };
+        window.Show(); // 触发首局布局
+
+        var rows = view.GetVisualDescendants().OfType<Button>()
+            .Where(b => b.Classes.Contains("popover-agent-row")).ToList();
+        Assert.Equal(4, rows.Count);
+
+        // 行按钮等宽撑满（fixture 四行 token 量级不同 → 自然宽度本就不同，等宽即证明 stretch）
+        Assert.All(rows, r => Assert.True(
+            Math.Abs(r.Bounds.Width - rows[0].Bounds.Width) < 0.5,
+            $"行按钮宽度不一致（应撑满）: {string.Join(", ", rows.Select(x => x.Bounds.Width))}"));
+
+        // 行内元素 Bounds 相对各自父级，先折算到行按钮坐标系再跨行比较
+        static double OffsetWithin(Avalonia.Visual node, Avalonia.Visual row)
+        {
+            var offset = 0d;
+            for (var cur = node.Parent as Avalonia.Visual; cur is not null && cur != row; cur = cur.Parent as Avalonia.Visual)
+                offset += cur.Bounds.Left;
+            return offset;
+        }
+
+        // 图标芯片左缘逐行对齐
+        var chipLefts = rows.Select(r =>
+            {
+                var chip = r.GetVisualDescendants().OfType<Border>()
+                    .First(b => b.Classes.Contains("agent-chip-lg"));
+                return chip.Bounds.Left + OffsetWithin(chip, r);
+            })
+            .ToList();
+        Assert.All(chipLefts, c => Assert.True(
+            Math.Abs(c - chipLefts[0]) < 0.5,
+            $"行图标左缘未对齐: {string.Join(", ", chipLefts)}"));
+
+        // token 数字右缘逐行对齐
+        var tokenRights = rows.Zip(vm.TopAgents!, (r, row) => (Row: r, Text: row.TokensText))
+            .Select(x =>
+            {
+                var text = x.Row.GetVisualDescendants().OfType<TextBlock>()
+                    .First(t => t.Text == x.Text);
+                return text.Bounds.Right + OffsetWithin(text, x.Row);
+            })
+            .ToList();
+        Assert.All(tokenRights, t => Assert.True(
+            Math.Abs(t - tokenRights[0]) < 0.5,
+            $"token 数字右缘未对齐: {string.Join(", ", tokenRights)}"));
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Footer_buttons_fill_their_grid_columns()
+    {
+        var stub = new StubQueryService { Kpi = FixtureKpi(), Daily = FixtureDaily(), Agents = FixtureAgents() };
+        var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
+        await vm.ReloadAsync();
+
+        var view = new StatusPopoverView { DataContext = vm };
+        var window = new Window { Content = view };
+        window.Show();
+
+        var footer = view.GetVisualDescendants().OfType<Button>()
+            .Where(b => b.Classes.Contains("popover-btn")).ToList();
+        Assert.Equal(2, footer.Count);
+
+        var grid = Assert.IsType<Grid>(footer[0].Parent);
+        // 两枚按钮分别贴齐所在列外缘（列宽 *,1.4*），而非收缩后居中（Bounds 均相对同一 Grid）
+        Assert.True(Math.Abs(footer[0].Bounds.Left) < 0.5,
+            $"footer 次按钮未贴列左缘: {footer[0].Bounds.Left}");
+        Assert.True(Math.Abs(footer[1].Bounds.Right - grid.Bounds.Width) < 0.5,
+            $"footer 主按钮未贴列右缘: {footer[1].Bounds.Right} vs {grid.Bounds.Width}");
+
+        window.Close();
     }
 
     // ── TC-002: 切语言重译 ──
