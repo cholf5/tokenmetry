@@ -42,8 +42,9 @@ public sealed class TrendChartHoverEventArgs : EventArgs
 
 /// <summary>
 /// D-004 正式趋势图控件（ScottPlot 5）：日趋势（输入/输出堆叠柱 + 总量折线）、成本折线、小时折线
-/// 三形态共用同一 AvaPlot 与 hover helper（crosshair 准星 + Avalonia 浮层浮窗：像素锚点经
-/// ComputeTooltipOrigin 计算、DispatcherTimer 每帧 lerp 平滑移动，样式见 SharedStyles chart-hovertip）。
+/// 三形态共用同一 AvaPlot 与 hover helper（crosshair 准星 + Avalonia 浮层浮窗：X 节点锚定经
+/// ComputeTooltipOrigin、Y 随光标临界阻尼弹簧跟随（SmoothDamp）、DispatcherTimer 16ms 步进，
+/// 样式见 SharedStyles chart-hovertip）。
 /// 设计基准：docs/design/ccusage_analytics_prototype.html（.chart 的 barin/barout/line/point、
 /// 图例三色 = :root blue/purple/cyan 变量 → AppAccentBlue/Purple/CyanBrush）。
 /// 数据经样式属性传入（无 DataContext 依赖），变更即整图重建。
@@ -57,6 +58,15 @@ public partial class TrendChart : UserControl
 
     /// <summary>堆叠柱宽（坐标单位；日期轴 1 单位 = 1 天，0.72 ≈ 原型柱宽/间距比例）。</summary>
     private const double DailyBarSize = 0.72;
+
+    /// <summary>Y 上下跟随平滑时间常数（秒，<see cref="SmoothDamp"/> smoothTime）：越大跟随越"懒"、加速/刹车越绵长。</summary>
+    private const double TipFollowSmoothTimeSeconds = 0.2;
+
+    /// <summary>插值时钟名义帧长（秒，与构造处 16ms 一致 ≈ 60fps）。</summary>
+    private const double TipTickSeconds = 0.016;
+
+    /// <summary>Y 落定速度阈值（px/s）：距离 <0.5px 且低于此速即吸附停表（亚像素，不可感知）。</summary>
+    private const double TipSettleSpeedPxPerSec = 30;
 
     public static readonly StyledProperty<TrendChartMode> ModeProperty =
         AvaloniaProperty.Register<TrendChart, TrendChartMode>(nameof(Mode), TrendChartMode.DailyTokens);
@@ -98,9 +108,11 @@ public partial class TrendChart : UserControl
 
     private Crosshair? _crosshair;
 
-    // 浮窗插值状态（motion design）：目标位 = ComputeTooltipOrigin 锚点；当前位每帧 lerp 逼近
+    // 浮窗插值状态（motion design）：X 目标 = 节点锚定位（ComputeTooltipOrigin，左右不随鼠标），
+    // Y 目标 = 光标跟随位（ComputeTooltipFollowY）；X 每帧 lerp 滑行（换点 §3(3)），Y 临界阻尼弹簧跟随
     private Avalonia.Point _tipCurrent;   // 浮窗当前像素位置（插值状态）
     private Avalonia.Point _tipTarget;    // 浮窗目标像素位置
+    private double _tipVelocityY;         // Y 跟随弹簧跨帧速度（px/s，SmoothDamp 状态）
     private bool _tipActive;              // 悬停激活中（HideHover 后复位——淡出让 IsVisible 保持
                                           // true，重进判定不能依赖它，否则从旧锚点滑过整图）
     private readonly DispatcherTimer _tipTimer;
@@ -181,6 +193,7 @@ public partial class TrendChart : UserControl
         HoverTip.IsVisible = false;
         HoverTip.Opacity = 0;
         _tipActive = false;
+        _tipVelocityY = 0;
 
         EmptyState.IsVisible = _hoverLabels.Length == 0;
         PlotControl.Refresh();
@@ -609,7 +622,11 @@ public partial class TrendChart : UserControl
     public void ShowHoverAt(Avalonia.Point position) =>
         ShowHoverAt(PlotControl.Plot.GetCoordinates(new Pixel(position.X, position.Y)));
 
-    /// <summary>按数据坐标更新悬停视觉（crosshair + 浮窗 + 事件）；坐标换算后走同一管线。</summary>
+    /// <summary>
+    /// 按数据坐标更新悬停视觉（crosshair 钉节点 + 浮窗 + 事件）；坐标换算后走同一管线。
+    /// 浮窗 X 锚定命中节点不随鼠标，Y 随光标上下跟随（规格 §3(2)）；targetLocation 兼作
+    /// 光标位（PointerMoved 路径像素↔数据线性往返无损，测试直接构造数据坐标）。
+    /// </summary>
     public void ShowHoverAt(Coordinates targetLocation)
     {
         if (_crosshair is null
@@ -624,18 +641,20 @@ public partial class TrendChart : UserControl
         // null 成本日仍可悬停（审查 P2-7/P1-1 配套）；命中语义与 GetNearestX 一致（半径内最近 X，平手取更早）。
         var limits = PlotControl.Plot.Axes.GetLimits();
         var dataRect = PlotControl.Plot.LastRender.DataRect;
+        var mousePixelY = MapToPixelY(targetLocation.Y, limits, dataRect);
         var index = PickNearestIndex(MapToPixelX(targetLocation.X, limits, dataRect), limits, dataRect);
         if (index is null)
         {
             // 驻留不变式（规格 §3(6) 反闪烁）：浮窗一旦显示，鼠标仍在图内（PointerMoved 未命中新点）
-            // 就保持现状——crosshair、浮窗、事件都不动；离开图表区域（PointerExited→HideHover）才淡出。
-            // 稀疏图跨节点移动时旧浮窗保持、命中新点后由插值时钟从旧锚点滑过去，不再"旧的消失、新的闪现"。
-            // 未驻留时未命中维持原清除语义（重复清是幂等 no-op）。
+            // 就保持现状——crosshair、浮窗文案、事件都不动；离开图表区域（PointerExited→HideHover）才淡出。
+            // X 驻留旧节点，Y 仍随光标上下（§3(2) 上下跟随）；未驻留时未命中维持原清除语义（幂等 no-op）。
             if (!_tipActive)
             {
                 HideHover();
+                return;
             }
 
+            FollowTipY(mousePixelY, dataRect);
             return;
         }
 
@@ -643,8 +662,9 @@ public partial class TrendChart : UserControl
         _crosshair.IsVisible = true;
         _crosshair.Position = coords;
 
-        // 浮窗（motion design）：目标位 = 数据点像素锚点的错位气泡位；换点不闪现——
-        // 目标变了但插值时钟从当前位置继续滑过去；首次出现直接落在目标位只做淡入
+        // 浮窗（motion design）：X = 数据点像素锚点的错位气泡位（右偏 14px、右半翻转、数据区
+        // 夹回，左右不随鼠标）；Y = 光标跟随（§3(2) 上下跟随，ComputeTooltipFollowY 垂直居中夹回）。
+        // 换点不闪现——目标变了但插值时钟从当前位置继续滑过去；首次出现直接落在目标位只做淡入。
         var pixel = new Avalonia.Point(
             MapToPixelX(coords.X, limits, dataRect),
             MapToPixelY(coords.Y, limits, dataRect));
@@ -656,14 +676,15 @@ public partial class TrendChart : UserControl
 
         HoverTip.Measure(Size.Infinity);
         var tipSize = HoverTip.DesiredSize;
-        _tipTarget = ComputeTooltipOrigin(pixel.X, pixel.Y, dataRect.Left, dataRect.Top,
+        var origin = ComputeTooltipOrigin(pixel.X, pixel.Y, dataRect.Left, dataRect.Top,
             dataRect.Width, dataRect.Height, tipSize.Width, tipSize.Height);
+        _tipTarget = new Avalonia.Point(
+            origin.X,
+            ComputeTooltipFollowY(mousePixelY, dataRect.Top, dataRect.Height, tipSize.Height));
         if (!_tipActive)
         {
             // 首次出现（或隐藏后重进）：直接落在目标位只做淡入（规格 §3(4) 隐藏后复位插值状态）
-            _tipCurrent = _tipTarget;
-            HoverTipTranslate.X = _tipCurrent.X;
-            HoverTipTranslate.Y = _tipCurrent.Y;
+            SnapTipToTarget();
         }
 
         _tipActive = true;
@@ -715,28 +736,54 @@ public partial class TrendChart : UserControl
         // 浮层 IsHitTestVisible=False 不影响交互，代价可忽略，换取平滑淡出
         HoverTip.Opacity = 0;
         _tipActive = false;
+        _tipVelocityY = 0; // 弹簧状态一并复位（重进走 §3(4) 吸附，不带残余速度）
 
         HoverChanged?.Invoke(this, new TrendChartHoverEventArgs { IsActive = false, Index = -1, LabelText = null });
         PlotControl.Refresh();
     }
 
-    /// <summary>浮窗每帧插值：向目标位 lerp（0.25），距离 < 0.5px 即吸附到位并停表。</summary>
-    private void TickTipInterpolation()
+    /// <summary>浮窗直接落到位并清弹簧速度（首次出现/重进，规格 §3(4) 复位插值状态——不滑入）。</summary>
+    private void SnapTipToTarget()
+    {
+        _tipCurrent = _tipTarget;
+        _tipVelocityY = 0;
+        HoverTipTranslate.X = _tipCurrent.X;
+        HoverTipTranslate.Y = _tipCurrent.Y;
+    }
+
+    /// <summary>驻留中未命中（规格 §3(6)）的上下跟随：X 保持旧节点锚定不动，仅重定 Y 目标随光标。</summary>
+    private void FollowTipY(double mousePixelY, ScottPlot.PixelRect dataRect)
+    {
+        HoverTip.Measure(Size.Infinity);
+        var tipSize = HoverTip.DesiredSize;
+        _tipTarget = new Avalonia.Point(
+            _tipTarget.X,
+            ComputeTooltipFollowY(mousePixelY, dataRect.Top, dataRect.Height, tipSize.Height));
+        _tipTimer.Start();
+    }
+
+    /// <summary>
+    /// 浮窗每帧步进（DispatcherTimer 16ms 驱动；headless 测试直接步进）：X 换点滑行维持逐帧
+    /// lerp(0.25)（§3(3)，左右逻辑不变），Y 上下跟随走临界阻尼弹簧（§3(2)，加速+刹车、绝不过冲）；
+    /// X/Y 距离与 Y 速度都低于阈值即吸附到位并停表（亚像素不可感知，静止零开销）。
+    /// </summary>
+    public void TickTipInterpolation()
     {
         var dx = _tipTarget.X - _tipCurrent.X;
         var dy = _tipTarget.Y - _tipCurrent.Y;
-        if (Math.Abs(dx) < 0.5 && Math.Abs(dy) < 0.5)
+        if (Math.Abs(dx) < 0.5 && Math.Abs(dy) < 0.5 && Math.Abs(_tipVelocityY) < TipSettleSpeedPxPerSec)
         {
-            _tipCurrent = _tipTarget;
+            SnapTipToTarget();
             _tipTimer.Stop();
         }
         else
         {
-            _tipCurrent = new Avalonia.Point(_tipCurrent.X + dx * 0.25, _tipCurrent.Y + dy * 0.25);
+            _tipCurrent = new Avalonia.Point(
+                _tipCurrent.X + dx * 0.25,
+                SmoothDamp(_tipCurrent.Y, _tipTarget.Y, ref _tipVelocityY, TipFollowSmoothTimeSeconds, TipTickSeconds));
+            HoverTipTranslate.X = _tipCurrent.X;
+            HoverTipTranslate.Y = _tipCurrent.Y;
         }
-
-        HoverTipTranslate.X = _tipCurrent.X;
-        HoverTipTranslate.Y = _tipCurrent.Y;
     }
 
     /// <summary>浮窗与数据点的水平间距（px）：气泡错开圆点，不盖点。</summary>
@@ -759,6 +806,37 @@ public partial class TrendChart : UserControl
         x = Math.Clamp(x, dataLeft, Math.Max(dataLeft, dataLeft + dataWidth - tooltipWidth));
         y = Math.Clamp(y, dataTop, Math.Max(dataTop, dataTop + dataHeight - tooltipHeight));
         return new Avalonia.Point(x, y);
+    }
+
+    /// <summary>
+    /// 上下跟随的浮窗目标 Y（规格 §3(2)，纯函数，headless 单测覆盖）：气泡垂直居中于鼠标
+    /// 光标像素位，越界夹回数据区（与 <see cref="ComputeTooltipOrigin"/> 的 Y 夹回同语义）。
+    /// 左右不在此——X 仍锚定数据节点（§3(1)/(6)，不随鼠标）。
+    /// </summary>
+    public static double ComputeTooltipFollowY(double mousePixelY, double dataTop, double dataHeight, double tooltipHeight) =>
+        Math.Clamp(mousePixelY - tooltipHeight / 2, dataTop, Math.Max(dataTop, dataTop + dataHeight - tooltipHeight));
+
+    /// <summary>
+    /// 单轴临界阻尼平滑跟随（Unity SmoothDamp 同源算法，纯函数，headless 单测覆盖）：从静止
+    /// 起步加速、临近目标刹车、绝不过冲，约 3×smoothTime 落定——替换逐帧 lerp(0.25) 做 Y 跟随：
+    /// lerp 起步速度突跳、只有刹车没有加速，观感生硬（规格 §3(2) 要求"加速和刹车"）。
+    /// <paramref name="velocity"/> 为跨帧弹簧状态（px/s，调用方持有）；deltaTime 为名义帧长。
+    /// </summary>
+    public static double SmoothDamp(double current, double target, ref double velocity, double smoothTime, double deltaTime)
+    {
+        if (deltaTime <= 0)
+        {
+            return current;
+        }
+
+        smoothTime = Math.Max(0.0001, smoothTime);
+        var omega = 2 / smoothTime;
+        var x = omega * deltaTime;
+        var exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+        var change = current - target;
+        var temp = (velocity + omega * change) * deltaTime;
+        velocity = (velocity - omega * temp) * exp;
+        return target + (change + temp) * exp;
     }
 
     private static double MapToPixelX(double x, AxisLimits limits, ScottPlot.PixelRect dataRect) =>
