@@ -320,12 +320,11 @@ public partial class DonutChart : UserControl
         if (animate)
         {
             StartSweep(sweepPaths, centerX, centerY, outerRadius, innerRadius);
-            // 中心数字与弧段同步淡入（克制：只此一处用整组 opacity，不做逐段）
-            CenterTitleText.Opacity = 0;
-            CenterSubtitleText.Opacity = 0;
+            // 中心数字与弧段同步淡入（克制：只此一处用整组 opacity，不做逐段）。
+            // RunFadeIn 落定本地终值 1——裸 FadeIn.RunAsync 完成后回落到本地 0，数字会消失。
             // 注意不能写 Styles.Motion：Control.Styles 实例属性会遮蔽命名空间段
-            _ = Tokenmetry.App.Styles.Motion.FadeIn(Tokenmetry.App.Styles.Motion.NormalMs).RunAsync(CenterTitleText);
-            _ = Tokenmetry.App.Styles.Motion.FadeIn(Tokenmetry.App.Styles.Motion.NormalMs).RunAsync(CenterSubtitleText);
+            Tokenmetry.App.Styles.Motion.RunFadeIn(CenterTitleText, Tokenmetry.App.Styles.Motion.NormalMs);
+            Tokenmetry.App.Styles.Motion.RunFadeIn(CenterSubtitleText, Tokenmetry.App.Styles.Motion.NormalMs);
         }
 
         LegendList.ItemsSource = legendItems;
