@@ -50,17 +50,17 @@ internal static unsafe class MacPopoverBlurInterop
             // 本 interop 整体未跑、四角露出窗口垫色实色，即用户目检的灰底）；兼容 NSView 形态
             var descriptor = handle.HandleDescriptor;
             IntPtr wnd;
-            if (descriptor.Contains("NSWindow", StringComparison.Ordinal))
+            if (descriptor?.Contains("NSWindow", StringComparison.Ordinal) == true)
             {
                 wnd = handle.Handle;
             }
-            else if (descriptor.Contains("NSView", StringComparison.Ordinal))
+            else if (descriptor?.Contains("NSView", StringComparison.Ordinal) == true)
             {
                 wnd = MsgSend(handle.Handle, Sel("window"));
             }
             else
             {
-                Diagnose($"descriptor={descriptor}（未识别，放弃）");
+                Diagnose($"descriptor={descriptor ?? "(null)"}（未识别，放弃）");
                 return false;
             }
 

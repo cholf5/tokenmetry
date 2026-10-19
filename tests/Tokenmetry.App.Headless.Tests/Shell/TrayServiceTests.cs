@@ -144,7 +144,7 @@ public class TrayServiceTests : IDisposable
     private static TrayIcon? SingleRegisteredIcon()
     {
         var icons = TrayIcon.GetIcons(Application.Current!);
-        return icons.Count == 1 ? icons[0] : null;
+        return icons is { Count: 1 } ? icons[0] : null;
     }
 
     private static NativeMenuItem? CostItem(TrayIcon icon) =>

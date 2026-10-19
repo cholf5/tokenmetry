@@ -106,11 +106,7 @@ public class StatusPopoverShellTests : IDisposable
         var icon = TrayIcon.GetIcons(Application.Current!)![0];
         Assert.DoesNotContain(icon.Menu!.Items.OfType<NativeMenuItem>(), i => i.Header as string == "快捷信息窗");
 
-        var icons = TrayIcon.GetIcons(Application.Current!);
-        foreach (var i in icons!.ToList())
-        {
-            icons.Remove(i);
-        }
+        TrayIcon.GetIcons(Application.Current!)!.Clear();
     }
 
     [AvaloniaFact]

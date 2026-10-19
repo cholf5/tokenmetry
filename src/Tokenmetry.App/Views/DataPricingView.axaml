@@ -139,7 +139,7 @@
 
                     <!-- 搜索 + 来源筛选（定案一）：文本对 ID / 显示名 / 厂商做子串匹配，chip 多选并集、全不选不过滤 -->
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                        <TextBox Watermark="{Binding ModelSearchPlaceholder, Source={x:Static loc:Translations.Instance}}"
+                        <TextBox PlaceholderText="{Binding ModelSearchPlaceholder, Source={x:Static loc:Translations.Instance}}"
                                  Text="{Binding ModelSearchText, Mode=TwoWay}"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <ToggleButton Classes="filter-chip" IsChecked="{Binding FilterBuiltin}"

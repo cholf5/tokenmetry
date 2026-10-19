@@ -63,7 +63,7 @@ public sealed class ModelCatalog : IModelNameResolver
         _snapshotEntries = snapshotEntries ?? BuiltinPricingSnapshot.Entries;
         _aliasResolver.UpdateAliases(aliases ?? []);
         _userOverrides = NormalizeOverrides(userDefinitions);
-        RebuildState();
+        _state = Build(); // 构造期 memo 已随字段初始化器新建，无需 RebuildState 的换缓存步骤
     }
 
     /// <summary>合成后的模型配置表（按 ID 序数排序；含无价条目——无价 ≠ 不存在）。</summary>
