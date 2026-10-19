@@ -32,9 +32,10 @@
                        TextAlignment="Center"/>
         </StackPanel>
         <!-- 悬停浮窗（motion design）：Avalonia 层浮层替代 ScottPlot 自绘 Tooltip。
-             位置 = 数据点像素锚点（ComputeTooltipOrigin：右偏 14px、右半翻转、数据区夹回），
-             由 code-behind DispatcherTimer 每帧 lerp（≈0.25）平滑移动；显隐走 SharedStyles
-             chart-hovertip 的 Opacity transition。IsHitTestVisible=False 不挡图表交互。 -->
+             X = 数据点锚点（ComputeTooltipOrigin：右偏 14px、右半翻转、数据区夹回）不随鼠标；
+             Y 跟随光标上下（SmoothDamp 临界阻尼弹簧，加速+刹车）。DispatcherTimer 16ms 步进：
+             X 换点 lerp 滑行、Y 弹簧跟随；显隐走 SharedStyles chart-hovertip 的 Opacity transition。
+             IsHitTestVisible=False 不挡图表交互。 -->
         <Border x:Name="HoverTip"
                 Classes="chart-hovertip"
                 IsHitTestVisible="False"

@@ -173,6 +173,39 @@ public class TrendChartTests
         Assert.Equal(0, narrow.X);
     }
 
+    [AvaloniaFact]
+    public void Tooltip_follow_y_centers_on_cursor_and_clamps_into_data_rect()
+    {
+        // 规格 §3(2) 上下跟随：气泡垂直居中于光标，越界夹回数据区（与锚点 Y 夹回同语义）
+        Assert.Equal(120, TrendChart.ComputeTooltipFollowY(mousePixelY: 150, dataTop: 0, dataHeight: 300, tooltipHeight: 60));
+        Assert.Equal(0, TrendChart.ComputeTooltipFollowY(5, 0, 300, 60));
+        Assert.Equal(300 - 60, TrendChart.ComputeTooltipFollowY(295, 0, 300, 60));
+    }
+
+    [AvaloniaFact]
+    public void SmoothDamp_accelerates_from_rest_brakes_into_target_and_never_overshoots()
+    {
+        // 规格 §3(2) "加速和刹车"：对比旧逐帧 lerp(0.25) 的首步即 25% 全程（速度突跳），
+        // 弹簧首步位移远小于峰值步（起步加速）；末段步长收缩（刹车）；全程不回退不过冲。
+        const double gap = 300;
+        var position = 0d;
+        var velocity = 0d;
+        var steps = new double[120];
+        for (var i = 0; i < steps.Length; i++)
+        {
+            var before = position;
+            position = TrendChart.SmoothDamp(position, gap, ref velocity, smoothTime: 0.2, deltaTime: 0.016);
+            steps[i] = position - before;
+        }
+
+        var peak = steps.Max();
+        Assert.True(steps[0] < peak * 0.6, $"起步应加速：首步 {steps[0]:0.##} 应显著小于峰值步 {peak:0.##}");
+        Assert.True(steps[^1] < peak * 0.05, $"临近落定应刹车：末步 {steps[^1]:0.###} 远小于峰值步 {peak:0.##}");
+        Assert.All(steps, s => Assert.True(s >= 0, "临界阻尼不应回退"));
+        Assert.True(position <= gap + 0.5, "不应过冲目标");
+        Assert.True(Math.Abs(position - gap) < 0.5, $"应落定目标，实测 {position:0.##}");
+    }
+
     // ── hover helper：悬停管线（事件 + tooltip 文案口径）──
 
     [AvaloniaFact]
@@ -342,7 +375,8 @@ public class TrendChartTests
 
         var real = ChartTestHelpers.FirstRealPoint(points);
         var overlay = chart.FindControl<Border>("HoverTip")!;
-        chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(real.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
+        chart.ShowHoverAt(new ScottPlot.Coordinates(
+            DateTime.Parse(real.Day, CultureInfo.InvariantCulture).ToOADate(), real.TotalTokens));
         PumpUntilOverlaySettled(overlay, targetOpacity: 1); // 淡入过渡走满（headless 动画钟只在 RunJobs/渲染 tick 推进）
         var frame = ChartTestHelpers.RenderFrame(window);
 
@@ -422,16 +456,17 @@ public class TrendChartTests
         var day1 = DateTime.Parse("2026-09-01", CultureInfo.InvariantCulture).ToOADate();
         var day15 = DateTime.Parse("2026-09-15", CultureInfo.InvariantCulture).ToOADate();
 
-        chart.ShowHoverAt(new ScottPlot.Coordinates(day1, 0));
+        chart.ShowHoverAt(new ScottPlot.Coordinates(day1, points[0].TotalTokens));
         PumpUntilOverlaySettled(overlay, targetOpacity: 1);
         Assert.True(overlay.IsVisible);
         var pinnedX = translate.X;
         var pinnedText = overlay.FindControl<TextBlock>("HoverTipText")!.Text;
 
-        // 两点正中（像素距任一点 ≫15px 拾取半径）→ 死区未命中：一切保持
+        // 两点正中（像素距任一点 ≫15px 拾取半径）、光标纵向移到轴上方（数据 Y 超上限）
+        // → 死区未命中：X/文案/事件/crosshair 全保持，Y 仍随光标上下（规格 §3(2)(6) 叠加）
         TrendChartHoverEventArgs? missEvent = null;
         chart.HoverChanged += (_, e) => missEvent = e;
-        chart.ShowHoverAt(new ScottPlot.Coordinates((day1 + day15) / 2, 0));
+        chart.ShowHoverAt(new ScottPlot.Coordinates((day1 + day15) / 2, points[0].TotalTokens * 4));
         Dispatcher.UIThread.RunJobs();
         Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Assert.True(overlay.IsVisible, "死区未命中浮窗应驻留");
@@ -442,8 +477,18 @@ public class TrendChartTests
         Assert.True(chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Crosshair>().Single().IsVisible,
             "死区未命中 crosshair 应保持可见");
 
-        // 命中第二点：文案与事件切到新点，浮窗保持可见（插值从旧锚点滑过去，不闪现）
-        chart.ShowHoverAt(new ScottPlot.Coordinates(day15, 0));
+        for (var i = 0; i < 90; i++)
+        {
+            chart.TickTipInterpolation();
+        }
+
+        var sparseDataRect = chart.Plot.LastRender.DataRect;
+        Assert.True(Math.Abs(translate.X - pinnedX) < 1.5, "驻留全程 X 应保持旧节点锚定");
+        Assert.True(Math.Abs(translate.Y - sparseDataRect.Top) < 1.5,
+            $"驻留期间气泡 Y 应跟随光标上移（落定数据区顶部），实测 {translate.Y:0.#} vs {sparseDataRect.Top:0.#}");
+
+        // 命中第二点：文案与事件切到新点，浮窗保持可见（X 从旧锚点滑过去，不闪现）
+        chart.ShowHoverAt(new ScottPlot.Coordinates(day15, points[1].TotalTokens));
         Assert.True(overlay.IsVisible);
         Assert.True(overlay.Opacity > 0.99, "换点滑行期间浮窗不应淡出");
         Assert.Equal(TrendChart.DailyTooltipText(points[1]), overlay.FindControl<TextBlock>("HoverTipText")!.Text);
@@ -452,6 +497,45 @@ public class TrendChartTests
         chart.HideHover();
         PumpUntilOverlaySettled(overlay, targetOpacity: 0);
         Assert.True(overlay.Opacity < 0.05, "离开图表区域后浮窗应淡出");
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Tooltip_follows_mouse_vertically_while_x_stays_node_anchored()
+    {
+        // 规格 §3(2) 上下跟随（ZCode 观感）：同一节点上鼠标纵向移动 → 气泡 Y 弹簧跟随光标
+        // （SmoothDamp 加速+刹车），落定于夹回目标；X 全程锚定节点不随鼠标（左右维持 §3(1)/(6) 逻辑）
+        var points = ChartTestHelpers.DailyPoints30();
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var overlay = chart.FindControl<Border>("HoverTip")!;
+        var translate = Assert.IsType<Avalonia.Media.TranslateTransform>(overlay.RenderTransform);
+        var first = ChartTestHelpers.FirstRealPoint(points);
+        var day = DateTime.Parse(first.Day, CultureInfo.InvariantCulture).ToOADate();
+
+        chart.ShowHoverAt(new ScottPlot.Coordinates(day, first.TotalTokens));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(overlay.IsVisible);
+        var anchorX = translate.X;
+        var startY = translate.Y;
+
+        // 同一节点 X（命中不变）、光标纵向移到轴上方（数据 Y 超上限 → 目标夹回数据区顶部）
+        chart.ShowHoverAt(new ScottPlot.Coordinates(day, 1e12));
+        for (var i = 0; i < 90; i++)
+        {
+            chart.TickTipInterpolation();
+        }
+
+        var dataRect = chart.Plot.LastRender.DataRect;
+        Assert.True(startY - translate.Y > 50,
+            $"跟随位移应可感知（不是钉死在节点 Y）：{startY:0.#} → {translate.Y:0.#}");
+        Assert.True(Math.Abs(translate.Y - dataRect.Top) < 1.5,
+            $"气泡 Y 应跟随光标落定于数据区顶部，实测 {translate.Y:0.#} vs {dataRect.Top:0.#}");
+        Assert.True(Math.Abs(translate.X - anchorX) < 1.5, "X 应保持节点锚定，不随鼠标移动");
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
