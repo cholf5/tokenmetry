@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
@@ -463,5 +464,46 @@ public class DonutChartTests
         Assert.Equal(0, DonutChart.SweepTotalMs(0));
         Assert.Equal(240, DonutChart.SweepTotalMs(1));
         Assert.Equal((3 - 1) * 40 + 240, DonutChart.SweepTotalMs(3));
+    }
+
+    // ── 中心文字淡入落定（回归锁：用户实测扫入后中心数字消失）──
+
+    [AvaloniaFact]
+    public void Center_texts_stay_visible_after_fade_in_completes()
+    {
+        // Avalonia 动画完成后属性回落到本地值：若本地值停在起帧 0，中心数字在 180ms 淡入
+        // 结束的瞬间消失（用户实测）。淡入必须以本地终值 1 收尾。
+        var chart = new DonutChart
+        {
+            Segments = FiveSegments(),
+            CenterTitle = "8.74M",
+            CenterSubtitle = "Total Tokens",
+        };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        // 泵到中心标题淡入完成（180ms；headless 动画钟每 tick 只推进 ~16ms，按到位为止泵）
+        var title = chart.FindControl<TextBlock>("CenterTitleText");
+        var subtitle = chart.FindControl<TextBlock>("CenterSubtitleText");
+        Assert.NotNull(title);
+        Assert.NotNull(subtitle);
+        for (var i = 0; i < 200 && title!.Opacity < 0.999; i++)
+        {
+            Thread.Sleep(30); // 合成帧时间戳走真实墙钟，Sleep 推墙钟 + tick 出帧
+            Dispatcher.UIThread.RunJobs();
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+
+        var titleBase = title!.GetBaseValue(Avalonia.Visual.OpacityProperty);
+        var subtitleBase = subtitle!.GetBaseValue(Avalonia.Visual.OpacityProperty);
+        // headless 动画钟爬得慢，完成前有效值到不了 1——落定契约断言本地值：动画结束后
+        // 有效值回落到本地值，本地值必须停在终态 1（bug 版本本地值为 0，实测消失）
+        Assert.True(titleBase.HasValue && titleBase.Value > 0.999,
+            $"中心标题淡入应落定本地值 1，实测 本地值 {titleBase} / 有效值 {title.Opacity:0.###}——动画值回落到本地 0 即消失");
+        Assert.True(subtitleBase.HasValue && subtitleBase.Value > 0.999,
+            $"中心副题淡入应落定本地值 1，实测 本地值 {subtitleBase} / 有效值 {subtitle.Opacity:0.###}——动画值回落到本地 0 即消失");
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 }
