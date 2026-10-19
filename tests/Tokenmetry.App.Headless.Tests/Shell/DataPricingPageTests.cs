@@ -433,7 +433,7 @@ public class DataPricingPageTests
         Assert.False(vm.IsModelEditOpen);
 
         editButton.Focus(); // 模拟真实点击：焦点在行按钮上（遮罩之外）
-        editButton.Command.Execute(editButton.CommandParameter); // 按钮命令与参数绑定的走线检查
+        editButton.Command!.Execute(editButton.CommandParameter); // 按钮命令与参数绑定的走线检查
         Dispatcher.UIThread.RunJobs();
 
         Assert.True(vm.IsModelEditOpen, "行上编辑按钮打开弹层");

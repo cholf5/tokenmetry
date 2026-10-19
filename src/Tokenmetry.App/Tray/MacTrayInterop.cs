@@ -68,7 +68,7 @@ internal static unsafe class MacTrayInterop
         SelSetTag, SelSetEnabled, SelSetTitle, SelAddItem, SelSeparatorItem, SelSetAutoenables,
         SelAlloc, SelInit, SelInitWithUtf8, SelRelease, SelRightMouseDown, SelMenuAction,
         SelButtonAction, SelTag, SelMouseLocation, SelDataWithBytesLength, SelInitWithData,
-        SelSetSize, SelMenuFontOfSize, SelPointSize, SelSystemStatusBar, SelInitWithTitle,
+        SelMenuFontOfSize, SelPointSize, SelSystemStatusBar, SelInitWithTitle,
         SelInitWith3, SelPopUpMenu, SelGetSize;
 
     // ── 运行时状态（单状态项，进程生命周期）──

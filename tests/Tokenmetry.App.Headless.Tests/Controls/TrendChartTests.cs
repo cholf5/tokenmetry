@@ -346,7 +346,7 @@ public class TrendChartTests
 
         var overlay = chart.FindControl<Border>("HoverTip");
         Assert.NotNull(overlay);
-        Assert.True(overlay!.Classes.Contains("chart-hovertip"));
+        Assert.Contains("chart-hovertip", overlay!.Classes);
         Assert.False(overlay.IsVisible);
 
         // ShowHoverAt 后浮层可见、文本与悬停标签同源
