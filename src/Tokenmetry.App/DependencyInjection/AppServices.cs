@@ -67,6 +67,8 @@ public static class AppServices
         services.AddSingleton<IAppSettingsStore>(settingsStore);
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<IToastService, ToastService>();
+        // S-006 开机自启动注册（设置页开关的 OS 出口；headless 测试宿主禁止真实调用，见管理器注释）
+        services.AddSingleton<IAutoStartManager, AutoStartManager>();
         // D-003 全局筛选状态（时间范围 + Agent）：单例，顶部栏写入、各页 VM 订阅
         services.AddSingleton<FilterStateService>();
         // 时间范围持久化：启动应用上次的档位/自定义起止，此后顶部栏变更即存（FilterStatePersistence）

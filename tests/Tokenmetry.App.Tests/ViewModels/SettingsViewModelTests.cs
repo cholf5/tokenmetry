@@ -139,6 +139,56 @@ public class SettingsViewModelTests
         store.SaveCalls.Should().Be(2);
     }
 
+    // ---- 开机自启动（S-006：OS 注册 = IAutoStartManager，注册失败回滚开关且不落盘）----
+
+    [Fact]
+    public void Constructor_SeedsAutoStartOnBootFromSettings()
+    {
+        var settings = new AppSettings { AutoStartOnBoot = true };
+
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
+
+        viewModel.AutoStartOnBoot.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AutoStartOnBootToggle_RegistersOsAndPersistsImmediately()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var manager = new FakeAutoStartManager();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, autoStartManager: manager);
+
+        viewModel.AutoStartOnBoot = true;
+
+        manager.Calls.Should().Equal(true);
+        settings.AutoStartOnBoot.Should().BeTrue();
+        store.SaveCalls.Should().Be(1);
+
+        viewModel.AutoStartOnBoot = false;
+
+        manager.Calls.Should().Equal(true, false);
+        settings.AutoStartOnBoot.Should().BeFalse();
+        store.SaveCalls.Should().Be(2);
+    }
+
+    [Fact]
+    public void AutoStartOnBootToggle_WhenOsRegistrationFails_RevertsToggleAndDoesNotPersist()
+    {
+        // OS 未生效不落盘：settings 与 OS 状态保持一致；开关回滚显示（字段直写，不重入回调）。
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var manager = new FakeAutoStartManager { SetEnabledException = new InvalidOperationException("registry denied") };
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, autoStartManager: manager);
+
+        viewModel.AutoStartOnBoot = true;
+
+        manager.Calls.Should().HaveCount(1);        // 尝试过注册
+        viewModel.AutoStartOnBoot.Should().BeFalse(); // 开关回滚显示
+        settings.AutoStartOnBoot.Should().BeFalse();  // settings 保持旧值
+        store.SaveCalls.Should().Be(0);               // 不落盘
+    }
+
     [Fact]
     public void SettingsChange_WhenStoreFails_KeepsUiEffectiveAndDoesNotThrow()
     {
@@ -257,13 +307,15 @@ public class SettingsViewModelTests
         AppSettings settings,
         AppPaths paths,
         FakeSettingsStore store,
-        IThemeService? themeService = null)
+        IThemeService? themeService = null,
+        FakeAutoStartManager? autoStartManager = null)
     {
         return new SettingsViewModel(
             settings,
             paths,
             store,
-            themeService ?? new FakeThemeService());
+            themeService ?? new FakeThemeService(),
+            autoStartManager ?? new FakeAutoStartManager());
     }
 
     private sealed class FakeThemeService : IThemeService
@@ -273,6 +325,22 @@ public class SettingsViewModelTests
         public void Apply(string? themePreference)
         {
             LastApplied = themePreference;
+        }
+    }
+
+    private sealed class FakeAutoStartManager : IAutoStartManager
+    {
+        public List<bool> Calls { get; } = new();
+
+        public Exception? SetEnabledException { get; init; }
+
+        public void SetEnabled(bool enabled)
+        {
+            Calls.Add(enabled);
+            if (SetEnabledException != null)
+            {
+                throw SetEnabledException;
+            }
         }
     }
 

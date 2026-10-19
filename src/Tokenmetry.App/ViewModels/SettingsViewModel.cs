@@ -53,7 +53,8 @@ public sealed class LanguageOption : ObservableObject
 }
 
 /// <summary>
-/// 设置页 VM（S-004 起收缩为应用偏好：主题 / 界面语言 / 刷新间隔 / ccusage 命令 / 异常通知 / 本地路径）。
+/// 设置页 VM（S-004 起收缩为应用偏好：主题 / 界面语言 / 刷新间隔 / ccusage 命令 / 异常通知 / 关窗行为 /
+/// 开机自启动 / 本地路径）。
 /// 数据源、统计口径、模型目录与别名映射在数据与计价页（<see cref="DataPricingViewModel"/>）。
 /// 全部设置项改完即生效并落盘（无保存按钮——对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）。
 /// </summary>
@@ -77,6 +78,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly AppSettings _settings;
     private readonly IAppSettingsStore _store;
     private readonly IThemeService _themeService;
+    private readonly IAutoStartManager _autoStartManager;
 
     /// <summary>自动保存串行化 gate：文本框逐键触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
@@ -90,9 +92,14 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _anomalyNotificationsEnabled;
 
-    /// <summary>关窗行为（S-005）：true = 关窗最小化到托盘（默认）；false = 关窗即退出。消费者 = MainWindow.OnClosing。</summary>
+    /// <summary>关窗行为开关（S-005）：true = 关窗最小化到托盘（默认）；false = 关窗即退出。消费者 = MainWindow.OnClosing。</summary>
     [ObservableProperty]
     private bool _minimizeToTrayOnClose;
+
+    /// <summary>开机自启动开关（S-006，默认关）：OS 注册 = <see cref="IAutoStartManager"/>（Win Run 键 / macOS LaunchAgent / Linux autostart），
+    /// 注册内容带 --autostart 参数（启动静默常驻托盘）。</summary>
+    [ObservableProperty]
+    private bool _autoStartOnBoot;
 
     /// <summary>刷新间隔的行内校验提示（非法输入时非空并显示；合法/初始为 null 隐藏）。</summary>
     [ObservableProperty]
@@ -108,17 +115,21 @@ public partial class SettingsViewModel : ViewModelBase
         AppSettings settings,
         AppPaths paths,
         IAppSettingsStore store,
-        IThemeService themeService)
+        IThemeService themeService,
+        IAutoStartManager autoStartManager)
     {
         _settings = settings;
         _store = store;
         _themeService = themeService;
+        ArgumentNullException.ThrowIfNull(autoStartManager);
+        _autoStartManager = autoStartManager;
         CacheDbPath = paths.CacheDbPath;
         SettingsFilePath = paths.SettingsFilePath;
         _ccusageCommand = settings.CcusageCommand;
         _refreshMinutesText = settings.RefreshMinutes.ToString();
         _anomalyNotificationsEnabled = settings.AnomalyNotificationsEnabled;
         _minimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
+        _autoStartOnBoot = settings.AutoStartOnBoot;
         _selectedTheme = ResolveThemeOption(settings.Theme);
         _selectedLanguage = ResolveLanguageOption(settings.Language);
 
@@ -199,6 +210,27 @@ public partial class SettingsViewModel : ViewModelBase
     partial void OnMinimizeToTrayOnCloseChanged(bool value)
     {
         _settings.MinimizeToTrayOnClose = value;
+        PersistSettings();
+    }
+
+    /// <summary>开机自启动开关（S-006）：先 OS 注册后落盘——OS 失败回滚开关显示（字段直写，不重入本回调）
+    /// 且不落盘（settings 与 OS 状态保持一致）；成功即存（同关窗行为开关的自动保存语义）。启动侧对账
+    /// （App 启动序列，仅 enabled 时）另负责应用更新换路径后的注册刷新。</summary>
+    partial void OnAutoStartOnBootChanged(bool value)
+    {
+        try
+        {
+            _autoStartManager.SetEnabled(value);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 开机自启动{(value ? "注册" : "注销")}失败：{ex.Message}");
+            _autoStartOnBoot = !value;
+            OnPropertyChanged(nameof(AutoStartOnBoot));
+            return;
+        }
+
+        _settings.AutoStartOnBoot = value;
         PersistSettings();
     }
 

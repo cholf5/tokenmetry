@@ -7,9 +7,9 @@
 
     <!--
         S-004 设置页（自 S-002 合并页拆出后收缩为应用偏好）：外观与通用（主题三态 / 界面语言 /
-        刷新间隔 / 通知 / 关窗行为 / ccusage 命令）+ 本地路径（只读说明）。数据源 / 统计口径 / 模型目录 /
-        别名映射在数据与计价页（DataPricingView）。全部设置项全自动保存（改完即生效并落盘，
-        无保存按钮——对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）。
+        刷新间隔 / 通知 / 关窗行为 / 开机自启动 / ccusage 命令）+ 本地路径（只读说明）。
+        数据源 / 统计口径 / 模型目录 / 别名映射在数据与计价页（DataPricingView）。全部设置项全自动
+        保存（改完即生效并落盘，无保存按钮——对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）。
     -->
     <ScrollViewer>
         <StackPanel Spacing="13" Margin="0,0,0,4">
@@ -90,6 +90,14 @@
                                   IsChecked="{Binding MinimizeToTrayOnClose}"/>
                         <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
                                    Text="{Binding CheckMinimizeToTrayOnCloseHint, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
+
+                    <!-- S-006：开机自启动（默认关；OS 注册 = IAutoStartManager，静默启动参数见 AutoStartManager.LaunchArg） -->
+                    <StackPanel Spacing="4">
+                        <CheckBox Content="{Binding CheckAutoStartOnBoot, Source={x:Static loc:Translations.Instance}}"
+                                  IsChecked="{Binding AutoStartOnBoot}"/>
+                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                                   Text="{Binding CheckAutoStartOnBootHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
                 </StackPanel>
             </Border>

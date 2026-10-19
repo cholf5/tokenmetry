@@ -39,6 +39,15 @@ public class AppSettings
     public bool CloseToTrayHintShown { get; set; }
 
     /// <summary>
+    /// 开机自启动（S-006，默认关闭）：true 时 OS 层注册「当前可执行文件 + --autostart 参数」随用户
+    /// 登录启动（Windows = HKCU Run 键 / macOS = ~/Library/LaunchAgents plist / Linux = XDG autostart，
+    /// 见 App/Services/AutoStartManager）。--autostart 启动静默常驻托盘不弹主窗（A-0 托盘常驻语义）。
+    /// 消费者 = SettingsViewModel 开关（注册/注销，OS 失败回滚开关）+ App 启动对账（enabled 时重写注册，
+    /// 应用更新换可执行路径后自启动不失效）。
+    /// </summary>
+    public bool AutoStartOnBoot { get; set; }
+
+    /// <summary>
     /// 顶部栏时间范围档（Tokenmetry.App 的 TimeRange 枚举名，如 "Last7Days"）；未知值由
     /// FilterStatePersistence 解析处如实回落默认档。存字符串：枚举在 App 层，Core 不依赖 UI。
     /// </summary>
