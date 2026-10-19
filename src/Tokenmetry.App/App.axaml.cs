@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -47,6 +48,26 @@ public partial class App : Application
         // 界面语言在主窗 / 托盘创建前应用（托盘菜单、顶栏、各页文案都经 Translations 取串）。
         Localization.Translations.ApplyPreference(settings.Language);
 
+        // S-006 开机自启动对账：settings 为源，启用时重写 OS 注册（注册内容指向当前可执行文件——
+        // 应用更新换路径后自启动不失效）。仅在启用时执行：默认关闭路径零 OS 写入，headless 测试
+        // 宿主绝不触碰真实 OS 注册状态（TrayService 同一枚标记）。失败只记诊断不阻塞启动，
+        // 下次启动再试；设置页开关的失败回滚是另一条即时路径。
+        if (settings.AutoStartOnBoot && !Tray.TrayService.IsHeadlessTestHost)
+        {
+            try
+            {
+                DependencyInjection.AppServices.Get<IAutoStartManager>().SetEnabled(true);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Tokenmetry] 开机自启动注册对账失败（不阻塞启动）：{ex.Message}");
+            }
+        }
+
+        // S-006：开机自启动注册写入的 --autostart 参数 → 静默启动：不弹主窗、常驻托盘（A-0 语义）。
+        // 主窗照常创建（DataContext / 托盘 / 弹层都挂它），只是不 Show；托盘菜单与弹层随时唤回。
+        var startHidden = Environment.GetCommandLineArgs().Contains(Services.AutoStartManager.LaunchArg);
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindowViewModel = DependencyInjection.AppServices.Get<MainWindowViewModel>();
@@ -92,8 +113,12 @@ public partial class App : Application
             // 手动点刷新。启动路径不观察成败返回值，回写经 Note* 内部 marshal 到 UI 线程。
             _ = mainWindowViewModel.BeginStartupDataRefreshAsync();
 
-            // A-0：主窗口随启动显示（此前从未 Show——修好托盘前应用启动后没有任何可见界面）
-            mainWindow.Show();
+            // A-0：主窗口随启动显示（此前从未 Show——修好托盘前应用启动后没有任何可见界面）；
+            // --autostart（S-006 开机自启动）静默启动例外——不弹主窗，进程常驻托盘。
+            if (!startHidden)
+            {
+                mainWindow.Show();
+            }
 
             // [D-004/D-005] dev-only 预览窗口（Q-002 定案：StylePreviewView 为唯一保留的临时宿主，
             // 无导航入口、不进生产用户路径）：设置 TOKENMETRY_PREVIEW_WINDOW=1 启动时另开一个预览窗，

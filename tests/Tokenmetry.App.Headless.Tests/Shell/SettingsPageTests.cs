@@ -34,13 +34,40 @@ public class SettingsPageTests
     /// <summary>截图留档目录（验证时传 docs/design）；未设置时跳过留档，只断言可渲染。</summary>
     private static string? ArchiveDir => Environment.GetEnvironmentVariable("TOKENMETRY_SETTINGS_PREVIEW_DIR");
 
-    private static SettingsViewModel CreateViewModel()
+    private static SettingsViewModel CreateViewModel(FakeAutoStartManager? autoStartManager = null)
     {
         return new SettingsViewModel(
             new AppSettings(),
             new AppPaths(Path.Combine(Path.GetTempPath(), "ccusage-settings-tests")),
             new JsonAppSettingsStore(new AppPaths(Path.Combine(Path.GetTempPath(), "ccusage-settings-tests"))),
-            new ThemeService());
+            new ThemeService(),
+            autoStartManager ?? new FakeAutoStartManager());
+    }
+
+    [AvaloniaFact]
+    public void AutoStart_checkbox_defaults_off_and_reports_to_os_manager_on_toggle()
+    {
+        // S-006：开机自启动默认关；勾选即 OS 注册调用（fake 顶替真实管理器，绝不触碰真实 OS 状态）
+        // + settings 自动保存（持久化语义在 SettingsViewModelTests）。
+        var manager = new FakeAutoStartManager();
+        var vm = CreateViewModel(manager);
+        var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(vm.AutoStartOnBoot);
+        var checkbox = window.GetVisualDescendants().OfType<CheckBox>()
+            .Single(c => c.Content as string == Translations.Instance.CheckAutoStartOnBoot);
+        Assert.False(checkbox.IsChecked == true);
+
+        checkbox.IsChecked = true;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(vm.AutoStartOnBoot);
+        Assert.Equal(new[] { true }, manager.Calls);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]
@@ -163,6 +190,18 @@ public class SettingsPageTests
 
             window.Close();
             Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    /// <summary>OS 注册 fake（headless 宿主绝不调用真实 <see cref="AutoStartManager"/>——其 SetEnabled
+    /// 操作真实注册表 / 全局 LaunchAgents 目录）。</summary>
+    private sealed class FakeAutoStartManager : IAutoStartManager
+    {
+        public List<bool> Calls { get; } = new();
+
+        public void SetEnabled(bool enabled)
+        {
+            Calls.Add(enabled);
         }
     }
 }

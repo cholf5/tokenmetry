@@ -198,8 +198,9 @@ public class TrayService
     }
 
     /// <summary>headless 测试宿主标记（SemiTestAppBuilder 设置）：跳过 macOS interop 托盘，
-    /// 保持 Avalonia TrayIcon 路径供测试断言；不设标记的真实桌面环境才走 interop。</summary>
-    private static bool IsHeadlessTestHost =>
+    /// 保持 Avalonia TrayIcon 路径供测试断言；不设标记的真实桌面环境才走 interop。
+    /// internal：App 启动的开机自启动对账（S-006）同用此标记避免触碰真实 OS 状态。</summary>
+    internal static bool IsHeadlessTestHost =>
         Environment.GetEnvironmentVariable("TOKENMETRY_HEADLESS") == "1";
 
     private static byte[] LoadAssetBytes(string asset)

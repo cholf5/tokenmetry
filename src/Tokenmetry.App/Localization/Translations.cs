@@ -185,6 +185,9 @@ public sealed class Translations : INotifyPropertyChanged
         // S-005：关窗行为开关（消费者 = MainWindow.OnClosing 的关窗分派）
         [nameof(CheckMinimizeToTrayOnClose)] = "关闭窗口时最小化到系统托盘",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "关闭主窗后应用仍在托盘运行、继续定时刷新；彻底退出用托盘菜单「退出」。关闭此开关后，点关闭按钮将直接退出应用。",
+        // S-006：开机自启动开关（OS 注册 = IAutoStartManager；--autostart 启动静默常驻托盘）
+        [nameof(CheckAutoStartOnBoot)] = "开机自启动（登录时随系统启动）",
+        [nameof(CheckAutoStartOnBootHint)] = "登录系统时自动启动并常驻托盘，不弹主窗（从托盘图标或菜单唤回）；关闭后自下次登录起不再自动启动。",
         [nameof(LocalPathsTitle)] = "本地路径",
         [nameof(LabelCacheDb)] = "缓存数据库",
         [nameof(LabelSettingsFile)] = "设置文件",
@@ -517,6 +520,8 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(CheckAnomalyNotifications)] = "Enable anomaly notifications (in-app toast)",
         [nameof(CheckMinimizeToTrayOnClose)] = "Minimize to the system tray on close",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "After closing, the app keeps running in the tray with scheduled refresh; quit via the tray menu. When off, the close button exits the app.",
+        [nameof(CheckAutoStartOnBoot)] = "Launch at login",
+        [nameof(CheckAutoStartOnBootHint)] = "Start Tokenmetry automatically when you log in; it stays in the tray without opening the main window (reopen it from the tray icon). Turn off to stop launching at login.",
         [nameof(LocalPathsTitle)] = "Local paths",
         [nameof(LabelCacheDb)] = "Cache database",
         [nameof(LabelSettingsFile)] = "Settings file",
@@ -897,6 +902,8 @@ public sealed class Translations : INotifyPropertyChanged
     public string CheckAnomalyNotifications => Get();
     public string CheckMinimizeToTrayOnClose => Get();
     public string CheckMinimizeToTrayOnCloseHint => Get();
+    public string CheckAutoStartOnBoot => Get();
+    public string CheckAutoStartOnBootHint => Get();
     public string LocalPathsTitle => Get();
     public string LabelCacheDb => Get();
     public string LabelSettingsFile => Get();
