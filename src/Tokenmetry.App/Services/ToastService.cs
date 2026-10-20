@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace Tokenmetry.App.Services;
 
@@ -27,6 +28,18 @@ public sealed class ToastService : IToastService
 
     public void Show(string message, Visual? host = null)
     {
+        // 视觉对象（WindowNotificationManager 及其宿主 AdornerLayer）必须 UI 线程所有：后台刷新
+        // 线程（BackgroundRefreshWiring 的 Task.Run，A-5）会经 ISystemNotification 走到这里，在该
+        // 线程上创建会把归属线程池 Dispatcher 的层挂进主窗视觉树，下一次 UI 线程布局测量即抛
+        // InvalidOperationException（2026-10-20 启动闪退根因）。整段 body——含 TopLevel.GetTopLevel
+        // (host) 摸视觉树——都必须在 UI 线程执行。Post 而非 Send：后台刷新线程不能阻塞等 UI 线程
+        // （设置页重扫正等 TriggerRefreshAsync 的返回值），Send 有死锁风险；toast 晚一拍弹出可接受。
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => Show(message, host));
+            return;
+        }
+
         var topLevel = host switch
         {
             TopLevel t => t,

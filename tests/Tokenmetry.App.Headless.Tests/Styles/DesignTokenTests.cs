@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
@@ -13,6 +14,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Tokenmetry.App.DependencyInjection;
+using Tokenmetry.App.Headless.Tests.Shell;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.Views;
 using Xunit;
@@ -28,7 +30,8 @@ namespace Tokenmetry.App.Headless.Tests.Styles;
 /// 5. 共享样式（panel/kpi/chip）在窗口内真实应用令牌画刷；
 /// 6. mini 进度条按 Value 填充轨道（复用内置 ProgressBar 的 PART_Track/PART_Indicator）；
 /// 7. ToastService 能在宿主窗口弹出 NotificationCard；
-/// 8. 样式预览页在 Light/Dark 两变体下可离屏渲染（PNG 留档）。
+/// 8. 样式预览页在 Light/Dark 两变体下可离屏渲染（PNG 留档）；
+/// 9. ToastService 的后台线程调用被 marshal 到 UI 线程（2026-10-20 启动闪退回归）。
 /// </summary>
 public class DesignTokenTests
 {
@@ -330,6 +333,28 @@ public class DesignTokenTests
 
         var cards = window.GetVisualDescendants().OfType<NotificationCard>().ToList();
         Assert.NotEmpty(cards); // NotificationCard 已挂入宿主窗口（Semi 样式提供外观）
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public async Task Toast_from_background_thread_is_marshaled_to_ui_thread()
+    {
+        var window = new Window { Width = 400, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        // 回归（2026-10-20 启动闪退）：后台刷新线程（BackgroundRefreshWiring 的 Task.Run，A-5）经
+        // ISystemNotification 走到 ToastService.Show；在非 UI 线程 new WindowNotificationManager
+        // 会把归属线程池 Dispatcher 的宿主 AdornerLayer 挂进主窗视觉树，下一次 UI 线程布局测量即抛
+        // InvalidOperationException——修复 = Show 入口把整段 body marshal 到 UI 线程。
+        await Task.Run(() => AppServices.Get<IToastService>().Show("background toast", window));
+
+        // Post 是异步：泵到卡片出现为止；若回归复发，泵内的布局测量会先于谓词抛出
+        DispatcherPump.PumpUntil(() => window.GetVisualDescendants().OfType<NotificationCard>().Any());
+
+        Assert.NotEmpty(window.GetVisualDescendants().OfType<NotificationCard>());
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
