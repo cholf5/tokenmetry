@@ -34,6 +34,8 @@ public sealed class ToastService : IToastService
         // InvalidOperationException（2026-10-20 启动闪退根因）。整段 body——含 TopLevel.GetTopLevel
         // (host) 摸视觉树——都必须在 UI 线程执行。Post 而非 Send：后台刷新线程不能阻塞等 UI 线程
         // （设置页重扫正等 TriggerRefreshAsync 的返回值），Send 有死锁风险；toast 晚一拍弹出可接受。
+        // 闸门同时使 _managers（ConditionalWeakTable，本身线程安全）的查建写收敛到 UI 线程，
+        // 排除了后台/UI 双线程同时 miss 缓存导致二次 Add 抛 ArgumentException 的潜在竞态。
         if (!Dispatcher.UIThread.CheckAccess())
         {
             Dispatcher.UIThread.Post(() => Show(message, host));
