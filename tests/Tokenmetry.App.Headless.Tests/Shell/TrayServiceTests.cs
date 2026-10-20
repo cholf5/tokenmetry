@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Tray;
 using Tokenmetry.App.Views;
@@ -72,6 +74,25 @@ public class TrayServiceTests : IDisposable
 
         Assert.Equal("今日成本：$12.50", icon!.ToolTipText);
         Assert.Equal("今日成本：$12.50", CostItem(icon)!.Header);
+    }
+
+    [AvaloniaFact]
+    public async Task UpdateToolTip_from_background_thread_is_marshaled_to_ui_thread()
+    {
+        var tray = new TrayService(_window);
+        tray.Initialize();
+        var icon = SingleRegisteredIcon();
+        Assert.NotNull(icon);
+
+        // 回归：后台刷新线程（BackgroundRefreshWiring 的 Task.Run）经 DashboardViewModel
+        // 的 PropertyChanged 同步回调进 UpdateToolTip；直接改 ToolTipText 会抛跨线程异常，
+        // 沿回调链冒进 RefreshAsync，整轮扫描被误判为失败（顶栏「数据源错误」）。
+        await Task.Run(() => tray.UpdateToolTip("今日成本：$9.99"));
+
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("今日成本：$9.99", icon!.ToolTipText);
+        Assert.Equal("今日成本：$9.99", CostItem(icon)!.Header);
     }
 
     [AvaloniaFact]

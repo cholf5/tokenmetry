@@ -278,9 +278,19 @@ public class TrayService
 
     public void UpdateToolTip(string tooltip)
     {
+        // DashboardViewModel 的 KPI 回写发生在后台刷新线程（BackgroundRefreshWiring 整轮 Task.Run），
+        // 其 PropertyChanged 同步回调到这里；TrayIcon.ToolTipText / NativeMenuItem.Header 都是
+        // UI 线程亲和对象——非 UI 线程直接赋值会抛 InvalidOperationException，沿同步回调链冒进
+        // RefreshAsync 把整轮扫描误判为失败（顶栏红字「数据源错误」）。
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => UpdateToolTip(tooltip));
+            return;
+        }
+
         if (_macInterop)
         {
-            // DashboardViewModel 回写可能来自线程池线程——Cocoa 调用必须主线程
+            // Cocoa 调用必须主线程（上面已保证；此分支保留原兜底语义，UI 线程上 RunOnUIThread 就地执行）
             RunOnUIThread(() =>
             {
                 MacTrayInterop.SetItemTitle(MacCostItemIndex, tooltip);
