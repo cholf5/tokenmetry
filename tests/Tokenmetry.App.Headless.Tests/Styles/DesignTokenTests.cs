@@ -351,7 +351,9 @@ public class DesignTokenTests
         // InvalidOperationException——修复 = Show 入口把整段 body marshal 到 UI 线程。
         await Task.Run(() => AppServices.Get<IToastService>().Show("background toast", window));
 
-        // Post 是异步：泵到卡片出现为止；若回归复发，泵内的布局测量会先于谓词抛出
+        // Post 是异步：泵到卡片出现为止。回归复发时，InvalidOperationException 会在 Task.Run 内
+        // 同步抛出（WindowNotificationManager 构造即触跨线程附树），await 处直接失败——泵与本断言
+        // 只负责修复后的正向路径（卡片经 UI 线程张贴出现）。
         DispatcherPump.PumpUntil(() => window.GetVisualDescendants().OfType<NotificationCard>().Any());
 
         Assert.NotEmpty(window.GetVisualDescendants().OfType<NotificationCard>());
