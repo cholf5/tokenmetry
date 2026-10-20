@@ -81,6 +81,9 @@ public class DesignTokenTests
         ["AppChartAxisLineBrush"] = ("#b9c5d7", "#35465e"),
         // 首次初始化全窗遮罩底（MainWindow.axaml；页面底色 90% 不透明，Light 为协调补值）
         ["AppOverlayScrimBrush"] = ("#e6f4f6fa", "#e60b1120"),
+        // 滚动条滑块（overlay 细条：闲置隐藏/贴边/无箭头；无原型对应，Light 为协调补值）
+        ["AppScrollBarThumbBrush"] = ("#c2cbd9", "#3d5175"),
+        ["AppScrollBarThumbHoverBrush"] = ("#93a5bd", "#6486bd"),
         // D-016 弹窗卡片毛玻璃半透明面（AppPanelBrush 同基调 90% 不透明，acrylic 生效时启用）
         ["AppPopoverCardBackgroundBrush"] = ("#e6ffffff", "#e6111c2e"),
     };

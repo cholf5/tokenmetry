@@ -25,6 +25,10 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://Tokenmetry.App/Styles/Tokens.axaml" />
+                <!-- 滚动条重主题（overlay 语义：闲置隐藏/贴边/无箭头，状态机 Controls/ScrollBarOverlay）。
+                     挂在 Application.Resources：资源查找先于 Styles 里的 SemiTheme，
+                     同键 {x:Type ScrollBar} ControlTheme 即覆盖 Semi。 -->
+                <ResourceInclude Source="avares://Tokenmetry.App/Styles/ScrollBarTheme.axaml" />
                 <ResourceInclude Source="avares://Tokenmetry.App/Styles/ModelLogos.axaml" />
                 <ResourceInclude Source="avares://Tokenmetry.App/Styles/AgentLogos.axaml" />
             </ResourceDictionary.MergedDictionaries>

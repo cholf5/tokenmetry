@@ -75,6 +75,10 @@
             <SolidColorBrush x:Key="AppBannerActiveLineBrush" Color="#b9d2f2"/>
             <SolidColorBrush x:Key="AppBannerWarnBackgroundBrush" Color="#f7ecd4"/>
             <SolidColorBrush x:Key="AppBannerWarnLineBrush" Color="#e0c491"/>
+            <!-- 滚动条滑块（overlay 细条：闲置隐藏/贴边/无箭头，样式在 ScrollBarTheme.axaml；
+                 无原型对应，Light 为协调补值——比 AppLineBrush 深一档保证白底可见，悬停再提亮） -->
+            <SolidColorBrush x:Key="AppScrollBarThumbBrush" Color="#c2cbd9"/>
+            <SolidColorBrush x:Key="AppScrollBarThumbHoverBrush" Color="#93a5bd"/>
             <!-- 品牌色表面上的文字（D-015 弹层头部 "T" logo 芯片 / footer 主按钮）：两主题恒白 -->
             <SolidColorBrush x:Key="AppOnBrandForegroundBrush" Color="#ffffff"/>
             <!-- D-016 弹窗卡片毛玻璃半透明面（壳层协商到 AcrylicBlur 时由壳层切 acrylic 类启用；
@@ -145,6 +149,10 @@
             <SolidColorBrush x:Key="AppBannerActiveLineBrush" Color="#2b4c70"/>
             <SolidColorBrush x:Key="AppBannerWarnBackgroundBrush" Color="#30281b"/>
             <SolidColorBrush x:Key="AppBannerWarnLineBrush" Color="#674d29"/>
+            <!-- 滚动条滑块（overlay 细条：闲置隐藏/贴边/无箭头，样式在 ScrollBarTheme.axaml；
+                 无原型对应，Dark 取 AppLineBrush #24344d 的提亮档，悬停再向 AppAccentBlueBrush 靠拢） -->
+            <SolidColorBrush x:Key="AppScrollBarThumbBrush" Color="#3d5175"/>
+            <SolidColorBrush x:Key="AppScrollBarThumbHoverBrush" Color="#6486bd"/>
             <!-- 品牌色表面上的文字（两主题恒白） -->
             <SolidColorBrush x:Key="AppOnBrandForegroundBrush" Color="#ffffff"/>
             <!-- D-016 弹窗卡片毛玻璃半透明面（同 Light 侧说明）：原型 panel #111c2e 的 90% 不透明 -->

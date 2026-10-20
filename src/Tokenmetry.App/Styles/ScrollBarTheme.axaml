@@ -1,0 +1,126 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:app="using:Tokenmetry.App.Controls">
+
+    <!--
+        全局滚动条重主题（overlay 滚动条，替换 Semi 的 ScrollBar ControlTheme）：
+        App.axaml 以 ResourceInclude 挂进 Application.Resources——资源查找先于 Application.Styles
+        里的 SemiTheme，同键 {x:Type ScrollBar} 即完成覆盖：
+        - 闲置完全隐藏（Opacity 0 + 不参与命中），滚动值变化或指针在滚动区内活动时淡入，闲置约 1s 淡出，
+          悬停/拖拽滑块期间钉住——显隐状态机在 Controls/ScrollBarOverlay，经 overlay-shown 类驱动本样式；
+        - 无上下箭头（不设 Line 按钮；Track 的页按钮透明保留，点击滑块上/下方仍可翻页）；
+        - 6px 细条贴滚动视口右缘/底缘（Thumb 即滑块本身，命中条由 Track 页按钮补足到 10px 宽）；
+        - 滑块配色 AppScrollBarThumbBrush / AppScrollBarThumbHoverBrush（Tokens.axaml，随明暗翻转），
+          无轨道底色——贴边内容之上只浮一条滑块。
+    -->
+
+    <!-- Track 页按钮（点击滑块上/下方翻页）：完全透明但保留命中 -->
+    <ControlTheme x:Key="AppScrollBarPageButton" TargetType="RepeatButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="RepeatButton">
+                <Border Background="{TemplateBinding Background}"/>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- 滑块：无自身几何（纵向/横向的宽窄与贴边在 ScrollBar 模板里给），悬停提亮 -->
+    <ControlTheme x:Key="AppScrollBarThumb" TargetType="Thumb">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="Thumb">
+                <Border Background="{DynamicResource AppScrollBarThumbBrush}"
+                        CornerRadius="3"/>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border">
+            <Setter Property="Background" Value="{DynamicResource AppScrollBarThumbHoverBrush}"/>
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="app:ScrollBarOverlay.IsEnabled" Value="True"/>
+
+        <!-- 闲置隐藏：淡入淡出 120ms（AppMotionFastMs 镜像值，XAML 不能引用 double 资源）；
+             隐藏态不参与命中——悬浮条不挡贴边内容的点击。
+             Opacity 声明先于 Transitions：首次套样式直接落 0，不产生 1→0 的创建动画闪烁。
+             显示态类 overlay-shown 由 ScrollBarOverlay 行为维护（伪类仅控件自内可加，外部用普通类）。 -->
+        <Style Selector="^">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="^.overlay-shown">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="IsHitTestVisible" Value="True"/>
+        </Style>
+
+        <Style Selector="^:vertical">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="ScrollBar">
+                    <Track Minimum="{TemplateBinding Minimum}"
+                           Maximum="{TemplateBinding Maximum}"
+                           Value="{TemplateBinding Value, Mode=TwoWay}"
+                           ViewportSize="{TemplateBinding ViewportSize}"
+                           Orientation="{TemplateBinding Orientation}"
+                           IsDirectionReversed="True"
+                           DeferThumbDrag="{TemplateBinding ScrollViewer.IsDeferredScrollingEnabled}">
+                        <Track.DecreaseButton>
+                            <RepeatButton Name="PART_PageUpButton"
+                                          Theme="{StaticResource AppScrollBarPageButton}"
+                                          AutomationProperties.Name="Page up"/>
+                        </Track.DecreaseButton>
+                        <Track.IncreaseButton>
+                            <RepeatButton Name="PART_PageDownButton"
+                                          Theme="{StaticResource AppScrollBarPageButton}"
+                                          AutomationProperties.Name="Page down"/>
+                        </Track.IncreaseButton>
+                        <!-- 滑块即 6px 细条，右缘贴滚动视口（ScrollViewer 模板把它放在内容之上） -->
+                        <Thumb Theme="{StaticResource AppScrollBarThumb}"
+                               Width="6"
+                               HorizontalAlignment="Right"
+                               MinHeight="28"
+                               AutomationProperties.Name="Position"/>
+                    </Track>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:horizontal">
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="ScrollBar">
+                    <Track Minimum="{TemplateBinding Minimum}"
+                           Maximum="{TemplateBinding Maximum}"
+                           Value="{TemplateBinding Value, Mode=TwoWay}"
+                           ViewportSize="{TemplateBinding ViewportSize}"
+                           Orientation="{TemplateBinding Orientation}"
+                           DeferThumbDrag="{TemplateBinding ScrollViewer.IsDeferredScrollingEnabled}">
+                        <Track.DecreaseButton>
+                            <RepeatButton Name="PART_PageUpButton"
+                                          Theme="{StaticResource AppScrollBarPageButton}"
+                                          AutomationProperties.Name="Page left"/>
+                        </Track.DecreaseButton>
+                        <Track.IncreaseButton>
+                            <RepeatButton Name="PART_PageDownButton"
+                                          Theme="{StaticResource AppScrollBarPageButton}"
+                                          AutomationProperties.Name="Page right"/>
+                        </Track.IncreaseButton>
+                        <Thumb Theme="{StaticResource AppScrollBarThumb}"
+                               Height="6"
+                               VerticalAlignment="Bottom"
+                               MinWidth="28"
+                               AutomationProperties.Name="Position"/>
+                    </Track>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

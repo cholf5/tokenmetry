@@ -103,3 +103,12 @@ Agent 统计页 KPI 卡 / 会话明细 Agent 列 / 右栏最近会话行的 Agen
 - 渲染：`Border.agent-chip`（16×16 透明行内槽）/ `Border.agent-chip-lg`（30×30 圆角 9 中性软底）+ `Panel{TextBlock 字形, Image.agent-logo}`；品牌经 `AgentChip.Logo` 附加属性 → agent-* 伪类，样式集中在 SharedStyles（选择器一律后代组合器，同 §7 的坑）。五个渲染点：Agent 统计页 Top4 KPI 卡（`agent-chip-lg`）、Agent 统计页排行表行首（`agent-chip`——原 `series-dot` 系列色圆点已退场，同模型明细行口径）、会话明细 Agent 列（`agent-chip`）、右栏最近会话行（`agent-chip-lg`）、模型明细关联 Agent 列（`agent-chip`；无会话数据 "—" 时 `IsVisible=false` 整槽隐藏）、设置页「已识别的数据源」表行首（`agent-chip`）。
 - 历史（D-008 → I-034）：Agent 图标原为「软色底芯片（chip-blue/green/purple/neutral）+ 散列字形」，颜色对一个 Agent 是随机的、无语义；I-034 改为行内官方品牌 logo 并删掉 `chip-*` 四个类和 `AgentChip.Variant`（散列色退场，`AppIconChip{Hue}*` 令牌保留——总览/成本页 KPI 卡与样式预览页仍直接用）。
 - 键名单入 `DesignTokenTests.AllTokenKeys`（`AgentLogoTests.LogoKeys.Values`）；资源存在性 / 明暗策略 / 样式应用由 `AgentLogoTests` 固化。
+
+## 9. 滚动条（overlay 重主题）
+
+全局滚动条为现代 overlay 语义（原型无滚动条样式，为本节设计）：**闲置完全隐藏**（Opacity 0 且不参与命中，悬浮条不挡贴边内容），滚动值变化或指针在滚动区内活动时淡入、闲置约 1s 淡出，悬停/拖拽滑块期间钉住；**永远无上下箭头**（Semi 的 Line 按钮不复存在；Track 页按钮透明保留，点击滑块上/下方仍可翻页）；6px 细条**贴滚动视口右缘/底缘**，无轨道底色。
+
+- 模板与显隐样式：`Styles/ScrollBarTheme.axaml`（覆盖 Semi 的 `{x:Type ScrollBar}` ControlTheme，App.axaml 以 ResourceInclude 挂进 Application.Resources——资源查找先于 Styles 里的 SemiTheme）。
+- 显隐状态机：`Controls/ScrollBarOverlay`（附加行为，经 ControlTheme setter 全局启用；显隐翻译成 ScrollBar 的 `overlay-shown` 普通类——Avalonia 12 禁止控件外部添加 `:` 前缀伪类；headless 测试经 `ScrollBarOverlay.SetIdleHideDelay` 注入闲置窗）。
+- 令牌：`AppScrollBarThumbBrush`（闲置）/ `AppScrollBarThumbHoverBrush`（悬停），随明暗翻转进 ThemeDictionaries（§2，Light 为协调补值）；键名入 `DesignTokenTests.AllTokenKeys` 撞名白名单。
+- 契约由 `ScrollBarOverlayTests` 固化：闲置隐藏 / 无箭头 / 滑块贴边（垂直+水平）/ 滚动即显闲置即隐 / 指针活动即显 / 悬停钉住。
