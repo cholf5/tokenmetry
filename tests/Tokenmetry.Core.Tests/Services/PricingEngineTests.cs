@@ -341,8 +341,10 @@ public class PricingEngineTests
     }
 
     [Fact]
-    public void ProviderPrefixedModelPrefersThatProviderInRemoteData()
+    public void ProviderPrefixedModelResolvesToOfficialPrice_ignoringThirdPartyStorefront()
     {
+        // P-001 口径：远程层只承认官方价（OfficialPricingCatalog 投影）——第三方店面（openrouter）
+        // 条目不进目录，带前缀名剥前缀后命中官方条目。此为对账 §6 的有意分歧（旧口径优先店面价）。
         var remote = new FakeRemotePricingSource(new RemotePricingSnapshot
         {
             FetchedAt = DateTimeOffset.UtcNow,
@@ -365,8 +367,8 @@ public class PricingEngineTests
         var result = engine.PriceTokens("openrouter/claude-fable-5", Tokens(1_000_000, 0));
 
         result.Source.Should().Be(PricingSourceKind.Remote);
-        result.MatchedKey.Should().Be("openrouter/claude-fable-5");
-        result.CostUsd.Should().Be(20m);
+        result.MatchedKey.Should().Be("anthropic/claude-fable-5");
+        result.CostUsd.Should().Be(10m);
     }
 
     [Fact]

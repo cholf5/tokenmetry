@@ -323,7 +323,11 @@ public sealed class ModelCatalog : IModelNameResolver
     private State Build()
     {
         var remote = _remoteSource?.Current;
-        var remoteEntries = remote?.Entries ?? Array.Empty<ModelPriceEntry>();
+        // P-001：远程条目先经官方目录投影（白名单厂商 + 家族归属 + 海外店优先 + 归一键去重）——
+        // 远程层只承认官方价，第三方/套餐条目从此不在目录内，同名压价（2026-10-21 事故）结构性不可能。
+        IReadOnlyList<ModelPriceEntry> remoteEntries = remote is null
+            ? []
+            : OfficialPricingCatalog.Project(remote.Entries);
         var byId = new Dictionary<string, ModelDefinition>(StringComparer.OrdinalIgnoreCase);
 
         // 第一层：内置快照。
