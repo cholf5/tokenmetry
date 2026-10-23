@@ -145,4 +145,31 @@ public class ModelCatalogUserScopeTests
         result.Source.Should().Be(PricingSourceKind.UserOverride);
         result.CostUsd.Should().Be(1m);
     }
+
+    [Fact]
+    public void Scoped_entry_applies_in_pricing_plan_walk_paths_too()
+    {
+        // 终审 M-1：OpenClaw/Grok/Antigravity 走计划候选链走法（PriceTokens(plan,…)）——
+        // 作用域条目以原始名在最优先检查，否则对这些 agent 是无声死配置。
+        var engine = new PricingEngine(catalog: new ModelCatalog(null, new[]
+        {
+            new ModelDefinitionOverride
+            {
+                Id = "glm-5.3-flash",
+                ProviderScope = "openrouter/z-ai",
+                InputPerMillion = 0.047m,
+                OutputPerMillion = 0.12m,
+            },
+        }));
+
+        var result = engine.PriceTokens(
+            new UsagePricingPlan(
+                ["openrouter/z-ai/glm-5.3-flash", "glm-5.3-flash"],
+                PricingCandidateWalk.ExactThenFamilyAcrossCandidates),
+            "openrouter/z-ai/glm-5.3-flash",
+            Tokens(1_000_000, 0));
+
+        result.Source.Should().Be(PricingSourceKind.UserOverride);
+        result.CostUsd.Should().Be(0.047m);
+    }
 }

@@ -125,6 +125,20 @@ public sealed class PricingEngine
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(tokens);
 
+        // P-001 T4（终审 M-1）：作用域用户条目以原始名（displayModel）在最优先检查——
+        // Exact*AcrossCandidates 走法不经 TryResolveModelPrice，缺此检查则作用域条目对
+        // OpenClaw / Grok / Antigravity 等多候选源无声失效。
+        if (TryResolveScopedUserEntry(displayModel, out var scopedResolved))
+        {
+            return new PricingResult
+            {
+                Source = scopedResolved.Source,
+                CostUsd = ComputeCost(tokens, scopedResolved.Entry, plan.OutputTokenOverride),
+                Model = displayModel,
+                MatchedKey = scopedResolved.MatchedKey,
+            };
+        }
+
         switch (plan.Walk)
         {
             case PricingCandidateWalk.ExactThenFamilyAcrossCandidates:
