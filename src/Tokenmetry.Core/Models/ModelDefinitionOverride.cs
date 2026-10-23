@@ -12,6 +12,14 @@ public sealed class ModelDefinitionOverride
     /// <summary>模型 ID（合约定的稳定主键，见 <see cref="ModelId"/>）；无效条目在装订时整条剔除。</summary>
     public string Id { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Provider 前缀作用域（P-001 T4，可空）：非空时本条目只对"原始名最后一个 '/' 之前的
+    /// 完整 provider 路径与此值（忽略大小写）相等"的用量行生效——Lua 局部变量语义，用于给
+    /// 非官方渠道（openrouter/z-ai 等中转路径）单独特价；null / 空白 = 裸名条目，命中一切
+    /// 归一同名。作用域条目不进全局定义表，绝不冒充裸名 / 官方价。
+    /// </summary>
+    public string? ProviderScope { get; set; }
+
     /// <summary>厂商 / 服务商；null / 空白 = 不覆盖。</summary>
     public string? Vendor { get; set; }
 
