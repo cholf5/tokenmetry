@@ -36,4 +36,11 @@ blocked: none
 
 ## Dev Log
 
--（待实施填写）
+- 2026-10-23（实施日，T1–T6 全落地，分支 p-001-official-pricing-catalog）：
+  - T1 `OfficialPricingCatalog.Project`（b987e4c）：白名单 8 厂商 + 家族归属表 + 海外店优先 + 归一键去重；红测 6 条复刻事故形态。
+  - T2 远程层接线（df7c094）：ModelCatalog 远程条目先投影；`-free` 并入功能后缀剥离（低优先级候选，`-fast` 口径不变）；事故端到端 5 条（glm-5.3-flash 从 scnet 全零条目改命中 zai 官方价）。两个旧口径测试按新口径改写（分歧见对账 §6.5）。
+  - T3 身份折叠（03bd579）：实测 I-035 既有机制（ModelId.Normalize + 归一化查找趟）已满足，无产品改动，钉子测试固化。GLM-5.3-Flash/glm-5.3-flash 统计合流自动生效。
+  - T4 ProviderScope（494a59f）：作用域条目分流独立清单（不进全局定义表、不冒充裸名/官方价），引擎按"原始名最后 '/' 之前整段 provider 路径"精确匹配，拼错静默落官方价；踩坑：userEntries 装配曾把作用域条目误当裸名用户条目，已过滤。
+  - T5 设置页（df53278）：目录面板官方价立场说明 + 编辑弹层 Provider 前缀输入位；保存键改 (ID, 作用域)——同 ID 裸名与各渠道条目互不清掉。
+  - T6 对账补记 + 实机验收：§6 新增分歧 5；本机库生产管线重扫后 30 天成本 **$0.71 → $133.96**（glm-5.3-flash $74.11、GLM-5.3-Flash $52.71 按官方价；ark/glm-5.3-flash $3.31；glm-5.3-flash-free 按拍板默认计官方价 $3.13；ark/deepseek-v4.1-flash 与 ark-code-latest 转为如实 Missing 待用户纠偏）。全量 1392 绿。
+  - Deferred minor：作用域条目暂不在目录表格中列出（重进表单可重建，删除走裸名行移除按钮）——列表化 UX 待用户定夺。

@@ -119,6 +119,7 @@ I-004 备忘提到的新版 ccusage compaction 去重逻辑：本机 19 个真�
 2. **`message.id` 缺失的记录**（如部分 `model:"auto"` 快照）：CLI 整条丢弃；自研按蓝本 claude.rs 保留（id null 合法、sessionId 回退文件推导）。本机无真实 Claude 日志，分歧影响面未知，已用既有单测钉住蓝本行为。
 3. 其余已知规则（costUSD 优先、5m/1h 倍率、-fast、synthetic、去重、累计快照守卫、UTC 分桶）实测两侧一致，见 §1.2。
 4. **ZCode 非 Z.ai provider 行的成本**（2026-10-18 起）：CLI 对自定义 provider 行计 0（missingPricing / totalCost 0 口径）；自研改为 `CostUsd = null` 交三级计价引擎（用户条目 → models.dev → 内置快照），可解析时计入成本、不可解析时如实未定价。这是为可用性做的**有意分歧**（旧口径的哨兵 0 会经 LogCost 短路压掉用户的全部目录配置），定案见 `docs/plans/2026-10-18-zcode-custom-provider-pricing-design.md`。对账时 ZCode 自定义 provider 部分的 cost 差异属预期，不算解析回归。
+5. **第三方渠道按官方价计价**（2026-10-23 起，P-001）：CLI 沿用 models.dev 全量价目（含第三方 provider 与 coding-plan 全零条目），同名多条目时按店面前缀 / rank / 顺序择一；自研的远程层先经官方目录投影（白名单厂商 + 家族归属 + 海外店优先 + 归一键去重），**只承认模型厂商的官方价**，带第三方前缀的名字（如 `openrouter/z-ai/glm-5.3-flash`）剥前缀后按官方价计。这是 Opinionated 立场的**有意分歧**（"追第三方价 = 永远跟边界情况斗争"，2026-10-21 实锤：`scnet-token-plan/GLM-5.3-Flash` 全零条目在真实数据上压过 20+ 有价条目，39.9 亿 tokens 计 $0；golden 审计 2026-10-23：全部 golden 仅含官方模型名，Reconciliation.Tests 不受影响）。对账时第三方渠道部分的 cost 差异（CLI 低估 / 自研按官方价）属预期，不算解析回归；用户要按渠道价计走用户条目（可带 Provider 前缀作用域）。定案见 `docs/plans/2026-10-23-official-pricing-catalog-design.md`。
 
 ## 7. 对产品立场的意义
 
