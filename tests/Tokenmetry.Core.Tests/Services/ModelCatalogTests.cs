@@ -253,6 +253,23 @@ public class ModelCatalogTests
     }
 
     [Fact]
+    public void IdentityFoldsCaseAndSeparatorVariantsToOneOfficialEntry()
+    {
+        // P-001 钉子：ZCode 账本的大小写漂移（GLM-5.3-Flash vs glm-5.3-flash）必须折叠到同一
+        // 官方条目——统计合流由 UsageQueryService.ResolveModel（身份单点入口）继承此判定。
+        // 机制是既有的 ModelId.Normalize + LookupByName 归一化趟（I-035），此测试防回归。
+        var catalog = new ModelCatalog(null);
+
+        var upper = catalog.ResolveIdentity("GLM-5.3-Flash");
+        var lower = catalog.ResolveIdentity("glm-5.3-flash");
+
+        upper.Id.Should().Be(lower.Id).And.Be("glm-5-3-flash");
+        upper.IsLinked.Should().BeTrue();
+        upper.Definition.Should().NotBeNull();
+        upper.Kind.Should().Be(ModelMatchKind.Exact);
+    }
+
+    [Fact]
     public void RemoteRefreshPicksUpNewSnapshotObject()
     {
         // P-001：远程条目经官方目录投影，非白名单店面（acme）不再入目录——用白名单厂商 + 持有家族
