@@ -190,6 +190,13 @@ public sealed class PricingEngine
     /// </summary>
     public bool TryResolveModelPrice(string? model, out ResolvedModelPrice resolved)
     {
+        // P-001 T4：Provider 作用域用户条目最优先（Lua 局部变量语义）——按原始名最后一个 '/'
+        // 之前的完整 provider 路径精确匹配，与身份解析无关（官方目录没有的中转站自造模型也能命中）。
+        if (TryResolveScopedUserEntry(model, out resolved))
+        {
+            return true;
+        }
+
         var identity = _catalog.ResolveIdentity(model);
         if (TryResolveUserEntry(identity.Id, out resolved))
         {
@@ -213,6 +220,41 @@ public sealed class PricingEngine
         }
 
         resolved = default;
+        return false;
+    }
+
+    /// <summary>
+    /// P-001 T4 作用域用户条目匹配：scope = 原始名最后一个 '/' 之前的完整 provider 路径
+    /// （忽略大小写），裸名段经 <see cref="ModelId.Normalize"/> 后与条目 ID 比对。
+    /// scope 拼错静默不命中（落官方价）——逃生舱语义。
+    /// </summary>
+    private bool TryResolveScopedUserEntry(string? model, out ResolvedModelPrice resolved)
+    {
+        resolved = default;
+        var raw = model?.Trim();
+        if (string.IsNullOrEmpty(raw))
+        {
+            return false;
+        }
+
+        var separator = raw.LastIndexOf('/');
+        if (separator <= 0)
+        {
+            return false;
+        }
+
+        var providerPath = raw[..separator].Trim().ToLowerInvariant();
+        var bareId = ModelId.Normalize(raw[(separator + 1)..]);
+        foreach (var scoped in _catalog.ScopedUserEntries)
+        {
+            if (string.Equals(scoped.Scope, providerPath, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(scoped.ModelId, bareId, StringComparison.Ordinal))
+            {
+                resolved = new ResolvedModelPrice(scoped.Entry, PricingSourceKind.UserOverride, scoped.Entry.ToKey());
+                return true;
+            }
+        }
+
         return false;
     }
 

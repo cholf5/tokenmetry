@@ -79,6 +79,13 @@ public sealed class ModelCatalog : IModelNameResolver
     /// <summary>用户层计价条目（有价的用户覆盖 / 自建条目），计价第一档。</summary>
     public IReadOnlyList<ModelPriceEntry> UserEntries => _state.UserEntries;
 
+    /// <summary>
+    /// 带 Provider 前缀作用域的用户计价条目（P-001 T4）：scope 不进归一键，由引擎按"原始名
+    /// 最后一个 '/' 之前的完整 provider 路径"精确比对；作用域条目不进全局定义表，
+    /// 绝不冒充裸名 / 官方价。
+    /// </summary>
+    public IReadOnlyList<ScopedUserPrice> ScopedUserEntries => _state.ScopedUserEntries;
+
     /// <summary>models.dev 远程条目（计价第二档）。</summary>
     public IReadOnlyList<ModelPriceEntry> RemoteEntries
     {
@@ -358,8 +365,23 @@ public sealed class ModelCatalog : IModelNameResolver
         }
 
         // 第三层：用户条目（逐字段覆盖；ID 不在导入层即用户自建条目）。
+        // P-001 T4：带 Provider 作用域的条目不进全局定义表（否则会冒充裸名 / 官方价），
+        // 只进作用域计价清单（ScopedUserPrice，Bind(null) 自建语义，不与导入层混价）。
+        var scopedUserEntries = new List<ScopedUserPrice>();
         foreach (var definition in _userOverrides)
         {
+            if (!string.IsNullOrWhiteSpace(definition.ProviderScope))
+            {
+                var bound = definition.Bind(null);
+                if (bound.ToPriceEntry(includeMatchPattern: false) is { } scopedEntry)
+                {
+                    scopedUserEntries.Add(new ScopedUserPrice(
+                        definition.ProviderScope!.Trim().ToLowerInvariant(), bound.Id, scopedEntry));
+                }
+
+                continue;
+            }
+
             var id = ModelId.Normalize(definition.Id);
             byId.TryGetValue(id, out var imported);
             byId[id] = definition.Bind(imported);
@@ -390,7 +412,9 @@ public sealed class ModelCatalog : IModelNameResolver
 
         // 用户计价条目：取装订后的最终定义（含用户价与合并后的元数据），但清掉家族模式——
         // 用户条目的语义是"这个 ID 就是这价"，必须走精确档。
+        // P-001 T4：作用域条目不在此列（否则经 byId 查到导入定义会被当成裸名用户条目冒充官方价）。
         var userEntries = _userOverrides
+            .Where(definition => string.IsNullOrWhiteSpace(definition.ProviderScope))
             .Select(definition => byId.GetValueOrDefault(ModelId.Normalize(definition.Id)))
             .Where(definition => definition is not null)
             .Select(definition => definition!.ToPriceEntry(includeMatchPattern: false))
@@ -398,7 +422,7 @@ public sealed class ModelCatalog : IModelNameResolver
             .Select(entry => entry!)
             .ToList();
 
-        return new State(definitions, lookup, userEntries, remoteEntries.ToList(), _snapshotEntries, remote);
+        return new State(definitions, lookup, userEntries, scopedUserEntries, remoteEntries.ToList(), _snapshotEntries, remote);
     }
 
     private static ModelDefinition CloneWithMatchPattern(ModelDefinition definition, string pattern)
@@ -432,7 +456,15 @@ public sealed class ModelCatalog : IModelNameResolver
         IReadOnlyList<ModelDefinition> Definitions,
         Dictionary<string, ModelDefinition> Lookup,
         IReadOnlyList<ModelPriceEntry> UserEntries,
+        IReadOnlyList<ScopedUserPrice> ScopedUserEntries,
         IReadOnlyList<ModelPriceEntry> RemoteEntries,
         IReadOnlyList<ModelPriceEntry> SnapshotEntries,
         RemotePricingSnapshot? Remote);
 }
+
+/// <summary>
+/// 带 Provider 前缀作用域的用户计价条目（P-001 T4）：<see cref="Scope"/> 是原始名最后一个 '/'
+/// 之前的完整 provider 路径（小写，忽略大小写比对）；<see cref="ModelId"/> 是合约定的归一 ID。
+/// 匹配在引擎侧进行（两段精确比对），条目不进全局定义表。
+/// </summary>
+public readonly record struct ScopedUserPrice(string Scope, string ModelId, ModelPriceEntry Entry);
