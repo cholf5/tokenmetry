@@ -297,9 +297,9 @@ public static class PricingModelMatcher
 
     /// <summary>
     /// 键归一化（蓝本 pricing.rs normalized_pricing_key）：'.' / '@' → '-'；不含分隔符时原样返回
-    /// （恒等变换，蓝本 Cow::Borrowed 同式）。
+    /// （恒等变换，蓝本 Cow::Borrowed 同式）。P-001 起也是官方目录的归一键（OfficialPricingCatalog）。
     /// </summary>
-    private static string NormalizePricingKey(string value)
+    public static string NormalizePricingKey(string value)
     {
         return value.Contains('.') || value.Contains('@')
             ? value.Replace('.', '-').Replace('@', '-')
