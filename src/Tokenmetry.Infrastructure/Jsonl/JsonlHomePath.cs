@@ -18,7 +18,9 @@ public static class JsonlHomePath
 
         if (raw.StartsWith("~/", StringComparison.Ordinal) && GetHomeDir(getEnvironmentVariable) is { } home)
         {
-            return Path.Combine(home, raw[2..]);
+            // Windows 的 Path.Combine 不归一化分隔符，remainder 保留正斜杠会产出 "C:\Users\x\a/b"
+            // 混合路径并被调用方原样返回；Unix 上分隔符本就是 '/'，替换为空操作。
+            return Path.Combine(home, raw[2..].Replace('/', Path.DirectorySeparatorChar));
         }
 
         return raw;
