@@ -255,13 +255,15 @@ public class ModelCatalogTests
     [Fact]
     public void RemoteRefreshPicksUpNewSnapshotObject()
     {
+        // P-001：远程条目经官方目录投影，非白名单店面（acme）不再入目录——用白名单厂商 + 持有家族
+        // 的模型名验证"远程快照换对象后目录必须感知（后台刷新不重启进程）"的原语义。
         var remote = new FakeRemoteSource();
         var catalog = new ModelCatalog(remote);
-        catalog.FindById("remote-only-model").Should().BeNull();
+        catalog.FindById("glm-9-pro").Should().BeNull();
 
-        remote.Current = Remote(Entry("acme", "remote-only-model", 1m, 1m));
+        remote.Current = Remote(Entry("zai", "glm-9-pro", 1m, 1m));
 
-        catalog.FindById("remote-only-model").Should().NotBeNull(
+        catalog.FindById("glm-9-pro").Should().NotBeNull(
             "远程快照换对象后目录必须感知（后台刷新不重启进程）");
     }
 

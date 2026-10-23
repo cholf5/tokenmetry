@@ -266,10 +266,17 @@ public static class PricingModelMatcher
 
         candidates.Add(value);
 
-        // "-fast" 是采集侧的加速通道标记，不是真实模型名，剥离后再补一个候选。
-        if (value.EndsWith("-fast", StringComparison.Ordinal))
+        // "-fast"（采集侧加速通道标记）与 "-free"（P-001：中转站自造功能后缀）都不是真实模型名，
+        // 剥离后各补一个低优先级候选——真实官方型号（如 glm-5.3-fast）由先行的精确候选命中，
+        // 不受剥离影响；官方目录无后缀条目，剥后候选落官方价（用户拍板：free 默认按官方价计）。
+        foreach (var marker in (string[])["-fast", "-free"])
         {
-            var stripped = value[..^"-fast".Length].Trim();
+            if (!value.EndsWith(marker, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var stripped = value[..^marker.Length].Trim();
             if (stripped.Length > 0 && !candidates.Contains(stripped))
             {
                 candidates.Add(stripped);
