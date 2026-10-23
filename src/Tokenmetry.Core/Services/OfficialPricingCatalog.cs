@@ -48,11 +48,15 @@ public static class OfficialPricingCatalog
             .ToDictionary(t => t.storefront, t => (t.Key, t.index), StringComparer.Ordinal);
 
     /// <summary>
-    /// 投影：白名单过滤 → 家族归属过滤 → 按归一键去重（海外店优先）。输出按 ModelId 排序保证确定性。
+    /// 投影：白名单过滤 → 家族归属过滤 → 按归一键去重（零价不压价优先于店面偏好，同零价性时
+    /// 海外店优先）。输出按 ModelId 排序保证确定性。
+    /// 终审 I-1：裁决键 = (是否全零, 店面偏好)——同键零价与有价并存时有价必胜（含同店面
+    /// 大小写重复拼写、海外零价压国内有价两个残留形态，10-21 事故的同类机制），全部候选
+    /// 皆零时才按店面偏好落 $0（官方真免费模型如实计 0）。
     /// </summary>
     public static IReadOnlyList<ModelPriceEntry> Project(IEnumerable<ModelPriceEntry> entries)
     {
-        var best = new Dictionary<string, (int Preference, ModelPriceEntry Entry)>(StringComparer.Ordinal);
+        var best = new Dictionary<string, (int Zero, int Preference, ModelPriceEntry Entry)>(StringComparer.Ordinal);
         foreach (var entry in entries)
         {
             var provider = entry.Provider.Trim().ToLowerInvariant();
@@ -68,9 +72,12 @@ public static class OfficialPricingCatalog
                 continue;
             }
 
-            if (!best.TryGetValue(key, out var current) || storefront.Preference < current.Preference)
+            var candidate = (Zero: IsAllZero(entry) ? 1 : 0, Preference: storefront.Preference, Entry: entry);
+            if (!best.TryGetValue(key, out var current)
+                || candidate.Zero < current.Zero
+                || (candidate.Zero == current.Zero && candidate.Preference < current.Preference))
             {
-                best[key] = (storefront.Preference, entry);
+                best[key] = candidate;
             }
         }
 
@@ -78,6 +85,15 @@ public static class OfficialPricingCatalog
             .Select(value => value.Entry)
             .OrderBy(entry => entry.ModelId, StringComparer.Ordinal)
             .ToList();
+    }
+
+    /// <summary>全零价条目（套餐 / 免费挂牌的记法形态）；零价条目在同键竞争中永不压过有价条目。</summary>
+    private static bool IsAllZero(ModelPriceEntry entry)
+    {
+        return entry.InputPerMillion == 0m
+            && entry.OutputPerMillion == 0m
+            && entry.CacheWritePerMillion == 0m
+            && entry.CacheReadPerMillion == 0m;
     }
 
     private static string NormalizeKey(string modelId)
