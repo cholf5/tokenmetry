@@ -4,7 +4,7 @@ title: 官方价单一目录——一模型一条目 + 用户条目前缀作用�
 type: feature
 priority: P1
 size: L
-status: todo
+status: done
 created: 2026-10-23
 updated: 2026-10-23
 blocked: none

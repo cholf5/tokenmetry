@@ -9,7 +9,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| P-001 | 官方价单一目录——一模型一条目 + 用户条目前缀作用域 | P1 | L | | |
 | D-017 | 右栏撤除 + 顶栏四维全局筛选 + 会话行元数据升级 | P1 | 2026-10-18 | | |
 
 > 2026-10-20：**Q-004 全局滚动条重主题收口（用户三点反馈一次清账）**。Semi 12 的 ScrollBar 收合态仍是「2px 常驻细条 + 右缘 6px 空隙 + 悬停出箭头」，不满足现代 overlay 语义——全量替换 `{x:Type ScrollBar}` ControlTheme（`Styles/ScrollBarTheme.axaml` 以 ResourceInclude 进 Application.Resources，资源查找先于 Styles 里的 SemiTheme 即完成覆盖）：6px 细条贴视口右/下缘、无箭头（Line 按钮物理移除，Track 页按钮透明保留翻页）、无轨道底；显隐状态机在 `Controls/ScrollBarOverlay`（附加行为经 ControlTheme setter 全局启用，含 TextBox/下拉内部）：滚动值变化或指针在滚动区内活动即显、闲置 1s 淡出、悬停/拖拽钉住，隐藏态不参与命中（不挡贴边内容）。配色 `AppScrollBarThumbBrush`/`HoverBrush` 进 ThemeDictionaries（design-tokens §9）。踩坑留卡：Avalonia 12 禁外部加 `:` 伪类（改普通类）、ControlTheme 须进 ResourceDictionary、headless Window 内容居中（指针坐标经 TranslatePoint）、1ms 闲置窗与 120ms 淡入竞态；行为在 DetachedFromVisualTree 清理（模板重建遗弃旧实例的泄漏实锤修复）。headless 6 条契约测试固化（ScrollBarOverlayTests）；离屏截图 Dark/Light 各一帧目检通过。全量 1392 Passed（+6）；真机明暗 × 1x/2x 手感目检移交用户。
@@ -53,6 +52,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 > 2026-10-11：按用户决定一次性建多源覆盖批次卡 I-006～I-022。蓝本为 ../ccusage/rust/adapters/（Rust 移植版，18 源清单见其 README「Supported Sources」）；DSH 不在 ccusage 支持列表（核实过，README 的 "trendshift" 含 "dsh" 是误匹配），I-007 为自研。与「看板保持 5–10 张」的常规策略有意偏离——本批是一次性全景规划，执行仍按优先级逐卡进行。**2026-10-12 追记：I-006～I-022 十七源适配器全部完成**（对账口径见各卡 TC），多源覆盖批次收口；I-024 候选计价接线随九源收口（UnpricedModels 欠账消除，快照补 tiers 段并刷新 kimi-k2.6）；**I-025 同日收口**：快照 7 条目经 CLI 探针核实已逐位等于 npm 20.0.29 锚点（I-024 审查清单对的是 rust HEAD、与锚点漂移，照单改价会炸对账——详见该卡 B-001），不改价，归一化歧义守卫 + 快照 _provenance 溯源落地。**Todo 清空。**
 
 ## Done
+
+| P-001 | 官方价单一目录——一模型一条目 + 用户条目前缀作用域 | P1 | L | | |
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
