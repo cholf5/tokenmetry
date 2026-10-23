@@ -504,6 +504,10 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     [ObservableProperty]
     private string _modelFormId = string.Empty;
 
+    /// <summary>P-001 T4/T5：Provider 前缀作用域（空 = 裸名条目；填如 openrouter/z-ai 则仅对该渠道生效）。</summary>
+    [ObservableProperty]
+    private string _modelFormScope = string.Empty;
+
     [ObservableProperty]
     private string _modelFormVendor = string.Empty;
 
@@ -634,6 +638,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         var definition = new ModelDefinitionOverride
         {
             Id = id,
+            ProviderScope = Blank(ModelFormScope),
             Vendor = Blank(ModelFormVendor),
             DisplayName = Blank(ModelFormDisplayName),
             InputPerMillion = input,
@@ -642,9 +647,13 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
             CacheReadPerMillion = cacheRead,
         };
 
-        // 同 ID 覆盖（编辑既有条目 = 改写这一条的用户层，导入层数据仍在下面垫着）。
+        // 同 (ID, 作用域) 覆盖（编辑既有条目 = 改写这一条的用户层，导入层数据仍在下面垫着）。
+        // P-001 T5：作用域是条目身份的一部分——同 ID 的裸名 / 其它作用域条目是各自的"局部变量"，
+        // 保存不得清掉（删整组走列表行的移除按钮）。
+        var scope = Blank(ModelFormScope);
         _settings.ModelDefinitions.RemoveAll(
-            existing => string.Equals(ModelId.Normalize(existing.Id), id, StringComparison.OrdinalIgnoreCase));
+            existing => string.Equals(ModelId.Normalize(existing.Id), id, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(existing.ProviderScope?.Trim() ?? string.Empty, scope ?? string.Empty, StringComparison.OrdinalIgnoreCase));
 
         // 新字段已接管的 ID，旧字段里被遮蔽的同 ID 规则一并清掉：留着会在用户日后删除新条目时
         // 把旧价"复活"（重新成为生效规则）。这是用户显式编辑驱动的删除，不违反旧字段只读桥的
@@ -694,6 +703,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
 
         EditingModelId = normalized;
         ModelFormId = normalized;
+        ModelFormScope = userEntry?.ProviderScope?.Trim() ?? string.Empty;
         ModelFormVendor = userEntry?.Vendor ?? effective?.Vendor ?? string.Empty;
         ModelFormDisplayName = userEntry?.DisplayName ?? effective?.DisplayName ?? string.Empty;
         ModelFormInput = userEntry?.InputPerMillion is { } input
@@ -749,6 +759,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     {
         EditingModelId = null;
         ModelFormId = string.Empty;
+        ModelFormScope = string.Empty;
         ModelFormVendor = string.Empty;
         ModelFormDisplayName = string.Empty;
         ModelFormInput = string.Empty;

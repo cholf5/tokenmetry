@@ -274,6 +274,7 @@ public sealed class Translations : INotifyPropertyChanged
         // ── 模型目录（I-035：价格 / 厂商 / 图标的唯一出处）──
         [nameof(CatalogPanelTitle)] = "模型目录",
         [nameof(CatalogPanelHint)] = "每个模型一个稳定 ID，价格、厂商、图标都挂在它上面；数据里出现过的模型名关联到这里（自动关联不上的在下面手动指定），统计与计价都按同一份目录走。改完即按新价格重算。",
+        [nameof(CatalogOfficialPriceNote)] = "本工具仅按官方标准价估算：目录只收模型厂商的官方价（多店面以海外店为准），第三方渠道价不参与计价。非官方 Provider 价格不同时，在这里自建条目纠偏——可指定 Provider 前缀，让该价格只对那个渠道生效。",
         [nameof(ModelSearchPlaceholder)] = "搜索模型 ID / 显示名 / 厂商",
         [nameof(FilterChipBuiltin)] = "内置",
         [nameof(FilterChipRemote)] = "在线",
@@ -294,6 +295,8 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ModelFormCreate)] = "新增模型",
         [nameof(ModelFormEditFormat)] = "编辑：{0}",
         [nameof(ModelFormIdLabel)] = "模型 ID（自动转小写连字符）",
+        [nameof(ModelFormScopeLabel)] = "Provider 前缀（可选）",
+        [nameof(ModelFormScopeHint)] = "留空 = 对该模型的所有来源生效；填写如 openrouter/z-ai，则只对原始名为「该前缀/模型名」的用量行生效（按前缀整段精确匹配）。",
         [nameof(ModelFormVendorLabel)] = "厂商",
         [nameof(ModelFormDisplayNameLabel)] = "显示名（可选）",
         [nameof(ModelFormInputLabel)] = "输入价（USD / 百万 tokens）",
@@ -659,6 +662,9 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(CatalogNoMatch)] = "No matching entries",
         [nameof(ModelFormCacheWriteLabel)] = "Cache write price",
         [nameof(ModelFormCacheReadLabel)] = "Cache read price",
+        [nameof(ModelFormScopeLabel)] = "Provider prefix (optional)",
+        [nameof(ModelFormScopeHint)] = "Leave empty to price every source of this model. Fill in e.g. openrouter/z-ai to apply only to usage rows whose raw name is \"that prefix/model\" with exactly that provider path.",
+        [nameof(CatalogOfficialPriceNote)] = "Estimates use official list prices only: the catalog carries each model vendor's own pricing (international storefront first); third-party channel prices are not used. If a non-official provider prices differently, add an entry here — optionally scoped to a provider prefix so it only applies to that channel.",
         [nameof(ModelFormCancel)] = "Cancel",
         [nameof(ModelFormErrorCacheNeedsInputPair)] = "Cache prices require input / output prices (cache derives from the input price)",
     };
@@ -990,6 +996,7 @@ public sealed class Translations : INotifyPropertyChanged
     // ── 模型目录（I-035）──
     public string CatalogPanelTitle => Get();
     public string CatalogPanelHint => Get();
+    public string CatalogOfficialPriceNote => Get();
     public string CatalogEmpty => Get();
     public string ModelSearchPlaceholder => Get();
     public string FilterChipBuiltin => Get();
@@ -1010,6 +1017,8 @@ public sealed class Translations : INotifyPropertyChanged
     public string ModelFormCreate => Get();
     public string ModelFormEditFormat => Get();
     public string ModelFormIdLabel => Get();
+    public string ModelFormScopeLabel => Get();
+    public string ModelFormScopeHint => Get();
     public string ModelFormVendorLabel => Get();
     public string ModelFormDisplayNameLabel => Get();
     public string ModelFormInputLabel => Get();
