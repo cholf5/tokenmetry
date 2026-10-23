@@ -24,6 +24,12 @@
             </StackPanel>
         </Grid>
         <StackPanel Spacing="4">
+            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormScopeLabel, Source={x:Static loc:Translations.Instance}}"/>
+            <TextBox Text="{Binding ModelFormScope, Mode=TwoWay}"/>
+            <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                       Text="{Binding ModelFormScopeHint, Source={x:Static loc:Translations.Instance}}"/>
+        </StackPanel>
+        <StackPanel Spacing="4">
             <TextBlock Classes="page-subtitle" Text="{Binding ModelFormDisplayNameLabel, Source={x:Static loc:Translations.Instance}}"/>
             <TextBox Text="{Binding ModelFormDisplayName, Mode=TwoWay}"/>
         </StackPanel>

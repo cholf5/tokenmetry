@@ -513,6 +513,53 @@ public class DataPricingViewModelTests
     }
 
     [Fact]
+    public void SaveModelDefinition_WithProviderScope_PersistsScopeAndKeepsSiblingEntries()
+    {
+        // P-001 T5：作用域条目与裸名条目按 (ID, scope) 共存——保存作用域条目不得清掉同 ID 裸名条目。
+        var settings = new AppSettings();
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride
+        {
+            Id = "glm-5-3-flash",
+            InputPerMillion = 0.2m,
+            OutputPerMillion = 0.6m,
+        });
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), new ModelCatalog());
+
+        viewModel.ModelFormId = "glm-5-3-flash";
+        viewModel.ModelFormScope = "openrouter/z-ai";
+        viewModel.ModelFormInput = "0.047";
+        viewModel.ModelFormOutput = "0.12";
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        settings.ModelDefinitions.Should().HaveCount(2, "同 ID 不同作用域是两条独立条目（Lua 局部变量语义）");
+        settings.ModelDefinitions.Should().Contain(entry =>
+            entry.ProviderScope == "openrouter/z-ai" && entry.InputPerMillion == 0.047m);
+        settings.ModelDefinitions.Should().Contain(entry =>
+            string.IsNullOrWhiteSpace(entry.ProviderScope) && entry.InputPerMillion == 0.2m,
+            "保存作用域条目不得清掉裸名条目");
+        viewModel.ModelFormScope.Should().BeEmpty("保存后表单复位");
+    }
+
+    [Fact]
+    public void EditModelDefinition_PrefillsScopeFromUserEntry()
+    {
+        var settings = new AppSettings();
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride
+        {
+            Id = "glm-5-3-flash",
+            ProviderScope = "z-ai",
+            InputPerMillion = 0.047m,
+            OutputPerMillion = 0.12m,
+        });
+        var (viewModel, _) = CreateCatalogViewModel(settings, new FakeSettingsStore(), new ModelCatalog());
+
+        viewModel.EditModelDefinitionCommand.Execute("glm-5-3-flash");
+
+        viewModel.ModelFormScope.Should().Be("z-ai");
+        viewModel.ModelFormInput.Should().Be("0.047");
+    }
+
+    [Fact]
     public void EditModelDefinition_LoadsEffectiveValuesAndRemoveRevertsToImported()
     {
         var settings = new AppSettings();

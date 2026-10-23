@@ -134,6 +134,9 @@
                             <TextBlock Classes="panel-title" Text="{Binding CatalogPanelTitle, Source={x:Static loc:Translations.Instance}}"/>
                             <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
                                        Text="{Binding CatalogPanelHint, Source={x:Static loc:Translations.Instance}}"/>
+                            <!-- P-001：官方价立场说明（用户拍板文案）——目录只收官方价，第三方渠道自建条目纠偏 -->
+                            <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                                       Text="{Binding CatalogOfficialPriceNote, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
                     </DockPanel>
 
