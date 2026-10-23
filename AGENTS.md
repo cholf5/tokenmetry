@@ -15,7 +15,7 @@ dotnet test tests/Tokenmetry.App.Headless.Tests   # Avalonia Headless UI 测试
 dotnet run --project src/Tokenmetry.App
 ```
 
-.NET SDK 10（net10.0）。开发机可为 macOS/Linux，发布目标是 Windows（`docs/release/windows-publish.md`）。
+.NET SDK 10（net10.0）。开发机可在 macOS / Windows / Linux 任意平台进行，发布目标是 Windows / macOS / Linux 三平台（发布流程见 `docs/release/`，注意该文档当前停留在 v0.1 时代、待重写）。
 
 ## 架构边界（三层，禁止反向依赖）
 
