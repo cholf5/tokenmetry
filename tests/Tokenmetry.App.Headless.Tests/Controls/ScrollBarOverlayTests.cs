@@ -110,15 +110,15 @@ public class ScrollBarOverlayTests
         Dispatcher.UIThread.RunJobs();
         Assert.Contains("overlay-shown", bar.Classes);
 
-        PumpUntil(() => bar.Opacity > 0.999);
+        PumpUntil(window, () => bar.Opacity > 0.999);
         Assert.True(bar.Opacity > 0.999, $"显示态应淡入落定 1，实测 {bar.Opacity:0.###}");
 
         // 注入 1ms 闲置窗并制造新活动（重挂计时器）→ 收回
         ScrollBarOverlay.SetIdleHideDelay(bar, IdleHideDelayMs1);
         sv.Offset = new Vector(0, 61);
-        PumpUntil(() => !bar.Classes.Contains("overlay-shown"));
+        PumpUntil(window, () => !bar.Classes.Contains("overlay-shown"));
         Assert.DoesNotContain("overlay-shown", bar.Classes);
-        PumpUntil(() => bar.Opacity < 0.01);
+        PumpUntil(window, () => bar.Opacity < 0.01);
         Assert.True(bar.Opacity < 0.01, $"隐藏态应淡出落定 0，实测 {bar.Opacity:0.###}");
 
         window.Close();
@@ -140,7 +140,7 @@ public class ScrollBarOverlayTests
         // 注入 1ms 闲置窗并制造新活动（重挂计时器）→ 收回
         ScrollBarOverlay.SetIdleHideDelay(bar, IdleHideDelayMs1);
         sv.Offset = new Vector(0, 61);
-        PumpUntil(() => !bar.Classes.Contains("overlay-shown"));
+        PumpUntil(window, () => !bar.Classes.Contains("overlay-shown"));
         Assert.DoesNotContain("overlay-shown", bar.Classes);
 
         window.Close();
@@ -166,13 +166,13 @@ public class ScrollBarOverlayTests
         // 悬停期间注入 1ms 闲置窗并制造新活动：到期轮询必须因指针在条上而钉住
         ScrollBarOverlay.SetIdleHideDelay(bar, IdleHideDelayMs1);
         sv.Offset = new Vector(0, 61);
-        PumpUntil(() => !bar.Classes.Contains("overlay-shown"), maxIterations: 40);
+        PumpUntil(window, () => !bar.Classes.Contains("overlay-shown"), maxIterations: 40);
         // 悬停滚动条期间应钉住显示态
         Assert.Contains("overlay-shown", bar.Classes);
 
         // 指针移出滚动区后才允许收回（窗口右下角，远离 sv）
         window.MouseMove(new Point(window.Width - 5, window.Height - 5));
-        PumpUntil(() => !bar.Classes.Contains("overlay-shown"));
+        PumpUntil(window, () => !bar.Classes.Contains("overlay-shown"));
         Assert.DoesNotContain("overlay-shown", bar.Classes);
 
         window.Close();
@@ -198,11 +198,20 @@ public class ScrollBarOverlayTests
         return (window, sv, bar);
     }
 
-    /// <summary>推进 headless 调度/渲染时钟直到条件满足；1ms 闲置窗在真实时钟 + 帧推进下必然到期。</summary>
-    private static void PumpUntil(Func<bool> done, int maxIterations = 300)
+    /// <summary>
+    /// 推进 headless 调度/渲染时钟直到条件满足；1ms 闲置窗在真实时钟 + 帧推进下必然到期。
+    /// headless 陷阱（2026-10-23 Windows 冒烟定位）：headless 平台在渲染空闲后不再推进
+    /// DispatcherTimer 时钟——只 RunJobs + ForceRenderTimerTick 而不制造渲染失效时，
+    /// Background 优先级的闲置计时器一次都不会 tick，看起来像控件"收回失败"，实为测试泵
+    /// 没喂渲染帧；产品里的 DispatcherTimer 在真实桌面由平台调度/渲染循环驱动，无此问题。
+    /// 故每轮先 InvalidateVisual 制造帧需求再推进。与 Shell/DispatcherPump 的异步加载等待
+    /// 泵语义不同（那边等线程池续体，不需要帧），勿合并。
+    /// </summary>
+    private static void PumpUntil(Visual frameSource, Func<bool> done, int maxIterations = 300)
     {
         for (var i = 0; i < maxIterations && !done(); i++)
         {
+            frameSource.InvalidateVisual();
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             Thread.Sleep(1);
