@@ -43,4 +43,5 @@ blocked: none
   - T4 ProviderScope（494a59f）：作用域条目分流独立清单（不进全局定义表、不冒充裸名/官方价），引擎按"原始名最后 '/' 之前整段 provider 路径"精确匹配，拼错静默落官方价；踩坑：userEntries 装配曾把作用域条目误当裸名用户条目，已过滤。
   - T5 设置页（df53278）：目录面板官方价立场说明 + 编辑弹层 Provider 前缀输入位；保存键改 (ID, 作用域)——同 ID 裸名与各渠道条目互不清掉。
   - T6 对账补记 + 实机验收：§6 新增分歧 5；本机库生产管线重扫后 30 天成本 **$0.71 → $133.96**（glm-5.3-flash $74.11、GLM-5.3-Flash $52.71 按官方价；ark/glm-5.3-flash $3.31；glm-5.3-flash-free 按拍板默认计官方价 $3.13；ark/deepseek-v4.1-flash 与 ark-code-latest 转为如实 Missing 待用户纠偏）。全量 1392 绿。
-  - Deferred minor：作用域条目暂不在目录表格中列出（重进表单可重建，删除走裸名行移除按钮）——列表化 UX 待用户定夺。
+  - 终审（独立审查者，approve-with-fixes）：修复趟 a2a2a9d——I-1 零价条目永不压价（裁决键 (是否全零, 店面偏好)，堵同店面大小写重复拼写与海外零价压国内有价两残留形态；裁决'零价不压价'>'海外店优先'）+ M-1 作用域条目覆盖计划候选链走法（否则 OpenClaw/Grok/Antigravity 无声失效）。修复后全量 1396 绿。
+  - Deferred minor（终审清单，待用户定）：M-2 保存作用域条目清同 ID legacy 规则；M-3 作用域条目列表化 UX；M-4 家族表缺 codex（codex* 冻结快照价）；M-5 国内店回退未钉测试；M-6 作用域命中 MatchedKey 不反映 scope；M-7 仅元数据作用域条目静默失效；M-8 文档表述 + PushCandidate 热路径分配。
