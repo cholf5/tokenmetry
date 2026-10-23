@@ -1,5 +1,5 @@
 ---
-id: P-001
+id: P-002
 title: 官方价单一目录——一模型一条目 + 用户条目前缀作用域
 type: feature
 priority: P1

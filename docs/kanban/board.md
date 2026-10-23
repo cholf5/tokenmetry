@@ -53,7 +53,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 ## Done
 
-| P-001 | 官方价单一目录——一模型一条目 + 用户条目前缀作用域 | P1 | L | | |
+| P-002 | 官方价单一目录——一模型一条目 + 用户条目前缀作用域 | P1 | L | | |
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
