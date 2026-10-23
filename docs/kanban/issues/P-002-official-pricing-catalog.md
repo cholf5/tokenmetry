@@ -45,3 +45,9 @@ blocked: none
   - T6 对账补记 + 实机验收：§6 新增分歧 5；本机库生产管线重扫后 30 天成本 **$0.71 → $133.96**（glm-5.3-flash $74.11、GLM-5.3-Flash $52.71 按官方价；ark/glm-5.3-flash $3.31；glm-5.3-flash-free 按拍板默认计官方价 $3.13；ark/deepseek-v4.1-flash 与 ark-code-latest 转为如实 Missing 待用户纠偏）。全量 1392 绿。
   - 终审（独立审查者，approve-with-fixes）：修复趟 a2a2a9d——I-1 零价条目永不压价（裁决键 (是否全零, 店面偏好)，堵同店面大小写重复拼写与海外零价压国内有价两残留形态；裁决'零价不压价'>'海外店优先'）+ M-1 作用域条目覆盖计划候选链走法（否则 OpenClaw/Grok/Antigravity 无声失效）。修复后全量 1396 绿。
   - Deferred minor（终审清单，待用户定）：M-2 保存作用域条目清同 ID legacy 规则；M-3 作用域条目列表化 UX；M-4 家族表缺 codex（codex* 冻结快照价）；M-5 国内店回退未钉测试；M-6 作用域命中 MatchedKey 不反映 scope；M-7 仅元数据作用域条目静默失效；M-8 文档表述 + PushCandidate 热路径分配。
+- 2026-10-23（复核判定，Windows 冒烟扩大扫描的代码复审，语义零改动）：
+  - **真缺陷**：M-2（`DataPricingViewModel.SaveModel` 清 legacy `PricingOverrides` 按 ID 不分 scope——保存 scoped 条目会连带清掉同 ID 的 legacy 全局覆盖，裸名渠道静默回落官方价，:661-662）；M-6（scoped 命中 `MatchedKey = Entry.ToKey()` 无 scope 段，成本分析页无法区分 scoped/裸名命中）；M-7（仅元数据 scoped 条目 `ToPriceEntry` 为 null 被无声丢弃）；M-8 的分配半边（`PushCandidate` 每次调用分配 `(string[])["-fast","-free"]`，`GetCandidates` 每用量行走，提升 static readonly 即可、零语义变化）。
+  - **UX 决策待用户**：M-3（scoped 条目不在目录列表，不可见/不可删；附带不对称——`RemoveModelDefinition` 按 ID 全删会连带删掉同 ID 的 scoped 条目，而 `SaveModel` 精确保留，列表化时一并拍板）；M-8 的文档半边（所指文档待用户指明）。
+  - **测试缺口非 bug**：M-5（国内店回退实现正确——同键唯一候选自动胜出，缺钉子测试）。
+  - **设计内后续决策**：M-4（家族表加 codex 前缀 = 显式改表，逐案立卡；存量 codex* 靠快照冻结价，新增 codex 型号 Missing）。
+  - 另一处代码复审观察（未进终审清单）：`OfficialPricingCatalog.Project` 同键完全平手时（同店面同零价性的大小写变体）仍按输入序取先者，与"绝不按输入顺序"的注释有缝；官方店面内罕见，仅记录不阻塞。
