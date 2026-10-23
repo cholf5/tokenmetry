@@ -9,6 +9,12 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
+| B-010 | 日志读取 FileShare.Read——Windows 上 agent 持写句柄期间该文件采不到 | P1 | S | | |
+| B-011 | Dsh/Copilot 目录递归不跳 reparse point——junction 环崩进程、复制致 DSH 双计 | P2 | S | | |
+| B-012 | "projects" 文件名 Ordinal 比较——Windows 大小写不敏感语义下 Claude 源静默空 | P3 | S | | |
+| B-013 | 无单实例互斥——自启动 + 手动双开产生双托盘与 SQLite 并发写 | P3 | S | | |
+| B-014 | 托盘常驻态异常通知 toast 不可见（adorner 挂在隐藏主窗上） | P3 | S | | |
+| B-015 | 计价页价格输入固定 InvariantCulture——de-DE 逗号小数输入必被拒 | P3 | S | | |
 | D-017 | 右栏撤除 + 顶栏四维全局筛选 + 会话行元数据升级 | P1 | 2026-10-18 | | |
 
 > 2026-10-20：**Q-004 全局滚动条重主题收口（用户三点反馈一次清账）**。Semi 12 的 ScrollBar 收合态仍是「2px 常驻细条 + 右缘 6px 空隙 + 悬停出箭头」，不满足现代 overlay 语义——全量替换 `{x:Type ScrollBar}` ControlTheme（`Styles/ScrollBarTheme.axaml` 以 ResourceInclude 进 Application.Resources，资源查找先于 Styles 里的 SemiTheme 即完成覆盖）：6px 细条贴视口右/下缘、无箭头（Line 按钮物理移除，Track 页按钮透明保留翻页）、无轨道底；显隐状态机在 `Controls/ScrollBarOverlay`（附加行为经 ControlTheme setter 全局启用，含 TextBox/下拉内部）：滚动值变化或指针在滚动区内活动即显、闲置 1s 淡出、悬停/拖拽钉住，隐藏态不参与命中（不挡贴边内容）。配色 `AppScrollBarThumbBrush`/`HoverBrush` 进 ThemeDictionaries（design-tokens §9）。踩坑留卡：Avalonia 12 禁外部加 `:` 伪类（改普通类）、ControlTheme 须进 ResourceDictionary、headless Window 内容居中（指针坐标经 TranslatePoint）、1ms 闲置窗与 120ms 淡入竞态；行为在 DetachedFromVisualTree 清理（模板重建遗弃旧实例的泄漏实锤修复）。headless 6 条契约测试固化（ScrollBarOverlayTests）；离屏截图 Dark/Light 各一帧目检通过。全量 1392 Passed（+6）；真机明暗 × 1x/2x 手感目检移交用户。
@@ -57,6 +63,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| B-009 | ScrollBarOverlay headless 测试泵补渲染失效（渲染空闲不推进 DispatcherTimer 时钟） | P3 | 2026-10-23 |
+| B-008 | ExpandHomePath Windows 混合分隔符（~/a/b → C:\Users\x\a/b）回归锁 | P2 | 2026-10-23 |
 | Q-004 | 全局滚动条重主题——overlay 语义（闲置隐藏 / 贴边 / 无箭头） | P1 | 2026-10-20 |
 | S-006 | 开机自启动开关（默认关）+ --autostart 静默启动 | P2 | 2026-10-19 |
 | D-016 | 状态栏快捷信息窗 · 壳层（macOS 顶部锚定 / Windows flyout，复用 D-015） | P2 | 2026-10-17 |
