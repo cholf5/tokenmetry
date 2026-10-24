@@ -93,17 +93,18 @@ public class StatusPopoverTests
 
     private static IReadOnlyList<DimensionUsageRow> FixtureAgents() =>
     [
-        Agent("Claude Code", 20624),
-        Agent("Codex", 13582),
-        Agent("Cursor", 5261),
-        Agent("GitHub Copilot", 2914),
+        Agent("Claude Code", 20624, 4.12m),
+        Agent("Codex", 13582, 2.86m),
+        Agent("Cursor", 5261, 1.10m),
+        Agent("GitHub Copilot", 2914, 0.55m),
     ];
 
-    private static DimensionUsageRow Agent(string key, long tokens) => new()
+    private static DimensionUsageRow Agent(string key, long tokens, decimal knownCost) => new()
     {
         Key = key,
         TotalTokens = tokens,
         TokenShare = tokens / 42381m,
+        Cost = new AggregatedCost(knownCost, false),
     };
 
     private static DimensionUsageRow Model(string key, AggregatedCost cost, decimal? costShare, long tokens) => new()
@@ -149,12 +150,14 @@ public class StatusPopoverTests
         Assert.Equal("13,124", vm.OutputTokensText);
         Assert.Equal("2,414", vm.CacheTokensText);
 
-        // Top4 行：token 千分位 + 占比 + 副题（无速率差值 → 最近活动降级）
+        // Top4 行：右列「紧凑 tokens / 价格」（修正项 2，同源组合）+ bar（token 占比）+
+        // 副题（无速率差值 → 最近活动降级）
         Assert.Equal(4, vm.TopAgents!.Count);
         var first = vm.TopAgents[0];
         Assert.Equal("Claude Code", first.Name);
-        Assert.Equal("20,624", first.TokensText);
-        Assert.Equal((20624 / 42381m * 100m).ToString("F1", CultureInfo.InvariantCulture) + "%", first.ShareText);
+        Assert.Equal(
+            TrendChart.FormatCompactTokens(20624) + " / " + OverviewViewModel.FormatCost(new AggregatedCost(4.12m, false)),
+            first.TokensCostText);
         Assert.Equal((double)(20624 / 42381m * 100m), first.BarValue, 6);
         Assert.Equal(
             string.Format(Translations.Instance.PopoverRowLastActiveFormat, lastSeen.LocalDateTime),
@@ -182,10 +185,10 @@ public class StatusPopoverTests
         // 本轮回写：今日 +3200 tokens（Claude Code 独增），间隔 60s（速率窗口内）
         stub.Agents =
         [
-            Agent("Claude Code", 20624 + 3200),
-            Agent("Codex", 13582),
-            Agent("Cursor", 5261),
-            Agent("GitHub Copilot", 2914),
+            Agent("Claude Code", 20624 + 3200, 4.12m),
+            Agent("Codex", 13582, 2.86m),
+            Agent("Cursor", 5261, 1.10m),
+            Agent("GitHub Copilot", 2914, 0.55m),
         ];
         vm.HandleTodayTokensRound(42381 + 3200, T0.AddSeconds(60));
         await vm.ReloadAsyncAt(T0.AddSeconds(60)); // 快照 2 @ T0+60s → 分 Agent 速率成立 → 归属回写
@@ -287,14 +290,16 @@ public class StatusPopoverTests
             new[] { "glm-5.3-flash", "claude-opus-4-5", "zcode-custom" },
             vm.TopModels.Select(m => m.Name).ToArray());
 
-        // 金额/占比与实现同源格式化（语言无关）；mini bar = CostShare × 100
-        Assert.Equal(OverviewViewModel.FormatCost(new AggregatedCost(12.46m, false)), vm.TopModels[0].CostText);
-        Assert.Equal(OverviewViewModel.FormatShare(0.80m), vm.TopModels[0].ShareText);
+        // 右列「紧凑 tokens / 价格」与实现同源组合（修正项 3，与 Agent 行统一格式）；
+        // mini bar = CostShare × 100
+        Assert.Equal(
+            TrendChart.FormatCompactTokens(20000) + " / " + OverviewViewModel.FormatCost(new AggregatedCost(12.46m, false)),
+            vm.TopModels[0].TokensCostText);
         Assert.Equal(80d, vm.TopModels[0].BarValue, 6);
-        // 修正项 1：副题 = 今日 token 紧凑数（与 KPI 同口径同源格式化）
-        Assert.Equal(TrendChart.FormatCompactTokens(20000), vm.TopModels[0].TokensText);
-        // 已知为零 ≠ 未知：zcode 行占比 0 诚实显示、bar 空轨道，不冒充"—"
-        Assert.Equal(OverviewViewModel.FormatShare(0m), vm.TopModels[2].ShareText);
+        // 已知为零 ≠ 未知：zcode 行价格 $0.00 诚实显示、bar 空轨道（占比 0），不冒充"—"
+        Assert.Equal(
+            TrendChart.FormatCompactTokens(8000) + " / " + OverviewViewModel.FormatCost(new AggregatedCost(0m, false)),
+            vm.TopModels[2].TokensCostText);
         Assert.Equal(0d, vm.TopModels[2].BarValue, 6);
     }
 
@@ -391,8 +396,8 @@ public class StatusPopoverTests
             Math.Abs(c - chipLefts[0]) < 0.5,
             $"行图标左缘未对齐: {string.Join(", ", chipLefts)}"));
 
-        // token 数字右缘逐行对齐
-        var tokenRights = rows.Zip(vm.TopAgents!, (r, row) => (Row: r, Text: row.TokensText))
+        // 右列数字右缘逐行对齐
+        var tokenRights = rows.Zip(vm.TopAgents!, (r, row) => (Row: r, Text: row.TokensCostText))
             .Select(x =>
             {
                 var text = x.Row.GetVisualDescendants().OfType<TextBlock>()
@@ -402,7 +407,7 @@ public class StatusPopoverTests
             .ToList();
         Assert.All(tokenRights, t => Assert.True(
             Math.Abs(t - tokenRights[0]) < 0.5,
-            $"token 数字右缘未对齐: {string.Join(", ", tokenRights)}"));
+            $"右列数字右缘未对齐: {string.Join(", ", tokenRights)}"));
 
         window.Close();
     }
