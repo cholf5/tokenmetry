@@ -17,6 +17,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | B-015 | 计价页价格输入固定 InvariantCulture——de-DE 逗号小数输入必被拒 | P3 | S | | |
 | D-017 | 右栏撤除 + 顶栏四维全局筛选 + 会话行元数据升级 | P1 | 2026-10-18 | | |
 
+> 2026-10-24（追记）：**Q-008 图表悬停浮窗 token 单位随 UI 语言——中文 万/亿**。用户反馈"Hover 浮窗里 token 单位在中文状态下仍显示英文（3.25M），应改 325万，本项目惯例的漏网之鱼"。取证（git log）：`FormatCompactTooltipValue`（恒英文 K/M）的 ASCII 约束源自 ScottPlot 自绘 tooltip 时代（d268368），cd1e2bd 已把浮窗换成 Avalonia 浮层（TextBlock 渲染 CJK 无障碍），但消费点与注释没跟着更新——纯残留。修法：`DailyTooltipText` 与小时形态 label 两处消费点改 `FormatCompactTokens`（随语言 万/亿 vs K/M）；零消费方后删除 `FormatCompactTooltipValue`；TrendChart 补 `CurrentLanguage` 订阅重译（B-007 同 DonutChart/Heatmap 纪律，语言切换不换数据即重建换单位）；过时注释与 ChartTooltips 类 doc 交叉引用一并修正；`FormatCompactAxisValue` 轴刻度仍恒 ASCII（ScottPlot 自绘、无 CJK 字形）。测试：既有单位断言显式锁英文口径（WithLanguage）、新增中文万口径 + 语言切换实时性用例、删废弃 theory；"in/out/tot/tok" 记号保持 ASCII（同环形图/热力图 " tok" 后缀惯例），文案本地化不做。全量 1447 Passed / 0 Failed（22 跳过）。**并发注记**：与另一会话的成本折线补零日成线改动（OverviewView/TrendChart BuildCostLine）同工作区并行——本次提交经选择性暂存（git apply --cached 按 hunk 摘取）只含本卡改动，其工作区状态原样保留。
+
 > 2026-10-24（晚三）：**I-040 修正项 4——PathIcon 削边修复**。用户目检反馈 clock/dollar-circle/database/house 等图标"像是被削去了最外面一部分"。取证（headless 像素量测实锤）：Avalonia 12 起 `TemplatedControl`（IconElement/PathIcon 继承）把 ClipToBounds 元数据默认翻成 true，而模板内 Path 按几何 bounds 缩放填槽、居中描边的外半环（0.75px）溢出 PathIcon 边界即被削——16px 槽渲染 clock 墨迹盒恰 16×16、赤道整行贴边（平弦），同几何裸 Path 墨迹盒 18×18 圆弧收尾（Shape 元数据仍默认 false 故不受影响）；table/bot/cpu 直线边缘与削切重合故目检不可辨。修法：PathIcon 隐式 ControlTheme 显式 `ClipToBounds=False`（生成器源头改注释 + 再生 Icons.axaml，几何串零漂移），不回退"墨迹填槽"的既有尺寸决策；IconResourceTests +1 削边回归锁（ClipToBounds=false 属性断言 + 渲染墨迹盒必须大于几何盒的像素断言）。全量 1455 Passed / 0 Failed；真机目检移交用户。
 
 > 2026-10-24（晚二）：**Q-007 修正项 1——KPI 六卡改两排三列**。用户目检截图反馈单排六卡太挤、首卡（估算总成本）标题溢出卡外。修法：KPI 行 `RowDefinitions="Auto,Auto" ColumnDefinitions="*,*,*"` + RowSpacing=12（第一排 = 总成本 + 输入/输出，第二排 = 缓存读/写 + 待确认价格），1180px 窗口卡宽 ≈179px → ≈370px；几何契约测试锁两排三列（Y 两簇 / 每行 3 卡 / 卡宽 ≥240 防单排回归）。留档截图 cost 明暗重生成（time 两张随同一测试顺带刷新；踩坑：D-013 记的相对路径落 testhost bin 目录，须绝对路径）。headless 17/17，全量见下。真机观感移交用户。
@@ -81,6 +83,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| Q-008 | 图表悬停浮窗 token 单位随 UI 语言——中文 万/亿（ScottPlot 时代 ASCII 约束残留） | P2 | 2026-10-24 |
 | I-041 | 关于面板补版权/许可/仓库/无担保行——AGPL Appropriate Legal Notices 对齐 | P3 | 2026-10-24 |
 | Q-007 | 成本分析页补缓存读/写占比卡——Token 构成四项合计满 100%（图标几何随 6e3c8e9 落地） | P2 | 2026-10-24 |
 | Q-006 | 页面滚动面贴窗口边缘——PageHost 外边距移入滚动内容（留白自持，page-root 类） | P2 | 2026-10-24 |
