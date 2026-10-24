@@ -303,12 +303,10 @@
                                                    Margin="0,1,0,0"/>
                                         <ProgressBar Classes="mini" Value="{Binding BarValue}" Margin="0,5,0,0"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding TokensText}" FontSize="11" TextAlignment="Right"
-                                                   Foreground="{DynamicResource AppTextBrush}"/>
-                                        <TextBlock Text="{Binding ShareText}" FontSize="10" TextAlignment="Right"
-                                                   Classes="popover-cap" Margin="0,1,0,0"/>
-                                    </StackPanel>
+                                    <!-- 修正项 2：右列单行「紧凑 tokens / 价格」（D-019），占比文案由 bar 承载 -->
+                                    <TextBlock Grid.Column="2" Text="{Binding TokensCostText}" FontSize="11"
+                                               TextAlignment="Right" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource AppTextBrush}"/>
                                 </Grid>
                             </Button>
                         </DataTemplate>
@@ -321,7 +319,8 @@
                            Foreground="{DynamicResource AppMutedTextBrush}"
                            Margin="0,4,0,0"/>
 
-                <!-- 模型用量 Top3（D-019）：按今日已知成本降序（未知成本沉底、占比诚实 "—"），
+                <!-- 模型用量 Top3（D-019）：按今日已知成本降序（未知成本沉底），行右列单行
+                     「紧凑 tokens / 价格」（修正项 3 与 Agent 行统一，token 副题退场），
                      回答"今天钱花在哪个模型"——Agent 维度与模型价差正交。行结构复用 Agent 行
                      （popover-agent-row 样式同吃 Semi 拉伸修复），图标槽换 model-chip-lg +
                      ModelChip.Vendor（ModelVisualMap 机制），行点击 → 模型统计页。
@@ -347,18 +346,11 @@
                                             <TextBlock Text="{Binding Name}" FontSize="11"
                                                        TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource AppTextBrush}"/>
-                                            <!-- 修正项 1：副题 = 今日 token 紧凑数（KPI 同口径）；成本仍是主数字 -->
-                                            <TextBlock Text="{Binding TokensText}" FontSize="10"
-                                                       Foreground="{DynamicResource AppMutedTextBrush}"
-                                                       Margin="0,1,0,0"/>
                                             <ProgressBar Classes="mini" Value="{Binding BarValue}" Margin="0,5,0,0"/>
                                         </StackPanel>
-                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding CostText}" FontSize="11" TextAlignment="Right"
-                                                       Foreground="{DynamicResource AppTextBrush}"/>
-                                            <TextBlock Text="{Binding ShareText}" FontSize="10" TextAlignment="Right"
-                                                       Classes="popover-cap" Margin="0,1,0,0"/>
-                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="{Binding TokensCostText}" FontSize="11"
+                                                   TextAlignment="Right" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AppTextBrush}"/>
                                     </Grid>
                                 </Button>
                             </DataTemplate>

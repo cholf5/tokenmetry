@@ -89,10 +89,12 @@ internal sealed class RefreshRateTracker
 }
 
 /// <summary>
-/// 弹层「主要 Agent」一行的展示模型（D-015）：品牌 logo 槽（I-034 agent-chip 同机制）、
-/// token 数（千分位，对齐总览维度行）、占比与 mini bar 值（口径同 DimensionRowViewModel：
-/// TokenShare × 100），副题 = 有增量速率时「当前 X/min」，否则该 Agent 今日最近会话的
-/// 「最近活动 hh:mm」（最近会话查询派生，仅当日显示时间；再无则空——不伪造活动时刻）。
+/// 弹层「主要 Agent」一行的展示模型（D-015；D-019 修正项 2 调右列）：品牌 logo 槽（I-034
+/// agent-chip 同机制）、副题（有增量速率时「当前 X/min」，否则该 Agent 今日最近会话的
+/// 「最近活动 hh:mm」，再无则空——不伪造活动时刻）、mini bar 值（口径同 DimensionRowViewModel：
+/// TokenShare × 100）。右列单行「紧凑 tokens / 价格」（例 "1.14亿 / $3.97"，用户拍板格式，
+/// 修正项 2 取代原千分位 + token 占比两行——占比信息由 bar 承载）：tokens 走
+/// FormatCompactTokens（与 KPI/模型行同口径），价格走 FormatCost 四态（未知成本不冒充 0）。
 /// 不可变小对象，由 <see cref="StatusPopoverViewModel"/> 整体替换集合触发绑定刷新。
 /// </summary>
 public sealed class StatusPopoverAgentRowViewModel
@@ -101,19 +103,19 @@ public sealed class StatusPopoverAgentRowViewModel
         string agentId,
         string name,
         long tokens,
+        AggregatedCost cost,
         decimal? tokenShare,
         string subtitle,
         Func<string, (string Vendor, string Glyph)> visualResolver)
     {
         AgentId = agentId;
         Name = name;
-        TokensText = tokens.ToString("N0", CultureInfo.InvariantCulture);
-        ShareText = OverviewViewModel.FormatShare(tokenShare);
+        TokensCostText = TrendChart.FormatCompactTokens(tokens) + " / " + OverviewViewModel.FormatCost(cost);
         BarValue = tokenShare is { } share ? Math.Clamp((double)(share * 100m), 0d, 100d) : 0d;
         Subtitle = subtitle;
         var visual = visualResolver(name);
         LogoVendor = visual.Vendor;
-        Glyph = visual.Glyph;
+        Glyph = visual.Glyph.ToString();
     }
 
     /// <summary>Agent 键（采集来源名，Agent 行点击带它跳会话页——D-009 既有路由）。</summary>
@@ -126,13 +128,10 @@ public sealed class StatusPopoverAgentRowViewModel
 
     public string Glyph { get; }
 
-    /// <summary>token 数千分位文案（原型 .ar 同款，与总览维度行同口径）。</summary>
-    public string TokensText { get; }
+    /// <summary>右列单行文案「紧凑 tokens / 价格」（修正项 2 用户拍板格式；无成本数据为 "… / —"）。</summary>
+    public string TokensCostText { get; }
 
-    /// <summary>占比文案（无基数为 "—"）。</summary>
-    public string ShareText { get; }
-
-    /// <summary>mini bar 值（0..100）。</summary>
+    /// <summary>mini bar 值（0..100，token 占比口径）。</summary>
     public double BarValue { get; }
 
     /// <summary>副题（速率 / 最近活动；可空串 = 两种降级都不可得，行内省略不占位）。</summary>
@@ -140,11 +139,12 @@ public sealed class StatusPopoverAgentRowViewModel
 }
 
 /// <summary>
-/// 弹层「模型用量」一行的展示模型（D-019）：模型名 + 副题（今日 token 数紧凑格式，同 KPI
-/// 今日 Token 口径——修正项 1，成本仍是主数字，tokens 供判断"贵模型烧的量值不值"）+
-/// 今日成本金额（OverviewViewModel.FormatCost 四态诚实文案）+ 成本占比（CostShare，本行含
-/// 未知成本时为 null → "—"/空轨道，不伪造），mini bar 值 = CostShare × 100。模型图标走
-/// ModelVisualMap（model-chip 同机制，未识别落 generic 字形兜底）。不可变小对象，由
+/// 弹层「模型用量」一行的展示模型（D-019）：右列单行「紧凑 tokens / 价格」（例
+/// "1.14亿 / $3.97"，修正项 3 统一与 Agent 行同格式——token 副题退场、成本占比文案退场，
+/// 占比信息由 bar 承载）：tokens 走 FormatCompactTokens（与 KPI/Agent 行同口径），价格走
+/// OverviewViewModel.FormatCost 四态诚实文案（未知成本不冒充 0）。mini bar 值 = CostShare × 100
+/// （本行含未知成本时 CostShare 为 null → 空轨道，不伪造）。模型图标走 ModelVisualMap
+/// （model-chip 同机制，未识别落 generic 字形兜底）。不可变小对象，由
 /// <see cref="StatusPopoverViewModel"/> 整体替换集合触发绑定刷新。
 /// </summary>
 public sealed class StatusPopoverModelRowViewModel
@@ -157,9 +157,7 @@ public sealed class StatusPopoverModelRowViewModel
         Func<string, (string Vendor, char Glyph)> visualResolver)
     {
         Name = name;
-        TokensText = TrendChart.FormatCompactTokens(tokens);
-        CostText = OverviewViewModel.FormatCost(cost);
-        ShareText = OverviewViewModel.FormatShare(costShare);
+        TokensCostText = TrendChart.FormatCompactTokens(tokens) + " / " + OverviewViewModel.FormatCost(cost);
         BarValue = costShare is { } share ? Math.Clamp((double)(share * 100m), 0d, 100d) : 0d;
         var visual = visualResolver(name);
         LogoVendor = visual.Vendor;
@@ -173,16 +171,10 @@ public sealed class StatusPopoverModelRowViewModel
 
     public string Glyph { get; }
 
-    /// <summary>今日 token 数（紧凑格式；副题行，与 KPI 今日 Token 同口径）。</summary>
-    public string TokensText { get; }
+    /// <summary>右列单行文案「紧凑 tokens / 价格」（修正项 3 与 Agent 行统一；无成本数据为 "… / —"）。</summary>
+    public string TokensCostText { get; }
 
-    /// <summary>今日成本金额文案（I-028 四态：未知成本不冒充 0）。</summary>
-    public string CostText { get; }
-
-    /// <summary>成本占比文案（本行含未知成本时 "—"）。</summary>
-    public string ShareText { get; }
-
-    /// <summary>mini bar 值（0..100）。</summary>
+    /// <summary>mini bar 值（0..100，成本占比口径；含未知成本行空轨道）。</summary>
     public double BarValue { get; }
 }
 
@@ -493,6 +485,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
                 a.Key,
                 a.Key,
                 a.TotalTokens,
+                a.Cost,
                 a.TokenShare,
                 BuildRowSubtitle(t, a.Key, agentRates, lastActiveByAgent, snapshotAt),
                 name =>

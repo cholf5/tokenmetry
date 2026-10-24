@@ -41,9 +41,15 @@ token 占比 ≠ 成本占比，现有 KPI（总量/成本/缓存占比）与 To
    （popover-agent-row 样式同吃 Semi 拉伸修复），右列放成本金额 + 成本占比；图标槽新增
    `model-chip-lg`（30×30，几何/字号对齐 agent-chip-lg，logo 22×22 同尺度），
    走 ModelVisualMap / ModelChip.Vendor 既有机制，未识别落 generic 字形兜底。
-5. **（修正项 1，用户真机目检后追加）模型行副题加今日 token 紧凑数**：`FormatCompactTokens`
-   同 KPI 今日 Token 口径，放模型名下副题行；成本金额仍是主数字、mini bar 仍是成本占比
-   （不推翻"钱是主语"的区块定位）——tokens 供判断"贵模型烧的量值不值"。
+5. **（修正项 1，用户真机目检后追加；已被修正项 3 取代）模型行副题加今日 token 紧凑数**：
+   `FormatCompactTokens` 同 KPI 今日 Token 口径，放模型名下副题行——修正项 3 落地后 token
+   移至右列合并显示，副题退场（历史留痕）。
+6. **（修正项 2，验收拍板）Agent 行右列改单行「紧凑 tokens / 价格」**：例 "1.14亿 / $3.97"——
+   tokens 走 FormatCompactTokens（与 KPI 同口径，取代原千分位），价格走 FormatCost 四态
+   （无成本数据 "… / —"，未知不冒充 0）；token 占比文案退场，bar 继续承载 token 占比。
+7. **（修正项 3，验收拍板）模型行右列与 Agent 行统一「紧凑 tokens / 价格」**：token 副题
+   退场（"不在副标题显示"），成本占比文案同步退场，bar 继续承载成本占比；两区行右列格式
+   完全一致，仅 bar 语义不同（Agent=token 占比 / 模型=成本占比）。
 
 ## Acceptance Criteria
 
@@ -54,7 +60,10 @@ token 占比 ≠ 成本占比，现有 KPI（总量/成本/缓存占比）与 To
 - [x] i18n：`PopoverTopModels` zh 源「主要模型」+ en 覆盖 "Top models"；测试语言无关
 - [x] headless 回归锁 3 用例：排序/截断/未知沉底/诚实占比；渲染三行 + 空态整块隐藏；
       行命令导航 Models 页。令牌纪律测试（零硬编码色值）继续通过
-- [x] 修正项 1：模型行副题 token 紧凑数（KPI 同口径，headless 同源断言）
+- [x] 修正项 1：模型行副题 token 紧凑数（KPI 同口径，headless 同源断言）——已被修正项 3 取代
+- [x] 修正项 2：Agent 行右列单行「紧凑 tokens / 价格」（用户例式 "1.14亿 / $3.97"），
+      headless 同源断言 + 右缘对齐布局回归锁更新
+- [x] 修正项 3：模型行副题退场，右列与 Agent 行统一同格式
 - [x] 全量 `dotnet test Tokenmetry.sln` 1445 Passed（+3）
 
 ## Subtasks
@@ -82,6 +91,15 @@ token 占比 ≠ 成本占比，现有 KPI（总量/成本/缓存占比）与 To
 拍板走副题轻量补法（模型名下 FormatCompactTokens，成本主数字与成本占比 bar 不变）。
 行 VM +1 字段、模板 +1 行、+1 同源断言零新用例。同轮 headless 计数 344→345 漂移经
 stash 实测排查：来自并行落地的 Q-005 提交（指针邻近命中区），与本卡无关。
+
+同日追记二（修正项 2/3，验收拍板，用户明示不讨论合理性）：① Agent 行右列「千分位
+tokens + token 占比」两行 → 单行「紧凑 tokens / 价格」（例 "1.14亿 / $3.97"，FormatCost
+四态，无成本数据 "… / —"）；② 修正项 1 的 token 副题退场（"不在副标题显示"），模型行
+右列与 Agent 行统一同格式，成本占比文案同步退场。两区 mini bar 口径均不变（Agent=token
+占比 / 模型=成本占比），占比信息全由 bar 承载。落法留证：用户例式含 " / " 分隔符，按
+单行实现（右列 11px 右对齐，行高由左侧名称+副题+bar 决定不变）；排序口径与主窗其他
+页面的千分位/占比展示均不动。fixture Agent 行补 Cost 字段，断言改同源组合文案。全量
+1446 绿（headless 345，含并行 Q-005 的 +1）。
 
 ## Related
 
