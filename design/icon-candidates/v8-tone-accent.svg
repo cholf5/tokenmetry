@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- v8 同调暗盘·单亮柱：克制押注——墨绿深盘上三根柱同色系渐暗（#1c5346/#25685a），
+       只有最高一根用亮翡翠 + 身后柔光（"最新值"发光）。tone-on-tone 最高级也最险：
+       暗柱在 16px 会隐去，只剩盘 + 一根亮柱。 -->
+  <defs>
+    <radialGradient id="plate" cx="512" cy="-120" r="980" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14453a"/>
+      <stop offset="0.55" stop-color="#0a251e"/>
+      <stop offset="1" stop-color="#051310"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="762" cy="470" r="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2fd39f" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#2fd39f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.42" r="0.85">
+      <stop offset="0.62" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.34"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b8ffe6" stop-opacity="0.12"/>
+      <stop offset="0.5" stop-color="#b8ffe6" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#b8ffe6" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#63ecbd"/>
+      <stop offset="1" stop-color="#1fbf8e"/>
+    </linearGradient>
+    <filter id="ds" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="16" stdDeviation="28" flood-color="#000a06" flood-opacity="0.5"/>
+    </filter>
+    <clipPath id="plateclip"><rect width="1024" height="1024" rx="239"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="239" fill="url(#plate)"/>
+  <g clip-path="url(#plateclip)">
+    <ellipse cx="762" cy="470" rx="360" ry="360" fill="url(#glow)"/>
+    <g filter="url(#ds)">
+      <rect x="177" y="530" width="170" height="290" rx="85" fill="#1c5346"/>
+      <rect x="427" y="365" width="170" height="455" rx="85" fill="#25685a"/>
+      <rect x="677" y="200" width="170" height="620" rx="85" fill="url(#bar)"/>
+    </g>
+    <rect width="1024" height="1024" fill="url(#vig)"/>
+  </g>
+  <rect x="3" y="3" width="1018" height="1018" rx="236" fill="none" stroke="url(#rim)" stroke-width="6"/>
+</svg>

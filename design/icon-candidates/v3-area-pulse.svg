@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- v3 面积脉冲：充满下半区的上扬面积图（两次起伏 + 收尾亮点），面积填充用品牌绿
+       上亮下沉渐变，脊线与端点用提亮绿。面积贴盘左/下边缘全出血，clip 进圆角盘。
+       押注：成本随时间的"脉搏"，动态感最强；实心面积在 16px 仍是大色块可读。 -->
+  <defs>
+    <linearGradient id="plate" x1="150" y1="0" x2="874" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14263f"/>
+      <stop offset="1" stop-color="#0a1322"/>
+    </linearGradient>
+    <linearGradient id="area" x1="0" y1="180" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38d6a4"/>
+      <stop offset="1" stop-color="#0d5c47"/>
+    </linearGradient>
+    <clipPath id="plateclip">
+      <rect width="1024" height="1024" rx="239"/>
+    </clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="239" fill="url(#plate)"/>
+  <g clip-path="url(#plateclip)">
+    <polygon points="0,660 240,470 430,560 640,310 780,390 900,220 900,1024 0,1024" fill="url(#area)"/>
+    <polyline points="0,660 240,470 430,560 640,310 780,390 900,220"
+              fill="none" stroke="#8df0cf" stroke-width="52"
+              stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="900" cy="220" r="72" fill="#a9f7dc"/>
+  </g>
+</svg>

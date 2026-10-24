@@ -1,9 +1,11 @@
 using System;
+using System.IO;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
 using Tokenmetry.App.Tray;
@@ -80,6 +82,25 @@ public partial class App : Application
                 DataContext = mainWindowViewModel,
             };
             desktop.MainWindow = mainWindow;
+
+            // D-018：macOS Dock 图标。裸可执行（无 .app bundle）下 Avalonia 不设 Dock 图标
+            // （Window.Icon 只影响窗口语义），经 MacTrayInterop 的 ObjC 通道喂 Apple 网格
+            // PNG 给 NSApplication。若未来改走 .app bundle + Info.plist icns，删掉本调用。
+            if (OperatingSystem.IsMacOS() && !Tray.TrayService.IsHeadlessTestHost)
+            {
+                try
+                {
+                    using var dockIconStream = AssetLoader.Open(
+                        new Uri("avares://Tokenmetry.App/Assets/app-icon.png"));
+                    using var dockIconBuffer = new MemoryStream();
+                    dockIconStream.CopyTo(dockIconBuffer);
+                    Tray.MacTrayInterop.TrySetDockIcon(dockIconBuffer.ToArray());
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[Tokenmetry] Dock 图标设置失败（不阻塞启动）：{ex.Message}");
+                }
+            }
 
             // A-0：托盘常驻。dashboard/refreshService 先于 TrayService 解析——托盘的今日成本
             // 联动、「立即刷新」「设置」菜单都依赖容器内同一实例。

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- v2.1 token 三色块·网格版：v2 对角瀑布 16px 下太散（块 220/缝 310 太松），改 2×2 紧凑网格
+       缺右下角——token 环形固定三色（输入蓝 #4c8dff / 输出紫 #a779ff / 缓存绿 #38d6a4）+ 空位
+       （下一个 token 待填）。块 340/缝 90/边距 127，16px 下块 ≈5.3px、缝 ≈1.4px，聚成一体。
+       变更单变量：构图从对角瀑布收紧为缺角网格，配色不动。 -->
+  <defs>
+    <linearGradient id="plate" x1="150" y1="0" x2="874" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14263f"/>
+      <stop offset="1" stop-color="#0a1322"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="239" fill="url(#plate)"/>
+  <rect x="127" y="127" width="340" height="340" rx="88" fill="#4c8dff"/>
+  <rect x="557" y="127" width="340" height="340" rx="88" fill="#a779ff"/>
+  <rect x="127" y="557" width="340" height="340" rx="88" fill="#38d6a4"/>
+</svg>

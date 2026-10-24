@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- v4 字母筹码：亮面反极性押注。盘色取弹层品牌芯片的官方渐变（140° #3986ed → #8a68e9，
+       Tokens.axaml AppPopoverLogoBackgroundBrush 同源），上面放深海军蓝 T 字块（Tokenmetry 首字母），
+       药丸端头、比例敦厚。押注：唯一亮盘候选 + 字母标，与 in-app logo 芯片同血统；
+       与 v1–v3 的"深盘绿feature"完全对极。 -->
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3986ed"/>
+      <stop offset="1" stop-color="#8a68e9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="239" fill="url(#plate)"/>
+  <rect x="232" y="232" width="560" height="170" rx="85" fill="#0c1526"/>
+  <rect x="437" y="232" width="150" height="560" rx="75" fill="#0c1526"/>
+</svg>

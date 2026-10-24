@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- v2 token 三色块：三枚圆角方块沿对角线瀑布上行，取产品 token 构成环形的固定三色
+       （输入蓝 #4c8dff / 输出紫 #a779ff / 缓存绿 #38d6a4），绿收在右上 = 品牌落点。
+       押注：LLM token 本体隐喻，三色块最有辨识度、最"AI 数据"气质。 -->
+  <defs>
+    <linearGradient id="plate" x1="150" y1="0" x2="874" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14263f"/>
+      <stop offset="1" stop-color="#0a1322"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="239" fill="url(#plate)"/>
+  <rect x="102" y="682" width="220" height="220" rx="62" fill="#4c8dff"/>
+  <rect x="412" y="372" width="220" height="220" rx="62" fill="#a779ff"/>
+  <rect x="722" y="62" width="220" height="220" rx="62" fill="#38d6a4"/>
+</svg>
