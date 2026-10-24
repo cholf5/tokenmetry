@@ -301,6 +301,58 @@ public class SettingsViewModelTests
         viewModel.Page.Subtitle.Should().Be("主题、语言与刷新偏好；改完即生效并自动保存");
     }
 
+    // ---- 更新检查（I-039：状态行/按钮随检查结果切换；文案断言语言无关，只碰状态布尔与版本数字）----
+
+    [Fact]
+    public async Task UpdateSection_constructor_syncs_known_available_state_from_service()
+    {        // 托盘里查过「发现新版本」再打开设置页：构造即显示结论而非空白。
+        var (service, _) = await Tokenmetry.App.Tests.Update.UpdateServiceTestsHelper.CreateChecked(
+            latestTag: "v0.3.0", currentVersion: "v0.2.0");
+        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), updateService: service);
+
+        viewModel.IsUpdateAvailable.Should().BeTrue();
+        viewModel.UpdateStatusText.Should().Contain("0.3.0");
+    }
+
+    [Fact]
+    public async Task CheckUpdate_command_reports_up_to_date_without_download_buttons()
+    {
+        var settings = new AppSettings();
+        var service = Tokenmetry.App.Tests.Update.UpdateServiceTestsHelper.CreateService(
+            latestTag: "v0.2.0", currentVersion: "v0.2.0");
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), updateService: service);
+
+        await viewModel.CheckUpdateCommand.ExecuteAsync(null);
+
+        viewModel.IsUpdateAvailable.Should().BeFalse();
+        viewModel.UpdateStatusText.Should().Contain("0.2.0");
+    }
+
+    [Fact]
+    public async Task CheckUpdate_command_reports_available_and_shows_download_buttons()
+    {
+        var service = Tokenmetry.App.Tests.Update.UpdateServiceTestsHelper.CreateService(
+            latestTag: "v0.3.0", currentVersion: "v0.2.0");
+        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), updateService: service);
+
+        await viewModel.CheckUpdateCommand.ExecuteAsync(null);
+
+        viewModel.IsUpdateAvailable.Should().BeTrue();
+        viewModel.UpdateStatusText.Should().Contain("0.3.0");
+    }
+
+    [Fact]
+    public async Task CheckUpdate_command_failure_lands_in_status_text_not_exception()
+    {
+        var service = Tokenmetry.App.Tests.Update.UpdateServiceTestsHelper.CreateFailing();
+        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), updateService: service);
+
+        await viewModel.CheckUpdateCommand.ExecuteAsync(null);
+
+        viewModel.IsUpdateAvailable.Should().BeFalse();
+        viewModel.UpdateStatusText.Should().NotBeNullOrEmpty();
+    }
+
     // ---- helpers ----
 
     private static SettingsViewModel CreateViewModel(
@@ -308,14 +360,16 @@ public class SettingsViewModelTests
         AppPaths paths,
         FakeSettingsStore store,
         IThemeService? themeService = null,
-        FakeAutoStartManager? autoStartManager = null)
+        FakeAutoStartManager? autoStartManager = null,
+        Tokenmetry.App.Update.UpdateService? updateService = null)
     {
         return new SettingsViewModel(
             settings,
             paths,
             store,
             themeService ?? new FakeThemeService(),
-            autoStartManager ?? new FakeAutoStartManager());
+            autoStartManager ?? new FakeAutoStartManager(),
+            updateService);
     }
 
     private sealed class FakeThemeService : IThemeService

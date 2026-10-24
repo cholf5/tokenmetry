@@ -5,8 +5,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
+using Tokenmetry.App.Update;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 
@@ -79,6 +81,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly IAppSettingsStore _store;
     private readonly IThemeService _themeService;
     private readonly IAutoStartManager _autoStartManager;
+    private readonly UpdateService _updateService;
 
     /// <summary>自动保存串行化 gate：文本框逐键触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
@@ -105,6 +108,14 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private string? _refreshMinutesError;
 
+    /// <summary>更新检查状态行（I-039）：null 隐藏；内容随检查/下载结果整体切换（文案 key 见 Translations）。</summary>
+    [ObservableProperty]
+    private string? _updateStatusText;
+
+    /// <summary>发现新版本时为 true：显示「下载更新包」与「打开 Release 页」两个按钮。</summary>
+    [ObservableProperty]
+    private bool _isUpdateAvailable;
+
     [ObservableProperty]
     private ThemeOption _selectedTheme;
 
@@ -116,7 +127,8 @@ public partial class SettingsViewModel : ViewModelBase
         AppPaths paths,
         IAppSettingsStore store,
         IThemeService themeService,
-        IAutoStartManager autoStartManager)
+        IAutoStartManager autoStartManager,
+        UpdateService? updateService = null)
     {
         _settings = settings;
         _store = store;
@@ -132,6 +144,11 @@ public partial class SettingsViewModel : ViewModelBase
         _autoStartOnBoot = settings.AutoStartOnBoot;
         _selectedTheme = ResolveThemeOption(settings.Theme);
         _selectedLanguage = ResolveLanguageOption(settings.Language);
+        // 更新检查服务为 DI 单例（与托盘菜单共享状态）；测试直接构造时缺省自建（不发网络——
+        // 检查只在命令触发时发生）。构造即同步一次已知状态：托盘里查过「发现新版本」，再打开
+        // 设置页能直接看到结论而不是空白。
+        _updateService = updateService ?? new UpdateService(new UpdateChecker(), settings, store);
+        RefreshUpdateStatusFromState();
 
         // 语言切换重译订阅：本页 VM 为 DI 单例（与外壳同生命周期），直订阅无需退订。
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
@@ -139,6 +156,69 @@ public partial class SettingsViewModel : ViewModelBase
 
     public string CacheDbPath { get; }
     public string SettingsFilePath { get; }
+
+    /// <summary>「关于」区展示的当前版本，与更新检查同源（csproj &lt;Version&gt; → 程序集版本）。</summary>
+    public string UpdateAppVersion => UpdateChecker.CurrentVersion.TrimStart('v');
+
+    /// <summary>检查更新：结果整体切换状态行（发现新版本时同时亮出下载/打开 Release 页按钮）。
+    /// 与托盘「检查更新」走同一 UpdateService 单例——任一处查完，另一处的标题/状态行同步反映。</summary>
+    [RelayCommand]
+    private async Task CheckUpdateAsync()
+    {
+        UpdateStatusText = Translations.Instance.UpdateChecking;
+        try
+        {
+            await _updateService.CheckNowAsync();
+        }
+        catch (Exception ex)
+        {
+            // CheckAsync 正常不抛（网络失败转 Failed 结果）；这里兜真正的意外（磁盘/序列化等）。
+            UpdateStatusText = string.Format(Translations.Instance.UpdateCheckFailed, ex.Message);
+            return;
+        }
+        RefreshUpdateStatusFromState();
+    }
+
+    /// <summary>下载新版本的平台更新包到「下载」文件夹，完成后在文件管理器中显示（best-effort）。
+    /// 进度经 <see cref="Progress{T}"/> 回传（生产在 UI 线程构造，回调自动回 UI 线程；无同步上下文
+    /// 的测试环境则内联，无绑定无碍）。不做自更新替换——见 UpdateDownloadService 注释。</summary>
+    [RelayCommand]
+    private async Task DownloadUpdateAsync()
+    {
+        UpdateStatusText = Translations.Instance.UpdateDownloading;
+        var progress = new Progress<double>(p =>
+            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloadingPercent, (int)p));
+        try
+        {
+            var path = await _updateService.DownloadLatestAsync(progress);
+            _updateService.RevealDownloaded(path);
+            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloaded, path);
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloadFailed, ex.Message);
+        }
+    }
+
+    /// <summary>打开这次检查发现的 Release 页（浏览器；失败静默诊断——按钮之外托盘菜单同一出口）。</summary>
+    [RelayCommand]
+    private void OpenReleasePage() => _updateService.OpenReleasePage();
+
+    /// <summary>把 UpdateService 当前状态翻译成状态行文案（检查/下载命令完成后与构造时各调一次）。</summary>
+    private void RefreshUpdateStatusFromState()
+    {
+        IsUpdateAvailable = _updateService.State == UpdateState.Available;
+        UpdateStatusText = _updateService.State switch
+        {
+            UpdateState.Available => string.Format(
+                Translations.Instance.UpdateAvailableFormat, _updateService.LastResult?.LatestVersion),
+            UpdateState.UpToDate => string.Format(
+                Translations.Instance.UpdateUpToDate, UpdateChecker.CurrentVersion),
+            UpdateState.Failed => string.Format(
+                Translations.Instance.UpdateCheckFailed, _updateService.LastResult?.Error),
+            _ => null,
+        };
+    }
 
     /// <summary>页面描述符（标题与副标题，与导航项同源）。</summary>
     public PageDescriptor Page { get; } = ShellPages.For(PageId.Settings);

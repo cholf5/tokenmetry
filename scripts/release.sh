@@ -1,0 +1,181 @@
+#!/bin/sh
+# Release script: bump csproj <Version> -> commit -> tag vX.Y.Z -> push; CI
+# (.github/workflows/ci.yml) then tests, packages all platforms, and creates
+# the GitHub Release. App releases carry app packages only — this app has no
+# separate data release (unlike stupid-dict): everything ships inside the
+# packages, and the in-app update check reads releases/latest expecting a
+# v-prefixed app tag.
+#
+# Usage: scripts/release.sh <x.y.z> [--skip-test] [--watch]
+#   --skip-test  skip local dotnet test (CI still runs them; a failing test
+#                produces no release)
+#   --watch      poll CI after push and verify the release assets are complete
+#                (requires gh and a login)
+#
+# Recovery: if CI fails the tag is already pushed. After fixing:
+#   git push origin :refs/tags/vX.Y.Z && git tag -d vX.Y.Z
+# then rerun this script (a csproj already at the target version skips the
+# bump commit). The version must equal the csproj <Version>; the workflow
+# enforces this on tags.
+#
+# Note: variables adjacent to full-width characters in echo must be written
+# ${VAR}, or macOS sh (bash 3.2) folds multibyte characters into the variable
+# name and dies with unbound variable (UTF-8 locales report high bytes as
+# alpha in isalpha).
+set -eu
+cd "$(dirname "$0")/.."
+
+usage() { echo "用法: scripts/release.sh <x.y.z> [--skip-test] [--watch]" >&2; exit 1; }
+
+VERSION=""
+SKIP_TEST=false
+WATCH=false
+for arg in "$@"; do
+  case "$arg" in
+    --skip-test) SKIP_TEST=true ;;
+    --watch) WATCH=true ;;
+    *) VERSION=$arg ;;
+  esac
+done
+[ -n "$VERSION" ] || usage
+
+# Three numeric segments, matching the update checker's version comparison.
+# Leading zeros are rejected: 01.02.003 is never a version anyone meant to
+# type, and the tag drives the csproj, the asset names and the update check
+# alike. (Optional monotonicity check deliberately not done: a downgrade must
+# also lower the csproj <Version> to pass the tag/csproj equality check — a
+# deliberate, visible commit — and the update checker treats a lower remote
+# as up-to-date, so a stray downgrade is loud to make and harmless in effect.)
+echo "$VERSION" | grep -Eq '^([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)$' || { echo "版本号须为 x.y.z 三段数字：${VERSION}" >&2; exit 1; }
+
+PROJECT=src/Tokenmetry.App/Tokenmetry.App.csproj
+TAG=v$VERSION
+
+[ "$(git symbolic-ref --short HEAD)" = main ] || { echo "不在 main 分支" >&2; exit 1; }
+git fetch --quiet
+BEHIND=$(git rev-list --count HEAD..@{u})
+[ "$BEHIND" -eq 0 ] || { echo "main 落后远端 $BEHIND 个提交，先 pull" >&2; exit 1; }
+git diff --quiet && git diff --cached --quiet || { echo "工作树有未提交改动，先提交或暂存" >&2; exit 1; }
+UNTRACKED=$(git ls-files --others --exclude-standard | wc -l | tr -d ' ')
+[ "$UNTRACKED" -eq 0 ] || echo "注意：有 $UNTRACKED 个未跟踪文件，不会进入本次发布" >&2
+
+# "Already released" really means the tag exists; a matching csproj version
+# only means no bump is needed (a pre-written first version and a failed
+# release retry both land on this path).
+git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && { echo "本地已存在 $TAG" >&2; exit 1; }
+[ -z "$(git ls-remote --tags origin "refs/tags/$TAG")" ] || { echo "远端已存在 $TAG" >&2; exit 1; }
+
+CUR=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' "$PROJECT" | head -1 | tr -d '[:space:]')
+[ -n "$CUR" ] || { echo "无法从 $PROJECT 读取 <Version>" >&2; exit 1; }
+
+if [ "$SKIP_TEST" != true ]; then
+  echo "本地跑测试（--skip-test 可跳过）..."
+  dotnet test Tokenmetry.sln --nologo -v q || { echo "本地测试失败，中止" >&2; exit 1; }
+fi
+
+if [ "$CUR" != "$VERSION" ]; then
+  # Replace <Version>, writing through a temp file for BSD/GNU sed compat.
+  # mktemp next to the project (not /tmp) so the final mv is an atomic
+  # same-volume rename; chmod restores the csproj's 644 since mktemp creates
+  # 0600. The EXIT trap clears a leftover temp file when sed/verify fails —
+  # after a successful rename it is a no-op.
+  TMP=$(mktemp "$PROJECT.tmp.XXXXXX")
+  trap 'rm -f "$TMP"' EXIT
+  sed "s#\(<Version>\)[^<]*\(</Version>\)#\1$VERSION\2#" "$PROJECT" > "$TMP"
+  chmod 644 "$TMP"
+  mv "$TMP" "$PROJECT"
+  NEW=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' "$PROJECT" | head -1 | tr -d '[:space:]')
+  [ "$NEW" = "$VERSION" ] || { echo "版本替换校验失败：期望 ${VERSION}，实得 ${NEW}" >&2; exit 1; }
+
+  git add "$PROJECT"
+  git commit -m "chore: 版本提升至 $VERSION（scripts/release.sh 自动提交，发版 tag $TAG 与之配套，CI 校验两者一致）"
+else
+  echo "csproj 已是 ${VERSION}，跳过 bump 提交，直接打 tag"
+fi
+
+git tag -a "$TAG" -m "Tokenmetry $TAG"
+git push origin main "$TAG"
+
+SLUG=$(git remote get-url origin | sed -E 's#.*github\.com[:/]##; s#\.git$##')
+RUN_URL="https://github.com/$SLUG/actions"
+REL_URL="https://github.com/$SLUG/releases/tag/$TAG"
+
+if [ "$WATCH" != true ]; then
+  echo "已推送 ${TAG}，CI 会自动打包并发布："
+  echo "  Actions: $RUN_URL"
+  echo "  Release: ${REL_URL}（流水线跑完后出现）"
+  exit 0
+fi
+
+command -v gh >/dev/null 2>&1 || { echo "未安装 gh，无法 watch，手动看 $RUN_URL" >&2; exit 1; }
+
+# Find the run triggered by the tag (registration takes a few seconds after
+# push). Filter by the commit the tag points at: re-releasing the same
+# version has an older run matching --branch's tag name, and taking the first
+# by branch alone would grab that stale run.
+TAG_SHA=$(git rev-parse "$TAG^{commit}")
+RUN_ID=
+i=0
+while [ $i -lt 12 ]; do
+  RUN_ID=$(gh run list --branch "$TAG" --limit 10 --json databaseId,headSha \
+    --jq "[.[] | select(.headSha == \"$TAG_SHA\")][0].databaseId" 2>/dev/null || true)
+  [ -n "$RUN_ID" ] && [ "$RUN_ID" != null ] && break
+  i=$((i + 1)); sleep 5
+done
+if [ -z "$RUN_ID" ] || [ "$RUN_ID" = null ]; then
+  echo "未找到 $TAG 触发的 CI run，手动看 $RUN_URL" >&2
+  exit 1
+fi
+echo "等待 CI（run ${RUN_ID}，最长 45 分钟）..."
+
+i=0
+while [ $i -lt 90 ]; do
+  STATE=$(gh run view "$RUN_ID" --json status,conclusion --jq '.status+"/"+(.conclusion // "-")' 2>/dev/null || echo unknown)
+  case "$STATE" in
+    completed/success) break ;;
+    completed/*)
+      echo "CI 失败（${STATE}）。修复后删除 tag 重跑：git push origin :refs/tags/$TAG && git tag -d $TAG" >&2
+      echo "日志：$RUN_URL/$RUN_ID" >&2
+      exit 1
+      ;;
+  esac
+  i=$((i + 1)); sleep 30
+done
+[ $i -lt 90 ] || { echo "等待超时（45 分钟），手动看 $RUN_URL/$RUN_ID" >&2; exit 1; }
+
+# Verify the platform builds are present. Asset names are a cross-component
+# contract with src/Tokenmetry.App/Update/UpdateAssets.cs (the in-app
+# downloader) and scripts/package.sh — keep the three in sync.
+# Distinguish "the view query itself failed" (network hiccup, gh not logged in)
+# from "assets really missing": a failed query used to surface as an empty
+# asset list and sent an actually-successful release off to a pointless Re-run.
+# Retry a few times first; if the query still fails, say so instead of claiming
+# assets are missing.
+ASSETS=
+i=0
+while [ "$i" -lt 3 ]; do
+  if ASSETS=$(gh release view "$TAG" --json assets --jq '[.assets[].name] | join(",")' 2>/dev/null); then
+    break
+  fi
+  i=$((i + 1)); [ "$i" -lt 3 ] && sleep 5
+done
+if [ "$i" -eq 3 ]; then
+  echo "无法核对 Release 产物：gh release view 连续 3 次失败（网络抖动或未 gh auth login）。" >&2
+  echo "请手动核对 ${REL_URL}：产物齐全则无需任何补救动作；确有缺失再 Re-run release job 或删 tag 重跑。" >&2
+  exit 1
+fi
+MISSING=
+for want in "Tokenmetry-$VERSION-osx-arm64.zip" "Tokenmetry-$VERSION-osx-x64.zip" \
+  "Tokenmetry-$VERSION-win-x64.zip" "Tokenmetry-$VERSION-linux-x64.zip"; do
+  case ",$ASSETS," in
+    *",$want,"*) ;;
+    *) MISSING="$MISSING $want" ;;
+  esac
+done
+if [ -n "$MISSING" ]; then
+  echo "Release 产物缺失：${MISSING}。可在 Actions 页 Re-run release job，或删 tag 重跑脚本。" >&2
+  exit 1
+fi
+
+echo "发版完成 ${TAG}：$REL_URL"
+echo "产物：$ASSETS"

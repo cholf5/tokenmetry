@@ -116,6 +116,34 @@
                     </Grid>
                 </StackPanel>
             </Border>
+
+            <!-- ═══ 关于（版本 + 更新检查，I-039）═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="panel-title" Text="{Binding AboutTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelCurrentVersion, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding UpdateAppVersion}"/>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="{Binding SettingsCheckUpdate, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding CheckUpdateCommand}"/>
+                        <!-- 发现新版本才亮出的一对出口：应用内直下（落「下载」文件夹 + 文件管理器显示）
+                             与浏览器开 Release 页（逃生口）。 -->
+                        <Button Content="{Binding SettingsDownloadUpdate, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding DownloadUpdateCommand}"
+                                IsVisible="{Binding IsUpdateAvailable}"/>
+                        <Button Content="{Binding SettingsOpenReleasePage, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding OpenReleasePageCommand}"
+                                IsVisible="{Binding IsUpdateAvailable}"/>
+                    </StackPanel>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding UpdateStatusText}"
+                               IsVisible="{Binding UpdateStatusText, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding AboutHint, Source={x:Static loc:Translations.Instance}}"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

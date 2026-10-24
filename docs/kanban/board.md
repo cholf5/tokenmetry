@@ -63,6 +63,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-039 | 发布自动化与版本更新机制——CI 三平台打包 + GitHub Release + 应用内检查/下载 | P1 | 2026-10-24 |
 | D-018 | 应用图标——托盘外三平台图标接线（exe / 窗口 / Dock，绿柱 v1 定稿） | P2 | 2026-10-24 |
 | B-009 | ScrollBarOverlay headless 测试泵补渲染失效（渲染空闲不推进 DispatcherTimer 时钟） | P3 | 2026-10-23 |
 | B-008 | ExpandHomePath Windows 混合分隔符（~/a/b → C:\Users\x\a/b）回归锁 | P2 | 2026-10-23 |

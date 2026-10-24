@@ -1,0 +1,136 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Tokenmetry.App.Services;
+using Tokenmetry.App.Update;
+using Tokenmetry.Core.Models;
+using Xunit;
+
+namespace Tokenmetry.App.Tests.Update;
+
+/// <summary>
+/// 更新服务状态机（I-039）：检查 → 状态/结果/时间戳落盘 → Changed 通知；启动周检门槛
+/// ShouldAutoCheck；下载仅在 Available 态放行。IAppSettingsStore 用内存 fake，不触盘。
+/// </summary>
+public class UpdateServiceTests
+{
+    private static (UpdateService Service, FakeStore Store) Create(
+        Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> responder,
+        Action<string>? openUrl = null,
+        UpdateDownloadService? downloader = null)
+    {
+        var settings = new AppSettings();
+        var store = new FakeStore();
+        var service = new UpdateService(
+            new UpdateChecker(new FakeUpdateHttpHandler(responder), currentVersion: "v0.2.0"),
+            settings,
+            store,
+            downloader,
+            openUrl ?? (_ => { }));
+        return (service, store);
+    }
+
+    [Fact]
+    public async Task CheckNowAsync_available_sets_state_result_and_persists_timestamp()
+    {
+        var changed = 0;
+        var (service, store) = Create(_ =>
+            FakeUpdateHttpHandler.Redirect("/cholf5/tokenmetry/releases/tag/v0.3.0"));
+        service.Changed += () => changed++;
+
+        var result = await service.CheckNowAsync();
+
+        result.Outcome.Should().Be(UpdateCheckOutcome.UpdateAvailable);
+        service.State.Should().Be(UpdateState.Available);
+        service.LastResult!.LatestVersion.Should().Be("v0.3.0");
+        store.SaveCalls.Should().Be(1);
+        store.Settings!.LastUpdateCheckUtc.Should().NotBeNull();
+        changed.Should().BeGreaterThanOrEqualTo(2); // Checking + Available 各一次
+    }
+
+    [Fact]
+    public async Task CheckNowAsync_up_to_date_and_failure_states()
+    {
+        var (upToDate, _) = Create(_ =>
+            FakeUpdateHttpHandler.Redirect("/cholf5/tokenmetry/releases/tag/v0.2.0"));
+        (await upToDate.CheckNowAsync()).Outcome.Should().Be(UpdateCheckOutcome.UpToDate);
+        upToDate.State.Should().Be(UpdateState.UpToDate);
+
+        var (failed, _) = Create(_ => FakeUpdateHttpHandler.Status(System.Net.HttpStatusCode.Forbidden));
+        (await failed.CheckNowAsync()).Outcome.Should().Be(UpdateCheckOutcome.Failed);
+        failed.State.Should().Be(UpdateState.Failed);
+    }
+
+    [Fact]
+    public async Task OpenReleasePage_uses_checked_release_url_then_falls_back_to_list_page()
+    {
+        string? opened = null;
+        var (service, _) = Create(_ =>
+            FakeUpdateHttpHandler.Redirect("/cholf5/tokenmetry/releases/tag/v0.3.0"),
+            openUrl: url => opened = url);
+
+        service.OpenReleasePage(); // 未检查过：回落列表页
+        opened.Should().Be(UpdateChecker.ReleasesPageUrl);
+
+        await service.CheckNowAsync();
+        service.OpenReleasePage(); // 已发现新版本：直达该 Release 页
+        opened.Should().Be("https://github.com/cholf5/tokenmetry/releases/tag/v0.3.0");
+    }
+
+    [Fact]
+    public async Task DownloadLatestAsync_requires_available_state()
+    {
+        var (service, _) = Create(_ => FakeUpdateHttpHandler.Empty());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.DownloadLatestAsync());
+    }
+
+    [Fact]
+    public async Task DownloadLatestAsync_in_available_state_uses_downloader()
+    {
+        var (service, _) = Create(
+            _ => FakeUpdateHttpHandler.Redirect("/cholf5/tokenmetry/releases/tag/v0.3.0"),
+            downloader: new UpdateDownloadService(
+                new FakeUpdateHttpHandler(_ => FakeUpdateHttpHandler.Bytes(new byte[] { 1, 2, 3 })),
+                downloadDirectory: Path.Combine(Path.GetTempPath(), $"tokenmetry-svc-tests-{Guid.NewGuid():N}")));
+
+        await service.CheckNowAsync();
+
+        var path = await service.DownloadLatestAsync();
+        Path.GetFileName(path).Should().Be(UpdateAssets.AssetFileName("v0.3.0"));
+    }
+
+    [Fact]
+    public void ShouldAutoCheck_throttles_by_persisted_timestamp()
+    {
+        var settings = new AppSettings();
+        var service = new UpdateService(
+            new UpdateChecker(),
+            settings,
+            new FakeStore());
+
+        service.ShouldAutoCheck(TimeSpan.FromDays(7)).Should().BeTrue(); // 从未检查过
+
+        settings.LastUpdateCheckUtc = DateTime.UtcNow.AddDays(-1);
+        service.ShouldAutoCheck(TimeSpan.FromDays(7)).Should().BeFalse(); // 一周内查过
+
+        settings.LastUpdateCheckUtc = DateTime.UtcNow.AddDays(-8);
+        service.ShouldAutoCheck(TimeSpan.FromDays(7)).Should().BeTrue(); // 过期
+    }
+
+    private sealed class FakeStore : IAppSettingsStore
+    {
+        public AppSettings? Settings { get; private set; }
+        public int SaveCalls { get; private set; }
+
+        public Task<AppSettings> LoadAsync(CancellationToken ct = default) =>
+            Task.FromResult(Settings ?? new AppSettings());
+
+        public Task SaveAsync(AppSettings settings, CancellationToken ct = default)
+        {
+            Settings = settings;
+            SaveCalls++;
+            return Task.CompletedTask;
+        }
+    }
+}

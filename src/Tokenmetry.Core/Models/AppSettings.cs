@@ -48,6 +48,13 @@ public class AppSettings
     public bool AutoStartOnBoot { get; set; }
 
     /// <summary>
+    /// 更新检查的上次时间戳（UTC，无 UI 出口——非用户偏好）：启动期静默周检（App 启动序列）按它节流，
+    /// 手动「检查更新」不受限但同样刷新本时间戳（成功与失败都记——节流语义是「打过一次卡」，打不通的
+    /// 网络每次启动都重试只会白费）。消费者 = UpdateService。
+    /// </summary>
+    public DateTime? LastUpdateCheckUtc { get; set; }
+
+    /// <summary>
     /// 顶部栏时间范围档（Tokenmetry.App 的 TimeRange 枚举名，如 "Last7Days"）；未知值由
     /// FilterStatePersistence 解析处如实回落默认档。存字符串：枚举在 App 层，Core 不依赖 UI。
     /// </summary>

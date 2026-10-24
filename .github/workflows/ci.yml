@@ -1,0 +1,192 @@
+# CI / packaging pipeline
+#
+# Triggers and behavior:
+#   - PR / push to main: tests only (pure doc changes like **.md, LICENSE, docs/**
+#     do not trigger; tag pushes ignore paths filters and always trigger).
+#   - tag v*: after tests pass, package — macOS .app zip (scripts/package.sh,
+#     arm64+x64, self-contained single-file), Windows win-x64 self-contained
+#     single-file zip, Linux linux-x64 single-file zip — then create the GitHub
+#     Release and upload the app packages. There is no separate "data" release
+#     (unlike stupid-dict): every asset this app needs ships inside the packages.
+#   - workflow_dispatch: manual packaging dry run (no release; artifacts on the run).
+#
+# Version convention: the release tag is vX.Y.Z and must equal the csproj
+# <Version> of Tokenmetry.App (the comparison base of the in-app update
+# check); scripts/release.sh bumps the csproj before tagging, and CI rejects
+# a tag that disagrees.
+#
+# Asset naming contract: Tokenmetry-{version}-{rid}.zip with rid ∈
+# {osx-arm64, osx-x64, win-x64, linux-x64}. The in-app updater
+# (src/Tokenmetry.App/Update/UpdateAssets.cs) downloads by exactly this
+# name — renaming assets here breaks "下载更新包" for every installed client.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    # Doc-only changes do not trigger tests. Path filters are not evaluated
+    # for tag pushes (per GitHub docs), so sharing this block with tags is safe.
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+      - "docs/**"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+      - "docs/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  APP_PROJECT: src/Tokenmetry.App/Tokenmetry.App.csproj
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      # csproj <Version>, used by the packaging jobs to name assets; on a tag
+      # push it is validated against the tag here.
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      # The UI is zh-Hans-first: without a CJK font, headless rendering falls
+      # back to a per-glyph fontconfig scan (order-of-magnitude slowdown) and
+      # text layout may drift from what any real user sees.
+      - name: Install CJK font for headless tests
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+      - name: Read version from csproj
+        id: version
+        run: |
+          VERSION=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' "$APP_PROJECT" | head -1 | tr -d '[:space:]')
+          [ -n "$VERSION" ] || { echo "cannot read <Version> from $APP_PROJECT" >&2; exit 1; }
+          case "$GITHUB_REF" in
+            refs/tags/v*)
+              TAG=${GITHUB_REF_NAME#v}
+              [ "$TAG" = "$VERSION" ] || { echo "tag $GITHUB_REF_NAME does not match csproj <Version>$VERSION" >&2; exit 1; }
+              ;;
+          esac
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Run tests
+        # verbosity=normal prints per-test lines: CI needs them to see progress
+        # (a silent App.Tests phase is indistinguishable from a hang) and to
+        # pin down slow tests; local runs stay on default verbosity.
+        run: dotnet test Tokenmetry.sln --logger "console;verbosity=normal"
+
+  # Packaging jobs run only on tag / manual triggers. The version comes from
+  # the csproj <Version> as the single source, read once in the test job.
+  # package.sh emits versioned asset names itself (Tokenmetry-{v}-{rid}.zip).
+  macos:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.test.outputs.version }}
+    strategy:
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Package .app bundle
+        run: scripts/package.sh --rids "osx-${{ matrix.arch }}"
+      - name: Check asset exists
+        run: test -f "dist/Tokenmetry-${VERSION}-osx-${{ matrix.arch }}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-macos-${{ matrix.arch }}
+          path: dist/Tokenmetry-*-osx-*.zip
+          if-no-files-found: error
+
+  windows:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.test.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      # Single-file self-contained: target machines need no .NET runtime.
+      # The published exe is "Tokenmetry.App.exe" (assembly name); the shipped
+      # binary is renamed to "Tokenmetry.exe" so the zip unpacks cleanly —
+      # matching the .app executable name on macOS and the Linux binary name.
+      - name: Publish self-contained exe
+        shell: pwsh
+        run: >
+          dotnet publish $env:APP_PROJECT -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true -o "publish-win"
+      - name: Zip with product-name binary
+        shell: pwsh
+        run: |
+          Copy-Item "publish-win/Tokenmetry.App.exe" "Tokenmetry.exe"
+          Compress-Archive -Path "Tokenmetry.exe" -DestinationPath "Tokenmetry-$env:VERSION-win-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-win-x64
+          path: Tokenmetry-*-win-x64.zip
+          if-no-files-found: error
+
+  linux:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.test.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Package binary
+        run: scripts/package.sh --rids linux-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-linux-x64
+          path: dist/Tokenmetry-*-linux-x64.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, windows, linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          merge-multiple: true
+          path: dist
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber

@@ -11,6 +11,9 @@
          app-icon.png（Apple 网格）与 app-icon-window.png（全出血 256）分别供 macOS
          Dock interop 与 Window.Icon（App.axaml.cs / MainWindow 构造器）。 -->
     <ApplicationIcon>Assets/app-icon.ico</ApplicationIcon>
+    <!-- 版本唯一事实：发版 tag = v{本值}（scripts/release.sh 改这里并打 tag、CI 校验两者一致），
+         应用内更新检查以程序集版本为比较基线（UpdateChecker.CurrentVersion）。三段数字。 -->
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

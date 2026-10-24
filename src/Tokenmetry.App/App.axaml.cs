@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -114,7 +115,8 @@ public partial class App : Application
                 DependencyInjection.AppServices.Get<IUsageQueryService>(),
                 dashboard,
                 DependencyInjection.AppServices.Get<DateRangeService>());
-            var trayService = new TrayService(mainWindow, dashboard, mainWindowViewModel, refreshService, popover);
+            var updateService = DependencyInjection.AppServices.Get<Update.UpdateService>();
+            var trayService = new TrayService(mainWindow, dashboard, mainWindowViewModel, refreshService, popover, updateService);
             trayService.Initialize();
 
             // D-003/Q-002：DashboardViewModel 无视图挂载（旧视图已清理），作为后台采集刷新锚点保留——
@@ -133,6 +135,29 @@ public partial class App : Application
             // "正在初始化"遮罩，本轮结束自动摘除（成败均然）——首启不再是一片空白等用户
             // 手动点刷新。启动路径不观察成败返回值，回写经 Note* 内部 marshal 到 UI 线程。
             _ = mainWindowViewModel.BeginStartupDataRefreshAsync();
+
+            // I-039 更新静默周检：启动 30s 后（错开首轮采集）判 ShouldAutoCheck（≥7 天才发请求），
+            // 结果只翻托盘「检查更新」项标题，不弹窗不打扰；用户随时可手动查（托盘项 / 设置页）。
+            // headless 测试宿主禁走（CI 里发真实网络请求）。
+            if (!Tray.TrayService.IsHeadlessTestHost)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+                    if (!updateService.ShouldAutoCheck(TimeSpan.FromDays(7)))
+                    {
+                        return;
+                    }
+                    try
+                    {
+                        await updateService.CheckNowAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"[Tokenmetry] 启动期检查更新失败：{ex.Message}");
+                    }
+                });
+            }
 
             // A-0：主窗口随启动显示（此前从未 Show——修好托盘前应用启动后没有任何可见界面）；
             // --autostart（S-006 开机自启动）静默启动例外——不弹主窗，进程常驻托盘。

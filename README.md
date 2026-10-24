@@ -58,15 +58,24 @@
 
 ## 快速开始
 
+### 安装（推荐）
+
+从 [GitHub Releases](https://github.com/cholf5/tokenmetry/releases) 下载当前平台的包（macOS
+arm64/x64 .app zip、Windows / Linux 单文件 zip），解压即用。应用内置更新检查：托盘菜单「检查更新」
+或设置页「关于」区，发现新版本可一键下载对应平台的更新包（自动定位到下载文件夹），或直达 Release 页。
+
+### 从源码运行
+
 前提：本机装有 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)；已使用过任一上表中的 Agent（有本地日志）。
 
 ```bash
-git clone https://github.com/cholf5/ccusage-desktop.git
-cd ccusage-desktop
+git clone https://github.com/cholf5/tokenmetry.git
+cd tokenmetry
 dotnet run --project src/Tokenmetry.App
 ```
 
-无数据时应用会显示空态引导（支持的 Agent 清单 + 重新扫描），永不暴露堆栈。目前以 Windows 为主要发布目标，macOS/Linux 下可开发与运行测试；安装包与打包自动化在 v1.0 规划中。
+无数据时应用会显示空态引导（支持的 Agent 清单 + 重新扫描），永不暴露堆栈。三平台发布包由 CI 自动
+产出（tag 触发，流程见 [`docs/release/ci-release.md`](docs/release/ci-release.md)）。
 
 ## 设计立场
 
@@ -110,7 +119,8 @@ Tokenmetry.App             Avalonia UI（Semi 主题）· 8 视图 · DI · 托�
 | v0.3.5 | 多源覆盖（17 源适配器全部落地） | ✅ |
 | v0.4 | UI 原型落地（Semi 主题 + 三栏外壳 + 8 视图 + 图表） | ✅ |
 | v0.5 | 常驻体验（通知去重、预算阈值、自启、刷新可靠性） | 规划 |
-| v1.0 | 稳定发布（安装包、CI release、图标品牌） | 规划 |
+| v0.9 | 发布自动化（tag 触发三平台 CI 打包 + Release + 应用内更新检查/下载） | ✅ |
+| v1.0 | 稳定发布（Windows 安装器、macOS 公证） | 规划 |
 
 完整方向见 [`docs/kanban/roadmap.md`](docs/kanban/roadmap.md)，任务卡片看板见 [`docs/kanban/board.md`](docs/kanban/board.md)。
 

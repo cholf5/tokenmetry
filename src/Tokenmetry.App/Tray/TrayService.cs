@@ -12,6 +12,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
+using Tokenmetry.App.Update;
 using Tokenmetry.App.ViewModels;
 
 namespace Tokenmetry.App.Tray;
@@ -49,21 +50,25 @@ public class TrayService
     private NativeMenuItem? _openItem;
     private NativeMenuItem? _refreshItem;
     private NativeMenuItem? _settingsItem;
+    private NativeMenuItem? _updateItem;
     private NativeMenuItem? _exitItem;
+    private UpdateService? _updateService;
     private bool _macInterop;
+    private int _macUpdateItemIndex = -1;
     private List<MacTrayInterop.MacTrayItem>? _macItems;
 
     public TrayService(Window mainWindow) : this(mainWindow, null, null, null)
     {
     }
 
-    public TrayService(Window mainWindow, DashboardViewModel? dashboard, MainWindowViewModel? shell, BackgroundRefreshService? refreshService, StatusPopoverController? popover = null)
+    public TrayService(Window mainWindow, DashboardViewModel? dashboard, MainWindowViewModel? shell, BackgroundRefreshService? refreshService, StatusPopoverController? popover = null, UpdateService? updateService = null)
     {
         _mainWindow = mainWindow;
         _dashboard = dashboard;
         _shell = shell;
         _refreshService = refreshService;
         _popover = popover;
+        _updateService = updateService;
     }
 
     public void Initialize()
@@ -82,6 +87,13 @@ public class TrayService
         {
             _dashboard.PropertyChanged += OnDashboardPropertyChanged;
             UpdateToolTip(BuildCostText(_dashboard.TodayCostUsd, _dashboard.HasData));
+        }
+
+        // I-039 更新检查联动：设置页 / 启动静默周检查完，托盘「检查更新」项标题就地翻状态。
+        // Changed 可能在后台线程触发（CheckNowAsync 续延），统一 marshal 到 UI 线程改标题。
+        if (_updateService != null)
+        {
+            _updateService.Changed += OnUpdateServiceChanged;
         }
     }
 
@@ -138,6 +150,10 @@ public class TrayService
         items.Add(new(() => Translations.Instance.TrayOpenWindow, ShowWindow));
         items.Add(new(() => Translations.Instance.TrayRefreshNow, RefreshNow));
         items.Add(new(() => Translations.Instance.TraySettings, OpenSettings));
+        // I-039「检查更新」常驻项：未发现新版本时点击即查；发现后标题就地翻成「发现新版本 vX.Y.Z」，
+        // 点击改为打开 Release 页（interop 无运行期插项能力，只能常驻 + 改标题，见 MacTrayInterop）。
+        _macUpdateItemIndex = items.Count;
+        items.Add(new(UpdateItemTitle, OpenUpdateMenuItem));
         items.Add(new(null!, isSeparator: true));
         items.Add(new(() => Translations.Instance.TrayExit, ExitApp));
         return items;
@@ -152,6 +168,7 @@ public class TrayService
         _openItem = new NativeMenuItem { Header = Translations.Instance.TrayOpenWindow, Command = new RelayCommand(ShowWindow) };
         _refreshItem = new NativeMenuItem { Header = Translations.Instance.TrayRefreshNow, Command = new RelayCommand(RefreshNow) };
         _settingsItem = new NativeMenuItem { Header = Translations.Instance.TraySettings, Command = new RelayCommand(OpenSettings) };
+        _updateItem = new NativeMenuItem { Header = UpdateItemTitle(), Command = new RelayCommand(OpenUpdateMenuItem) };
         _exitItem = new NativeMenuItem { Header = Translations.Instance.TrayExit, Command = new RelayCommand(ExitApp) };
 
         // D-016 快捷信息窗菜单项：macOS 上 TrayIcon.Clicked 不 raise（官方契约 + trayicon.mm 无点击
@@ -176,6 +193,7 @@ public class TrayService
                     _openItem,
                     _refreshItem,
                     _settingsItem,
+                    _updateItem,
                     new NativeMenuItemSeparator(),
                     _exitItem,
                 }
@@ -261,6 +279,11 @@ public class TrayService
             settings.Header = Translations.Instance.TraySettings;
         }
 
+        if (_updateItem is { } update)
+        {
+            update.Header = UpdateItemTitle();
+        }
+
         if (_exitItem is { } exit)
         {
             exit.Header = Translations.Instance.TrayExit;
@@ -320,6 +343,71 @@ public class TrayService
     /// raise（TrayIcon.cs 文档原文 "on OSX this event is not raised"，trayicon.mm 亦无点击回调），
     /// macOS 生产左键走 MacTrayInterop 自管状态项。</summary>
     internal void OnTrayClicked() => TogglePopoverOrShowWindow();
+
+    // ── I-039 托盘「检查更新」项 ──
+
+    /// <summary>菜单项标题随更新状态翻转：检查中 / 发现新版本 vX.Y.Z / 默认「检查更新」。
+    /// 活取串（Func）供 interop 路径语言切换复用。</summary>
+    private string UpdateItemTitle() => _updateService is null
+        ? Translations.Instance.TrayUpdateCheck
+        : _updateService.State switch
+        {
+            UpdateState.Checking => Translations.Instance.TrayUpdateChecking,
+            UpdateState.Available => string.Format(
+                Translations.Instance.TrayUpdateAvailable, _updateService.LastResult?.LatestVersion),
+            _ => Translations.Instance.TrayUpdateCheck,
+        };
+
+    /// <summary>点击分派：已知新版本 → 浏览器打开 Release 页；否则发起一次检查（结果经 Changed 回调翻标题）。</summary>
+    private void OpenUpdateMenuItem()
+    {
+        if (_updateService is null)
+        {
+            return;
+        }
+
+        if (_updateService.State == UpdateState.Available)
+        {
+            _updateService.OpenReleasePage();
+            return;
+        }
+
+        _ = RunTrayUpdateCheckAsync();
+    }
+
+    private async Task RunTrayUpdateCheckAsync()
+    {
+        try
+        {
+            await _updateService!.CheckNowAsync();
+        }
+        catch (Exception ex)
+        {
+            // CheckAsync 正常不抛（网络失败转结果）；这里兜意外，托盘点击不打断用户。
+            Console.Error.WriteLine($"[Tokenmetry] 托盘检查更新失败：{ex.Message}");
+        }
+    }
+
+    private void OnUpdateServiceChanged() => RunOnUIThread(RefreshUpdateItemTitle);
+
+    /// <summary>就地刷新更新项标题（两条托盘路径各自的原生侧改法——不得替换菜单实例）。</summary>
+    private void RefreshUpdateItemTitle()
+    {
+        var title = UpdateItemTitle();
+        if (_macInterop)
+        {
+            if (_macUpdateItemIndex >= 0)
+            {
+                MacTrayInterop.SetItemTitle(_macUpdateItemIndex, title);
+            }
+            return;
+        }
+
+        if (_updateItem is { } item)
+        {
+            item.Header = title;
+        }
+    }
 
     private void OnDashboardPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
