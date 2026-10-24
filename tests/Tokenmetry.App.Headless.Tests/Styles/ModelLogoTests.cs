@@ -174,19 +174,19 @@ public class ModelLogoTests
         window.Show(); // 挂入视觉树触发样式应用
         Dispatcher.UIThread.RunJobs();
 
-        ModelChip.SetVendor(border, "claude");
+        ModelChip.SetAvatar(border, ModelAvatarVisual.FromVendor("claude"));
         Dispatcher.UIThread.RunJobs();
         Assert.True(logo.IsVisible, "claude 应显示 logo");
         Assert.Same(claudeLogo, logo.Source);
         Assert.False(glyph.IsVisible, "claude 不应显示兜底字形");
 
-        ModelChip.SetVendor(border, "generic");
+        ModelChip.SetAvatar(border, ModelAvatarVisual.FromVendor("generic"));
         Dispatcher.UIThread.RunJobs();
         Assert.False(logo.IsVisible, "generic 无 logo，Image 应隐藏");
         Assert.False(glyph.IsVisible, "generic 文本字形应隐藏（Q-009 起改矢量兜底）");
         Assert.True(fallback.IsVisible, "generic 应显示 circle-help 矢量兜底图标");
 
-        ModelChip.SetVendor(border, "phi");
+        ModelChip.SetAvatar(border, ModelAvatarVisual.FromVendor("phi"));
         Dispatcher.UIThread.RunJobs();
         Assert.False(logo.IsVisible, "phi 无 logo，Image 应隐藏");
         Assert.True(glyph.IsVisible, "phi 应显示 Φ 兜底字形");

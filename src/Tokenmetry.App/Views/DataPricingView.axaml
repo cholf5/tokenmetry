@@ -174,10 +174,12 @@
                                         Padding="0,7,0,5">
                                     <Grid ColumnDefinitions="1.3*,0.8*,0.9*,0.5*,Auto" ColumnSpacing="8">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                                            <Border Classes="model-chip" c:ModelChip.Vendor="{Binding VendorVariant}">
+                                            <Border Classes="model-chip" c:ModelChip.Avatar="{Binding Avatar}">
                                                 <Panel>
-                                                    <TextBlock Text="{Binding Glyph}"/>
+                                                    <TextBlock Text="{Binding Avatar.GlyphText}"/>
                                                     <Image Classes="model-logo"/>
+                                                    <Image Classes="model-avatar"
+                                                           Source="{Binding Avatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
                                                     <PathIcon Classes="app-icon model-fallback"
                                                               Data="{StaticResource AppIconCircleHelp}"/>
                                                 </Panel>
@@ -245,10 +247,12 @@
                                         Padding="0,9,0,7">
                                     <Grid ColumnDefinitions="*,Auto,*,Auto" ColumnSpacing="8">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                                            <Border Classes="model-chip" c:ModelChip.Vendor="{Binding Vendor}">
+                                            <Border Classes="model-chip" c:ModelChip.Avatar="{Binding Avatar}">
                                                 <Panel>
-                                                    <TextBlock Text="{Binding Glyph}"/>
+                                                    <TextBlock Text="{Binding Avatar.GlyphText}"/>
                                                     <Image Classes="model-logo"/>
+                                                    <Image Classes="model-avatar"
+                                                           Source="{Binding Avatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
                                                     <PathIcon Classes="app-icon model-fallback"
                                                               Data="{StaticResource AppIconCircleHelp}"/>
                                                 </Panel>
@@ -326,6 +330,20 @@
             <Border Classes="panel" MaxWidth="620" Margin="24"
                     VerticalAlignment="Center" HorizontalAlignment="Center">
                 <c:ModelEditDialog x:Name="ModelEditDialogControl"/>
+            </Border>
+        </Border>
+
+        <!-- 头像图标选择器弹层（Q-012）：叠在模型编辑弹层之上（声明序即 z 序），遮罩点击或 Esc 关闭；
+             确认经 ConfirmAvatarPickerCommand 写回表单字段，取消全丢草稿 -->
+        <Border x:Name="AvatarPickerOverlay"
+                Background="{DynamicResource AppOverlayScrimBrush}"
+                IsVisible="{Binding IsAvatarPickerOpen}"
+                KeyboardNavigation.TabNavigation="Cycle"
+                Tapped="OnAvatarPickerScrimTapped"
+                KeyDown="OnAvatarPickerOverlayKeyDown">
+            <Border Classes="panel" MaxWidth="560" Margin="24"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+                <c:AvatarPickerDialog/>
             </Border>
         </Border>
     </Grid>

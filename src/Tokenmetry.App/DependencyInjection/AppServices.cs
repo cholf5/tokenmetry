@@ -97,6 +97,8 @@ public static class AppServices
             pricingClient,
             ModelCatalog.MergeUserDefinitions(settings),
             settings.ModelAliases));
+        // 头像解析（模型目录自定义头像 → 全应用图标槽）：单例共享同一目录，身份与头像不分叉。
+        services.AddSingleton<ModelAvatarResolver>();
         services.AddSingleton(sp => new PricingEngine(catalog: sp.GetRequiredService<ModelCatalog>()));
 
         // 本地采集适配器（I-005 接线）：单例——JSONL 适配器实例持有增量扫描状态（文件 mtime/大小记账 + 消息级

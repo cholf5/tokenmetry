@@ -111,7 +111,7 @@ public class StartupInitializationTests
             catalog,
             toast,
             AppServices.Get<Core.Services.PricingEngine>(),
-            refreshService);
+            refreshService: refreshService);
         Dispatcher.UIThread.RunJobs();
         return (shell, stubQuery);
     }

@@ -114,7 +114,8 @@ public partial class App : Application
                 mainWindowViewModel,
                 DependencyInjection.AppServices.Get<IUsageQueryService>(),
                 dashboard,
-                DependencyInjection.AppServices.Get<DateRangeService>());
+                DependencyInjection.AppServices.Get<DateRangeService>(),
+                DependencyInjection.AppServices.Get<ModelAvatarResolver>());
             var updateService = DependencyInjection.AppServices.Get<Update.UpdateService>();
             var trayService = new TrayService(mainWindow, dashboard, mainWindowViewModel, refreshService, popover, updateService);
             trayService.Initialize();

@@ -26,11 +26,12 @@ namespace Tokenmetry.App.ViewModels;
 /// </summary>
 public sealed class ModelDetailRowViewModel
 {
-    public ModelDetailRowViewModel(DimensionUsageRow row)
+    public ModelDetailRowViewModel(DimensionUsageRow row, ModelAvatarResolver? avatars = null)
     {
         Name = row.Key;
-        // 内置厂商图标（ModelVisualMap 按规范名识别；未识别落 generic 中性芯片）。
-        ModelIcon = ModelVisualMap.Resolve(row.Key);
+        // 头像（ModelAvatarResolver）：目录里该模型有用户自定义头像（图标选择器四模式）则跟随，
+        // 未关联名字 / 未注入解析器（测试）回落内置厂商推断；未识别落 generic 中性芯片。
+        Avatar = avatars?.Resolve(row.Key) ?? ModelAvatarVisual.FromName(row.Key);
         AssociatedAgentText = row.AgentCount switch
         {
             1 => row.DominantAgent ?? "—",
@@ -67,8 +68,8 @@ public sealed class ModelDetailRowViewModel
 
     public string Name { get; }
 
-    /// <summary>内置厂商图标（品牌色芯片字形 + 变体名，见 <see cref="ModelVisualMap"/>；恒非 null）。</summary>
-    public ModelVisual ModelIcon { get; }
+    /// <summary>头像视觉（目录条目自定义头像 + 自动推断收敛，见 <see cref="ModelAvatarVisual"/>；恒非 null）。</summary>
+    public ModelAvatarVisual Avatar { get; }
 
     /// <summary>关联 Agent 文案（唯一 → Agent 名；多 Agent → "主用 等 N 个"；无会话数据 → "—"）。</summary>
     public string AssociatedAgentText { get; }
@@ -172,6 +173,7 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
 {
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
+    private readonly ModelAvatarResolver? _avatars;
 
     /// <summary>加载序号：重置型加载自增；跨 await 序号不一致的响应/异常直接丢弃（同 OverviewViewModel）。</summary>
     private int _loadSequence;
@@ -199,11 +201,12 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
 
     public bool ShowTotals => Totals is not null;
 
-    public ModelsViewModel(PageDescriptor page, FilterStateService filters, IUsageQueryService query)
+    public ModelsViewModel(PageDescriptor page, FilterStateService filters, IUsageQueryService query, ModelAvatarResolver? avatars = null)
     {
         Page = page;
         _filters = filters;
         _query = query;
+        _avatars = avatars;
         filters.PropertyChanged += OnFilterPropertyChanged;
         _ = LoadAsync();
     }
@@ -237,7 +240,7 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
                 .OrderByDescending(row => row.TotalTokens)
                 .ThenBy(row => row.Key, StringComparer.Ordinal)
                 .ToList();
-            Rows = ordered.Select(row => new ModelDetailRowViewModel(row)).ToList();
+            Rows = ordered.Select(row => new ModelDetailRowViewModel(row, _avatars)).ToList();
             Totals = ordered.Count > 0 ? new ModelsTotalViewModel(ordered) : null;
             LoadError = null;
         }

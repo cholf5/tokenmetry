@@ -235,13 +235,15 @@
                                     <Grid ColumnDefinitions="*,76,52" ColumnSpacing="10">
                                         <StackPanel Grid.Column="0" Spacing="4">
                                             <StackPanel Orientation="Horizontal" Spacing="7">
-                                                <!-- 模型行：内置厂商 logo（替代系列圆点）；项目行仍用系列色圆点 -->
-                                                <Border Classes="model-chip" c:ModelChip.Vendor="{Binding ModelIcon.Vendor}"
+                                                <!-- 模型行：头像（含用户自定义头像/图标选择器四模式）；项目行仍用系列色圆点 -->
+                                                <Border Classes="model-chip" c:ModelChip.Avatar="{Binding Avatar}"
                                                         IsVisible="{Binding HasModelIcon}"
                                                         ToolTip.Tip="{Binding Name}">
                                                     <Panel>
-                                                        <TextBlock Text="{Binding ModelIcon.Glyph}"/>
+                                                        <TextBlock Text="{Binding Avatar.GlyphText}"/>
                                                         <Image Classes="model-logo"/>
+                                                        <Image Classes="model-avatar"
+                                                               Source="{Binding Avatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
                                                         <PathIcon Classes="app-icon model-fallback"
                                                                   Data="{StaticResource AppIconCircleHelp}"/>
                                                     </Panel>

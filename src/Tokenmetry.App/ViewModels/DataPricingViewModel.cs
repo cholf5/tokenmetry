@@ -55,16 +55,16 @@ public sealed record DataSourceRowViewModel(
 }
 
 /// <summary>
-/// 模型聚合规则单行（AliasRules）：原始模型名 → 规范名，展示侧附规范名的内置厂商图标
-/// （聚合后统计里出现的是规范名，图标跟着规范名走）。不可变小对象，规则增删整表重建。
+/// 模型聚合规则单行（AliasRules）：原始模型名 → 规范名，展示侧附规范名的头像（聚合后统计里
+/// 出现的是规范名，头像跟着规范名走）。不可变小对象，规则增删整表重建。
 /// </summary>
 public sealed class AliasRuleRowViewModel
 {
-    public AliasRuleRowViewModel(string alias, string target)
+    public AliasRuleRowViewModel(string alias, string target, ModelAvatarVisual targetAvatar)
     {
         Alias = alias;
         Target = target;
-        Icon = ModelVisualMap.Resolve(target);
+        Avatar = targetAvatar;
     }
 
     /// <summary>原始模型名（settings.json 字典键原文，删除时按它精确移除）。</summary>
@@ -73,14 +73,8 @@ public sealed class AliasRuleRowViewModel
     /// <summary>规范名（统计显示与聚合键）。</summary>
     public string Target { get; }
 
-    /// <summary>规范名的内置厂商图标（恒非 null）。</summary>
-    public ModelVisual Icon { get; }
-
-    /// <summary>厂商变体名（ModelChip.Vendor 附加属性消费）。</summary>
-    public string Vendor => Icon.Vendor;
-
-    /// <summary>芯片字形。</summary>
-    public char Glyph => Icon.Glyph;
+    /// <summary>规范名的头像视觉（恒非 null；未关联名字回落按名推断）。</summary>
+    public ModelAvatarVisual Avatar { get; }
 }
 
 /// <summary>
@@ -95,9 +89,9 @@ public sealed class ModelDefinitionRowViewModel
         Id = definition.Id;
         Label = definition.DisplayLabel;
         Vendor = string.IsNullOrWhiteSpace(definition.Vendor) ? "—" : definition.Vendor;
-        // 图标：用户显式指定的变体名优先（能骗过内置名推断的模型名靠它拿到正确的标），
-        // 否则按 ID 走内置推断。把变体名当"名字"喂给 ModelVisualMap 是既有判定口径的复用。
-        Icon = ModelVisualMap.Resolve(definition.LogoVendor ?? definition.Id);
+        // 头像：目录条目的 AvatarKind 四模式 + 自动推断统一由 ModelAvatarVisual 收敛
+        // （Auto + 旧手写 LogoVendor 的兼容语义也在解析层处理）。
+        Avatar = ModelAvatarVisual.FromDefinition(definition, definition.Id);
         PriceText = definition.HasPrice
             ? string.Format(
                 CultureInfo.InvariantCulture,
@@ -125,13 +119,8 @@ public sealed class ModelDefinitionRowViewModel
     /// <summary>厂商 / 服务商 id（无来源时 "—"）。</summary>
     public string Vendor { get; }
 
-    /// <summary>图标信息（恒非 null；未识别厂商落 generic）。</summary>
-    public ModelVisual Icon { get; }
-
-    /// <summary>厂商变体名（ModelChip.Vendor 消费）。</summary>
-    public string VendorVariant => Icon.Vendor;
-
-    public char Glyph => Icon.Glyph;
+    /// <summary>头像视觉（恒非 null；四模式 + 自动推断，见 <see cref="ModelAvatarVisual"/>）。</summary>
+    public ModelAvatarVisual Avatar { get; }
 
     /// <summary>单价文案："$5 / $25"（input / output，USD / 百万 tokens）；无价时为「未定价」。</summary>
     public string PriceText { get; }
@@ -502,6 +491,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         : string.Format(CultureInfo.InvariantCulture, Translations.Instance.ModelFormEditFormat, EditingModelId);
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModelFormTitle), nameof(ModelFormAvatarPreview))]
     private string _modelFormId = string.Empty;
 
     /// <summary>P-001 T4/T5：Provider 前缀作用域（空 = 裸名条目；填如 openrouter/z-ai 则仅对该渠道生效）。</summary>
@@ -513,6 +503,39 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
 
     [ObservableProperty]
     private string _modelFormDisplayName = string.Empty;
+
+    /// <summary>表单头像（图标选择器四模式 + 自动缺省）：载荷与模式同写同清（AvatarKind = Auto
+    /// 时其余头像字段一律空），保存时经 <see cref="NormalizeFormAvatar"/> 防御性再收敛。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModelFormAvatarPreview))]
+    private ModelAvatarKind _modelFormAvatarKind = ModelAvatarKind.Auto;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModelFormAvatarPreview))]
+    private string? _modelFormAvatarVendor;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModelFormAvatarPreview))]
+    private string _modelFormAvatarLetter = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModelFormAvatarPreview))]
+    private string? _modelFormAvatarColor;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModelFormAvatarPreview))]
+    private string? _modelFormAvatarImageData;
+
+    /// <summary>编辑弹层头像芯片的预览视觉：字母 / 色块 / 图片直接呈载荷，Vendor 呈所选标，
+    /// 自动模式跟随 ID 输入框实时推断（所见即所存）。</summary>
+    public ModelAvatarVisual ModelFormAvatarPreview => ModelFormAvatarKind switch
+    {
+        ModelAvatarKind.Vendor => ModelAvatarVisual.FromVendor(ModelFormAvatarVendor),
+        ModelAvatarKind.Letter => ModelAvatarVisual.FromLetter(ModelFormAvatarLetter),
+        ModelAvatarKind.Color => ModelAvatarVisual.FromColorHex(ModelFormAvatarColor) ?? ModelAvatarVisual.Empty,
+        ModelAvatarKind.Image => ModelAvatarVisual.FromImageData(ModelFormAvatarImageData) ?? ModelAvatarVisual.Empty,
+        _ => ModelAvatarVisual.FromName(string.IsNullOrWhiteSpace(ModelFormId) ? EditingModelId ?? string.Empty : ModelFormId),
+    };
 
     /// <summary>单价输入（USD / 百万 tokens；空 = 不提供价格，只登记身份 / 元数据）。</summary>
     [ObservableProperty]
@@ -635,12 +658,21 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
             }
         }
 
+        var (avatarKind, avatarLetter, avatarColor, avatarImage) = NormalizeFormAvatar();
+
         var definition = new ModelDefinitionOverride
         {
             Id = id,
             ProviderScope = Blank(ModelFormScope),
             Vendor = Blank(ModelFormVendor),
             DisplayName = Blank(ModelFormDisplayName),
+            // 头像：LogoVendor 只在 Vendor 模式写入选中标，其余模式显式清空——防止旧手写值
+            // 在用户改选字母 / 色块 / 图片后再切回自动时"复活"成厂商标（同旧字段清理先例）。
+            LogoVendor = avatarKind == ModelAvatarKind.Vendor ? ModelFormAvatarVendor : null,
+            AvatarKind = avatarKind,
+            AvatarLetter = avatarLetter,
+            AvatarColor = avatarColor,
+            AvatarImage = avatarImage,
             InputPerMillion = input,
             OutputPerMillion = output,
             CacheWritePerMillion = cacheWrite,
@@ -687,6 +719,51 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         IsModelEditOpen = false;
     }
 
+    // ════════════════════ 模型头像图标选择器（编辑弹层之上的一层 overlay） ════════════════════
+
+    /// <summary>图标选择器（草稿编辑器：模式段选 + 载荷 + 预览；确定才写回表单字段）。</summary>
+    public AvatarPickerViewModel AvatarPicker { get; } = new();
+
+    /// <summary>图标选择器弹层可见性（叠在模型编辑弹层之上；确定 / 取消 / 遮罩 / Esc 关闭）。</summary>
+    [ObservableProperty]
+    private bool _isAvatarPickerOpen;
+
+    /// <summary>打开选择器：把表单当前头像（含自动模式按 ID 输入推断的预览）载入草稿。</summary>
+    [RelayCommand]
+    private void OpenAvatarPicker()
+    {
+        var inferenceName = string.IsNullOrWhiteSpace(ModelFormId) ? EditingModelId ?? string.Empty : ModelFormId;
+        AvatarPicker.Load(
+            ModelFormAvatarKind,
+            ModelFormAvatarVendor,
+            ModelFormAvatarLetter,
+            ModelFormAvatarColor,
+            ModelFormAvatarImageData,
+            ModelAvatarVisual.FromName(inferenceName));
+        IsAvatarPickerOpen = true;
+    }
+
+    /// <summary>确认选择：按选中模式整组写回表单字段（其余模式载荷清空，不留中间态）。</summary>
+    [RelayCommand]
+    private void ConfirmAvatarPicker()
+    {
+        if (!AvatarPicker.CanConfirm)
+        {
+            return;
+        }
+
+        ModelFormAvatarKind = AvatarPicker.Mode;
+        ModelFormAvatarVendor = AvatarPicker.Mode == ModelAvatarKind.Vendor ? AvatarPicker.Vendor : null;
+        ModelFormAvatarLetter = AvatarPicker.Mode == ModelAvatarKind.Letter ? AvatarPicker.Letter.Trim() : string.Empty;
+        ModelFormAvatarColor = AvatarPicker.Mode == ModelAvatarKind.Color ? AvatarPicker.ColorHex : null;
+        ModelFormAvatarImageData = AvatarPicker.Mode == ModelAvatarKind.Image ? AvatarPicker.ImageDataUri : null;
+        IsAvatarPickerOpen = false;
+    }
+
+    /// <summary>取消选择：丢弃草稿关弹层（遮罩点击 / Esc / 取消按钮同一出口）。</summary>
+    [RelayCommand]
+    private void CancelAvatarPicker() => IsAvatarPickerOpen = false;
+
     /// <summary>把目录条目载入表单（编辑）：用户层有该 ID 就载入用户值，否则载入生效值（导入层）。</summary>
     [RelayCommand]
     private void EditModelDefinition(string? id)
@@ -706,6 +783,19 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         ModelFormScope = userEntry?.ProviderScope?.Trim() ?? string.Empty;
         ModelFormVendor = userEntry?.Vendor ?? effective?.Vendor ?? string.Empty;
         ModelFormDisplayName = userEntry?.DisplayName ?? effective?.DisplayName ?? string.Empty;
+        // 头像载入：用户层优先，其次生效值（导入层不带头像，唯旧手写 LogoVendor 经合并落在生效条目上）。
+        // 旧 Auto + LogoVendor 语义在表单里显式化为 Vendor 模式——所见即所存，保存不再依赖解析层兼容。
+        var (avatarKind, avatarLogo, avatarLetter, avatarColor, avatarImage) = ReadAvatarFields(userEntry, effective);
+        if (avatarKind == ModelAvatarKind.Auto && !string.IsNullOrWhiteSpace(avatarLogo))
+        {
+            avatarKind = ModelAvatarKind.Vendor;
+        }
+
+        ModelFormAvatarKind = avatarKind;
+        ModelFormAvatarVendor = avatarLogo;
+        ModelFormAvatarLetter = avatarLetter ?? string.Empty;
+        ModelFormAvatarColor = avatarColor;
+        ModelFormAvatarImageData = avatarImage;
         ModelFormInput = userEntry?.InputPerMillion is { } input
             ? input.ToString(CultureInfo.InvariantCulture)
             : effective is { HasPrice: true } ? effective.InputPerMillion.ToString(CultureInfo.InvariantCulture) : string.Empty;
@@ -753,6 +843,17 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         }
     }
 
+    /// <summary>读条目头像五元组（用户层 Override 与装订后 Definition 的共形字段；两层都空 = 全自动）。</summary>
+    private static (ModelAvatarKind Kind, string? Logo, string? Letter, string? Color, string? Image) ReadAvatarFields(
+        ModelDefinitionOverride? userEntry, ModelDefinition? effective)
+    {
+        return userEntry is not null
+            ? (userEntry.AvatarKind, userEntry.LogoVendor, userEntry.AvatarLetter, userEntry.AvatarColor, userEntry.AvatarImage)
+            : effective is not null
+                ? (effective.AvatarKind, effective.LogoVendor, effective.AvatarLetter, effective.AvatarColor, effective.AvatarImage)
+                : (ModelAvatarKind.Auto, null, null, null, null);
+    }
+
     /// <summary>清空表单（新建态）。</summary>
     [RelayCommand]
     private void ResetModelForm()
@@ -762,11 +863,19 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         ModelFormScope = string.Empty;
         ModelFormVendor = string.Empty;
         ModelFormDisplayName = string.Empty;
+        ModelFormAvatarKind = ModelAvatarKind.Auto;
+        ModelFormAvatarVendor = null;
+        ModelFormAvatarLetter = string.Empty;
+        ModelFormAvatarColor = null;
+        ModelFormAvatarImageData = null;
         ModelFormInput = string.Empty;
         ModelFormOutput = string.Empty;
         ModelFormCacheWrite = string.Empty;
         ModelFormCacheRead = string.Empty;
         ModelFormError = null;
+        // 编辑弹层关闭路径共用本方法（保存成功 / 取消 / 移除条目时）：选择器草稿随之作废，
+        // 不让 picker overlay 在编辑弹层消失后残留在页面上。
+        IsAvatarPickerOpen = false;
     }
 
     /// <summary>
@@ -840,6 +949,34 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     private static bool TryParsePrice(string text, out decimal value)
     {
         return decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value) && value >= 0m;
+    }
+
+    /// <summary>data URI 落盘上限（64×64 PNG 的 base64 实际远小于此；防手改 settings.json 的脏大值）。</summary>
+    private const int MaxAvatarDataUriChars = 64 * 1024;
+
+    /// <summary>
+    /// 表单头像 → 持久化四元组的防御性收敛：字母取 1 字符、颜色规范化 #RRGGBB、图片限定
+    /// 本应用产出的 PNG data URI 且限长；载荷不合法的模式静默落 Auto（录入侧由选择器的
+    /// 确认门禁拦住，此处只防手改脏值），不做半渲染。
+    /// </summary>
+    private (ModelAvatarKind Kind, string? Letter, string? Color, string? Image) NormalizeFormAvatar()
+    {
+        switch (ModelFormAvatarKind)
+        {
+            case ModelAvatarKind.Vendor:
+                return (ModelAvatarKind.Vendor, null, null, null);
+            case ModelAvatarKind.Letter when ModelFormAvatarLetter.Trim().Length > 0:
+                var letter = ModelFormAvatarLetter.Trim();
+                return (ModelAvatarKind.Letter, letter[..1], null, null);
+            case ModelAvatarKind.Color when ModelAvatarVisual.TryNormalizeColor(ModelFormAvatarColor, out var hex):
+                return (ModelAvatarKind.Color, null, hex, null);
+            case ModelAvatarKind.Image when ModelFormAvatarImageData is { } uri
+                && uri.StartsWith("data:image/png;base64,", StringComparison.Ordinal)
+                && uri.Length <= MaxAvatarDataUriChars:
+                return (ModelAvatarKind.Image, null, null, uri);
+            default:
+                return (ModelAvatarKind.Auto, null, null, null);
+        }
     }
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -918,13 +1055,15 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         TriggerReprice();
     }
 
-    /// <summary>从 AppSettings.ModelAliases 重建规则行（插入序 = 字典序，与 settings.json 一致）。</summary>
+    /// <summary>从 AppSettings.ModelAliases 重建规则行（插入序 = 字典序，与 settings.json 一致）；
+    /// 目标侧头像按规范名查目录条目（用户自定义头像跟着规范名走，未关联名字回落名推断）。</summary>
     private void RebuildAliasRules()
     {
         AliasRules.Clear();
         foreach (var (alias, target) in _settings.ModelAliases)
         {
-            AliasRules.Add(new AliasRuleRowViewModel(alias, target));
+            AliasRules.Add(new AliasRuleRowViewModel(
+                alias, target, ModelAvatarVisual.FromDefinition(_catalog.FindById(target), target)));
         }
 
         OnPropertyChanged(nameof(HasNoAliasRules));

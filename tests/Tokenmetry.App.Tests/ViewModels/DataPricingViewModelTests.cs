@@ -249,7 +249,7 @@ public class DataPricingViewModelTests
         viewModel.AliasRules.Should().HaveCount(1);
         viewModel.AliasRules[0].Alias.Should().Be("ark/glm-5.3-flash");
         viewModel.AliasRules[0].Target.Should().Be("glm-5.3-flash");
-        viewModel.AliasRules[0].Vendor.Should().Be("glm", "规则行图标跟随规范名（统计里显示的是规范名）");
+        viewModel.AliasRules[0].Avatar.Vendor.Should().Be("glm", "规则行头像跟随规范名（统计里显示的是规范名）");
         viewModel.HasNoAliasRules.Should().BeFalse();
     }
 
@@ -273,7 +273,7 @@ public class DataPricingViewModelTests
         identity.Kind.Should().Be(ModelMatchKind.Alias, "目录热更新，统计页查询即时按新映射聚合");
         identity.Id.Should().Be("glm-5-3-flash");
         viewModel.AliasRules.Should().HaveCount(1);
-        viewModel.AliasRules[0].Vendor.Should().Be("glm");
+        viewModel.AliasRules[0].Avatar.Vendor.Should().Be("glm");
         viewModel.NewAliasSource.Should().BeEmpty("添加成功后清空输入框");
         viewModel.NewAliasTarget.Should().BeEmpty();
         viewModel.AliasError.Should().BeNull();
@@ -1022,6 +1022,167 @@ public class DataPricingViewModelTests
 
         public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
             Task.FromResult(new HourlyDistributionResult());
+    }
+
+    // ---- Q-012 模型头像（图标选择器四模式）----
+
+    [Fact]
+    public void AvatarPicker_LetterRoundTrip_SavesAndLoads()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var catalog = new ModelCatalog();
+        var viewModel = CreateViewModel(settings, store, catalog: catalog);
+
+        viewModel.AddModelDefinitionCommand.Execute(null);
+        viewModel.ModelFormId = "my-own-model";
+        viewModel.OpenAvatarPickerCommand.Execute(null);
+        viewModel.IsAvatarPickerOpen.Should().BeTrue();
+        viewModel.AvatarPicker.Mode.Should().Be(ModelAvatarKind.Auto, "新建态草稿从表单载入 = 自动");
+        viewModel.AvatarPicker.CanConfirm.Should().BeTrue("自动模式恒可确认");
+
+        viewModel.AvatarPicker.Letter = "G";
+        viewModel.AvatarPicker.Mode = ModelAvatarKind.Letter;
+        viewModel.AvatarPicker.CanConfirm.Should().BeTrue("字母载荷已就绪");
+
+        viewModel.ConfirmAvatarPickerCommand.Execute(null);
+        viewModel.IsAvatarPickerOpen.Should().BeFalse();
+        viewModel.ModelFormAvatarKind.Should().Be(ModelAvatarKind.Letter);
+        viewModel.ModelFormAvatarLetter.Should().Be("G");
+
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+        viewModel.ModelFormError.Should().BeNull();
+        var saved = settings.ModelDefinitions.Single(d => ModelId.Normalize(d.Id) == "my-own-model");
+        saved.AvatarKind.Should().Be(ModelAvatarKind.Letter);
+        saved.AvatarLetter.Should().Be("G");
+        saved.LogoVendor.Should().BeNull();
+        store.SaveCalls.Should().Be(1, "改完即落盘（全自动保存纪律）");
+
+        // 目录行头像跟随条目（显示统一）
+        viewModel.ModelRows.Single(r => r.Id == "my-own-model").Avatar.GlyphText.Should().Be("G");
+
+        // 编辑装载：用户层值回填表单
+        viewModel.EditModelDefinitionCommand.Execute("my-own-model");
+        viewModel.ModelFormAvatarKind.Should().Be(ModelAvatarKind.Letter);
+        viewModel.ModelFormAvatarLetter.Should().Be("G");
+        viewModel.IsModelEditOpen.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AvatarPicker_ConfirmWritesSelectedModePayloadOnly()
+    {
+        var settings = new AppSettings();
+        var viewModel = CreateViewModel(settings, new FakeSettingsStore(), catalog: new ModelCatalog());
+
+        viewModel.AddModelDefinitionCommand.Execute(null);
+        viewModel.ModelFormId = "my-own-model";
+        viewModel.OpenAvatarPickerCommand.Execute(null);
+
+        // 选色（点格子 = 切模式 + 选载荷）
+        var swatch = viewModel.AvatarPicker.ColorTiles[0];
+        viewModel.AvatarPicker.SelectColorCommand.Execute(swatch);
+        viewModel.AvatarPicker.Mode.Should().Be(ModelAvatarKind.Color, "点色块即表达颜色意图");
+        viewModel.AvatarPicker.ColorHex.Should().Be(swatch.Hex);
+        viewModel.ConfirmAvatarPickerCommand.Execute(null);
+        viewModel.ModelFormAvatarKind.Should().Be(ModelAvatarKind.Color);
+        viewModel.ModelFormAvatarColor.Should().Be(swatch.Hex);
+        viewModel.ModelFormAvatarLetter.Should().BeEmpty("其余模式载荷清空，不留中间态");
+
+        // 再选厂商标（vendor 格子 = Vendor 模式）
+        viewModel.OpenAvatarPickerCommand.Execute(null);
+        var tile = viewModel.AvatarPicker.VendorTiles.Single(t => t.Key == "claude");
+        viewModel.AvatarPicker.SelectVendorCommand.Execute(tile);
+        viewModel.ConfirmAvatarPickerCommand.Execute(null);
+        viewModel.ModelFormAvatarKind.Should().Be(ModelAvatarKind.Vendor);
+        viewModel.ModelFormAvatarVendor.Should().Be("claude");
+        viewModel.ModelFormAvatarColor.Should().BeNull();
+
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+        var saved = settings.ModelDefinitions.Single(d => ModelId.Normalize(d.Id) == "my-own-model");
+        saved.LogoVendor.Should().Be("claude");
+        saved.AvatarKind.Should().Be(ModelAvatarKind.Vendor);
+        saved.AvatarColor.Should().BeNull("非选中模式不落盘");
+    }
+
+    [Fact]
+    public void AvatarPicker_EmptyLetter_CannotConfirm()
+    {
+        var settings = new AppSettings();
+        var viewModel = CreateViewModel(settings, new FakeSettingsStore(), catalog: new ModelCatalog());
+
+        viewModel.AddModelDefinitionCommand.Execute(null);
+        viewModel.OpenAvatarPickerCommand.Execute(null);
+        viewModel.AvatarPicker.Mode = ModelAvatarKind.Letter;
+        viewModel.AvatarPicker.CanConfirm.Should().BeFalse("空字母不让静默落成自动");
+
+        viewModel.ConfirmAvatarPickerCommand.Execute(null);
+        viewModel.IsAvatarPickerOpen.Should().BeTrue("确认被门禁拦下，弹层不关");
+        viewModel.ModelFormAvatarKind.Should().Be(ModelAvatarKind.Auto, "表单字段不被空草稿污染");
+    }
+
+    [Fact]
+    public void AvatarPicker_Cancel_DiscardsDraft()
+    {
+        var settings = new AppSettings();
+        var viewModel = CreateViewModel(settings, new FakeSettingsStore(), catalog: new ModelCatalog());
+
+        viewModel.AddModelDefinitionCommand.Execute(null);
+        viewModel.OpenAvatarPickerCommand.Execute(null);
+        viewModel.AvatarPicker.Mode = ModelAvatarKind.Color;
+        viewModel.AvatarPicker.SelectColorCommand.Execute(viewModel.AvatarPicker.ColorTiles[2]);
+        viewModel.CancelAvatarPickerCommand.Execute(null);
+
+        viewModel.IsAvatarPickerOpen.Should().BeFalse();
+        viewModel.ModelFormAvatarKind.Should().Be(ModelAvatarKind.Auto, "草稿丢弃");
+        viewModel.ModelFormAvatarColor.Should().BeNull();
+    }
+
+    [Fact]
+    public void SaveModelDefinition_LetterAvatarClearsLegacyLogoVendor()
+    {
+        // 旧手写 LogoVendor（Auto 兼容）→ 用户改选字母头像：LogoVendor 必须清掉，
+        // 否则用户日后切回自动时旧厂商会"复活"（同旧字段清理先例）。
+        var settings = new AppSettings();
+        settings.ModelDefinitions.Add(new ModelDefinitionOverride { Id = "my-own-model", LogoVendor = "qwen" });
+        var viewModel = CreateViewModel(settings, new FakeSettingsStore(), catalog: new ModelCatalog());
+
+        viewModel.EditModelDefinitionCommand.Execute("my-own-model");
+        viewModel.ModelFormAvatarKind.Should().Be(ModelAvatarKind.Vendor, "旧 Auto + LogoVendor 在表单里显式化为 Vendor，所见即所存");
+        viewModel.ModelFormAvatarVendor.Should().Be("qwen");
+
+        viewModel.OpenAvatarPickerCommand.Execute(null);
+        viewModel.AvatarPicker.Letter = "M";
+        viewModel.AvatarPicker.Mode = ModelAvatarKind.Letter;
+        viewModel.ConfirmAvatarPickerCommand.Execute(null);
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+
+        var saved = settings.ModelDefinitions.Single(d => ModelId.Normalize(d.Id) == "my-own-model");
+        saved.AvatarKind.Should().Be(ModelAvatarKind.Letter);
+        saved.AvatarLetter.Should().Be("M");
+        saved.LogoVendor.Should().BeNull("旧手写厂商标随之清理，防止切回自动时复活");
+    }
+
+    [Fact]
+    public void AvatarPicker_ImageMode_RequiresUploadBeforeConfirm()
+    {
+        const string dataUri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
+        var settings = new AppSettings();
+        var viewModel = CreateViewModel(settings, new FakeSettingsStore(), catalog: new ModelCatalog());
+
+        viewModel.AddModelDefinitionCommand.Execute(null);
+        viewModel.ModelFormId = "my-own-model";
+        viewModel.OpenAvatarPickerCommand.Execute(null);
+        viewModel.AvatarPicker.Mode = ModelAvatarKind.Image;
+        viewModel.AvatarPicker.CanConfirm.Should().BeFalse("未上传图片不可确认");
+
+        viewModel.AvatarPicker.ImageDataUri = dataUri;
+        viewModel.AvatarPicker.CanConfirm.Should().BeTrue();
+        viewModel.ConfirmAvatarPickerCommand.Execute(null);
+        viewModel.ModelFormAvatarImageData.Should().Be(dataUri);
+
+        viewModel.SaveModelDefinitionCommand.Execute(null);
+        settings.ModelDefinitions.Single(d => ModelId.Normalize(d.Id) == "my-own-model")
+            .AvatarImage.Should().Be(dataUri);
     }
 
     private sealed class FakeSettingsStore : IAppSettingsStore

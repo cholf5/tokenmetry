@@ -247,7 +247,7 @@ public class OverviewBottomTests
 
     private static OverviewViewModel CreateVm(
         StubQueryService stub, FilterStateService? filters = null, Action<PageId>? navigateTo = null) =>
-        new(ShellPages.For(PageId.Overview), filters ?? new FilterStateService(), stub, navigateTo);
+        new(ShellPages.For(PageId.Overview), filters ?? new FilterStateService(), stub, navigateToPage: navigateTo);
 
     // ── 模型分布表（TC-001 页面层：stub 值 → 行显示值）──
 

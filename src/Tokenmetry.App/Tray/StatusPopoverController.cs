@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
+using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Services;
@@ -33,6 +34,7 @@ public sealed class StatusPopoverController
     private readonly IUsageQueryService? _query;
     private readonly DashboardViewModel? _dashboard;
     private readonly DateRangeService? _dateService;
+    private readonly ModelAvatarResolver? _modelAvatars;
 
     private StatusPopoverWindow? _window;
     private StatusPopoverViewModel? _viewModel;
@@ -42,13 +44,15 @@ public sealed class StatusPopoverController
         MainWindowViewModel? shell,
         IUsageQueryService? query,
         DashboardViewModel? dashboard,
-        DateRangeService? dateService)
+        DateRangeService? dateService,
+        ModelAvatarResolver? modelAvatars = null)
     {
         _mainWindow = mainWindow;
         _shell = shell;
         _query = query;
         _dashboard = dashboard;
         _dateService = dateService;
+        _modelAvatars = modelAvatars;
     }
 
     /// <summary>内容层 VM（懒建；App 启动接线后由托盘点击首次触发；测试可经它直接装配）。</summary>
@@ -64,7 +68,8 @@ public sealed class StatusPopoverController
                     _dateService,
                     navigateToPage: NavigateTo,
                     openAgentSessions: OpenAgentSessions,
-                    openSettings: OpenSettings);
+                    openSettings: OpenSettings,
+                    modelAvatars: _modelAvatars);
             }
 
             return _viewModel;
