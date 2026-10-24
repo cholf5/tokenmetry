@@ -21,7 +21,8 @@ namespace Tokenmetry.App.Headless.Tests.Controls;
 /// 2) 模板无上下箭头（PART_LineUp/DownButton 不复存在）；
 /// 3) 滑块贴滚动视口右缘（垂直）/底缘（水平），ScrollBar 本体贴视口边缘；
 /// 4) 滚动值变化即显、闲置延迟后隐；
-/// 5) 指针在滚动区内活动即显；悬停滑块（准备抓握）时钉住不隐。
+/// 5) 显示来源二 = 指针移入滚动条邻近区（命中条外扩）即显，内容区中部活动不显示；
+///    悬停滑块（准备抓握）时钉住不隐。
 /// 注意：Window 内容默认居中，指针坐标一律经 TranslatePoint 换算，不假设 sv 在 (0,0)。
 /// 时序约定：断言"显示态稳定"先用长闲置窗，断言"收回"再注入 1ms——显示淡入 120ms，
 /// 1ms 窗会在 RunJobs 内抢先收回（闲置竞态），不能用同一窗同时断言两件事。
@@ -126,18 +127,39 @@ public class ScrollBarOverlayTests
     }
 
     [AvaloniaFact]
-    public void Pointer_activity_over_view_shows_bar_and_leaving_hides_it()
+    public void Pointer_activity_far_from_bar_does_not_show_it()
     {
         var (window, sv, bar) = HostVertical();
 
-        // 长闲置窗下验证"指针在滚动区内活动即显"（坐标相对 sv 在窗口中的实际位置）
+        // 长闲置窗下指针在内容区中部活动（远离右缘命中区）：不显示
         ScrollBarOverlay.SetIdleHideDelay(bar, IdleHideDelayHold);
         var svOrigin = sv.TranslatePoint(new Point(0, 0), window)!.Value;
         window.MouseMove(new Point(svOrigin.X + 50, svOrigin.Y + 25));
         Dispatcher.UIThread.RunJobs();
+        window.MouseMove(new Point(svOrigin.X + 120, svOrigin.Y + 60));
+        Dispatcher.UIThread.RunJobs();
+        Assert.DoesNotContain("overlay-shown", bar.Classes);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Pointer_nearing_bar_shows_it_then_idle_hides_it()
+    {
+        var (window, sv, bar) = HostVertical();
+
+        // 长闲置窗下指针移入命中区（10px 条 + 24px 邻近窗，自视口右缘向内 34px）：
+        // 取条左侧 20px 处——区内、条外，验证"接近即显"不依赖直接命中
+        ScrollBarOverlay.SetIdleHideDelay(bar, IdleHideDelayHold);
+        var svOrigin = sv.TranslatePoint(new Point(0, 0), window)!.Value;
+        var nearX = svOrigin.X + sv.Bounds.Width - bar.Bounds.Width - 20;
+        window.MouseMove(new Point(nearX, svOrigin.Y + 50));
+        Dispatcher.UIThread.RunJobs();
         Assert.Contains("overlay-shown", bar.Classes);
 
         // 注入 1ms 闲置窗并制造新活动（重挂计时器）→ 收回
+        // （指针停在命中区内、条外，钉住条件 IsPointerOver 不成立，闲置到期即隐）
         ScrollBarOverlay.SetIdleHideDelay(bar, IdleHideDelayMs1);
         sv.Offset = new Vector(0, 61);
         PumpUntil(window, () => !bar.Classes.Contains("overlay-shown"));

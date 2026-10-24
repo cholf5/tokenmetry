@@ -11,7 +11,7 @@ namespace Tokenmetry.App.Controls;
 /// <summary>
 /// 滚动条悬浮显隐行为（overlay 滚动条状态机，配 Styles/ScrollBarTheme.axaml 使用）：
 /// <list type="bullet">
-/// <item>显示来源 = 滚动值变化（滚轮/拖拽/程序滚动）或指针在滚动区内活动；</item>
+/// <item>显示来源 = 滚动值变化（滚轮/拖拽/程序滚动）或指针移入滚动条邻近区（命中条外扩 <see cref="NearDistance"/>）；</item>
 /// <item>最后一次活动后 <see cref="IdleHideDelay"/> 无活动 → 隐藏（悬停滑块或拖拽中钉住不隐）；</item>
 /// <item>显隐只翻译成 ScrollBar 的 <c>overlay-shown</c> 类，透明度/命中开关由样式驱动
 /// （隐藏态 Opacity 0 + IsHitTestVisible=False，悬浮条不挡贴边内容）。</item>
@@ -65,6 +65,11 @@ public static class ScrollBarOverlay
         // 普通类而非伪类：Avalonia 12 禁止控件外部添加 ':' 前缀伪类（Classes.ThrowIfPseudoclass），
         // 行为作为外部附加方只能用普通类；样式选择器 ^.overlay-shown 机制等价
         private const string ShownClass = "overlay-shown";
+
+        // 指针活动显示区的邻近窗：命中条本身只有 10px 宽（隐藏态还不可命中），
+        // 用户把鼠标移向滚动条准备抓握时，需要在够到细条之前就能看到它——
+        // 命中条矩形向四周外扩 24px 视作"移近滚动条"，再远的内容区活动不触发显示
+        public const double NearDistance = 24;
 
         private readonly ScrollBar _bar;
         private ScrollViewer? _owner;
@@ -156,7 +161,34 @@ public static class ScrollBarOverlay
             }
         }
 
-        private void OnOwnerPointerMoved(object? sender, PointerEventArgs e) => Show();
+        private void OnOwnerPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (IsPointerNearBar(e))
+            {
+                Show();
+            }
+        }
+
+        /// <summary>
+        /// 指针是否移入邻近区：命中条矩形经宿主坐标系外扩 <see cref="NearDistance"/> 后包含指针位置。
+        /// 纯几何判定、不依赖命中测试——隐藏态 Opacity 0 + IsHitTestVisible=False 照样可"接近"。
+        /// </summary>
+        private bool IsPointerNearBar(PointerEventArgs e)
+        {
+            if (_owner is null)
+            {
+                return false;
+            }
+
+            var topLeft = _bar.TranslatePoint(new Point(0, 0), _owner);
+            if (topLeft is null)
+            {
+                return false;
+            }
+
+            var nearZone = new Rect(topLeft.Value, _bar.Bounds.Size).Inflate(NearDistance);
+            return nearZone.Contains(e.GetCurrentPoint(_owner).Position);
+        }
 
         private void OnBarPointerEntered(object? sender, PointerEventArgs e) => Show();
 
