@@ -17,6 +17,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | B-015 | 计价页价格输入固定 InvariantCulture——de-DE 逗号小数输入必被拒 | P3 | S | | |
 | D-017 | 右栏撤除 + 顶栏四维全局筛选 + 会话行元数据升级 | P1 | 2026-10-18 | | |
 
+> 2026-10-24（晚）：**Q-007 成本分析页补缓存读/写占比卡收口**。用户反馈「输入成本占比 2.8% + 输出成本占比 0.6% 加不满 100%」——取证：两卡是 Token 构成口径（D-013 方案 b），分母 Σ TotalTokens 含缓存读/写而分子没有，数字本身没错、展示不自洽。修法把「缓存单列说明」升级为「单列成卡」：CostViewModel 占比扩为四元（CreateCompositionShares，分子 ΣInput / ΣOutput / ΣCacheRead / ΣCacheCreation 合计 = 分母），KPI 行 4 卡 → 6 卡（缓存读/写 Neutral 芯 + 新 lucide hard-drive-upload/download 几何，方向相对盘体与输入 ↓ / 输出 ↑ 同构），脚注去「（缓存单列）」过时括注、改「四项合计全部 Token」（F1 舍入 ±0.2pp 不写死 100.0%）。TDD：四项断言编译 RED → GREEN，无基数 "—" 与渲染可见性随补；全量 1452 Passed / 0 Failed（22 跳过）。**并发注记**：与 I-040 修正项 2（PathIcon 居中）同工作区并行——两个新图标几何随其提交（6e3c8e9）落地；其收尾一度把本卡实现文件扫入后 amend 剔除，本卡实现最终独立成提交（卡内如实登记经过）；明暗目检移交用户。
+
 > 2026-10-24：**Q-006 页面滚动面贴窗口边缘收口**。用户反馈（Q-005 验收后）"滚动条总是贴不住最右边"——取证：滚动条贴视口缘无任何空隙（模板查证 + Q-004 headless 契约），22px 空隙唯一来源是 PageHost `Margin="22,22,22,30"` 把页面根 ScrollViewer 整体推入，视口够不到窗口缘；属 Q-004"贴视口"语义与用户"贴窗口"预期的偏差，非回归。修法（macOS 式滚动面语义）：PageHost 外边距归零，滚动面铺满主内容列，页面留白由根滚动面自持——新共享类 `ScrollViewer.page-root`（Padding=22,22,22,30 单一出处；Semi 模板查证透传 Padding 给 presenter、不影响滚动条位置）挂 8 个页面根 SV；会话页无页面级滚动面，头尾/面板逐边自补（列表滚动条贴卡内缘属有意设计）。滑条纵向全程覆盖顶栏底→窗底、横向条贴底缘。TDD：PageScrollEdgeTests 真实 MainWindow 契约，RED 实锤视口 938 vs 960 差 22 → GREEN 贴缘 + 留白自持；踩坑：headless 进场过渡（Y 8→0）不随 RunJobs 走帧（74+8=82 实录），几何断言前须泵渲染帧到落定且泵判定须严于断言精度（74.937 尾段翻车实录 → 收紧 0.01）。全量 1452 Passed / 0 Failed；真机逐页滚动观感移交用户。
 
 > 2026-10-24：**I-040 界面图标矢量化收口**。用户反馈"右上角设置/刷新按钮里的 Icon 都好小"→ 字体取证（纯 Python 解析系统字体 cmap/glyf）：图标是文本字形（⟳/⚙，14pt），主字体 SF Pro 不覆盖这两个码点，全系统仅 Apple Symbols 覆盖且墨迹只占 em 四到五成（34px 按钮里实际图形仅 6~8px）；原型同构，属"忠实复刻了小图标"。范围应用户要求扩到全应用：新增 `scripts/generate-ui-icons.py`（lucide-static@1.61.0，ISC，pin 版本 + 白名单纪律）一次生成 `Styles/Icons.axaml` 13 个 `AppIcon*` StreamGeometry；`Path.app-icon`（SharedStyles）统一描边（Stretch=Uniform 下 StrokeThickness 不随几何缩放——Avalonia Shape.Render 对变换后几何直接套 pen——按渲染槽定值 1.5，颜色一律令牌画刷）；导航图标经 `ShellPages.Icon` 键名 + `Controls/PageIcon.Icon` 附加属性 → pi-* 伪类（同 AgentChip 机制）。替换点：顶栏刷新/设置、侧栏九页导航、品牌标、总览+样式预览 KPI 四 chip、托盘弹窗设置按钮；**不替换**厂商兜底散列字形与品牌 logo（§7/§8 既有决策）与 KPI 涨跌箭头（文本语义）。headless +5 守卫（键名↔资源不漂移 / 两主题同实例 / 样式应用 / 附加属性解析 / 几何出框护栏）；真机目检反馈修正项 1（成本卡换带圈 dollar，裸 dollar-sign 退场）后全量 1454 Passed / 0 Failed；真机明暗 × 1x/2x 目检移交用户。
@@ -75,6 +77,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| Q-007 | 成本分析页补缓存读/写占比卡——Token 构成四项合计满 100%（图标几何随 6e3c8e9 落地） | P2 | 2026-10-24 |
 | Q-006 | 页面滚动面贴窗口边缘——PageHost 外边距移入滚动内容（留白自持，page-root 类） | P2 | 2026-10-24 |
 | I-040 | 界面图标矢量化——lucide 生成 AppIcon* 替换全部 Unicode 字形图标（顶栏/导航/品牌/KPI chip/弹窗） | P2 | 2026-10-24 |
 | Q-005 | 滚动条显示条件收窄——指针活动改为邻近命中区才显示（取代 Q-004 验收第 3 条） | P2 | 2026-10-24 |

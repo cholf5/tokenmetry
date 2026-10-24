@@ -359,7 +359,9 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(KpiFootKnownCostOnly)] = "已知成本合计 · 未知不计入总额",
         [nameof(KpiInputCostShare)] = "输入成本占比",
         [nameof(KpiOutputCostShare)] = "输出成本占比",
-        [nameof(KpiFootTokenShareBasis)] = "按 Token 构成展示 · 成本按方向拆价口径待扩展（缓存单列）",
+        [nameof(KpiCacheReadShare)] = "缓存读取占比",
+        [nameof(KpiCacheWriteShare)] = "缓存写占比",
+        [nameof(KpiFootTokenShareBasis)] = "按 Token 构成展示，四项合计全部 Token · 成本按方向拆价口径待扩展",
         [nameof(KpiUnpriced)] = "待确认价格",
         [nameof(KpiFootUnpriced)] = "缺价模型数 · 成本不应默认为零 · 全局口径（自启动累计），不随筛选变化",
         [nameof(KpiFootUnpricedWhere)] = "在「数据与计价 → 模型目录」里给它定价，或把模型名关联到已有条目",
@@ -663,7 +665,9 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(KpiFootKnownCostOnly)] = "Sum of known cost · unknown cost excluded from totals",
         [nameof(KpiInputCostShare)] = "Input cost share",
         [nameof(KpiOutputCostShare)] = "Output cost share",
-        [nameof(KpiFootTokenShareBasis)] = "Shown by token mix · per-direction price split is planned (cache listed separately)",
+        [nameof(KpiCacheReadShare)] = "Cache read share",
+        [nameof(KpiCacheWriteShare)] = "Cache write share",
+        [nameof(KpiFootTokenShareBasis)] = "Shown by token mix, four components sum to all tokens · per-direction price split is planned",
         [nameof(KpiUnpriced)] = "Unpriced models",
         [nameof(KpiFootUnpriced)] = "Models without prices · cost must not default to zero · global scope (accumulated since startup), does not follow filters",
         [nameof(KpiFootUnpricedWhere)] = "Set a price in Data & pricing → Model catalog, or link the model name to an existing entry",
@@ -1118,6 +1122,8 @@ public sealed class Translations : INotifyPropertyChanged
     public string KpiFootKnownCostOnly => Get();
     public string KpiInputCostShare => Get();
     public string KpiOutputCostShare => Get();
+    public string KpiCacheReadShare => Get();
+    public string KpiCacheWriteShare => Get();
     public string KpiFootTokenShareBasis => Get();
     public string KpiUnpriced => Get();
     public string KpiFootUnpriced => Get();
