@@ -114,6 +114,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(PopoverCacheCaption)] = "缓存读取",
         [nameof(PopoverSegCache)] = "缓存",
         [nameof(PopoverTopAgents)] = "主要 Agent",
+        [nameof(PopoverTopModels)] = "主要模型",
         [nameof(PopoverRecentSessions)] = "最近会话 →",
         [nameof(PopoverOpenStats)] = "打开完整统计 →",
         [nameof(PopoverActiveBannerTitleFormat)] = "{0} 正在工作",
@@ -473,6 +474,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(PopoverCacheCaption)] = "cache read",
         [nameof(PopoverSegCache)] = "Cache",
         [nameof(PopoverTopAgents)] = "Top agents",
+        [nameof(PopoverTopModels)] = "Top models",
         [nameof(PopoverRecentSessions)] = "Recent sessions →",
         [nameof(PopoverOpenStats)] = "Open full stats →",
         [nameof(PopoverActiveBannerTitleFormat)] = "{0} is working",
@@ -874,6 +876,7 @@ public sealed class Translations : INotifyPropertyChanged
     public string PopoverCacheCaption => Get();
     public string PopoverSegCache => Get();
     public string PopoverTopAgents => Get();
+    public string PopoverTopModels => Get();
     public string PopoverRecentSessions => Get();
     public string PopoverOpenStats => Get();
     public string PopoverActiveBannerTitleFormat => Get();

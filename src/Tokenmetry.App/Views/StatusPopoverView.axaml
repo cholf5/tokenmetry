@@ -321,6 +321,47 @@
                            Foreground="{DynamicResource AppMutedTextBrush}"
                            Margin="0,4,0,0"/>
 
+                <!-- 模型用量 Top3（D-019）：按今日已知成本降序（未知成本沉底、占比诚实 "—"），
+                     回答"今天钱花在哪个模型"——Agent 维度与模型价差正交。行结构复用 Agent 行
+                     （popover-agent-row 样式同吃 Semi 拉伸修复），图标槽换 model-chip-lg +
+                     ModelChip.Vendor（ModelVisualMap 机制），行点击 → 模型统计页。
+                     无数据整块隐藏（Agent 区已有诚实空态行，不重复渲染第二处）。 -->
+                <StackPanel x:Name="TopModelsSection" IsVisible="{Binding HasTopModels}" Margin="0,13,0,0">
+                    <TextBlock Text="{Binding PopoverTopModels, Source={x:Static loc:Translations.Instance}}"
+                               FontSize="11" FontWeight="SemiBold" Margin="0,0,0,7"
+                               Foreground="{DynamicResource AppTextBrush}"/>
+                    <ItemsControl ItemsSource="{Binding TopModels}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:StatusPopoverModelRowViewModel">
+                                <Button Classes="popover-agent-row"
+                                        Command="{Binding $parent[ItemsControl].((vm:StatusPopoverViewModel)DataContext).OpenModelsCommand}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                        <Border Grid.Column="0" Classes="model-chip-lg"
+                                                c:ModelChip.Vendor="{Binding LogoVendor}">
+                                            <Panel>
+                                                <TextBlock Text="{Binding Glyph}"/>
+                                                <Image Classes="model-logo"/>
+                                            </Panel>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontSize="11"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource AppTextBrush}"/>
+                                            <ProgressBar Classes="mini" Value="{Binding BarValue}" Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding CostText}" FontSize="11" TextAlignment="Right"
+                                                       Foreground="{DynamicResource AppTextBrush}"/>
+                                            <TextBlock Text="{Binding ShareText}" FontSize="10" TextAlignment="Right"
+                                                       Classes="popover-cap" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
                 <Border Classes="popover-hr"/>
 
                 <!-- footer：最近会话 → 会话页（修正项 5）/ 打开完整统计 → 总览页（主按钮） -->

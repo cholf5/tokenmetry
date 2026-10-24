@@ -140,6 +140,46 @@ public sealed class StatusPopoverAgentRowViewModel
 }
 
 /// <summary>
+/// 弹层「模型用量」一行的展示模型（D-019）：模型名 + 今日成本金额（OverviewViewModel.FormatCost
+/// 四态诚实文案）+ 成本占比（CostShare，本行含未知成本时为 null → "—"/空轨道，不伪造），
+/// mini bar 值 = CostShare × 100。模型图标走 ModelVisualMap（model-chip 同机制，未识别落
+/// generic 字形兜底）。不可变小对象，由 <see cref="StatusPopoverViewModel"/> 整体替换集合触发绑定刷新。
+/// </summary>
+public sealed class StatusPopoverModelRowViewModel
+{
+    public StatusPopoverModelRowViewModel(
+        string name,
+        AggregatedCost cost,
+        decimal? costShare,
+        Func<string, (string Vendor, char Glyph)> visualResolver)
+    {
+        Name = name;
+        CostText = OverviewViewModel.FormatCost(cost);
+        ShareText = OverviewViewModel.FormatShare(costShare);
+        BarValue = costShare is { } share ? Math.Clamp((double)(share * 100m), 0d, 100d) : 0d;
+        var visual = visualResolver(name);
+        LogoVendor = visual.Vendor;
+        Glyph = visual.Glyph.ToString();
+    }
+
+    public string Name { get; }
+
+    /// <summary>厂商伪类名（ModelChip.Vendor 附加属性消费；未识别落 generic 字形兜底）。</summary>
+    public string LogoVendor { get; }
+
+    public string Glyph { get; }
+
+    /// <summary>今日成本金额文案（I-028 四态：未知成本不冒充 0）。</summary>
+    public string CostText { get; }
+
+    /// <summary>成本占比文案（本行含未知成本时 "—"）。</summary>
+    public string ShareText { get; }
+
+    /// <summary>mini bar 值（0..100）。</summary>
+    public double BarValue { get; }
+}
+
+/// <summary>
 /// D-015 状态栏快捷信息窗的内容层 VM：信息架构按原型锁定（头部三态灯 + 三格 KPI + Token 构成条
 /// + 主要 Agent Top4 + footer 快捷入口），数据全走既有管线——KPI/构成/Agent 用
 /// <see cref="IUsageQueryService"/> 今日窗口（与总览页同源同口径），速率用修正项 4 的差值口径
@@ -157,6 +197,9 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
 {
     /// <summary>Top4（卡定「主要 Agent Top4」，原型同款；总览环形是 Top6，弹层压缩视图取 4）。</summary>
     public const int TopAgentsCount = 4;
+
+    /// <summary>模型用量 Top3（D-019：弹层压缩视图取 3，总览模型页是全表；按已知成本降序）。</summary>
+    public const int TopModelsCount = 3;
 
     /// <summary>最近会话查询页大小（派生各 Agent 最近活动时刻用；40 行足够覆盖 Top4 Agent 的当日活动）。</summary>
     private const int LastActivityProbeSize = 40;
@@ -231,6 +274,14 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     /// <summary>Agent 区有无数据（驱动「暂无数据」诚实空态行）。</summary>
     public bool HasTopAgents => TopAgents is { Count: > 0 };
 
+    // ── 模型用量 Top3（D-019：按今日已知成本降序；无数据整块隐藏，不重复空态行）──
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTopModels))]
+    private IReadOnlyList<StatusPopoverModelRowViewModel>? _topModels;
+
+    /// <summary>模型区有无数据（驱动区块整体显隐）。</summary>
+    public bool HasTopModels => TopModels is { Count: > 0 };
+
     /// <summary>头部状态灯文案（按态实时取串；语言切换经 Translations 绑定信号重算）。</summary>
     public string LiveText => State switch
     {
@@ -304,6 +355,10 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void OpenAgentDetails() => _navigateToPage?.Invoke(PageId.Agents);
 
+    /// <summary>模型行点击 → 模型统计页（D-019：会话页无按模型筛选的既有路由，收敛到模型页）。</summary>
+    [RelayCommand]
+    private void OpenModels() => _navigateToPage?.Invoke(PageId.Models);
+
     /// <summary>Agent 行点击 → 会话页带该 Agent 筛选（D-009 既有路由，经壳层回调）。</summary>
     [RelayCommand]
     private void OpenAgentRow(string? agentId)
@@ -353,6 +408,12 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
                 return;
             }
 
+            var models = await _query.GetModelBreakdownAsync(filter);
+            if (sequence != _loadSequence)
+            {
+                return;
+            }
+
             // 最近活动探针：不限今日、按最近活动排序的会话头几页——派生各 Agent 的最近活动时刻
             //（当日才显示 hh:mm；跨日活动不显示时间，诚实留空）
             var sessions = await _query.GetSessionsAsync(new SessionListQuery
@@ -367,7 +428,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
                 return;
             }
 
-            Apply(kpi, daily, agents, sessions, snapshotAt);
+            Apply(kpi, daily, agents, models, sessions, snapshotAt);
         }
         catch (Exception ex)
         {
@@ -379,7 +440,8 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     }
 
     private void Apply(UsageKpiResult kpi, IReadOnlyList<DailyUsagePoint> daily,
-        IReadOnlyList<DimensionUsageRow> agents, SessionListResult sessions, DateTimeOffset snapshotAt)
+        IReadOnlyList<DimensionUsageRow> agents, IReadOnlyList<DimensionUsageRow> models,
+        SessionListResult sessions, DateTimeOffset snapshotAt)
     {
         var t = Translations.Instance;
         // 今日 KPI：零 token 显 "—"（诚实：无数据不冒充 0）；成本/占比沿用既有四态文案
@@ -434,6 +496,26 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
             .ToList();
 
         IsNoData = kpi.TotalTokens == 0 && total == 0 && TopAgents.Count == 0;
+
+        // 模型用量 Top3（D-019）：按已知成本降序（KnownCostUsd null = 未知成本，-1 哨兵沉底——
+        // 低于任何已知成本含"已知为零"；同档按 tokens 降序）。占比/条直接吃 CostShare（本行含
+        // 未知成本时服务侧即 null → "—"/空轨道，不伪造）。
+        TopModels = models
+            .Where(m => m.TotalTokens > 0)
+            .OrderByDescending(m => m.Cost.KnownCostUsd ?? -1m)
+            .ThenByDescending(m => m.TotalTokens)
+            .Take(TopModelsCount)
+            .Select(m => new StatusPopoverModelRowViewModel(
+                m.Key,
+                m.Cost,
+                m.CostShare,
+                name =>
+                {
+                    var visual = ModelVisualMap.Resolve(name);
+                    return (visual.Vendor, visual.Glyph);
+                }))
+            .ToList();
+
         // banner 的增量归属吃本 Apply 的新鲜 Agent 速率（轮次回写先于查询完成，归属滞后一轮时在此校正）
         RecomputeState();
     }
