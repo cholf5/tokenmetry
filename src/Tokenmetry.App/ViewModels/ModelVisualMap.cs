@@ -6,7 +6,8 @@ namespace Tokenmetry.App.ViewModels;
 /// <summary>模型图标信息：厂商变体名（驱动 <c>Tokenmetry.App.Controls.ModelChip</c> 附加属性翻译成
 /// model-* 伪类，选中 SharedStyles 里的行内官方 logo）+ 兜底字形。不可变，行 VM 持有。</summary>
 /// <param name="Vendor">厂商变体名（claude/openai/…/generic；对应 SharedStyles 的 model-* 样式组）。</param>
-/// <param name="Glyph">无 logo 厂商（phi/generic）的字形兜底；有 logo 的厂商由样式隐藏该字形。</param>
+/// <param name="Glyph">无 logo 厂商的字形兜底（phi 显示 Φ）；generic 的 UI 兜底是 circle-help
+/// 矢量图标（Q-009，SharedStyles 的 model-fallback 样式），字形仅保留数据层语义。</param>
 public sealed record ModelVisual(string Vendor, char Glyph);
 
 /// <summary>
@@ -150,7 +151,8 @@ internal static class ModelVisualMap
         "ernie" => 'E',
         "hunyuan" => 'H',
         "phi" => 'Φ',
-        _ => '◇',            // 未识别（含「其他」聚合行的兜底语义）
+        _ => '?',            // 未识别（含「其他」聚合行）：数据层兜底语义；UI 端 generic 显示
+                             // AppIconCircleHelp 矢量问号（Q-009，字形墨迹太小退役）
     };
 
     private static bool Contains(string name, params string[] keys)

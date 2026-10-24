@@ -336,6 +336,8 @@
                                             <Panel>
                                                 <TextBlock Text="{Binding Glyph}"/>
                                                 <Image Classes="model-logo"/>
+                                                <PathIcon Classes="app-icon model-fallback"
+                                                          Data="{StaticResource AppIconCircleHelp}"/>
                                             </Panel>
                                         </Border>
                                         <StackPanel Grid.Column="1" Spacing="0" VerticalAlignment="Center">
