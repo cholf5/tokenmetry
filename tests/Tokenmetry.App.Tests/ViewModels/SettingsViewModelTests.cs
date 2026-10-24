@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
+using Tokenmetry.App.Update;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
@@ -33,6 +34,19 @@ public class SettingsViewModelTests
         viewModel.AnomalyNotificationsEnabled.Should().BeFalse();
         viewModel.CacheDbPath.Should().Be(System.IO.Path.Combine(paths.AppDataDirectory, "tokenmetry.db"));
         viewModel.SettingsFilePath.Should().Be(System.IO.Path.Combine(paths.AppDataDirectory, "settings.json"));
+    }
+
+    // ---- I-041：关于区法律信息行的单一出处接线（版权 = 程序集属性 / URL = UpdateAssets）----
+    // 断言语言无关（不断言中文/英文文案）；<Copyright> 被从 Directory.Build.props 删掉时这里抓到空串。
+
+    [Fact]
+    public void AboutLegalInfo_UsesAssemblyAndUpdateAssetsAsSingleSource()
+    {
+        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
+
+        viewModel.AboutCopyright.Should().NotBeNullOrWhiteSpace().And.Contain("cholf5");
+        viewModel.AboutRepositoryUrl.Should().Be($"https://github.com/{UpdateAssets.Repository}");
+        viewModel.AboutLicenseUrl.Should().Be($"https://github.com/{UpdateAssets.Repository}/blob/main/LICENSE");
     }
 
     // ---- 全自动保存（无保存按钮：各设置项改完即生效并落盘）----

@@ -77,6 +77,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-041 | 关于面板补版权/许可/仓库/无担保行——AGPL Appropriate Legal Notices 对齐 | P3 | 2026-10-24 |
 | Q-007 | 成本分析页补缓存读/写占比卡——Token 构成四项合计满 100%（图标几何随 6e3c8e9 落地） | P2 | 2026-10-24 |
 | Q-006 | 页面滚动面贴窗口边缘——PageHost 外边距移入滚动内容（留白自持，page-root 类） | P2 | 2026-10-24 |
 | I-040 | 界面图标矢量化——lucide 生成 AppIcon* 替换全部 Unicode 字形图标（顶栏/导航/品牌/KPI chip/弹窗） | P2 | 2026-10-24 |

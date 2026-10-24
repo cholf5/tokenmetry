@@ -117,7 +117,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- ═══ 关于（版本 + 更新检查，I-039）═══ -->
+            <!-- ═══ 关于（版本/版权/许可/仓库 + 更新检查，I-039/I-041）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="panel-title" Text="{Binding AboutTitle, Source={x:Static loc:Translations.Instance}}"/>
@@ -125,6 +125,24 @@
                         <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelCurrentVersion, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding UpdateAppVersion}"/>
                     </Grid>
+                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelCopyright, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding AboutCopyright}"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelLicense, Source={x:Static loc:Translations.Instance}}"/>
+                        <!-- 许可名是专有名词不进 i18n（同 stupid-dict 的 "MIT"）；点击直达仓库 LICENSE 文件 -->
+                        <HyperlinkButton Grid.Column="1" Padding="0" VerticalAlignment="Center"
+                                         Content="GNU AGPL-3.0" NavigateUri="{Binding AboutLicenseUrl}"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelRepository, Source={x:Static loc:Translations.Instance}}"/>
+                        <HyperlinkButton Grid.Column="1" Padding="0" VerticalAlignment="Center"
+                                         Content="{Binding AboutRepositoryUrl}" NavigateUri="{Binding AboutRepositoryUrl}"/>
+                    </Grid>
+                    <!-- AGPL-3.0 §7(d)：交互界面显示 Appropriate Legal Notices 的「无担保」半句 -->
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding AboutWarrantyHint, Source={x:Static loc:Translations.Instance}}"/>
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Button Content="{Binding SettingsCheckUpdate, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding CheckUpdateCommand}"/>

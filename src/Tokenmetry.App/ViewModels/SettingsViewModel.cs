@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -159,6 +160,14 @@ public partial class SettingsViewModel : ViewModelBase
 
     /// <summary>「关于」区展示的当前版本，与更新检查同源（csproj &lt;Version&gt; → 程序集版本）。</summary>
     public string UpdateAppVersion => UpdateChecker.CurrentVersion.TrimStart('v');
+
+    /// <summary>「关于」区版权行（I-041）：csproj &lt;Copyright&gt; → 程序集 AssemblyCopyright（Directory.Build.props 单一出处，不二次硬编码）。</summary>
+    public string AboutCopyright { get; } =
+        typeof(SettingsViewModel).Assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? string.Empty;
+
+    /// <summary>「关于」区仓库主页与 LICENSE 直链（I-041）：与更新检查同源（UpdateAssets.Repository 单一出处）。</summary>
+    public string AboutRepositoryUrl { get; } = UpdateAssets.RepositoryUrl;
+    public string AboutLicenseUrl { get; } = UpdateAssets.LicenseUrl;
 
     /// <summary>检查更新：结果整体切换状态行（发现新版本时同时亮出下载/打开 Release 页按钮）。
     /// 与托盘「检查更新」走同一 UpdateService 单例——任一处查完，另一处的标题/状态行同步反映。</summary>
