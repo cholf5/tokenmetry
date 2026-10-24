@@ -130,13 +130,16 @@ circle/ellipse/rect/line/polyline 转 arc/H/V/A 路径）。**勿手改**；再�
   （刷新进行中菊花 + 侧栏品牌内圈标）、Coins/DollarCircle/Table/Zap（KPI 四卡；成本卡用
   带圈版本与导航成本图标一致——裸 dollar-sign 竖杆长伸、横端子大敞，15px 下读作「歪」，
   2026-10-24 真机目检退场）。
-- 渲染：`Path.app-icon`（SharedStyles）统一描边——`Stretch=Uniform` + `StrokeThickness=1.5`
-  + 圆角端点。**Avalonia 的 StrokeThickness 不随 Stretch 缩放**（`Shape.Render` 对变换后
-  几何直接套 pen），故粗细按最终渲染槽定值（16px 槽 ≈ lucide 2/24 比例）；颜色一律令牌
-  画刷（默认 `AppTextBrush`；KPI chip 变体色在用点给 `AppIconChip{Hue}ForegroundBrush`，
-  导航未选/选中与按钮禁用态在 MainWindow / StatusPopoverView 的状态样式里覆盖），禁止硬编码色值。
+- 渲染：`PathIcon`（隐式 ControlTheme 在 Icons.axaml，内层 Path 自适应墨迹尺寸 + Center
+  对齐、StrokeThickness=1.5 圆角端点定值）。**必须用 PathIcon 而非裸 Path + Stretch=Uniform**：
+  Avalonia 的 `Shape.CalculateSizeAndTransform` 只缩放适配并钉在元素左上角（无 WPF 的居中项），
+  墨迹在槽内偏移 (槽−墨)/2（$ 左偏 3px、zap 左偏 1.2px，2026-10-24 真机目检「歪/不居中」实锤）；
+  PathIcon 内层自定尺寸由布局居中，墨迹恒居中（IconResourceTests 居中回归锁固化）。颜色走
+  Foreground 继承（模板 TemplateBinding Foreground）：KPI chip 变体色在用点给
+  `AppIconChip{Hue}ForegroundBrush`，导航未选/选中、按钮禁用态随祖先 Foreground 自动生效，
+  顶栏按钮给 `AppTextBrush` 显式基线，禁止硬编码色值。
 - 数据驱动（导航项）：`ShellPages.Icon` 存图标键名（= AppIcon* 后缀），`Controls/PageIcon.Icon`
-  附加属性翻译成 `pi-*` 伪类 → SharedStyles 的 `Path.app-icon.pi-*` 给 Data（DynamicResource
+  附加属性翻译成 `pi-*` 伪类 → Icons.axaml 的 `PathIcon.app-icon.pi-*` 给 Data（DynamicResource
   不支持动态键名，机制同 §8 AgentChip）。
 - 名单同步点（四处）：generate-ui-icons.py ICONS / ShellPages（NavigationItemViewModel.cs）/
   IconResourceTests.GeometryKeys / DesignTokenTests.AllTokenKeys（Semi 撞名白名单）。

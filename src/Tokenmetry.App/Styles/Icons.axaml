@@ -6,19 +6,37 @@
         再生：python3 scripts/generate-ui-icons.py（图标名单与版本 pin 在脚本 ICONS / LUCIDE_VERSION）。
         来源：lucide（https://github.com/lucide-icons/lucide，ISC License, Copyright (c) lucide authors）。
 
-        lucide 为 stroke 语义（24×24 视框、fill=none、stroke-width 2、圆角端点）：本资源只存几何，
-        描边粗细/端点/颜色由 SharedStyles.axaml 的 Path.app-icon 统一给出（颜色一律令牌画刷，
-        随明暗翻转；Stretch=Uniform 时 Avalonia 的 StrokeThickness 不随几何缩放——Shape.Render 对
-        变换后几何直接套 pen——故粗细按最终渲染尺寸定值）。
+        lucide 为 stroke 语义（24×24 视框、fill=none、stroke-width 2、圆角端点）：本文件同时给出
+        PathIcon 的隐式 ControlTheme 与 AppIcon* 几何。渲染经 PathIcon（内层 Path 自适应墨迹尺寸、
+        由布局居中于定尺寸槽位）——不用裸 Path + Stretch=Uniform：Avalonia 的 Shape.Stretch
+        只缩放适配并钉在元素左上角、没有 WPF 的居中项（Shape.CalculateSizeAndTransform 查证），
+        墨迹在槽内偏移 (槽−墨)/2，$ 左偏 3px、zap 左偏 1.2px（真机目检「歪/不居中」实锤）。
+        描边粗细/端点在 ControlTheme 模板定值（1.5 / 圆角），颜色走 Foreground 继承
+        （模板 TemplateBinding Foreground——导航选中、按钮禁用等状态色随祖先 Foreground 生效）。
 
         替换的 Unicode 字形图标见 git 历史（⟳ ⚙ ◌ ⌂ ▤ ◉ ⬡ ▣ ◷ ＄ ⌗ ◈ ▣ ↻）：字形经系统回退
         字体（macOS = Apple Symbols）渲染，墨迹只占 em 四到五成且跨平台不可控。
 
-        消费：静态处 <Path Classes="app-icon" Data="{StaticResource AppIcon*}"/>；
-        数据驱动处（导航项）经 Controls/PageIcon.Icon 把键名翻译成 pi-* 伪类 →
-        SharedStyles 的 Path.app-icon.pi-* 给 Data。名单变更需同步：
+        消费：静态处 <PathIcon Classes="app-icon" Data="{StaticResource AppIcon*}"
+        Width=".." Height=".." Foreground=".."/>；数据驱动处（导航项）经 Controls/PageIcon.Icon
+        把键名翻译成 pi-* 伪类 → 本文件 pi-* 样式给 Data。名单变更需同步：
         ShellPages（NavigationItemViewModel.cs）与 DesignTokenTests.AllTokenKeys。
     -->
+
+    <ControlTheme x:Key="{x:Type PathIcon}" TargetType="PathIcon">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Path Data="{TemplateBinding Data}"
+                      Stretch="Uniform"
+                      Stroke="{TemplateBinding Foreground}"
+                      StrokeThickness="1.5"
+                      StrokeLineCap="Round"
+                      StrokeJoin="Round"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"/>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
     <!-- house -->
     <StreamGeometry x:Key="AppIconHouse">M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8 M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z</StreamGeometry>
     <!-- table -->
@@ -45,5 +63,9 @@
     <StreamGeometry x:Key="AppIconCoins">M13.744 17.736a6 6 0 1 1-7.48-7.48 M15 6h1v4 M6.134 14.768 l.866-.5 2 3.464 M 10 8 a 6 6 0 1 0 12 0 a 6 6 0 1 0 -12 0</StreamGeometry>
     <!-- zap -->
     <StreamGeometry x:Key="AppIconZap">M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z</StreamGeometry>
+    <!-- hard-drive-upload -->
+    <StreamGeometry x:Key="AppIconHardDriveUpload">M16 6 l-4-4-4 4 M12 2v8 M 4 14 H 20 A 2 2 0 0 1 22 16 V 20 A 2 2 0 0 1 20 22 H 4 A 2 2 0 0 1 2 20 V 16 A 2 2 0 0 1 4 14 Z M6 18h.01 M10 18h.01</StreamGeometry>
+    <!-- hard-drive-download -->
+    <StreamGeometry x:Key="AppIconHardDriveDownload">M12 2v8 M16 6 l-4 4-4-4 M 4 14 H 20 A 2 2 0 0 1 22 16 V 20 A 2 2 0 0 1 20 22 H 4 A 2 2 0 0 1 2 20 V 16 A 2 2 0 0 1 4 14 Z M6 18h.01 M10 18h.01</StreamGeometry>
 
 </ResourceDictionary>

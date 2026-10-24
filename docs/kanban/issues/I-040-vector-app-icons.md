@@ -68,3 +68,18 @@ lucide 裸 dollar-sign 的字形设计在 15px 下的观感问题（竖杆上下
 处理：KPI 成本卡（总览 + 样式预览）换 DollarCircle（带圈版本，与导航成本图标一致，
 用户目检已认可），裸 dollar-sign 从生成器名单退场（13 键），文档 §10 同步。headless 351
 Passed（含并行的 Q-006 契约测试）。
+
+## 修正项 2——渲染控件换 PathIcon，修墨迹不居中（2026-10-24 目检反馈）
+
+用户目检：缓存读取占比卡的 zap 闪电"没有居中"，并指出与美元符号是同一问题——判断正确，
+且根因挖到了底：Avalonia `Shape.CalculateSizeAndTransform` 只做"缩放适配 + 平移到原点"，
+**没有 WPF 的居中项**——`Stretch=Uniform` 的墨迹被钉在元素左上角，槽内偏移 = (槽−墨)/2：
+$ 墨迹 12×20 左偏 3px、zap 约 17×20 左偏 1.2px、近方形墨迹（table/coins）偏移≈0——
+解释了为什么只有部分图标看着不对（$ 的像素取证当时已量到 -2.5px，被当噪声放过）。
+
+处理：渲染控件从裸 Path 换 **PathIcon**（隐式 ControlTheme 进 Icons.axaml，随生成器再生）：
+内层 Path 自适应墨迹尺寸 + Center 对齐 → 墨迹恒居中于定尺寸槽位；描边色改走 Foreground
+模板绑定（导航选中/按钮禁用随祖先 Foreground 继承生效，删掉逐态描边样式；顶栏给
+AppTextBrush 显式基线）。IconResourceTests 新增居中回归锁（zap/house/loader-circle/coins
+墨迹中心 = 槽位中心 ±0.75）；像素复测 zap：水平偏差 0、垂直 0.5px（AA 噪声）。全量
+1454 Passed / 0 Failed。

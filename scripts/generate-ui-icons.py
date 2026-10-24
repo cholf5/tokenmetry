@@ -44,6 +44,8 @@ UNPKG = f"https://unpkg.com/lucide-static@{LUCIDE_VERSION}/icons"
 #     菊花与侧栏品牌标；Coins/DollarCircle/Table/Zap —— 总览 KPI 四卡与样式预览页。
 #   不收裸 dollar-sign（2026-10-24 真机目检）：竖杆长长伸出 S 上下、横端子向两侧大敞，
 #     15px 下读作「歪」；KPI 成本卡改用 DollarCircle（与导航成本图标一致，圆圈锚定字形）。
+#   HardDriveUpload/HardDriveDownload —— 成本分析页缓存读取/写占比卡（Q-007）：箭头方向
+#     相对盘体（读=数据出盘 upload、写=数据入盘 download），与页内输入 ↓ / 输出 ↑ 的方向语言同构。
 ICONS: list[tuple[str, str]] = [
     ("House", "house"),
     ("Table", "table"),
@@ -58,6 +60,8 @@ ICONS: list[tuple[str, str]] = [
     ("LoaderCircle", "loader-circle"),
     ("Coins", "coins"),
     ("Zap", "zap"),
+    ("HardDriveUpload", "hard-drive-upload"),
+    ("HardDriveDownload", "hard-drive-download"),
 ]
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
@@ -213,19 +217,37 @@ def build_axaml() -> str:
         "        再生：python3 scripts/generate-ui-icons.py（图标名单与版本 pin 在脚本 ICONS / LUCIDE_VERSION）。",
         "        来源：lucide（https://github.com/lucide-icons/lucide，ISC License, Copyright (c) lucide authors）。",
         "",
-        "        lucide 为 stroke 语义（24×24 视框、fill=none、stroke-width 2、圆角端点）：本资源只存几何，",
-        "        描边粗细/端点/颜色由 SharedStyles.axaml 的 Path.app-icon 统一给出（颜色一律令牌画刷，",
-        "        随明暗翻转；Stretch=Uniform 时 Avalonia 的 StrokeThickness 不随几何缩放——Shape.Render 对",
-        "        变换后几何直接套 pen——故粗细按最终渲染尺寸定值）。",
+        "        lucide 为 stroke 语义（24×24 视框、fill=none、stroke-width 2、圆角端点）：本文件同时给出",
+        "        PathIcon 的隐式 ControlTheme 与 AppIcon* 几何。渲染经 PathIcon（内层 Path 自适应墨迹尺寸、",
+        "        由布局居中于定尺寸槽位）——不用裸 Path + Stretch=Uniform：Avalonia 的 Shape.Stretch",
+        "        只缩放适配并钉在元素左上角、没有 WPF 的居中项（Shape.CalculateSizeAndTransform 查证），",
+        "        墨迹在槽内偏移 (槽−墨)/2，$ 左偏 3px、zap 左偏 1.2px（真机目检「歪/不居中」实锤）。",
+        "        描边粗细/端点在 ControlTheme 模板定值（1.5 / 圆角），颜色走 Foreground 继承",
+        "        （模板 TemplateBinding Foreground——导航选中、按钮禁用等状态色随祖先 Foreground 生效）。",
         "",
         "        替换的 Unicode 字形图标见 git 历史（⟳ ⚙ ◌ ⌂ ▤ ◉ ⬡ ▣ ◷ ＄ ⌗ ◈ ▣ ↻）：字形经系统回退",
         "        字体（macOS = Apple Symbols）渲染，墨迹只占 em 四到五成且跨平台不可控。",
         "",
-        "        消费：静态处 <Path Classes=\"app-icon\" Data=\"{StaticResource AppIcon*}\"/>；",
-        "        数据驱动处（导航项）经 Controls/PageIcon.Icon 把键名翻译成 pi-* 伪类 →",
-        "        SharedStyles 的 Path.app-icon.pi-* 给 Data。名单变更需同步：",
+        "        消费：静态处 <PathIcon Classes=\"app-icon\" Data=\"{StaticResource AppIcon*}\"",
+        "        Width=\"..\" Height=\"..\" Foreground=\"..\"/>；数据驱动处（导航项）经 Controls/PageIcon.Icon",
+        "        把键名翻译成 pi-* 伪类 → 本文件 pi-* 样式给 Data。名单变更需同步：",
         "        ShellPages（NavigationItemViewModel.cs）与 DesignTokenTests.AllTokenKeys。",
         "    -->",
+        "",
+        '    <ControlTheme x:Key="{x:Type PathIcon}" TargetType="PathIcon">',
+        "        <Setter Property=\"Template\">",
+        "            <ControlTemplate>",
+        "                <Path Data=\"{TemplateBinding Data}\"",
+        "                      Stretch=\"Uniform\"",
+        "                      Stroke=\"{TemplateBinding Foreground}\"",
+        "                      StrokeThickness=\"1.5\"",
+        "                      StrokeLineCap=\"Round\"",
+        "                      StrokeJoin=\"Round\"",
+        '                      HorizontalAlignment="Center"',
+        '                      VerticalAlignment="Center"/>',
+        "            </ControlTemplate>",
+        "        </Setter>",
+        "    </ControlTheme>",
     ]
     for key, lucide_id, d in entries:
         lines.append(f"    <!-- {lucide_id} -->")
