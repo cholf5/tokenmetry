@@ -220,18 +220,58 @@ public class TrendChartTests
         chart.HoverChanged += (_, e) => received = e;
 
         var real = ChartTestHelpers.FirstRealPoint(points);
-        chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(real.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
+        // 浮窗 token 数随 UI 语言（Q-008）：本用例在英文口径锁定紧凑短单位；中文万进制口径见下一用例
+        WithLanguage(AppLanguage.English, () =>
+        {
+            chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(real.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
 
-        Assert.NotNull(received);
-        Assert.True(received!.IsActive);
-        // token 数紧凑短单位（B-006 问题 3）：fixture 首个真实日 402,000/154,000/556,000 → 402K/154K/556K
-        Assert.Contains("tot 556K tok", received.LabelText);
-        Assert.Contains("in  402K", received.LabelText);
-        Assert.Contains("out 154K", received.LabelText);
-        Assert.DoesNotContain("556,000", received.LabelText); // 不再千分位全量——气泡内 5-9 位数字不可读
-        // 成本行保持对账口径（两位小数 USD）
-        Assert.Contains($"${real.Cost.KnownCostUsd!.Value.ToString("F2", CultureInfo.InvariantCulture)}", received.LabelText);
-        Assert.False(received.LabelText!.Contains('+'), "非未知成本日不应带 '+' 下限标记");
+            Assert.NotNull(received);
+            Assert.True(received!.IsActive);
+            // token 数紧凑短单位（B-006 问题 3）：fixture 首个真实日 402,000/154,000/556,000 → 402K/154K/556K
+            Assert.Contains("tot 556K tok", received.LabelText);
+            Assert.Contains("in  402K", received.LabelText);
+            Assert.Contains("out 154K", received.LabelText);
+            Assert.DoesNotContain("556,000", received.LabelText); // 不再千分位全量——气泡内 5-9 位数字不可读
+            // 成本行保持对账口径（两位小数 USD）
+            Assert.Contains($"${real.Cost.KnownCostUsd!.Value.ToString("F2", CultureInfo.InvariantCulture)}", received.LabelText);
+            Assert.False(received.LabelText!.Contains('+'), "非未知成本日不应带 '+' 下限标记");
+        });
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Hover_tooltip_uses_wan_units_in_chinese_and_follows_language_switch()
+    {
+        var points = ChartTestHelpers.DailyPoints30();
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        TrendChartHoverEventArgs? received = null;
+        chart.HoverChanged += (_, e) => received = e;
+
+        var real = ChartTestHelpers.FirstRealPoint(points);
+        var hover = () => chart.ShowHoverAt(
+            new ScottPlot.Coordinates(DateTime.Parse(real.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
+
+        // 中文口径（Q-008）：402,000/154,000/556,000 → 40.2万/15.4万/55.6万（万进制，与 KPI/环形图同源）
+        WithLanguage(AppLanguage.SimplifiedChinese, () =>
+        {
+            hover();
+            Assert.Contains("tot 55.6万 tok", received!.LabelText);
+            Assert.Contains("in  40.2万", received.LabelText);
+            Assert.Contains("out 15.4万", received.LabelText);
+        });
+
+        // 语言切换实时性（B-007 CurrentLanguage 信号重译）：不换数据、不重建控件，浮窗单位即随切换换制
+        WithLanguage(AppLanguage.English, () =>
+        {
+            hover();
+            Assert.Contains("tot 556K tok", received!.LabelText);
+            Assert.Contains("in  402K", received.LabelText);
+        });
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -747,14 +787,18 @@ public class TrendChartTests
             Cost = cost,
         };
 
-        // (x, false) 已知成本：$x.xx，无 "+"、无 unknown 文案；token 数为紧凑短单位（B-006 问题 3）
-        var known = TrendChart.DailyTooltipText(Point(new AggregatedCost(12.5m, hasUnknownCost: false)));
-        Assert.Contains("$12.50", known);
-        Assert.Contains("in  1.23K", known);
-        Assert.Contains("out 567", known);
-        Assert.Contains("tot 1.8K tok", known);
-        Assert.DoesNotContain("+", known);
-        Assert.DoesNotContain("cost unknown", known);
+        // (x, false) 已知成本：$x.xx，无 "+"、无 unknown 文案；token 数为紧凑短单位（B-006 问题 3）。
+        // 浮窗 token 数随 UI 语言（Q-008），紧凑单位断言显式锁定英文口径（中文口径另有专项用例）
+        WithLanguage(AppLanguage.English, () =>
+        {
+            var known = TrendChart.DailyTooltipText(Point(new AggregatedCost(12.5m, hasUnknownCost: false)));
+            Assert.Contains("$12.50", known);
+            Assert.Contains("in  1.23K", known);
+            Assert.Contains("out 567", known);
+            Assert.Contains("tot 1.8K tok", known);
+            Assert.DoesNotContain("+", known);
+            Assert.DoesNotContain("cost unknown", known);
+        });
 
         // (x, true) 部分未知：$x.xx+（已知成本下限）
         var mixed = TrendChart.DailyTooltipText(Point(new AggregatedCost(12.5m, hasUnknownCost: true)));
@@ -963,22 +1007,6 @@ public class TrendChartTests
     }
 
     // ── 格式化口径（对账一致）──
-
-    // ── 紧凑口径：图内 tooltip 的 token 数（恒 ASCII 短单位，与轴刻度同制、语言无关）──
-
-    [AvaloniaTheory]
-    [InlineData(0, "0")]
-    [InlineData(42, "42")]
-    [InlineData(1_234, "1.23K")]
-    [InlineData(1_500, "1.5K")]
-    [InlineData(402_000, "402K")]
-    [InlineData(1_234_567, "1.23M")]
-    [InlineData(999_999_999, "1B")]   // 尾数取整越档（"1000M"）升入上一档
-    [InlineData(1_261_301_001, "1.26B")]
-    [InlineData(2_500_000_000_000, "2.5T")]
-    [InlineData(1e15, "1Q")]
-    public void FormatCompactTooltipValue_uses_ascii_short_units(double value, string expected) =>
-        Assert.Equal(expected, TrendChart.FormatCompactTooltipValue(value));
 
     // ── 紧凑数值单位制（调用时点按 UI 语言取制；单例语言每用例保存恢复，同 TranslationsTests 约定）──
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using Avalonia;
@@ -140,7 +141,6 @@ public partial class TrendChart : UserControl
         // ScottPlot 不支持 Avalonia 动态资源：主题变体变化时整图重建（chrome 色重新现取令牌）。
         // 订阅控件自身事件（EffectiveThemeVariant 继承 App/Window 的设置，含 app.TrySetTheme 路径）。
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
-        AttachedToVisualTree += (_, _) => RebuildPlot();
 
         // 浮窗插值时钟：仅在悬停激活/未到位时运行，静止即停（零开销）；16ms ≈ 60fps
         _tipTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render,
@@ -148,6 +148,38 @@ public partial class TrendChart : UserControl
     }
 
     private void OnActualThemeVariantChanged(object? sender, EventArgs e) => RebuildPlot();
+
+    /// <summary>
+    /// 挂树即重建并（重）挂重译订阅；先退订再订阅防重复（同 DonutChart/Heatmap 纪律，支持重挂）。
+    /// </summary>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
+        Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
+        RebuildPlot();
+    }
+
+    /// <summary>脱树退订重译订阅（Translations 是应用级单例，不随控件释放，防泄漏）。</summary>
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
+    }
+
+    /// <summary>
+    /// 语言切换重译（B-007 同 DonutChart/Heatmap 纪律）：以 PropertyChanged(CurrentLanguage) 作为
+    /// 「每次切换一次」的信号重跑 RebuildPlot——悬停文案 <see cref="_hoverLabels"/> 在重建时按当时
+    /// 语言固化（token 紧凑单位 中文万/亿 vs 英文 K/M），不重跑就陈旧到下一次数据变更。主题切换
+    /// 走同一条重建管线，XAML 直绑 Translations 的空态文案由全量 PropertyChanged 自动刷新。
+    /// </summary>
+    private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Translations.CurrentLanguage))
+        {
+            RebuildPlot();
+        }
+    }
 
     // ════════════════════════════ 绘图 ════════════════════════════
 
@@ -579,7 +611,7 @@ public partial class TrendChart : UserControl
 
         _hoverCoords = xs.Select((x, i) => new Coordinates(x, ys[i])).ToArray();
         _hoverLabels = hours.Select(h =>
-            $"{h.Hour:00}:00\n{FormatCompactTooltipValue(h.TotalTokens)} tok\n{h.SessionCount:N0} sessions").ToArray();
+            $"{h.Hour:00}:00\n{FormatCompactTokens(h.TotalTokens)} tok\n{h.SessionCount:N0} sessions").ToArray();
 
         plot.Axes.SetLimitsX(-0.5, 23.5);
         StyleTokenAxisFormatter(plot.Axes.Left, compact: true);
@@ -848,9 +880,12 @@ public partial class TrendChart : UserControl
     // ════════════════════════════ 文案与格式（对账口径） ════════════════════════════
 
     /// <summary>
-    /// 日形态 tooltip 文本（ScottPlot 内渲染，保持 ASCII 避免 CJK 字形缺失；中文说明走事件/状态行）。
-    /// token 数为紧凑短单位（B-006 问题 3：千分位全量 5-9 位数字在悬浮气泡里不可读），成本行按
-    /// <see cref="AggregatedCost"/> 四态区分（审查 P1-1，契约"不要只读 KnownCostUsd"）：
+    /// 日形态 tooltip 文本（Avalonia 浮层 HoverTip 渲染，非 ScottPlot 内绘）。token 数走
+    /// <see cref="FormatCompactTokens"/> 随 UI 语言取单位制（中文 万/亿、英文 K/M——Q-008：浮窗曾是
+    /// ScottPlot 自绘时代的恒 ASCII 约束随浮层迁移失效）；"in/out/tot/tok" 记号与补零/成本态文案
+    /// 保持 ASCII（与环形图/热力图 tooltip 的 " tok" 后缀同惯例）。token 数为紧凑短单位（B-006
+    /// 问题 3：千分位全量 5-9 位数字在悬浮气泡里不可读），成本行按 <see cref="AggregatedCost"/>
+    /// 四态区分（审查 P1-1，契约"不要只读 KnownCostUsd"）：
     /// (x,*) 已知成本（+ 下限标记）；(null,true) 全未知 → "cost unknown"；(null,false) 无成本数据 → 不显示成本行。
     /// </summary>
     public static string DailyTooltipText(DailyUsagePoint p)
@@ -863,9 +898,9 @@ public partial class TrendChart : UserControl
         var lines = new List<string>
         {
             p.Day,
-            $"in  {FormatCompactTooltipValue(p.InputTokens)}",
-            $"out {FormatCompactTooltipValue(p.OutputTokens)}",
-            $"tot {FormatCompactTooltipValue(p.TotalTokens)} tok",
+            $"in  {FormatCompactTokens(p.InputTokens)}",
+            $"out {FormatCompactTokens(p.OutputTokens)}",
+            $"tot {FormatCompactTokens(p.TotalTokens)} tok",
         };
 
         if (p.Cost.KnownCostUsd is { } known)
@@ -893,15 +928,6 @@ public partial class TrendChart : UserControl
             : $"{p.Day}\nno cost data";
 
     /// <summary>
-    /// 图内 tooltip 的 token 数：紧凑短单位（K/M/B/T/Q，FormatCompact tickPrecision=false 全精度档），
-    /// 与轴刻度 <see cref="FormatCompactAxisValue"/> 同制（同一处软件约束的两份精度档）。
-    /// ScottPlot 内渲染无 CJK 字形，中文 UI 也恒为 ASCII 单位；Avalonia 弹层（环形图/热力图 tooltips）
-    /// 的 token 数走 <see cref="FormatCompactTokens"/>——随 UI 语言给万/亿口径、并复用同一进位算法。
-    /// 成本行保持 <see cref="FormatCostUsd"/> 两位小数（对账口径）；千分位全量数值只在明细/导出口径出现。
-    /// </summary>
-    public static string FormatCompactTooltipValue(double tokens) => FormatCompact(tokens, EnglishUnits, tickPrecision: false);
-
-    /// <summary>
     /// 成本两位小数 USD（对账口径）。HasUnknownCost=true 时以 "+" 结尾表示"已知成本下限，实际更高"；
     /// 无任何已知成本返回 null（调用方决定是否展示成本行）。未知成本绝不静默折算为 0。
     /// </summary>
@@ -922,8 +948,9 @@ public partial class TrendChart : UserControl
     /// 英文千进制 K/M/B/T/Q（1B 显示 1B 而非 1000M）；中文万进制 万/亿/万亿（口语直读——5882万
     /// 而非 5.88千万，1.23亿 而非 123百万；万进制是中文数字的原生分组）。尾数 ≥1000 取整、≥100
     /// 一位小数、其余两位（封顶 3~4 位有效数字）；尾数取整越档（如 9999.5万 → "10000万"）升入
-    /// 上一档（"1亿"），杜绝 "10000万"/"1000M" 式越档尾数。仅 Avalonia 文本消费；ScottPlot 轴刻度
-    /// 走 <see cref="FormatCompactAxisValue"/>（无 CJK 字形，恒为 ASCII 单位）。
+    /// 上一档（"1亿"），杜绝 "10000万"/"1000M" 式越档尾数。Avalonia 文本消费（KPI/列表/环心/
+    /// 环形图与热力图 tooltip、TrendChart 悬停浮层）；ScottPlot 轴刻度走
+    /// <see cref="FormatCompactAxisValue"/>（无 CJK 字形，恒为 ASCII 单位）。
     /// </summary>
     public static string FormatCompactTokens(double value) =>
         FormatCompact(value,
