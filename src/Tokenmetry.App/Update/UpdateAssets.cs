@@ -7,8 +7,14 @@ namespace Tokenmetry.App.Update;
 /// <summary>Release 资产的唯一出处：仓库、资产命名（与 CI 产物名严格一致）、平台挑选与镜像列表。</summary>
 public static class UpdateAssets
 {
-    /// <summary>GitHub 仓库 slug（release.sh / CI workflow / 应用内检查三处共用同一个事实：tag = v{csproj Version}）。</summary>
+    /// <summary>GitHub 仓库 slug（release.sh / CI workflow / 应用内检查 / 关于面板三处共用同一个事实：tag = v{csproj Version}）。</summary>
     public const string Repository = "cholf5/tokenmetry";
+
+    /// <summary>仓库主页（关于面板「仓库」行出口，I-041）。</summary>
+    public const string RepositoryUrl = $"https://github.com/{Repository}";
+
+    /// <summary>仓库 LICENSE 文件直链（关于面板「许可」行出口，I-041；默认分支 main）。</summary>
+    public const string LicenseUrl = $"https://github.com/{Repository}/blob/main/LICENSE";
 
     /// <summary>浏览器打开的 Release 列表页——无网络细节可诊断时的逃生口。</summary>
     public static string ReleasesPageUrl => $"https://github.com/{Repository}/releases";

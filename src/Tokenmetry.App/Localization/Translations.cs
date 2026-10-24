@@ -195,6 +195,11 @@ public sealed class Translations : INotifyPropertyChanged
         // I-039 关于区（版本 + 更新检查）
         [nameof(AboutTitle)] = "关于",
         [nameof(LabelCurrentVersion)] = "当前版本",
+        // I-041 关于区法律信息行（AGPL-3.0 §7(d) Appropriate Legal Notices：版权 + 无担保声明）
+        [nameof(LabelCopyright)] = "版权",
+        [nameof(LabelLicense)] = "许可",
+        [nameof(LabelRepository)] = "仓库",
+        [nameof(AboutWarrantyHint)] = "本程序不提供任何担保；依 GNU AGPL-3.0 条款分发。",
         [nameof(SettingsCheckUpdate)] = "检查更新",
         [nameof(SettingsDownloadUpdate)] = "下载更新包",
         [nameof(SettingsOpenReleasePage)] = "打开 Release 页",
@@ -553,6 +558,10 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(LabelSettingsFile)] = "Settings file",
         [nameof(AboutTitle)] = "About",
         [nameof(LabelCurrentVersion)] = "Version",
+        [nameof(LabelCopyright)] = "Copyright",
+        [nameof(LabelLicense)] = "License",
+        [nameof(LabelRepository)] = "Repository",
+        [nameof(AboutWarrantyHint)] = "This program comes with no warranty; it is distributed under the terms of the GNU AGPL-3.0.",
         [nameof(SettingsCheckUpdate)] = "Check for updates",
         [nameof(SettingsDownloadUpdate)] = "Download update",
         [nameof(SettingsOpenReleasePage)] = "Open the Release page",
@@ -958,6 +967,10 @@ public sealed class Translations : INotifyPropertyChanged
     public string LabelSettingsFile => Get();
     public string AboutTitle => Get();
     public string LabelCurrentVersion => Get();
+    public string LabelCopyright => Get();
+    public string LabelLicense => Get();
+    public string LabelRepository => Get();
+    public string AboutWarrantyHint => Get();
     public string SettingsCheckUpdate => Get();
     public string SettingsDownloadUpdate => Get();
     public string SettingsOpenReleasePage => Get();
