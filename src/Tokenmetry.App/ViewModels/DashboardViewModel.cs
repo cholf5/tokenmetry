@@ -94,14 +94,15 @@ public partial class DashboardViewModel : ViewModelBase
 
     public bool IsDebugInfoVisible => _settings.ShowDebugInfo && !string.IsNullOrWhiteSpace(DebugInfo);
 
-    /// <summary>异常检测的展示载荷（D-015）：标题与用户文案在 raise 点按 Kind 取串
-    /// （FormatAnomalyMessage 同口径），订阅方直接展示，不再接触 Core 数据结构。</summary>
-    public sealed record AnomalyRaised(string Title, string Message);
+    /// <summary>异常检测的展示载荷（D-015；Q-011 增 Ratio）：标题与用户文案在 raise 点按 Kind
+    /// 取串（FormatAnomalyMessage 同口径），订阅方直接展示，不再接触 Core 数据结构；
+    /// Ratio = 检测器原始倍率（仅 daily_cost_spike 有值），供弹层徽标紧凑倍数文案，无则 null。</summary>
+    public sealed record AnomalyRaised(string Title, string Message, decimal? Ratio = null);
 
     /// <summary>
-    /// AnomalyDetector 既有输出的同源信号（D-015 弹层 Warn 态消费）：RefreshAsync 内检测到异常时，
-    /// 与 ISystemNotification 通知同一循环逐条 raise。通知可被设置关掉，本事件不关——订阅方
-    /// （状态栏弹层）是"当前状态"的展示面，与"是否弹 toast"的偏好正交。
+    /// AnomalyDetector 既有输出的同源信号（D-015 弹层消费；Q-011 起落今日花费 KPI 徽标）：
+    /// RefreshAsync 内检测到异常时，与 ISystemNotification 通知同一循环逐条 raise。通知可被设置关掉，
+    /// 本事件不关——订阅方（状态栏弹层）是"当前状态"的展示面，与"是否弹 toast"的偏好正交。
     /// </summary>
     public event EventHandler<AnomalyRaised>? AnomalyDetected;
 
@@ -224,10 +225,11 @@ public partial class DashboardViewModel : ViewModelBase
                                 FormatAnomalyMessage(anomaly, recentHistory.Count));
                         }
 
-                        // 同源信号：无论 toast 开关，检测到异常即 raise（D-015 弹层 Warn 态；见事件注释）
+                        // 同源信号：无论 toast 开关，检测到异常即 raise（D-015 弹层异常徽标消费；见事件注释）
                         AnomalyDetected?.Invoke(this, new AnomalyRaised(
                             Translations.Instance.AnomalyToastTitle,
-                            FormatAnomalyMessage(anomaly, recentHistory.Count)));
+                            FormatAnomalyMessage(anomaly, recentHistory.Count),
+                            anomaly.Ratio));
                     }
                 }
             }

@@ -106,7 +106,6 @@ public sealed class Translations : INotifyPropertyChanged
         // ── 状态栏快捷信息窗（D-015 StatusPopoverView / StatusPopoverViewModel）──
         [nameof(PopoverLiveIdle)] = "实时",
         [nameof(PopoverLiveActive)] = "工作中",
-        [nameof(PopoverLiveWarn)] = "注意",
         [nameof(PopoverScanning)] = "扫描中…",
         [nameof(PopoverTodayTokens)] = "今日 Token",
         [nameof(PopoverTodayTokensCap)] = "跨所有 Agent",
@@ -122,6 +121,9 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(PopoverActiveBannerSubtitleFormat)] = "当前速度 {0} · 按刷新增量估算",
         [nameof(PopoverRowRateFormat)] = "当前 {0}",
         [nameof(PopoverRowLastActiveFormat)] = "最近活动 {0:HH:mm}",
+        // Q-011 今日花费异常徽标：Ratio 有值走紧凑倍数，无值通用文案（不伪造倍数）
+        [nameof(PopoverCostWarnBadgeFormat)] = "↑{0:0.0}× 均值",
+        [nameof(PopoverCostWarnBadge)] = "成本异常",
 
         // ── 设置页（SettingsView / SettingsViewModel）──
         [nameof(SourcesPanelTitle)] = "已识别的数据源",
@@ -473,7 +475,6 @@ public sealed class Translations : INotifyPropertyChanged
         // ── 状态栏快捷信息窗（D-015）──
         [nameof(PopoverLiveIdle)] = "Live",
         [nameof(PopoverLiveActive)] = "Working",
-        [nameof(PopoverLiveWarn)] = "Alert",
         [nameof(PopoverScanning)] = "Scanning…",
         [nameof(PopoverTodayTokens)] = "Today's tokens",
         [nameof(PopoverTodayTokensCap)] = "Across all agents",
@@ -489,6 +490,8 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(PopoverActiveBannerSubtitleFormat)] = "Current rate {0} · from refresh delta",
         [nameof(PopoverRowRateFormat)] = "Now {0}",
         [nameof(PopoverRowLastActiveFormat)] = "Last activity {0:HH:mm}",
+        [nameof(PopoverCostWarnBadgeFormat)] = "↑{0:0.0}× avg",
+        [nameof(PopoverCostWarnBadge)] = "Cost anomaly",
 
         [nameof(SourcesPanelTitle)] = "Recognized data sources",
         [nameof(ThSource)] = "Source",
@@ -911,7 +914,6 @@ public sealed class Translations : INotifyPropertyChanged
     // ── 状态栏快捷信息窗（D-015）──
     public string PopoverLiveIdle => Get();
     public string PopoverLiveActive => Get();
-    public string PopoverLiveWarn => Get();
     public string PopoverScanning => Get();
     public string PopoverTodayTokens => Get();
     public string PopoverTodayTokensCap => Get();
@@ -927,6 +929,8 @@ public sealed class Translations : INotifyPropertyChanged
     public string PopoverActiveBannerSubtitleFormat => Get();
     public string PopoverRowRateFormat => Get();
     public string PopoverRowLastActiveFormat => Get();
+    public string PopoverCostWarnBadgeFormat => Get();
+    public string PopoverCostWarnBadge => Get();
 
     // ── 设置页 ──
     public string SourcesPanelTitle => Get();

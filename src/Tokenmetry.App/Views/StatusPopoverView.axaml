@@ -8,9 +8,11 @@
              mc:Ignorable="d"
              x:Class="Tokenmetry.App.Views.StatusPopoverView"
              x:DataType="vm:StatusPopoverViewModel">
-    <!-- [D-015] 状态栏快捷信息窗 · 内容层（跨平台共享 UserControl，壳层在 D-016）：
-         信息架构按原型 docs/design/tokenmetry_statusbar_prototype.html 锁定——头部三态灯 +
-         三格 KPI + Token 构成条 + 主要 Agent Top4 + 三态 banner + footer 快捷入口。
+    <!-- [D-015/Q-011] 状态栏快捷信息窗 · 内容层（跨平台共享 UserControl，壳层在 D-016）：
+         信息架构按原型 docs/design/tokenmetry_statusbar_prototype.html 锁定——头部状态灯 +
+         三格 KPI + Token 构成条 + 主要 Agent Top4 + 速率 banner + footer 快捷入口。
+         Q-011 修正：原型/初版的 Warn banner 撤除——日尺度异常全天常驻会整日挤掉转瞬即逝的
+         实时速率，归位到今日花费 KPI 格徽标（popover-cost-warn-badge），两条信息正交并存。
          落地偏离原型（卡内修正项）：Agent 图标用真品牌标（agent-chip 机制）/ 颜色全令牌化
          DynamicResource（本文件零硬编码色值，headless 断言固化）/ 最小字号 10px /
          构成条三段色与总览页 Token 构成同令牌（AppTokenType*，不随明暗翻转）。
@@ -42,7 +44,8 @@
             <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
         </Style>
-        <!-- 状态灯：Idle 绿 / Active 蓝 / Warn 橙（随 VM 态类切换；原型 .live 的绿色点同语义） -->
+        <!-- 状态灯：Idle 绿 / Active 蓝（随 VM 态类切换；原型 .live 的绿色点同语义）；
+             异常不改变灯色（Q-011：灯只反映实时态，异常由 KPI 徽标承载） -->
         <Style Selector="Ellipse.popover-live-dot">
             <Setter Property="Width" Value="6"/>
             <Setter Property="Height" Value="6"/>
@@ -51,9 +54,6 @@
         <Style Selector="Ellipse.popover-live-dot.active">
             <Setter Property="Fill" Value="{DynamicResource AppAccentBlueBrush}"/>
         </Style>
-        <Style Selector="Ellipse.popover-live-dot.warn">
-            <Setter Property="Fill" Value="{DynamicResource AppAccentOrangeBrush}"/>
-        </Style>
         <Style Selector="Button.popover-icon-btn">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -61,7 +61,7 @@
             <Setter Property="Padding" Value="4,0"/>
         </Style>
 
-        <!-- 三态 banner ← 原型 .banner（Active 蓝调）/ .banner.warn（橙调） -->
+        <!-- 速率 banner ← 原型 .banner（Active 蓝调）；warn 变体随 Q-011 撤除（异常归位 KPI 徽标） -->
         <Style Selector="Border.popover-banner">
             <Setter Property="CornerRadius" Value="9"/>
             <Setter Property="Padding" Value="10,9"/>
@@ -70,17 +70,25 @@
             <Setter Property="BorderBrush" Value="{DynamicResource AppBannerActiveLineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
-        <Style Selector="Border.popover-banner.warn">
-            <Setter Property="Background" Value="{DynamicResource AppBannerWarnBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AppBannerWarnLineBrush}"/>
-        </Style>
         <Style Selector="Ellipse.popover-banner-dot">
             <Setter Property="Width" Value="8"/>
             <Setter Property="Height" Value="8"/>
             <Setter Property="Fill" Value="{DynamicResource AppAccentBlueBrush}"/>
         </Style>
-        <Style Selector="Ellipse.popover-banner-dot.warn">
-            <Setter Property="Fill" Value="{DynamicResource AppAccentOrangeBrush}"/>
+        <!-- 今日花费异常徽标（Q-011）：日尺度异常贴在它描述的数字旁；配色复用 D-015 warn
+             banner 的既有令牌（AppBannerWarn*），文本用橙强调（明暗各自协调值） -->
+        <Style Selector="Border.popover-cost-warn-badge">
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Padding" Value="5,1"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource AppBannerWarnBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBannerWarnLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.popover-cost-warn-badge TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppAccentOrangeBrush}"/>
         </Style>
         <!-- KPI 三格与 metric 卡 ← 原型 .stats/.metric；字号 22/17/12/10（修正项 3：下限 10） -->
         <Style Selector="TextBlock.popover-cap">
@@ -150,8 +158,7 @@
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5"
                                 Margin="12,0,0,0" VerticalAlignment="Center">
                         <Ellipse Classes="popover-live-dot"
-                                 Classes.active="{Binding StateClassActive}"
-                                 Classes.warn="{Binding StateClassWarn}"/>
+                                 Classes.active="{Binding StateClassActive}"/>
                         <TextBlock x:Name="LiveTextBlock" Text="{Binding LiveText}" FontSize="10"
                                    Foreground="{DynamicResource AppMutedTextBrush}"
                                    VerticalAlignment="Center"/>
@@ -167,12 +174,10 @@
             </Border>
 
             <StackPanel Margin="16">
-                <!-- 三态 banner（Idle 隐藏） -->
-                <Border Classes="popover-banner" Classes.warn="{Binding IsBannerWarn}"
-                        IsVisible="{Binding IsBannerVisible}">
+                <!-- 速率 banner（Q-011：只承载实时速率，Idle 隐藏；异常在 KPI 花费格徽标） -->
+                <Border Classes="popover-banner" IsVisible="{Binding IsBannerVisible}">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
                         <Ellipse Grid.Column="0" Classes="popover-banner-dot"
-                                 Classes.warn="{Binding IsBannerWarn}"
                                  VerticalAlignment="Top" Margin="0,4,0,0"/>
                         <StackPanel Grid.Column="1" Spacing="1">
                             <TextBlock Text="{Binding BannerTitle}" FontSize="11" FontWeight="SemiBold"
@@ -197,8 +202,16 @@
                     <StackPanel Grid.Column="1" Spacing="3">
                         <TextBlock Classes="popover-cap"
                                    Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Text="{Binding TodayCostText}" FontSize="17" FontWeight="Bold"
-                                   Foreground="{DynamicResource AppTextBrush}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="{Binding TodayCostText}" FontSize="17" FontWeight="Bold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AppTextBrush}"/>
+                            <!-- Q-011 异常徽标：日尺度异常贴在它描述的数字旁；Tooltip = 完整异常消息 -->
+                            <Border Classes="popover-cost-warn-badge" IsVisible="{Binding IsCostWarn}"
+                                    ToolTip.Tip="{Binding CostWarnDetail}">
+                                <TextBlock Text="{Binding CostWarnBadgeText}"/>
+                            </Border>
+                        </StackPanel>
                         <TextBlock Classes="popover-cap"
                                    Text="{Binding MetaEstimateUsd, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
