@@ -44,11 +44,12 @@ public sealed class CostBasisRowViewModel
 /// <item>估算总成本——<see cref="UsageKpiResult.Cost"/>（<see cref="AggregatedCost"/> 四态，
 /// 复用 <see cref="OverviewViewModel.FormatCost"/>：未知绝不折 0，D-010 同一红线）；存在未知贡献时
 /// 页面追加「已知成本下限」说明行（<see cref="UnknownCostNoteText"/>）。</item>
-/// <item>输入 / 输出占比——<b>决策点定案（方案 b，Dev Log 已记录）</b>：I-028/I-029 契约与
-/// <see cref="UsageRecord.CostUsd"/> 均只有混合成本，无按方向（输入/输出）的计价拆分；按方向拆价需
-/// 重跑定价口径（波及与 ccusage 的对账）。本页以 <b>Token 构成占比</b>代替并在 KPI 脚注<b>显式标注</b>
-/// 「按 Token 构成展示 · 成本按方向拆价口径待扩展」——分母为 Σ TotalTokens（含缓存相关，缓存单列说明），
-/// 与原型 input% + output% ≈ 86%、缓存占余量的构成一致；禁止无标签的隐式近似。</item>
+/// <item>输入 / 输出 / 缓存读 / 缓存写占比——<b>决策点定案（方案 b，Dev Log 已记录；Q-007 扩四卡）</b>：
+/// I-028/I-029 契约与 <see cref="UsageRecord.CostUsd"/> 均只有混合成本，无按方向（输入/输出）的计价拆分；
+/// 按方向拆价需重跑定价口径（波及与 ccusage 的对账）。本页以 <b>Token 构成占比</b>代替并在 KPI 脚注
+/// <b>显式标注</b>「按 Token 构成展示 · 成本按方向拆价口径待扩展」——分母为 Σ TotalTokens，
+/// 四张占比卡的分子（输入 / 输出 / 缓存读 / 缓存写）合计即分母，占比拼起来覆盖全部 Token；
+/// 禁止无标签的隐式近似。</item>
 /// <item>待确认价格——<see cref="PricingEngine.GetUnpricedModels()"/>（I-003/I-024 缺价权威清单）。
 /// <b>全局口径</b>：清单按引擎计价过程累计、不随时间范围 / Agent 筛选变化（KPI 脚注说明，防误读）；
 /// 每次加载重读引擎快照。</item>
@@ -80,6 +81,14 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
     /// <summary>输出占比（Token 构成口径，显式标注见视图脚注）。</summary>
     [ObservableProperty]
     private string _outputShareText = "—";
+
+    /// <summary>缓存读取占比（Token 构成口径，Q-007 起单列成卡）。</summary>
+    [ObservableProperty]
+    private string _cacheReadShareText = "—";
+
+    /// <summary>缓存写占比（Token 构成口径，Q-007 起单列成卡）。</summary>
+    [ObservableProperty]
+    private string _cacheWriteShareText = "—";
 
     /// <summary>待确认价格模型数（如 "3 个"；引擎清单为空为 "0 个"）。</summary>
     [ObservableProperty]
@@ -156,9 +165,11 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
 
             TotalCostText = OverviewViewModel.FormatCost(kpi.Cost);
             UnknownCostNoteText = BuildUnknownCostNote(kpi.Cost);
-            var (inputShare, outputShare) = CreateDirectionShares(daily);
+            var (inputShare, outputShare, cacheReadShare, cacheWriteShare) = CreateCompositionShares(daily);
             InputShareText = OverviewViewModel.FormatShare(inputShare);
             OutputShareText = OverviewViewModel.FormatShare(outputShare);
+            CacheReadShareText = OverviewViewModel.FormatShare(cacheReadShare);
+            CacheWriteShareText = OverviewViewModel.FormatShare(cacheWriteShare);
             UnpricedCountText = string.Format(
                 Translations.Instance.UnpricedCountFormat,
                 unpriced.Count.ToString("N0", CultureInfo.InvariantCulture));
@@ -177,27 +188,31 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
     }
 
     /// <summary>
-    /// 输入 / 输出占比（Token 构成口径，internal 供测试对账）：分子 ΣInputTokens / ΣOutputTokens，
-    /// 分母 ΣTotalTokens（含缓存相关——缓存单列说明，与原型 input% + output% ≈ 86% 的构成一致）。
-    /// 分母为 0 时双返回 null（无基数，"—"，不伪造 0%）。
+    /// 四项 Token 构成占比（internal 供测试对账，Q-007）：分子 ΣInput / ΣOutput / ΣCacheRead /
+    /// ΣCacheCreation（缓存写，Anthropic 口径 cache_creation），分母同为 ΣTotalTokens——四项分子
+    /// 合计即分母（total = 输入 + 输出 + 缓存读 + 缓存写，与 ccusage / facts 口径一致），占比
+    /// 拼起来覆盖全部 Token（逐项 F1 舍入后可能差 ±0.2pp）。分母为 0 时四项均 null（无基数，
+    /// "—"，不伪造 0%）。
     /// </summary>
-    internal static (decimal? InputShare, decimal? OutputShare) CreateDirectionShares(
+    internal static (decimal? InputShare, decimal? OutputShare, decimal? CacheReadShare, decimal? CacheWriteShare) CreateCompositionShares(
         IReadOnlyList<DailyUsagePoint> daily)
     {
-        long input = 0, output = 0, total = 0;
+        long input = 0, output = 0, cacheRead = 0, cacheWrite = 0, total = 0;
         foreach (var point in daily)
         {
             input += point.InputTokens;
             output += point.OutputTokens;
+            cacheRead += point.CacheReadTokens;
+            cacheWrite += point.CacheCreationTokens;
             total += point.TotalTokens;
         }
 
         if (total == 0)
         {
-            return (null, null);
+            return (null, null, null, null);
         }
 
-        return ((decimal)input / total, (decimal)output / total);
+        return ((decimal)input / total, (decimal)output / total, (decimal)cacheRead / total, (decimal)cacheWrite / total);
     }
 
     /// <summary>

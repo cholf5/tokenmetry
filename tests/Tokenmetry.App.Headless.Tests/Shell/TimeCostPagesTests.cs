@@ -450,8 +450,8 @@ public class TimeCostPagesTests
     [AvaloniaFact]
     public void Cost_kpis_bind_estimated_cost_and_token_composition_shares()
     {
-        // 占比为 Token 构成口径（决策点方案 b，脚注显式标注）：in 3700 / out 1950 / tot 7950
-        // → 输入 46.5%、输出 24.5%（缓存相关占余量，单列说明不进两张卡）。
+        // 占比为 Token 构成口径（Q-007 扩四项，脚注显式标注）：in 3700 / out 1950 /
+        // 缓存读 2200 / 缓存写 100 / tot 7950 → 46.5% / 24.5% / 27.7% / 1.3%（四项合计全部 Token）。
         var host = CreateCostHost(new StubQueryService
         {
             Kpi = new UsageKpiResult { TotalTokens = 7_950, Cost = new AggregatedCost(3.92m, true) },
@@ -461,6 +461,8 @@ public class TimeCostPagesTests
         Assert.Equal("$3.92+", host.Vm.TotalCostText); // 混合未知：已知成本下限 + "+"（同 D-010 口径）
         Assert.Equal("46.5%", host.Vm.InputShareText);
         Assert.Equal("24.5%", host.Vm.OutputShareText);
+        Assert.Equal("27.7%", host.Vm.CacheReadShareText);
+        Assert.Equal("1.3%", host.Vm.CacheWriteShareText);
         Assert.True(host.Vm.HasUnknownCostNote);
         Assert.Contains("已知成本下限", host.Vm.UnknownCostNoteText);
         Assert.Equal("0 个", host.Vm.UnpricedCountText); // 空引擎 → 0 个（诚实计数，不隐藏）
@@ -504,6 +506,8 @@ public class TimeCostPagesTests
         });
         Assert.Equal("—", noTokens.Vm.InputShareText);
         Assert.Equal("—", noTokens.Vm.OutputShareText);
+        Assert.Equal("—", noTokens.Vm.CacheReadShareText);
+        Assert.Equal("—", noTokens.Vm.CacheWriteShareText);
     }
 
     [AvaloniaFact]
@@ -567,8 +571,10 @@ public class TimeCostPagesTests
         var texts = RenderAndGetTexts(new CostAnalysisView { DataContext = host.Vm });
         Assert.Contains(texts, t => t!.Contains("全局口径") && t.Contains("不随筛选变化"));
         Assert.Contains(texts, t => t == "1 个");
-        // Token 构成口径的显式标注（方案 b）在两张占比卡脚注可见
+        // Token 构成口径的显式标注（Q-007 四卡）在占比卡脚注可见；缓存读/写两卡标题与数值渲染
         Assert.Contains(texts, t => t!.Contains("按 Token 构成展示") && t.Contains("拆价口径待扩展"));
+        Assert.Contains(texts, t => t == "27.7%");
+        Assert.Contains(texts, t => t == "1.3%");
     }
 
     [AvaloniaFact]
