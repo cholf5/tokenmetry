@@ -93,6 +93,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| Q-012 | 模型头像（图标选择器四模式）——新增模型也有头像，全应用显示统一 | P2 | 2026-10-24 |
 | Q-011 | 托盘弹层 Warn banner 独占——日尺度异常归位今日花费 KPI 徽标，banner 还给实时速率 | P2 | 2026-10-24 |
 | Q-010 | 模型目录 Section 英文漏覆盖——29 键回落中文（I-035 欠账清偿 + En↔Zh 键奇偶测试固化） | P2 | 2026-10-24 |
 | Q-009 | 未识别模型兜底图标——◇ 文本字形 → circle-help 矢量问号（不冒充品牌标） | P3 | 2026-10-24 |

@@ -447,6 +447,80 @@
     </Style>
     <!-- phi / generic：无 lobe 对应，不设 logo 规则——Image 保持隐藏、字形兜底（诚实回退） -->
 
+    <!-- 模型自定义头像（图标选择器四模式，ModelChip.Avatar 附加属性驱动伪类）：
+         letter = 单字母字形（与 Φ 兜底同观感：中性前景、无底色）；color = 色块即芯片背景
+         （ModelChip 就地着色，本地值压得过 model-chip-lg 的中性软底样式 setter），行内槽补小
+         圆角与 lg 槽 9px 圆角观感对齐；image = 上传图（DataUriImageConverter 按串缓存解码，
+         圆角已在 64×64 编码时烙进像素——Border.ClipToBounds 不做圆角裁切，避开 Avalonia 12
+         剪裁语义坑）。自定义三模式下厂商伪类全部清空：logo / Φ / 兜底问号都不该出现。 -->
+    <Style Selector="Border.model-letter TextBlock">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="Border.model-chip.model-color">
+        <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+    <Style Selector="Border.model-chip Image.model-avatar">
+        <Setter Property="Width" Value="16"/>
+        <Setter Property="Height" Value="16"/>
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.model-chip-lg Image.model-avatar">
+        <Setter Property="Width" Value="22"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.model-image Image.model-avatar">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+
+    <!-- 图标选择器（模型编辑弹层）的格子与色盘：tile = 厂商格子按钮（选中描边强调），
+         swatch = 色盘色块（颜色为用户可选内容，HexToBrushConverter 就地着色，非主题令牌），
+         mode-chip = 模式段选 RadioButton 收敛为 chip 观感（对齐 filter-chip 配方）。 -->
+    <Style Selector="Button.avatar-tile">
+        <Setter Property="Padding" Value="5"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Button.avatar-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
+    </Style>
+    <Style Selector="Button.avatar-tile.selected">
+        <Setter Property="BorderBrush" Value="{DynamicResource AppLinkBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
+    </Style>
+    <Style Selector="Border.avatar-swatch">
+        <Setter Property="Width" Value="24"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="Button.avatar-mode">
+        <Setter Property="Padding" Value="9,3"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppChipTextBrush}"/>
+    </Style>
+    <Style Selector="Button.avatar-mode:checked">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+    </Style>
+    <Style Selector="Button.avatar-mode:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppChipTextBrush}"/>
+    </Style>
+    <Style Selector="Button.avatar-mode:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+    </Style>
+
 
 
     <!-- 图例/表格圆点 ← 原型 .modeldot{width:7px;height:7px;border-radius:3px}，颜色由使用处给 AppSeries{N}Brush -->

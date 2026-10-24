@@ -144,8 +144,8 @@ public sealed class StatusPopoverAgentRowViewModel
 /// "1.14亿 / $3.97"，修正项 3 统一与 Agent 行同格式——token 副题退场、成本占比文案退场，
 /// 占比信息由 bar 承载）：tokens 走 FormatCompactTokens（与 KPI/Agent 行同口径），价格走
 /// OverviewViewModel.FormatCost 四态诚实文案（未知成本不冒充 0）。mini bar 值 = CostShare × 100
-/// （本行含未知成本时 CostShare 为 null → 空轨道，不伪造）。模型图标走 ModelVisualMap
-/// （model-chip 同机制，未识别落 generic 字形兜底）。不可变小对象，由
+/// （本行含未知成本时 CostShare 为 null → 空轨道，不伪造）。模型头像走 ModelAvatarResolver
+/// （目录条目自定义头像跟随；无解析器 / 未关联名字回落名推断）。不可变小对象，由
 /// <see cref="StatusPopoverViewModel"/> 整体替换集合触发绑定刷新。
 /// </summary>
 public sealed class StatusPopoverModelRowViewModel
@@ -155,22 +155,20 @@ public sealed class StatusPopoverModelRowViewModel
         AggregatedCost cost,
         decimal? costShare,
         long tokens,
-        Func<string, (string Vendor, char Glyph)> visualResolver)
+        Func<string, ModelAvatarVisual>? visualResolver)
     {
         Name = name;
         TokensCostText = TrendChart.FormatCompactTokens(tokens) + " / " + OverviewViewModel.FormatCost(cost);
         BarValue = costShare is { } share ? Math.Clamp((double)(share * 100m), 0d, 100d) : 0d;
-        var visual = visualResolver(name);
-        LogoVendor = visual.Vendor;
-        Glyph = visual.Glyph.ToString();
+        // 头像：目录条目自定义头像（图标选择器四模式）跟随；无解析器（样式预览）/未关联名字
+        // 回落内置名推断。
+        Avatar = visualResolver?.Invoke(name) ?? ModelAvatarVisual.FromName(name);
     }
 
     public string Name { get; }
 
-    /// <summary>厂商伪类名（ModelChip.Vendor 附加属性消费；未识别落 generic 字形兜底）。</summary>
-    public string LogoVendor { get; }
-
-    public string Glyph { get; }
+    /// <summary>头像视觉（ModelChip.Avatar 附加属性消费；未识别落 generic 兜底）。</summary>
+    public ModelAvatarVisual Avatar { get; }
 
     /// <summary>右列单行文案「紧凑 tokens / 价格」（修正项 3 与 Agent 行统一；无成本数据为 "… / —"）。</summary>
     public string TokensCostText { get; }
@@ -180,11 +178,12 @@ public sealed class StatusPopoverModelRowViewModel
 }
 
 /// <summary>
-/// D-015 状态栏快捷信息窗的内容层 VM：信息架构按原型锁定（头部三态灯 + 三格 KPI + Token 构成条
+/// D-015 状态栏快捷信息窗的内容层 VM：信息架构按原型锁定（头部状态灯 + 三格 KPI + Token 构成条
 /// + 主要 Agent Top4 + footer 快捷入口），数据全走既有管线——KPI/构成/Agent 用
 /// <see cref="IUsageQueryService"/> 今日窗口（与总览页同源同口径），速率用修正项 4 的差值口径
 /// （全局速率挂 <see cref="DashboardViewModel.TodayTokens"/> 每轮回写，分 Agent 用相邻两次
-/// Agent 查询快照配对），异常 Warn 接 <see cref="DashboardViewModel.AnomalyDetected"/> 同源信号。
+/// Agent 查询快照配对），异常接 <see cref="DashboardViewModel.AnomalyDetected"/> 同源信号落
+/// 今日花费 KPI 徽标（Q-011：不进 banner 抢占速率）。
 /// <para>线程纪律同 MainWindowViewModel：DashboardViewModel 的事件在线程池线程 raise，
 /// 全部状态回写经 <see cref="RunOnUIThread"/> marshal 到 UI 线程；查询按序号防护（同
 /// OverviewViewModel——弹层反复开关/轮次并发时旧响应在序号比对处丢弃）。</para>
@@ -207,6 +206,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     private readonly IUsageQueryService? _query;
     private readonly DashboardViewModel? _dashboard;
     private readonly DateRangeService? _dateService;
+    private readonly ModelAvatarResolver? _modelAvatars;
     private readonly Action<PageId>? _navigateToPage;
     private readonly Action<string>? _openAgentSessions;
     private readonly Action? _openSettings;
@@ -303,11 +303,13 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
         DateRangeService? dateService,
         Action<PageId>? navigateToPage = null,
         Action<string>? openAgentSessions = null,
-        Action? openSettings = null)
+        Action? openSettings = null,
+        ModelAvatarResolver? modelAvatars = null)
     {
         _query = query;
         _dashboard = dashboard;
         _dateService = dateService;
+        _modelAvatars = modelAvatars;
         _navigateToPage = navigateToPage;
         _openAgentSessions = openAgentSessions;
         _openSettings = openSettings;
@@ -518,11 +520,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
                 m.Cost,
                 m.CostShare,
                 m.TotalTokens,
-                name =>
-                {
-                    var visual = ModelVisualMap.Resolve(name);
-                    return (visual.Vendor, visual.Glyph);
-                }))
+                _modelAvatars is { } avatars ? avatars.Resolve : null))
             .ToList();
 
         // banner 的增量归属吃本 Apply 的新鲜 Agent 速率（轮次回写先于查询完成，归属滞后一轮时在此校正）

@@ -33,6 +33,28 @@
             <TextBlock Classes="page-subtitle" Text="{Binding ModelFormDisplayNameLabel, Source={x:Static loc:Translations.Instance}}"/>
             <TextBox Text="{Binding ModelFormDisplayName, Mode=TwoWay}"/>
         </StackPanel>
+        <!-- 头像区：预览芯片即入口（点击打开图标选择器弹层）；自动模式预览跟随 ID 输入实时推断 -->
+        <StackPanel Spacing="4">
+            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormAvatarLabel, Source={x:Static loc:Translations.Instance}}"/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="avatar-tile" HorizontalAlignment="Left"
+                        Command="{Binding OpenAvatarPickerCommand}"
+                        ToolTip.Tip="{Binding ModelFormAvatarHint, Source={x:Static loc:Translations.Instance}}">
+                    <Border Classes="model-chip-lg" c:ModelChip.Avatar="{Binding ModelFormAvatarPreview}">
+                        <Panel>
+                            <TextBlock Text="{Binding ModelFormAvatarPreview.GlyphText}"/>
+                            <Image Classes="model-logo"/>
+                            <Image Classes="model-avatar"
+                                   Source="{Binding ModelFormAvatarPreview.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
+                            <PathIcon Classes="app-icon model-fallback"
+                                      Data="{StaticResource AppIconCircleHelp}"/>
+                        </Panel>
+                    </Border>
+                </Button>
+                <TextBlock Classes="page-subtitle" TextWrapping="Wrap" MaxWidth="420" VerticalAlignment="Center"
+                           Text="{Binding ModelFormAvatarHint, Source={x:Static loc:Translations.Instance}}"/>
+            </StackPanel>
+        </StackPanel>
         <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
             <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Classes="page-subtitle" Text="{Binding ModelFormInputLabel, Source={x:Static loc:Translations.Instance}}"/>

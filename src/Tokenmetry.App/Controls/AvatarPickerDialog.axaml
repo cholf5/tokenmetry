@@ -1,0 +1,148 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Tokenmetry.App.ViewModels"
+             xmlns:loc="using:Tokenmetry.App.Localization"
+             xmlns:c="using:Tokenmetry.App.Controls"
+             xmlns:models="using:Tokenmetry.Core.Models"
+             x:Class="Tokenmetry.App.Controls.AvatarPickerDialog"
+             x:DataType="vm:DataPricingViewModel">
+    <!-- 模型头像图标选择器（模型编辑弹层之上的 overlay 内容）：模式段选 + 各模式载荷 + 顶部
+         实时预览。草稿态在 AvatarPickerViewModel，确定经 ConfirmAvatarPickerCommand 写回表单；
+         上传按钮的文件拾取与标准化处理在代码后置（需要 TopLevel，VM 不持窗口环境）。 -->
+    <StackPanel Spacing="10">
+        <TextBlock Classes="panel-title" Text="{Binding AvatarPickerTitle, Source={x:Static loc:Translations.Instance}}"/>
+
+        <!-- 预览行：实时所见即所得 + 上下文（正在编辑的模型 ID） -->
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <Border Classes="model-chip-lg" c:ModelChip.Avatar="{Binding AvatarPicker.Preview}">
+                <Panel>
+                    <TextBlock Text="{Binding AvatarPicker.Preview.GlyphText}"/>
+                    <Image Classes="model-logo"/>
+                    <Image Classes="model-avatar"
+                           Source="{Binding AvatarPicker.Preview.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
+                    <PathIcon Classes="app-icon model-fallback"
+                              Data="{StaticResource AppIconCircleHelp}"/>
+                </Panel>
+            </Border>
+            <TextBlock Classes="page-subtitle" Text="{Binding ModelFormId}"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+
+        <!-- 模式段选（EnumEqualsConverter 双向：ConvertBack 选中即回写枚举） -->
+        <StackPanel Orientation="Horizontal" Spacing="6">
+            <RadioButton Classes="avatar-mode" GroupName="avatarMode"
+                         Content="{Binding AvatarModeAuto, Source={x:Static loc:Translations.Instance}}"
+                         IsChecked="{Binding AvatarPicker.Mode, Mode=TwoWay, Converter={x:Static c:EnumEqualsConverter.Instance}, ConverterParameter={x:Static models:ModelAvatarKind.Auto}}"/>
+            <RadioButton Classes="avatar-mode" GroupName="avatarMode"
+                         Content="{Binding AvatarModeVendor, Source={x:Static loc:Translations.Instance}}"
+                         IsChecked="{Binding AvatarPicker.Mode, Mode=TwoWay, Converter={x:Static c:EnumEqualsConverter.Instance}, ConverterParameter={x:Static models:ModelAvatarKind.Vendor}}"/>
+            <RadioButton Classes="avatar-mode" GroupName="avatarMode"
+                         Content="{Binding AvatarModeLetter, Source={x:Static loc:Translations.Instance}}"
+                         IsChecked="{Binding AvatarPicker.Mode, Mode=TwoWay, Converter={x:Static c:EnumEqualsConverter.Instance}, ConverterParameter={x:Static models:ModelAvatarKind.Letter}}"/>
+            <RadioButton Classes="avatar-mode" GroupName="avatarMode"
+                         Content="{Binding AvatarModeColor, Source={x:Static loc:Translations.Instance}}"
+                         IsChecked="{Binding AvatarPicker.Mode, Mode=TwoWay, Converter={x:Static c:EnumEqualsConverter.Instance}, ConverterParameter={x:Static models:ModelAvatarKind.Color}}"/>
+            <RadioButton Classes="avatar-mode" GroupName="avatarMode"
+                         Content="{Binding AvatarModeImage, Source={x:Static loc:Translations.Instance}}"
+                         IsChecked="{Binding AvatarPicker.Mode, Mode=TwoWay, Converter={x:Static c:EnumEqualsConverter.Instance}, ConverterParameter={x:Static models:ModelAvatarKind.Image}}"/>
+        </StackPanel>
+
+        <!-- 各模式载荷区 -->
+        <Panel MinHeight="64">
+            <TextBlock Classes="page-subtitle" TextWrapping="Wrap" MaxWidth="500" HorizontalAlignment="Left"
+                       IsVisible="{Binding AvatarPicker.IsModeAuto}"
+                       Text="{Binding AvatarModeAutoHint, Source={x:Static loc:Translations.Instance}}"/>
+
+            <!-- 内置图标：ModelVisualMap.Vendors 全变体（含 phi 字形 / generic 兜底），任选不校验 -->
+            <StackPanel IsVisible="{Binding AvatarPicker.IsModeVendor}" Spacing="8">
+                <ItemsControl ItemsSource="{Binding AvatarPicker.VendorTiles}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AvatarVendorTileViewModel">
+                            <Button Classes="avatar-tile" Classes.selected="{Binding IsSelected}"
+                                    Command="{Binding $parent[ItemsControl].((vm:DataPricingViewModel)DataContext).AvatarPicker.SelectVendorCommand}"
+                                    CommandParameter="{Binding}">
+                                <Border Classes="model-chip-lg" c:ModelChip.Avatar="{Binding Visual}">
+                                    <Panel>
+                                        <TextBlock Text="{Binding Visual.GlyphText}"/>
+                                        <Image Classes="model-logo"/>
+                                        <PathIcon Classes="app-icon model-fallback"
+                                                  Data="{StaticResource AppIconCircleHelp}"/>
+                                    </Panel>
+                                </Border>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Classes="page-subtitle" TextWrapping="Wrap" MaxWidth="500" HorizontalAlignment="Left"
+                           Text="{Binding AvatarModeVendorHint, Source={x:Static loc:Translations.Instance}}"/>
+            </StackPanel>
+
+            <!-- 字母：1 字符（显示面积约束，用户拍板） -->
+            <StackPanel IsVisible="{Binding AvatarPicker.IsModeLetter}" Spacing="8">
+                <TextBox Width="120" MaxLength="1" HorizontalAlignment="Left"
+                         Watermark="{Binding AvatarLetterWatermark, Source={x:Static loc:Translations.Instance}}"
+                         Text="{Binding AvatarPicker.Letter, Mode=TwoWay}"/>
+                <TextBlock Classes="page-subtitle" TextWrapping="Wrap" MaxWidth="500" HorizontalAlignment="Left"
+                           Text="{Binding AvatarModeLetterHint, Source={x:Static loc:Translations.Instance}}"/>
+            </StackPanel>
+
+            <!-- 颜色：常量色盘（HexToBrushConverter 就地着色；选中格描边强调） -->
+            <StackPanel IsVisible="{Binding AvatarPicker.IsModeColor}" Spacing="8">
+                <ItemsControl ItemsSource="{Binding AvatarPicker.ColorTiles}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AvatarColorTileViewModel">
+                            <Button Classes="avatar-tile" Classes.selected="{Binding IsSelected}"
+                                    Padding="3" CornerRadius="8"
+                                    Command="{Binding $parent[ItemsControl].((vm:DataPricingViewModel)DataContext).AvatarPicker.SelectColorCommand}"
+                                    CommandParameter="{Binding}">
+                                <Border Classes="avatar-swatch"
+                                        Background="{Binding Hex, Converter={x:Static c:HexToBrushConverter.Instance}}"/>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Classes="page-subtitle" TextWrapping="Wrap" MaxWidth="500" HorizontalAlignment="Left"
+                           Text="{Binding AvatarModeColorHint, Source={x:Static loc:Translations.Instance}}"/>
+            </StackPanel>
+
+            <!-- 图片：上传即标准化（居中裁方 + 64×64 PNG 圆角，见 AvatarImageProcessor） -->
+            <StackPanel IsVisible="{Binding AvatarPicker.IsModeImage}" Spacing="8">
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Button Classes="Secondary"
+                            Content="{Binding AvatarUploadButton, Source={x:Static loc:Translations.Instance}}"
+                            Click="OnUploadAvatarClick"/>
+                    <Button Classes="link-btn" VerticalAlignment="Center"
+                            IsVisible="{Binding AvatarPicker.HasImage}"
+                            Content="{Binding AvatarImageClear, Source={x:Static loc:Translations.Instance}}"
+                            Command="{Binding AvatarPicker.ClearImageCommand}"/>
+                </StackPanel>
+                <TextBlock Classes="page-subtitle" TextWrapping="Wrap" MaxWidth="500" HorizontalAlignment="Left"
+                           Text="{Binding AvatarModeImageHint, Source={x:Static loc:Translations.Instance}}"/>
+                <TextBlock Classes="page-subtitle" TextWrapping="Wrap" MaxWidth="500" HorizontalAlignment="Left"
+                           Foreground="{DynamicResource AppAccentRedBrush}"
+                           IsVisible="{Binding AvatarPicker.IsImageDecodeFailed}"
+                           Text="{Binding AvatarUploadFailed, Source={x:Static loc:Translations.Instance}}"/>
+            </StackPanel>
+        </Panel>
+
+        <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+            <Button Classes="Secondary"
+                    IsEnabled="{Binding AvatarPicker.CanConfirm}"
+                    Content="{Binding AvatarPickerConfirm, Source={x:Static loc:Translations.Instance}}"
+                    Command="{Binding ConfirmAvatarPickerCommand}"/>
+            <Button Classes="link-btn"
+                    Content="{Binding ModelFormCancel, Source={x:Static loc:Translations.Instance}}"
+                    Command="{Binding CancelAvatarPickerCommand}"/>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

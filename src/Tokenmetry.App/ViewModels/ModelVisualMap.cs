@@ -37,6 +37,17 @@ internal static class ModelVisualMap
         return new ModelVisual(vendor, GlyphOf(vendor));
     }
 
+    /// <summary>厂商变体名 → 图标信息（<see cref="ModelAvatarVisual"/> 的 Vendor 头像与图标选择器
+    /// 格子的直接指定入口）：不做人名推断，名单外的变体（含手写脏值）一律落 generic 兜底——
+    /// 名单内的大小写变体收敛到小写规范名。phi 走本方法拿 Φ 字形（名字推断会把裸 "phi" 落 generic）。</summary>
+    public static ModelVisual ForVendor(string? vendorKey)
+    {
+        var vendor = vendorKey is { Length: > 0 } && Vendors.Contains(vendorKey, StringComparer.OrdinalIgnoreCase)
+            ? vendorKey.ToLowerInvariant()
+            : "generic";
+        return new ModelVisual(vendor, GlyphOf(vendor));
+    }
+
     internal static string ResolveVendor(string modelName)
     {
         var name = modelName.Trim();

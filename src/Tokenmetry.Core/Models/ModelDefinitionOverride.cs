@@ -30,8 +30,21 @@ public sealed class ModelDefinitionOverride
     /// 图标变体（约束到 <c>ModelVisualMap.Vendors</c> 的既有变体：claude / openai / gemini / glm /
     /// deepseek / qwen / kimi / llama / grok / mistral / doubao / minimax / cohere / ernie / hunyuan /
     /// phi / generic）；null = 走内置名推断。用户可把内置推断认不出的模型名指到某个厂商标。
+    /// AvatarKind ∈ {Auto, Vendor} 时的载荷。
     /// </summary>
     public string? LogoVendor { get; set; }
+
+    /// <summary>头像方式（图标选择器四模式 + 自动缺省）；null（旧 JSON 缺字段）按 Auto 读。</summary>
+    public ModelAvatarKind AvatarKind { get; set; } = ModelAvatarKind.Auto;
+
+    /// <summary>单字母头像的字母（AvatarKind = Letter 时有效；1 个字符）。</summary>
+    public string? AvatarLetter { get; set; }
+
+    /// <summary>纯色头像的颜色（AvatarKind = Color 时有效；#RRGGBB）。</summary>
+    public string? AvatarColor { get; set; }
+
+    /// <summary>上传图片头像（AvatarKind = Image 时有效；data:image/png;base64 data URI，64×64 PNG）。</summary>
+    public string? AvatarImage { get; set; }
 
     public decimal? InputPerMillion { get; set; }
 
@@ -60,11 +73,17 @@ public sealed class ModelDefinitionOverride
         && (CacheWritePerMillion is not { } write || write >= 0m)
         && (CacheReadPerMillion is not { } read || read >= 0m);
 
-    /// <summary>元数据是否构成覆盖（厂商 / 显示名 / 图标任一非空白）。</summary>
+    /// <summary>元数据是否构成覆盖（厂商 / 显示名 / 图标 / 头像任一非空白）。</summary>
     public bool HasMetadataOverride =>
         !string.IsNullOrWhiteSpace(Vendor)
         || !string.IsNullOrWhiteSpace(DisplayName)
-        || !string.IsNullOrWhiteSpace(LogoVendor);
+        || !string.IsNullOrWhiteSpace(LogoVendor)
+        || HasAvatarOverride;
+
+    /// <summary>头像是否被用户显式设置（方式非 Auto）。UI 保存时 Kind 与载荷同写同清，不产生
+    /// 中间态；手改 settings.json 留下的孤儿载荷（Auto + 载荷）不算覆盖——Bind 照 Auto 语义丢弃，
+    /// 不做半渲染。</summary>
+    public bool HasAvatarOverride => AvatarKind != ModelAvatarKind.Auto;
 
     /// <summary>条目是否有效：ID 合约定即可（价格与元数据全空也有效——用户先登记身份、价格后补）。</summary>
     public bool IsValid => ModelId.IsValid(ModelId.Normalize(Id));
@@ -78,6 +97,9 @@ public sealed class ModelDefinitionOverride
         var id = ModelId.Normalize(Id);
         var priceOverridden = HasPriceOverride;
         var hasPrice = priceOverridden || imported is { HasPrice: true };
+        // 头像只在用户显式选了模式（非 Auto）时构成覆盖；Auto = 回落名推断（含旧 LogoVendor
+        // 手写兼容），载荷照 Auto 语义丢弃——编辑弹层保存时 Kind 与载荷同写同清，不产生中间态。
+        var avatarSet = AvatarKind != ModelAvatarKind.Auto;
 
         var input = priceOverridden ? InputPerMillion!.Value : imported?.InputPerMillion ?? 0m;
         var output = priceOverridden ? OutputPerMillion!.Value : imported?.OutputPerMillion ?? 0m;
@@ -96,6 +118,10 @@ public sealed class ModelDefinitionOverride
             Vendor = FirstNonBlank(Vendor, imported?.Vendor) ?? string.Empty,
             DisplayName = FirstNonBlank(DisplayName, imported?.DisplayName),
             LogoVendor = FirstNonBlank(LogoVendor, imported?.LogoVendor),
+            AvatarKind = avatarSet ? AvatarKind : ModelAvatarKind.Auto,
+            AvatarLetter = avatarSet && AvatarKind == ModelAvatarKind.Letter ? AvatarLetter : null,
+            AvatarColor = avatarSet && AvatarKind == ModelAvatarKind.Color ? AvatarColor : null,
+            AvatarImage = avatarSet && AvatarKind == ModelAvatarKind.Image ? AvatarImage : null,
             SourceKey = imported?.SourceKey,
             Origin = imported is null ? ModelDefinitionOrigin.User : imported.Origin,
             IsPriceOverridden = priceOverridden,

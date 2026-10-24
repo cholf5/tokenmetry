@@ -47,8 +47,23 @@ public sealed class ModelDefinition
     /// <summary>展示名（如 "Claude Opus 4.8"）；空则界面回落到 <see cref="Id"/>。</summary>
     public string? DisplayName { get; init; }
 
-    /// <summary>用户显式指定的图标变体（约束见 <c>ModelVisualMap.Vendors</c>）；null = 走内置推断。</summary>
+    /// <summary>用户显式指定的图标变体（约束见 <c>ModelVisualMap.Vendors</c>）；null = 走内置推断。
+    /// AvatarKind ∈ {Auto, Vendor} 时的载荷（Vendor 显式指定 / Auto + 本字段 = 旧 settings.json
+    /// 手写 LogoVendor 的兼容语义）；Letter/Color/Image 头像模式下被解析层忽略。</summary>
     public string? LogoVendor { get; init; }
+
+    /// <summary>头像方式（图标选择器四模式 + 自动缺省）；决定图标槽渲染哪一层，见 <see cref="ModelAvatarKind"/>。</summary>
+    public ModelAvatarKind AvatarKind { get; init; } = ModelAvatarKind.Auto;
+
+    /// <summary>单字母头像的字母（AvatarKind = Letter 时有效；1 个字符）。</summary>
+    public string? AvatarLetter { get; init; }
+
+    /// <summary>纯色头像的颜色（AvatarKind = Color 时有效；#RRGGBB）。</summary>
+    public string? AvatarColor { get; init; }
+
+    /// <summary>上传图片头像（AvatarKind = Image 时有效；data:image/png;base64 data URI，
+    /// 采集侧已居中裁方压缩到 64×64 PNG）。</summary>
+    public string? AvatarImage { get; init; }
 
     /// <summary>导入来源键（models.dev 的 <c>provider/model-id</c> 原样）；用户自建条目为 null。</summary>
     public string? SourceKey { get; init; }

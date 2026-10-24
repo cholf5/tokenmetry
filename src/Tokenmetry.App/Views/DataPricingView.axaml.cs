@@ -44,4 +44,24 @@ public partial class DataPricingView : UserControl
             e.Handled = true;
         }
     }
+
+    // 头像图标选择器弹层（Q-012）：遮罩点击 / Esc 取消，与模型编辑弹层同一交互配方。
+    private void OnAvatarPickerScrimTapped(object? sender, RoutedEventArgs e)
+    {
+        if (ReferenceEquals(e.Source, sender)
+            && DataContext is DataPricingViewModel viewModel)
+        {
+            viewModel.CancelAvatarPickerCommand.Execute(null);
+        }
+    }
+
+    private void OnAvatarPickerOverlayKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape
+            && DataContext is DataPricingViewModel viewModel)
+        {
+            viewModel.CancelAvatarPickerCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
 }

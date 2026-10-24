@@ -332,7 +332,7 @@
                      「紧凑 tokens / 价格」（修正项 3 与 Agent 行统一，token 副题退场），
                      回答"今天钱花在哪个模型"——Agent 维度与模型价差正交。行结构复用 Agent 行
                      （popover-agent-row 样式同吃 Semi 拉伸修复），图标槽换 model-chip-lg +
-                     ModelChip.Vendor（ModelVisualMap 机制），行点击 → 模型统计页。
+                     ModelChip.Avatar（ModelAvatarVisual 机制），行点击 → 模型统计页。
                      无数据整块隐藏（Agent 区已有诚实空态行，不重复渲染第二处）。 -->
                 <StackPanel x:Name="TopModelsSection" IsVisible="{Binding HasTopModels}" Margin="0,13,0,0">
                     <TextBlock Text="{Binding PopoverTopModels, Source={x:Static loc:Translations.Instance}}"
@@ -345,10 +345,12 @@
                                         Command="{Binding $parent[ItemsControl].((vm:StatusPopoverViewModel)DataContext).OpenModelsCommand}">
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                         <Border Grid.Column="0" Classes="model-chip-lg"
-                                                c:ModelChip.Vendor="{Binding LogoVendor}">
+                                                c:ModelChip.Avatar="{Binding Avatar}">
                                             <Panel>
-                                                <TextBlock Text="{Binding Glyph}"/>
+                                                <TextBlock Text="{Binding Avatar.GlyphText}"/>
                                                 <Image Classes="model-logo"/>
+                                                <Image Classes="model-avatar"
+                                                       Source="{Binding Avatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
                                                 <PathIcon Classes="app-icon model-fallback"
                                                           Data="{StaticResource AppIconCircleHelp}"/>
                                             </Panel>

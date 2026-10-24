@@ -83,8 +83,10 @@ internal static class ChartTestHelpers
         return frame!;
     }
 
-    /// <summary>读取合成帧的原始像素（Bitmap.CopyPixels → 本机缓冲 → 托管数组）。</summary>
-    private static byte[] GetPixelBytes(Bitmap frame)
+    /// <summary>读取合成帧的原始像素（Bitmap.CopyPixels → 本机缓冲 → 托管数组；Avalonia 12
+    /// 只保留 ILockedFramebuffer/PixelRect+IntPtr 重载，统一走本机缓冲）。internal 供头像
+    /// 圆角烙印等像素级断言复用。</summary>
+    internal static byte[] GetPixelBytes(Bitmap frame)
     {
         var size = frame.PixelSize;
         var stride = size.Width * 4;
