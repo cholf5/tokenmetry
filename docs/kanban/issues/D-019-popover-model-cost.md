@@ -38,9 +38,12 @@ token 占比 ≠ 成本占比，现有 KPI（总量/成本/缓存占比）与 To
 3. **行点击 → 模型统计页**（PageId.Models）：会话页无按模型筛选的既有路由，收敛到模型页；
    区头不加「查看详情」链接（Agent 区头有链接是因为其行去的是会话页，模型行本就落模型页）。
 4. **Top3**：弹层压缩视图取 3（Agent 区是 Top4；总览模型页全表）。行结构复用 Agent 行
-   （popover-agent-row 样式同吃 Semi 拉伸修复），右列放成本金额 + 成本占比，无副题行；
-   图标槽新增 `model-chip-lg`（30×30，几何/字号对齐 agent-chip-lg，logo 22×22 同尺度），
+   （popover-agent-row 样式同吃 Semi 拉伸修复），右列放成本金额 + 成本占比；图标槽新增
+   `model-chip-lg`（30×30，几何/字号对齐 agent-chip-lg，logo 22×22 同尺度），
    走 ModelVisualMap / ModelChip.Vendor 既有机制，未识别落 generic 字形兜底。
+5. **（修正项 1，用户真机目检后追加）模型行副题加今日 token 紧凑数**：`FormatCompactTokens`
+   同 KPI 今日 Token 口径，放模型名下副题行；成本金额仍是主数字、mini bar 仍是成本占比
+   （不推翻"钱是主语"的区块定位）——tokens 供判断"贵模型烧的量值不值"。
 
 ## Acceptance Criteria
 
@@ -51,6 +54,7 @@ token 占比 ≠ 成本占比，现有 KPI（总量/成本/缓存占比）与 To
 - [x] i18n：`PopoverTopModels` zh 源「主要模型」+ en 覆盖 "Top models"；测试语言无关
 - [x] headless 回归锁 3 用例：排序/截断/未知沉底/诚实占比；渲染三行 + 空态整块隐藏；
       行命令导航 Models 页。令牌纪律测试（零硬编码色值）继续通过
+- [x] 修正项 1：模型行副题 token 紧凑数（KPI 同口径，headless 同源断言）
 - [x] 全量 `dotnet test Tokenmetry.sln` 1445 Passed（+3）
 
 ## Subtasks
@@ -73,6 +77,11 @@ token 占比 ≠ 成本占比，现有 KPI（总量/成本/缓存占比）与 To
 （1.10 > 0 数学正确），修正 fixture 让"已知为零 > 未知"边界留在 Top3 内验证——实现口径
 无改动。全量 1445 Passed（headless 341→344）；真机明暗 × 1x/2x 目检（区块间距/模型名
 截断/mini bar 观感）移交用户。
+
+同日追记（修正项 1）：用户真机目检"整体没问题"后提出模型行只有金额缺"量"的参照——
+拍板走副题轻量补法（模型名下 FormatCompactTokens，成本主数字与成本占比 bar 不变）。
+行 VM +1 字段、模板 +1 行、+1 同源断言零新用例。同轮 headless 计数 344→345 漂移经
+stash 实测排查：来自并行落地的 Q-005 提交（指针邻近命中区），与本卡无关。
 
 ## Related
 

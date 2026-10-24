@@ -291,6 +291,8 @@ public class StatusPopoverTests
         Assert.Equal(OverviewViewModel.FormatCost(new AggregatedCost(12.46m, false)), vm.TopModels[0].CostText);
         Assert.Equal(OverviewViewModel.FormatShare(0.80m), vm.TopModels[0].ShareText);
         Assert.Equal(80d, vm.TopModels[0].BarValue, 6);
+        // 修正项 1：副题 = 今日 token 紧凑数（与 KPI 同口径同源格式化）
+        Assert.Equal(TrendChart.FormatCompactTokens(20000), vm.TopModels[0].TokensText);
         // 已知为零 ≠ 未知：zcode 行占比 0 诚实显示、bar 空轨道，不冒充"—"
         Assert.Equal(OverviewViewModel.FormatShare(0m), vm.TopModels[2].ShareText);
         Assert.Equal(0d, vm.TopModels[2].BarValue, 6);
