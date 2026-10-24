@@ -39,7 +39,8 @@
                     <StackPanel Spacing="4">
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <Border Classes="icon-chip" Background="{DynamicResource AppIconChipBlueBackgroundBrush}">
-                                <TextBlock Text="◈" Foreground="{DynamicResource AppIconChipBlueForegroundBrush}"/>
+                                <Path Classes="app-icon" Data="{StaticResource AppIconCoins}" Width="15" Height="15"
+                                      Stroke="{DynamicResource AppIconChipBlueForegroundBrush}"/>
                             </Border>
                             <TextBlock Text="总 Token 数" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -54,7 +55,8 @@
                     <StackPanel Spacing="4">
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <Border Classes="icon-chip" Background="{DynamicResource AppIconChipAmberBackgroundBrush}">
-                                <TextBlock Text="$" Foreground="{DynamicResource AppIconChipAmberForegroundBrush}"/>
+                                <Path Classes="app-icon" Data="{StaticResource AppIconDollarCircle}" Width="15" Height="15"
+                                      Stroke="{DynamicResource AppIconChipAmberForegroundBrush}"/>
                             </Border>
                             <TextBlock Text="估算成本" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -69,7 +71,8 @@
                     <StackPanel Spacing="4">
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <Border Classes="icon-chip" Background="{DynamicResource AppIconChipPurpleBackgroundBrush}">
-                                <TextBlock Text="▣" Foreground="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
+                                <Path Classes="app-icon" Data="{StaticResource AppIconTable}" Width="15" Height="15"
+                                      Stroke="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
                             </Border>
                             <TextBlock Text="会话数" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -84,7 +87,8 @@
                     <StackPanel Spacing="4">
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <Border Classes="icon-chip" Background="{DynamicResource AppIconChipGreenBackgroundBrush}">
-                                <TextBlock Text="↻" Foreground="{DynamicResource AppIconChipGreenForegroundBrush}"/>
+                                <Path Classes="app-icon" Data="{StaticResource AppIconZap}" Width="15" Height="15"
+                                      Stroke="{DynamicResource AppIconChipGreenForegroundBrush}"/>
                             </Border>
                             <TextBlock Text="缓存读取占比" Foreground="{DynamicResource AppMutedTextBrush}" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>

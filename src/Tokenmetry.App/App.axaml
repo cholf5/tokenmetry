@@ -31,6 +31,9 @@
                 <ResourceInclude Source="avares://Tokenmetry.App/Styles/ScrollBarTheme.axaml" />
                 <ResourceInclude Source="avares://Tokenmetry.App/Styles/ModelLogos.axaml" />
                 <ResourceInclude Source="avares://Tokenmetry.App/Styles/AgentLogos.axaml" />
+                <!-- 界面图标（AppIcon* StreamGeometry，lucide 生成）：顶栏/侧栏/KPI chip 的
+                     矢量图标，描边样式在 SharedStyles 的 Path.app-icon（2026-10-24 矢量图标化） -->
+                <ResourceInclude Source="avares://Tokenmetry.App/Styles/Icons.axaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

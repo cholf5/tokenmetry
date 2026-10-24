@@ -88,7 +88,7 @@
             <Setter Property="Background" Value="{DynamicResource AppNavActiveIndicatorBrush}"/>
         </Style>
 
-        <!-- 顶部栏图标按钮（原型 .iconbtn） -->
+        <!-- 顶部栏图标按钮（原型 .iconbtn）：内容为矢量图标（Path.app-icon，描边色见下方状态样式） -->
         <Style Selector="Button.icon-btn">
             <Setter Property="Width" Value="34"/>
             <Setter Property="Height" Value="34"/>
@@ -96,7 +96,6 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="FontSize" Value="14"/>
             <!-- hover 渐变（motion design §6） -->
             <Setter Property="Transitions">
                 <Transitions>
@@ -104,11 +103,22 @@
                 </Transitions>
             </Setter>
         </Style>
+        <!-- 矢量图标不继承 TextElement.Foreground，状态色在祖先样式里给：
+             禁用态（刷新进行中按钮禁用）用 muted；侧栏导航未选中 muted、选中用激活前景 -->
+        <Style Selector="Button.icon-btn:disabled Path.app-icon">
+            <Setter Property="Stroke" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="ListBox.nav-list ListBoxItem Path.app-icon">
+            <Setter Property="Stroke" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="ListBox.nav-list ListBoxItem:selected Path.app-icon">
+            <Setter Property="Stroke" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+        </Style>
 
-        <!-- 刷新进行中（motion design §6）：「◌」字形手柄式旋转（复用初始化菊花的矢量旋转手法，
-             文本旋转中心是布局盒中心的注意事项同 overlay-spinner 注释——此处旋转的就是字形盒，
-             偏差可接受；结束随 IsVisible 隐没即停） -->
-        <Style Selector="TextBlock.refresh-running-glyph">
+        <!-- 刷新进行中（motion design §6）：LoaderCircle 弧形矢量手柄式旋转（复用初始化菊花的
+             矢量旋转手法；Path 的几何包围盒为整圆、旋转中心即墨迹中心，无 overlay-spinner
+             注释里的字形盒偏移问题；结束随 IsVisible 隐没即停） -->
+        <Style Selector="Path.refresh-running-glyph">
             <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
             <Setter Property="RenderTransform" Value="rotate(0deg)"/>
             <Style.Animations>
@@ -141,9 +151,10 @@
             <Setter Property="Padding" Value="40,32"/>
         </Style>
         <!-- 矢量菊花：Ellipse 虚线圆绕自身几何中心旋转。不用字形旋转——文本旋转中心是布局盒
-             中心（基线 + 行高决定），与字形墨迹中心不重合（◌ U+25CC 内嵌 Inter 不覆盖，由系统
-             回退字体渲染、偏差更大），墨迹绕错误原点公转，视觉上转动不匀、忽上忽下；
-             矢量圆的旋转中心与墨迹中心恒等，转动均匀。 -->
+             中心（基线 + 行高决定），与字形墨迹中心不重合（◌ U+25CC 主字体不覆盖、由系统回退
+             字体渲染，偏差更大），墨迹绕错误原点公转，视觉上转动不匀、忽上忽下；
+             矢量圆的旋转中心与墨迹中心恒等，转动均匀。
+             2026-10-24：同类字形回退问题已整体收敛——界面图标全部矢量化为 AppIcon*（Icons.axaml）。 -->
         <Style Selector="Ellipse.overlay-spinner">
             <Setter Property="Width" Value="36"/>
             <Setter Property="Height" Value="36"/>
@@ -322,21 +333,28 @@
                         IsEnabled="{Binding !RefreshDataCommand.IsRunning}"
                         ToolTip.Tip="{Binding TooltipRefreshNow, Source={x:Static loc:Translations.Instance}}">
                     <Panel>
-                        <TextBlock Text="⟳"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   IsVisible="{Binding !RefreshDataCommand.IsRunning}"/>
-                        <TextBlock Text="◌"
-                                   Classes="refresh-running-glyph"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   IsVisible="{Binding RefreshDataCommand.IsRunning}"/>
+                        <Path Classes="app-icon"
+                              Data="{StaticResource AppIconRotateCw}"
+                              Width="16" Height="16"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              IsVisible="{Binding !RefreshDataCommand.IsRunning}"/>
+                        <Path Classes="app-icon refresh-running-glyph"
+                              Data="{StaticResource AppIconLoaderCircle}"
+                              Width="16" Height="16"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              IsVisible="{Binding RefreshDataCommand.IsRunning}"/>
                     </Panel>
                 </Button>
                 <!-- 设置入口（导航到设置页；数据源与计价在侧栏「数据与计价」） -->
                 <Button Grid.Column="7"
                         Classes="icon-btn"
-                        Content="⚙"
                         Command="{Binding OpenSettingsCommand}"
-                        ToolTip.Tip="{Binding NavSettings, Source={x:Static loc:Translations.Instance}}"/>
+                        ToolTip.Tip="{Binding NavSettings, Source={x:Static loc:Translations.Instance}}">
+                    <Path Classes="app-icon"
+                          Data="{StaticResource AppIconSettings}"
+                          Width="16" Height="16"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
             </Grid>
         </Border>
 
@@ -351,16 +369,17 @@
                     BorderBrush="{DynamicResource AppLineBrush}"
                     BorderThickness="0,0,1,0">
                 <DockPanel Margin="10,0">
-                    <!-- 品牌（logo/标题；原型 .brandmark + .brand） -->
+                    <!-- 品牌（logo/标题；原型 .brandmark + .brand；内圈标 2026-10-24 起为矢量弧形） -->
                     <StackPanel DockPanel.Dock="Top" Margin="8,18,8,16" Orientation="Horizontal" Spacing="9">
                         <Border Width="24" Height="24" CornerRadius="12"
                                 BorderBrush="{DynamicResource AppLinkBrush}"
                                 BorderThickness="2">
-                            <TextBlock Text="◌"
-                                       FontSize="13"
-                                       Foreground="{DynamicResource AppLinkBrush}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                            <Path Classes="app-icon"
+                                  Data="{StaticResource AppIconLoaderCircle}"
+                                  Width="12" Height="12"
+                                  Stroke="{DynamicResource AppLinkBrush}"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel VerticalAlignment="Center" Spacing="1">
                             <TextBlock Text="Tokenmetry"
@@ -384,11 +403,12 @@
                                             Width="2" Height="16"
                                             CornerRadius="1"
                                             VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding Page.Icon}"
-                                               FontSize="15"
-                                               Width="17"
-                                               TextAlignment="Center"
-                                               VerticalAlignment="Center"/>
+                                    <!-- 矢量页面图标：Icon 键名经 PageIcon.Icon 翻译成 pi-* 伪类给 Data，
+                                         颜色随选中态走上方 ListBox.nav-list 样式 -->
+                                    <Path Classes="app-icon"
+                                          Width="16" Height="16"
+                                          c:PageIcon.Icon="{Binding Page.Icon}"
+                                          VerticalAlignment="Center"/>
                                     <TextBlock Text="{Binding Page.Label}"
                                                VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis"/>
