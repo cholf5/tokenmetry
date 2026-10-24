@@ -16,7 +16,7 @@
         排行表 = ListBox 虚拟化（共享 data-table 行配方，Q-002 收编）。
         Q-002：页面根补 ScrollViewer（同时间/成本/设置页模式）——最小窗口高度下排行面板不再被裁剪。
     -->
-    <ScrollViewer>
+    <ScrollViewer Classes="page-root">
         <StackPanel Spacing="13" Margin="0,0,0,4">
 
         <!-- 页头（原型 .pagehead：按工作目录聚合，观察 Token 消耗集中在哪些代码库或任务） -->

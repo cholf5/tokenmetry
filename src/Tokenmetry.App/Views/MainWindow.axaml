@@ -401,10 +401,12 @@
 
             <!-- 主内容区（页面路由；未落地页面为 PagePlaceholderView 占位）。
                  进场过渡（motion design）：code-behind 监听 Content 变更，Opacity 0→1 +
-                 Y 8→0（180ms ease-out，TopLevel.RequestAnimationFrame 驱动），只有进场、无退出动画。 -->
+                 Y 8→0（180ms ease-out，TopLevel.RequestAnimationFrame 驱动），只有进场、无退出动画。
+                 Q-006：外边距归零——滚动面铺满主内容列直达窗口右/底缘（overlay 滚动条贴窗缘），
+                 页面留白由根滚动面自持（ScrollViewer.page-root；会话页头尾自补）。 -->
             <ContentControl Grid.Column="1"
                             x:Name="PageHost"
-                            Margin="22,22,22,30"
+                            Margin="0"
                             Content="{Binding CurrentPage}"/>
         </Grid>
 

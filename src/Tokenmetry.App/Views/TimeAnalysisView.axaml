@@ -15,7 +15,7 @@
         强度；补零日淡格呈现）+ 「时间维度建议观察项」静态三行说明表（内容与 facts 实际能力一致）。
         筛选在外壳顶部栏，本页只随 FilterStateService 刷新。
     -->
-    <ScrollViewer>
+    <ScrollViewer Classes="page-root">
         <StackPanel Spacing="13" Margin="0,0,0,4">
 
             <!-- 页头（原型 .pagehead：识别使用高峰、工作时段分布与长会话） -->
