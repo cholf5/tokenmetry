@@ -285,8 +285,19 @@
         <Setter Property="TextBlock.TextAlignment" Value="Center"/>
         <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
     </Style>
+    <!-- model-chip-lg = 30×30 圆角 9 中性软底（D-019 弹层模型行，几何对齐 agent-chip-lg）；
+         字形显隐与厂商伪类规则同 model-chip 共用（类挂在同一 Border 上），logo 22×22 同 agent-chip-lg 尺度 -->
+    <Style Selector="Border.model-chip-lg">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="Background" Value="{DynamicResource AppIconChipNeutralBackgroundBrush}"/>
+        <Setter Property="TextBlock.FontSize" Value="15"/>
+        <Setter Property="TextBlock.TextAlignment" Value="Center"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
+    </Style>
     <!-- 字形（Φ/◇）默认隐藏，仅 phi/generic 显示；logo 同理仅命中厂商伪类时显示。 -->
-    <Style Selector="Border.model-chip TextBlock">
+    <Style Selector="Border.model-chip TextBlock, Border.model-chip-lg TextBlock">
         <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="IsVisible" Value="False"/>
@@ -297,6 +308,14 @@
     <Style Selector="Border.model-chip Image.model-logo">
         <Setter Property="Width" Value="16"/>
         <Setter Property="Height" Value="16"/>
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.model-chip-lg Image.model-logo">
+        <Setter Property="Width" Value="22"/>
+        <Setter Property="Height" Value="22"/>
         <Setter Property="Stretch" Value="Uniform"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>

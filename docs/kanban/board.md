@@ -17,6 +17,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | B-015 | 计价页价格输入固定 InvariantCulture——de-DE 逗号小数输入必被拒 | P3 | S | | |
 | D-017 | 右栏撤除 + 顶栏四维全局筛选 + 会话行元数据升级 | P1 | 2026-10-18 | | |
 
+> 2026-10-24：**D-019 弹层模型用量区收口**。用户发起"托盘信息窗里要不要加一下模型用量"→ 两轮问答定案：**日累计成本口径**（非即时速率口径）+ 模型区块。Agent Top4 与"钱花在哪个模型"正交（模型价差大，token 占比 ≠ 成本占比）——Agent 区下新增「主要模型」区：Top3 按**已知成本**降序（`KnownCostUsd ?? -1m` 哨兵使未知成本沉底，低于任何已知值含"已知为零"；占比直接吃 CostShare，含未知成本行诚实 "—"），行复用 Agent 行结构 + 新 `model-chip-lg` 大槽（ModelVisualMap 机制），行点击 → 模型统计页（会话页无按模型路由），无数据整块隐藏（不重复 Agent 区空态行）。IA 偏离原型属用户拍板的既有架构增量，原型文件不动、口径拍板落卡（D-019 卡「口径拍板」节）。数据零新口径（GetModelBreakdownAsync 今日窗口 + 序号防护）。测试翻车留痕：排序用例首轮 fixture 期望写错（第五行已知 1.10 本就该排在"已知为零"前），修正 fixture 后实现零改动。全量 1445 Passed（+3）；真机明暗 × 1x/2x 目检移交用户。
+
 > 2026-10-20：**Q-004 全局滚动条重主题收口（用户三点反馈一次清账）**。Semi 12 的 ScrollBar 收合态仍是「2px 常驻细条 + 右缘 6px 空隙 + 悬停出箭头」，不满足现代 overlay 语义——全量替换 `{x:Type ScrollBar}` ControlTheme（`Styles/ScrollBarTheme.axaml` 以 ResourceInclude 进 Application.Resources，资源查找先于 Styles 里的 SemiTheme 即完成覆盖）：6px 细条贴视口右/下缘、无箭头（Line 按钮物理移除，Track 页按钮透明保留翻页）、无轨道底；显隐状态机在 `Controls/ScrollBarOverlay`（附加行为经 ControlTheme setter 全局启用，含 TextBox/下拉内部）：滚动值变化或指针在滚动区内活动即显、闲置 1s 淡出、悬停/拖拽钉住，隐藏态不参与命中（不挡贴边内容）。配色 `AppScrollBarThumbBrush`/`HoverBrush` 进 ThemeDictionaries（design-tokens §9）。踩坑留卡：Avalonia 12 禁外部加 `:` 伪类（改普通类）、ControlTheme 须进 ResourceDictionary、headless Window 内容居中（指针坐标经 TranslatePoint）、1ms 闲置窗与 120ms 淡入竞态；行为在 DetachedFromVisualTree 清理（模板重建遗弃旧实例的泄漏实锤修复）。headless 6 条契约测试固化（ScrollBarOverlayTests）；离屏截图 Dark/Light 各一帧目检通过。全量 1392 Passed（+6）；真机明暗 × 1x/2x 手感目检移交用户。
 
 > 2026-10-17（晚五）：**D-015/D-016 状态栏快捷信息窗收口（同批落地，Todo 清空）**。内容层（D-015：`StatusPopoverView` 438px 卡 = 三格 KPI + Token 构成条 + Agent Top4 + 三态 banner，数据全走 IUsageQueryService / DashboardViewModel 既有回写）与壳层（D-016：无边框透明窗 + 失焦/Esc/再点收起，Windows `GetCursorPos` 光标上方 / macOS 主屏工作区右上零 interop 近似）一次成对实现；托盘左键改 Toggle 弹层，右键菜单不动。修正项六条逐条落卡（footer 取「最近会话 →」）；速率窗口实现为 45–90s（下限防启动缓存热载误判，卡内留证）；`DashboardViewModel` 增 `AnomalyDetected` 同源事件（无论 toast 开关）。XAML 限制留档：`Grid.ColumnDefinitions` 不可绑定 → `ProportionalColumns` 附加属性翻译。全量 1310 Passed（+18）；真机明暗 × 1x/2x 目检（含 macOS 锚点近似可否接受）移交用户。
@@ -63,6 +65,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-019 | 弹层模型用量区——Top3 按今日已知成本（未知沉底 / 诚实占比 / 空态整块隐藏） | P2 | 2026-10-24 |
 | I-039 | 发布自动化与版本更新机制——CI 三平台打包 + GitHub Release + 应用内检查/下载 | P1 | 2026-10-24 |
 | D-018 | 应用图标——托盘外三平台图标接线（exe / 窗口 / Dock，绿柱 v1 定稿） | P2 | 2026-10-24 |
 | B-009 | ScrollBarOverlay headless 测试泵补渲染失效（渲染空闲不推进 DispatcherTimer 时钟） | P3 | 2026-10-23 |

@@ -43,6 +43,8 @@ public class StatusPopoverTests
 
         public IReadOnlyList<DimensionUsageRow> Agents { get; set; } = Array.Empty<DimensionUsageRow>();
 
+        public IReadOnlyList<DimensionUsageRow> Models { get; set; } = Array.Empty<DimensionUsageRow>();
+
         public IReadOnlyList<SessionListRow> Sessions { get; set; } = Array.Empty<SessionListRow>();
 
         public Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default) => Task.FromResult(Kpi);
@@ -52,7 +54,7 @@ public class StatusPopoverTests
         public Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) => Task.FromResult(Agents);
 
         public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<DimensionUsageRow>>(Array.Empty<DimensionUsageRow>());
+            Task.FromResult(Models);
 
         public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>([]);
 
@@ -102,6 +104,14 @@ public class StatusPopoverTests
         Key = key,
         TotalTokens = tokens,
         TokenShare = tokens / 42381m,
+    };
+
+    private static DimensionUsageRow Model(string key, AggregatedCost cost, decimal? costShare, long tokens) => new()
+    {
+        Key = key,
+        TotalTokens = tokens,
+        Cost = cost,
+        CostShare = costShare,
     };
 
     // ── TC-001: 三态渲染 ──
@@ -247,6 +257,92 @@ public class StatusPopoverTests
         Assert.Equal("—", vm.TodayTokensText);
         Assert.Equal("—", vm.TodayCostText);
         Assert.All(vm.SegmentShares, share => Assert.Equal(0, share));
+    }
+
+    // ── D-019: 模型用量区（Top3 按已知成本降序，未知成本沉底，无数据整块隐藏）──
+
+    [AvaloniaFact]
+    public async Task Reload_ranks_top_models_by_known_cost_and_sinks_unknown()
+    {
+        var stub = new StubQueryService
+        {
+            Kpi = FixtureKpi(),
+            Daily = FixtureDaily(),
+            Agents = FixtureAgents(),
+            Models =
+            [
+                Model("claude-opus-4-5", new AggregatedCost(3.20m, false), 0.20m, 12000),
+                Model("glm-5.3-flash", new AggregatedCost(12.46m, false), 0.80m, 20000),
+                Model("unknown-priced", new AggregatedCost(null, true), null, 30000),
+                Model("zcode-custom", new AggregatedCost(0m, false), 0m, 8000),
+            ],
+        };
+        var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
+        await vm.ReloadAsync();
+
+        // Top3 截断：已知成本降序 glm(12.46) → claude(3.20) → zcode(已知为零)；
+        // unknown-priced tokens 最多但成本未知（-1 哨兵）沉底被截断——排序看钱不看 token
+        Assert.Equal(3, vm.TopModels!.Count);
+        Assert.Equal(
+            new[] { "glm-5.3-flash", "claude-opus-4-5", "zcode-custom" },
+            vm.TopModels.Select(m => m.Name).ToArray());
+
+        // 金额/占比与实现同源格式化（语言无关）；mini bar = CostShare × 100
+        Assert.Equal(OverviewViewModel.FormatCost(new AggregatedCost(12.46m, false)), vm.TopModels[0].CostText);
+        Assert.Equal(OverviewViewModel.FormatShare(0.80m), vm.TopModels[0].ShareText);
+        Assert.Equal(80d, vm.TopModels[0].BarValue, 6);
+        // 已知为零 ≠ 未知：zcode 行占比 0 诚实显示、bar 空轨道，不冒充"—"
+        Assert.Equal(OverviewViewModel.FormatShare(0m), vm.TopModels[2].ShareText);
+        Assert.Equal(0d, vm.TopModels[2].BarValue, 6);
+    }
+
+    [AvaloniaFact]
+    public async Task Model_section_renders_three_rows_and_hides_when_empty()
+    {
+        var stub = new StubQueryService
+        {
+            Kpi = FixtureKpi(),
+            Daily = FixtureDaily(),
+            Agents = FixtureAgents(),
+            Models =
+            [
+                Model("claude-opus-4-5", new AggregatedCost(3.20m, false), 0.20m, 12000),
+                Model("glm-5.3-flash", new AggregatedCost(12.46m, false), 0.80m, 20000),
+                Model("zcode-custom", new AggregatedCost(0m, false), 0m, 8000),
+            ],
+        };
+        var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
+        await vm.ReloadAsync();
+        var view = new StatusPopoverView { DataContext = vm };
+        var window = new Window { Content = view };
+        window.Show();
+
+        var section = view.FindControl<StackPanel>("TopModelsSection");
+        Assert.NotNull(section);
+        Assert.True(section.IsVisible);
+        Assert.Equal(3, view.GetVisualDescendants().OfType<Border>()
+            .Count(b => b.Classes.Contains("model-chip-lg")));
+
+        // 清空模型数据 → 重查 → 区块整体隐藏（Agent 区已有诚实空态，不渲染第二处）
+        stub.Models = Array.Empty<DimensionUsageRow>();
+        await vm.ReloadAsync();
+        Assert.False(vm.HasTopModels);
+        Assert.False(section.IsVisible);
+        Assert.DoesNotContain(view.GetVisualDescendants().OfType<Border>(),
+            b => b.Classes.Contains("model-chip-lg"));
+
+        window.Close();
+    }
+
+    [Fact]
+    public void Model_row_command_navigates_to_models_page()
+    {
+        PageId? navigated = null;
+        var vm = new StatusPopoverViewModel(null, null, null, pageId => navigated = pageId);
+
+        vm.OpenModelsCommand!.Execute(null);
+
+        Assert.Equal(PageId.Models, navigated);
     }
 
     // ── 布局回归：行钮/footer 按钮须撑满对齐（Semi Button 主题默认 HorizontalAlignment=Center，
