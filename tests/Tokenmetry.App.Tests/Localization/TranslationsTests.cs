@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using System.Reflection;
 using Tokenmetry.App.Localization;
 using FluentAssertions;
 
@@ -112,6 +113,25 @@ public class TranslationsTests : IDisposable
         instance.SetLanguage(AppLanguage.SimplifiedChinese);
         instance.SourcesPanelTitle.Should().Be("已识别的数据源");
     }
+
+    [Fact]
+    public void English_CoversEveryChineseSourceKey()
+    {
+        // 回归守护（Q-010）：En 缺项按合并语义回落中文，但缺项即英语界面漏出中文——
+        // I-035 模型目录 29 键曾整体漏覆盖，英文下整段显示中文。英文字典必须覆盖
+        // 中文字典的全部 key：新增 zh key 时同步补 en 覆盖（回落机制本身仍由
+        // English_MissingKey_FallsBackToChineseSource 守护，本测试让它不再被触发）。
+        var zh = SourceDictionary("Zh");
+        var en = SourceDictionary("En");
+
+        en.Keys.Should().BeEquivalentTo(zh.Keys,
+            because: "英文缺覆盖时回落中文，英语界面会漏出中文文案");
+    }
+
+    private static Dictionary<string, string> SourceDictionary(string fieldName) =>
+        (Dictionary<string, string>)typeof(Translations)
+            .GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetValue(null)!;
 
     [Fact]
     public void FormatStrings_KeepInvariantPlaceholders()

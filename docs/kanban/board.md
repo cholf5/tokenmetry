@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-24（晚七）：**Q-010 模型目录 Section 英文漏覆盖收口**。用户反馈英语 UI 下 Data & pricing 的「模型目录」仍有大量中文。取证（键差集脚本）：I-035 目录主体键只进了 Zh 字典，En 只补了后加的搜索/筛选/作用域 13 键（En 块注释自证「既有目录键暂无英文覆盖，zh 兜底」）——En 缺项按合并语义回落中文，缺项即英语界面漏中文；全字典差集恰 29 键、全属本 Section，XAML/VM 无硬编码中文排除第二根因。修法：En 目录块重写为与 Zh 同序全量对齐（既有 13 键措辞零改动）；新增 `English_CoversEveryChineseSourceKey` 键奇偶回归测试（TDD RED 29 缺键实锤 → GREEN），回落机制本身仍由既有用例守护、本测试让它不再被触发。全量 1449 Passed / 0 Failed（22 跳过，+1 即新测试）；英语界面观感移交用户。
+
 ## Todo
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
@@ -89,6 +91,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| Q-010 | 模型目录 Section 英文漏覆盖——29 键回落中文（I-035 欠账清偿 + En↔Zh 键奇偶测试固化） | P2 | 2026-10-24 |
 | Q-009 | 未识别模型兜底图标——◇ 文本字形 → circle-help 矢量问号（不冒充品牌标） | P3 | 2026-10-24 |
 | Q-008 | 图表悬停浮窗 token 单位随 UI 语言——中文 万/亿（ScottPlot 时代 ASCII 约束残留） | P2 | 2026-10-24 |
 | I-041 | 关于面板补版权/许可/仓库/无担保行——AGPL Appropriate Legal Notices 对齐 | P3 | 2026-10-24 |
