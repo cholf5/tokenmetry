@@ -140,10 +140,12 @@ public sealed class StatusPopoverAgentRowViewModel
 }
 
 /// <summary>
-/// 弹层「模型用量」一行的展示模型（D-019）：模型名 + 今日成本金额（OverviewViewModel.FormatCost
-/// 四态诚实文案）+ 成本占比（CostShare，本行含未知成本时为 null → "—"/空轨道，不伪造），
-/// mini bar 值 = CostShare × 100。模型图标走 ModelVisualMap（model-chip 同机制，未识别落
-/// generic 字形兜底）。不可变小对象，由 <see cref="StatusPopoverViewModel"/> 整体替换集合触发绑定刷新。
+/// 弹层「模型用量」一行的展示模型（D-019）：模型名 + 副题（今日 token 数紧凑格式，同 KPI
+/// 今日 Token 口径——修正项 1，成本仍是主数字，tokens 供判断"贵模型烧的量值不值"）+
+/// 今日成本金额（OverviewViewModel.FormatCost 四态诚实文案）+ 成本占比（CostShare，本行含
+/// 未知成本时为 null → "—"/空轨道，不伪造），mini bar 值 = CostShare × 100。模型图标走
+/// ModelVisualMap（model-chip 同机制，未识别落 generic 字形兜底）。不可变小对象，由
+/// <see cref="StatusPopoverViewModel"/> 整体替换集合触发绑定刷新。
 /// </summary>
 public sealed class StatusPopoverModelRowViewModel
 {
@@ -151,9 +153,11 @@ public sealed class StatusPopoverModelRowViewModel
         string name,
         AggregatedCost cost,
         decimal? costShare,
+        long tokens,
         Func<string, (string Vendor, char Glyph)> visualResolver)
     {
         Name = name;
+        TokensText = TrendChart.FormatCompactTokens(tokens);
         CostText = OverviewViewModel.FormatCost(cost);
         ShareText = OverviewViewModel.FormatShare(costShare);
         BarValue = costShare is { } share ? Math.Clamp((double)(share * 100m), 0d, 100d) : 0d;
@@ -168,6 +172,9 @@ public sealed class StatusPopoverModelRowViewModel
     public string LogoVendor { get; }
 
     public string Glyph { get; }
+
+    /// <summary>今日 token 数（紧凑格式；副题行，与 KPI 今日 Token 同口径）。</summary>
+    public string TokensText { get; }
 
     /// <summary>今日成本金额文案（I-028 四态：未知成本不冒充 0）。</summary>
     public string CostText { get; }
@@ -509,6 +516,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
                 m.Key,
                 m.Cost,
                 m.CostShare,
+                m.TotalTokens,
                 name =>
                 {
                     var visual = ModelVisualMap.Resolve(name);

@@ -347,6 +347,10 @@
                                             <TextBlock Text="{Binding Name}" FontSize="11"
                                                        TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource AppTextBrush}"/>
+                                            <!-- 修正项 1：副题 = 今日 token 紧凑数（KPI 同口径）；成本仍是主数字 -->
+                                            <TextBlock Text="{Binding TokensText}" FontSize="10"
+                                                       Foreground="{DynamicResource AppMutedTextBrush}"
+                                                       Margin="0,1,0,0"/>
                                             <ProgressBar Classes="mini" Value="{Binding BarValue}" Margin="0,5,0,0"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
