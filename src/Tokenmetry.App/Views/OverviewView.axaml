@@ -338,7 +338,8 @@
                 </StackPanel>
             </Border>
 
-            <!-- 成本趋势（TrendChart CostUsd 吃同窗口日序列的已知成本列：未知成本日断线 + 淡点，空态内置） -->
+            <!-- 成本趋势（TrendChart CostUsd 吃同窗口日序列成本列：补零日 $0 成线 + 淡点辨识，
+                 未知成本日断线 + 淡点，空态内置） -->
             <Border Grid.Column="1" Classes="panel">
                 <StackPanel Spacing="10">
                     <DockPanel>

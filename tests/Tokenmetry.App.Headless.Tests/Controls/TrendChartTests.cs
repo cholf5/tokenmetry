@@ -23,7 +23,7 @@ namespace Tokenmetry.App.Headless.Tests.Controls;
 /// D-004 TrendChart 的 headless 验证：
 /// 1. 三形态渲染出图（系列色像素存在）+ 明暗两套；
 /// 2. hover helper：裁剪翻转纯函数四象限、悬停事件与 tooltip 文案（token 紧凑单位 / 成本对账四态口径）、
-///    补零日文案辨识、成本形态断线；
+///    补零日文案辨识、成本形态连线（补零日 $0 成线 + 未知成本日断线）；
 /// 3. 明暗切换触发整图重建（轴文字色随令牌变化）；
 /// 4. 空数据诚实空态（空集与全补零窗口，环境无关）；
 /// 5. I-028 真实日序列联调冒烟（不依赖本机 facts 是否有数据）；
@@ -842,7 +842,7 @@ public class TrendChartTests
         Assert.DoesNotContain("cost unknown", noCost);
     }
 
-    // ── 成本形态断线（审查 P2-7）：折线只连连续已知成本日 ──
+    // ── 成本形态连线（补零日 $0 填充 + 未知成本日断线，审查 P2-7 残留语义）──
 
     [AvaloniaFact]
     public void Cost_line_runs_only_span_consecutive_known_days()
@@ -860,24 +860,26 @@ public class TrendChartTests
     }
 
     [AvaloniaFact]
-    public void Cost_mode_line_does_not_connect_unknown_cost_days()
+    public void Cost_mode_line_fills_padded_days_at_zero()
     {
+        // 补零日 $0 填充（Overview Cost trend 定案）：fixture 已知日 offsets {2,5,6,11,17,23,29}、
+        // 其余全为补零日 → 成线日 = 已知 ∪ 补零 = 全窗口，单段 (0,29) 成线；marker 散点 LineWidth=0
         var points = ChartTestHelpers.DailyPoints30();
         var chart = new TrendChart { Mode = TrendChartMode.CostUsd, DailyPoints = points };
         var window = CreateWindow(chart, ThemeVariant.Dark);
         ChartTestHelpers.RenderFrame(window);
 
-        // fixture 已知日 offsets {2,5,6,11,17,23,29} → 仅 (5,6) 一段 ≥2 天成线；marker 散点 LineWidth=0
         var lineScatters = chart.Plot.PlottableList
             .OfType<ScottPlot.Plottables.Scatter>()
             .Where(s => s.LineWidth > 0)
             .ToList();
-        var expectedRuns = TrendChart.BuildLineRuns(
-            points.Select(p => p.Cost.KnownCostUsd is { }).ToList());
-        Assert.Single(expectedRuns);
+        var expectedRuns = TrendChart.BuildLineRuns(points
+            .Select(p => p.Cost.KnownCostUsd is { } || p.Cost.IsEmpty)
+            .ToList());
+        Assert.Equal(new[] { (0, points.Count - 1) }, expectedRuns);
         Assert.Equal(expectedRuns.Count, lineScatters.Count);
 
-        // 断线不牺牲可悬停性：(null,false) 成本日（补零日）仍可命中，文案 "no cost data"
+        // 补零日淡点落在连线上且仍可悬停，文案保持 "no cost data"（该日无成本数据，0 是补零约定）
         TrendChartHoverEventArgs? received = null;
         chart.HoverChanged += (_, e) => received = e;
         var padded = ChartTestHelpers.FirstPaddedPoint(points);
@@ -885,6 +887,47 @@ public class TrendChartTests
         Assert.NotNull(received);
         Assert.True(received!.IsActive);
         Assert.Contains("no cost data", received.LabelText);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Cost_mode_line_still_breaks_unknown_cost_days()
+    {
+        // 未知成本契约（未知绝不折 0）：5 天窗口 已知/补零/已知/未知/已知 →
+        // 补零日桥接成线段 (0..2)；未知成本日断线，其后孤立已知日不成线（点标记呈现）
+        DailyUsagePoint P(string day, AggregatedCost cost, bool hasData) => new()
+        {
+            Day = day,
+            Cost = cost,
+            HasData = hasData,
+        };
+        var points = new[]
+        {
+            P("2026-10-12", new AggregatedCost(1.0m, hasUnknownCost: false), hasData: true),
+            P("2026-10-13", AggregatedCost.Empty, hasData: false),
+            P("2026-10-14", new AggregatedCost(2.0m, hasUnknownCost: false), hasData: true),
+            P("2026-10-15", new AggregatedCost(null, hasUnknownCost: true), hasData: true),
+            P("2026-10-16", new AggregatedCost(3.0m, hasUnknownCost: false), hasData: true),
+        };
+        var chart = new TrendChart { Mode = TrendChartMode.CostUsd, DailyPoints = points };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var lineScatters = chart.Plot.PlottableList
+            .OfType<ScottPlot.Plottables.Scatter>()
+            .Where(s => s.LineWidth > 0)
+            .ToList();
+        Assert.Single(lineScatters); // 仅 (0..2) 一段；未知日断线后，孤立已知日 (4) 不成线
+
+        // 未知成本日仍可悬停，文案 "cost unknown"（(null,true) 与无成本数据不塌缩）
+        TrendChartHoverEventArgs? received = null;
+        chart.HoverChanged += (_, e) => received = e;
+        chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(points[3].Day, CultureInfo.InvariantCulture).ToOADate(), 0));
+        Assert.NotNull(received);
+        Assert.True(received!.IsActive);
+        Assert.Contains("cost unknown", received.LabelText);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

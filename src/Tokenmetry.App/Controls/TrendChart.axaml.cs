@@ -21,7 +21,8 @@ public enum TrendChartMode
     /// <summary>日趋势：输入/输出堆叠柱 + 总量折线（I-028 日序列，含补零日辨识）。</summary>
     DailyTokens,
 
-    /// <summary>成本折线：按日已知成本（I-028 日序列的 Cost，未知成本语义见格式化）。</summary>
+    /// <summary>成本折线：按日成本——已知成本 + 补零日 $0 成线（无 facts 真实为零），
+    /// 未知成本日断线（语义见 <see cref="BuildCostLine"/>）。</summary>
     CostUsd,
 
     /// <summary>小时折线：0..23 全量桶总 token（I-029 小时分布）。</summary>
@@ -492,9 +493,11 @@ public partial class TrendChart : UserControl
     }
 
     /// <summary>
-    /// 成本折线（审查 P2-7 视觉诚实性）：折线只连<b>已知成本</b>日（<see cref="BuildLineRuns"/> 分段，
-    /// null 成本日不再画到零轴）；已知日实心点、未知/无成本日淡点（位置锚在 0，供悬停定位）。
-    /// 四态语义见 <see cref="CostTooltipText"/>：未知成本绝不静默折算为 0。
+    /// 成本折线（审查 P2-7 视觉诚实性 + 补零日 $0 填充）：折线连接<b>已知成本</b>日与<b>补零日</b>
+    /// （<see cref="BuildLineRuns"/> 分段）——补零日（<see cref="AggregatedCost.IsEmpty"/>，窗口内无任何
+    /// facts）的真实成本就是 $0，随日历窗口补 0 成线（同 DailyTokens 形态的补零约定，淡化小点辨识）；
+    /// 有用量但成本全未知的日（(null,true)）仍断线不画到零轴——未知成本绝不静默折算为 0。
+    /// 已知日实心点、补零/未知日淡点（未知日位置锚在 0，仅供悬停定位）。四态语义见 <see cref="CostTooltipText"/>。
     /// </summary>
     private void BuildCostLine(Plot plot)
     {
@@ -509,14 +512,17 @@ public partial class TrendChart : UserControl
         var panel = TokenColor("AppPanelBrush", new Color(17, 28, 46));
 
         var xs = points.Select(p => DateTime.Parse(p.Day, CultureInfo.InvariantCulture).ToOADate()).ToArray();
-        // y 取已知成本（无已知成本的日为 0，仅作淡点/悬停锚点，不进连线）
+        // y 取已知成本；补零日为 0（真实为零，进连线），未知成本日为 0（仅作淡点/悬停锚点，不进连线）
         var ys = points.Select(p => (double)(p.Cost.KnownCostUsd ?? 0m)).ToArray();
         var knownFlags = points.Select(p => p.Cost.KnownCostUsd is { }).ToArray();
+        // 成线日 = 已知成本日 ∪ 补零日（IsEmpty：既无已知也无未知 → 无任何成本 facts → 真实 $0）；
+        // 未知成本日（有用量但无价，(null,true)）断线
+        var connectFlags = points.Select(p => p.Cost.KnownCostUsd is { } || p.Cost.IsEmpty).ToArray();
 
-        // 连线只覆盖"连续已知成本"的段（≥2 天才成线；孤立已知日靠实心点呈现）；平滑（I-032）。
-        // 面积填充刻意不用：已知成本日稀疏时填充块读作"怪柱子"，且断线语义本就声明日间成本未知，
-        // 填充会暗示连续性（视觉诚实性同审查 P2-7 的取向）。
-        foreach (var (start, end) in BuildLineRuns(knownFlags))
+        // 连线覆盖"连续成线日"的段（≥2 天才成线；孤立成线日靠实心点呈现）；平滑（I-032）。
+        // 面积填充刻意不用：成本峰稀疏时补零段贴零轴，填充会把无用量日涂成实块、暗示并不存在的
+        // 连续花费（视觉诚实性同审查 P2-7 的取向）。
+        foreach (var (start, end) in BuildLineRuns(connectFlags))
         {
             AddSmoothLine(plot, xs[start..(end + 1)], ys[start..(end + 1)], cyan, areaFill: false);
         }
