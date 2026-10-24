@@ -10,6 +10,7 @@
 ![Avalonia](https://img.shields.io/badge/Avalonia-12-9B4FCA?logo=avaloniaui&logoColor=white)
 ![UI](https://img.shields.io/badge/Theme-Semi.Avalonia-00B96B)
 ![Tests](https://img.shields.io/badge/tests-xUnit%20%2B%20FluentAssertions-21374B?logo=xunit&logoColor=white)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
 </div>
 
@@ -123,3 +124,13 @@ dotnet test  Tokenmetry.sln     # 全部测试
 - .NET SDK 10，C# / Avalonia 12，测试用 xUnit + FluentAssertions；UI 层测试跑在 Avalonia Headless 上，可无头运行。
 - 改动解析、计价或聚合口径前，先读[对账文档](docs/reconciliation/2026-10-11-reconciliation.md)——口径与 ccusage 的逐项对齐表在那里。
 - 面向 AI Agent 的工程约定（架构边界、i18n/设计令牌纪律、命名史陷阱）见 [`AGENTS.md`](AGENTS.md)。
+
+## License
+
+本项目以 **AGPL-3.0-or-later** 发布（全文见 [`LICENSE`](LICENSE)）：
+
+- 你可以自由地使用、学习、修改和再分发本项目，包括在公司内部日常使用；
+- 修改后的版本无论以何种形式提供——分发安装包，还是仅作为网络服务运行——都必须以相同许可证开放完整源代码；
+- 需要在不满足 AGPL 义务的场景下闭源集成，欢迎联系作者（GitHub Issues）单独协商商业授权。
+
+「Tokenmetry」名称与应用图标属于项目品牌标识，不在本许可证授权范围内；再分发衍生版本时请更换品牌，或明确标注为非官方版本。
