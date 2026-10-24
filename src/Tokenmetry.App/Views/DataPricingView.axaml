@@ -14,7 +14,7 @@
         条目与规则改完即落盘并热更新（对齐 stupid-dict；重扫操作经 IToastService 反馈，I-027）。
     -->
     <Grid>
-        <ScrollViewer>
+        <ScrollViewer Classes="page-root">
         <StackPanel Spacing="13" Margin="0,0,0,4">
 
             <!-- 页头（原型 .pagehead） -->

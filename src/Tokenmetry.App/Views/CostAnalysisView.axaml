@@ -14,7 +14,7 @@
         输入/输出占比为 Token 构成口径（决策点方案 b），KPI 脚注显式标注——不做无标签的隐式近似；
         待确认价格为定价引擎全局口径，脚注说明不随筛选变化。
     -->
-    <ScrollViewer>
+    <ScrollViewer Classes="page-root">
         <StackPanel Spacing="13" Margin="0,0,0,4">
 
             <!-- 页头（原型 .pagehead：区分真实计费、模型价格估算与无法估价的数据） -->

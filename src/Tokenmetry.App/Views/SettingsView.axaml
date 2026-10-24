@@ -11,7 +11,7 @@
         数据源 / 统计口径 / 模型目录 / 别名映射在数据与计价页（DataPricingView）。全部设置项全自动
         保存（改完即生效并落盘，无保存按钮——对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）。
     -->
-    <ScrollViewer>
+    <ScrollViewer Classes="page-root">
         <StackPanel Spacing="13" Margin="0,0,0,4">
 
             <!-- 页头（原型 .pagehead） -->

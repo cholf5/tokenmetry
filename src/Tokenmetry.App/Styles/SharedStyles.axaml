@@ -534,4 +534,12 @@
         </Style.Animations>
     </Style>
 
+    <!-- 页面根滚动面（Q-006）：外壳 PageHost 不再套 22,22,22,30 外边距，滚动视口铺满主内容列
+         直达窗口右/底缘（竖条贴窗口右缘、横向条贴底缘、滑条纵向全程覆盖顶栏底→窗底），
+         页面留白由根滚动面经本类自持——Padding 透传给 ScrollContentPresenter（Semi 模板查证），
+         不影响滚动条位置；会话页无页面级滚动面，头尾/面板自补边距（SessionsView）。 -->
+    <Style Selector="ScrollViewer.page-root">
+        <Setter Property="Padding" Value="22,22,22,30"/>
+    </Style>
+
 </Styles>
