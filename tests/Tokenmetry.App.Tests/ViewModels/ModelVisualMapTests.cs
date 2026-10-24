@@ -51,7 +51,7 @@ public class ModelVisualMapTests
         var visual = ModelVisualMap.Resolve(modelName);
 
         visual.Vendor.Should().Be("generic");
-        visual.Glyph.Should().Be('◇');
+        visual.Glyph.Should().Be('?');
     }
 
     [Fact]

@@ -178,6 +178,8 @@
                                                 <Panel>
                                                     <TextBlock Text="{Binding Glyph}"/>
                                                     <Image Classes="model-logo"/>
+                                                    <PathIcon Classes="app-icon model-fallback"
+                                                              Data="{StaticResource AppIconCircleHelp}"/>
                                                 </Panel>
                                             </Border>
                                             <StackPanel VerticalAlignment="Center">
@@ -247,6 +249,8 @@
                                                 <Panel>
                                                     <TextBlock Text="{Binding Glyph}"/>
                                                     <Image Classes="model-logo"/>
+                                                    <PathIcon Classes="app-icon model-fallback"
+                                                              Data="{StaticResource AppIconCircleHelp}"/>
                                                 </Panel>
                                             </Border>
                                             <TextBlock Classes="table-td" Text="{Binding Alias}"

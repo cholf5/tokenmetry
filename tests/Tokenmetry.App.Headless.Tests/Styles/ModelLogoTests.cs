@@ -7,9 +7,14 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.ViewModels;
 using Xunit;
+
+// System.IO.Path（隐式 using）与 Avalonia 的 PathIcon 同文件混用时的别名纪律（同 IconResourceTests）
+using AvaloniaPathIcon = Avalonia.Controls.PathIcon;
+using AvaloniaPath = Avalonia.Controls.Shapes.Path;
 
 namespace Tokenmetry.App.Headless.Tests.Styles;
 
@@ -20,7 +25,7 @@ namespace Tokenmetry.App.Headless.Tests.Styles;
 /// 2. 兜底厂商（phi/generic）没有 logo 资源——生成器名单与兜底语义不漂移；
 /// 3. 单色官方标（openai/grok）与内联几何（glm）Light=黑 / Dark=白 真实翻转；
 /// 4. model-chip 样式在窗口内真实应用：有 logo 厂商显示 Image 且 Source 指向资源，
-///    兜底厂商显示字形。
+///    phi 显示 Φ 字形、generic 显示 circle-help 矢量兜底图标（Q-009）。
 /// </summary>
 public class ModelLogoTests
 {
@@ -163,7 +168,8 @@ public class ModelLogoTests
 
         var glyph = new TextBlock();
         var logo = new Image { Classes = { "model-logo" } };
-        var border = new Border { Classes = { "model-chip" }, Child = new Panel { Children = { glyph, logo } } };
+        var fallback = new AvaloniaPathIcon { Classes = { "app-icon", "model-fallback" } };
+        var border = new Border { Classes = { "model-chip" }, Child = new Panel { Children = { glyph, logo, fallback } } };
         var window = new Window { Width = 200, Height = 100, Content = border };
         window.Show(); // 挂入视觉树触发样式应用
         Dispatcher.UIThread.RunJobs();
@@ -177,12 +183,43 @@ public class ModelLogoTests
         ModelChip.SetVendor(border, "generic");
         Dispatcher.UIThread.RunJobs();
         Assert.False(logo.IsVisible, "generic 无 logo，Image 应隐藏");
-        Assert.True(glyph.IsVisible, "generic 应显示 ◇ 兜底字形");
+        Assert.False(glyph.IsVisible, "generic 文本字形应隐藏（Q-009 起改矢量兜底）");
+        Assert.True(fallback.IsVisible, "generic 应显示 circle-help 矢量兜底图标");
 
         ModelChip.SetVendor(border, "phi");
         Dispatcher.UIThread.RunJobs();
         Assert.False(logo.IsVisible, "phi 无 logo，Image 应隐藏");
         Assert.True(glyph.IsVisible, "phi 应显示 Φ 兜底字形");
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Generic_fallback_icon_ink_fills_chip_slot()
+    {
+        // Q-009 用户目检实锤：◇/? 文本字形墨迹只占 em 四成（11px 字号实际 ~7px），观感「太小」。
+        // circle-help 矢量兜底必须在 16px 芯片里给出 ≥10px 的真实墨迹——几何量测锁，
+        // 防止未来换字形/改尺寸时悄悄回到「太小」（真机观感仍移交用户）。
+        var app = Application.Current!;
+        Assert.True(app.TryGetResource("AppIconCircleHelp", ThemeVariant.Default, out var geometry));
+        var fallback = new AvaloniaPathIcon
+        {
+            Classes = { "app-icon", "model-fallback" },
+            Data = (Geometry)geometry!,
+        };
+        var border = new Border { Classes = { "model-chip", "model-generic" }, Child = fallback };
+        var window = new Window { Content = border };
+        window.Show(); // 挂入视觉树触发样式应用（model-chip 定尺寸 + generic 显隐）
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(fallback.IsVisible, "generic 兜底图标应显示");
+        var inner = Assert.IsType<AvaloniaPath>(fallback.GetVisualDescendants().First(c => c is AvaloniaPath));
+        var ink = inner.RenderedGeometry!.Bounds;
+        var topLeft = inner.TranslatePoint(ink.TopLeft, border)!.Value;
+        var bottomRight = inner.TranslatePoint(ink.BottomRight, border)!.Value;
+        Assert.True(bottomRight.X - topLeft.X >= 10, $"兜底图标墨迹宽 {bottomRight.X - topLeft.X:F1}px < 10px，退回「太小」");
+        Assert.True(bottomRight.Y - topLeft.Y >= 10, $"兜底图标墨迹高 {bottomRight.Y - topLeft.Y:F1}px < 10px，退回「太小」");
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

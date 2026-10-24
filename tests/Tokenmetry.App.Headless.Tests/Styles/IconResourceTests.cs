@@ -31,8 +31,9 @@ namespace Tokenmetry.App.Headless.Tests.Styles;
 /// </summary>
 public class IconResourceTests
 {
-    /// <summary>图标键名（ShellPages.Icon 取值）→ 资源键。与 scripts/generate-ui-icons.py 的
-    /// ICONS 表同步：名单变更必须同时更新生成器、Icons.axaml（重跑脚本）与本表。</summary>
+    /// <summary>图标键名（ShellPages.Icon 取值或使用处 StaticResource）→ 资源键。与
+    /// scripts/generate-ui-icons.py 的 ICONS 表同步：名单变更必须同时更新生成器、
+    /// Icons.axaml（重跑脚本）与本表。</summary>
     internal static readonly Dictionary<string, string> GeometryKeys = new()
     {
         ["house"] = "AppIconHouse",
@@ -48,6 +49,9 @@ public class IconResourceTests
         ["loader-circle"] = "AppIconLoaderCircle",
         ["coins"] = "AppIconCoins",
         ["zap"] = "AppIconZap",
+        ["hard-drive-upload"] = "AppIconHardDriveUpload",
+        ["hard-drive-download"] = "AppIconHardDriveDownload",
+        ["circle-help"] = "AppIconCircleHelp",
     };
 
     [AvaloniaFact]

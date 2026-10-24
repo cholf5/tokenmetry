@@ -17,6 +17,10 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | B-015 | 计价页价格输入固定 InvariantCulture——de-DE 逗号小数输入必被拒 | P3 | S | | |
 | D-017 | 右栏撤除 + 顶栏四维全局筛选 + 会话行元数据升级 | P1 | 2026-10-18 | | |
 
+> 2026-10-24（晚六）：**Q-009 修正项 1——? 字形太小，改 circle-help 矢量兜底**。用户看后反馈「问号太小了，能不能大点，或者用 svg 画个 Icon」。取证：文本 `?` 墨迹只占 em 四成（11px 字号实际 ~7px，I-040 同源问题——系统字体渲染墨迹占比低且跨平台不可控），加大字号受 16px 槽位与字形 line-height 限制。修法：走 I-040 管线——生成器白名单加 circle-help（lucide-static@1.61.0）再生 Icons.axaml，model-chip 增 `PathIcon.model-fallback` 槽（13px / lg 22px、中性芯片前景、generic 伪类显隐），5 处消费点（模型页/总览/计价页两处/托盘 lg）接入；`?` 字形退到数据层语义（ModelVisual.Glyph，UI 不渲染），phi 的 Φ 不动。测试：generic 断言翻转（字形隐藏+图标显示）+ 新增墨迹几何量测锁（16px 芯片内 ≥10px，防「太小」回归）；IconResourceTests.GeometryKeys 补 circle-help 并顺手补 Q-007 漏登记的 hard-drive-upload/download 两键。headless 346 Passed（+1），全量 1448 Passed / 0 Failed（22 跳过）；真机观感移交用户。
+
+> 2026-10-24（晚五）：**Q-009 未识别模型兜底字形 ◇ → ?**。用户截图反馈未识别模型（ark-code-latest）的兜底小菱形「看起来很山寨」。取证：◇ 是 `ModelVisualMap.GlyphOf` 的 generic 兜底字形（U+25C7 文本字形，model-chip TextBlock 显示），与 AgentVisualMap 散列字形家族（✳◈⬡◉⬟）视觉同类、易被误读成品牌标。修法：兜底换 `?`——问号直白表达「未知厂商」，全部消费点（模型统计页/总览/托盘弹窗/计价页目录）经 `ModelVisualMap.Resolve` 单点生效，「其他」聚合行同语义一并变 ?。断言同步（ModelVisualMapTests 锁 '?'、ModelLogoTests 文案修正）；phi 的 Φ 与各厂商 logo 映射不动；AgentVisualMap 散列兜底是有意设计不跟改（I-040 边界内）。全量 1447 Passed / 0 Failed（22 跳过）。**当晚修正项 1 见晚六：字形太小，改矢量图标。**
+
 > 2026-10-24（晚四）：**D-004 修正项 1——Overview 成本趋势补零日 $0 成线**。用户反馈成本趋势"没数据时用 0 填充"：原 P2 项（成本形态视觉诚实性）的"只连已知成本日"把 I-028 补零窗口里的无用量日一律断线，趋势碎成孤点段（fixture 形态 7 个已知日只能连出一段）。口径取证：补零日（`HasData=false` / `AggregatedCost.IsEmpty`）是窗口内无任何 facts 的日子，真实成本就是 $0，与"有用量但计价缺失"的未知成本异类——前者折 0 是诚实日历语义（同 DailyTokens 形态补零约定），后者折 0 仍触"未知成本绝不静默折算为 0"红线。修法：`BuildCostLine` 成线口径改 `connectFlags` = 已知成本 ∪ 补零日，补零日 $0 进线、淡点辨识保留、悬停文案仍 "no cost data"；未知成本日（(null,true)）断线 + 淡点不变，tooltip 四态契约零改动，面积填充维持关。原断线用例拆为"补零日成线"（fixture 全窗口单段）+"未知成本日仍断线"（补零桥接 / 未知断线 / 孤立已知日不成线）两用例。**并发注记**：与 Q-008（悬停浮窗单位随语言）同工作区并行——其提交（8f5997c）先行落地，本卡改动经其选择性暂存保留于工作树，随本提交收口；合并树上全量 1447 Passed / 0 Failed（22 跳过）。真机目检移交用户。
 
 > 2026-10-24（追记）：**Q-008 图表悬停浮窗 token 单位随 UI 语言——中文 万/亿**。用户反馈"Hover 浮窗里 token 单位在中文状态下仍显示英文（3.25M），应改 325万，本项目惯例的漏网之鱼"。取证（git log）：`FormatCompactTooltipValue`（恒英文 K/M）的 ASCII 约束源自 ScottPlot 自绘 tooltip 时代（d268368），cd1e2bd 已把浮窗换成 Avalonia 浮层（TextBlock 渲染 CJK 无障碍），但消费点与注释没跟着更新——纯残留。修法：`DailyTooltipText` 与小时形态 label 两处消费点改 `FormatCompactTokens`（随语言 万/亿 vs K/M）；零消费方后删除 `FormatCompactTooltipValue`；TrendChart 补 `CurrentLanguage` 订阅重译（B-007 同 DonutChart/Heatmap 纪律，语言切换不换数据即重建换单位）；过时注释与 ChartTooltips 类 doc 交叉引用一并修正；`FormatCompactAxisValue` 轴刻度仍恒 ASCII（ScottPlot 自绘、无 CJK 字形）。测试：既有单位断言显式锁英文口径（WithLanguage）、新增中文万口径 + 语言切换实时性用例、删废弃 theory；"in/out/tot/tok" 记号保持 ASCII（同环形图/热力图 " tok" 后缀惯例），文案本地化不做。全量 1447 Passed / 0 Failed（22 跳过）。**并发注记**：与另一会话的成本折线补零日成线改动（OverviewView/TrendChart BuildCostLine）同工作区并行——本次提交经选择性暂存（git apply --cached 按 hunk 摘取）只含本卡改动，其工作区状态原样保留。
@@ -85,6 +89,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| Q-009 | 未识别模型兜底图标——◇ 文本字形 → circle-help 矢量问号（不冒充品牌标） | P3 | 2026-10-24 |
 | Q-008 | 图表悬停浮窗 token 单位随 UI 语言——中文 万/亿（ScottPlot 时代 ASCII 约束残留） | P2 | 2026-10-24 |
 | I-041 | 关于面板补版权/许可/仓库/无担保行——AGPL Appropriate Legal Notices 对齐 | P3 | 2026-10-24 |
 | Q-007 | 成本分析页补缓存读/写占比卡——Token 构成四项合计满 100%（图标几何随 6e3c8e9 落地） | P2 | 2026-10-24 |

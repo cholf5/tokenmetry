@@ -318,7 +318,8 @@
     <!-- generic：无 lobe 对应，不设 logo 规则——Image 保持隐藏、字形兜底（诚实回退） -->
 
     <!-- 模型图标（ModelVisualMap/ModelChip）：行内官方品牌 logo（AppModelLogo* DrawingImage，
-         生成自 lobe-icons，无色块），phi/未识别厂商保留字形兜底（中性前景随明暗翻转）。
+         生成自 lobe-icons，无色块），phi 保留 Φ 字形兜底、未识别厂商用 circle-help 矢量兜底
+         （Q-009；中性前景随明暗翻转）。
          尺寸对齐 11px 表格行高（16×16）；厂商伪类经附加属性 ModelChip.Vendor 驱动（同 AgentChip
          机制）。logo 源一律 DynamicResource——openai/grok 的单色官方标按明暗给出黑/白两套
          （ModelLogos.axaml 的 ThemeDictionaries），其余 color 版两主题同值。 -->
@@ -341,13 +342,31 @@
         <Setter Property="TextBlock.TextAlignment" Value="Center"/>
         <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
     </Style>
-    <!-- 字形（Φ/◇）默认隐藏，仅 phi/generic 显示；logo 同理仅命中厂商伪类时显示。 -->
+    <!-- 字形（Φ）与 generic 兜底矢量图标默认隐藏，仅对应厂商伪类显示；logo 同理仅命中厂商伪类时显示。 -->
     <Style Selector="Border.model-chip TextBlock, Border.model-chip-lg TextBlock">
         <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="IsVisible" Value="False"/>
     </Style>
-    <Style Selector="Border.model-phi TextBlock, Border.model-generic TextBlock">
+    <Style Selector="Border.model-phi TextBlock">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <!-- generic（未识别厂商）兜底：lucide circle-help（Data 由使用处 StaticResource 给
+         AppIconCircleHelp）——问号文本字形墨迹只占 em 四成、太小且跨平台不可控（I-040 同源
+         问题），矢量图标尺寸稳定。尺寸略小于槽位留呼吸；颜色与 Φ 字形同用中性芯片前景。 -->
+    <Style Selector="Border.model-chip PathIcon.model-fallback">
+        <Setter Property="Width" Value="13"/>
+        <Setter Property="Height" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.model-chip-lg PathIcon.model-fallback">
+        <Setter Property="Width" Value="22"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.model-generic PathIcon.model-fallback">
         <Setter Property="IsVisible" Value="True"/>
     </Style>
     <Style Selector="Border.model-chip Image.model-logo">
