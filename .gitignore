@@ -216,3 +216,7 @@ FakesAssemblies/
 .zcodeignore
 .zcode/
 docs/plans/
+
+# I-039 发布产物（scripts/package.sh 本地打包输出；CI 在 runner 上自产自销）
+dist/
+Tokenmetry-*.zip

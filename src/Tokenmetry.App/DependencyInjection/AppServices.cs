@@ -31,6 +31,7 @@ using Tokenmetry.Infrastructure.ZCodeSqlite;
 using Tokenmetry.Infrastructure.ModelsDev;
 using Tokenmetry.Infrastructure.Notifications;
 using Tokenmetry.App.Services;
+using Tokenmetry.App.Update;
 using Tokenmetry.App.ViewModels;
 
 namespace Tokenmetry.App.DependencyInjection;
@@ -67,6 +68,11 @@ public static class AppServices
         services.AddSingleton<IAppSettingsStore>(settingsStore);
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<IToastService, ToastService>();
+        // I-039 更新检查（设置页与托盘菜单共享同一状态；网络只在实际检查/下载时发生）
+        services.AddSingleton(sp => new UpdateService(
+            new UpdateChecker(),
+            sp.GetRequiredService<AppSettings>(),
+            sp.GetRequiredService<IAppSettingsStore>()));
         // S-006 开机自启动注册（设置页开关的 OS 出口；headless 测试宿主禁止真实调用，见管理器注释）
         services.AddSingleton<IAutoStartManager, AutoStartManager>();
         // D-003 全局筛选状态（时间范围 + Agent）：单例，顶部栏写入、各页 VM 订阅

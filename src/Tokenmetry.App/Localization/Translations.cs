@@ -191,6 +191,25 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(LocalPathsTitle)] = "本地路径",
         [nameof(LabelCacheDb)] = "缓存数据库",
         [nameof(LabelSettingsFile)] = "设置文件",
+        // I-039 关于区（版本 + 更新检查）
+        [nameof(AboutTitle)] = "关于",
+        [nameof(LabelCurrentVersion)] = "当前版本",
+        [nameof(SettingsCheckUpdate)] = "检查更新",
+        [nameof(SettingsDownloadUpdate)] = "下载更新包",
+        [nameof(SettingsOpenReleasePage)] = "打开 Release 页",
+        [nameof(UpdateChecking)] = "检查中…",
+        [nameof(UpdateUpToDate)] = "已是最新版本（{0}）",
+        [nameof(UpdateAvailableFormat)] = "发现新版本 {0}",
+        [nameof(UpdateCheckFailed)] = "检查失败：{0}",
+        [nameof(UpdateDownloading)] = "下载中…",
+        [nameof(UpdateDownloadingPercent)] = "下载中… {0}%",
+        [nameof(UpdateDownloaded)] = "已保存到 {0}，已尝试在文件管理器中显示",
+        [nameof(UpdateDownloadFailed)] = "下载失败：{0}",
+        [nameof(AboutHint)] = "更新包为当前平台的压缩包，保存到「下载」文件夹后自动打开所在位置；解压并替换现有应用即完成更新。",
+        // I-039 托盘菜单「检查更新」项（发现新版本后标题就地翻为 TrayUpdateAvailable）
+        [nameof(TrayUpdateCheck)] = "检查更新",
+        [nameof(TrayUpdateChecking)] = "检查中…",
+        [nameof(TrayUpdateAvailable)] = "发现新版本 {0}",
         [nameof(ToastScanDone)] = "扫描完成",
         [nameof(ToastScanFailed)] = "扫描失败：数据表保持最近一次成功快照",
 
@@ -528,6 +547,23 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(LocalPathsTitle)] = "Local paths",
         [nameof(LabelCacheDb)] = "Cache database",
         [nameof(LabelSettingsFile)] = "Settings file",
+        [nameof(AboutTitle)] = "About",
+        [nameof(LabelCurrentVersion)] = "Version",
+        [nameof(SettingsCheckUpdate)] = "Check for updates",
+        [nameof(SettingsDownloadUpdate)] = "Download update",
+        [nameof(SettingsOpenReleasePage)] = "Open the Release page",
+        [nameof(UpdateChecking)] = "Checking…",
+        [nameof(UpdateUpToDate)] = "Up to date ({0})",
+        [nameof(UpdateAvailableFormat)] = "New version available: {0}",
+        [nameof(UpdateCheckFailed)] = "Check failed: {0}",
+        [nameof(UpdateDownloading)] = "Downloading…",
+        [nameof(UpdateDownloadingPercent)] = "Downloading… {0}%",
+        [nameof(UpdateDownloaded)] = "Saved to {0} and revealed in your file manager",
+        [nameof(UpdateDownloadFailed)] = "Download failed: {0}",
+        [nameof(AboutHint)] = "The update package is a zip for this platform, saved to your Downloads folder and revealed in the file manager. Extract it over the existing app to finish updating.",
+        [nameof(TrayUpdateCheck)] = "Check for updates",
+        [nameof(TrayUpdateChecking)] = "Checking…",
+        [nameof(TrayUpdateAvailable)] = "New version available: {0}",
         [nameof(ToastScanDone)] = "Scan finished",
         [nameof(ToastScanFailed)] = "Scan failed: the table keeps the most recent successful snapshot",
 
@@ -913,6 +949,23 @@ public sealed class Translations : INotifyPropertyChanged
     public string LocalPathsTitle => Get();
     public string LabelCacheDb => Get();
     public string LabelSettingsFile => Get();
+    public string AboutTitle => Get();
+    public string LabelCurrentVersion => Get();
+    public string SettingsCheckUpdate => Get();
+    public string SettingsDownloadUpdate => Get();
+    public string SettingsOpenReleasePage => Get();
+    public string UpdateChecking => Get();
+    public string UpdateUpToDate => Get();
+    public string UpdateAvailableFormat => Get();
+    public string UpdateCheckFailed => Get();
+    public string UpdateDownloading => Get();
+    public string UpdateDownloadingPercent => Get();
+    public string UpdateDownloaded => Get();
+    public string UpdateDownloadFailed => Get();
+    public string AboutHint => Get();
+    public string TrayUpdateCheck => Get();
+    public string TrayUpdateChecking => Get();
+    public string TrayUpdateAvailable => Get();
     public string ToastScanDone => Get();
     public string ToastScanFailed => Get();
 
