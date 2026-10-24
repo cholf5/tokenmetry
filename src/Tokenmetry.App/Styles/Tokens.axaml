@@ -204,14 +204,6 @@
         <GradientStop Color="#65b9ff" Offset="1"/>
     </LinearGradientBrush>
 
-    <!-- D-015 弹层头部品牌芯片底 ← 原型 .logo linear-gradient(140deg,#3986ed,#8a68e9)。
-         与 mini 填充同理不随明暗翻转（品牌渐变恒定，文字用 AppOnBrandForegroundBrush）。
-         140deg 换算（§5，方形 27×27）：方向 (0.643, 0.766)，起止 (4.7%,-4.0%) → (95.3%,104.0%)。 -->
-    <LinearGradientBrush x:Key="AppPopoverLogoBackgroundBrush" StartPoint="4.7%,-4%" EndPoint="95.3%,104%">
-        <GradientStop Color="#3986ed" Offset="0"/>
-        <GradientStop Color="#8a68e9" Offset="1"/>
-    </LinearGradientBrush>
-
     <!-- 模型厂商 logo（I-031）不在令牌层：是 lobe-icons 静态 SVG 生成的 DrawingImage 资源，
          见 Styles/ModelLogos.axaml（头部有来源/许可/再生方式）。原「品牌色芯片」时代的
          AppModelChip*BackgroundBrush 令牌随芯片方案一起移除。 -->

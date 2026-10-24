@@ -42,12 +42,6 @@
             <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
         </Style>
-        <Style Selector="Border.popover-logo">
-            <Setter Property="Width" Value="27"/>
-            <Setter Property="Height" Value="27"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Background" Value="{DynamicResource AppPopoverLogoBackgroundBrush}"/>
-        </Style>
         <!-- 状态灯：Idle 绿 / Active 蓝 / Warn 橙（随 VM 态类切换；原型 .live 的绿色点同语义） -->
         <Style Selector="Ellipse.popover-live-dot">
             <Setter Property="Width" Value="6"/>
@@ -147,11 +141,9 @@
             <!-- 头部：品牌 + 状态灯 + ⚙ -->
             <Border Classes="popover-head">
                 <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" VerticalAlignment="Center">
-                    <Border Grid.Column="0" Classes="popover-logo">
-                        <TextBlock Text="T" FontWeight="Bold" FontSize="14"
-                                   Foreground="{DynamicResource AppOnBrandForegroundBrush}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+                    <!-- 品牌标示用 D-018 定稿应用图标本体（2026-10-24 起替换「T」字占位芯片） -->
+                    <Image Grid.Column="0" Source="avares://Tokenmetry.App/Assets/app-icon.png"
+                           Width="28" Height="28" VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="1" Text="Tokenmetry" FontWeight="Bold" FontSize="13"
                                Margin="9,0,0,0" VerticalAlignment="Center"
                                Foreground="{DynamicResource AppTextBrush}"/>
