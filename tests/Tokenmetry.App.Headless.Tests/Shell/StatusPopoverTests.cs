@@ -23,9 +23,9 @@ using Xunit;
 namespace Tokenmetry.App.Headless.Tests.Shell;
 
 /// <summary>
-/// D-015 状态栏快捷信息窗内容层的 headless 验证（真实 App.axaml + Semi 宿主）：
-/// TC-001 三态渲染（Idle 数字与构成占比 / 注入速率 → Active banner / 注入异常 → Warn banner
-/// 与 warn 配色类 / 速率窗口外降级 / 无数据诚实空态）；
+/// D-015/Q-011 状态栏快捷信息窗内容层的 headless 验证（真实 App.axaml + Semi 宿主）：
+/// TC-001 渲染（Idle 数字与构成占比 / 注入速率 → Active banner / 速率窗口外降级 / 无数据诚实空态）；
+/// Q-011 异常归位（注入异常 → 今日花费 KPI 徽标，banner 仍为实时速率——Warn 不再抢占 banner）；
 /// TC-002 切语言重译（LiveText 经视图 CurrentLanguage 订阅重算，B-007 约定）；
 /// 令牌纪律断言（StatusPopoverView.axaml 剔除注释后零硬编码色值）。
 /// VM 绑定对账口径：期望值一律用与实现同源的函数计算（TrendChart.FormatCompactTokens /
@@ -195,7 +195,6 @@ public class StatusPopoverTests
 
         Assert.Equal(StatusPopoverState.Active, vm.State);
         Assert.True(vm.IsBannerVisible);
-        Assert.False(vm.IsBannerWarn);
         Assert.Contains("Claude Code", vm.BannerTitle);
         // 3200 tokens / 1min = 3.2K/min（与实现同源格式化）
         Assert.Contains(
@@ -207,26 +206,105 @@ public class StatusPopoverTests
             vm.TopAgents![0].Subtitle);
     }
 
+    // ── Q-011: 异常不进 banner——banner 只承载实时速率；日尺度异常归位今日花费 KPI 徽标 ──
+
     [AvaloniaFact]
-    public async Task Warn_banner_on_anomaly_and_clears_on_next_clean_round()
+    public async Task Anomaly_shows_cost_badge_and_keeps_active_rate_banner()
     {
         var stub = new StubQueryService { Kpi = FixtureKpi(), Daily = FixtureDaily(), Agents = FixtureAgents() };
         var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
-        await vm.ReloadAsync();
+        vm.HandleTodayTokensRound(42381, T0); // 轮次基线（首轮无速率）
+        await vm.ReloadAsyncAt(T0);
 
-        vm.NoteAnomaly(Translations.Instance.AnomalyToastTitle, "Claude Code · 当前速度约为平时的 4.8×");
+        // 本轮有增量 → Active banner；同轮注入异常 → 徽标与 banner 并存
+        //（回归锁：D-015 旧行为 Warn 抢占 banner，触发日速率提示全天消失）
+        vm.HandleTodayTokensRound(42381 + 3200, T0.AddSeconds(60));
+        await vm.ReloadAsyncAt(T0.AddSeconds(60));
+        vm.NoteAnomaly("今日成本是过去 7 日均值的 2.3 倍", 2.3m);
 
-        Assert.Equal(StatusPopoverState.Warn, vm.State);
+        Assert.Equal(StatusPopoverState.Active, vm.State);
         Assert.True(vm.IsBannerVisible);
-        Assert.True(vm.IsBannerWarn);
-        Assert.Equal(Translations.Instance.AnomalyToastTitle, vm.BannerTitle);
-        Assert.Equal("Claude Code · 当前速度约为平时的 4.8×", vm.BannerSubtitle);
+        Assert.True(vm.IsCostWarn);
+        Assert.Equal(string.Format(Translations.Instance.PopoverCostWarnBadgeFormat, 2.3m), vm.CostWarnBadgeText);
+        Assert.Equal("今日成本是过去 7 日均值的 2.3 倍", vm.CostWarnDetail);
 
-        // 下一轮无异常 → Warn 清回（无增量速率 → Idle）
+        // 语言切换徽标文案随 Translations 重算。生产路径 = 视图 CurrentLanguage 订阅 →
+        // OnLanguageChanged → RecomputeState（视图订阅半边由 LiveText 的 TC-002 覆盖，
+        // 此处 VM 级测试无视图，显式触发锁重译半边）。
+        var originalLanguage = Translations.Instance.CurrentLanguage;
+        try
+        {
+            Translations.Instance.SetLanguage(AppLanguage.English);
+            vm.OnLanguageChanged();
+            Assert.Equal(string.Format(Translations.Instance.PopoverCostWarnBadgeFormat, 2.3m), vm.CostWarnBadgeText);
+        }
+        finally
+        {
+            Translations.Instance.SetLanguage(originalLanguage); // 进程级单例，恢复基线
+        }
+    }
+
+    [AvaloniaFact]
+    public void Anomaly_without_ratio_falls_back_to_generic_badge_text()
+    {
+        var vm = new StatusPopoverViewModel(new StubQueryService(), null, new DateRangeService());
+
+        vm.NoteAnomaly("未来异常种类无 Ratio 可用");
+
+        Assert.True(vm.IsCostWarn);
+        Assert.Equal(Translations.Instance.PopoverCostWarnBadge, vm.CostWarnBadgeText);
+        Assert.Equal("未来异常种类无 Ratio 可用", vm.CostWarnDetail);
+    }
+
+    [AvaloniaFact]
+    public void Anomaly_badge_clears_on_next_clean_round()
+    {
+        var vm = new StatusPopoverViewModel(new StubQueryService(), null, new DateRangeService());
+        vm.NoteAnomaly("今日成本是过去 7 日均值的 2.3 倍", 2.3m);
+        Assert.True(vm.IsCostWarn);
+
+        // 下一轮无异常 → 徽标清空；本轮无增量速率 → Idle 无 banner
         vm.HandleTodayTokensRound(42381, T0.AddSeconds(60));
+
+        Assert.False(vm.IsCostWarn);
+        Assert.Equal(string.Empty, vm.CostWarnBadgeText);
+        Assert.Equal(string.Empty, vm.CostWarnDetail);
         Assert.Equal(StatusPopoverState.Idle, vm.State);
         Assert.False(vm.IsBannerVisible);
-        Assert.False(vm.IsBannerWarn);
+    }
+
+    [AvaloniaFact]
+    public async Task Cost_warn_badge_renders_in_kpi_cell_while_rate_banner_stays_active()
+    {
+        var stub = new StubQueryService { Kpi = FixtureKpi(), Daily = FixtureDaily(), Agents = FixtureAgents() };
+        var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
+        vm.HandleTodayTokensRound(42381, T0);
+        await vm.ReloadAsyncAt(T0);
+        vm.HandleTodayTokensRound(42381 + 3200, T0.AddSeconds(60));
+        await vm.ReloadAsyncAt(T0.AddSeconds(60));
+        vm.NoteAnomaly("今日成本是过去 7 日均值的 2.3 倍", 2.3m);
+
+        var view = new StatusPopoverView { DataContext = vm };
+        var window = new Window { Content = view };
+        window.Show();
+
+        // 徽标渲染在 KPI 花费格（warn 徽标类唯一且可见）
+        var badge = Assert.Single(view.GetVisualDescendants().OfType<Border>(),
+            b => b.Classes.Contains("popover-cost-warn-badge"));
+        Assert.True(badge.IsVisible);
+
+        // banner 仍是 Active 速率形态（warn 配色类已随 D-015 Warn 态撤除）
+        var banner = Assert.Single(view.GetVisualDescendants().OfType<Border>(),
+            b => b.Classes.Contains("popover-banner"));
+        Assert.True(banner.IsVisible);
+        Assert.DoesNotContain("warn", banner.Classes);
+
+        // 无异常轮次 → 徽标随 IsVisible 绑定隐藏
+        vm.HandleTodayTokensRound(42381 + 3200, T0.AddSeconds(120));
+        Assert.False(vm.IsCostWarn);
+        Assert.False(badge.IsVisible);
+
+        window.Close();
     }
 
     [AvaloniaFact]

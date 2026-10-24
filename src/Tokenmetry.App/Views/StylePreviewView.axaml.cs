@@ -63,9 +63,10 @@ public partial class StylePreviewView : UserControl
     {
         var vm = BuildFixtureVm();
         vm.HandleTodayTokensRound(42381, DemoBaselineAt);
+        // Q-011：异常落今日花费 KPI 徽标（Tooltip 挂完整消息），不进 banner 抢占速率
         vm.NoteAnomaly(
-            Localization.Translations.Instance.AnomalyToastTitle,
-            "Claude Code · 当前速度约为平时的 4.8×");
+            string.Format(Localization.Translations.Instance.AnomalyCostSpikeFormat, 7, 4.8m),
+            4.8m);
         SetPopoverDemo(vm);
     }
 

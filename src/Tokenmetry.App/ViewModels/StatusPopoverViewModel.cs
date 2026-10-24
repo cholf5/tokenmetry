@@ -17,13 +17,14 @@ using Tokenmetry.Core.Services;
 
 namespace Tokenmetry.App.ViewModels;
 
-/// <summary>弹层三态机（D-015）：Idle（实时，无 banner）/ Active（工作中 banner）/ Warn（异常 banner）。
-/// Warn 优先于 Active——异常是当前最该看的信息；下一轮无异常的刷新把 Warn 清回 Idle/Active。</summary>
+/// <summary>弹层两态机（D-015 三态经 Q-011 修正）：Idle（实时，无 banner）/ Active（工作中 banner）。
+/// banner 只承载分钟尺度的实时速率；日尺度异常（如今日花费超 7 日均值——全天为真的常驻事实）不再
+/// 进 banner 抢占速率信息，归位到今日花费 KPI 徽标（<see cref="StatusPopoverViewModel.IsCostWarn"/>），
+/// 两条正交信息并存。</summary>
 public enum StatusPopoverState
 {
     Idle,
     Active,
-    Warn,
 }
 
 /// <summary>
@@ -216,7 +217,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
 
     private bool _visible;
 
-    /// <summary>最近一次异常（Warn banner 内容；下一次无异常的轮次清空）。</summary>
+    /// <summary>最近一次异常（今日花费 KPI 徽标内容，Q-011；下一次无异常的轮次清空）。</summary>
     private DashboardViewModel.AnomalyRaised? _pendingWarn;
 
     /// <summary>最近一次全局速率取样（轮次信号持续喂入，重新打开弹层时状态即时正确）。</summary>
@@ -230,23 +231,31 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     private IReadOnlyDictionary<string, double> _lastAgentRates = new Dictionary<string, double>();
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LiveText), nameof(StateClassActive), nameof(StateClassWarn))]
+    [NotifyPropertyChangedFor(nameof(LiveText), nameof(StateClassActive))]
     private StatusPopoverState _state = StatusPopoverState.Idle;
 
-    /// <summary>状态灯伪类绑定（视图 Ellipse.popover-live-dot 的 active/warn 类切换）。</summary>
+    /// <summary>状态灯伪类绑定（视图 Ellipse.popover-live-dot 的 active 类切换；
+    /// 灯只反映实时态，异常由 KPI 徽标承载——Q-011 撤除 warn 灯，不在灯上重演优先级抢占）。</summary>
     public bool StateClassActive => State == StatusPopoverState.Active;
-    public bool StateClassWarn => State == StatusPopoverState.Warn;
 
     /// <summary>本轮扫描进行中（头部状态灯临时切「扫描中…」，与三态正交——数据不因扫描消失）。</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LiveText))]
     private bool _isScanning;
 
-    // ── 三态 banner ──
+    // ── 两态 banner（Q-011：只承载实时速率，Idle 隐藏）──
     [ObservableProperty] private bool _isBannerVisible;
-    [ObservableProperty] private bool _isBannerWarn;
     [ObservableProperty] private string _bannerTitle = string.Empty;
     [ObservableProperty] private string _bannerSubtitle = string.Empty;
+
+    // ── 今日花费异常徽标（Q-011：日尺度异常归位 KPI 花费格，与速率 banner 正交并存）──
+    [ObservableProperty] private bool _isCostWarn;
+
+    /// <summary>徽标紧凑文案：有 Ratio → 「↑{0:0.0}× 均值」，无 → 通用文案（不伪造倍数）。</summary>
+    [ObservableProperty] private string _costWarnBadgeText = string.Empty;
+
+    /// <summary>徽标 Tooltip 完整异常消息（raise 时刻按当时语言固化的串，同旧 BannerSubtitle 限制）。</summary>
+    [ObservableProperty] private string _costWarnDetail = string.Empty;
 
     // ── KPI 三格（原型 .stats；标签/脚注走 Translations 直绑）──
     [ObservableProperty] private string _todayTokensText = "—";
@@ -284,7 +293,6 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     /// <summary>头部状态灯文案（按态实时取串；语言切换经 Translations 绑定信号重算）。</summary>
     public string LiveText => State switch
     {
-        StatusPopoverState.Warn => Translations.Instance.PopoverLiveWarn,
         StatusPopoverState.Active => Translations.Instance.PopoverLiveActive,
         _ => IsScanning ? Translations.Instance.PopoverScanning : Translations.Instance.PopoverLiveIdle,
     };
@@ -624,36 +632,28 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     }
 
     private void OnAnomalyDetected(object? sender, DashboardViewModel.AnomalyRaised anomaly) =>
-        RunOnUIThread(() => NoteAnomaly(anomaly.Title, anomaly.Message));
+        RunOnUIThread(() => NoteAnomaly(anomaly.Message, anomaly.Ratio));
 
-    /// <summary>注入一条异常（Warn 态）：真实路径来自 DashboardViewModel.AnomalyDetected 同源信号，
-    /// internal 直注入供 headless 测试与样式预览演示。</summary>
-    internal void NoteAnomaly(string title, string message)
+    /// <summary>注入一条异常（今日花费 KPI 徽标，Q-011）：真实路径来自 DashboardViewModel.AnomalyDetected
+    /// 同源信号，internal 直注入供 headless 测试与样式预览演示；ratio 供徽标紧凑倍数文案（无则通用文案）。</summary>
+    internal void NoteAnomaly(string message, decimal? ratio = null)
     {
-        _pendingWarn = new DashboardViewModel.AnomalyRaised(title, message);
+        _pendingWarn = new DashboardViewModel.AnomalyRaised(
+            Translations.Instance.AnomalyToastTitle, message, ratio);
         RecomputeState();
     }
 
-    /// <summary>三态机：Warn（有未消化异常）&gt; Active（本轮有增量速率）&gt; Idle。
-    /// Warn 的清除点：无异常的轮次喂入处（OnDashboardPropertyChanged）先清 _pendingWarn 再重算——
+    /// <summary>两态机（Q-011 修正 D-015 三态）：Active（本轮有增量速率，banner）&gt; Idle（无 banner）。
+    /// 异常不再进 banner（D-015 的 Warn 态撤除）——日累计型异常全天下沉为常驻事实，曾把转瞬即逝的
+    /// 速率信息整日挤掉（D-015 注释「下一轮无异常的刷新清回」对它不成立）；归位 KPI 花费格徽标后并存。
+    /// 清除点不变：无异常的轮次喂入处（OnDashboardPropertyChanged）先清 _pendingWarn 再重算——
     /// 同轮新异常（事件晚于 tokens 回写）会再置回。</summary>
     private void RecomputeState()
     {
-        if (_pendingWarn is { } warn)
-        {
-            State = StatusPopoverState.Warn;
-            IsBannerVisible = true;
-            IsBannerWarn = true;
-            BannerTitle = warn.Title;
-            BannerSubtitle = warn.Message;
-            return;
-        }
-
         if (_lastSample.TokensPerMinute is { } rate)
         {
             State = StatusPopoverState.Active;
             IsBannerVisible = true;
-            IsBannerWarn = false;
             // 增量归属：本轮增速最高的 Agent（Apply 的快照对口径，与 Agent 行同源）；
             // 拿不到具体 Agent（查询未跟上 / 增量来自快照外新 Agent）时给通用标题。
             var topAgent = _lastAgentRates.OrderByDescending(kv => kv.Value).FirstOrDefault().Key;
@@ -663,12 +663,35 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
             BannerSubtitle = string.Format(
                 Translations.Instance.PopoverActiveBannerSubtitleFormat,
                 TrayStatusText.FormatTokens((long)Math.Round(rate)) + "/min");
+        }
+        else
+        {
+            State = StatusPopoverState.Idle;
+            IsBannerVisible = false;
+        }
+
+        RefreshCostWarn();
+    }
+
+    /// <summary>异常徽标派生（Q-011）：有 Ratio → 紧凑倍数文案，无 → 通用文案（不伪造倍数）；
+    /// Tooltip 挂完整异常消息。语言切换经 OnLanguageChanged → RecomputeState 重算徽标文案
+    /// （详情消息是 raise 时刻按当时语言固化的串，与旧 BannerSubtitle 同限制）。</summary>
+    private void RefreshCostWarn()
+    {
+        if (_pendingWarn is not { } warn)
+        {
+            IsCostWarn = false;
+            CostWarnBadgeText = string.Empty;
+            CostWarnDetail = string.Empty;
             return;
         }
 
-        State = StatusPopoverState.Idle;
-        IsBannerVisible = false;
-        IsBannerWarn = false;
+        var t = Translations.Instance;
+        IsCostWarn = true;
+        CostWarnBadgeText = warn.Ratio is { } ratio
+            ? string.Format(t.PopoverCostWarnBadgeFormat, ratio)
+            : t.PopoverCostWarnBadge;
+        CostWarnDetail = warn.Message;
     }
 
     /// <summary>语言切换重译派生文案（LiveText / banner 标题等由 Translations 取串的属性）。</summary>

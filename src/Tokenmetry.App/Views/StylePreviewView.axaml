@@ -263,7 +263,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Idle（实时）" Click="OnPopoverIdleClick"/>
                         <Button Content="Active（工作中）" Click="OnPopoverActiveClick"/>
-                        <Button Content="Warn（异常）" Click="OnPopoverWarnClick"/>
+                        <Button Content="成本异常徽标（Q-011）" Click="OnPopoverWarnClick"/>
                         <Button Content="无数据" Click="OnPopoverNoDataClick"/>
                         <Button Content="真实数据" Click="OnPopoverRealDataClick"/>
                     </StackPanel>
