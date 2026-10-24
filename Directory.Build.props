@@ -4,4 +4,12 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <!-- 许可证元数据唯一出处：全解决方案（src + tests）统一继承，勿在各 csproj 重复声明。
+       LICENSE 全文在仓库根目录；README「License」一节有条款摘要与品牌标识声明。 -->
+  <PropertyGroup>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <Authors>cholf5</Authors>
+    <Copyright>Copyright © 2026 cholf5</Copyright>
+  </PropertyGroup>
+
 </Project>
