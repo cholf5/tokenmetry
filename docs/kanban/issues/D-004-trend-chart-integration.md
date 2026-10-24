@@ -6,7 +6,7 @@ priority: P1
 size: M
 status: done
 created: 2026-10-12
-updated: 2026-10-13
+updated: 2026-10-24
 blocked: none
 ---
 
@@ -130,3 +130,19 @@ Expected:
   审查修复轮净增 11 例：四态 tooltip、空态语义、断线、reattach 等）；截图留档
   `docs/design/trendchart-{daily,cost,hourly}-{light,dark}.png`（6 张，成本形态为断线版）与
   `docs/design/style-preview-{light,dark}.png`（含图表演示区的整页）。
+
+## 修正项 1——成本趋势补零日以 $0 成线（2026-10-24 用户反馈）
+
+用户反馈：Overview 成本趋势"没数据时用 0 填充"。原 [P2] 项锁定的"折线只连已知成本日"在 I-028
+补零窗口下把无用量日一律断线——但补零日（`HasData=false`、`AggregatedCost.IsEmpty`）是窗口内无任何
+facts 的日子，真实成本就是 $0，与"有用量但计价缺失"的未知成本异类；断线反把日历窗口撕成碎段
+（fixture 形态下 7 个已知日只能连出一段），与上半区 Token 趋势的补零成线约定也不一致。
+
+修法：`BuildCostLine` 成线口径改为 `connectFlags` = 已知成本日 ∪ 补零日（`Cost.IsEmpty`），补零日按
+$0 参与连线（淡化小点辨识保留，悬停文案仍 "no cost data"——0 是补零约定）；**未知成本日（(null,true)）
+仍断线 + 淡点**，"未知成本绝不静默折算为 0"纪律与 tooltip 四态契约零改动。面积填充维持关闭（补零段
+贴零轴，填充暗示不存在的连续花费）。测试：原断线用例拆为 `Cost_mode_line_fills_padded_days_at_zero`
+（fixture 全窗口连成单段 + 补零日可悬停）与 `Cost_mode_line_still_breaks_unknown_cost_days`
+（补零桥接 / 未知断线 / 孤立已知日不成线 / "cost unknown" 文案）两用例。**并发注记**：与 Q-008
+（悬停浮窗单位随语言）同工作区并行，其提交（8f5997c）先行落地；合并树上全量 1447 Passed / 0 Failed
+（22 跳过）。
