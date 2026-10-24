@@ -469,6 +469,41 @@ public class TimeCostPagesTests
     }
 
     [AvaloniaFact]
+    public void Cost_kpi_cards_lay_out_in_two_rows_of_three()
+    {
+        // Q-007 修正项 1：单排六列挤压（1180px 窗口卡宽 ≈179px，首卡标题溢出）→ 两排三列。
+        // 几何契约：六卡、Y 顶点聚成两行、每行 3 卡且行内 X 互异、第二排在第一排之下、卡宽不小于
+        // 三列布局下限（≈370px，单排回归时必跌破 240）。
+        var host = CreateCostHost();
+        var window = new Window { Width = 1180, Height = 860, Content = new CostAnalysisView { DataContext = host.Vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var bounds = window.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("kpi"))
+            .Select(b => b.Bounds)
+            .ToList();
+        Assert.Equal(6, bounds.Count);
+
+        var tops = bounds.Select(b => b.Top).Distinct().OrderBy(t => t).ToList();
+        Assert.Equal(2, tops.Count); // 两行
+        foreach (var top in tops)
+        {
+            var row = bounds.Where(b => b.Top == top).ToList();
+            Assert.Equal(3, row.Count); // 每行 3 卡
+            Assert.Equal(3, row.Select(b => b.Left).Distinct().Count()); // 行内三列
+        }
+
+        var firstRowBottom = bounds.Where(b => b.Top == tops[0]).Max(b => b.Bottom);
+        Assert.True(tops[1] >= firstRowBottom); // 第二排在第一排之下
+        Assert.All(bounds, b => Assert.True(b.Width >= 240, $"kpi 卡宽 {b.Width} 过窄，疑似回归单排布局"));
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void Cost_kpi_follows_aggregated_cost_four_states()
     {
         // (null,true) 全未知 → 「未知」+ 全未知说明（绝不折 0）
