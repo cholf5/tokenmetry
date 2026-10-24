@@ -69,7 +69,8 @@ internal static unsafe class MacTrayInterop
         SelAlloc, SelInit, SelInitWithUtf8, SelRelease, SelRightMouseDown, SelMenuAction,
         SelButtonAction, SelTag, SelMouseLocation, SelDataWithBytesLength, SelInitWithData,
         SelMenuFontOfSize, SelPointSize, SelSystemStatusBar, SelInitWithTitle,
-        SelInitWith3, SelPopUpMenu, SelGetSize;
+        SelInitWith3, SelPopUpMenu, SelGetSize,
+        SelSharedApp, SelSetAppIconImage;
 
     // ── 运行时状态（单状态项，进程生命周期）──
     private static IntPtr _button, _menu, _target;
@@ -237,6 +238,8 @@ internal static unsafe class MacTrayInterop
         SelInitWithTitle = Sel("initWithTitle:");
         SelInitWith3 = Sel("initWithTitle:action:keyEquivalent:");
         SelPopUpMenu = Sel("popUpMenuPositioningItem:atLocation:inView:");
+        SelSharedApp = Sel("sharedApplication");
+        SelSetAppIconImage = Sel("setApplicationIconImage:");
     }
 
     private static IntPtr Sel(string name) => sel_registerName(name);
@@ -318,6 +321,35 @@ internal static unsafe class MacTrayInterop
         if (index >= 0 && index < NativeItems.Count)
         {
             SetNSString(NativeItems[index], SelSetTitle, title);
+        }
+    }
+
+    /// <summary>设置 Dock 图标（D-018）：裸可执行（无 .app bundle）运行时 Avalonia 不设 Dock
+    /// 图标（Window.Icon 只影响窗口语义），经 ObjC 通道把 Apple 网格 PNG（app-icon.png）喂给
+    /// <c>NSApplication.applicationIconImage</c>。必须主线程调用；失败返回 false 由调用方静默
+    /// 降级（Dock 图标缺失不影响功能）。若未来改走 .app bundle + Info.plist icns，本调用应删除
+    /// （bundle 场景 Dock 图标归 Info.plist，setApplicationIconImage: 反而会覆盖它）。</summary>
+    public static bool TrySetDockIcon(byte[] iconPng)
+    {
+        try
+        {
+            var app = MsgSend(objc_getClass("NSApplication"), SelSharedApp);
+            if (app == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            var nsData = MsgSend(objc_getClass("NSData"), SelDataWithBytesLength,
+                AllocBytes(iconPng), (ulong)iconPng.Length);
+            var image = MsgSend(MsgSend(objc_getClass("NSImage"), SelAlloc), SelInitWithData, nsData);
+            MsgSend(app, SelSetAppIconImage, image);
+            MsgSend(image, SelRelease);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] Dock 图标 interop 失败：{ex.Message}");
+            return false;
         }
     }
 

@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
+using Avalonia.Platform;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.Core.Models;
@@ -42,6 +43,10 @@ public partial class MainWindow : Window
     internal MainWindow(AppSettings? settings, IAppSettingsStore? settingsStore)
     {
         InitializeComponent();
+        // D-018：窗口/任务栏/Alt-Tab 图标（Linux WM 的 _NET_WM_ICON 同吃这里）。全出血 256
+        // 专供窗口语义；Windows exe 文件图标走 csproj ApplicationIcon，macOS Dock 走 interop。
+        Icon = new WindowIcon(AssetLoader.Open(
+            new Uri("avares://Tokenmetry.App/Assets/app-icon-window.png")));
         _settings = settings;
         _settingsStore = settingsStore;
 

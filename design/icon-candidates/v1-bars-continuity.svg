@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- v1 绿柱续作：托盘三柱符号的正装版。深海军蓝盘（产品 dark 底色族）+ 三根全圆角药丸柱，
+       柱色沿品牌绿由暗到亮递进（#1d9e79 → #27c496 → #38d6a4），柱高递增 = 用量攀升。
+       押注：与托盘图标同符号，品牌延续性最强。 -->
+  <defs>
+    <linearGradient id="plate" x1="150" y1="0" x2="874" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14263f"/>
+      <stop offset="1" stop-color="#0a1322"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="239" fill="url(#plate)"/>
+  <rect x="177" y="530" width="170" height="290" rx="85" fill="#1d9e79"/>
+  <rect x="427" y="365" width="170" height="455" rx="85" fill="#27c496"/>
+  <rect x="677" y="200" width="170" height="620" rx="85" fill="#38d6a4"/>
+</svg>

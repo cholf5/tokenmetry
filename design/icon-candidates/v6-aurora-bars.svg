@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- v6 极光绿柱：v1 同构图，单变量换"氛围光"——近黑深空盘 + 底部大面积绿极光晕
+       （绿 #2fd39f 主光 + 青 #57c7e8 辅光，radial 渐变自带柔边不用 filter），柱身更亮
+       （#86f5d3 → #26c092）像被极光照亮的浮标。mood：Linear/Vercel 式暗调发光。 -->
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1122"/>
+      <stop offset="1" stop-color="#060a15"/>
+    </linearGradient>
+    <radialGradient id="aurora" cx="430" cy="740" r="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2fd39f" stop-opacity="0.4"/>
+      <stop offset="0.55" stop-color="#2fd39f" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#2fd39f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cyan" cx="790" cy="250" r="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#57c7e8" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#57c7e8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.42" r="0.85">
+      <stop offset="0.62" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.3"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#86f5d3"/>
+      <stop offset="1" stop-color="#26c092"/>
+    </linearGradient>
+    <filter id="ds" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="14" stdDeviation="26" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+    <clipPath id="plateclip"><rect width="1024" height="1024" rx="239"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="239" fill="url(#plate)"/>
+  <g clip-path="url(#plateclip)">
+    <ellipse cx="430" cy="740" rx="580" ry="480" fill="url(#aurora)"/>
+    <ellipse cx="790" cy="250" rx="420" ry="340" fill="url(#cyan)"/>
+    <g filter="url(#ds)">
+      <rect x="177" y="530" width="170" height="290" rx="85" fill="url(#bar)"/>
+      <rect x="427" y="365" width="170" height="455" rx="85" fill="url(#bar)"/>
+      <rect x="677" y="200" width="170" height="620" rx="85" fill="url(#bar)"/>
+    </g>
+    <rect width="1024" height="1024" fill="url(#vig)"/>
+  </g>
+  <rect x="3" y="3" width="1018" height="1018" rx="236" fill="none" stroke="url(#rim)" stroke-width="6"/>
+</svg>

@@ -7,6 +7,10 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- D-016：macOS 托盘 interop（MacTrayInterop）用函数指针做动态 ObjC 类的 IMP -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- D-018：应用图标 .ico（全出血多尺寸）→ Windows exe 文件 / 固定任务栏图标；
+         app-icon.png（Apple 网格）与 app-icon-window.png（全出血 256）分别供 macOS
+         Dock interop 与 Window.Icon（App.axaml.cs / MainWindow 构造器）。 -->
+    <ApplicationIcon>Assets/app-icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

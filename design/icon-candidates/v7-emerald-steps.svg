@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- v7 翡翠阶梯：mark 升级——三根柱融合成一块整体上升的阶梯板（单一轮廓，16px 下比三根
+       分离柱更成块），外凸角 r70 / 内凹角 r40 圆顺，填充翡翠纵向渐变 + 顶部轮廓一圈低透明
+       高光当倒角，整体大落影。押注：把"增长"铸成一件翡翠物件，雕塑感最强。 -->
+  <defs>
+    <radialGradient id="plate" cx="512" cy="-120" r="980" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1c3155"/>
+      <stop offset="0.55" stop-color="#0d1830"/>
+      <stop offset="1" stop-color="#081020"/>
+    </radialGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.42" r="0.85">
+      <stop offset="0.62" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.32"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="slab" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#79f2cd"/>
+      <stop offset="1" stop-color="#0d8763"/>
+    </linearGradient>
+    <filter id="ds" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="18" stdDeviation="32" flood-color="#00130c" flood-opacity="0.45"/>
+    </filter>
+    <clipPath id="plateclip"><rect width="1024" height="1024" rx="239"/></clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="239" fill="url(#plate)"/>
+  <g clip-path="url(#plateclip)">
+    <g filter="url(#ds)">
+      <path fill="url(#slab)" d="M 212,780 L 212,620 A 70,70 0 0 1 282,550 L 372,550
+        A 40,40 0 0 0 412,510 L 412,440 A 70,70 0 0 1 482,370 L 572,370
+        A 40,40 0 0 0 612,330 L 612,260 A 70,70 0 0 1 682,190 L 742,190
+        A 70,70 0 0 1 812,260 L 812,780 A 50,50 0 0 1 762,830 L 262,830
+        A 50,50 0 0 1 212,780 Z"/>
+      <path fill="none" stroke="#ccffec" stroke-opacity="0.3" stroke-width="7" d="M 282,550 L 372,550
+        A 40,40 0 0 0 412,510 L 412,440 A 70,70 0 0 1 482,370 L 572,370
+        A 40,40 0 0 0 612,330 L 612,260 A 70,70 0 0 1 682,190 L 742,190
+        A 70,70 0 0 1 812,260"/>
+    </g>
+    <rect width="1024" height="1024" fill="url(#vig)"/>
+  </g>
+  <rect x="3" y="3" width="1018" height="1018" rx="236" fill="none" stroke="url(#rim)" stroke-width="6"/>
+</svg>
