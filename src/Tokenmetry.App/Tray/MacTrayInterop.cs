@@ -201,8 +201,14 @@ internal static unsafe class MacTrayInterop
         }
     }
 
+    /// <summary>幂等：TrySetDockIcon 与 Install 都可能首次触发，重复调用无害。</summary>
     private static void CacheSelectors()
     {
+        if (SelButton != IntPtr.Zero)
+        {
+            return;
+        }
+
         SelButton = Sel("button");
         SelStatusItemWithLength = Sel("statusItemWithLength:");
         SelFrame = Sel("frame");
@@ -333,6 +339,10 @@ internal static unsafe class MacTrayInterop
     {
         try
         {
+            // 先于托盘 Install 执行（App 启动序），selector 必须先就位：空 selector 在
+            // objc_msgSend 的缓存查找里会命中空缓存桶 {imp=0, sel=0}——sel 地址即缓存键，
+            // 0 与空桶比较相等，直接跳 imp=0 → PC=0x0 段错误（而非 unrecognized selector）。
+            CacheSelectors();
             var app = MsgSend(objc_getClass("NSApplication"), SelSharedApp);
             if (app == IntPtr.Zero)
             {
