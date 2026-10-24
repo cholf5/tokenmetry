@@ -9,11 +9,11 @@
              x:DataType="vm:CostViewModel">
 
     <!--
-        D-013 成本分析页（原型 #page-cost）：页头 + KPI 六卡（估算总成本四态 / 输入占比 / 输出占比 /
+        D-013 成本分析页（原型 #page-cost）：页头 + KPI 六卡两排三列（估算总成本四态 / 输入占比 / 输出占比 /
         缓存读占比 / 缓存写占比 / 待确认价格）+ 「成本计算口径」静态三行说明表（实际计费优先 · 价格表估算 ·
         未知不折零）。Q-007：输入/输出/缓存读/缓存写四项 Token 构成占比单列成卡（分子合计 = 分母
-        Σ TotalTokens，占比拼起来覆盖全部 Token），KPI 脚注显式标注口径；待确认价格为定价引擎
-        全局口径，脚注说明不随筛选变化。
+        Σ TotalTokens，占比拼起来覆盖全部 Token），KPI 脚注显式标注口径；修正项 1：单排六卡挤压、
+        首卡标题溢出，改两排三列；待确认价格为定价引擎全局口径，脚注说明不随筛选变化。
     -->
     <ScrollViewer Classes="page-root">
         <StackPanel Spacing="13" Margin="0,0,0,4">
@@ -29,8 +29,9 @@
                 <TextBlock Classes="page-subtitle" Text="{Binding LoadError}"/>
             </Border>
 
-            <!-- ═══ .kpis：六张 KPI 卡（icon-chip 色序对齐原型 .kpi-icon nth-child）═══ -->
-            <Grid ColumnDefinitions="*,*,*,*,*,*" ColumnSpacing="12">
+            <!-- ═══ .kpis：六张 KPI 卡两排三列（Q-007 修正项 1：单排六列挤压、首卡标题溢出；
+                 第一排 = 总成本 + 输入/输出占比，第二排 = 缓存读/写占比 + 待确认价格）═══ -->
+            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*,*" ColumnSpacing="12" RowSpacing="12">
 
                 <!-- 1. 估算总成本（AggregatedCost 四态：未知 / $x.xx+ / $x.xx / —，未知绝不折 0） -->
                 <Border Grid.Column="0" Classes="kpi">
@@ -86,7 +87,7 @@
 
                 <!-- 4. 缓存读取占比（Q-007 单列成卡；Token 构成口径，分子 ΣCacheRead）。
                      图标 hard-drive-upload = 数据出盘（从缓存读出），与输入 ↓ / 输出 ↑ 方向语言同构 -->
-                <Border Grid.Column="3" Classes="kpi">
+                <Border Grid.Row="1" Grid.Column="0" Classes="kpi">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <Border Classes="icon-chip"
@@ -107,7 +108,7 @@
 
                 <!-- 5. 缓存写占比（Q-007 单列成卡；分子 ΣCacheCreation，Anthropic 口径 cache_creation）。
                      图标 hard-drive-download = 数据入盘（写入缓存） -->
-                <Border Grid.Column="4" Classes="kpi">
+                <Border Grid.Row="1" Grid.Column="1" Classes="kpi">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <Border Classes="icon-chip"
@@ -127,7 +128,7 @@
                 </Border>
 
                 <!-- 6. 待确认价格（PricingEngine.GetUnpricedModels 全局口径——不随时间范围/Agent 筛选变化） -->
-                <Border Grid.Column="5" Classes="kpi"
+                <Border Grid.Row="1" Grid.Column="2" Classes="kpi"
                         ToolTip.Tip="{Binding UnpricedModelsTooltip}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="9">

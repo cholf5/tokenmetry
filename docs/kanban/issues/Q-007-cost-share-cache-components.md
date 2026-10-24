@@ -74,6 +74,18 @@ Expected:
   AppIconHardDriveUpload/Download 资源在其提交内）。
 - 全量 `dotnet test Tokenmetry.sln` 1452 Passed / 0 Failed（22 跳过）。
 
+### 2026-10-24（修正项 1）
+
+- 用户目检截图反馈：单排六卡太挤、首卡（估算总成本）标题文字溢出卡外。修法：KPI 行改**两排三列**
+  （`Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*,*"` + RowSpacing=12，第一排 = 总成本 +
+  输入/输出，第二排 = 缓存读/写 + 待确认价格），1180px 窗口卡宽 ≈179px → ≈370px。
+- 几何契约测试 `Cost_kpi_cards_lay_out_in_two_rows_of_three` 锁两排三列（Y 两簇 / 每行 3 卡 /
+  行内三列 / 第二排在下 / 卡宽 ≥240 防回归单排）。
+- 留档截图 cost-light/dark.png 重生成（time 两张随同一测试顺带刷新，内容为当前已提交 UI 态）。
+  踩坑：D-013 记录的 `TOKENMETRY_TIMECOST_PREVIEW_DIR=docs/design` 相对路径落在 testhost bin
+  目录（testhost cwd ≠ 仓库根），须用绝对路径。
+- headless TimeCostPagesTests 17/17；全量见 Verification。
+
 ## Bugs
 
 | ID | Severity | Description | Status | Resolution |
@@ -82,5 +94,5 @@ Expected:
 ## Verification
 
 - Related files: `src/Tokenmetry.App/ViewModels/CostViewModel.cs`, `src/Tokenmetry.App/Views/CostAnalysisView.axaml`, `src/Tokenmetry.App/Localization/Translations.cs`, `tests/Tokenmetry.App.Headless.Tests/Shell/TimeCostPagesTests.cs`（图标几何 `scripts/generate-ui-icons.py` + `src/Tokenmetry.App/Styles/Icons.axaml` 随 6e3c8e9 / I-040 修正项 2 落地）
-- How to run/verify: `dotnet test tests/Tokenmetry.App.Headless.Tests --filter FullyQualifiedName~TimeCostPagesTests`；真机看成本分析页四张占比卡合计。
-- Results: 2026-10-24 headless TimeCostPagesTests 16/16 通过；全量 1452 Passed / 0 Failed（22 跳过）；明暗目检移交用户。
+- How to run/verify: `dotnet test tests/Tokenmetry.App.Headless.Tests --filter FullyQualifiedName~TimeCostPagesTests`；真机看成本分析页四张占比卡合计与两排观感。
+- Results: 2026-10-24 headless TimeCostPagesTests 17/17 通过（含两排三列几何契约）；全量 1454 Passed / 0 Failed（22 跳过）；留档截图 cost-light/dark.png 已重生成，明暗目检移交用户。
