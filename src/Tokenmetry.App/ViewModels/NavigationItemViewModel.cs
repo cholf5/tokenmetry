@@ -46,6 +46,7 @@ public sealed class PageDescriptor : INotifyPropertyChanged
 
     public PageId Id { get; }
 
+    /// <summary>矢量图标键名（Icons.axaml 的 AppIcon* 后缀；与语言无关，语言切换不发通知）。</summary>
     public string Icon { get; }
 
     public string CardRef { get; }
@@ -110,42 +111,44 @@ public static class ShellPages
 {
     public static IReadOnlyList<PageDescriptor> All { get; } =
     [
-        new(PageId.Overview, "⌂",
+        // 图标 = Icons.axaml 的 AppIcon* 几何键后缀（2026-10-24 矢量图标化，lucide 生成），
+        // 经 Controls/PageIcon.Icon 翻译成 pi-* 伪类；键名变更需同步 Icons.axaml 与 SharedStyles。
+        new(PageId.Overview, "house",
             "D-006 / D-007",
             ["KPI 指标行（Token · 成本 · 会话数 · 缓存读取占比）",
              "Token 使用趋势（按日堆叠柱 + 折线）",
              "Agent 使用占比环形图",
              "模型分布 · Token 构成 · 项目排行 · 成本趋势"]),
-        new(PageId.Sessions, "▤",
+        new(PageId.Sessions, "table",
             "D-008",
             ["会话搜索与 Agent / 排序组合筛选",
              "会话明细表（Token · 估算成本 · 最后活动）",
              "与右侧最近会话栏联动"]),
-        new(PageId.Agents, "◉",
+        new(PageId.Agents, "bot",
             "D-009",
             ["Agent KPI 行",
              "Agent 排行表（会话数 · 输入 / 输出 Token · 成本 · 占比）"]),
-        new(PageId.Models, "⬡",
+        new(PageId.Models, "cpu",
             "D-010",
             ["模型明细表（输入 · 输出 · 缓存读取 · 成本）",
              "价格缺失时成本显示「未知」而非 0"]),
-        new(PageId.Projects, "▣",
+        new(PageId.Projects, "folder",
             "D-011",
             ["项目 / 目录排行表（会话数 · Token · 成本 · 占比）",
              "路径归一化后的项目名"]),
-        new(PageId.Time, "◷",
+        new(PageId.Time, "clock",
             "D-012",
             ["按小时分布图",
              "活跃日历热力图",
              "高峰时段 · 会话长度 · 数据边界观察项"]),
-        new(PageId.Cost, "＄",
+        new(PageId.Cost, "dollar-circle",
             "D-013",
             ["成本 KPI 行（估算总成本 · 输入 / 输出占比 · 待确认价格）",
              "计费口径说明（实际计费 · 价格表估算 · 未知成本）"]),
-        new(PageId.DataPricing, "⌗",
+        new(PageId.DataPricing, "database",
             "S-004",
             []),
-        new(PageId.Settings, "⚙",
+        new(PageId.Settings, "settings",
             "S-002",
             []),
     ];

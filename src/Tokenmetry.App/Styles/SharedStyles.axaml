@@ -143,17 +143,67 @@
     </Style>
 
     <!-- 图标软色底容器 ← 原型 .kpi-icon{width:30px;height:30px;border-radius:9px;…;font-size:15px}，
-         背景/前景色由使用处按变体给 AppIconChip{Hue}BackgroundBrush / ForegroundBrush -->
+         背景/前景色由使用处按变体给 AppIconChip{Hue}BackgroundBrush / ForegroundBrush。
+         2026-10-24 矢量图标化：内容从字形 TextBlock 换成 Path.app-icon（15px 槽内近似 15px 字号），
+         agent/model chip 的兜底字形仍走 TextBlock 子选择器。 -->
     <Style Selector="Border.icon-chip">
         <Setter Property="Width" Value="30"/>
         <Setter Property="Height" Value="30"/>
         <Setter Property="CornerRadius" Value="9"/>
         <Setter Property="TextBlock.FontSize" Value="15"/>
     </Style>
-    <!-- Border 无内容对齐属性：图标字形经子选择器居中 -->
+    <!-- Border 无内容对齐属性：图标字形/矢量图标经子选择器居中 -->
     <Style Selector="Border.icon-chip > TextBlock">
         <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.icon-chip > Path.app-icon">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- 界面矢量图标（Icons.axaml 的 AppIcon* StreamGeometry，lucide stroke 语义）统一描边：
+         Stretch=Uniform 下 StrokeThickness 不随几何缩放（Shape.Render 对变换后几何直接套 pen），
+         1.5 按 16px 渲染槽定值（≈lucide 2/24 比例）；颜色默认 AppTextBrush，使用处按上下文
+         覆盖（KPI chip 变体色在用点给，导航/禁用等状态在消费视图的样式里给），禁止硬编码色值。 -->
+    <Style Selector="Path.app-icon">
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="Stroke" Value="{DynamicResource AppTextBrush}"/>
+        <Setter Property="StrokeThickness" Value="1.5"/>
+        <Setter Property="StrokeLineCap" Value="Round"/>
+        <Setter Property="StrokeJoin" Value="Round"/>
+    </Style>
+
+    <!-- 数据驱动图标：Controls/PageIcon.Icon 把页面图标键名（ShellPages.Icon，即 AppIcon* 后缀）
+         翻译成 pi-* 伪类 → 几何。键名变更需同步：ShellPages、Icons.axaml（重跑生成脚本）、
+         DesignTokenTests.AllTokenKeys。几何不随明暗翻转（描边色才翻），DynamicResource 仅为了
+         解析序稳健（Styles 先于 Resources 装载）。 -->
+    <Style Selector="Path.app-icon.pi-house">
+        <Setter Property="Data" Value="{DynamicResource AppIconHouse}"/>
+    </Style>
+    <Style Selector="Path.app-icon.pi-table">
+        <Setter Property="Data" Value="{DynamicResource AppIconTable}"/>
+    </Style>
+    <Style Selector="Path.app-icon.pi-bot">
+        <Setter Property="Data" Value="{DynamicResource AppIconBot}"/>
+    </Style>
+    <Style Selector="Path.app-icon.pi-cpu">
+        <Setter Property="Data" Value="{DynamicResource AppIconCpu}"/>
+    </Style>
+    <Style Selector="Path.app-icon.pi-folder">
+        <Setter Property="Data" Value="{DynamicResource AppIconFolder}"/>
+    </Style>
+    <Style Selector="Path.app-icon.pi-clock">
+        <Setter Property="Data" Value="{DynamicResource AppIconClock}"/>
+    </Style>
+    <Style Selector="Path.app-icon.pi-dollar-circle">
+        <Setter Property="Data" Value="{DynamicResource AppIconDollarCircle}"/>
+    </Style>
+    <Style Selector="Path.app-icon.pi-database">
+        <Setter Property="Data" Value="{DynamicResource AppIconDatabase}"/>
+    </Style>
+    <Style Selector="Path.app-icon.pi-settings">
+        <Setter Property="Data" Value="{DynamicResource AppIconSettings}"/>
     </Style>
 
     <!-- Agent 图标槽（I-034，原 D-008 的「chip-* 四色软色底 + 散列字形」退场）：

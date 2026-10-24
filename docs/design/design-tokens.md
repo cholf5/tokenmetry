@@ -112,3 +112,33 @@ Agent 统计页 KPI 卡 / 会话明细 Agent 列 / 右栏最近会话行的 Agen
 - 显隐状态机：`Controls/ScrollBarOverlay`（附加行为，经 ControlTheme setter 全局启用；显隐翻译成 ScrollBar 的 `overlay-shown` 普通类——Avalonia 12 禁止控件外部添加 `:` 前缀伪类；邻近区判定为纯几何（命中条矩形外扩 `ScrollBarOverlay.NearDistance`），隐藏态不可命中也照样可"接近"；headless 测试经 `ScrollBarOverlay.SetIdleHideDelay` 注入闲置窗）。
 - 令牌：`AppScrollBarThumbBrush`（闲置）/ `AppScrollBarThumbHoverBrush`（悬停），随明暗翻转进 ThemeDictionaries（§2，Light 为协调补值）；键名入 `DesignTokenTests.AllTokenKeys` 撞名白名单。
 - 契约由 `ScrollBarOverlayTests` 固化：闲置隐藏 / 无箭头 / 滑块贴边（垂直+水平）/ 滚动即显闲置即隐 / 远离滚动条的指针活动不显示 / 移近滚动条即显、闲置收回 / 悬停钉住。
+
+## 10. 界面图标（I-040，lucide 生成资源）
+
+顶栏/侧栏/KPI chip/托盘弹窗的 UI chrome 图标**不是字形也不是令牌**，而是生成资源：
+`Styles/Icons.axaml` 由 `scripts/generate-ui-icons.py` 从 npm 包 `lucide-static@1.61.0`
+（ISC License, Copyright (c) lucide authors，https://github.com/lucide-icons/lucide）的
+静态 SVG 一次性转换（24×24 视框 stroke 语义 → 单个 `StreamGeometry`，path 数据原样保留，
+circle/ellipse/rect/line/polyline 转 arc/H/V/A 路径）。**勿手改**；再生：
+`python3 scripts/generate-ui-icons.py`（名单与版本 pin 在脚本 ICONS / LUCIDE_VERSION）。
+
+- 起因：原 Unicode 字形图标（⟳ ⚙ ◌ ⌂ ▤ ◉ ⬡ ▣ ◷ ＄ ⌗ ◈ ▣ ↻）在应用未激活任何
+  FontFamily 的现实下经系统回退字体（macOS = Apple Symbols）渲染，墨迹只占 em 四到五成，
+  34px 按钮里 14pt 字形实际图形仅 6~8px，且 Windows/Linux 回退字体墨迹率不同、跨平台不可控。
+- 键名 `AppIcon{Pascal}` 13 个：House/Table/Bot/Cpu/Folder/Clock/DollarCircle/Database/
+  Settings（侧栏九页；Settings 兼顶栏入口）、RotateCw（顶栏手动刷新）、LoaderCircle
+  （刷新进行中菊花 + 侧栏品牌内圈标）、Coins/DollarCircle/Table/Zap（KPI 四卡；成本卡用
+  带圈版本与导航成本图标一致——裸 dollar-sign 竖杆长伸、横端子大敞，15px 下读作「歪」，
+  2026-10-24 真机目检退场）。
+- 渲染：`Path.app-icon`（SharedStyles）统一描边——`Stretch=Uniform` + `StrokeThickness=1.5`
+  + 圆角端点。**Avalonia 的 StrokeThickness 不随 Stretch 缩放**（`Shape.Render` 对变换后
+  几何直接套 pen），故粗细按最终渲染槽定值（16px 槽 ≈ lucide 2/24 比例）；颜色一律令牌
+  画刷（默认 `AppTextBrush`；KPI chip 变体色在用点给 `AppIconChip{Hue}ForegroundBrush`，
+  导航未选/选中与按钮禁用态在 MainWindow / StatusPopoverView 的状态样式里覆盖），禁止硬编码色值。
+- 数据驱动（导航项）：`ShellPages.Icon` 存图标键名（= AppIcon* 后缀），`Controls/PageIcon.Icon`
+  附加属性翻译成 `pi-*` 伪类 → SharedStyles 的 `Path.app-icon.pi-*` 给 Data（DynamicResource
+  不支持动态键名，机制同 §8 AgentChip）。
+- 名单同步点（四处）：generate-ui-icons.py ICONS / ShellPages（NavigationItemViewModel.cs）/
+  IconResourceTests.GeometryKeys / DesignTokenTests.AllTokenKeys（Semi 撞名白名单）。
+- **不替换**：agent/model 厂商兜底散列字形（§8 既有决策）、ModelLogos/AgentLogos 品牌 logo
+  （§7/§8）、KPI 涨跌箭头 ↑↓ 与文本连接符 →（文本语义，非 chrome 图标）。
