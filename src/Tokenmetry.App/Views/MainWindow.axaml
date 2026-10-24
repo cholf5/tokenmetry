@@ -364,16 +364,12 @@
                     BorderBrush="{DynamicResource AppLineBrush}"
                     BorderThickness="0,0,1,0">
                 <DockPanel Margin="10,0">
-                    <!-- 品牌（logo/标题；原型 .brandmark + .brand；内圈标 2026-10-24 起为矢量弧形） -->
+                    <!-- 品牌（logo/标题；原型 .brandmark + .brand）。标示图形 2026-10-24 起为
+                         D-018 定稿应用图标本体（绿柱 v1，居中带 Apple 网格边距的烘焙资产）——
+                         此前占位的「圆环 + 弧形」不是任何定稿设计，读作卡住的加载圈 -->
                     <StackPanel DockPanel.Dock="Top" Margin="8,18,8,16" Orientation="Horizontal" Spacing="9">
-                        <Border Width="24" Height="24" CornerRadius="12"
-                                BorderBrush="{DynamicResource AppLinkBrush}"
-                                BorderThickness="2">
-                            <PathIcon Classes="app-icon"
-                                  Data="{StaticResource AppIconLoaderCircle}"
-                                  Width="12" Height="12"
-                                  Foreground="{DynamicResource AppLinkBrush}"/>
-                        </Border>
+                        <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"
+                               Width="24" Height="24"/>
                         <StackPanel VerticalAlignment="Center" Spacing="1">
                             <TextBlock Text="Tokenmetry"
                                        FontSize="15"

@@ -145,3 +145,7 @@ circle/ellipse/rect/line/polyline 转 arc/H/V/A 路径）。**勿手改**；再�
   IconResourceTests.GeometryKeys / DesignTokenTests.AllTokenKeys（Semi 撞名白名单）。
 - **不替换**：agent/model 厂商兜底散列字形（§8 既有决策）、ModelLogos/AgentLogos 品牌 logo
   （§7/§8）、KPI 涨跌箭头 ↑↓ 与文本连接符 →（文本语义，非 chrome 图标）。
+- 品牌标示（侧栏头部 / 弹窗头部）不用本节图标系统：直接 `Image` 引用 D-018 定稿的烘焙资产
+  `Assets/app-icon.png`（居中 Apple 网格变体；窗口标题栏用其出血变体 app-icon-window.png）。
+  2026-10-24 起替换此前的「圆环+弧形」（侧栏）与「T 字芯片」（弹窗，AppPopoverLogoBackgroundBrush
+  渐变令牌随之退场）两个占位。

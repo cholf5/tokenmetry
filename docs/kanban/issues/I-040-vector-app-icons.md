@@ -83,3 +83,14 @@ $ 墨迹 12×20 左偏 3px、zap 约 17×20 左偏 1.2px、近方形墨迹（tab
 AppTextBrush 显式基线）。IconResourceTests 新增居中回归锁（zap/house/loader-circle/coins
 墨迹中心 = 槽位中心 ±0.75）；像素复测 zap：水平偏差 0、垂直 0.5px（AA 噪声）。全量
 1454 Passed / 0 Failed。
+
+## 修正项 3——品牌标示换定稿应用图标本体（2026-10-24 目检反馈）
+
+用户目检：侧栏头部「圆环 + 内弧」标示"是个啥、怪怪的"。取证：那不是任何定稿设计——
+D-018 已两轮筛选定稿绿柱 v1 应用图标（app-icon.png 居中 Apple 网格变体 / app-icon-window.png
+窗口出血变体），侧栏圈与弹窗「T 字芯片」均为 D-018 之前的占位。
+
+处理：侧栏头部与弹窗头部品牌位改 `Image` 引用 `Assets/app-icon.png`（24/28px，自带圆角与
+边距）；弹窗「T 字芯片」的 AppPopoverLogoBackgroundBrush 渐变令牌随之退场（Tokens +
+popover-logo 样式；AppOnBrandForegroundBrush 保留——primary 按钮仍用）。headless 探针渲染
+两处品牌位目检通过；全量 1454 Passed / 0 Failed。
