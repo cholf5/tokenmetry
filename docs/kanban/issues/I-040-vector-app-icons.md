@@ -94,3 +94,17 @@ D-018 已两轮筛选定稿绿柱 v1 应用图标（app-icon.png 居中 Apple �
 边距）；弹窗「T 字芯片」的 AppPopoverLogoBackgroundBrush 渐变令牌随之退场（Tokens +
 popover-logo 样式；AppOnBrandForegroundBrush 保留——primary 按钮仍用）。headless 探针渲染
 两处品牌位目检通过；全量 1454 Passed / 0 Failed。
+
+## 修正项 4——PathIcon 削边：ControlTheme 显式 ClipToBounds=False（2026-10-24 目检反馈）
+
+用户目检：clock / dollar-circle / database / house 等"像是被削去了最外面一部分"。取证
+（headless 像素量测实锤）：Avalonia 12 起 `TemplatedControl`（IconElement/PathIcon 继承）
+把 `ClipToBounds` 元数据默认翻成 `true`，而模板内 Path 按几何 bounds 缩放填槽、居中描边的
+外半环（0.75px）溢出 PathIcon 边界即被削——16px 槽渲染 clock 墨迹盒恰 16×16、赤道整行贴边
+（平弦），同几何裸 Path 墨迹盒 18×18 圆弧收尾（Shape 的元数据仍默认 false，不受影响）。
+只有圆类图标可辨的原因：table/bot/cpu 的几何边缘本就是直线，削切与线重合。
+
+处理：PathIcon 隐式 ControlTheme（Icons.axaml，随生成器再生）显式
+`<Setter Property="ClipToBounds" Value="False"/>`，生成器源头同步注释；IconResourceTests
+新增削边回归锁（属性断言 ClipToBounds=false + 渲染断言墨迹盒宽高必须大于几何盒 16×16，
+被削时墨迹盒恒等于几何盒）。全量 1455 Passed / 0 Failed。

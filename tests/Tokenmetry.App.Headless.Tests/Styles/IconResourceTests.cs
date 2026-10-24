@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -24,7 +26,8 @@ namespace Tokenmetry.App.Headless.Tests.Styles;
 /// 2. 几何资源两主题同实例（与明暗无关——图标颜色由描边画刷翻转）；
 /// 3. Path.app-icon 统一描边样式真实应用（Stretch=Uniform / 1.5 粗细 / AppTextBrush 默认色）；
 /// 4. PageIcon.Icon 附加属性把键名翻译成 pi-* 伪类 → Data 指向对应几何资源；
-/// 5. 几何墨迹全部落在 24×24 设计框内（子路径拼接漂移护栏，见用例注释）。
+/// 5. 几何墨迹全部落在 24×24 设计框内（子路径拼接漂移护栏，见用例注释）；
+/// 6. 描边外半环不被 PathIcon 边界削掉（Avalonia 12 ClipToBounds 默认翻转护栏，见用例注释）。
 /// </summary>
 public class IconResourceTests
 {
@@ -128,6 +131,90 @@ public class IconResourceTests
 
             window.Close();
             Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Stroke_bleed_escapes_path_icon_bounds()
+    {
+        // Avalonia 12 起 TemplatedControl（IconElement/PathIcon 继承）把 ClipToBounds 元数据
+        // 默认翻成 true：模板内 Path 按几何 bounds 缩放填槽，居中描边的外半环（0.75px）溢出
+        // PathIcon 边界即被削——大圆类图标（clock/dollar-circle/database/house）左右弧读成直边
+        // （真机目检实锤；headless 像素量测复现：16px 槽 clock 墨迹盒恰 16×16、赤道整行贴边，
+        // 同几何裸 Path 墨迹盒 18×18 圆弧收尾）。修复 = ControlTheme 显式 ClipToBounds=False
+        // （Icons.axaml 随生成器再生）。双断言：主题应用后属性为 false；渲染墨迹盒宽高必须
+        // 大于几何盒 16×16（描边外半环真实出墨——被削时墨迹盒恒等于几何盒）。
+        var app = Application.Current!;
+        Assert.True(app.TryGetResource(GeometryKeys["clock"], ThemeVariant.Default, out var geometry));
+        var icon = new AvaloniaPathIcon
+        {
+            Classes = { "app-icon" },
+            Width = 16,
+            Height = 16,
+            Data = (Geometry)geometry!,
+            Foreground = Brushes.Red,
+        };
+        var window = new Window
+        {
+            Width = 32,
+            Height = 32,
+            Content = new Border { Width = 32, Height = 32, Background = Brushes.White, Child = icon },
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(icon.ClipToBounds, "ControlTheme 的 ClipToBounds=False 未生效，描边外半环会被削掉");
+
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        var frame = window.CaptureRenderedFrame();
+        Assert.NotNull(frame);
+
+        var (minX, maxX, minY, maxY) = MeasureInkBox(frame!);
+        Assert.True(maxX - minX + 1 >= 17,
+            $"墨迹盒宽 {maxX - minX + 1}（<17）：描边外半环被 PathIcon 边界削掉");
+        Assert.True(maxY - minY + 1 >= 17,
+            $"墨迹盒高 {maxY - minY + 1}（<17）：描边外半环被 PathIcon 边界削掉");
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    /// <summary>帧内红墨迹（Foreground=Red）的像素包围盒。供削边回归用例量测。</summary>
+    private static (int MinX, int MaxX, int MinY, int MaxY) MeasureInkBox(Avalonia.Media.Imaging.Bitmap frame)
+    {
+        var size = frame.PixelSize;
+        var stride = size.Width * 4;
+        var native = Marshal.AllocHGlobal(stride * size.Height);
+        try
+        {
+            frame.CopyPixels(new PixelRect(0, 0, size.Width, size.Height), native, stride * size.Height, stride);
+            var pixels = new byte[stride * size.Height];
+            Marshal.Copy(native, pixels, 0, pixels.Length);
+
+            int? minX = null, maxX = null, minY = null, maxY = null;
+            for (var y = 0; y < size.Height; y++)
+            {
+                for (var x = 0; x < size.Width; x++)
+                {
+                    // R/B 两通道一低一高判红墨迹（BGRA/RGBA 字节序都命中；白底 AA 像素同样命中）
+                    var offset = y * stride + x * 4;
+                    if ((pixels[offset] > 120 && pixels[offset + 2] < 120)
+                        || (pixels[offset] < 120 && pixels[offset + 2] > 120))
+                    {
+                        minX = minX is null || x < minX ? x : minX;
+                        maxX = maxX is null || x > maxX ? x : maxX;
+                        minY = minY is null || y < minY ? y : minY;
+                        maxY = maxY is null || y > maxY ? y : maxY;
+                    }
+                }
+            }
+
+            Assert.True(minX is not null, "帧内没有红墨迹：图标未渲染");
+            return (minX!.Value, maxX!.Value, minY!.Value, maxY!.Value);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(native);
         }
     }
 
