@@ -66,9 +66,7 @@
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
             <Setter Property="Padding" Value="4,0"/>
         </Style>
-        <Style Selector="Button.popover-icon-btn Path.app-icon">
-            <Setter Property="Stroke" Value="{DynamicResource AppMutedTextBrush}"/>
-        </Style>
+
         <!-- 三态 banner ← 原型 .banner（Active 蓝调）/ .banner.warn（橙调） -->
         <Style Selector="Border.popover-banner">
             <Setter Property="CornerRadius" Value="9"/>
@@ -169,10 +167,9 @@
                     <Button Grid.Column="4" Classes="popover-icon-btn"
                             Command="{Binding OpenSettingsCommand}"
                             VerticalAlignment="Center">
-                        <Path Classes="app-icon"
+                        <PathIcon Classes="app-icon"
                               Data="{StaticResource AppIconSettings}"
-                              Width="15" Height="15"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                              Width="15" Height="15"/>
                     </Button>
                 </Grid>
             </Border>

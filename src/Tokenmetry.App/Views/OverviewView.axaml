@@ -40,10 +40,10 @@
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <Border Classes="icon-chip"
                                 Background="{DynamicResource AppIconChipBlueBackgroundBrush}">
-                            <Path Classes="app-icon"
+                            <PathIcon Classes="app-icon"
                                   Data="{StaticResource AppIconCoins}"
                                   Width="15" Height="15"
-                                  Stroke="{DynamicResource AppIconChipBlueForegroundBrush}"/>
+                                  Foreground="{DynamicResource AppIconChipBlueForegroundBrush}"/>
                         </Border>
                         <TextBlock Classes="kpi-top" Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -67,10 +67,10 @@
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <Border Classes="icon-chip"
                                 Background="{DynamicResource AppIconChipAmberBackgroundBrush}">
-                            <Path Classes="app-icon"
+                            <PathIcon Classes="app-icon"
                                   Data="{StaticResource AppIconDollarCircle}"
                                   Width="15" Height="15"
-                                  Stroke="{DynamicResource AppIconChipAmberForegroundBrush}"/>
+                                  Foreground="{DynamicResource AppIconChipAmberForegroundBrush}"/>
                         </Border>
                         <TextBlock Classes="kpi-top" Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -93,10 +93,10 @@
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <Border Classes="icon-chip"
                                 Background="{DynamicResource AppIconChipPurpleBackgroundBrush}">
-                            <Path Classes="app-icon"
+                            <PathIcon Classes="app-icon"
                                   Data="{StaticResource AppIconTable}"
                                   Width="15" Height="15"
-                                  Stroke="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
+                                  Foreground="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
                         </Border>
                         <TextBlock Classes="kpi-top" Text="{Binding KpiSessions, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -119,10 +119,10 @@
                     <StackPanel Orientation="Horizontal" Spacing="9">
                         <Border Classes="icon-chip"
                                 Background="{DynamicResource AppIconChipGreenBackgroundBrush}">
-                            <Path Classes="app-icon"
+                            <PathIcon Classes="app-icon"
                                   Data="{StaticResource AppIconZap}"
                                   Width="15" Height="15"
-                                  Stroke="{DynamicResource AppIconChipGreenForegroundBrush}"/>
+                                  Foreground="{DynamicResource AppIconChipGreenForegroundBrush}"/>
                         </Border>
                         <TextBlock Classes="kpi-top" Text="{Binding KpiCacheShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </StackPanel>

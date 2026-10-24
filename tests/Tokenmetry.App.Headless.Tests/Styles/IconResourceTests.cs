@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
@@ -6,11 +7,13 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.ViewModels;
 using Xunit;
-// System.IO.Path（隐式 using）与 Avalonia 的 Path 撞名，测试里的 Path 一律指矢量图标形状
+// System.IO.Path（隐式 using）与 Avalonia 的 Path 撞名，测试里一律用别名
 using AvaloniaPath = Avalonia.Controls.Shapes.Path;
+using AvaloniaPathIcon = Avalonia.Controls.PathIcon;
 
 namespace Tokenmetry.App.Headless.Tests.Styles;
 
@@ -90,21 +93,42 @@ public class IconResourceTests
     }
 
     [AvaloniaFact]
-    public void App_icon_style_applies_unified_stroke()
+    public void App_icon_template_applies_stroke_and_centers_ink()
     {
+        // 居中回归锁（2026-10-24 zap/$ 真机目检实锤）：Avalonia 的 Shape.Stretch 只缩放适配并
+        // 钉在元素左上角（CalculateSizeAndTransform 无居中项，与 WPF 不同），裸 Path 的墨迹在
+        // 槽内偏移 (槽−墨)/2。修复 = PathIcon 隐式 ControlTheme（Icons.axaml）：内层 Path 自适应
+        // 墨迹尺寸 + Center 对齐 → 布局居中。本断言锁定：任意图标墨迹中心 = 槽位中心。
         var app = Application.Current!;
-        var path = new AvaloniaPath { Classes = { "app-icon" } };
-        var window = new Window { Content = path };
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
+        foreach (var key in new[] { "zap", "house", "loader-circle", "coins" })
+        {
+            Assert.True(app.TryGetResource(GeometryKeys[key], ThemeVariant.Default, out var geometry));
+            var icon = new AvaloniaPathIcon
+            {
+                Classes = { "app-icon" },
+                Width = 15,
+                Height = 15,
+                Data = (Geometry)geometry!,
+                Foreground = Brushes.Red,
+            };
+            var window = new Window { Content = new Border { Width = 30, Height = 30, Child = icon } };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal(Stretch.Uniform, path.Stretch);
-        Assert.Equal(1.5, path.StrokeThickness);
-        Assert.True(app.TryGetResource("AppTextBrush", window.ActualThemeVariant, out var text));
-        Assert.Same(text, path.Stroke);
+            var inner = Assert.IsType<AvaloniaPath>(icon.GetVisualDescendants().First(c => c is AvaloniaPath));
+            Assert.Equal(Stretch.Uniform, inner.Stretch);
+            Assert.Equal(1.5, inner.StrokeThickness);
+            Assert.Same(icon.Foreground, inner.Stroke); // 模板 TemplateBinding Foreground → 状态色走继承
 
-        window.Close();
-        Dispatcher.UIThread.RunJobs();
+            // 墨迹中心（RenderedGeometry 含 Stretch 变换，坐标在内层 Path 空间）换算到槽位坐标
+            var inkCenter = inner.RenderedGeometry!.Bounds.Center;
+            var inSlot = inner.TranslatePoint(inkCenter, icon)!.Value;
+            Assert.InRange(inSlot.X, 7.5 - 0.75, 7.5 + 0.75);
+            Assert.InRange(inSlot.Y, 7.5 - 0.75, 7.5 + 0.75);
+
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
     }
 
     [AvaloniaFact]
@@ -113,17 +137,17 @@ public class IconResourceTests
         var app = Application.Current!;
         foreach (var descriptor in ShellPages.All)
         {
-            var path = new AvaloniaPath { Classes = { "app-icon" } };
-            PageIcon.SetIcon(path, descriptor.Icon);
-            var window = new Window { Content = path };
+            var icon = new AvaloniaPathIcon { Classes = { "app-icon" } };
+            PageIcon.SetIcon(icon, descriptor.Icon);
+            var window = new Window { Content = icon };
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            Assert.True(path.Classes.Contains($"pi-{descriptor.Icon}"),
+            Assert.True(icon.Classes.Contains($"pi-{descriptor.Icon}"),
                 $"页面 {descriptor.Id}：pi-{descriptor.Icon} 伪类未挂上");
             Assert.True(app.TryGetResource(GeometryKeys[descriptor.Icon], window.ActualThemeVariant, out var expected),
                 $"缺少几何资源 {GeometryKeys[descriptor.Icon]}");
-            Assert.Same(expected, path.Data);
+            Assert.Same(expected, icon.Data);
 
             window.Close();
             Dispatcher.UIThread.RunJobs();

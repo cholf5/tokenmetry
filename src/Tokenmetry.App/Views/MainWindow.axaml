@@ -103,22 +103,20 @@
                 </Transitions>
             </Setter>
         </Style>
-        <!-- 矢量图标不继承 TextElement.Foreground，状态色在祖先样式里给：
-             禁用态（刷新进行中按钮禁用）用 muted；侧栏导航未选中 muted、选中用激活前景 -->
-        <Style Selector="Button.icon-btn:disabled Path.app-icon">
-            <Setter Property="Stroke" Value="{DynamicResource AppMutedTextBrush}"/>
+        <!-- 矢量图标颜色走 Foreground（模板 TemplateBinding）：侧栏导航未选中/选中、
+             禁用态直接随祖先 Foreground 继承生效，无需逐态样式；顶栏按钮给 AppTextBrush
+             显式基线（Semi Button 自身 Foreground 与文本令牌不同源），禁用态盖 muted -->
+        <Style Selector="Button.icon-btn PathIcon.app-icon">
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
-        <Style Selector="ListBox.nav-list ListBoxItem Path.app-icon">
-            <Setter Property="Stroke" Value="{DynamicResource AppMutedTextBrush}"/>
-        </Style>
-        <Style Selector="ListBox.nav-list ListBoxItem:selected Path.app-icon">
-            <Setter Property="Stroke" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+        <Style Selector="Button.icon-btn:disabled PathIcon.app-icon">
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
         </Style>
 
         <!-- 刷新进行中（motion design §6）：LoaderCircle 弧形矢量手柄式旋转（复用初始化菊花的
              矢量旋转手法；Path 的几何包围盒为整圆、旋转中心即墨迹中心，无 overlay-spinner
              注释里的字形盒偏移问题；结束随 IsVisible 隐没即停） -->
-        <Style Selector="Path.refresh-running-glyph">
+        <Style Selector="PathIcon.refresh-running-glyph">
             <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
             <Setter Property="RenderTransform" Value="rotate(0deg)"/>
             <Style.Animations>
@@ -333,15 +331,13 @@
                         IsEnabled="{Binding !RefreshDataCommand.IsRunning}"
                         ToolTip.Tip="{Binding TooltipRefreshNow, Source={x:Static loc:Translations.Instance}}">
                     <Panel>
-                        <Path Classes="app-icon"
+                        <PathIcon Classes="app-icon"
                               Data="{StaticResource AppIconRotateCw}"
                               Width="16" Height="16"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"
                               IsVisible="{Binding !RefreshDataCommand.IsRunning}"/>
-                        <Path Classes="app-icon refresh-running-glyph"
+                        <PathIcon Classes="app-icon refresh-running-glyph"
                               Data="{StaticResource AppIconLoaderCircle}"
                               Width="16" Height="16"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"
                               IsVisible="{Binding RefreshDataCommand.IsRunning}"/>
                     </Panel>
                 </Button>
@@ -350,10 +346,9 @@
                         Classes="icon-btn"
                         Command="{Binding OpenSettingsCommand}"
                         ToolTip.Tip="{Binding NavSettings, Source={x:Static loc:Translations.Instance}}">
-                    <Path Classes="app-icon"
+                    <PathIcon Classes="app-icon"
                           Data="{StaticResource AppIconSettings}"
-                          Width="16" Height="16"
-                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                          Width="16" Height="16"/>
                 </Button>
             </Grid>
         </Border>
@@ -374,12 +369,10 @@
                         <Border Width="24" Height="24" CornerRadius="12"
                                 BorderBrush="{DynamicResource AppLinkBrush}"
                                 BorderThickness="2">
-                            <Path Classes="app-icon"
+                            <PathIcon Classes="app-icon"
                                   Data="{StaticResource AppIconLoaderCircle}"
                                   Width="12" Height="12"
-                                  Stroke="{DynamicResource AppLinkBrush}"
-                                  HorizontalAlignment="Center"
-                                  VerticalAlignment="Center"/>
+                                  Foreground="{DynamicResource AppLinkBrush}"/>
                         </Border>
                         <StackPanel VerticalAlignment="Center" Spacing="1">
                             <TextBlock Text="Tokenmetry"
@@ -404,8 +397,8 @@
                                             CornerRadius="1"
                                             VerticalAlignment="Center"/>
                                     <!-- 矢量页面图标：Icon 键名经 PageIcon.Icon 翻译成 pi-* 伪类给 Data，
-                                         颜色随选中态走上方 ListBox.nav-list 样式 -->
-                                    <Path Classes="app-icon"
+                                         颜色随选中态经 Foreground 继承生效 -->
+                                    <PathIcon Classes="app-icon"
                                           Width="16" Height="16"
                                           c:PageIcon.Icon="{Binding Page.Icon}"
                                           VerticalAlignment="Center"/>
