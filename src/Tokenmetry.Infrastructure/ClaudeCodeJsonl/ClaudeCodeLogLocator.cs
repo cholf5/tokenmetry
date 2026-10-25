@@ -90,7 +90,11 @@ public class ClaudeCodeLogLocator
         }
 
         var trimmed = Path.TrimEndingDirectorySeparator(candidate);
-        if (Path.GetFileName(trimmed) == "projects" && Directory.Exists(trimmed))
+        // Windows/macOS 文件系统大小写不敏感：Exists 通过而 Ordinal 文件名比较失败 → 根被拒收、
+        // Claude 源整体静默空（B-012）。仅此比较不区分大小写，对齐文件系统语义；路径去重等
+        // 其他 Ordinal 口径不动。
+        if (string.Equals(Path.GetFileName(trimmed), "projects", StringComparison.OrdinalIgnoreCase)
+            && Directory.Exists(trimmed))
         {
             var parent = Path.GetDirectoryName(trimmed);
             return string.IsNullOrEmpty(parent) ? null : parent;
