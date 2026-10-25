@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.DependencyInjection;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
@@ -188,6 +189,17 @@ public class TimeCostPagesTests
         },
     };
 
+    /// <summary>
+    /// 星期分布 fixture（D-021）：周二 6750 + 周六 2000（2026-03-10=周二、2026-03-14=周六），
+    /// 补零日（周三）HasData=false 不得计入星期桶；乱序给入证明聚合不依赖序列顺序。
+    /// </summary>
+    private static IReadOnlyList<DailyUsagePoint> FixtureDailyWeekdaySpread() => new[]
+    {
+        new DailyUsagePoint { Day = "2026-03-11", HasData = false }, // 周三补零空日
+        new DailyUsagePoint { Day = "2026-03-10", TotalTokens = 6750, HasData = true }, // 周二
+        new DailyUsagePoint { Day = "2026-03-14", TotalTokens = 2000, HasData = true }, // 周六
+    };
+
     // ── hosts ──
 
     private sealed record TimeHost(TimeViewModel Vm, StubQueryService Stub, FilterStateService Filters);
@@ -348,6 +360,118 @@ public class TimeCostPagesTests
         Assert.Contains(texts, t => t == "高峰时段");
         Assert.Contains(texts, t => t == "会话长度");
         Assert.Contains(texts, t => t == "数据边界");
+    }
+
+    [AvaloniaFact]
+    public void Time_kpi_cards_compute_peak_hour_peak_day_average_and_active_days()
+    {
+        // D-021 KPI 行（零新查询，纯客户端由 I-029/I-029 已加载数据算出）：
+        // 高峰时段 = 入桶 token 最大小时（9 点 50,000 vs 14 点 30,000）→ "09:00–10:00"，占入桶 62.5%；
+        // 最活跃日 = 2026-03-10（6750 > 1200）；日均 = 7950 / 2 个活跃日；活跃天数 = 2（默认 7 天窗口）。
+        var host = CreateTimeHost();
+
+        Assert.Equal("09:00–10:00", host.Vm.PeakHourCard.Value);
+        Assert.NotNull(host.Vm.PeakHourCard.Foot);
+        Assert.Contains("62.5%", host.Vm.PeakHourCard.Foot!); // 50,000 / (50,000 + 30,000) 入桶口径
+
+        Assert.Equal("2026-03-10", host.Vm.PeakDayCard.Value);
+        Assert.Contains(TrendChart.FormatCompactTokens(6750), host.Vm.PeakDayCard.Foot!);
+
+        Assert.Equal(TrendChart.FormatCompactTokens(3975), host.Vm.DailyAverageCard.Value); // 7950 / 2
+        Assert.Contains("2", host.Vm.DailyAverageCard.Foot!);
+
+        Assert.Equal("2", host.Vm.ActiveDaysCard.Value);
+        Assert.Contains("7", host.Vm.ActiveDaysCard.Foot!); // 默认档 = 最近 7 天窗口
+
+        // 无界窗口（All）：活跃天数脚注改「自首日起」口径，窗口天数不可知不伪造
+        host.Filters.TimeRange = TimeRangeOption.All;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("2026-03-10", host.Vm.ActiveDaysCard.Foot!);
+
+        // 页面可见性：KPI 主数值出现在视觉树
+        var texts = RenderAndGetTexts(new TimeAnalysisView { DataContext = host.Vm });
+        Assert.Contains(texts, t => t == "09:00–10:00");
+        Assert.Contains(texts, t => t == "2026-03-10");
+    }
+
+    [AvaloniaFact]
+    public void Time_kpi_cards_show_em_dash_and_weekday_panel_hides_without_data()
+    {
+        // 空数据：四卡主数值 "—"（未加载不冒充 0，同 Overview KpiCardViewModel.Pending 语义）、
+        // 脚注全部隐藏；星期分布整块隐藏（全零行是伪信息）。
+        var host = CreateTimeHost(new StubQueryService());
+
+        Assert.Equal("—", host.Vm.PeakHourCard.Value);
+        Assert.Equal("—", host.Vm.PeakDayCard.Value);
+        Assert.Equal("—", host.Vm.DailyAverageCard.Value);
+        Assert.Equal("—", host.Vm.ActiveDaysCard.Value);
+        Assert.Null(host.Vm.PeakHourCard.Foot);
+        Assert.Null(host.Vm.PeakDayCard.Foot);
+        Assert.Null(host.Vm.DailyAverageCard.Foot);
+        Assert.Null(host.Vm.ActiveDaysCard.Foot);
+        Assert.False(host.Vm.HasWeekdayRows);
+        Assert.Null(host.Vm.WeekdayMetaText);
+    }
+
+    [AvaloniaFact]
+    public void Time_weekday_rows_aggregate_daily_series_monday_through_sunday()
+    {
+        // D-021 星期分布：日序列按星期聚合（HasData=false 补零日不入桶），七行周一..周日，
+        // bar 值 = 占窗口全部 token 的百分比（与 DimensionRowViewModel 同口径）；工作日/周末占比进 meta。
+        var t = Translations.Instance;
+        var host = CreateTimeHost(new StubQueryService { Daily = FixtureDailyWeekdaySpread() });
+
+        Assert.True(host.Vm.HasWeekdayRows);
+        var rows = host.Vm.WeekdayRows!;
+        Assert.Equal(7, rows.Count);
+        Assert.Equal(t.WeekdayMon, rows[0].Label);
+        Assert.Equal(t.WeekdaySun, rows[6].Label);
+
+        Assert.Equal(6750, rows[1].TotalTokens); // 周二
+        Assert.Equal(2000, rows[5].TotalTokens); // 周六
+        Assert.Equal(0, rows[0].TotalTokens);
+        Assert.Equal(0, rows[2].TotalTokens);
+        Assert.Equal(0, rows[3].TotalTokens);
+        Assert.Equal(0, rows[4].TotalTokens);
+        Assert.Equal(0, rows[6].TotalTokens);
+
+        Assert.Equal(77.1, rows[1].BarValue, 1); // 6750 / 8750
+        Assert.Equal(22.9, rows[5].BarValue, 1); // 2000 / 8750
+        Assert.Contains("6,750", rows[1].ValueText);
+        Assert.Contains("77.1%", rows[1].ValueText);
+
+        Assert.NotNull(host.Vm.WeekdayMetaText);
+        Assert.Contains("77.1%", host.Vm.WeekdayMetaText); // 工作日（周一~五）
+        Assert.Contains("22.9%", host.Vm.WeekdayMetaText); // 周末（周六~日）
+
+        // 页面可见性：面板标题与行标签渲染
+        var texts = RenderAndGetTexts(new TimeAnalysisView { DataContext = host.Vm });
+        Assert.Contains(texts, x => x == t.PanelWeekdayDistribution);
+        Assert.Contains(texts, x => x == t.WeekdayMon);
+    }
+
+    [AvaloniaFact]
+    public void Time_kpi_cards_lay_out_in_single_row_of_four()
+    {
+        // 几何契约（同 D-013 成本页）：四卡单排、行内 X 互异、卡宽不小于 240（1180px 窗口 ≈275px，
+        // 防回归为两排/挤压布局）。
+        var host = CreateTimeHost();
+        var window = new Window { Width = 1180, Height = 860, Content = new TimeAnalysisView { DataContext = host.Vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var bounds = window.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("kpi"))
+            .Select(b => b.Bounds)
+            .ToList();
+        Assert.Equal(4, bounds.Count);
+        Assert.Single(bounds.Select(b => b.Top).Distinct()); // 单排
+        Assert.Equal(4, bounds.Select(b => b.Left).Distinct().Count()); // 四列
+        Assert.All(bounds, b => Assert.True(b.Width >= 240, $"kpi 卡宽 {b.Width} 过窄，疑似回归挤压布局"));
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]
@@ -738,10 +862,13 @@ public class TimeCostPagesTests
     {
         var dir = Environment.GetEnvironmentVariable("TOKENMETRY_TIMECOST_PREVIEW_DIR");
 
-        foreach (var (navIndex, fileNamePrefix) in new (int, string)[]
+        foreach (var (navIndex, fileNamePrefix, isLoaded) in new (int, string, Func<MainWindowViewModel, bool>)[]
                  {
-                     (5, "time"),
-                     (6, "cost"),
+                     // 加载完成谓词（冒烟测试同口径）：线程池查询 + UI 续体需要泵到位——否则抓帧停在
+                     // 「启动中…」空态，KPI/图表/星期分布全是 "—"，留档失去目检价值（D-021 修正：
+                     // 线程模型改造后该测试一直抓空态帧，HEAD 旧留档即为空态）。
+                     (5, "time", vm => vm.CurrentPage is TimeViewModel t && t.HourlyDistribution is not null),
+                     (6, "cost", vm => vm.CurrentPage is CostViewModel c && c.UnpricedCountText != "—"),
                  })
         {
             foreach (var (variant, suffix) in new (ThemeVariant, string)[]
@@ -762,6 +889,7 @@ public class TimeCostPagesTests
                 shellVm.SelectedNavigation = shellVm.NavigationItems[navIndex];
                 Dispatcher.UIThread.RunJobs();
                 Assert.IsAssignableFrom<ViewModelBase>(shellVm.CurrentPage);
+                DispatcherPump.PumpUntil(() => isLoaded(shellVm));
 
                 Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                 var frame = window.CaptureRenderedFrame();
@@ -778,6 +906,57 @@ public class TimeCostPagesTests
                 window.Close();
                 Dispatcher.UIThread.RunJobs();
             }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Time_page_enriched_blocks_render_light_and_dark_screenshots_for_archive()
+    {
+        // D-021 补充留档：主截图测试走真实 DI（隔离临时库恒为空——SemiTestAppBuilder 的
+        // PathsOverride 隔离设计），KPI 四卡只能定格 "—"、星期分布整块隐藏；新增块**有数据时**
+        // 的明暗观感以 stub 数据（unknown 标注 fixture + 星期分布 fixture）单独留档
+        // （time-enriched-{light,dark}.png），与既有 time-*.png 并存不覆盖。
+        var dir = ArchiveDir;
+
+        foreach (var (variant, suffix) in new (ThemeVariant, string)[]
+                 {
+                     (ThemeVariant.Light, "light"),
+                     (ThemeVariant.Dark, "dark"),
+                 })
+        {
+            var stub = new StubQueryService
+            {
+                Hourly = FixtureHourlyWithUnknown(),
+                Daily = FixtureDailyWeekdaySpread(),
+            };
+            var vm = new TimeViewModel(ShellPages.For(PageId.Time), new FilterStateService(), stub);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(vm.HasWeekdayRows); // 前提：stub 数据下星期分布可见
+
+            var window = new Window
+            {
+                Width = 1180,
+                Height = 1080, // 新块加高（KPI 行 + 星期分布），1080 全页入镜
+                Content = new TimeAnalysisView { DataContext = vm },
+                RequestedThemeVariant = variant,
+            };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                Directory.CreateDirectory(dir);
+                var path = Path.Combine(dir, $"time-enriched-{suffix}.png");
+                frame!.Save(path, new PngBitmapEncoderOptions());
+                Assert.True(File.Exists(path), $"截图未生成：{path}");
+            }
+
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
         }
     }
 }

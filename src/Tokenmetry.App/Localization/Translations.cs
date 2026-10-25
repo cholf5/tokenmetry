@@ -400,6 +400,26 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(TimeObsSessionDesc)] = "结合会话持续时长与 Token 总量判断效率，避免只用 Token 量。事实存储含会话首次 / 最晚活动时间（时长可推导），但部分来源为采集兜底时间戳，时长仅供参考。",
         [nameof(TimeObsBoundaryTitle)] = "数据边界",
         [nameof(TimeObsBoundaryDesc)] = "缺少精确事件时间的来源显示「未知」并不入小时分布（UTC 午夜 / 本地午夜锚定视为无精度），不伪造小时级分布；占比见小时分布图下标注。",
+        // ── D-021 时间 KPI 行 + 星期分布（同源客户端聚合，零新查询）──
+        [nameof(KpiPeakHour)] = "高峰时段",
+        [nameof(KpiPeakDay)] = "最活跃日",
+        [nameof(KpiDailyAverage)] = "日均 tokens",
+        [nameof(KpiActiveDays)] = "活跃天数",
+        [nameof(KpiPeakHourFootFormat)] = "占入桶 Token {0}",
+        [nameof(KpiPeakDayFootFormat)] = "当日 {0} tokens",
+        [nameof(KpiDailyAverageFootFormat)] = "按 {0} 个活跃日平均",
+        [nameof(KpiActiveDaysFootWindowFormat)] = "窗口共 {0} 天",
+        [nameof(KpiActiveDaysFootSinceFormat)] = "自 {0} 起",
+        [nameof(PanelWeekdayDistribution)] = "星期分布",
+        [nameof(WeekdayMetaFormat)] = "工作日 {0} · 周末 {1}",
+        [nameof(WeekdayBasisFoot)] = "按日序列聚合，含无精确时间的会话——与活跃日历同口径，与仅含精确时间的小时分布不同。",
+        [nameof(WeekdayMon)] = "周一",
+        [nameof(WeekdayTue)] = "周二",
+        [nameof(WeekdayWed)] = "周三",
+        [nameof(WeekdayThu)] = "周四",
+        [nameof(WeekdayFri)] = "周五",
+        [nameof(WeekdaySat)] = "周六",
+        [nameof(WeekdaySun)] = "周日",
 
         // ── 成本分析页（CostAnalysisView / CostViewModel）──
         [nameof(KpiTotalCost)] = "估算总成本",
@@ -732,6 +752,26 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(TimeObsSessionDesc)] = "Judge efficiency by combining session duration with total tokens rather than token count alone. The facts store has first/last activity times (duration is derivable), but some sources fall back to ingestion timestamps — treat duration as approximate.",
         [nameof(TimeObsBoundaryTitle)] = "Data boundaries",
         [nameof(TimeObsBoundaryDesc)] = "Sources without precise event times show as “unknown” and are excluded from the hourly distribution (UTC-midnight / local-midnight anchoring counts as no precision) — no fabricated hourly distribution; see the note under the chart for the share.",
+        // ── D-021 time KPI row + weekday distribution (client-side aggregation, no new queries) ──
+        [nameof(KpiPeakHour)] = "Peak hour",
+        [nameof(KpiPeakDay)] = "Busiest day",
+        [nameof(KpiDailyAverage)] = "Daily average",
+        [nameof(KpiActiveDays)] = "Active days",
+        [nameof(KpiPeakHourFootFormat)] = "{0} of in-bucket tokens",
+        [nameof(KpiPeakDayFootFormat)] = "{0} tokens that day",
+        [nameof(KpiDailyAverageFootFormat)] = "Averaged over {0} active days",
+        [nameof(KpiActiveDaysFootWindowFormat)] = "{0} days in the window",
+        [nameof(KpiActiveDaysFootSinceFormat)] = "Since {0}",
+        [nameof(PanelWeekdayDistribution)] = "Weekday distribution",
+        [nameof(WeekdayMetaFormat)] = "Weekdays {0} · weekend {1}",
+        [nameof(WeekdayBasisFoot)] = "Aggregated from the daily series, sessions without precise time included — same basis as the activity calendar, unlike the hourly distribution (precise time only).",
+        [nameof(WeekdayMon)] = "Mon",
+        [nameof(WeekdayTue)] = "Tue",
+        [nameof(WeekdayWed)] = "Wed",
+        [nameof(WeekdayThu)] = "Thu",
+        [nameof(WeekdayFri)] = "Fri",
+        [nameof(WeekdaySat)] = "Sat",
+        [nameof(WeekdaySun)] = "Sun",
 
         [nameof(KpiTotalCost)] = "Estimated total cost",
         [nameof(KpiFootKnownCostOnly)] = "Sum of known cost · unknown cost excluded from totals",
@@ -1281,6 +1321,27 @@ public sealed class Translations : INotifyPropertyChanged
     public string TimeObsSessionDesc => Get();
     public string TimeObsBoundaryTitle => Get();
     public string TimeObsBoundaryDesc => Get();
+
+    // ── D-021 时间 KPI 行 + 星期分布 ──
+    public string KpiPeakHour => Get();
+    public string KpiPeakDay => Get();
+    public string KpiDailyAverage => Get();
+    public string KpiActiveDays => Get();
+    public string KpiPeakHourFootFormat => Get();
+    public string KpiPeakDayFootFormat => Get();
+    public string KpiDailyAverageFootFormat => Get();
+    public string KpiActiveDaysFootWindowFormat => Get();
+    public string KpiActiveDaysFootSinceFormat => Get();
+    public string PanelWeekdayDistribution => Get();
+    public string WeekdayMetaFormat => Get();
+    public string WeekdayBasisFoot => Get();
+    public string WeekdayMon => Get();
+    public string WeekdayTue => Get();
+    public string WeekdayWed => Get();
+    public string WeekdayThu => Get();
+    public string WeekdayFri => Get();
+    public string WeekdaySat => Get();
+    public string WeekdaySun => Get();
 
     // ── 成本分析页 ──
     public string KpiTotalCost => Get();

@@ -14,6 +14,59 @@ using Tokenmetry.Core.Models;
 namespace Tokenmetry.App.ViewModels;
 
 /// <summary>
+/// D-021 时间 KPI 卡展示模型（高峰时段 / 最活跃日 / 日均 tokens / 活跃天数）：主数值 + 数据脚注
+/// （无数据 / 未加载时脚注为 null 隐藏，主数值 "—"）。不可变小对象，由 <see cref="TimeViewModel"/>
+/// 整体替换实例触发绑定刷新（同 <see cref="OverviewViewModel.KpiCardViewModel"/> 纪律）。
+/// </summary>
+public sealed class TimeKpiCardViewModel
+{
+    public TimeKpiCardViewModel(string value, string? foot)
+    {
+        Value = value;
+        Foot = foot;
+    }
+
+    /// <summary>加载完成前 / 无数据占位（诚实：不冒充 0）。</summary>
+    public static TimeKpiCardViewModel Pending { get; } = new("—", null);
+
+    /// <summary>主数值（高峰时段 HH:00–HH:00 / 日期 / 紧凑 tokens / 日数千分位）。</summary>
+    public string Value { get; }
+
+    /// <summary>数据脚注（口径说明携带数据：占比 / 当日量 / 平均基数 / 窗口天数），无则 null。</summary>
+    public string? Foot { get; }
+
+    public bool HasFoot => Foot is not null;
+}
+
+/// <summary>
+/// D-021 星期分布单行（周一..周日固定七行）：星期名 + token 合计 + 占比 + bar 值。
+/// bar 口径同 <see cref="DimensionRowViewModel"/>：占窗口内全部 token 的百分比（0..100，
+/// ProgressBar.mini 直接消费）；行尾文案 = 千分位 tokens · 一位小数占比。
+/// </summary>
+public sealed class WeekdayUsageRowViewModel
+{
+    public WeekdayUsageRowViewModel(string label, long totalTokens, double sharePercent, string valueText)
+    {
+        Label = label;
+        TotalTokens = totalTokens;
+        BarValue = Math.Clamp(sharePercent, 0d, 100d);
+        ValueText = valueText;
+    }
+
+    /// <summary>星期名（Translations 周一..周日，随语言）。</summary>
+    public string Label { get; }
+
+    /// <summary>该星期合计 token（HasData 日聚合）。</summary>
+    public long TotalTokens { get; }
+
+    /// <summary>bar 值 = 占 Σ token 百分比（0..100）。</summary>
+    public double BarValue { get; }
+
+    /// <summary>行尾文案（"6,750 · 77.1%"，InvariantCulture）。</summary>
+    public string ValueText { get; }
+}
+
+/// <summary>
 /// D-012 时间维度建议观察项表行（原型「时间维度建议观察项」三行：标题 + 说明）。
 /// 静态文案块——描述观察方法与数据边界，不携带也不伪造任何数据；内容与真实数据能力一致
 /// （见 <see cref="TimeViewModel.CreateObservations"/> 的逐行依据）。
@@ -36,6 +89,9 @@ public sealed class TimeObservationRowViewModel
 /// <summary>
 /// D-012 时间分析页 VM（原型 #page-time）：按小时分布（D-004 TrendChart HourlyTokens，本地时区）+
 /// 活跃日历热力图（D-005 Heatmap，日 → Token 强度）+ 时间维度建议观察项说明表（静态三行）。
+/// D-021 扩充（零新查询，同源客户端聚合）：时间 KPI 行（<see cref="BuildTimeKpis"/>：高峰时段 /
+/// 最活跃日 / 日均 tokens / 活跃天数）+ 星期分布（<see cref="BuildWeekdayDistribution"/>，周一..周日
+/// 七行 + 工作日/周末占比）——落实页副标题「识别使用高峰、工作时段分布」中尚无数据呈现的两项。
 /// 数据来自 <see cref="IUsageQueryService"/>（I-029 小时分布 + I-028 日序列），参数由全局筛选
 /// （<see cref="FilterStateService"/>）经 <see cref="GlobalFilterMapper"/> 映射。
 /// <b>unknown 口径（I-029 契约）</b>：无分钟级时间精度的会话不入小时桶（不伪造分布），以
@@ -67,6 +123,35 @@ public partial class TimeViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasHeatmapCells))]
     private IReadOnlyList<HeatmapCell>? _heatmapCells;
+
+    /// <summary>高峰时段卡（D-021，入桶 token 最大小时；无有效高峰 "—"）。</summary>
+    [ObservableProperty]
+    private TimeKpiCardViewModel _peakHourCard = TimeKpiCardViewModel.Pending;
+
+    /// <summary>最活跃日卡（D-021，HasData 日 token 最大；并列取最早日）。</summary>
+    [ObservableProperty]
+    private TimeKpiCardViewModel _peakDayCard = TimeKpiCardViewModel.Pending;
+
+    /// <summary>日均 tokens 卡（D-021，Σ tokens / 活跃日数——补零日不摊薄，口径见脚注）。</summary>
+    [ObservableProperty]
+    private TimeKpiCardViewModel _dailyAverageCard = TimeKpiCardViewModel.Pending;
+
+    /// <summary>活跃天数卡（D-021，HasData 日数；脚注按窗口有界/无界分口径）。</summary>
+    [ObservableProperty]
+    private TimeKpiCardViewModel _activeDaysCard = TimeKpiCardViewModel.Pending;
+
+    /// <summary>星期分布七行（D-021，周一..周日；Σ token 为 0 → null 整块隐藏，不画全零行伪信息）。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasWeekdayRows))]
+    private IReadOnlyList<WeekdayUsageRowViewModel>? _weekdayRows;
+
+    /// <summary>工作日 / 周末占比 meta（无数据 → null 隐藏）。</summary>
+    [ObservableProperty]
+    private string? _weekdayMetaText;
+
+    public bool HasWeekdayRows => WeekdayRows is { Count: > 0 };
+
+    public bool HasWeekdayMeta => WeekdayMetaText is not null;
 
     /// <summary>unknown 占比标注（unknown 会话数为 0 时为 null → 视图隐藏；失败保留上一次成功标注）。</summary>
     [ObservableProperty]
@@ -132,6 +217,13 @@ public partial class TimeViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
             HeatmapCells = daily
                 .Select(p => new HeatmapCell { Label = p.Day, Value = p.TotalTokens, HasData = p.HasData })
                 .ToList();
+            // D-021：KPI 行与星期分布同源客户端聚合（零新查询，filter 只用于窗口口径脚注）
+            var kpis = BuildTimeKpis(hourly, daily, filter);
+            PeakHourCard = kpis.PeakHour;
+            PeakDayCard = kpis.PeakDay;
+            DailyAverageCard = kpis.DailyAverage;
+            ActiveDaysCard = kpis.ActiveDays;
+            (WeekdayRows, WeekdayMetaText) = BuildWeekdayDistribution(daily);
             LoadError = null;
         }
         catch (Exception ex)
@@ -175,6 +267,139 @@ public partial class TimeViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
         }
 
         return note;
+    }
+
+    /// <summary>
+    /// D-021 KPI 行计算（零新查询：I-029 小时分布 + I-028 日序列客户端聚合；internal 供测试对账）：
+    /// <list type="bullet">
+    /// <item>高峰时段：入桶 token 最大的小时（并列取最早），"HH:00–HH:00" 本地时区（23 点跨午夜写 00）；
+    /// 入桶 token 全为 0 → "—"——会话数维度不构成「使用高峰」，不冒充。脚注占入桶 Token 百分比
+    /// （分母不含 unknown 会话，与小时分布同口径，诚实标注）。</item>
+    /// <item>最活跃日：HasData 日中 token 最大（并列按日序取最早）；全 0 → "—"。脚注当日紧凑 tokens。</item>
+    /// <item>日均 tokens：Σ HasData 日 tokens / 活跃日数——补零日不摊薄（口径脚注显式说明）。</item>
+    /// <item>活跃天数：HasData 日数；脚注分窗口口径：双端有界 →「窗口共 N 天」，无界 →「自首日起」
+    /// （无界无从知窗口天数，不伪造）。</item>
+    /// </list>
+    /// </summary>
+    internal static (TimeKpiCardViewModel PeakHour, TimeKpiCardViewModel PeakDay, TimeKpiCardViewModel DailyAverage, TimeKpiCardViewModel ActiveDays) BuildTimeKpis(
+        HourlyDistributionResult hourly,
+        IReadOnlyList<DailyUsagePoint> daily,
+        UsageQueryFilter filter)
+    {
+        var t = Translations.Instance;
+
+        var peak = hourly.Hours
+            .Where(h => h.TotalTokens > 0)
+            .OrderByDescending(h => h.TotalTokens)
+            .ThenBy(h => h.Hour)
+            .FirstOrDefault();
+        TimeKpiCardViewModel peakHour;
+        if (peak is null)
+        {
+            peakHour = TimeKpiCardViewModel.Pending;
+        }
+        else
+        {
+            var inBucketTokens = hourly.Hours.Sum(h => h.TotalTokens);
+            var share = inBucketTokens > 0 ? (double)peak.TotalTokens / inBucketTokens * 100d : 0d;
+            peakHour = new TimeKpiCardViewModel(
+                $"{peak.Hour:00}:00–{(peak.Hour + 1) % 24:00}:00",
+                string.Format(t.KpiPeakHourFootFormat, share.ToString("F1", CultureInfo.InvariantCulture) + "%"));
+        }
+
+        var dataDays = daily.Where(p => p.HasData).ToList();
+        var peakDay = dataDays
+            .Where(p => p.TotalTokens > 0)
+            .OrderByDescending(p => p.TotalTokens)
+            .ThenBy(p => p.Day, StringComparer.Ordinal)
+            .FirstOrDefault();
+        var peakDayCard = peakDay is null
+            ? TimeKpiCardViewModel.Pending
+            : new TimeKpiCardViewModel(
+                peakDay.Day,
+                string.Format(t.KpiPeakDayFootFormat, TrendChart.FormatCompactTokens(peakDay.TotalTokens)));
+
+        var activeDays = dataDays.Count;
+        var dailyAverage = activeDays == 0
+            ? TimeKpiCardViewModel.Pending
+            : new TimeKpiCardViewModel(
+                TrendChart.FormatCompactTokens((double)dataDays.Sum(p => p.TotalTokens) / activeDays),
+                string.Format(t.KpiDailyAverageFootFormat, activeDays.ToString("N0", CultureInfo.InvariantCulture)));
+
+        TimeKpiCardViewModel activeDaysCard;
+        if (activeDays == 0)
+        {
+            activeDaysCard = TimeKpiCardViewModel.Pending;
+        }
+        else if (filter.FromDay is { } fromDay && filter.ToDay is { } toDay
+                 && DateOnly.TryParseExact(fromDay, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var from)
+                 && DateOnly.TryParseExact(toDay, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var to))
+        {
+            activeDaysCard = new TimeKpiCardViewModel(
+                activeDays.ToString("N0", CultureInfo.InvariantCulture),
+                string.Format(t.KpiActiveDaysFootWindowFormat, (to.DayNumber - from.DayNumber + 1).ToString("N0", CultureInfo.InvariantCulture)));
+        }
+        else
+        {
+            // 无界窗口：首日按日序最早已知日（yyyy-MM-dd 字典序 = 时间序）
+            var firstDay = dataDays.Select(p => p.Day).Min(StringComparer.Ordinal);
+            activeDaysCard = new TimeKpiCardViewModel(
+                activeDays.ToString("N0", CultureInfo.InvariantCulture),
+                string.Format(t.KpiActiveDaysFootSinceFormat, firstDay));
+        }
+
+        return (peakHour, peakDayCard, dailyAverage, activeDaysCard);
+    }
+
+    /// <summary>
+    /// 星期分布聚合（D-021，internal 供测试对账）：HasData=true 的日按本地星期
+    /// （yyyy-MM-dd → DateOnly，DayOfWeek 映射周一=0..周日=6）累加 token，固定七行；
+    /// bar 值 = 占 Σ token 百分比（0..100，与 DimensionRowViewModel 同口径）。补零日（HasData=false）
+    /// 不入桶——口径与活跃日历一致（日序列含无精确时间的会话，与仅含精确时间的小时分布不同，脚注注明）。
+    /// Σ token 为 0（无数据 / 全零）→ Rows=null Meta=null（整块隐藏，不画全零行伪信息）；
+    /// meta = 工作日（周一~五）/ 周末（周六~日）占比，分别直接计算（不以 100-x 推周末）。
+    /// </summary>
+    internal static (IReadOnlyList<WeekdayUsageRowViewModel>? Rows, string? Meta) BuildWeekdayDistribution(
+        IReadOnlyList<DailyUsagePoint> daily)
+    {
+        var byDayOfWeek = new long[7];
+        foreach (var point in daily)
+        {
+            if (!point.HasData
+                || !DateOnly.TryParseExact(point.Day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+            {
+                continue;
+            }
+
+            byDayOfWeek[((int)day.DayOfWeek + 6) % 7] += point.TotalTokens;
+        }
+
+        var total = byDayOfWeek.Sum();
+        if (total <= 0)
+        {
+            return (null, null);
+        }
+
+        var t = Translations.Instance;
+        string[] labels = [t.WeekdayMon, t.WeekdayTue, t.WeekdayWed, t.WeekdayThu, t.WeekdayFri, t.WeekdaySat, t.WeekdaySun];
+        var rows = new List<WeekdayUsageRowViewModel>(7);
+        for (var i = 0; i < 7; i++)
+        {
+            var share = byDayOfWeek[i] * 100.0 / total;
+            rows.Add(new WeekdayUsageRowViewModel(
+                labels[i],
+                byDayOfWeek[i],
+                share,
+                $"{byDayOfWeek[i].ToString("N0", CultureInfo.InvariantCulture)} · {share.ToString("F1", CultureInfo.InvariantCulture)}%"));
+        }
+
+        var workweekShare = byDayOfWeek.Take(5).Sum() * 100.0 / total;
+        var weekendShare = (byDayOfWeek[5] + byDayOfWeek[6]) * 100.0 / total;
+        var meta = string.Format(
+            t.WeekdayMetaFormat,
+            workweekShare.ToString("F1", CultureInfo.InvariantCulture) + "%",
+            weekendShare.ToString("F1", CultureInfo.InvariantCulture) + "%");
+        return (rows, meta);
     }
 
     /// <summary>
