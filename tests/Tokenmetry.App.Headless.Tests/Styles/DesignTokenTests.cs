@@ -346,8 +346,8 @@ public class DesignTokenTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        // 回归（2026-10-20 启动闪退）：后台刷新线程（BackgroundRefreshWiring 的 Task.Run，A-5）经
-        // ISystemNotification 走到 ToastService.Show；在非 UI 线程 new WindowNotificationManager
+        // 回归（2026-10-20 启动闪退）：后台刷新线程（BackgroundRefreshWiring 的 Task.Run，A-5）会
+        // 走到 ToastService.Show（如设置页重扫的完成 toast）；在非 UI 线程 new WindowNotificationManager
         // 会把归属线程池 Dispatcher 的宿主 AdornerLayer 挂进主窗视觉树，下一次 UI 线程布局测量即抛
         // InvalidOperationException——修复 = Show 入口把整段 body marshal 到 UI 线程。
         await Task.Run(() => AppServices.Get<IToastService>().Show("background toast", window));

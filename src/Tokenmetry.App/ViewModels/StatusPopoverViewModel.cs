@@ -636,8 +636,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     /// 同源信号，internal 直注入供 headless 测试与样式预览演示；ratio 供徽标紧凑倍数文案（无则通用文案）。</summary>
     internal void NoteAnomaly(string message, decimal? ratio = null)
     {
-        _pendingWarn = new DashboardViewModel.AnomalyRaised(
-            Translations.Instance.AnomalyToastTitle, message, ratio);
+        _pendingWarn = new DashboardViewModel.AnomalyRaised(message, ratio);
         RecomputeState();
     }
 

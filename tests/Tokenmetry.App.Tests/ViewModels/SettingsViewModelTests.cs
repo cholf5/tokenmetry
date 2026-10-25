@@ -22,8 +22,7 @@ public class SettingsViewModelTests
         var settings = new AppSettings
         {
             CcusageCommand = "ccusage.cmd",
-            RefreshMinutes = 20,
-            AnomalyNotificationsEnabled = false
+            RefreshMinutes = 20
         };
         var paths = new AppPaths("C:\\Users\\tester\\AppData\\Local\\Tokenmetry");
 
@@ -31,7 +30,6 @@ public class SettingsViewModelTests
 
         viewModel.CcusageCommand.Should().Be("ccusage.cmd");
         viewModel.RefreshMinutesText.Should().Be("20");
-        viewModel.AnomalyNotificationsEnabled.Should().BeFalse();
         viewModel.CacheDbPath.Should().Be(System.IO.Path.Combine(paths.AppDataDirectory, "tokenmetry.db"));
         viewModel.SettingsFilePath.Should().Be(System.IO.Path.Combine(paths.AppDataDirectory, "settings.json"));
     }
@@ -119,19 +117,6 @@ public class SettingsViewModelTests
 
         settings.CcusageCommand.Should().Be("ccusage");
         store.SaveCalls.Should().Be(2);
-    }
-
-    [Fact]
-    public void AnomalyNotificationsToggle_PersistsImmediately()
-    {
-        var settings = new AppSettings { AnomalyNotificationsEnabled = true };
-        var store = new FakeSettingsStore();
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store);
-
-        viewModel.AnomalyNotificationsEnabled = false;
-
-        settings.AnomalyNotificationsEnabled.Should().BeFalse();
-        store.SaveCalls.Should().Be(1);
     }
 
     [Fact]

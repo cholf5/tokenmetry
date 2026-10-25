@@ -31,7 +31,6 @@ public class DashboardSummaryTests
     public void AppSettings_defaults_are_quiet()
     {
         var settings = new AppSettings();
-        settings.AnomalyNotificationsEnabled.Should().BeTrue();
         settings.RefreshMinutes.Should().Be(1);
     }
 }

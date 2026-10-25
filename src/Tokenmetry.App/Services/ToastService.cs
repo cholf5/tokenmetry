@@ -29,7 +29,7 @@ public sealed class ToastService : IToastService
     public void Show(string message, Visual? host = null)
     {
         // 视觉对象（WindowNotificationManager 及其宿主 AdornerLayer）必须 UI 线程所有：后台刷新
-        // 线程（BackgroundRefreshWiring 的 Task.Run，A-5）会经 ISystemNotification 走到这里，在该
+        // 线程（BackgroundRefreshWiring 的 Task.Run，A-5，如设置页重扫的完成 toast）会走到这里，在该
         // 线程上创建会把归属线程池 Dispatcher 的层挂进主窗视觉树，下一次 UI 线程布局测量即抛
         // InvalidOperationException（2026-10-20 启动闪退根因）。整段 body——含 TopLevel.GetTopLevel
         // (host) 摸视觉树——都必须在 UI 线程执行。Post 而非 Send：后台刷新线程不能阻塞等 UI 线程

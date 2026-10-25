@@ -13,7 +13,6 @@ using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Cache;
-using Tokenmetry.Infrastructure.Notifications;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
@@ -147,7 +146,6 @@ public class ManualRefreshTests
                 new MockUsageDataSource(),
                 new AnomalyDetector(),
                 new DateRangeService(),
-                new NullSystemNotification(),
                 new AppSettings());
             var (shell, query) = CreateShell();
             var kpiBaseline = query.KpiCalls;

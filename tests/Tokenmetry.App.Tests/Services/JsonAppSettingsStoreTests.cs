@@ -21,7 +21,6 @@ public class JsonAppSettingsStoreTests : IDisposable
 
         settings.CcusageCommand.Should().Be("ccusage");
         settings.RefreshMinutes.Should().Be(1);
-        settings.AnomalyNotificationsEnabled.Should().BeTrue();
         settings.ShowDebugInfo.Should().BeTrue();
     }
 
@@ -33,7 +32,6 @@ public class JsonAppSettingsStoreTests : IDisposable
         {
             CcusageCommand = "C:\\Tools\\ccusage.cmd",
             RefreshMinutes = 30,
-            AnomalyNotificationsEnabled = false,
             ShowDebugInfo = false
         };
 
@@ -42,7 +40,6 @@ public class JsonAppSettingsStoreTests : IDisposable
 
         loaded.CcusageCommand.Should().Be("C:\\Tools\\ccusage.cmd");
         loaded.RefreshMinutes.Should().Be(30);
-        loaded.AnomalyNotificationsEnabled.Should().BeFalse();
         loaded.ShowDebugInfo.Should().BeFalse();
         loaded.Theme.Should().Be("system"); // 缺省值往返
         loaded.Language.Should().Be("system");

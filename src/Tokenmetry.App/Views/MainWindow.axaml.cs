@@ -127,7 +127,7 @@ public partial class MainWindow : Window
     /// 进程常驻；真正退出只走托盘菜单「退出」→ desktop.Shutdown()。生命周期驱动的关闭
     /// （托盘退出的 ApplicationShutdown、OS 会话结束的 OSShutdown）不在此列，天然放行。
     /// S-005：行为可由设置 MinimizeToTrayOnClose 关闭（关窗即退出，仍走生命周期收尾）；
-    /// 首次"关窗=托盘"弹一次性模态提示窗——ToastSystemNotification 的 in-app toast 在主窗隐藏后
+    /// 首次"关窗=托盘"弹一次性模态提示窗——in-app toast（IToastService）在主窗隐藏后
     /// 无处渲染，Avalonia 亦无跨平台系统通知 API（balloon 需 Win32 内部句柄、macOS 通知需 interop
     /// + 权限流程），模态窗是唯一零 interop 且"关窗时点告知"的方案。
     /// </summary>

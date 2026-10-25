@@ -18,7 +18,8 @@ namespace Tokenmetry.App.ViewModels;
 /// <item>BackgroundRefreshWiring.Attach(dashboard, shell) → RefreshCommand：定时器 / 启动首刷 /
 ///       设置页「重新扫描」三条触发共用同一轮（P0 回归锁 Di_settings_rescan_drives_real_dashboard_refresh_line）；</item>
 /// <item>RefreshAsync 内 = 本地采集 facts 直解析（GetDailyUsageAsync）+ 非 facts 持久化源的落库 +
-///       成本异常提醒（AnomalyDetector + ISystemNotification，设置可关）；</item>
+///       成本异常检测（AnomalyDetector → AnomalyDetected 事件，弹层 KPI 徽标消费；in-app toast
+///       通知通道 Q-016 整体删除——日累计异常全天为真，分钟级刷新下重弹扰民）；</item>
 /// <item>成败口径：Status == "error" 即本轮失败（接线层据此向设置页如实上报）。</item>
 /// </list>
 /// 构造时机<b>只热缓存</b>（LoadFromCacheAsync，fire-and-forget），不自触发扫描：首轮采集刷新由
@@ -37,7 +38,6 @@ public partial class DashboardViewModel : ViewModelBase
     private readonly IUsageDataSource _dataSource;
     private readonly AnomalyDetector _anomalyDetector;
     private readonly DateRangeService _dateService;
-    private readonly ISystemNotification _notification;
     private readonly AppSettings _settings;
 
     [ObservableProperty]
@@ -94,15 +94,15 @@ public partial class DashboardViewModel : ViewModelBase
 
     public bool IsDebugInfoVisible => _settings.ShowDebugInfo && !string.IsNullOrWhiteSpace(DebugInfo);
 
-    /// <summary>异常检测的展示载荷（D-015；Q-011 增 Ratio）：标题与用户文案在 raise 点按 Kind
-    /// 取串（FormatAnomalyMessage 同口径），订阅方直接展示，不再接触 Core 数据结构；
+    /// <summary>异常检测的展示载荷（D-015；Q-011 增 Ratio、Q-016 删 Title）：用户文案在 raise 点
+    /// 按 Kind 取串（FormatAnomalyMessage 同口径），订阅方直接展示，不再接触 Core 数据结构；
     /// Ratio = 检测器原始倍率（仅 daily_cost_spike 有值），供弹层徽标紧凑倍数文案，无则 null。</summary>
-    public sealed record AnomalyRaised(string Title, string Message, decimal? Ratio = null);
+    public sealed record AnomalyRaised(string Message, decimal? Ratio = null);
 
     /// <summary>
     /// AnomalyDetector 既有输出的同源信号（D-015 弹层消费；Q-011 起落今日花费 KPI 徽标）：
-    /// RefreshAsync 内检测到异常时，与 ISystemNotification 通知同一循环逐条 raise。通知可被设置关掉，
-    /// 本事件不关——订阅方（状态栏弹层）是"当前状态"的展示面，与"是否弹 toast"的偏好正交。
+    /// RefreshAsync 内检测到异常时逐条 raise。Q-016 删除 in-app toast 通知通道后，本事件是异常的
+    /// 唯一出口——订阅方（状态栏弹层徽标）是"当前状态"的展示面，无异常轮次清、异常轮次置回。
     /// </summary>
     public event EventHandler<AnomalyRaised>? AnomalyDetected;
 
@@ -112,7 +112,6 @@ public partial class DashboardViewModel : ViewModelBase
         IUsageDataSource dataSource,
         AnomalyDetector anomalyDetector,
         DateRangeService dateService,
-        ISystemNotification notification,
         AppSettings settings)
     {
         _dashboardService = dashboardService;
@@ -120,7 +119,6 @@ public partial class DashboardViewModel : ViewModelBase
         _dataSource = dataSource;
         _anomalyDetector = anomalyDetector;
         _dateService = dateService;
-        _notification = notification;
         _settings = settings;
         // 构造时机只热缓存（CacheService 公共入口自身已 Task.Run 隔离，UI 线程构造安全）；
         // 首轮采集刷新不在构造时机触发——首轮归 BeginStartupDataRefreshAsync（见类注释）。
@@ -207,30 +205,18 @@ public partial class DashboardViewModel : ViewModelBase
                 var dashboard = _dashboardService.BuildDashboard(rows);
                 UpdateFromDashboard(dashboard);
 
-                // 检测异常
+                // 检测异常（Q-016：in-app toast 通道删除，异常唯一出口 = AnomalyDetected 事件 → 弹层徽标）
                 var today = rows.FirstOrDefault(r => r.Date == _dateService.Today()) ?? new DailyUsageSummary();
                 var recentHistory = rows.Take(7).ToList();
                 var anomalies = _anomalyDetector.DetectAnomalies(today, recentHistory, minAbsoluteCost: 0.05m);
 
-                if (anomalies.Any())
+                foreach (var anomaly in anomalies)
                 {
-                    foreach (var anomaly in anomalies)
-                    {
-                        // 用户可见文案在 App 层按 Kind 实时取串（Core 的 AnomalyNotice.Message 是
-                        // 数据层细节，不直接展示——语言跟随 UI）；未知 Kind 如实回落原文。
-                        if (_settings.AnomalyNotificationsEnabled)
-                        {
-                            await _notification.ShowAsync(
-                                Translations.Instance.AnomalyToastTitle,
-                                FormatAnomalyMessage(anomaly, recentHistory.Count));
-                        }
-
-                        // 同源信号：无论 toast 开关，检测到异常即 raise（D-015 弹层异常徽标消费；见事件注释）
-                        AnomalyDetected?.Invoke(this, new AnomalyRaised(
-                            Translations.Instance.AnomalyToastTitle,
-                            FormatAnomalyMessage(anomaly, recentHistory.Count),
-                            anomaly.Ratio));
-                    }
+                    // 用户可见文案在 App 层按 Kind 实时取串（Core 的 AnomalyNotice.Message 是
+                    // 数据层细节，不直接展示——语言跟随 UI）；未知 Kind 如实回落原文。
+                    AnomalyDetected?.Invoke(this, new AnomalyRaised(
+                        FormatAnomalyMessage(anomaly, recentHistory.Count),
+                        anomaly.Ratio));
                 }
             }
             else
