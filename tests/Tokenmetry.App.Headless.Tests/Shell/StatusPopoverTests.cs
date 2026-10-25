@@ -25,7 +25,8 @@ namespace Tokenmetry.App.Headless.Tests.Shell;
 /// <summary>
 /// D-015/Q-011 状态栏快捷信息窗内容层的 headless 验证（真实 App.axaml + Semi 宿主）：
 /// TC-001 渲染（Idle 数字与构成占比 / 注入速率 → Active banner / 速率窗口外降级 / 无数据诚实空态）；
-/// Q-011 异常归位（注入异常 → 今日花费 KPI 徽标，banner 仍为实时速率——Warn 不再抢占 banner）；
+/// Q-011/Q-017 异常归位（注入异常 → 头部警示徽章，banner 仍为实时速率——Warn 不再抢占 banner；
+/// Q-017 起徽章从 KPI 花费格迁头部品牌/状态之后，KPI 三格同字号同列宽）；
 /// TC-002 切语言重译（LiveText 经视图 CurrentLanguage 订阅重算，B-007 约定）；
 /// 令牌纪律断言（StatusPopoverView.axaml 剔除注释后零硬编码色值）。
 /// VM 绑定对账口径：期望值一律用与实现同源的函数计算（TrendChart.FormatCompactTokens /
@@ -274,7 +275,7 @@ public class StatusPopoverTests
     }
 
     [AvaloniaFact]
-    public async Task Cost_warn_badge_renders_in_kpi_cell_while_rate_banner_stays_active()
+    public async Task Cost_warn_badge_renders_in_header_while_rate_banner_stays_active()
     {
         var stub = new StubQueryService { Kpi = FixtureKpi(), Daily = FixtureDaily(), Agents = FixtureAgents() };
         var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
@@ -288,10 +289,13 @@ public class StatusPopoverTests
         var window = new Window { Content = view };
         window.Show();
 
-        // 徽标渲染在 KPI 花费格（warn 徽标类唯一且可见）
+        // 徽章渲染在头部（Q-017：品牌/状态之后的应用级警示位，不再挤占 KPI 花费格）
         var badge = Assert.Single(view.GetVisualDescendants().OfType<Border>(),
             b => b.Classes.Contains("popover-cost-warn-badge"));
         Assert.True(badge.IsVisible);
+        var head = Assert.Single(view.GetVisualDescendants().OfType<Border>(),
+            b => b.Classes.Contains("popover-head"));
+        Assert.Contains(badge, head.GetVisualDescendants());
 
         // banner 仍是 Active 速率形态（warn 配色类已随 D-015 Warn 态撤除）
         var banner = Assert.Single(view.GetVisualDescendants().OfType<Border>(),
@@ -299,10 +303,42 @@ public class StatusPopoverTests
         Assert.True(banner.IsVisible);
         Assert.DoesNotContain("warn", banner.Classes);
 
-        // 无异常轮次 → 徽标随 IsVisible 绑定隐藏
+        // 无异常轮次 → 徽章随 IsVisible 绑定隐藏
         vm.HandleTodayTokensRound(42381 + 3200, T0.AddSeconds(120));
         Assert.False(vm.IsCostWarn);
         Assert.False(badge.IsVisible);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Kpi_three_values_share_one_font_size_and_equal_columns()
+    {
+        // Q-017：KPI 主次字号层级（22/17）撤除——三格同字号（17）同列宽（*,*,*）
+        var stub = new StubQueryService { Kpi = FixtureKpi(), Daily = FixtureDaily(), Agents = FixtureAgents() };
+        var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
+        vm.HandleTodayTokensRound(42381, T0);
+        await vm.ReloadAsyncAt(T0);
+
+        var view = new StatusPopoverView { DataContext = vm };
+        var window = new Window { Content = view };
+        window.Show();
+
+        var texts = view.GetVisualDescendants().OfType<TextBlock>().ToList();
+        var tokens = Assert.Single(texts, t => t.Text == vm.TodayTokensText);
+        var cost = Assert.Single(texts, t => t.Text == vm.TodayCostText);
+        var cache = Assert.Single(texts, t => t.Text == vm.CacheShareText);
+
+        Assert.Equal(17, tokens.FontSize);
+        Assert.Equal(tokens.FontSize, cost.FontSize);
+        Assert.Equal(tokens.FontSize, cache.FontSize);
+        Assert.All(new[] { tokens, cost, cache }, t => Assert.Equal(FontWeight.Bold, t.FontWeight));
+
+        // 等列宽：三值所在的 KPI 网格三列星号份额一致（1.3* 主格已随 Q-017 撤除）
+        var grid = Assert.IsType<Grid>(Assert.IsType<StackPanel>(tokens.Parent).Parent);
+        Assert.Equal(3, grid.ColumnDefinitions.Count);
+        Assert.All(grid.ColumnDefinitions, c => Assert.True(c.Width.IsStar));
+        Assert.All(grid.ColumnDefinitions, c => Assert.Equal(grid.ColumnDefinitions[0].Width.Value, c.Width.Value));
 
         window.Close();
     }

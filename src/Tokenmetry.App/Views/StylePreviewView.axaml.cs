@@ -63,7 +63,7 @@ public partial class StylePreviewView : UserControl
     {
         var vm = BuildFixtureVm();
         vm.HandleTodayTokensRound(42381, DemoBaselineAt);
-        // Q-011：异常落今日花费 KPI 徽标（Tooltip 挂完整消息），不进 banner 抢占速率
+        // Q-011/Q-017：异常落警示徽章（头部品牌/状态后，Tooltip 挂完整消息），不进 banner 抢占速率
         vm.NoteAnomaly(
             string.Format(Localization.Translations.Instance.AnomalyCostSpikeFormat, 7, 4.8m),
             4.8m);
