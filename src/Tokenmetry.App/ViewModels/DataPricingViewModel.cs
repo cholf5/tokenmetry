@@ -953,10 +953,25 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         _ = _refreshService.TriggerRefreshAsync();
     }
 
-    /// <summary>价格输入解析：非负十进制（InvariantCulture；空串由调用方先判掉）。</summary>
+    /// <summary>
+    /// 价格输入解析：非负十进制，两趟文化口径（B-015 定案：不变文化优先）。空串由调用方先判掉。
+    /// 第一趟 InvariantCulture 且不带千分位（Float）——点号串全局同义：回显与落盘序列化恒 invariant
+    /// （编辑弹层预填的 "0.047" 必须原样解析回来），models.dev 粘贴形态在 comma 小数宿主上不得被
+    /// 本机千分位偷换。第二趟回落 CurrentCulture 全量口径（Number）——de-DE 等 comma 小数文化的
+    /// 本机输入（0,5 / 0,047 / 1.234,5）由此命中。
+    /// 已知边界：de-DE 宿主上点号千分位串（"1.234"）读作小数 1.234 而非本机千分位 1234——计价
+    /// 输入量级（每百万单价 ≤ 数百）不出现真千分位，接受该歧义换取点号串不随宿主文化漂移。
+    /// 千分位在第一趟排除还有一层：.NET 解析不校验千分位组大小，带 AllowThousands 的 invariant
+    /// 趟会把 "0,5" 静默读成 5（旧实现的实际缺陷是千倍错标而非报错拒绝）。
+    /// </summary>
     private static bool TryParsePrice(string text, out decimal value)
     {
-        return decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value) && value >= 0m;
+        if (decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+        {
+            return value >= 0m;
+        }
+
+        return decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out value) && value >= 0m;
     }
 
     /// <summary>data URI 落盘上限（64×64 PNG 的 base64 实际远小于此；防手改 settings.json 的脏大值）。</summary>
