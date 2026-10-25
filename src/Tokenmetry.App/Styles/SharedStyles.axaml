@@ -696,4 +696,55 @@
         <Setter Property="Foreground" Value="{DynamicResource ComboBoxIconDefaultForeground}"/>
     </Style>
 
+    <!-- 时间范围触发按钮（D-020 修正项 1）：Semi DropDownButton 的 ControlTheme 基样式把前景
+         钉在 ButtonDefaultPrimaryForeground（默认按钮的主色蓝文字），与顶栏相邻三个筛选
+         ComboBox（不设前景、继承全局默认文字色）并排即"一颗蓝字"。取证（headless 探针）：
+         相邻 ComboBox 继承前景 Light #1C1F23 / Dark 近白，与 Semi 自有 token SemiGrey9 两变体
+         逐位相同——指回该键即同源同值、明暗跟随（Q-014 同款"引用 Semi 画刷零新增令牌"先例）；
+         chevron 随模板绑定 ContentPresenter.Foreground 一同回位，弹层/hover 仍走 Semi 按钮家族。 -->
+    <Style Selector="DropDownButton.time-range-trigger">
+        <Setter Property="Foreground" Value="{DynamicResource SemiGrey9}"/>
+    </Style>
+
+    <!-- 顶栏时间范围选择器弹层（D-020）：FlyoutPresenter 不在控件逻辑树内（Popup 自成视觉根），
+         样式必须放应用级。背景/描边/阴影走 Semi FlyoutPresenter 主题（同族弹层观感、明暗跟随），
+         仅收 padding 与定宽；档位清单行紧凑化（data-table 同款透明底 + 悬停令牌画刷）。 -->
+    <Style Selector="FlyoutPresenter.time-range-flyout">
+        <Setter Property="Padding" Value="10"/>
+        <Setter Property="MinWidth" Value="252"/>
+        <Setter Property="MaxWidth" Value="340"/>
+        <Setter Property="MaxHeight" Value="520"/>
+    </Style>
+    <Style Selector="ListBox.time-range-list">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="MaxHeight" Value="292"/>
+    </Style>
+    <Style Selector="ListBox.time-range-list ListBoxItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="ListBox.time-range-list ListBoxItem:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
+    </Style>
+    <!-- 弹层分区隔线（档位清单 | 自定义日期 | 我的预设）：1px 令牌画刷，不硬编码色值 -->
+    <Style Selector="Border.time-range-divider">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource AppLineBrush}"/>
+        <Setter Property="Margin" Value="0,2"/>
+    </Style>
+    <!-- 「我的预设」行删除按钮：紧凑 icon-btn（34px 标准槽在 28px 行高里过大） -->
+    <Style Selector="Button.time-preset-delete">
+        <Setter Property="Width" Value="26"/>
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.time-preset-delete PathIcon.app-icon">
+        <Setter Property="Width" Value="14"/>
+        <Setter Property="Height" Value="14"/>
+    </Style>
+
 </Styles>

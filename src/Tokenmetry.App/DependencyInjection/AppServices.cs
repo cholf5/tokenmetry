@@ -79,6 +79,8 @@ public static class AppServices
         services.AddSingleton<FilterStateService>();
         // 时间范围持久化：启动应用上次的档位/自定义起止，此后顶部栏变更即存（FilterStatePersistence）
         services.AddSingleton<FilterStatePersistence>();
+        // D-020 用户自定义相对时间预设：单点装载/增删/落盘，依赖上面三个单例
+        services.AddSingleton<TimeRangePresetService>();
 
         // Core services
         services.AddSingleton<DateRangeService>();
@@ -213,6 +215,9 @@ public static class AppServices
         // 不依赖 DashboardViewModel 的解析时机；真正的扫描仍只在刷新时发生。
         _provider.GetRequiredService<LocalIngestionDataSource>();
 
+        // 时间预设装载：先于 FilterStatePersistence.Apply——持久化的选中 Id 可指向用户预设，
+        // 未装载时 "preset:<id>" 解析不到清单条目会误回落默认档。
+        _provider.GetRequiredService<TimeRangePresetService>().Load();
         // 时间范围持久化接线：先于外壳 VM 解析应用上次的档位/自定义起止（各页 VM 构造时读到的
         // 已是恢复后的筛选），此后顶部栏变更即存。设置必须已加载（上方 LoadAsync）。
         _provider.GetRequiredService<FilterStatePersistence>().Apply();

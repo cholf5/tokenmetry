@@ -5,7 +5,8 @@ namespace Tokenmetry.App.Services;
 
 /// <summary>
 /// 全局筛选 → 查询参数的统一映射（D-008 抽出，此前内联在 OverviewViewModel.BuildQueryFilter）：
-/// 时间窗口按本地自然日含端点、今天收口（今日；7/30/90 天；All 双端无界；Custom 按起止日期，
+/// 时间窗口按本地自然日含端点、今天收口——相对词表档（今日/昨天/本月/上月/滚动 N 天，D-020 起内置与
+/// 用户预设共用 RelativeRangeSpec）由 Spec 计算端点；All 双端无界；Custom 按起止日期，
 /// 未选侧不设界限、起止倒置自动换序、跨度超日序列物化上限时收口上限——见 Build 注释）；
 /// Agent.Id 直传（<see cref="AgentOption.AllId"/> → null 不过滤，查询服务语义为空白不过滤）；
 /// Model/Project 取选中选项的查询值（哨兵 All 的 Model/Path 为 null = 不过滤，空白同样不过滤）。
@@ -32,37 +33,40 @@ internal static class GlobalFilterMapper
         string? model = null,
         string? project = null)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        return Build(range, agent, customFrom, customTo, model, project, DateOnly.FromDateTime(DateTime.Today));
+    }
+
+    /// <summary>带 today 注入的映射内核（internal：日历档「本月/上月/本周/上周」的跨月/跨年/周锚点
+    /// 边界测试需要钉死「今天」，否则用例随运行日期漂移）。</summary>
+    internal static UsageQueryFilter Build(
+        TimeRangeOption range,
+        AgentOption agent,
+        DateTimeOffset? customFrom,
+        DateTimeOffset? customTo,
+        string? model,
+        string? project,
+        DateOnly today)
+    {
         DateOnly? fromDay;
         DateOnly? toDay;
-        switch (range.Value)
+        if (range.Spec is { } spec)
         {
-            case TimeRange.Today:
-                fromDay = today;
-                toDay = today;
-                break;
-            case TimeRange.Custom:
-                // 未选侧不设界限（语义如实：没填 = 不限），两端都缺时等价 All；倒置换序保证 IsRangeValid，
-                // 跨度收口到日序列物化上限（保留最近窗口），避免 GetDailySeriesAsync 抛 ArgumentOutOfRange。
-                (fromDay, toDay) = NormalizeCustomRange(customFrom, customTo, today);
-                break;
-            case TimeRange.Last7Days:
-                fromDay = today.AddDays(-6);
-                toDay = today;
-                break;
-            case TimeRange.Last30Days:
-                fromDay = today.AddDays(-29);
-                toDay = today;
-                break;
-            case TimeRange.Last90Days:
-                fromDay = today.AddDays(-89);
-                toDay = today;
-                break;
-            case TimeRange.All:
-            default:
-                fromDay = null;
-                toDay = null;
-                break;
+            // 相对词表档（内置 D-020：今日/昨天/本月/上月/滚动 N 天；用户预设同形状）——
+            // 窗口端点全部由 RelativeRangeSpec 按本地自然日计算（含端点、未完周期收口今天）。
+            fromDay = spec.FromDay(today);
+            toDay = spec.ToDay(today);
+        }
+        else if (range.IsCustom)
+        {
+            // 未选侧不设界限（语义如实：没填 = 不限），两端都缺时等价 All；倒置换序保证 IsRangeValid，
+            // 跨度收口到日序列物化上限（保留最近窗口），避免 GetDailySeriesAsync 抛 ArgumentOutOfRange。
+            (fromDay, toDay) = NormalizeCustomRange(customFrom, customTo, today);
+        }
+        else
+        {
+            // "全部时间"哨兵：双端无界。
+            fromDay = null;
+            toDay = null;
         }
 
         return new UsageQueryFilter

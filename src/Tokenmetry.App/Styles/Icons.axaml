@@ -75,5 +75,7 @@
     <StreamGeometry x:Key="AppIconHardDriveDownload">M12 2v8 M16 6 l-4 4-4-4 M 4 14 H 20 A 2 2 0 0 1 22 16 V 20 A 2 2 0 0 1 20 22 H 4 A 2 2 0 0 1 2 20 V 16 A 2 2 0 0 1 4 14 Z M6 18h.01 M10 18h.01</StreamGeometry>
     <!-- circle-help -->
     <StreamGeometry x:Key="AppIconCircleHelp">M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0 M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01</StreamGeometry>
+    <!-- x -->
+    <StreamGeometry x:Key="AppIconClose">M18 6 6 18 M6 6 l12 12</StreamGeometry>
 
 </ResourceDictionary>

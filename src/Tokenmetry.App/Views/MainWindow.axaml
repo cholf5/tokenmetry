@@ -232,30 +232,11 @@
                 BorderBrush="{DynamicResource AppLineBrush}"
                 BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" Margin="18,0" VerticalAlignment="Center">
-                <!-- 全局时间范围（今日/7/30/90/全部/自定义，默认 7 天，写入 FilterStateService）；
-                     自定义档追加起止 DatePicker（未选侧 = 不设界限，映射规则见 GlobalFilterMapper） -->
+                <!-- 全局时间范围（D-020：档名按钮 + 弹层 = 档位清单/我的预设/自定义日期；
+                     取代 ComboBox + 自定义档 inline DatePicker——顶栏不再随档位切换 reflow） -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                     <TextBlock Classes="topbar-label" Text="{Binding TopbarTimeRange, Source={x:Static loc:Translations.Instance}}"/>
-                    <ComboBox MinWidth="124"
-                              ItemsSource="{Binding Filters.TimeRangeOptions}"
-                              SelectedItem="{Binding Filters.TimeRange, Mode=TwoWay}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="svc:TimeRangeOption">
-                                <TextBlock Text="{Binding Label}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <StackPanel Orientation="Horizontal" Spacing="6"
-                                IsVisible="{Binding Filters.IsCustomRange}"
-                                Margin="4,0,0,0">
-                        <DatePicker MinWidth="118"
-                                    SelectedDate="{Binding Filters.CustomFromDate, Mode=TwoWay}"/>
-                        <TextBlock Text="–"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource AppMutedTextBrush}"/>
-                        <DatePicker MinWidth="118"
-                                    SelectedDate="{Binding Filters.CustomToDate, Mode=TwoWay}"/>
-                    </StackPanel>
+                    <c:TimeRangePicker DataContext="{Binding TimePicker}"/>
                 </StackPanel>
                 <!-- 全局 Agent 筛选（选项清单 = AgentCatalogService 真实数据，D-008 接线；初始仅"所有 Agent"） -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">

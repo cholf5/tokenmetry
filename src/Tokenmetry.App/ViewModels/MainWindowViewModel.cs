@@ -85,8 +85,12 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>侧栏 9 项导航（顺序同 ShellPages 注册表）。</summary>
     public IReadOnlyList<NavigationItemViewModel> NavigationItems { get; } = NavigationItemViewModel.CreateDefaults();
 
-    /// <summary>全局筛选状态（顶部栏 ComboBox 直接绑定；各页 VM 经 PropertyChanged 订阅）。</summary>
+    /// <summary>全局筛选状态（顶部栏时间选择器 / Agent / Model / Project 下拉与各页 VM 共享）。</summary>
     public FilterStateService Filters => _filters;
+
+    /// <summary>顶栏时间范围选择器（D-020：档位选择 + 我的预设管理 + 自定义日期的绑定面）。
+    /// 预设服务未注入（测试隔离构造）时选择弹层照常、管理区诚实隐藏。</summary>
+    public TimeRangePickerViewModel TimePicker { get; }
 
     /// <summary>S-004 拆分后两个单例页：设置页（应用偏好）与数据与计价页（数据源/口径/目录/别名），
     /// MainWindowViewModel 持有同一实例，外壳 CreatePage 复用。</summary>
@@ -104,7 +108,8 @@ public partial class MainWindowViewModel : ViewModelBase
         IToastService toastService,
         PricingEngine pricingEngine,
         ModelAvatarResolver? avatars = null,
-        BackgroundRefreshService? refreshService = null)
+        BackgroundRefreshService? refreshService = null,
+        TimeRangePresetService? timePresets = null)
     {
         _filters = filters;
         Settings = settings;
@@ -117,6 +122,8 @@ public partial class MainWindowViewModel : ViewModelBase
         // 可选依赖（既有测试按 7 参构造）：App DI 注入容器内同一 BackgroundRefreshService 单例，
         // 顶栏手动刷新与定时器/托盘/设置页重扫共用同一单飞槽；未注入（测试）时刷新命令如实 no-op。
         _refreshService = refreshService;
+        // D-020：时间范围选择器 VM 面共享同一 FilterStateService；预设服务可选（同上诚实降级）。
+        TimePicker = new TimeRangePickerViewModel(filters, timePresets);
 
         SelectedNavigation = NavigationItems[0];
         CurrentPage = CreatePage(PageId.Overview);

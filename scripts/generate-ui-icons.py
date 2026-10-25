@@ -48,6 +48,7 @@ UNPKG = f"https://unpkg.com/lucide-static@{LUCIDE_VERSION}/icons"
 #     相对盘体（读=数据出盘 upload、写=数据入盘 download），与页内输入 ↓ / 输出 ↑ 的方向语言同构。
 #   CircleHelp —— 模型芯片 generic 兜底（Q-009）：未识别厂商的模型显示「问号」图标，
 #     取代原 ◇ 文本字形（墨迹太小、疑似山寨品牌标）；phi 的 Φ 文本字形不受影响。
+#   Close —— 顶栏时间范围弹层「我的预设」行删除按钮（D-020）。
 ICONS: list[tuple[str, str]] = [
     ("House", "house"),
     ("Table", "table"),
@@ -65,6 +66,7 @@ ICONS: list[tuple[str, str]] = [
     ("HardDriveUpload", "hard-drive-upload"),
     ("HardDriveDownload", "hard-drive-download"),
     ("CircleHelp", "circle-help"),
+    ("Close", "x"),
 ]
 
 SVG_NS = "{http://www.w3.org/2000/svg}"

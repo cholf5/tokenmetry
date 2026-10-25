@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Tokenmetry.App.Controls;
 using Tokenmetry.App.DependencyInjection;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
@@ -161,7 +162,7 @@ public class AppShellTests
         Assert.Equal("最近 7 天 · 所有 Agent · 全部模型 · 全部项目", placeholder.CurrentFilterDisplay);
 
         // 切时间范围 → 通知到达订阅页 VM
-        filters.TimeRange = TimeRangeOption.Options[1];
+        filters.TimeRange = TimeRangeOption.Last7Days;
         Assert.Equal("最近 7 天 · 所有 Agent · 全部模型 · 全部项目", filters.Display);
         Assert.Equal(filters.Display, placeholder.CurrentFilterDisplay);
 
@@ -195,21 +196,21 @@ public class AppShellTests
     {
         var filters = new FilterStateService();
         var notifiedOnUi = false;
-        TimeRange? received = null;
+        string? received = null;
         filters.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(FilterStateService.TimeRange))
             {
                 notifiedOnUi = Dispatcher.UIThread.CheckAccess();
-                received = filters.TimeRange.Value;
+                received = filters.TimeRange.Id;
             }
         };
 
         // 非 UI 线程写入：赋值与通知都应 marshal 到 UI 线程（UI 线程未被阻塞时以 RunJobs 驱动）
-        Task.Run(() => filters.TimeRange = TimeRangeOption.Options[4]).Wait();
+        Task.Run(() => filters.TimeRange = TestTimeRanges.All).Wait();
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal(TimeRange.All, received);
+        Assert.Equal("All", received);
         Assert.True(notifiedOnUi, "筛选状态变更通知应在 UI 线程发出");
     }
 
@@ -236,16 +237,25 @@ public class AppShellTests
 
         var topBar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TopBar");
         var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
-        Assert.Equal(4, combos.Count); // 时间范围 + Agent + Model + Project（四维全局筛选，右栏撤除定案）
+        Assert.Equal(3, combos.Count); // Agent + Model + Project（D-020：时间范围改档名按钮 + 弹层选择器）
 
-        // 时间范围：默认最近 7 天（对齐原型），今日/7/30/90/全部/自定义 六档选项
-        var timeCombo = combos[0];
-        Assert.Equal(TimeRangeOption.Default, timeCombo.SelectedItem);
-        Assert.Equal(6, timeCombo.ItemCount);
+        // 时间范围（D-020 选择器）：默认最近 7 天；内置 8 档 + 自定义哨兵（预设未装载），档名按钮取 VM 面
+        var timeButton = topBar.GetVisualDescendants().OfType<DropDownButton>().First();
+        var picker = Assert.IsType<TimeRangePicker>(timeButton.Parent!);
+        Assert.Same(vm.TimePicker, picker.DataContext);
+        Assert.Equal(TimeRangeOption.Default.Id, vm.TimePicker.FilterState.TimeRange.Id);
+        Assert.Equal(9, vm.TimePicker.FilterState.TimeRangeOptions.Count);
+
+        // D-020 修正项 1 回归锁：触发按钮文字色与相邻筛选下拉一致（Semi DropDownButton 默认
+        // 前景是按钮主色蓝，无 time-range-trigger 覆写时此断言翻车）。按颜色值比较——同名画刷
+        // 经不同装载路径非同实例，实例断言不可靠（Q-014 教训）。
+        var agentBrush = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(combos[0].Foreground);
+        var timeBrush = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(timeButton.Foreground);
+        Assert.Equal(agentBrush.Color, timeBrush.Color);
 
         // Agent：默认所有 Agent；选项清单为真实数据（D-008：初始仅"所有 Agent"，
         // AgentCatalogService 异步加载后替换，条目数随本机 facts 而定 → 只断言下界与默认选中）
-        var agentCombo = combos[1];
+        var agentCombo = combos[0];
         Assert.Equal(AgentOption.All, agentCombo.SelectedItem);
         Assert.True(agentCombo.ItemCount >= 1, "Agent 下拉至少应有\"所有 Agent\"哨兵项");
 
@@ -329,7 +339,8 @@ public class AppShellTests
     [AvaloniaFact]
     public void Keyboard_tab_traversal_reaches_topbar_filters_settings_and_navigation()
     {
-        // Q-002 键盘可达性锁：Tab 遍历主窗口，顶栏四个全局筛选、设置入口、侧栏导航全部可达
+        // Q-002 键盘可达性锁：Tab 遍历主窗口，顶栏全局筛选（时间选择器按钮 + Agent/Model/Project 下拉）、
+        // 设置入口、侧栏导航全部可达
         // （可视焦点 ring 的观感属 Semi 控件模板 + 真机复核范畴，headless 只锁遍历可达性）。
         var vm = CreateIsolatedShellViewModel();
         var window = new MainWindow { DataContext = vm };
@@ -338,7 +349,8 @@ public class AppShellTests
 
         var topBar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TopBar");
         var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
-        Assert.Equal(4, combos.Count); // 时间范围 + Agent + Model + Project（四维全局筛选，右栏撤除定案）
+        Assert.Equal(3, combos.Count); // Agent + Model + Project（D-020：时间范围改档名按钮 + 弹层选择器）
+        var timeButton = topBar.GetVisualDescendants().OfType<DropDownButton>().First();
         var settingsButton = topBar.GetVisualDescendants().OfType<Button>()
             .First(b => b.Classes.Contains("icon-btn"));
         var navList = window.GetVisualDescendants().OfType<ListBox>().Single(lb => lb.Classes.Contains("nav-list"));
@@ -356,7 +368,7 @@ public class AppShellTests
             }
 
             var allReached =
-                visited.Contains(combos[0]) && visited.Contains(combos[1]) &&
+                visited.Contains(timeButton) && visited.Contains(combos[0]) &&
                 visited.Contains(settingsButton) &&
                 visited.Any(c => c == navList || (c is ListBoxItem item && navList.IsVisualAncestorOf(item)));
             if (allReached)
@@ -365,8 +377,8 @@ public class AppShellTests
             }
         }
 
-        Assert.Contains(combos[0], visited);          // 全局时间范围下拉
-        Assert.Contains(combos[1], visited);          // 全局 Agent 下拉
+        Assert.Contains(timeButton, visited);         // 全局时间范围选择器（D-020 档名按钮）
+        Assert.Contains(combos[0], visited);          // 全局 Agent 下拉
         Assert.Contains(settingsButton, visited);     // 顶栏设置入口
         Assert.Contains(visited, c => c == navList || (c is ListBoxItem item && navList.IsVisualAncestorOf(item)));
         // 焦点始终在窗口内（没有逃逸到不可见层）

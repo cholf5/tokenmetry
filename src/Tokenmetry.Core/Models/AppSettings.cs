@@ -55,8 +55,10 @@ public class AppSettings
     public DateTime? LastUpdateCheckUtc { get; set; }
 
     /// <summary>
-    /// 顶部栏时间范围档（Tokenmetry.App 的 TimeRange 枚举名，如 "Last7Days"）；未知值由
-    /// FilterStatePersistence 解析处如实回落默认档。存字符串：枚举在 App 层，Core 不依赖 UI。
+    /// 顶部栏时间范围档选中值（D-020 起为 TimeRangeOption 稳定 Id）：内置档沿用旧枚举名
+    /// （"Today"/"Last7Days"/"Last30Days"/"Last90Days"/"All"/"Custom"，旧 settings.json 照常解析）
+    /// 并新增 "Yesterday"/"ThisMonth"/"LastMonth"；用户自定义预设为 "preset:&lt;guid&gt;"。
+    /// 未知值/指向已删除预设的 Id 由 FilterStatePersistence 解析处如实回落默认档。
     /// </summary>
     public string TimeRange { get; set; } = "Last7Days";
 
@@ -65,6 +67,13 @@ public class AppSettings
 
     /// <summary>自定义档结束日（含，yyyy-MM-dd invariant；null = 未选，查询映射不设上界）。</summary>
     public string? CustomToDay { get; set; }
+
+    /// <summary>
+    /// 用户自定义相对时间范围预设（D-020，如 本周/上周/最近 14 天）：封闭词表投影
+    /// （Kind/Offset/Days，语义解释见 App 层 RelativeRangeSpec），上限 6 个、与内置档去重，
+    /// 由 App 的 TimeRangePresetService 单点增删并即存。空清单 = 未自定义（默认）。
+    /// </summary>
+    public List<RelativeRangePresetSetting> CustomTimePresets { get; set; } = new();
 
     /// <summary>
     /// <b>旧</b>用户价格覆盖规则（I-003 字段形状）：I-035 起用户配置统一走
