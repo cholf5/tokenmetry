@@ -120,6 +120,15 @@ public partial class App : Application
             var trayService = new TrayService(mainWindow, dashboard, mainWindowViewModel, refreshService, popover, updateService);
             trayService.Initialize();
 
+            // B-013：首实例监听第二实例的激活请求——唤回主窗与托盘「打开窗口」同一语义。
+            // 守卫在 Program.Main 获取（headless 测试宿主旁路后恒为 null），监听必须在主窗
+            // / 托盘就绪后才启动：激活回调要操作窗口。
+            if (Program.ActiveSingleInstance is { } singleInstance)
+            {
+                singleInstance.StartListener(() =>
+                    Avalonia.Threading.Dispatcher.UIThread.Post(trayService.ShowWindow));
+            }
+
             // D-003/Q-002：DashboardViewModel 无视图挂载（旧视图已清理），作为后台采集刷新锚点保留——
             // 刷新把本地会话日志解析进 facts 存储，供各页面卡查询（定案见其类型注释）。
             // S-002 审查修复（P0）：刷新接线在 dashboard 与外壳 VM 都就绪后 Attach，随后启动后台

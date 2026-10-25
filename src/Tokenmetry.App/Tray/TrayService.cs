@@ -441,7 +441,9 @@ public class TrayService
         }
     }
 
-    private void ShowWindow()
+    /// <summary>唤回主窗：托盘菜单 / 左键分派与 B-013 第二实例激活请求共用同一语义
+    /// （internal 供 App 的激活监听回调复用）。</summary>
+    internal void ShowWindow()
     {
         _mainWindow.Show();
         if (_mainWindow.WindowState == WindowState.Minimized)
