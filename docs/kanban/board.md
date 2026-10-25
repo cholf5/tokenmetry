@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-25（晚）：**Q-014 ComboBox 焦点环网页化收口**。用户截图反馈顶栏四筛选下拉选完一项后蓝框常驻，点窗口其余部分不消失、点左侧页签才退场。取证：蓝框是 Semi ComboBox `:focus` 态的焦点环（非"选中"态，ControlTheme 的 FocusAdorner=null、环完全来自伪类样式）——Avalonia 选完下拉项焦点留在 ComboBox 且点击不可聚焦区域不转移焦点，直到点中可聚焦元素（页签 = ListBoxItem）才走；web 的 `:focus-visible` 语义下鼠标选完不留环。修法：SharedStyles 增 `ComboBox:focus:not(:focus-visible):not(:error)` 覆写（晚于 SemiTheme 挂载即覆盖 ControlTheme 同名 setter），背景/描边/模板箭头色三项复位默认，全部引用 Semi 自有画刷零新增令牌、明暗自动跟随；`:focus-visible` 由 InputElement 按 NavigationMethod 判定（仅 Tab/方向键点亮），键盘 Tab 进 ComboBox 环照旧（可达性无损），:error 校验描边优先。曾否决 ClearFocus 方案：键盘流转起点会丢且键盘/指针选完无法区分。测试两用例同窗双 ComboBox 基线对照（指针三属性 ≡ 未聚焦基线 / 键盘三属性偏离基线）——踩坑：Semi 部分画刷（ComboBoxIconFocusForeground）只活在 ControlTheme 作用域、控件树 TryFindResource 不可见，且同名画刷经样式 DynamicResource 与 FindResource 两路径非同实例，逐键/实例断言均不可靠，基线对照才是跨变体稳定契约面。全量 1483 Passed / 0 Failed（22 跳过，+2）。已知边界：键盘提交选择后环同样退场（弹层收起的焦点回归不携带键盘模态；焦点仍在 ComboBox，Tab 流转不受影响），DatePicker 等其它控件同类环不跟改。真机观感移交用户。
+
 > 2026-10-25：**Q-013 自建模型误标「已改/移除覆盖」修正收口**。用户反馈 Add model 添加的新模型哪怕没覆盖任何内置模型也显示 Overridden、Actions 出现 Remove override。取证：`Bind(imported: null)` 对自建条目同样置 `IsPriceOverridden`/`IsMetadataOverridden`（用户确实填了价与元数据，字段来自用户层），行 VM 把「字段来自用户层」错当成「覆盖了导入层」——Core 标志的「字段来源」语义本身无恙（全仓仅行 VM 消费），修 UI 层即可。修法：行 VM `IsOverridden` 加 `Origin != User` 前提（覆盖语义锚定导入层）+ 新增 `IsUserCreated`；操作列拆「删除」（自建）/「移除覆盖」（覆盖导入层）互斥按钮，同一 RemoveModelDefinition 命令；Translations 增 `ModelDeleteButton`（键奇偶不破）；「已覆盖」chip 词义随徽标同步收紧（同一判定，自建条目去「自定义」chip 找），钉住旧词义的筛选测试改新语义。全量 1481 Passed / 0 Failed / 22 Skipped。
 
 > 2026-10-24（晚八）：**Q-011 弹层 Warn 独占修正收口**。用户反馈"当日花费超 7 天均值的常驻警告一出现，'当前正在使用中，消耗速度 xxx'提示就不再显示"。取证三处叠加：AnomalyDetector 判定日累计型（成本只增不减、均值全天固定——触发当天不可能回落）+ RefreshAsync 每轮重检测重 raise + RecomputeState 严格优先级 Warn>Active 提前 return——D-015「下一轮无异常清回」的前提对日累计型异常不成立，触发日速率提示全天消失。修法（三方向中用户拍板"信息贴在它描述的数字旁"）：三态机收敛两态，banner 只承载分钟尺度实时速率；异常归位今日花费 KPI 徽标（↑{ratio}× 均值 + Tooltip 完整消息，AppBannerWarn* 令牌复用零新增），`AnomalyRaised` 增 Ratio；warn 状态灯一并撤除（灯单色语义，不在灯上重演优先级抢占）。headless 弹层 19/19（+4：并存回归锁/无 Ratio 回落/清除/视图层渲染）。**并发注记**：与模型头像特性会话同工作区并行且共享 4 文件——本卡经选择性暂存分账；全量套件 6 失败全属对方进行中用例；互为对方解阻塞两笔（本会话补 DataUriImageConverter 的 Avalonia.Media using，对方把本卡测试 Assert.Single 改谓词重载）。
@@ -95,6 +97,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| Q-014 | ComboBox 焦点环网页化——指针焦点不画环、键盘焦点环保留（顶栏筛选选完蓝框常驻） | P2 | 2026-10-25 |
 | Q-013 | 自建模型误标「已改/移除覆盖」——覆盖语义锚定导入层，自建条目行走「删除」 | P2 | 2026-10-25 |
 | Q-012 | 模型头像（图标选择器四模式）——新增模型也有头像，全应用显示统一 | P2 | 2026-10-24 |
 | Q-011 | 托盘弹层 Warn banner 独占——日尺度异常归位今日花费 KPI 徽标，banner 还给实时速率 | P2 | 2026-10-24 |
