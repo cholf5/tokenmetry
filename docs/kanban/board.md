@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-25（夜）：**B-010~B-013 Windows 平台缺陷批次同日清账 + B-014 关卡**（2026-10-23 Windows 冒烟扩大扫描产出的五张卡全部出清，B-015 计价页文化区域属跨平台问题不属本批）。**B-010（P1）**：三处日志读取入口（DSH OpenLogReader / 扫描器默认 reader 工厂 / Copilot ParseFileAsync）统一走新增 `Jsonl/AgentLogReader`（`FileShare.ReadWrite|Delete` 单点）——Windows CreateFile 共享规则下旧 FileShare.Read 对 agent 写句柄即 sharing violation，被 catch 降级 skip 后表现为写句柄保持期间该会话持续采不到（Unix 空操作故 macOS 永不复现）；本机真跑 TDD：持真实写句柄走生产读路径 RED 三处全红、修后 4/4 绿。**B-011（P2）**：Dsh/Copilot 两处目录递归补 ReparsePoint 跳过（本就是相对共享收集器的移植偏差）——junction 成环旧实现无限递归 StackOverflow 进程死、不成环时 DSH 无消息级去重直接双计；真 junction 实跑 RED 双计实锤，修后 3/3 绿（含 sessions 根自指环），测试 Dispose 递归删除 catch 顺手补 UnauthorizedAccessException（.NET 会探入 junction）。**B-012（P3）**：Claude/Codebuff 两处 "projects" 文件名判定改 OrdinalIgnoreCase（文件系统大小写不敏感而比较是 Ordinal → 配置根被拒收、源静默空）；RED 双实锤（Claude 候选返 null / Codebuff records 空）后修平，Codebuff 类型注释登记对蓝本的有意偏离。**B-013（P3）**：单实例守卫落定 `App/Services/SingleInstanceGuard`——命名 Mutex 独占（.NET 10 三平台原生，免掉卡面括注的 Linux 文件锁分支）+ 命名管道激活通道；UX 卡内定案"激活既有窗口"（托盘常驻应用双开最常见诉求是把界面叫出来），第二实例在 Program.Main 最早期（DI/SQLite 前）拿不到锁→发 `show` 请求→静默退出，首实例经 Dispatcher.Post(trayService.ShowWindow) 唤回主窗（ShowWindow 提 internal 与托盘菜单共用语义）；headless 宿主 TOKENMETRY_HEADLESS 整体旁路。**Windows 实机双开验证**：--autostart 静默首实例 + 裸启第二实例 → 1.0s 码 0 退出、存活恰 1 进程；macOS/Linux 实机双开移交用户。踩坑两枚留痕：Mutex 线程递归（同线程重复 WaitOne 重入成功，守卫用例须跨线程断言）；.NET 递归删除会探入 junction 触发拒绝访问（fixture Dispose catch 相应加宽）。B-014 随 Q-016 失效关卡：异常 toast 通道已整体删除，唯一出口（弹层/头部 KPI 徽标）与主窗可见性无关，问题前提不复存在。全量 1554 Passed / 0 Failed（19 跳过 = Reconciliation RealData 用例按本机 fixture 存在性跳过；+14 = 4+3+2+5）；单卡提交 9e538a8 / cf7a9aa / 74b27eb / e7a13c3。
+
 > 2026-10-25（深夜五）：**Q-018 徽章 tooltip 橙字漏染 + Semi 默认底错配修复收口**。用户目检（明暗双截图）：头部异常徽章 hover 提示两主题均橙字——暗色浅底橙字不可读、明色深底橙字可读但离主题色，问是否故意。取证：不是，两因叠加——① ToolTip 在逻辑树上是挂载目标的子节点，Q-011 写下的嵌套样式 `Border.popover-cost-warn-badge TextBlock`（后代选择器）把 tooltip 内容 TextBlock 一并染橙/压 10px；② 底色走 Semi 12.1 默认 ToolTip 配色（B-006 已证错配：Light 浅底白字 / Dark 深底黑字，图表侧当年绕行）。修法：tooltip 显式挂 `chart-tip` 令牌底（chip 底 + 卡片描边 + AppTextBrush，与图表悬浮面同源）；徽章文本改自类 `popover-cost-warn-text`（后代选择器撤除，漏染免疫），本体橙 10px SemiBold 不变。踩坑留痕：中间误判「`>` 子选择器不命中」——实为单参 FindResource 不解 ThemeDictionaries（橙令牌在主题字典），三参 TryFindResource 才对，Q-014「FindResource 两路径非同实例」教训同族坑。明确不做：其余视图字符串 tooltip 仍 Semi 默认底（无染色组合、无实报），app 级 tooltip 统一另立卡。测试 +1 三段锁（显式 ToolTip+类 / 徽章文本自类染橙 / badge 类下无类深层不染），headless 弹层 21/21。全量 1537 Passed / 0 Failed（22 跳过）。真机观感移交用户。
 
 > 2026-10-25（深夜四）：**Q-017 弹层 KPI 三格同字号 + 异常徽章迁头部收口**。用户拍板：左格 22px 主次层级「不协调」，统一三格同字号；橙色 ↑x.x 倍徽章在 KPI 花费格「太丑、挤占本就不宽裕的布局」，迁头部 Tokenmetry 品牌/状态之后作应用级小徽章。修法：KPI 网格 `1.3*,*,*`→`\*,\*,\*`，左值 22→17（-0.5 字距随主格退场，三值 17 Bold 逐位一致；取 17 非 22 因五位数成本串在等宽列 22px 有溢出风险），中格徽章挪走后水平 StackPanel 拆除；徽章迁头部状态文字后（Spacing 5 + Margin 6），类名/绑定/Tooltip/VM 契约零改。Q-016 收口所述异常唯一出口「弹层 KPI 徽标」的落位随本卡迁头部，语义不变。原型偏离登记三处（22 主格 / 1.3fr / Q-011「贴数字旁」）。卡号注记：本卡最初编 Q-016 与并行会话 toast 整删卡（8252c2a）撞号，弹层三文件编号统一改 Q-017。测试：徽章视图用例改锁头部位置（popover-head 后代）+ 新增三值同字号/同粗细/三列星号等份额锁（RED 2 失败实锤），headless 弹层 20/20。全量 1536 Passed / 0 Failed（22 跳过）。真机观感移交用户。
@@ -27,8 +29,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| B-013 | 无单实例互斥——自启动 + 手动双开产生双托盘与 SQLite 并发写 | P3 | S | | |
-| B-014 | 托盘常驻态异常通知 toast 不可见（adorner 挂在隐藏主窗上） | P3 | S | | |
 | B-015 | 计价页价格输入固定 InvariantCulture——de-DE 逗号小数输入必被拒 | P3 | S | | |
 | D-017 | 右栏撤除 + 顶栏四维全局筛选 + 会话行元数据升级 | P1 | 2026-10-18 | | |
 
@@ -108,6 +108,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | B-011 | Dsh/Copilot 递归跳 reparse point——junction 环不崩、不双计（真 junction 回归锁） | P2 | 2026-10-25 |
 | B-012 | projects 文件名 OrdinalIgnoreCase——大小写键入不符不再静默丢源（Claude/Codebuff） | P3 | 2026-10-25 |
 | B-013 | 单实例守卫（命名 Mutex + 管道激活）——第二实例唤回主窗后退出，双开不再双托盘/并发写 | P3 | 2026-10-25 |
+| B-014 | 托盘常驻态异常 toast 不可见——随 Q-016 删通道失效关卡（异常出口=弹层/头部徽标，与主窗可见性无关） | P3 | 2026-10-25 |
 | D-021 | 时间分析页扩充——时间 KPI 四卡 + 星期分布面板（零新查询，同源客户端聚合） | P2 | 2026-10-25 |
 | D-020 | 时间范围预设——内置日历档（本月/上月/昨天）+ 用户自定义相对档 + 顶栏范围选择器 Flyout 化 | P2 | 2026-10-25 |
 | Q-014 | ComboBox 焦点环网页化——指针焦点不画环、键盘焦点环保留（顶栏筛选选完蓝框常驻） | P2 | 2026-10-25 |
