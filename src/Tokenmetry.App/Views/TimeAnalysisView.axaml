@@ -10,9 +10,11 @@
              x:DataType="vm:TimeViewModel">
 
     <!--
-        D-012 时间分析页（原型 #page-time）：页头 + 左「按小时分布」（TrendChart HourlyTokens，本地时区，
+        D-012 时间分析页（原型 #page-time）：页头 + D-021 时间 KPI 四卡（高峰时段 / 最活跃日 / 日均 tokens /
+        活跃天数，I-029/I-028 同源客户端聚合、脚注携带口径）+ 左「按小时分布」（TrendChart HourlyTokens，本地时区，
         图下 unknown 占比标注——I-029 无精度会话不入桶、不伪造分布）+ 右「活跃日历」（Heatmap 日 Token
-        强度；补零日淡格呈现）+ 「时间维度建议观察项」静态三行说明表（内容与 facts 实际能力一致）。
+        强度；补零日淡格呈现）+ D-021「星期分布」（日序列按星期聚合，工作日/周末占比——副标题「工作时段分布」
+        落地）+ 「时间维度建议观察项」静态三行说明表（内容与 facts 实际能力一致）。
         筛选在外壳顶部栏，本页只随 FilterStateService 刷新。
     -->
     <ScrollViewer Classes="page-root">
@@ -28,6 +30,87 @@
             <Border Classes="panel" Padding="13" IsVisible="{Binding HasLoadError}">
                 <TextBlock Classes="page-subtitle" Text="{Binding LoadError}"/>
             </Border>
+
+            <!-- ═══ D-021 .kpis：时间 KPI 四卡单排（零新查询，I-029 小时分布 + I-028 日序列客户端聚合，
+                 脚注携带口径；无数据 "—" 不冒充 0，同成本页四态语义）═══ -->
+            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+
+                <!-- 1. 高峰时段（入桶口径 = 小时分布口径：仅含带分钟级精度的会话） -->
+                <Border Grid.Column="0" Classes="kpi">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <Border Classes="icon-chip"
+                                    Background="{DynamicResource AppIconChipBlueBackgroundBrush}">
+                                <PathIcon Classes="app-icon"
+                                          Data="{StaticResource AppIconClock}"
+                                          Width="15" Height="15"
+                                          Foreground="{DynamicResource AppIconChipBlueForegroundBrush}"/>
+                            </Border>
+                            <TextBlock Classes="kpi-top" Text="{Binding KpiPeakHour, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Classes="kpi-value" Text="{Binding PeakHourCard.Value}"/>
+                        <TextBlock Classes="kpi-foot" Text="{Binding PeakHourCard.Foot}"
+                                   IsVisible="{Binding PeakHourCard.HasFoot}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 2. 最活跃日（HasData 日 token 最大，并列取最早） -->
+                <Border Grid.Column="1" Classes="kpi">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <Border Classes="icon-chip"
+                                    Background="{DynamicResource AppIconChipPurpleBackgroundBrush}">
+                                <PathIcon Classes="app-icon"
+                                          Data="{StaticResource AppIconZap}"
+                                          Width="15" Height="15"
+                                          Foreground="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
+                            </Border>
+                            <TextBlock Classes="kpi-top" Text="{Binding KpiPeakDay, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Classes="kpi-value" Text="{Binding PeakDayCard.Value}"/>
+                        <TextBlock Classes="kpi-foot" Text="{Binding PeakDayCard.Foot}"
+                                   IsVisible="{Binding PeakDayCard.HasFoot}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 3. 日均 tokens（Σ / 活跃日数，补零日不摊薄——脚注显式口径） -->
+                <Border Grid.Column="2" Classes="kpi">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <Border Classes="icon-chip"
+                                    Background="{DynamicResource AppIconChipGreenBackgroundBrush}">
+                                <PathIcon Classes="app-icon"
+                                          Data="{StaticResource AppIconCoins}"
+                                          Width="15" Height="15"
+                                          Foreground="{DynamicResource AppIconChipGreenForegroundBrush}"/>
+                            </Border>
+                            <TextBlock Classes="kpi-top" Text="{Binding KpiDailyAverage, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Classes="kpi-value" Text="{Binding DailyAverageCard.Value}"/>
+                        <TextBlock Classes="kpi-foot" Text="{Binding DailyAverageCard.Foot}"
+                                   IsVisible="{Binding DailyAverageCard.HasFoot}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 4. 活跃天数（HasData 日数；脚注：有界窗口「窗口共 N 天」/ 无界「自首日起」） -->
+                <Border Grid.Column="3" Classes="kpi">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <Border Classes="icon-chip"
+                                    Background="{DynamicResource AppIconChipNeutralBackgroundBrush}">
+                                <PathIcon Classes="app-icon"
+                                          Data="{StaticResource AppIconTable}"
+                                          Width="15" Height="15"
+                                          Foreground="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
+                            </Border>
+                            <TextBlock Classes="kpi-top" Text="{Binding KpiActiveDays, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Classes="kpi-value" Text="{Binding ActiveDaysCard.Value}"/>
+                        <TextBlock Classes="kpi-foot" Text="{Binding ActiveDaysCard.Foot}"
+                                   IsVisible="{Binding ActiveDaysCard.HasFoot}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
 
             <!-- ═══ .gridEqual：小时分布 + 活跃日历 ═══ -->
             <Grid ColumnDefinitions="1.15*,0.85*" ColumnSpacing="12">
@@ -63,6 +146,34 @@
                     </StackPanel>
                 </Border>
             </Grid>
+
+            <!-- ═══ D-021 星期分布（副标题「工作时段分布」落地）：日序列按星期聚合（HasData 日），
+                 与活跃日历同口径（脚注注明与小时分布的口径差异）；bar = 占窗口全部 token 百分比
+                 （ProgressBar.mini，同 Agent/模型行）；Σ 为 0 整块隐藏（不画全零行伪信息）═══ -->
+            <Border Classes="panel" IsVisible="{Binding HasWeekdayRows}">
+                <StackPanel Spacing="10">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding WeekdayMetaText}"
+                                   IsVisible="{Binding HasWeekdayMeta}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Classes="panel-title" Text="{Binding PanelWeekdayDistribution, Source={x:Static loc:Translations.Instance}}"/>
+                    </DockPanel>
+                    <ItemsControl ItemsSource="{Binding WeekdayRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:WeekdayUsageRowViewModel">
+                                <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="10" Margin="0,4">
+                                    <TextBlock Grid.Column="0" Classes="table-td" Text="{Binding Label}" VerticalAlignment="Center"/>
+                                    <ProgressBar Grid.Column="1" Classes="mini" Value="{Binding BarValue}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Classes="table-td" Text="{Binding ValueText}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="page-subtitle"
+                               Text="{Binding WeekdayBasisFoot, Source={x:Static loc:Translations.Instance}}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
 
             <!-- ═══ 时间维度建议观察项（静态三行说明表，原型同款；无假数据）═══ -->
             <Border Classes="panel">
