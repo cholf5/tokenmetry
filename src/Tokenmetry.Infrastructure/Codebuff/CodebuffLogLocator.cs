@@ -113,8 +113,10 @@ public class CodebuffLogLocator
     }
 
     /// <summary>
-    /// 根目录自身文件名是否恰为 "projects"（蓝本 root.file_name() == Some("projects")）。
-    /// 去尾部分隔符后取文件名（Rust Path::file_name 对尾随分隔符不敏感，C# 敏感，对齐前者）。
+    /// 根目录自身文件名是否恰为 "projects"（蓝本 root.file_name() == Some("projects")，有意偏离：
+    /// 比较改 OrdinalIgnoreCase——Windows/macOS 文件系统大小写不敏感，Exists 通过而 Ordinal 失败
+    /// 时 Codebuff 源静默空，B-012）。去尾部分隔符后取文件名（Rust Path::file_name 对尾随分隔符
+    /// 不敏感，C# 敏感，对齐前者）。
     /// </summary>
     private static bool FileNameIsProjects(string root)
     {
@@ -124,6 +126,6 @@ public class CodebuffLogLocator
             return false;
         }
 
-        return string.Equals(Path.GetFileName(probe), ProjectsDirName, StringComparison.Ordinal);
+        return string.Equals(Path.GetFileName(probe), ProjectsDirName, StringComparison.OrdinalIgnoreCase);
     }
 }

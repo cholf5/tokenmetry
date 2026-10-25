@@ -97,6 +97,24 @@ public class ClaudeCodeLogLocatorTests : IDisposable
     }
 
     [Fact]
+    public void Normalizes_projects_candidate_with_casing_mismatch()
+    {
+        // B-012（Windows 冒烟后续）：Windows/macOS 文件系统大小写不敏感——Directory.Exists 通过
+        // 而文件名 Ordinal 比较失败时，配置根被归一化拒收、Claude 源整体静默空。键入大小写与
+        // 磁盘不符也要识别（卡面场景：键入 ...\PROJECTS，盘上 projects）。Linux 文件系统大小写
+        // 敏感、无此场景，不构造。
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        var parent = CreateTempDir();
+        Directory.CreateDirectory(Path.Combine(parent, "projects"));
+
+        ClaudeCodeLogLocator.NormalizeConfigCandidate(Path.Combine(parent, "PROJECTS")).Should().Be(parent);
+    }
+
+    [Fact]
     public void Enumerates_jsonl_files_recursively_and_sorts_by_path()
     {
         var root = CreateClaudeRoot();

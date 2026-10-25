@@ -612,6 +612,31 @@ public class CodebuffAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task Root_named_projects_recognized_with_casing_mismatch()
+    {
+        // B-012（Windows 冒烟后续）：Windows/macOS 文件系统大小写不敏感——根目录键入大小写与
+        // 磁盘不符时 Exists 通过、旧 Ordinal 文件名比较失败 → 判定走 projects/ 拼接分支 → Codebuff
+        // 源静默空。键入大小写与磁盘不符也要按"根即 projects"识别（卡面场景：键入 ...\PROJECTS，
+        // 盘上 projects；键入路径原样返回、不做规范化是既有口径）。Linux 大小写敏感、无此场景。
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        var projectsDir = Path.Combine(CreateTempDir(), "projects");
+        Directory.CreateDirectory(projectsDir);
+        WriteChatFile(projectsDir, "p/chats/2026-01-02T00-00-00.000Z/chat-messages.json",
+            """[{"role":"assistant","timestamp":"2026-01-02T00:00:00.000Z","metadata":{"model":"m","usage":{"inputTokens":3,"outputTokens":3}}}]""");
+        var typedRoot = Path.Combine(Path.GetDirectoryName(projectsDir)!, "PROJECTS");
+
+        var locator = new CodebuffLogLocator(_ => typedRoot);
+        var result = await new CodebuffAdapter(locator: locator).ScanAsync();
+
+        result.Records.Should().ContainSingle();
+        result.Roots.Should().ContainSingle().Which.Should().Be(typedRoot);
+    }
+
+    [Fact]
     public async Task Default_channel_directories_are_enumerated_under_config_home()
     {
         // 蓝本默认分支：~/.config/<channel> ×3 枚举（存在 projects/ 的 channel 生效），多 channel 并行出数。
