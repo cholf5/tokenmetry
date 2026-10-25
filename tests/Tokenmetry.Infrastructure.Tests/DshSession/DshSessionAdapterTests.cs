@@ -105,6 +105,45 @@ public class DshSessionAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task Junction_to_sibling_session_directory_is_not_followed()
+    {
+        // B-011（Windows 冒烟后续）：junction 指向另一会话目录时，同一物理文件以两个路径被
+        // artifactByPath 记两份账——DSH 无消息级去重（重复保证由文件级记账承担），旧实现直接双计。
+        // 与共享收集器同口径：reparse point 不跟随。
+        var home = CreateTempHome();
+        WriteSessionLog(home, "--tmp-proj--", "session-real", zstd: false, version: null,
+            Header("session-real", "/tmp/proj"),
+            Message(WeekdayEraTime, 1, turn: 1, step: 1, input: 10, output: 1, cacheRead: 0, cacheWrite: 0,
+                provider: "ark", model: "glm-5.3-flash"));
+        CreateReparseDirectoryLink(
+            Path.Combine(home, "sessions", "session-link"),
+            Path.Combine(home, "sessions", "--tmp-proj--", "session-real"));
+
+        var result = await CreateAdapter(home).ScanAsync();
+
+        result.Records.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Self_referential_junction_does_not_recurse_forever()
+    {
+        // B-011：junction 成环旧实现无限递归 → StackOverflowException（不可捕获，进程死）。
+        // 旧实现下本用例会击穿测试宿主而非红——只在修后随同 sibling 用例一起运行。
+        var home = CreateTempHome();
+        WriteSessionLog(home, "--tmp-proj--", "session-real", zstd: false, version: null,
+            Header("session-real", "/tmp/proj"),
+            Message(WeekdayEraTime, 1, turn: 1, step: 1, input: 10, output: 1, cacheRead: 0, cacheWrite: 0,
+                provider: "ark", model: "glm-5.3-flash"));
+        CreateReparseDirectoryLink(
+            Path.Combine(home, "sessions", "loop"),
+            Path.Combine(home, "sessions"));
+
+        var result = await CreateAdapter(home).ScanAsync();
+
+        result.Records.Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task Reads_only_highest_generation_per_session_directory()
     {
         var home = CreateTempHome();
@@ -618,6 +657,27 @@ public class DshSessionAdapterTests : IDisposable
     }
 
 
+    /// <summary>建目录 reparse point：Windows 用 junction（mklink /J，普通权限即可）；Unix 用
+    /// 符号链接（同带 ReparsePoint 语义）。两平台定位器口径一致：一律不跟随。</summary>
+    private static void CreateReparseDirectoryLink(string linkPath, string targetPath)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Directory.CreateSymbolicLink(linkPath, targetPath);
+            return;
+        }
+
+        var startInfo = new System.Diagnostics.ProcessStartInfo(
+            "cmd.exe", $"/c mklink /J \"{linkPath}\" \"{targetPath}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+        };
+        using var process = System.Diagnostics.Process.Start(startInfo)!;
+        process.WaitForExit();
+        process.ExitCode.Should().Be(0, "junction 建立失败则用例前提不成立");
+    }
+
     public void Dispose()
     {
         foreach (var dir in _tempDirs)
@@ -626,8 +686,9 @@ public class DshSessionAdapterTests : IDisposable
             {
                 Directory.Delete(dir, recursive: true);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
+                // 临时目录清理失败不影响测试结论；B-011 用例的 junction 会被递归删除探入而拒绝访问。
             }
         }
     }
