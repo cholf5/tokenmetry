@@ -92,8 +92,9 @@ mkdir -p "$DIST"
 
 for rid in $RID_LIST; do
   echo "==> publish $rid"
+  # PublishReadyToRun (P-003): 预编译进产物——运行时 JIT 代码堆变小、启动更快；包体积 +30-50%（卡内登记的取舍）。
   dotnet publish src/Tokenmetry.App -c Release -r "$rid" --self-contained true \
-    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:IncludeNativeLibrariesForSelfExtract=true \
     -o "dist/publish/$rid"
 
   # 发布产物名 = 程序集名 Tokenmetry.App(.exe)；出厂统一改回产品名 Tokenmetry(.exe)

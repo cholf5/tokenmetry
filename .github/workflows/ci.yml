@@ -132,11 +132,15 @@ jobs:
       # The published exe is "Tokenmetry.App.exe" (assembly name); the shipped
       # binary is renamed to "Tokenmetry.exe" so the zip unpacks cleanly —
       # matching the .app executable name on macOS and the Linux binary name.
+      # PublishReadyToRun (P-003): methods precompiled into the binary — smaller
+      # JIT code heap at runtime (tray-resident memory matters) and faster
+      # startup; costs ~30-50% package size (trade logged on card P-003).
       - name: Publish self-contained exe
         shell: pwsh
         run: >
           dotnet publish $env:APP_PROJECT -c Release -r win-x64
           --self-contained true -p:PublishSingleFile=true
+          -p:PublishReadyToRun=true
           -p:IncludeNativeLibrariesForSelfExtract=true -o "publish-win"
       - name: Zip with product-name binary
         shell: pwsh
