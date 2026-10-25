@@ -727,8 +727,13 @@ public class DataPricingViewModelTests
         var untouched = viewModel.ModelRows.First(r => r.Origin == ModelDefinitionOrigin.Snapshot && !r.IsOverridden);
 
         overridden.CanRemove.Should().BeTrue("被覆盖的导入条目可移除覆盖");
+        overridden.IsOverridden.Should().BeTrue();
+        overridden.IsUserCreated.Should().BeFalse();
         userCreated.CanRemove.Should().BeTrue("自建条目可整条删除");
+        userCreated.IsOverridden.Should().BeFalse("自建条目没有覆盖任何导入条目，不挂已改徽标");
+        userCreated.IsUserCreated.Should().BeTrue();
         untouched.CanRemove.Should().BeFalse("从未覆盖过的条目不该出现假按钮");
+        untouched.IsOverridden.Should().BeFalse();
     }
 
     [Fact]
@@ -770,8 +775,8 @@ public class DataPricingViewModelTests
 
         viewModel.FilterOverridden = true;
         viewModel.ModelRows.Select(r => r.Id).Should().BeEquivalentTo(
-            new[] { "glm-4-6", "my-own-model" },
-            "叠加已覆盖 chip 取交集：覆盖的导入条目与自建条目都算被用户改过");
+            new[] { "glm-4-6" },
+            "叠加已覆盖 chip 取交集：只有覆盖了导入层的条目算「已覆盖」——自建条目下面没有导入层，不在此列（去自定义 chip 找）");
 
         viewModel.ModelSearchText = "gpt";
         viewModel.ModelRows.Should().BeEmpty("chip 与文本取交集");

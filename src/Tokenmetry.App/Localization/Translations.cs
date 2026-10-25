@@ -357,6 +357,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(AvatarPickerConfirm)] = "确定",
         [nameof(ModelEditButton)] = "编辑",
         [nameof(ModelRemoveButton)] = "移除覆盖",
+        [nameof(ModelDeleteButton)] = "删除",
         [nameof(ToastRepricing)] = "已保存，正在按新价格重算…",
 
         // ── 项目统计页（ProjectsView）──
@@ -786,6 +787,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(AvatarPickerConfirm)] = "OK",
         [nameof(ModelEditButton)] = "Edit",
         [nameof(ModelRemoveButton)] = "Remove override",
+        [nameof(ModelDeleteButton)] = "Delete",
         [nameof(ToastRepricing)] = "Saved — re-pricing with the new prices…",
     };
 
@@ -1196,6 +1198,7 @@ public sealed class Translations : INotifyPropertyChanged
     public string ModelFormErrorCacheNeedsInputPair => Get();
     public string ModelEditButton => Get();
     public string ModelRemoveButton => Get();
+    public string ModelDeleteButton => Get();
     public string ToastRepricing => Get();
 
     // ── 项目统计页 ──

@@ -79,8 +79,9 @@ public sealed class AliasRuleRowViewModel
 
 /// <summary>
 /// 模型目录单行（I-035 ModelDefinitions）：ID（稳定主键）/ 显示名 / 厂商 / 单价 / 来源。
-/// 不可变小对象，条目增删改后整表重建。来源徽标如实反映三层（内置快照 / 在线 / 用户）+ 是否被
-/// 用户覆盖——用户改过的条目在下次 models.dev 刷新时不会被冲掉，界面必须让人看得出来。
+/// 不可变小对象，条目增删改后整表重建。来源徽标如实反映三层（内置快照 / 在线 / 用户）；覆盖了
+/// 导入层的条目在下次 models.dev 刷新时不会被冲掉，界面必须让人看得出来——但用户自建条目
+/// 不是"覆盖"（下面没有导入层），不挂已改徽标、动作是删除整条。
 /// </summary>
 public sealed class ModelDefinitionRowViewModel
 {
@@ -105,7 +106,10 @@ public sealed class ModelDefinitionRowViewModel
             ModelDefinitionOrigin.User => Translations.Instance.ModelOriginUser,
             _ => Translations.Instance.ModelOriginBuiltin,
         };
-        IsOverridden = definition.IsPriceOverridden || definition.IsMetadataOverridden;
+        // 「覆盖」只对装在导入层之上的条目成立：自建条目（Origin = User）的价与元数据是
+        // 第一手定义，下面没有导入层——已改徽标、已覆盖筛选与「移除覆盖」动作都不该出现在它身上。
+        IsOverridden = definition.Origin != ModelDefinitionOrigin.User
+            && (definition.IsPriceOverridden || definition.IsMetadataOverridden);
         HasPrice = definition.HasPrice;
         Origin = definition.Origin;
     }
@@ -128,7 +132,8 @@ public sealed class ModelDefinitionRowViewModel
     /// <summary>来源徽标（内置 / 在线 / 自定义）。</summary>
     public string OriginText { get; }
 
-    /// <summary>是否被用户改过（价格或元数据）——刷新不会冲掉这些字段。</summary>
+    /// <summary>是否覆盖了导入层条目（价格或元数据被用户接管，刷新不会冲掉）。
+    /// 自建条目恒 false——它的字段不是改在谁的上面，见构造函数注释。</summary>
     public bool IsOverridden { get; }
 
     /// <summary>是否有价（驱动价格列的"未定价"视觉区分）。</summary>
@@ -137,9 +142,12 @@ public sealed class ModelDefinitionRowViewModel
     /// <summary>来源枚举（内置 / 在线 / 用户；UI 按它判定移除按钮可见性）。</summary>
     public ModelDefinitionOrigin Origin { get; }
 
-    /// <summary>是否显示「移除覆盖」按钮：被用户改过（价格 / 元数据）或整条自建——
+    /// <summary>是否用户自建条目（ID 不在导入层）：Actions 显示「删除」整条，而非「移除覆盖」。</summary>
+    public bool IsUserCreated => Origin == ModelDefinitionOrigin.User;
+
+    /// <summary>是否显示移除按钮：覆盖了导入层（移除后回落导入值）或整条自建（随条目消失）——
     /// 纯导入层条目的移除是静默 no-op，不渲染假按钮。</summary>
-    public bool CanRemove => IsOverridden || Origin == ModelDefinitionOrigin.User;
+    public bool CanRemove => IsOverridden || IsUserCreated;
 }
 
 /// <summary>
