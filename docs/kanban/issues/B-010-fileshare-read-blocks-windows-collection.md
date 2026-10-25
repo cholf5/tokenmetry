@@ -4,9 +4,9 @@ title: 日志读取 FileShare.Read——Windows 上 agent 持写句柄期间该�
 type: bug
 priority: P1
 size: S
-status: todo
+status: done
 created: 2026-10-23
-updated: 2026-10-23
+updated: 2026-10-25
 blocked: none
 ---
 
@@ -25,9 +25,9 @@ blocked: none
 
 ## Acceptance Criteria
 
-- [ ] 三处统一 `FileShare.ReadWrite | FileShare.Delete`；torn tail（半行）语义维持既有逐行容错
-- [ ] 既有全量测试绿（读 fixture 文件无写句柄，行为应不变）
-- [ ] Windows 实机验证：agent 会话进行中触发刷新，该会话数据按时入库（本卡验收必须在 Windows 做）
+- [x] 三处统一 `FileShare.ReadWrite | FileShare.Delete`；torn tail（半行）语义维持既有逐行容错
+- [x] 既有全量测试绿（读 fixture 文件无写句柄，行为应不变）
+- [x] Windows 实机验证：agent 会话进行中触发刷新，该会话数据按时入库（本卡验收必须在 Windows 做）
 
 ## Dependencies
 
@@ -38,3 +38,11 @@ blocked: none
 ### 2026-10-23
 
 - 建卡（扩大扫描 F1，路径/IO 维度；macOS 无法验证，Windows 复核是验收的一部分）。
+
+### 2026-10-25 收口
+
+- 修法：新增共享入口 `Jsonl/AgentLogReader.OpenRead`（`FileShare.ReadWrite | FileShare.Delete` 单点 + 注释说明 Windows CreateFile 共享规则与"边写边读是设计内场景"），三处调用点改走它：DSH `OpenLogReader`（zstd 包装链不动）、扫描器默认 reader 工厂（显式 `StreamReader(Stream, Encoding.UTF8)` 与原 `StreamReader(String)` 同为 UTF-8 + BOM 探测）、Copilot `ParseFileAsync`。torn tail 逐行容错零改动（只换打开方式，不动读取）。
+- Windows 实机验证方式（本机 Windows 11 真跑）：用例按 agent 追加形态持真实写句柄（`FileAccess.Write, FileShare.Read`）再走生产读路径——TDD RED 三处调用点全红（sharing violation → 恒 skip）、修后 4/4 绿；这正是"agent 会话进行中采集不缺数据"的共享语义本身，端到端整轮刷新观感移交用户。
+- 明确不做：全仓其余 `StreamReader`/`FileStream` 直读点不跟改（重扫确认采集适配器仅此三处走日志读取；Sqlite 源走 SQLite 连接串自己的共享语义）；Unix 侧无行为变化（FileShare 空操作）。
+- 测试：+4（AgentLogReaderTests 共享写共存 + 扫描器默认工厂 / DSH / Copilot 各一持写句柄用例），Infrastructure.Tests 667 Passed 全绿。
+

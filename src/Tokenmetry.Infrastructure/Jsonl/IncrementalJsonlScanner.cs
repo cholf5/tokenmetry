@@ -30,7 +30,7 @@ public sealed class IncrementalJsonlScanner
         ClaudeUsageRecordDeduper? deduper = null,
         Func<IEnumerable<UsageRecord>, IReadOnlyList<UsageRecord>>? dedupe = null)
     {
-        _readerFactory = readerFactory ?? (path => new StreamReader(path));
+        _readerFactory = readerFactory ?? (path => new StreamReader(AgentLogReader.OpenRead(path), System.Text.Encoding.UTF8));
         _dedupe = dedupe ?? (records => (deduper ?? new ClaudeUsageRecordDeduper()).Dedupe(records));
     }
 

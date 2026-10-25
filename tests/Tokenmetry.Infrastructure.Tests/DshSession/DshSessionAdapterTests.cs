@@ -87,6 +87,24 @@ public class DshSessionAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task Reads_session_log_while_agent_holds_write_handle()
+    {
+        // B-010（Windows 冒烟后续）：agent 持写句柄追加日志期间采集不静默缺数据。
+        // 旧 FileShare.Read 对写句柄即 sharing violation——Unix 空操作恒绿，Windows 旧实现即红。
+        var home = CreateTempHome();
+        var path = WriteSessionLog(home, "--tmp-proj--", "session-live", zstd: false, version: null,
+            Header("session-live", "/tmp/proj"),
+            Message(WeekdayEraTime, 1, turn: 1, step: 1, input: 10, output: 1, cacheRead: 0, cacheWrite: 0,
+                provider: "ark", model: "glm-5.3-flash"));
+        using var agentHandle = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.Read);
+
+        var result = await CreateAdapter(home).ScanAsync();
+
+        result.Records.Should().ContainSingle();
+        result.Diagnostics.FilesRead.Should().Be(1);
+    }
+
+    [Fact]
     public async Task Reads_only_highest_generation_per_session_directory()
     {
         var home = CreateTempHome();
