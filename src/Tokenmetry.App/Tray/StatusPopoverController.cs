@@ -176,8 +176,11 @@ public sealed class StatusPopoverController
 
     private static Size ScreenSize(Window window, Screen screen)
     {
-        // Window.Bounds 是 DIP；屏幕坐标系（Windows 物理像素 / macOS Cocoa 点）= DIP × Scaling
-        var size = window.Bounds.Size;
+        // ClientSize 是 DIP；屏幕坐标系（Windows 物理像素 / macOS Cocoa 点）= DIP × Scaling。
+        // 不用 window.Bounds：首次 Show 后 Bounds 高度仍是平台默认值（CW_USEDEFAULT ≈ 720 DIP，
+        // SizeToContent 实测高度要等首个布局 tick 才回写 Bounds），用它锚定会把弹窗抬高数百 px
+        // ——Windows 首显「弹在屏幕中间偏右」的根因；ClientSize 在 Show() 返回时即已正确。
+        var size = window.ClientSize;
         return new Size(size.Width * screen.Scaling, size.Height * screen.Scaling);
     }
 
