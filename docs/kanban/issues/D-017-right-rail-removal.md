@@ -1,6 +1,6 @@
 # D-017 右栏撤除 + 顶栏四维全局筛选 + 会话行元数据升级
 
-**Status**: Todo
+**Status**: Done
 **Priority**: P1
 **Date**: 2026-10-18
 **Design**: docs/plans/2026-10-18-right-rail-removal-design.md（已评审定案）
