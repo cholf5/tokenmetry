@@ -246,12 +246,14 @@ public class AppShellTests
         Assert.Equal(TimeRangeOption.Default.Id, vm.TimePicker.FilterState.TimeRange.Id);
         Assert.Equal(9, vm.TimePicker.FilterState.TimeRangeOptions.Count);
 
-        // D-020 修正项 1 回归锁：触发按钮文字色与相邻筛选下拉一致（Semi DropDownButton 默认
-        // 前景是按钮主色蓝，无 time-range-trigger 覆写时此断言翻车）。按颜色值比较——同名画刷
-        // 经不同装载路径非同实例，实例断言不可靠（Q-014 教训）。
+        // D-020 修正项 1/2 回归锁：触发按钮文字观感与相邻筛选下拉一致——颜色（Semi 默认按钮是
+        // 主色蓝）与字重（Semi 按钮默认 DemiBold，下拉为 Normal）双维度；字号两边同 14 一并锁住。
+        // 颜色按值比较——同名画刷经不同装载路径非同实例，实例断言不可靠（Q-014 教训）。
         var agentBrush = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(combos[0].Foreground);
         var timeBrush = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(timeButton.Foreground);
         Assert.Equal(agentBrush.Color, timeBrush.Color);
+        Assert.Equal(combos[0].FontWeight, timeButton.FontWeight);
+        Assert.Equal(combos[0].FontSize, timeButton.FontSize);
 
         // Agent：默认所有 Agent；选项清单为真实数据（D-008：初始仅"所有 Agent"，
         // AgentCatalogService 异步加载后替换，条目数随本机 facts 而定 → 只断言下界与默认选中）

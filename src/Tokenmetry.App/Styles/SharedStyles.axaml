@@ -696,14 +696,16 @@
         <Setter Property="Foreground" Value="{DynamicResource ComboBoxIconDefaultForeground}"/>
     </Style>
 
-    <!-- 时间范围触发按钮（D-020 修正项 1）：Semi DropDownButton 的 ControlTheme 基样式把前景
-         钉在 ButtonDefaultPrimaryForeground（默认按钮的主色蓝文字），与顶栏相邻三个筛选
-         ComboBox（不设前景、继承全局默认文字色）并排即"一颗蓝字"。取证（headless 探针）：
-         相邻 ComboBox 继承前景 Light #1C1F23 / Dark 近白，与 Semi 自有 token SemiGrey9 两变体
-         逐位相同——指回该键即同源同值、明暗跟随（Q-014 同款"引用 Semi 画刷零新增令牌"先例）；
-         chevron 随模板绑定 ContentPresenter.Foreground 一同回位，弹层/hover 仍走 Semi 按钮家族。 -->
+    <!-- 时间范围触发按钮（D-020 修正项 1/2）：Semi DropDownButton 的 ControlTheme 基样式把前景
+         钉在 ButtonDefaultPrimaryForeground（默认按钮的主色蓝文字）、字重钉在 ButtonDefaultFontWeight
+         （DemiBold），与顶栏相邻三个筛选 ComboBox（不设前景/字重、继承全局默认：Normal 400）并排
+         即"一颗蓝粗字"。取证（headless 探针）：相邻 ComboBox 继承前景 Light #1C1F23 / Dark 近白，
+         与 Semi 自有 token SemiGrey9 两变体逐位相同——指回该键即同源同值、明暗跟随（Q-014 同款
+         "引用 Semi 画刷零新增令牌"先例）；字号两边同为 14 仅字重差，Normal 对齐。chevron 随模板
+         绑定 ContentPresenter.Foreground 一同回位，弹层/hover 仍走 Semi 按钮家族。 -->
     <Style Selector="DropDownButton.time-range-trigger">
         <Setter Property="Foreground" Value="{DynamicResource SemiGrey9}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
     </Style>
 
     <!-- 顶栏时间范围选择器弹层（D-020）：FlyoutPresenter 不在控件逻辑树内（Popup 自成视觉根），
