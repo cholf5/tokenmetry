@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -943,6 +944,107 @@ public class DataPricingViewModelTests
         viewModel.ModelFormError.Should().Be(Translations.Instance.ModelFormErrorCacheNeedsInputPair);
         store.SaveCalls.Should().Be(0);
         settings.ModelDefinitions.Should().BeEmpty();
+    }
+
+    // ---- B-015 价格输入文化（de-DE 逗号小数可录入）----
+
+    [Theory]
+    [InlineData("0,5", "0.5")] // 本机逗号小数：de-DE 用户按本机习惯录入
+    [InlineData("0,047", "0.047")] // 逗号三位小数：invariant 侧按千分位会读成 47，必须落本机文化按小数读
+    [InlineData("0.5", "0.5")] // 点号小数：与回显/落盘同形，任何宿主文化下原样解析
+    [InlineData("0.047", "0.047")] // 点号三位小数（models.dev 粘贴形态）：不得被 de-DE 千分位偷换成 47
+    [InlineData("1.234,5", "1234.5")] // 本机千分位 + 逗号小数（de-DE 完整形态）
+    public void SaveModelDefinition_AcceptsBothDecimalSeparatorsUnderDeDe(string input, string expected)
+    {
+        WithCurrentCulture("de-DE", () =>
+        {
+            var settings = new AppSettings();
+            var store = new FakeSettingsStore();
+            var viewModel = CreateViewModel(settings, store, catalog: new ModelCatalog());
+
+            viewModel.AddModelDefinitionCommand.Execute(null);
+            viewModel.ModelFormId = "my-own-model";
+            viewModel.ModelFormInput = input;
+            viewModel.ModelFormOutput = input;
+            viewModel.SaveModelDefinitionCommand.Execute(null);
+
+            viewModel.ModelFormError.Should().BeNull();
+            var expectedValue = decimal.Parse(expected, CultureInfo.InvariantCulture);
+            var saved = settings.ModelDefinitions.Single(d => ModelId.Normalize(d.Id) == "my-own-model");
+            saved.InputPerMillion.Should().Be(expectedValue, $"de-DE 宿主下 {input} 必须等值录入 {expected}");
+            saved.OutputPerMillion.Should().Be(expectedValue);
+        });
+    }
+
+    [Fact]
+    public void EditModelDefinition_PricePrefill_RoundTripsUnderDeDe()
+    {
+        // 回显面恒 invariant（B-015 验收之二）：de-DE 宿主打开编辑弹层，预填的点号小数必须原样
+        // 解析回来。解析优先序若倒置（本机文化优先），元数据级保存会把预填 "0.047" 按 de-DE
+        // 千分位读成 47——本用例钉住「点号串全局同义」的优先序定案。
+        WithCurrentCulture("de-DE", () =>
+        {
+            var settings = new AppSettings();
+            settings.ModelDefinitions.Add(new ModelDefinitionOverride
+            {
+                Id = "my-own-model",
+                InputPerMillion = 0.047m,
+                OutputPerMillion = 0.12m,
+            });
+            var catalog = new ModelCatalog(userDefinitions: ModelCatalog.MergeUserDefinitions(settings));
+            var viewModel = CreateViewModel(settings, new FakeSettingsStore(), catalog: catalog);
+
+            viewModel.EditModelDefinitionCommand.Execute("my-own-model");
+            viewModel.ModelFormInput.Should().Be("0.047", "回显序列化保持 InvariantCulture");
+            viewModel.SaveModelDefinitionCommand.Execute(null);
+
+            viewModel.ModelFormError.Should().BeNull();
+            settings.ModelDefinitions.Single().InputPerMillion.Should().Be(0.047m, "预填值原样解析回来，不发生千分位偷换");
+        });
+    }
+
+    [Fact]
+    public void SaveModelDefinition_RejectsNegativeAndGarbageUnderDeDe()
+    {
+        WithCurrentCulture("de-DE", () =>
+        {
+            var settings = new AppSettings();
+            var store = new FakeSettingsStore();
+            var viewModel = CreateViewModel(settings, store, catalog: new ModelCatalog());
+
+            viewModel.AddModelDefinitionCommand.Execute(null);
+            viewModel.ModelFormId = "my-own-model";
+            viewModel.ModelFormInput = "-1";
+            viewModel.ModelFormOutput = "-2";
+            viewModel.SaveModelDefinitionCommand.Execute(null);
+
+            viewModel.ModelFormError.Should().Be(Translations.Instance.ModelFormErrorPriceNumber);
+            settings.ModelDefinitions.Should().BeEmpty("负价不落盘");
+
+            viewModel.ModelFormInput = "0,5";
+            viewModel.ModelFormOutput = "abc";
+            viewModel.SaveModelDefinitionCommand.Execute(null);
+
+            viewModel.ModelFormError.Should().Be(Translations.Instance.ModelFormErrorPriceNumber);
+            settings.ModelDefinitions.Should().BeEmpty();
+            store.SaveCalls.Should().Be(0);
+        });
+    }
+
+    /// <summary>B-015 回归锁用：临时钉死本机数字文化跑断言，finally 还原。本套件进程级串行
+    ///（AssemblySettings DisableTestParallelization），不存在并行用例读到临时文化的窗口。</summary>
+    private static void WithCurrentCulture(string name, Action action)
+    {
+        var previous = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(name);
+            action();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
     }
 
     // ---- helpers ----
