@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-25（夜·内存批次）：**内存调查批次——S-007 / P-003 / I-042 同日收口 + I-043 设计卡建卡**。起点是用户反馈"启动后内存几百 MB、没选 Electron 选 Avalonia 就图个省资源"：实机测量（Release 时间线 + dotnet-gcdump + 最小 Avalonia 12 对照应用）拆出构成——稳态 Private ~230-280 MB 而托管堆仅 35 MB，大头是 .NET 运行时/JIT/原生渲染栈（裸 Avalonia ~60 MB、+Semi ~100 MB 的框架地板，igc64/ANGLE/IME 注入占 WS 大头），数据侧问题在采集管线（7 个 JSONL 扫描器全历史驻留 + 每轮全量重建 + 默认 1 分钟空转）。三卡：**S-007** 刷新默认 1→5 分钟（8ab392c；Core.Tests 两处断言追补 e55fc26）；**P-003** 发布产物 PublishReadyToRun（6c545fb；JIT 代码堆缩小/启动提速，包体积 +30-50% 已登记，本地 win-x64 R2R 冒烟通过）；**I-042 无变化轮次短路**——`JsonlScanDiagnostics.FilesChanged: int?`（null=不追踪保守全量）+ 扫描器零变更轮缓存去重产物（不再全历史 SelectMany+去重重跑）+ Copilot 零变更结果缓存 + ZCode count/max(id) 变更探针 + 数据源全源无变化时跳过计价/聚合/落库（facts 空则落穿自愈）+ `IAggregationInvalidator` 一次性强全量旗标接 `TriggerReprice`（I-037 改价格即生效在短路下的新编码，`GetDailyUsage_RepricesRecordsWhenOverridesChange` 迁移到显式失效语义）。测试 +10，全量 1571 Passed / 0 Failed（19 跳过）。I-043（message-grain 记录账本，驻留内存 O(全历史)→O(本轮增量) 的深水区改造）建卡待排期。**并发注记**：与 B-016 会话同工作区并行（其"深夜八"注记所查的两处 App.Tests 单例失败即本批次并行互踩，Core.Tests 欠账已由 e55fc26 收口）；本批次与 B-016 文件面零交集。
+
 > 2026-10-25（深夜八）：**B-016 Windows 托盘弹窗首显位置修正收口**。用户报告"Windows 首次点托盘，弹窗出现在屏幕中间偏右，多点几次才对；macOS 无此问题"。取证（Avalonia 12.1.4 源码 ShowCore 时序 + %TEMP% 最小复现程序 + 真实应用临时打点实测，打点已还原）：弹窗 HWND 以 CW_USEDEFAULT 创建（本机解析出 ≈720 DIP 高默认矩形），`SizeToContent=Height` 的实测高度在 `Show()` 返回时已进 `ClientSize`（438×376）而 `Bounds` 高度要等首个布局 tick 才回写（此刻仍 438×720）——首显锚定按陈旧 Bounds 算出 y=290（应 634），窗口落屏幕中间偏右；二次起 Bounds 正确即恢复。macOS 免疫原因：`AnchorBelow` 以图标 frame 为顶锚，窗口高度只参与越界钳制、不移动可见卡片，与用户观察吻合。修法一行：`ScreenSize` 的 `window.Bounds.Size` → `window.ClientSize`（无边框窗口 frame=0，非首显语义等价；`Show()` 返回时即正确），`PopoverPositioner` 纯函数零改动。真机首显留证 `target=(1172,634)`、`GetWindowRect=(1172,634)-(1610,1008)`——底缘贴光标上方 12px、右缘贴托盘。本卡相关面 App.Tests 265 / Headless 386 / Infra 672 全绿。**并发注记**：与 S-007（8ab392c）/ I-042 / I-043 会话同工作区并行——其间两次 App.Tests 全量单例失败（SingleInstanceGuard / JsonAppSettingsStore）经查属并行互踩非 flaky（后者已被 8ab392c 同步收口）；Core.Tests 现 2 失败（AppSettingsTests/DashboardSummaryTests 仍断言 RefreshMinutes=1）属该会话默认值改动的测试同步欠账，与本卡无交集，本卡经选择性暂存分账（App/Tray 一文件 + 看板两件）。
 
 > 2026-10-25（夜）：**D-022 官网功能页富数据截图套件收口**。官网功能页配图此前是隔离空库的空态渲染（"—" KPI），不可用。本卡把 D-021 的「裸窗 + StubQueryService」stub 留档模式产品化到全部对外页面：新增 `SiteShotsTests`（自包含，零产品 src 改动），受控演示数据（7 天 36.44M tokens / $81.22 / 214 会话，五分量 12/5/5/78，kimi-k2.5 缺价走「未知」）× zh/en × 明暗，覆盖会话/模型/时间/成本/项目/Agent/数据与计价 7 页 + 托盘弹窗，命名 `{view}-{locale}-{theme}.png` 直配站点仓库。fixture 锚定真实今天（相对时间列/默认 7 天档/日历热图要活数据——这也是此前站点托盘图输入/输出/缓存三卡恒 "—" 的根因：fixture 日期非今天）。踩坑两处：① 托盘弹窗独立 TopLevel 不继承 owner 的 RequestedThemeVariant，不设则明暗两张同字节（md5 相等实锤），修法主题直接设弹层窗体；② 弹层窗体四周透明落白成白边，PIL 双阈值（18/120）量出卡片实体边 39,23,420×546，测试内 CopyPixels→WriteableBitmap 安全裁剪后留档。数据与计价页 8 源状态丰富（Ok×5/Partial/NoData/已注册未扫描）。断言语言无关（结构谓词），语言循环 finally 恢复单例基线。8 测试全绿（3s），32 张 PNG 目检（密度/主题/裁剪）通过并入站点仓库。明确不做：整窗带侧栏富数据渲染（需库喂数或 DI 覆写缝，另立卡）；截图 fixture 不进任何功能断言。
@@ -37,6 +39,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
+| I-043 | 采集真增量（message-grain 记录账本）——驻留内存从 O(全历史) 降到 O(本轮增量) | P2 | L | none | I-042 |
 
 > 2026-10-24（晚六）：**Q-009 修正项 1——? 字形太小，改 circle-help 矢量兜底**。用户看后反馈「问号太小了，能不能大点，或者用 svg 画个 Icon」。取证：文本 `?` 墨迹只占 em 四成（11px 字号实际 ~7px，I-040 同源问题——系统字体渲染墨迹占比低且跨平台不可控），加大字号受 16px 槽位与字形 line-height 限制。修法：走 I-040 管线——生成器白名单加 circle-help（lucide-static@1.61.0）再生 Icons.axaml，model-chip 增 `PathIcon.model-fallback` 槽（13px / lg 22px、中性芯片前景、generic 伪类显隐），5 处消费点（模型页/总览/计价页两处/托盘 lg）接入；`?` 字形退到数据层语义（ModelVisual.Glyph，UI 不渲染），phi 的 Φ 不动。测试：generic 断言翻转（字形隐藏+图标显示）+ 新增墨迹几何量测锁（16px 芯片内 ≥10px，防「太小」回归）；IconResourceTests.GeometryKeys 补 circle-help 并顺手补 Q-007 漏登记的 hard-drive-upload/download 两键。headless 346 Passed（+1），全量 1448 Passed / 0 Failed（22 跳过）；真机观感移交用户。
 
@@ -108,6 +111,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-042 | 无变化轮次短路——零数据变化跳过计价/聚合/落库，扫描器零变更轮复用去重产物 | P1 | 2026-10-25 |
 | P-003 | 发布产物 PublishReadyToRun——JIT 代码堆缩小/启动提速（包体积 +30-50% 已登记） | P3 | 2026-10-25 |
 | S-007 | 刷新间隔默认 1→5 分钟——后台采集常态空转降频（设置页 1–1440 可调不动） | P2 | 2026-10-25 |
 | B-016 | 托盘弹窗首显锚定取陈旧 Bounds 高度——ScreenSize 改 ClientSize，首显即贴托盘（Windows 中间偏右根因） | P2 | 2026-10-25 |

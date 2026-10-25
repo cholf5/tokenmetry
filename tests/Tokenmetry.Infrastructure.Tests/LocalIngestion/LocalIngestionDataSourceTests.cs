@@ -265,8 +265,9 @@ public class LocalIngestionDataSourceTests : IDisposable
     [Fact]
     public async Task GetDailyUsage_RepricesRecordsWhenOverridesChange()
     {
-        // 回归（审查发现）：适配器增量扫描跨刷新复用同一批记录实例，
-        // 补价结果不得写回记录——否则二次刷新被 LogCost 短路锁死旧价。
+        // I-037 契约（I-042 语义迁移）：适配器增量扫描跨刷新复用同一批记录实例，补价结果不得
+        // 写回记录；改覆盖价后必须经 IAggregationInvalidator 显式失效才在下一轮生效——无变化轮
+        // 已被短路跳过（见 UnchangedSecondRound_SkipsRepricingUntilInvalidated）。
         var store = new InMemoryUsageStore();
         var (claudeRoot, codexHome) = CreateLogDirs();
         WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
@@ -285,10 +286,91 @@ public class LocalIngestionDataSourceTests : IDisposable
         {
             new ModelPricingOverride { Model = "claude-test", InputPerMillion = 2m, OutputPerMillion = 4m },
         });
+        source.InvalidateAggregation();
         var second = await source.GetDailyUsageAsync();
         second.Single().TotalCostUsd.Should().Be(6m); // 新覆盖价生效，不被锁死
 
         store.Facts.Single(fact => fact.Model == "claude-test").CostUsd.Should().Be(6m);
+    }
+
+    [Fact]
+    public async Task GetDailyUsage_UnchangedSecondRound_SkipsRepricingUntilInvalidated()
+    {
+        // I-042 回归锁：无变化轮短路跳过计价/聚合/落库——改覆盖价后不失效 → facts 维持旧价
+        // （旧实现"每轮全量重算"会把新价无差别抹上）；显式失效（生产接线 = 设置页改价路径）
+        // 后一轮全量重算，新价生效。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
+            ClaudeLine("msg-1", "claude-test", costUsd: "null", inputTokens: 1_000_000, outputTokens: 1_000_000));
+
+        var pricingEngine = new PricingEngine(overrides: new[]
+        {
+            new ModelPricingOverride { Model = "claude-test", InputPerMillion = 1m, OutputPerMillion = 2m },
+        });
+        var source = CreateSource(store, claudeRoot, codexHome, pricingEngine);
+
+        var first = await source.GetDailyUsageAsync();
+        first.Single().TotalCostUsd.Should().Be(3m);
+
+        pricingEngine.UpdateOverrides(new[]
+        {
+            new ModelPricingOverride { Model = "claude-test", InputPerMillion = 2m, OutputPerMillion = 4m },
+        });
+        var second = await source.GetDailyUsageAsync();
+        second.Single().TotalCostUsd.Should().Be(3m, "无变化轮短路：计价不重跑，facts 维持旧价");
+        store.Facts.Single(fact => fact.Model == "claude-test").CostUsd.Should().Be(3m);
+
+        source.InvalidateAggregation();
+        var third = await source.GetDailyUsageAsync();
+        third.Single().TotalCostUsd.Should().Be(6m, "失效后强制全量：I-037 改价格即生效");
+        store.Facts.Single(fact => fact.Model == "claude-test").CostUsd.Should().Be(6m);
+    }
+
+    [Fact]
+    public async Task GetDailyUsage_UnchangedSecondRound_RebuildsFactsWhenStoreCleared()
+    {
+        // 自愈路径：无变化轮读回 facts 为空（库被外部清空 / 迁移异常）时落穿全量管道重建，
+        // 不让"短路 + 空库"卡死成永久无数据。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
+            ClaudeLine("msg-1", "claude-test", costUsd: "0.05", inputTokens: 10, outputTokens: 20));
+
+        var source = CreateSource(store, claudeRoot, codexHome);
+        var first = await source.GetDailyUsageAsync();
+        first.Should().ContainSingle();
+        store.Facts.Should().NotBeEmpty();
+
+        store.ClearFacts();
+        var second = await source.GetDailyUsageAsync();
+
+        second.Should().ContainSingle("facts 为空 → 落穿全量管道重建");
+        store.Facts.Should().Contain(fact => fact.Model == "claude-test");
+    }
+
+    [Fact]
+    public async Task GetDailyUsage_UnchangedSecondRound_StillRefreshesRegistrySnapshots()
+    {
+        // 短路轮逐源登记照常：设置页数据源表的"最近扫描"时间戳与累计计数继续跳动
+        // （累计数来自扫描器缓存的真实记录集，不是 0）。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
+            ClaudeLine("msg-1", "claude-test", costUsd: "0.05", inputTokens: 10, outputTokens: 20));
+
+        var registry = new IngestionScanRegistry();
+        var source = CreateSource(store, claudeRoot, codexHome, registry: registry);
+        await source.GetDailyUsageAsync();
+        var firstAt = registry.GetLastScan(ClaudeCodeJsonlLineParser.AgentName)!.ScannedAt;
+
+        await Task.Delay(30);
+        await source.GetDailyUsageAsync();
+
+        var second = registry.GetLastScan(ClaudeCodeJsonlLineParser.AgentName)!;
+        second.ScannedAt.Should().BeOnOrAfter(firstAt.AddMilliseconds(25), "短路轮照常刷新登记时间戳");
+        second.RecordCount.Should().Be(1, "累计记录数来自缓存去重产物");
+        second.Status.Should().Be(JsonlScanStatus.Ok);
     }
 
     [Fact]
@@ -490,6 +572,9 @@ public class LocalIngestionDataSourceTests : IDisposable
         public IReadOnlyCollection<SessionFact> SessionFacts => _sessionFacts.Values;
 
         public void Seed(UsageFact fact) => _facts[Key(fact)] = fact;
+
+        /// <summary>模拟库被外部清空（I-042 自愈测试用）。</summary>
+        public void ClearFacts() => _facts.Clear();
 
         public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
         {

@@ -36,6 +36,10 @@ public class CopilotSessionAdapter : ICopilotSessionAdapter
         = new(StringComparer.Ordinal);
     // 按文件记忆"存在解析错误"，状态聚合时纳入未重新解析的历史文件，避免坏文件在第二次扫描后被误报为 Ok。
     private readonly HashSet<string> _filesWithParseErrors = new(StringComparer.Ordinal);
+    // I-042 零变更轮缓存：文件账面未动时，跨文件池化合并（CopilotUsageReconciler.Reconcile 对
+    // 全池 SelectMany + 分组 + 排序）的产物逐位相同——直接复用上一次的合并结果（Records 同实例，
+    // 消费方视为只读），诊断按本轮事件重建（累计四项与 Status 沿用缓存值）。
+    private JsonlScanResult? _lastResult;
 
     public CopilotSessionAdapter(
         string? configuredHome = null,
@@ -55,17 +59,21 @@ public class CopilotSessionAdapter : ICopilotSessionAdapter
         var sources = _locator.CollectSourceFiles(_configuredHome);
 
         // 先清理已消失文件的记账，与全量重扫语义一致。
+        // I-042：本轮文件账面变化数（消失 + 成功落账的变更）。打不开/中途失败不落账 → 账面未动，不计入。
+        var filesChanged = 0;
         var currentFiles = new HashSet<string>(sources.Select(file => file.Path), StringComparer.Ordinal);
         foreach (var gone in _sessionStateFiles.Keys.Where(file => !currentFiles.Contains(file)).ToList())
         {
             _sessionStateFiles.Remove(gone);
             _filesWithParseErrors.Remove(gone);
+            filesChanged++;
         }
 
         foreach (var gone in _otelFiles.Keys.Where(file => !currentFiles.Contains(file)).ToList())
         {
             _otelFiles.Remove(gone);
             _filesWithParseErrors.Remove(gone);
+            filesChanged++;
         }
 
         var diagnostics = new JsonlScanDiagnostics
@@ -99,6 +107,7 @@ public class CopilotSessionAdapter : ICopilotSessionAdapter
                 if (!interrupted)
                 {
                     _sessionStateFiles[source.Path] = (stamp.ModifiedUtc, stamp.Length, parse);
+                    filesChanged++;
                 }
             }
             else
@@ -110,6 +119,7 @@ public class CopilotSessionAdapter : ICopilotSessionAdapter
                 if (!interrupted)
                 {
                     _otelFiles[source.Path] = (stamp.ModifiedUtc, stamp.Length, parse);
+                    filesChanged++;
                 }
             }
 
@@ -131,6 +141,30 @@ public class CopilotSessionAdapter : ICopilotSessionAdapter
             {
                 _filesWithParseErrors.Remove(source.Path);
             }
+        }
+
+        if (filesChanged == 0 && _lastResult is { } cached)
+        {
+            // 零变更轮：复用上一次合并产物（Records 同实例），本轮诊断只反映本次扫描事件，
+            // 累计四项与 Status 沿用缓存——与"对当前池整体重算"的必然结果逐位一致。
+            return new JsonlScanResult
+            {
+                Roots = cached.Roots,
+                Records = cached.Records,
+                Diagnostics = new JsonlScanDiagnostics
+                {
+                    Status = cached.Diagnostics.Status,
+                    FilesDiscovered = diagnostics.FilesDiscovered,
+                    FilesRead = 0,
+                    LinesSkipped = diagnostics.LinesSkipped,
+                    MalformedLines = 0,
+                    InvalidRecords = 0,
+                    DuplicateRecords = cached.Diagnostics.DuplicateRecords,
+                    MissingCostRecords = cached.Diagnostics.MissingCostRecords,
+                    UnknownModelRecords = cached.Diagnostics.UnknownModelRecords,
+                    FilesChanged = 0,
+                },
+            };
         }
 
         // 按文件清单（路径排序）顺序池化：与蓝本"源文件按路径排序后顺序解析"的池序一致，
@@ -160,13 +194,16 @@ public class CopilotSessionAdapter : ICopilotSessionAdapter
             : diagnostics.MalformedLines > 0 || diagnostics.InvalidRecords > 0 || _filesWithParseErrors.Count > 0
                 ? JsonlScanStatus.Partial
                 : JsonlScanStatus.Ok;
+        diagnostics.FilesChanged = filesChanged;
 
-        return new JsonlScanResult
+        var result = new JsonlScanResult
         {
             Roots = home is null ? [] : [home],
             Records = reconciliation.Records,
             Diagnostics = diagnostics,
         };
+        _lastResult = result;
+        return result;
     }
 
     private bool IsUnchanged(CopilotSourceFile source, (DateTime ModifiedUtc, long Length) stamp)

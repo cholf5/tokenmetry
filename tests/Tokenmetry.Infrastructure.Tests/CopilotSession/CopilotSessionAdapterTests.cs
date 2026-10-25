@@ -68,6 +68,30 @@ public class CopilotSessionAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task SecondUnchangedScan_ReusesReconciledRecords_WithoutRerunningMerge()
+    {
+        // I-042：零变更轮复用上一次合并产物（CopilotUsageReconciler 全池重算不重跑），
+        // 诊断按本轮事件重建（FilesRead 归零、累计四项沿用）。
+        var home = CreateTempHome();
+        WriteEvents(home, "session-1",
+            Shutdown("shutdown-1", "2026-04-15T09:52:27.352Z",
+                Model("test-model", input: 100, output: 50, cacheRead: 10, cacheWrite: 20)));
+        var adapter = CreateAdapter(home);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesChanged.Should().Be(1, "首轮账面从无到有");
+        first.Records.Should().ContainSingle();
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "文件账面未动");
+        second.Records.Should().BeSameAs(first.Records, "合并产物同实例复用");
+        second.Diagnostics.FilesRead.Should().Be(0, "本轮无解析事件");
+        second.Diagnostics.DuplicateRecords.Should().Be(first.Diagnostics.DuplicateRecords);
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+    }
+
+    [Fact]
     public async Task Normalizes_copilot_internal_model_ids()
     {
         var home = CreateTempHome();

@@ -197,6 +197,10 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     /// 供模型目录的"手动关联"卡拉取本地数据出现过的原始模型名作候选项。</summary>
     private readonly IUsageQueryService? _query;
 
+    /// <summary>I-042：价格/别名热更新后的强制全量通道（I-037 契约）。无注入时（既有测试构造）
+    /// 如实降级——重算请求仍发，但无变化轮可能短路跳过计价（测试宿主不装配采集管道，无实际影响）。</summary>
+    private readonly IAggregationInvalidator? _aggregationInvalidator;
+
     /// <summary>自动保存串行化 gate：改条目 / 改规则触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
 
@@ -274,7 +278,8 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         BackgroundRefreshService refreshService,
         IToastService toastService,
         IUsageQueryService? query = null,
-        ModelCatalog? catalog = null)
+        ModelCatalog? catalog = null,
+        IAggregationInvalidator? aggregationInvalidator = null)
     {
         _settings = settings;
         _store = store;
@@ -282,6 +287,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         _refreshService = refreshService;
         _toastService = toastService;
         _query = query;
+        _aggregationInvalidator = aggregationInvalidator;
         // 目录由 DI 以单例注入（与计价引擎 / 查询服务同一实例）；无注入时兜底新建（测试 / 预览）。
         // 用户层必须走共享合并口径（含旧 PricingOverrides 折算）——只传新字段会把 AppServices
         // 装配进去的旧配置从目录里冲掉，用户旧价格覆盖启动即静默失效。
@@ -946,9 +952,12 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     /// <summary>
     /// 触发一轮重算（fire-and-forget）：与重扫按钮同一容器与单飞槽——正在跑的刷新并入该轮，
     /// 不追加新的采集轮次。失败静默（页面数据保持上一轮；价格已落盘，下轮刷新自然校正）。
+    /// I-042：先置采集侧一次性强全量旗标——无变化轮会如实短路跳过计价，价格/别名热更新
+    /// （I-037"改价格即生效"）必须显式失效才不被短路吞掉。
     /// </summary>
     private void TriggerReprice()
     {
+        _aggregationInvalidator?.InvalidateAggregation();
         _toastService.Show(Translations.Instance.ToastRepricing);
         _ = _refreshService.TriggerRefreshAsync();
     }

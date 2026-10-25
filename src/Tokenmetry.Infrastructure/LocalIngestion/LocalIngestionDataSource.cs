@@ -39,8 +39,15 @@ namespace Tokenmetry.Infrastructure.LocalIngestion;
 /// 读取走 facts 存储而非内存聚合：facts 是页面查询的唯一数据面，读回即验证了页面将看到的形状。
 /// 适配器实例由 DI 以单例提供；本类用信号量串行化整个管道，
 /// 防御手动刷新与后台定时刷新并发进入（JSONL 扫描器非线程安全）。
+/// <para>
+/// I-042 无变化轮短路：全部源报告"本轮账面无变化"（显式 FilesChanged=0，或未追踪变更且本轮
+/// 发现即空——发现每轮现跑，空即上轮也空）时，跳过补价/聚合/落库/旧分解行清理，直接读 facts
+/// 返回；facts 读回为空则落穿全量管道自愈重建（库被外部清空 / 迁移异常）。依赖"每轮全量重算"
+/// 的语义变更（I-037 改价格即生效、别名热更新）经 <see cref="IAggregationInvalidator"/>
+/// 置一次性强全量旗标——旗标仅在全量管道成功完成后清除，中途失败保留到下轮重试。
+/// </para>
 /// </summary>
-public class LocalIngestionDataSource : IUsageDataSource
+public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidator
 {
     private readonly IClaudeCodeJsonlAdapter _claudeAdapter;
     private readonly ICodexJsonlAdapter _codexAdapter;
@@ -67,6 +74,24 @@ public class LocalIngestionDataSource : IUsageDataSource
     private readonly TimeZoneInfo? _timeZone;
     private readonly IngestionScanRegistry? _scanRegistry;
     private readonly SemaphoreSlim _ingestionGate = new(initialCount: 1, maxCount: 1);
+
+    /// <summary>
+    /// I-042 一次性强全量旗标（<see cref="IAggregationInvalidator"/>）：价格/别名热更新后下一轮
+    /// 无视无变化判定。volatile 读写在 UI 线程（设置页 VM）与管道线程（信号量内）之间传递；
+    /// 消费点在信号量内，实际不构成竞态，volatile 仅防执行序意外。
+    /// </summary>
+    private volatile bool _forceFullNextRound;
+
+    /// <inheritdoc />
+    public void InvalidateAggregation() => _forceFullNextRound = true;
+
+    /// <summary>无变化判定（I-042）：显式 FilesChanged=0；或适配器不追踪变更（null）且本轮
+    /// 发现即空、无记录——文件发现是每轮现跑的，"本轮为空"蕴含"上轮也为空"，复用 facts 安全。</summary>
+    internal static bool IsScanUnchanged(JsonlScanResult result) =>
+        result.Diagnostics.FilesChanged == 0
+        || (result.Diagnostics.FilesChanged is null
+            && result.Diagnostics.FilesDiscovered == 0
+            && result.Records.Count == 0);
 
     /// <summary>
     /// 管道扫描清单（S-002 数据源表的"已识别数据源"即此清单，经 <see cref="IngestionScanRegistry"/>
@@ -220,6 +245,18 @@ public class LocalIngestionDataSource : IUsageDataSource
                 return new List<DailyUsageSummary>();
             }
 
+            // I-042 无变化轮短路：全部源账面未动 → 计价/聚合/落库的必然结果与现状逐位相同，
+            // 直接读 facts 返回（短路轮连 ClearUnpricedModels 都不做——无新记录，未知清单不变）。
+            // facts 读回为空（库被外部清空 / 迁移异常）则落穿全量管道自愈重建。
+            if (!_forceFullNextRound && scanResults.All(IsScanUnchanged))
+            {
+                var cachedFacts = await _store.GetUsageFactsAsync(ct);
+                if (cachedFacts.Count > 0)
+                {
+                    return UsageFactsMapper.ToDailySummaries(cachedFacts);
+                }
+            }
+
             _pricingEngine.ClearUnpricedModels();
             // 补价结果进侧表（按记录引用），不写回记录：适配器增量扫描会跨刷新复用同一批
             // UsageRecord 实例，写回 CostUsd 会让下次刷新被 LogCost 短路锁死旧价，
@@ -243,6 +280,9 @@ public class LocalIngestionDataSource : IUsageDataSource
             await _store.DeleteDecompositionFactsAsync(ct);
 
             var facts = await _store.GetUsageFactsAsync(ct);
+            // 强全量旗标在全量管道成功完成后才清除：中途失败（落库抛错等）保留到下轮重试，
+            // 不让失败轮吞掉价格/别名热更新的生效保证。
+            _forceFullNextRound = false;
             return UsageFactsMapper.ToDailySummaries(facts);
         }
         finally
