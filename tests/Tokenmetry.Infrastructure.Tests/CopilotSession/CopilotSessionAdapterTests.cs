@@ -453,6 +453,48 @@ public class CopilotSessionAdapterTests : IDisposable
         return path;
     }
 
+    [Fact]
+    public void Otel_recursion_does_not_follow_reparse_points()
+    {
+        // B-011（Windows 冒烟后续）：otel/ 递归收集跳过 reparse point（与共享收集器同口径）——
+        // junction 指向别处时同一物理文件以两个路径被发现、otel 行重复入账。
+        var home = CreateTempHome();
+        var otelDirectory = Path.Combine(home, "otel");
+        Directory.CreateDirectory(otelDirectory);
+        File.WriteAllText(Path.Combine(otelDirectory, "real.jsonl"), "{}\n");
+        var targetDirectory = Directory.CreateDirectory(Path.Combine(CreateTempDir(), "elsewhere"));
+        File.WriteAllText(Path.Combine(targetDirectory.FullName, "linked.jsonl"), "{}\n");
+        CreateReparseDirectoryLink(Path.Combine(otelDirectory, "linked"), targetDirectory.FullName);
+
+        var files = new CopilotLogLocator(_ => null).CollectSourceFiles(home);
+
+        files
+            .Where(file => file.Kind == CopilotSourceKind.Otel)
+            .Select(file => Path.GetFileName(file.Path))
+            .Should().BeEquivalentTo(["real.jsonl"]);
+    }
+
+    /// <summary>建目录 reparse point：Windows 用 junction（mklink /J，普通权限即可）；Unix 用
+    /// 符号链接（同带 ReparsePoint 语义）。两平台定位器口径一致：一律不跟随。</summary>
+    private static void CreateReparseDirectoryLink(string linkPath, string targetPath)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Directory.CreateSymbolicLink(linkPath, targetPath);
+            return;
+        }
+
+        var startInfo = new System.Diagnostics.ProcessStartInfo(
+            "cmd.exe", $"/c mklink /J \"{linkPath}\" \"{targetPath}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+        };
+        using var process = System.Diagnostics.Process.Start(startInfo)!;
+        process.WaitForExit();
+        process.ExitCode.Should().Be(0, "junction 建立失败则用例前提不成立");
+    }
+
     public void Dispose()
     {
         foreach (var dir in _tempDirs)
@@ -461,9 +503,9 @@ public class CopilotSessionAdapterTests : IDisposable
             {
                 Directory.Delete(dir, recursive: true);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // 临时目录清理失败不影响测试结论。
+                // 临时目录清理失败不影响测试结论；B-011 用例的 junction 会被递归删除探入而拒绝访问。
             }
         }
     }

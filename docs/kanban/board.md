@@ -27,7 +27,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| B-011 | Dsh/Copilot 目录递归不跳 reparse point——junction 环崩进程、复制致 DSH 双计 | P2 | S | | |
 | B-012 | "projects" 文件名 Ordinal 比较——Windows 大小写不敏感语义下 Claude 源静默空 | P3 | S | | |
 | B-013 | 无单实例互斥——自启动 + 手动双开产生双托盘与 SQLite 并发写 | P3 | S | | |
 | B-014 | 托盘常驻态异常通知 toast 不可见（adorner 挂在隐藏主窗上） | P3 | S | | |
@@ -107,6 +106,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
 | B-010 | 日志读取共享写（AgentLogReader）——Windows agent 持写句柄期间不再静默缺数据 | P1 | 2026-10-25 |
+| B-011 | Dsh/Copilot 递归跳 reparse point——junction 环不崩、不双计（真 junction 回归锁） | P2 | 2026-10-25 |
 | D-021 | 时间分析页扩充——时间 KPI 四卡 + 星期分布面板（零新查询，同源客户端聚合） | P2 | 2026-10-25 |
 | D-020 | 时间范围预设——内置日历档（本月/上月/昨天）+ 用户自定义相对档 + 顶栏范围选择器 Flyout 化 | P2 | 2026-10-25 |
 | Q-014 | ComboBox 焦点环网页化——指针焦点不画环、键盘焦点环保留（顶栏筛选选完蓝框常驻） | P2 | 2026-10-25 |

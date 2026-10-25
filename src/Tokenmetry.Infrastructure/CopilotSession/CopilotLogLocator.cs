@@ -111,7 +111,8 @@ public class CopilotLogLocator
 
     /// <summary>
     /// 蓝本 collect_files_with_extension：递归收集扩展名恰为 jsonl（Ordinal）的文件；
-    /// 读不到的子目录静默跳过（蓝本 fs::read_dir else return 同口径）。
+    /// 读不到的子目录静默跳过（蓝本 fs::read_dir else return 同口径）；reparse point 一律不跟随
+    /// （与共享收集器同口径，B-011）。
     /// </summary>
     private static IEnumerable<string> CollectFilesWithJsonlExtension(string directory)
     {
@@ -134,7 +135,23 @@ public class CopilotLogLocator
 
         foreach (var entry in entries)
         {
-            var isDirectory = Directory.Exists(entry);
+            bool isDirectory;
+            try
+            {
+                if ((File.GetAttributes(entry) & FileAttributes.ReparsePoint) != 0)
+                {
+                    // 与共享收集器一致：符号链接（reparse point）不跟随（junction 成环无限递归 /
+                    // 不成环重复发现，B-011）；枚举与 stat 间条目消失按读不了条目跳过。
+                    continue;
+                }
+
+                isDirectory = Directory.Exists(entry);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
             if (!isDirectory && Path.GetExtension(entry) is { Length: > 1 } extension
                 && string.CompareOrdinal(extension[1..], "jsonl") == 0)
             {

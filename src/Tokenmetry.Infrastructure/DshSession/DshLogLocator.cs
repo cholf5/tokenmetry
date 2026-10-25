@@ -15,7 +15,8 @@ public sealed record DshSessionArtifact(
 /// <summary>
 /// DSH 会话日志定位（I-007，口径对齐 ../dsh-usage-stats/scripts/verify-raw.mjs）：
 /// DSH_HOME 环境变量 → ~/.dsh（USERPROFILE 优先于 HOME，与 Claude / Codex / ZCode 定位器一致），
-/// 会话根固定为 &lt;home&gt;/sessions。工件枚举递归遍历 sessions/，每个目录内收集
+/// 会话根固定为 &lt;home&gt;/sessions。工件枚举递归遍历 sessions/（reparse point 一律不跟随，
+/// 与共享收集器同口径，B-011），每个目录内收集
 /// canonical 文件名 session.jsonl（v0）/ session.v&lt;N&gt;.jsonl（v1+，均可 .zstd）的各代文件，
 /// 只保留最高版本——迁移过的会话目录保留多代文件，最高版本才是已提交的完整日志
 /// （DSH 每代文件重写完整历史，不做跨代拼接）。
@@ -98,6 +99,13 @@ public class DshLogLocator
         {
             try
             {
+                if ((File.GetAttributes(entry) & FileAttributes.ReparsePoint) != 0)
+                {
+                    // 与共享收集器一致：符号链接（reparse point）不跟随——junction 成环会无限递归
+                    // StackOverflow（不可捕获），不成环时同一物理文件以两个路径被记账（B-011）。
+                    continue;
+                }
+
                 if (Directory.Exists(entry))
                 {
                     CollectFromDirectory(entry, directoryName, artifacts);
