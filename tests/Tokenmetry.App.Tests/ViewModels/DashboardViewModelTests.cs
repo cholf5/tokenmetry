@@ -8,50 +8,9 @@ namespace Tokenmetry.App.Tests.ViewModels;
 public class DashboardViewModelTests
 {
     [Fact]
-    public async Task RefreshAsync_DoesNotSendAnomalyNotifications_WhenDisabledInSettings()
-    {
-        var notification = new FakeSystemNotification();
-        var viewModel = CreateDashboardViewModel(
-            notification,
-            new AppSettings { AnomalyNotificationsEnabled = false },
-            new FixedDateRangeService("2026-06-19"),
-            new[]
-            {
-                new DailyUsageSummary { Date = "2026-06-19", TotalCostUsd = 10m },
-                new DailyUsageSummary { Date = "2026-06-18", TotalCostUsd = 1m },
-                new DailyUsageSummary { Date = "2026-06-17", TotalCostUsd = 1m }
-            });
-
-        await viewModel.RefreshAsync();
-
-        notification.Messages.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task RefreshAsync_SendsAnomalyNotifications_WhenEnabledInSettings()
-    {
-        var notification = new FakeSystemNotification();
-        var viewModel = CreateDashboardViewModel(
-            notification,
-            new AppSettings { AnomalyNotificationsEnabled = true },
-            new FixedDateRangeService("2026-06-19"),
-            new[]
-            {
-                new DailyUsageSummary { Date = "2026-06-19", TotalCostUsd = 10m },
-                new DailyUsageSummary { Date = "2026-06-18", TotalCostUsd = 1m },
-                new DailyUsageSummary { Date = "2026-06-17", TotalCostUsd = 1m }
-            });
-
-        await viewModel.RefreshAsync();
-
-        notification.Messages.Should().NotBeEmpty();
-    }
-
-    [Fact]
     public async Task RefreshAsync_HidesDebugInfo_WhenDisabledInSettings()
     {
         var viewModel = CreateDashboardViewModel(
-            new FakeSystemNotification(),
             new AppSettings { ShowDebugInfo = false },
             new FixedDateRangeService("2026-06-19"),
             new[] { new DailyUsageSummary { Date = "2026-06-19", TotalCostUsd = 1m } });
@@ -66,7 +25,6 @@ public class DashboardViewModelTests
     public async Task RefreshAsync_ShowsDebugInfo_WhenEnabledInSettings()
     {
         var viewModel = CreateDashboardViewModel(
-            new FakeSystemNotification(),
             new AppSettings { ShowDebugInfo = true },
             new FixedDateRangeService("2026-06-19"),
             new[] { new DailyUsageSummary { Date = "2026-06-19", TotalCostUsd = 1m } });
@@ -77,11 +35,84 @@ public class DashboardViewModelTests
         viewModel.IsDebugInfoVisible.Should().BeTrue();
     }
 
+    // spike 夹具行（今日 10 / 历史 1、1 → 均值 4、倍率 2.5）供异常事件用例共享
+    private static List<DailyUsageSummary> SpikeRows() => new()
+    {
+        new DailyUsageSummary { Date = "2026-06-19", TotalCostUsd = 10m },
+        new DailyUsageSummary { Date = "2026-06-18", TotalCostUsd = 1m },
+        new DailyUsageSummary { Date = "2026-06-17", TotalCostUsd = 1m },
+    };
+
+    // ---- 异常检测（Q-016：in-app toast 通知通道删除，AnomalyDetected 事件是异常唯一出口）----
+
+    [Fact]
+    public async Task RefreshAsync_AnomalyDetected_CarriesFormattedMessageAndRatio()
+    {
+        // 载荷契约：文案走 FormatAnomalyMessage（按 Kind 取串、语言随 UI）+ 检测器原始倍率
+        //（弹层今日花费 KPI 徽标 ↑{ratio}× 均值 文案依赖）。断言与共享格式化器输出比对，语言无关。
+        DashboardViewModel.AnomalyRaised? raised = null;
+        var viewModel = CreateDashboardViewModel(
+            new FakeUsageStore(),
+            new FakeUsageDataSource(SpikeRows()),
+            new AppSettings(),
+            new FixedDateRangeService("2026-06-19"));
+        viewModel.AnomalyDetected += (_, a) => raised = a;
+
+        await viewModel.RefreshAsync();
+
+        raised.Should().NotBeNull();
+        raised!.Ratio.Should().Be(2.5m);
+        raised.Message.Should().Be(DashboardViewModel.FormatAnomalyMessage(
+            new AnomalyNotice { Kind = "daily_cost_spike", Ratio = 2.5m }, 3));
+    }
+
+    [Fact]
+    public async Task RefreshAsync_AnomalyDetected_RaisedEveryRound_WhileAnomalyHolds()
+    {
+        // 弹层徽标契约（Q-011）：徽标靠"异常轮次每轮置回、无异常轮次清空"维持——
+        // 日累计异常全天为真，事件必须每轮照发（检测持续存在）。
+        var raised = 0;
+        var viewModel = CreateDashboardViewModel(
+            new FakeUsageStore(),
+            new FakeUsageDataSource(SpikeRows()),
+            new AppSettings(),
+            new FixedDateRangeService("2026-06-19"));
+        viewModel.AnomalyDetected += (_, _) => raised++;
+
+        await viewModel.RefreshAsync();
+        await viewModel.RefreshAsync();
+        await viewModel.RefreshAsync();
+
+        raised.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_NoAnomalyRaised_WhenCostIsNormal()
+    {
+        // 正常态（倍率未达阈值）不 raise——弹层徽标清除路径的前提。
+        var raised = 0;
+        var viewModel = CreateDashboardViewModel(
+            new FakeUsageStore(),
+            new FakeUsageDataSource(new List<DailyUsageSummary>
+            {
+                new() { Date = "2026-06-19", TotalCostUsd = 1m },
+                new() { Date = "2026-06-18", TotalCostUsd = 1m },
+                new() { Date = "2026-06-17", TotalCostUsd = 1m },
+            }),
+            new AppSettings(),
+            new FixedDateRangeService("2026-06-19"));
+        viewModel.AnomalyDetected += (_, _) => raised++;
+
+        await viewModel.RefreshAsync();
+
+        raised.Should().Be(0);
+    }
+
     [Fact]
     public void Constructor_WarmsCacheOnly_DoesNotTriggerRefresh()
     {
         // 首轮采集刷新由 App 启动路径 BeginStartupDataRefreshAsync 唯一持有；构造时机只热缓存，
-        // 不自触发扫描（旧版在缓存为空时于 UI 线程上内联整条采集管道，冻结首启窗口）。
+        // 不自触发扫描（旧版在 UI 线程上内联整条采集管道，冻结首启窗口）。
         var dataSource = new FakeUsageDataSource(new List<DailyUsageSummary>());
 
         _ = CreateDashboardViewModel(
@@ -164,25 +195,15 @@ public class DashboardViewModelTests
     }
 
     private static DashboardViewModel CreateDashboardViewModel(
-        ISystemNotification notification,
         AppSettings settings,
         DateRangeService dateRangeService,
         IEnumerable<DailyUsageSummary> rows)
     {
-        return CreateDashboardViewModel(notification, new FakeUsageStore(), new FakeUsageDataSource(rows.ToList()), settings, dateRangeService);
+        return CreateDashboardViewModel(
+            new FakeUsageStore(), new FakeUsageDataSource(rows.ToList()), settings, dateRangeService);
     }
 
     private static DashboardViewModel CreateDashboardViewModel(
-        FakeUsageStore store,
-        FakeUsageDataSource dataSource,
-        AppSettings settings,
-        DateRangeService dateRangeService)
-    {
-        return CreateDashboardViewModel(new FakeSystemNotification(), store, dataSource, settings, dateRangeService);
-    }
-
-    private static DashboardViewModel CreateDashboardViewModel(
-        ISystemNotification notification,
         FakeUsageStore store,
         FakeUsageDataSource dataSource,
         AppSettings settings,
@@ -194,7 +215,6 @@ public class DashboardViewModelTests
             dataSource,
             new AnomalyDetector(),
             dateRangeService,
-            notification,
             settings);
     }
 
@@ -229,17 +249,6 @@ public class DashboardViewModelTests
         {
             CallCount++;
             return Task.FromResult(_rows);
-        }
-    }
-
-    private sealed class FakeSystemNotification : ISystemNotification
-    {
-        public List<string> Messages { get; } = new();
-
-        public Task ShowAsync(string title, string message, CancellationToken ct = default)
-        {
-            Messages.Add($"{title}: {message}");
-            return Task.CompletedTask;
         }
     }
 

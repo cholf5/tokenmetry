@@ -29,7 +29,6 @@ using Tokenmetry.Infrastructure.PiAgent;
 using Tokenmetry.Infrastructure.QwenCode;
 using Tokenmetry.Infrastructure.ZCodeSqlite;
 using Tokenmetry.Infrastructure.ModelsDev;
-using Tokenmetry.Infrastructure.Notifications;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.Update;
 using Tokenmetry.App.ViewModels;
@@ -178,11 +177,6 @@ public static class AppServices
         // D-008 筛选选项目录（Agent/模型/项目清单）：I-029 维度查询 + 服务层缓存，
         // 全局 Agent 下拉（FilterStateService）与右栏快速筛选共用同一份（单一真相源）。
         services.AddSingleton<AgentCatalogService>();
-
-        // Notifications
-        // A-11：异常检测通知接真实出口（in-app toast）——此前 NullSystemNotification 使
-        // 「启用异常通知」成为假开关（检测管线真实运行但通知被吞）。
-        services.AddSingleton<ISystemNotification, ToastSystemNotification>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

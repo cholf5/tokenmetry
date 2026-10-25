@@ -9,7 +9,6 @@ namespace Tokenmetry.Core.Models;
 public class AppSettings
 {
     public string CcusageCommand { get; set; } = "ccusage";
-    public bool AnomalyNotificationsEnabled { get; set; } = true;
     public bool ShowDebugInfo { get; set; } = true;
     public int RefreshMinutes { get; set; } = 1;
 

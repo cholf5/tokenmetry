@@ -77,12 +77,9 @@
                                    Text="{Binding CcusageHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
 
-                    <!-- A-11：两开关中仅「异常通知」有真实行为（接 ISystemNotification → in-app toast，
-                         见 ToastSystemNotification）；「显示调试信息」无任何 UI 消费者（消费视图已删），
-                         按假开关红线删除——诚实优先，未来有调试出口再恢复。 -->
-                    <CheckBox Content="{Binding CheckAnomalyNotifications, Source={x:Static loc:Translations.Instance}}"
-                              IsChecked="{Binding AnomalyNotificationsEnabled}"/>
-
+                    <!-- Q-016：「启用异常通知」随 in-app toast 通道整体删除（日累计异常 × 分钟级刷新
+                         = 整日轰炸，用户拍板删除；异常持续状态由弹层今日花费 KPI 徽标承载，Q-011）。
+                         A-11 假开关红线同向适用：通道没了，开关必须一起走。 -->
                     <!-- S-005：关窗行为（关窗=托盘常驻为 A-0 默认；消费者 = MainWindow.OnClosing 的关窗分派，
                          开关关闭后点关闭按钮即退出进程） -->
                     <StackPanel Spacing="4">

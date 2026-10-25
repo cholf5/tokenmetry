@@ -205,7 +205,6 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(RefreshHint)] = "修改即时保存；于下次启动后台刷新服务时生效。",
         [nameof(LabelCcusageCli)] = "ccusage CLI（对账 / 手动导入）",
         [nameof(CcusageHint)] = "应用默认直读本地会话日志，无需安装 ccusage；此命令仅对账 / 手动导入时使用，下次启动生效。",
-        [nameof(CheckAnomalyNotifications)] = "启用异常通知（应用内 toast 提示）",
         // S-005：关窗行为开关（消费者 = MainWindow.OnClosing 的关窗分派）
         [nameof(CheckMinimizeToTrayOnClose)] = "关闭窗口时最小化到系统托盘",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "关闭主窗后应用仍在托盘运行、继续定时刷新；彻底退出用托盘菜单「退出」。关闭此开关后，点关闭按钮将直接退出应用。",
@@ -454,8 +453,7 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(NoUsageInRange)] = "该时间范围内没有用量记录",
         [nameof(HeatmapNoDataTooltip)] = "{0} · 无数据",
 
-        // ── 异常通知（DashboardViewModel → ISystemNotification/toast）──
-        [nameof(AnomalyToastTitle)] = "AI 成本异常提醒",
+        // ── 异常检测（DashboardViewModel → AnomalyDetected 事件 → 弹层 KPI 徽标；toast 通道 Q-016 删除）──
         [nameof(AnomalyCostSpikeFormat)] = "今日成本是过去 {0} 日均值的 {1:0.0} 倍",
     };
 
@@ -631,7 +629,6 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(RefreshHint)] = "Saved automatically; takes effect the next time the background refresh service starts.",
         [nameof(LabelCcusageCli)] = "ccusage CLI (reconciliation / manual import)",
         [nameof(CcusageHint)] = "The app reads local session logs directly — ccusage is not required; this command is only used for reconciliation / manual import and takes effect on next start.",
-        [nameof(CheckAnomalyNotifications)] = "Enable anomaly notifications (in-app toast)",
         [nameof(CheckMinimizeToTrayOnClose)] = "Minimize to the system tray on close",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "After closing, the app keeps running in the tray with scheduled refresh; quit via the tray menu. When off, the close button exits the app.",
         [nameof(CheckAutoStartOnBoot)] = "Launch at login",
@@ -804,7 +801,6 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(NoUsageInRange)] = "No usage records in this range",
         [nameof(HeatmapNoDataTooltip)] = "{0} · no data",
 
-        [nameof(AnomalyToastTitle)] = "AI cost anomaly alert",
         [nameof(AnomalyCostSpikeFormat)] = "Today's cost is {1:0.0}× the {0}-day average",
 
         // ── 模型目录（I-035：价格 / 厂商 / 图标的唯一出处；Q-010 起与 Zh 全量对齐，
@@ -1130,7 +1126,6 @@ public sealed class Translations : INotifyPropertyChanged
     public string RefreshHint => Get();
     public string LabelCcusageCli => Get();
     public string CcusageHint => Get();
-    public string CheckAnomalyNotifications => Get();
     public string CheckMinimizeToTrayOnClose => Get();
     public string CheckMinimizeToTrayOnCloseHint => Get();
     public string CheckAutoStartOnBoot => Get();
@@ -1376,7 +1371,6 @@ public sealed class Translations : INotifyPropertyChanged
     public string NoUsageInRange => Get();
     public string HeatmapNoDataTooltip => Get();
 
-    // ── 异常通知 ──
-    public string AnomalyToastTitle => Get();
+    // ── 异常检测 ──
     public string AnomalyCostSpikeFormat => Get();
 }

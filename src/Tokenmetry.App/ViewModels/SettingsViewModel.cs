@@ -93,9 +93,6 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private string _refreshMinutesText = string.Empty;
 
-    [ObservableProperty]
-    private bool _anomalyNotificationsEnabled;
-
     /// <summary>关窗行为开关（S-005）：true = 关窗最小化到托盘（默认）；false = 关窗即退出。消费者 = MainWindow.OnClosing。</summary>
     [ObservableProperty]
     private bool _minimizeToTrayOnClose;
@@ -140,7 +137,6 @@ public partial class SettingsViewModel : ViewModelBase
         SettingsFilePath = paths.SettingsFilePath;
         _ccusageCommand = settings.CcusageCommand;
         _refreshMinutesText = settings.RefreshMinutes.ToString();
-        _anomalyNotificationsEnabled = settings.AnomalyNotificationsEnabled;
         _minimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
         _autoStartOnBoot = settings.AutoStartOnBoot;
         _selectedTheme = ResolveThemeOption(settings.Theme);
@@ -285,13 +281,6 @@ public partial class SettingsViewModel : ViewModelBase
     partial void OnCcusageCommandChanged(string value)
     {
         _settings.CcusageCommand = string.IsNullOrWhiteSpace(value) ? "ccusage" : value.Trim();
-        PersistSettings();
-    }
-
-    /// <summary>异常通知开关：勾选即存（有真实行为出口——ISystemNotification → in-app toast）。</summary>
-    partial void OnAnomalyNotificationsEnabledChanged(bool value)
-    {
-        _settings.AnomalyNotificationsEnabled = value;
         PersistSettings();
     }
 
