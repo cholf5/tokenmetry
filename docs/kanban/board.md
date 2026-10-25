@@ -106,6 +106,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| S-007 | 刷新间隔默认 1→5 分钟——后台采集常态空转降频（设置页 1–1440 可调不动） | P2 | 2026-10-25 |
 | D-022 | 官网功能页富数据截图套件——stub fixture × zh/en × 明暗 × 7 页 + 托盘（裸窗特写，零 src 改动） | P3 | 2026-10-25 |
 | B-015 | 价格输入双文化解析（invariant Float 优先 + 本机兜底）——de-DE 逗号小数可录入；旧实现对 0,5 实为静默千倍错标非拒绝 | P3 | 2026-10-25 |
 | B-010 | 日志读取共享写（AgentLogReader）——Windows agent 持写句柄期间不再静默缺数据 | P1 | 2026-10-25 |
