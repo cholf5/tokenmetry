@@ -97,7 +97,7 @@ public class DshSessionAdapter : IDshSessionAdapter
     /// <summary>按扩展名打开日志流：.zstd 走逐帧解压流，否则按 UTF-8 文本直读。</summary>
     private static TextReader OpenLogReader(string path)
     {
-        var baseStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var baseStream = AgentLogReader.OpenRead(path);
         try
         {
             Stream stream = path.EndsWith(".zstd", StringComparison.Ordinal)

@@ -196,7 +196,7 @@ public class CopilotSessionAdapter : ICopilotSessionAdapter
         TextReader reader;
         try
         {
-            reader = new StreamReader(path);
+            reader = new StreamReader(AgentLogReader.OpenRead(path), System.Text.Encoding.UTF8);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

@@ -51,6 +51,23 @@ public class CopilotSessionAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task Reads_events_while_agent_holds_write_handle()
+    {
+        // B-010（Windows 冒烟后续）：agent 持写句柄追加 events.jsonl 期间采集不静默缺数据。
+        // 旧 StreamReader(String)（内部 FileShare.Read）对写句柄即 sharing violation——Unix 空操作恒绿。
+        var home = CreateTempHome();
+        var path = WriteEvents(home, "session-1",
+            Shutdown("shutdown-1", "2026-04-15T09:52:27.352Z",
+                Model("test-model", input: 100, output: 50, cacheRead: 10, cacheWrite: 20)));
+        using var agentHandle = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.Read);
+
+        var result = await CreateAdapter(home).ScanAsync();
+
+        result.Records.Should().ContainSingle();
+        result.Diagnostics.FilesRead.Should().Be(1);
+    }
+
+    [Fact]
     public async Task Normalizes_copilot_internal_model_ids()
     {
         var home = CreateTempHome();
