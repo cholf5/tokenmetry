@@ -680,4 +680,20 @@
         <Setter Property="Padding" Value="22,22,22,30"/>
     </Style>
 
+    <!-- ComboBox 焦点环网页化（Q-014）：Semi 的 :focus 态无条件画主色描边，而 Avalonia 里
+         选完下拉项后焦点留在 ComboBox 上、点击不可聚焦区域不转移焦点——顶栏筛选框选完一项
+         蓝环会一直挂着，直到点了左侧页签这类可聚焦元素才消失。:focus-visible 由 InputElement
+         按 NavigationMethod 判定（仅 Tab/方向键点亮，语义同 web 的 :focus-visible），此处把
+         非键盘来源的焦点压回默认观感：环退场，背景与箭头图标同步复位；键盘焦点的 Semi 环
+         原样保留（可达性不受影响）。三属性与 Semi :focus 块一一对应，全部引用 Semi 自有
+         画刷——零新增令牌，明暗自动跟随；:error 校验态不参与复位（校验描边优先）。
+         契约测试：ComboBoxFocusRingTests（同窗基线对照，指针同基线 / 键盘偏离基线）。 -->
+    <Style Selector="ComboBox:focus:not(:focus-visible):not(:error)">
+        <Setter Property="Background" Value="{DynamicResource ComboBoxSelectorBackground}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ComboBoxSelectorBorderBrush}"/>
+    </Style>
+    <Style Selector="ComboBox:focus:not(:focus-visible):not(:error) /template/ PathIcon#DropDownGlyph">
+        <Setter Property="Foreground" Value="{DynamicResource ComboBoxIconDefaultForeground}"/>
+    </Style>
+
 </Styles>
