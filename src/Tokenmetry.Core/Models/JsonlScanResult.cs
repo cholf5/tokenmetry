@@ -28,6 +28,14 @@ public class JsonlScanDiagnostics
     /// <summary>本次实际打开并解析的文件数（增量扫描时不含未变更文件）。</summary>
     public int FilesRead { get; set; }
 
+    /// <summary>
+    /// 本轮文件账面的变化数（I-042：新增 + 变更 + 消失），驱动采集管道的无变化轮短路。
+    /// JSONL 共享扫描器（Infrastructure.Jsonl.IncrementalJsonlScanner）系适配器与 Copilot
+    /// 自有记账按真实计数填 0/N；ZCode 账本以"completed 行 count + max(id)"探针填 0/1；
+    /// <b>null = 该适配器不追踪变更，消费方必须保守按"有变化"走全量</b>（缺省即 null）。
+    /// </summary>
+    public int? FilesChanged { get; set; }
+
     /// <summary>不含 usage 标记而跳过的行数（含打不开的文件，与 claude.rs / codex.rs 口径一致）。</summary>
     public int LinesSkipped { get; set; }
 

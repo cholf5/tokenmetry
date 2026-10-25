@@ -155,6 +155,8 @@ public static class AppServices
         services.AddSingleton<IIngestionScanReader>(sp => sp.GetRequiredService<IngestionScanRegistry>());
         services.AddSingleton<LocalIngestionDataSource>();
         services.AddSingleton<IUsageDataSource>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
+        // I-042：价格/别名热更新后的强制全量通道（I-037 契约在无变化短路下的新编码）
+        services.AddSingleton<IAggregationInvalidator>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
         services.AddSingleton(_ => new CCUsageCliDataSource(settings.CcusageCommand));
 
         // Facts 存储（I-002）：启动时执行顺序迁移（同上：经 Task.Run 隔离异步链，防启动期

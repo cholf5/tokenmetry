@@ -115,6 +115,35 @@ public class ZCodeSqliteAdapterTests : IDisposable
         result.Diagnostics.MissingCostRecords.Should().Be(1);
     }
 
+    /// <summary>I-042 变更探针：同库二次扫描（账面未动）报告无变化；新行插入后恢复"有变化"。
+    /// 记录计数始终来自真实读取——探针只驱动管道短路，不影响扫描结果本身。</summary>
+    [Fact]
+    public async Task ChangeProbe_SecondUnchangedScan_ReportsFilesChangedZero()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(home, legacy: false);
+        InsertRow(db, new ZCodeRow(
+            "usage-1", "s1", 1_786_909_042_666, "GLM-5.3", null,
+            "completed", 40, 5, 0, 0, 45, "/w"));
+        var adapter = CreateAdapter(home);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesChanged.Should().Be(1, "首轮相对空记忆必为有变化");
+        first.Records.Should().ContainSingle();
+
+        var second = await adapter.ScanAsync();
+        second.Diagnostics.FilesChanged.Should().Be(0, "账本未动（count + max(id) 均未变）");
+        second.Records.Should().ContainSingle("记录计数照常来自真实读取，注册表口径不变");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+
+        InsertRow(db, new ZCodeRow(
+            "usage-2", "s1", 1_786_909_043_000, "GLM-5.3", null,
+            "completed", 40, 5, 0, 0, 45, "/w"));
+        var third = await adapter.ScanAsync();
+        third.Diagnostics.FilesChanged.Should().Be(1, "新 completed 行 = 账面变化");
+        third.Records.Should().HaveCount(2);
+    }
+
     /// <summary>缓存桶截断到 input、computed_total 余量并入 output（对照蓝本 clamp 与 extra tokens 测试）。</summary>
     [Fact]
     public async Task Clamps_cache_buckets_and_folds_extra_total()

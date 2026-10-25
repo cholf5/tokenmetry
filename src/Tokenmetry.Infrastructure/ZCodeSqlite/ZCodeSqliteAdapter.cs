@@ -30,6 +30,11 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
 
     private readonly string? _configuredHome;
     private readonly ZCodeLogLocator _locator;
+    // I-042 变更探针记忆（每库：completed 行数 + max(id)）：账本库无 mtime 增量语义（单文件
+    // 持续变化），以轻量聚合查询判断"自上轮以来账面是否动过"——未动则向管道报告无变化，
+    // 跳过整条计价/聚合/落库。已知边界：行原地改值（token 修正且 count 与 max(id) 不动）不会
+    // 被捕获——usage 行实务上只增不改（账本写入方语义），且任何新行/删除都会触发全量。
+    private readonly Dictionary<string, (int Count, string MaxId)> _lastCompletedProbe = new(StringComparer.Ordinal);
 
     public ZCodeSqliteAdapter(string? configuredHome = null, ZCodeLogLocator? locator = null)
     {
@@ -47,10 +52,14 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
             FilesDiscovered = resolved.Databases.Count,
         };
         var problems = false;
+        // I-042：逐库变更探针（成功读出且 schema 支持的库才探测）。任一库账面变化或探针失败
+        // → 保守按有变化；无库（FilesDiscovered=0）不设值，由管道按"本轮发现即空"规则处理。
+        var anyProbed = false;
+        var allDatabasesUnchanged = true;
 
         foreach (var database in resolved.Databases)
         {
-            var rows = ReadDatabase(database, diagnostics, ref problems, ct);
+            var rows = ReadDatabase(database, diagnostics, ref problems, ref anyProbed, ref allDatabasesUnchanged, ct);
             foreach (var row in rows)
             {
                 var record = ZCodeRecordMapper.Map(row);
@@ -71,6 +80,11 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
 
                 records.Add(record);
             }
+        }
+
+        if (anyProbed)
+        {
+            diagnostics.FilesChanged = allDatabasesUnchanged ? 0 : 1;
         }
 
         // 稳定排序（同时间戳保持库内读取顺序，与蓝本 stable sort_by_key 一致）。
@@ -100,6 +114,8 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         string databasePath,
         JsonlScanDiagnostics diagnostics,
         ref bool problems,
+        ref bool anyProbed,
+        ref bool allDatabasesUnchanged,
         CancellationToken ct)
     {
         var rows = new List<ZCodeUsageRow>();
@@ -126,6 +142,7 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
             }
 
             diagnostics.FilesRead++;
+            ProbeChange(databasePath, connection, ref anyProbed, ref allDatabasesUnchanged);
         }
         catch (Exception exception) when (exception is SqliteException or IOException)
         {
@@ -133,6 +150,44 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// I-042 变更探针：completed 行 count + max(id) 与上轮记忆比对，未动 → 该库"无变化"。
+    /// 探针失败保守按"有变化"（allDatabasesUnchanged=false），不更新记忆、不抛出——
+    /// 探针是优化信号，绝不影响扫描结果的正确性（主查询刚成功，行数据本身已拿到）。
+    /// </summary>
+    private void ProbeChange(
+        string databasePath,
+        SqliteConnection connection,
+        ref bool anyProbed,
+        ref bool allDatabasesUnchanged)
+    {
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*), COALESCE(MAX(id), '') FROM model_usage WHERE status = 'completed'";
+            using var reader = command.ExecuteReader();
+            if (!reader.Read())
+            {
+                allDatabasesUnchanged = false;
+                return;
+            }
+
+            var probe = (Count: reader.GetInt32(0), MaxId: reader.GetString(1));
+            anyProbed = true;
+            if (_lastCompletedProbe.TryGetValue(databasePath, out var known) && known == probe)
+            {
+                return;
+            }
+
+            allDatabasesUnchanged = false;
+            _lastCompletedProbe[databasePath] = probe;
+        }
+        catch (Exception exception) when (exception is SqliteException or IOException)
+        {
+            allDatabasesUnchanged = false;
+        }
     }
 
     /// <summary>只读打开（共享原语 <see cref="SqliteReadonly"/>，I-009 起与 OpenCode 适配器共用）。</summary>

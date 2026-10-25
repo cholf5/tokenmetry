@@ -1058,7 +1058,8 @@ public class DataPricingViewModelTests
         FakeToastService? toast = null,
         BackgroundRefreshService? refreshService = null,
         IUsageQueryService? query = null,
-        ModelCatalog? catalog = null)
+        ModelCatalog? catalog = null,
+        IAggregationInvalidator? invalidator = null)
     {
         return new DataPricingViewModel(
             settings,
@@ -1067,7 +1068,34 @@ public class DataPricingViewModelTests
             refreshService ?? new BackgroundRefreshService(() => Task.FromResult(true)),
             toast ?? new FakeToastService(),
             query,
-            catalog);
+            catalog,
+            invalidator);
+    }
+
+    /// <summary>I-042 失效记录桩：断言价格/别名热更新走了强制全量通道。</summary>
+    private sealed class RecordingInvalidator : IAggregationInvalidator
+    {
+        public int Invalidations { get; private set; }
+
+        public void InvalidateAggregation() => Invalidations++;
+    }
+
+    [Fact]
+    public void AddAliasRule_InvalidatesAggregation_ForForcedFullRound()
+    {
+        // I-042/I-037：无变化轮短路后，别名热更新（与改价同一 TriggerReprice 汇点）必须
+        // 显式失效，否则下一轮被短路吞掉、统计身份与计价停留旧口径。
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var invalidator = new RecordingInvalidator();
+        var viewModel = CreateViewModel(settings, store, invalidator: invalidator);
+
+        viewModel.NewAliasSource = "ark/glm-5.3-flash";
+        viewModel.NewAliasTarget = "glm-5.3-flash";
+        viewModel.AddAliasRuleCommand.Execute(null);
+
+        invalidator.Invalidations.Should().Be(1, "TriggerReprice 前先失效（生产接线 = LocalIngestionDataSource）");
+        store.SaveCalls.Should().Be(1);
     }
 
     /// <summary>扫描注册表读取面桩：Registered/快照可变，供重进刷新与重扫完成断言。
