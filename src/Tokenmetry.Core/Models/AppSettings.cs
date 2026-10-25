@@ -10,7 +10,13 @@ public class AppSettings
 {
     public string CcusageCommand { get; set; } = "ccusage";
     public bool ShowDebugInfo { get; set; } = true;
-    public int RefreshMinutes { get; set; } = 1;
+
+    /// <summary>
+    /// 后台采集刷新间隔（分钟，设置页可调 1–1440）。默认 5（S-007）：采集无变化轮本应轻，
+    /// 但分钟级默认会让"每轮管道"以最高档常态空转（见 I-042 短路前的实测）；5 分钟与
+    /// agent 日志的实际写入节奏匹配，活跃使用时数据仍近实时（活跃轮由文件变化触发全量）。
+    /// </summary>
+    public int RefreshMinutes { get; set; } = 5;
 
     /// <summary>外观主题偏好：light（日间）/ dark（夜间）/ system（跟随系统）。</summary>
     public string Theme { get; set; } = "system";

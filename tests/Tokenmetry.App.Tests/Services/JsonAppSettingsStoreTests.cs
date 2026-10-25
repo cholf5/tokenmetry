@@ -20,7 +20,7 @@ public class JsonAppSettingsStoreTests : IDisposable
         var settings = await store.LoadAsync();
 
         settings.CcusageCommand.Should().Be("ccusage");
-        settings.RefreshMinutes.Should().Be(1);
+        settings.RefreshMinutes.Should().Be(5); // S-007 默认档
         settings.ShowDebugInfo.Should().BeTrue();
     }
 
@@ -104,7 +104,7 @@ public class JsonAppSettingsStoreTests : IDisposable
         var settings = await store.LoadAsync();
 
         settings.CcusageCommand.Should().Be("ccusage");
-        settings.RefreshMinutes.Should().Be(1);
+        settings.RefreshMinutes.Should().Be(5); // S-007 默认档
         File.Exists(Path.Combine(_tempDirectory, "settings.json")).Should().BeFalse();
         Directory.EnumerateFiles(_tempDirectory, "settings.json.bad-*").Should().ContainSingle();
     }
