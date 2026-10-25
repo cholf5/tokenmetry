@@ -31,6 +31,6 @@ public class DashboardSummaryTests
     public void AppSettings_defaults_are_quiet()
     {
         var settings = new AppSettings();
-        settings.RefreshMinutes.Should().Be(1);
+        settings.RefreshMinutes.Should().Be(5); // S-007 默认档
     }
 }
