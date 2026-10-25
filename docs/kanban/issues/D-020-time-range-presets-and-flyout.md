@@ -121,3 +121,13 @@ blocked: none
 - **回归锁**：AppShellTests 顶栏用例断言触发按钮与相邻 Agent 下拉的前景**颜色值相等**（实例断言不可靠
   ——同名画刷经不同装载路径非同实例，Q-014 教训；颜色值比较跨明暗变体成立）。
 - 全量 1536 Passed / 0 Failed（+1 即回归锁）；真机明暗观感移交用户。
+
+## 修正项 2（2026-10-25 真机目检二）：触发按钮文字偏粗
+
+- **现象**：修正项 1 落地后用户目检反馈按钮文字观感是粗体，与旁边三个下拉不一致。
+- **取证**（headless 探针）：字号两边同为 14，仅字重差——Semi DropDownButton 基样式设
+  `FontWeight = ButtonDefaultFontWeight`（**DemiBold** 600），相邻 ComboBox 主题不设字重、
+  继承全局默认 **Normal** 400。
+- **修法**：`time-range-trigger` 样式补 `FontWeight = Normal`（非色值，显式对齐 + 注释说明语义）；
+  顶栏回归锁同步扩为颜色 + 字重 + 字号三维（同一下断言块）。
+- 全量 1536 Passed / 0 Failed；真机观感移交用户。
