@@ -8,80 +8,96 @@ using Tokenmetry.App.Localization;
 
 namespace Tokenmetry.App.Services;
 
-/// <summary>全局时间范围（D-003 顶部栏筛选；在原型 #rangeTop 的 7/30/90/全部四档上追加 今日 与 自定义 两档）。</summary>
-public enum TimeRange
-{
-    Today,
-    Last7Days,
-    Last30Days,
-    Last90Days,
-    All,
-    Custom,
-}
-
 /// <summary>
-/// 时间范围选项（ComboBox 项）。稳定实例 + Label 经 Translations 实时取串（语言切换即时重译，
-/// 进程级订阅见静态构造器）；相等性只看 <see cref="Value"/>——SelectedItem 绑定比较稳定，
-/// 且语言切换不改变相等性（选项清单重建按值相等保持选中的既有契约不受影响）。
+/// 时间范围选项（下拉项）。稳定实例 + Label 经 Translations 实时取串（语言切换重译由
+/// <see cref="FilterStateService"/> 的语言广播处对其当前清单统一 RefreshLabel——预设实例有
+/// 生命周期，不再走静态构造器进程级订阅）；相等性只看 <see cref="Id"/>——SelectedItem 绑定
+/// 比较稳定，且语言切换不改变相等性（选项清单重建按 Id 相等保持选中的既有契约不受影响）。
+/// 内置档沿用旧 TimeRange 枚举名作为 Id（旧 settings.json 的选中值照常解析）；内置档 =
+/// 预定义 <see cref="RelativeRangeSpec"/> 实例（D-020），用户预设经
+/// <see cref="TimeRangePresetService"/> 生成（Id = "preset:&lt;guid&gt;"），All/Custom 保持哨兵。
 /// </summary>
-public sealed class TimeRangeOption : INotifyPropertyChanged
+public sealed class TimeRangeOption : INotifyPropertyChanged, IEquatable<TimeRangeOption>
 {
-    public TimeRangeOption(TimeRange value) => Value = value;
+    /// <summary>"自定义"档哨兵 Id（日期由 CustomFromDate/CustomToDate 承载）。</summary>
+    public const string CustomId = "Custom";
 
-    public TimeRange Value { get; }
+    /// <summary>"全部时间"档哨兵 Id（双端无界）。</summary>
+    public const string AllId = "All";
+
+    /// <summary>用户预设 Id 前缀（后接 guid；删除预设后指向它的持久化选中值回落默认档）。</summary>
+    public const string PresetPrefix = "preset:";
+
+    public TimeRangeOption(string id, RelativeRangeSpec? spec)
+    {
+        Id = id;
+        Spec = spec;
+    }
+
+    /// <summary>稳定标识：内置档 = 旧枚举名（"Today"/"Last7Days"/…），预设 = "preset:&lt;guid&gt;"。</summary>
+    public string Id { get; }
+
+    /// <summary>相对范围词表；null = 哨兵档（All 双端无界 / Custom 按起止日期映射）。</summary>
+    public RelativeRangeSpec? Spec { get; }
 
     /// <inheritdoc/>
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string Label => Value switch
-    {
-        TimeRange.Today => Translations.Instance.TimeRangeToday,
-        TimeRange.Last7Days => Translations.Instance.TimeRange7,
-        TimeRange.Last30Days => Translations.Instance.TimeRange30,
-        TimeRange.Last90Days => Translations.Instance.TimeRange90,
-        TimeRange.All => Translations.Instance.TimeRangeAll,
-        TimeRange.Custom => Translations.Instance.TimeRangeCustom,
-        _ => Translations.Instance.TimeRangeAll,
-    };
+    public string Label => Spec is { } spec
+        ? spec.ToLabel()
+        : IsCustom
+            ? Translations.Instance.TimeRangeCustom
+            : Translations.Instance.TimeRangeAll;
 
-    /// <summary>是否为自定义档（放在本类：FilterStateService 内有同名 TimeRange 属性会遮蔽枚举名）。</summary>
-    public bool IsCustom => Value == TimeRange.Custom;
+    /// <summary>是否为自定义档（放本类：FilterStateService 内有同名 CustomId 常量不遮蔽实例成员）。</summary>
+    public bool IsCustom => Id == CustomId;
+
+    /// <summary>是否为"全部时间"哨兵档。</summary>
+    public bool IsAll => Id == AllId;
+
+    /// <summary>是否为用户预设档（可删除；内置档/哨兵不可）。</summary>
+    public bool IsPreset => Id.StartsWith(PresetPrefix, StringComparison.Ordinal);
 
     /// <summary>语言切换后刷新展示名（Label 为计算属性，需显式通知）。</summary>
     public void RefreshLabel() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Label)));
 
-    public static IReadOnlyList<TimeRangeOption> Options { get; } =
+    // ── 内置稳定实例（应用级生命周期；清单顺序 = 下拉展示顺序：日历档 → 滚动档 → 全部）──
+    public static TimeRangeOption Today { get; } = new("Today", RelativeRangeSpec.SingleDay(0));
+    public static TimeRangeOption Yesterday { get; } = new("Yesterday", RelativeRangeSpec.SingleDay(-1));
+    public static TimeRangeOption ThisMonth { get; } = new("ThisMonth", RelativeRangeSpec.Month(0));
+    public static TimeRangeOption LastMonth { get; } = new("LastMonth", RelativeRangeSpec.Month(-1));
+    public static TimeRangeOption Last7Days { get; } = new("Last7Days", RelativeRangeSpec.Rolling(7));
+    public static TimeRangeOption Last30Days { get; } = new("Last30Days", RelativeRangeSpec.Rolling(30));
+    public static TimeRangeOption Last90Days { get; } = new("Last90Days", RelativeRangeSpec.Rolling(90));
+    public static TimeRangeOption All { get; } = new(AllId, null);
+    public static TimeRangeOption Custom { get; } = new(CustomId, null);
+
+    /// <summary>内置档清单（不含预设与自定义哨兵；完整清单组装见 <see cref="InitialOptions"/>）。</summary>
+    public static IReadOnlyList<TimeRangeOption> BuiltIns { get; } =
     [
-        new(TimeRange.Today),
-        new(TimeRange.Last7Days),
-        new(TimeRange.Last30Days),
-        new(TimeRange.Last90Days),
-        new(TimeRange.All),
-        new(TimeRange.Custom),
+        Today, Yesterday, ThisMonth, LastMonth, Last7Days, Last30Days, Last90Days, All,
     ];
+
+    /// <summary>初始完整清单（内置 + 自定义哨兵；预设由 TimeRangePresetService 装载后整体替换）。</summary>
+    public static IReadOnlyList<TimeRangeOption> InitialOptions { get; } = [.. BuiltIns, Custom];
+
+    /// <summary>按 Id 找内置档（含自定义哨兵）；预设不在内置清单，经 FilterStateService 当前清单查找。</summary>
+    public static TimeRangeOption? FindBuiltIn(string id) =>
+        id == CustomId ? Custom : BuiltIns.FirstOrDefault(o => o.Id == id);
 
     /// <summary>
     /// 默认时间范围：最近 7 天（对齐原型 #rangeTop 默认选中与初始渲染 renderTrend(7)；D-003 审查后由 30 天改齐）。
-    /// 按值定位而非 Options 下标，选项清单增删不改默认档。
+    /// 按值定位而非清单下标，清单增删不改默认档。
     /// </summary>
-    public static TimeRangeOption Default { get; } = Options.First(o => o.Value == TimeRange.Last7Days);
+    public static TimeRangeOption Default { get; } = Last7Days;
+
+    public bool Equals(TimeRangeOption? other) => other is not null && Id == other.Id;
+
+    public override bool Equals(object? obj) => obj is TimeRangeOption other && Equals(other);
+
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Id);
 
     public override string ToString() => Label;
-
-    static TimeRangeOption()
-    {
-        // 选项为进程级稳定实例（应用级生命周期），直订阅语言切换信号统一刷新 Label，无需退订。
-        Translations.Instance.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(Translations.CurrentLanguage))
-            {
-                foreach (var option in Options)
-                {
-                    option.RefreshLabel();
-                }
-            }
-        };
-    }
 }
 
 /// <summary>
@@ -148,6 +164,7 @@ public sealed class AgentOption : INotifyPropertyChanged, IEquatable<AgentOption
 public sealed class FilterStateService : ObservableObject
 {
     private TimeRangeOption _timeRange = TimeRangeOption.Default;
+    private IReadOnlyList<TimeRangeOption> _timeRangeOptions = TimeRangeOption.InitialOptions;
     private AgentOption _agent = AgentOption.All;
     private IReadOnlyList<AgentOption> _agentOptions = [AgentOption.All];
     private ModelFilterOption _model = ModelFilterOption.All;
@@ -177,8 +194,45 @@ public sealed class FilterStateService : ObservableObject
         || propertyName == nameof(CustomFromDate)
         || propertyName == nameof(CustomToDate);
 
-    /// <summary>时间范围选项（顶部栏 ComboBox 数据源）。</summary>
-    public IReadOnlyList<TimeRangeOption> TimeRangeOptions => TimeRangeOption.Options;
+    /// <summary>时间范围选项（顶栏范围选择器数据源）：初始为内置档 + 自定义哨兵，用户预设由
+    /// <see cref="TimeRangePresetService"/> 装载后经 <see cref="UpdateTimeRangeOptions"/> 整体替换。</summary>
+    public IReadOnlyList<TimeRangeOption> TimeRangeOptions => _timeRangeOptions;
+
+    /// <summary>替换时间范围选项清单并通知（D-020：预设装载/增删后调用，同 UpdateAgentOptions 套路）。
+    /// 选中项按 Id 在新清单中找回（选项稳定实例契约）；当前档不在新清单（预设被删）时如实回落默认档。</summary>
+    public void UpdateTimeRangeOptions(IReadOnlyList<TimeRangeOption> options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        RunOnUi(() =>
+        {
+            if (ReferenceEquals(_timeRangeOptions, options))
+            {
+                return;
+            }
+
+            _timeRangeOptions = options;
+            OnPropertyChanged(nameof(TimeRangeOptions));
+
+            var current = options.FirstOrDefault(o => o.Equals(_timeRange));
+            if (current is null)
+            {
+                if (ReferenceEquals(_timeRange, TimeRangeOption.Default))
+                {
+                    return;
+                }
+
+                _timeRange = TimeRangeOption.Default;
+                OnPropertyChanged(nameof(TimeRange));
+                OnPropertyChanged(nameof(IsCustomRange));
+                OnPropertyChanged(nameof(Display));
+            }
+            else if (!ReferenceEquals(current, _timeRange))
+            {
+                _timeRange = current;
+                OnPropertyChanged(nameof(TimeRange));
+            }
+        });
+    }
 
     /// <summary>
     /// Agent 选项（顶部栏 ComboBox 数据源）。初始仅 [所有 Agent]（诚实：真实清单未加载前
@@ -267,6 +321,13 @@ public sealed class FilterStateService : ObservableObject
     {
         if (e.PropertyName == nameof(Translations.CurrentLanguage))
         {
+            // 时间档 Label 为计算属性（含预设的词表自动命名），先逐项显式刷新（选项实例自带 INPC，
+            // 绑定项文案即时重译；旧静态构造器订阅随预设的生命周期化退场——D-020）。
+            foreach (var option in _timeRangeOptions)
+            {
+                option.RefreshLabel();
+            }
+
             // 语言切换广播全属性变更（INPC 空串约定）：各页 VM 的 IsNullOrEmpty 分支按「整页重查
             // 重渲染」消费——Token 紧凑数值等单位随语言即时切换（选项 Label/Display 单发不足以驱动整页）。
             OnPropertyChanged(string.Empty);

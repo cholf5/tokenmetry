@@ -55,9 +55,9 @@ public class FilterStatePersistenceTests
         {
             persistence.Apply();
 
-            // 档位必须是 Options 稳定实例：顶部栏 ComboBox SelectedItem 按引用相等回显
+            // 档位必须是稳定实例：顶部栏选择控件 SelectedItem 按相等回显
             Assert.Same(
-                TimeRangeOption.Options.First(o => o.Value == TimeRange.Last30Days),
+                TimeRangeOption.Last30Days,
                 filters.TimeRange);
             // 应用为本地自然日 0 点（映射侧只按日历日比较，断言同样按日历日）
             Assert.Equal(new DateOnly(2026, 1, 1), DateOnly.FromDateTime(filters.CustomFromDate!.Value.Date));
@@ -119,7 +119,7 @@ public class FilterStatePersistenceTests
         var (filters, settings, store, persistence) = Create();
         persistence.Apply();
 
-        filters.TimeRange = TimeRangeOption.Options.First(o => o.Value == TimeRange.Last30Days);
+        filters.TimeRange = TimeRangeOption.Last30Days;
 
         Assert.Equal("Last30Days", settings.TimeRange);
         Assert.Equal(1, store.SaveCount);
@@ -151,5 +151,82 @@ public class FilterStatePersistenceTests
                 : AppLanguage.English);
 
         Assert.Equal(0, store.SaveCount);
+    }
+
+    // ── D-020：用户预设 Id 的选中持久化（装载序：TimeRangePresetService.Load → Apply）──
+
+    [AvaloniaFact]
+    public void Apply_resolves_persisted_preset_id_after_presets_loaded()
+    {
+        var (filters, settings, store, persistence) = Create(new AppSettings
+        {
+            TimeRange = "preset:w1",
+            CustomTimePresets =
+            [
+                new RelativeRangePresetSetting { Id = "preset:w1", Kind = "Week", Offset = 0, Days = 7 },
+            ],
+        });
+        var presets = new TimeRangePresetService(filters, settings, store);
+
+        try
+        {
+            presets.Load();
+            persistence.Apply();
+
+            Assert.Equal("preset:w1", filters.TimeRange.Id);
+            Assert.True(filters.TimeRange.IsPreset);
+        }
+        finally
+        {
+            persistence.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Apply_preset_id_without_loaded_preset_falls_back_to_default()
+    {
+        // 预设被删后指向它的选中值如实回落默认档（最近 7 天），不静默悬空也不抛
+        var (filters, settings, store, persistence) = Create(new AppSettings
+        {
+            TimeRange = "preset:gone",
+            CustomTimePresets =
+            [
+                new RelativeRangePresetSetting { Id = "preset:other", Kind = "Month", Offset = -1 },
+            ],
+        });
+        var presets = new TimeRangePresetService(filters, settings, store);
+
+        try
+        {
+            presets.Load();
+            persistence.Apply();
+
+            Assert.Same(TimeRangeOption.Default, filters.TimeRange);
+        }
+        finally
+        {
+            persistence.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Selecting_preset_persists_its_stable_id()
+    {
+        var (filters, settings, store, persistence) = Create(new AppSettings
+        {
+            CustomTimePresets =
+            [
+                new RelativeRangePresetSetting { Id = "preset:w1", Kind = "Week", Offset = 0 },
+            ],
+        });
+        var presets = new TimeRangePresetService(filters, settings, store);
+        presets.Load();
+        persistence.Apply();
+
+        var preset = filters.TimeRangeOptions.Single(o => o.IsPreset);
+        filters.TimeRange = preset;
+
+        Assert.Equal("preset:w1", settings.TimeRange);
+        Assert.Equal(1, store.SaveCount);
     }
 }

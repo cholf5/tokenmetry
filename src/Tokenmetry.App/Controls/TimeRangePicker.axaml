@@ -1,0 +1,126 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Tokenmetry.App.ViewModels"
+             xmlns:loc="using:Tokenmetry.App.Localization"
+             xmlns:svc="using:Tokenmetry.App.Services"
+             x:Class="Tokenmetry.App.Controls.TimeRangePicker"
+             x:DataType="vm:TimeRangePickerViewModel">
+    <!-- D-020 顶栏时间范围选择器：当前档名 DropDownButton + Flyout 弹层（档位清单 / 自定义日期 /
+         我的预设管理）。取代「ComboBox + 自定义档 inline DatePicker」——自定义日期收进弹层后
+         顶栏不再随档位切换 reflow；触发按钮用 Semi DropDownButton（模板自带 chevron，与相邻
+         Semi 控件同族观感），弹层样式见 SharedStyles 的 FlyoutPresenter.time-range-flyout /
+         ListBox.time-range-list。 -->
+    <DropDownButton x:Name="RangeButton"
+                    Classes="time-range-trigger"
+                    MinWidth="124"
+                    HorizontalContentAlignment="Left">
+        <TextBlock Text="{Binding FilterState.TimeRange.Label}"/>
+        <DropDownButton.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft" FlyoutPresenterClasses="time-range-flyout">
+                <StackPanel Spacing="8">
+                    <!-- 档位清单（内置 + 用户预设 + 自定义哨兵；选中即查，自定义档保持弹层开） -->
+                    <ListBox Classes="time-range-list"
+                             ItemsSource="{Binding FilterState.TimeRangeOptions}"
+                             SelectedItem="{Binding FilterState.TimeRange, Mode=TwoWay}"
+                             SelectionChanged="OnRangeSelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="svc:TimeRangeOption">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- 自定义日期（仅自定义档显示）：收在弹层内，顶栏不再挂 DatePicker -->
+                    <StackPanel IsVisible="{Binding FilterState.IsCustomRange}" Spacing="6">
+                        <Border Classes="time-range-divider"/>
+                        <TextBlock Classes="page-subtitle"
+                                   Text="{Binding TimeRangeCustomDates, Source={x:Static loc:Translations.Instance}}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <DatePicker MinWidth="118"
+                                        SelectedDate="{Binding FilterState.CustomFromDate, Mode=TwoWay}"/>
+                            <TextBlock Text="–" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AppMutedTextBrush}"/>
+                            <DatePicker MinWidth="118"
+                                        SelectedDate="{Binding FilterState.CustomToDate, Mode=TwoWay}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 我的预设（管理区）：预设服务未注入时诚实隐藏；行删除 + 展开式添加表单 -->
+                    <StackPanel IsVisible="{Binding IsManageAvailable}" Spacing="6">
+                        <Border Classes="time-range-divider"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Classes="page-subtitle" VerticalAlignment="Center"
+                                       Text="{Binding TimeRangePresetsSection, Source={x:Static loc:Translations.Instance}}"/>
+                            <Button Grid.Column="1" Classes="link-btn"
+                                    Content="{Binding TimeRangeAddPreset, Source={x:Static loc:Translations.Instance}}"
+                                    Command="{Binding ToggleAddFormCommand}"/>
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding PresetRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="svc:TimeRangeOption">
+                                    <Grid ColumnDefinitions="*,Auto" MinHeight="28">
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Classes="icon-btn time-preset-delete"
+                                                Command="{Binding $parent[ItemsControl].((vm:TimeRangePickerViewModel)DataContext).DeletePresetCommand}"
+                                                CommandParameter="{Binding Id}"
+                                                ToolTip.Tip="{Binding TimePresetDelete, Source={x:Static loc:Translations.Instance}}">
+                                            <PathIcon Classes="app-icon" Data="{StaticResource AppIconClose}"/>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- 添加表单（展开式）：种类 → 周期偏移（滚动种类换天数输入）→ 校验错误就地显示 -->
+                        <StackPanel IsVisible="{Binding IsAddFormOpen}" Spacing="6">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Classes="page-subtitle"
+                                               Text="{Binding TimePresetKindLabel, Source={x:Static loc:Translations.Instance}}"/>
+                                    <ComboBox MinWidth="110" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding KindOptions}"
+                                              SelectedItem="{Binding SelectedKind}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:TimePresetKindOption">
+                                                <TextBlock Text="{Binding Label}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="2"
+                                            IsVisible="{Binding !IsRollingKind}">
+                                    <TextBlock Classes="page-subtitle" Text=" "/>
+                                    <ComboBox MinWidth="110" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding OffsetOptions}"
+                                              SelectedItem="{Binding SelectedOffset}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:TimePresetOffsetOption">
+                                                <TextBlock Text="{Binding Label}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="6"
+                                        IsVisible="{Binding IsRollingKind}">
+                                <TextBlock Classes="page-subtitle" VerticalAlignment="Center"
+                                           Text="{Binding TimePresetDaysLabel, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBox MinWidth="80" Text="{Binding RollingDaysText}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Classes="Secondary"
+                                        Content="{Binding TimePresetAddAction, Source={x:Static loc:Translations.Instance}}"
+                                        Command="{Binding AddPresetCommand}"/>
+                                <TextBlock Classes="page-subtitle" VerticalAlignment="Center" TextWrapping="Wrap"
+                                           Text="{Binding PresetError}"
+                                           Foreground="{DynamicResource AppAccentRedBrush}"
+                                           IsVisible="{Binding PresetError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Flyout>
+        </DropDownButton.Flyout>
+    </DropDownButton>
+</UserControl>

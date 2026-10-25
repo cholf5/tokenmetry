@@ -33,34 +33,67 @@ public class FilterStateServiceTests : IDisposable
     }
 
     [Fact]
-    public void Options_OrderTodayFirstAndCustomLast()
+    public void InitialOptions_BuiltInsThenCustomSentinel()
     {
-        TimeRangeOption.Options.Select(o => o.Value).Should().Equal(
-            TimeRange.Today,
-            TimeRange.Last7Days,
-            TimeRange.Last30Days,
-            TimeRange.Last90Days,
-            TimeRange.All,
-            TimeRange.Custom);
+        // D-020：内置档按 日历档 → 滚动档 → 全部 排布，自定义哨兵殿后（用户预设装载后插在全部与自定义之间）
+        TimeRangeOption.InitialOptions.Select(o => o.Id).Should().Equal(
+            "Today",
+            "Yesterday",
+            "ThisMonth",
+            "LastMonth",
+            "Last7Days",
+            "Last30Days",
+            "Last90Days",
+            "All",
+            "Custom");
+    }
+
+    [Fact]
+    public void BuiltIns_carry_the_unified_relative_spec()
+    {
+        // 内置档 = 预定义 Spec 实例（D-020 统一模型）：新日历档与既有滚动档同形状
+        TimeRangeOption.Today.Spec.Should().Be(RelativeRangeSpec.SingleDay(0));
+        TimeRangeOption.Yesterday.Spec.Should().Be(RelativeRangeSpec.SingleDay(-1));
+        TimeRangeOption.ThisMonth.Spec.Should().Be(RelativeRangeSpec.Month(0));
+        TimeRangeOption.LastMonth.Spec.Should().Be(RelativeRangeSpec.Month(-1));
+        TimeRangeOption.Last7Days.Spec.Should().Be(RelativeRangeSpec.Rolling(7));
+        TimeRangeOption.Last30Days.Spec.Should().Be(RelativeRangeSpec.Rolling(30));
+        TimeRangeOption.Last90Days.Spec.Should().Be(RelativeRangeSpec.Rolling(90));
+        TimeRangeOption.All.Spec.Should().BeNull();
+        TimeRangeOption.Custom.Spec.Should().BeNull();
     }
 
     [Fact]
     public void Default_IsStillLast7Days()
     {
-        // 顶部插入「今日」档后默认档不得漂移（对齐原型 renderTrend(7) 初始窗口）
-        TimeRangeOption.Default.Value.Should().Be(TimeRange.Last7Days);
+        // 顶部插入新档后默认档不得漂移（对齐原型 renderTrend(7) 初始窗口）
+        TimeRangeOption.Default.Id.Should().Be("Last7Days");
     }
 
     [Fact]
-    public void Labels_LocalizedForTodayAndCustom()
+    public void Labels_LocalizedForSentinelsAndPresets()
     {
         Translations.Instance.SetLanguage(AppLanguage.SimplifiedChinese);
-        TimeRangeOption.Options.Single(o => o.Value == TimeRange.Today).Label.Should().Be("今日");
-        TimeRangeOption.Options.Single(o => o.Value == TimeRange.Custom).Label.Should().Be("自定义");
+        TimeRangeOption.Today.Label.Should().Be("今日");
+        TimeRangeOption.Custom.Label.Should().Be("自定义");
+        TimeRangeOption.ThisMonth.Label.Should().Be("本月");
 
         Translations.Instance.SetLanguage(AppLanguage.English);
-        TimeRangeOption.Options.Single(o => o.Value == TimeRange.Today).Label.Should().Be("Today");
-        TimeRangeOption.Options.Single(o => o.Value == TimeRange.Custom).Label.Should().Be("Custom");
+        TimeRangeOption.Today.Label.Should().Be("Today");
+        TimeRangeOption.Custom.Label.Should().Be("Custom");
+        TimeRangeOption.ThisMonth.Label.Should().Be("This month");
+    }
+
+    [Fact]
+    public void Equality_is_by_stable_id_not_reference_or_label()
+    {
+        // 相等性契约：SelectedItem 绑定比较稳定，语言切换不改变相等性；不同实例同 Id 视为同一档
+        var preset = new TimeRangeOption("preset:abc", RelativeRangeSpec.Week(0));
+        var rebuilt = new TimeRangeOption("preset:abc", RelativeRangeSpec.Week(0));
+
+        preset.Should().Be(rebuilt);
+        preset.GetHashCode().Should().Be(rebuilt.GetHashCode());
+        TimeRangeOption.Custom.Should().NotBe(TimeRangeOption.All);
     }
 
     // 依赖 FilterStateService 属性 setter（SetOnUi 经 Dispatcher）的用例在 Tokenmetry.App.Headless.Tests：

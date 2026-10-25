@@ -22,7 +22,7 @@ public class FilterStateServiceTests
     {
         var filters = new FilterStateService();
 
-        filters.TimeRange = new TimeRangeOption(TimeRange.Custom);
+        filters.TimeRange = TimeRangeOption.Custom;
 
         var today = DateOnly.FromDateTime(DateTime.Today);
         Assert.Equal(today.AddDays(-6).ToDateTime(TimeOnly.MinValue), filters.CustomFromDate);
@@ -41,7 +41,7 @@ public class FilterStateServiceTests
             CustomToDate = to,
         };
 
-        filters.TimeRange = new TimeRangeOption(TimeRange.Custom);
+        filters.TimeRange = TimeRangeOption.Custom;
 
         Assert.Equal(from, filters.CustomFromDate);
         Assert.Equal(to, filters.CustomToDate);
@@ -68,12 +68,12 @@ public class FilterStateServiceTests
 
         Assert.False(filters.IsCustomRange);
 
-        filters.TimeRange = new TimeRangeOption(TimeRange.Custom);
+        filters.TimeRange = TimeRangeOption.Custom;
         Assert.Contains(nameof(FilterStateService.IsCustomRange), raised);
         Assert.True(filters.IsCustomRange);
 
         raised.Clear();
-        filters.TimeRange = new TimeRangeOption(TimeRange.Last7Days);
+        filters.TimeRange = TimeRangeOption.Last7Days;
         Assert.Contains(nameof(FilterStateService.IsCustomRange), raised);
         Assert.False(filters.IsCustomRange);
     }
@@ -85,7 +85,7 @@ public class FilterStateServiceTests
         {
             CustomFromDate = new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero),
             CustomToDate = new DateTimeOffset(2026, 2, 8, 0, 0, 0, TimeSpan.Zero),
-            TimeRange = new TimeRangeOption(TimeRange.Custom),
+            TimeRange = TimeRangeOption.Custom,
             Agent = new AgentOption("Claude Code"),
         };
 
@@ -137,5 +137,67 @@ public class FilterStateServiceTests
 
         Assert.Equal(3, filters.ModelOptions.Count);
         Assert.Same(selected, filters.Model);
+    }
+
+    [AvaloniaFact]
+    public void Update_time_range_options_reselects_by_id_and_notifies()
+    {
+        // D-020：预设装载（清单整体替换）后，选中档按 Id 在新清单中找回（选项重建的稳定契约）
+        var filters = new FilterStateService();
+        filters.TimeRange = TimeRangeOption.Last30Days;
+        var raised = new List<string?>();
+        filters.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        var preset = new TimeRangeOption("preset:w1", RelativeRangeSpec.Week(0));
+        filters.UpdateTimeRangeOptions([.. TimeRangeOption.BuiltIns, preset, TimeRangeOption.Custom]);
+
+        Assert.Equal(10, filters.TimeRangeOptions.Count);
+        Assert.Equal("Last30Days", filters.TimeRange.Id);
+        Assert.Contains(nameof(FilterStateService.TimeRangeOptions), raised);
+    }
+
+    [AvaloniaFact]
+    public void Update_time_range_options_falls_back_to_default_when_selection_removed()
+    {
+        // 预设被删：指向它的选中值如实回落默认档（最近 7 天），不静默悬空
+        var filters = new FilterStateService();
+        var preset = new TimeRangeOption("preset:w1", RelativeRangeSpec.Week(0));
+        filters.UpdateTimeRangeOptions([.. TimeRangeOption.BuiltIns, preset, TimeRangeOption.Custom]);
+        filters.TimeRange = preset;
+        Assert.Equal("preset:w1", filters.TimeRange.Id);
+
+        var raised = new List<string?>();
+        filters.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+        filters.UpdateTimeRangeOptions(TimeRangeOption.InitialOptions);
+
+        Assert.Same(TimeRangeOption.Default, filters.TimeRange);
+        Assert.False(filters.IsCustomRange);
+        Assert.Contains(nameof(FilterStateService.TimeRange), raised);
+    }
+
+    [AvaloniaFact]
+    public void Language_switch_refreshes_labels_of_current_options()
+    {
+        // 语言切换重译：静态构造器订阅已随预设生命周期化退场，重译由 FilterStateService 广播处
+        // 对当前清单逐项 RefreshLabel（含用户预设的词表自动命名）
+        var filters = new FilterStateService();
+        var preset = new TimeRangeOption("preset:w1", RelativeRangeSpec.Week(0));
+        filters.UpdateTimeRangeOptions([.. TimeRangeOption.BuiltIns, preset, TimeRangeOption.Custom]);
+        var original = Localization.Translations.Instance.CurrentLanguage;
+
+        try
+        {
+            var labelBefore = preset.Label;
+            Localization.Translations.Instance.SetLanguage(
+                original == Localization.AppLanguage.English
+                    ? Localization.AppLanguage.SimplifiedChinese
+                    : Localization.AppLanguage.English);
+
+            Assert.NotEqual(labelBefore, preset.Label);
+        }
+        finally
+        {
+            Localization.Translations.Instance.SetLanguage(original);
+        }
     }
 }

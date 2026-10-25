@@ -52,6 +52,7 @@ public class IconResourceTests
         ["hard-drive-upload"] = "AppIconHardDriveUpload",
         ["hard-drive-download"] = "AppIconHardDriveDownload",
         ["circle-help"] = "AppIconCircleHelp",
+        ["x"] = "AppIconClose",
     };
 
     [AvaloniaFact]

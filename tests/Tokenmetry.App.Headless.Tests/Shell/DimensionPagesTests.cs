@@ -408,7 +408,7 @@ public class DimensionPagesTests
         var host = CreateAgentsHost();
         var initial = host.Stub.AgentQueries.Count;
 
-        host.Filters.TimeRange = TimeRangeOption.Options[2]; // 最近 30 天
+        host.Filters.TimeRange = TimeRangeOption.Last30Days; // 最近 30 天
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(initial + 1, host.Stub.AgentQueries.Count);
@@ -429,8 +429,8 @@ public class DimensionPagesTests
 
         // 第 2 次查询（30 天）挂起且释放时返回陈旧集；第 3 次（90 天）同步完成
         host.Stub.HoldNextAgents(new[] { DimRow("stale-agent", 1) });
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
-        host.Filters.TimeRange = TimeRangeOption.Options[3];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
+        host.Filters.TimeRange = TimeRangeOption.Last90Days;
         Assert.Equal(5, host.Vm.Rows.Count);
 
         host.Stub.ReleaseHeldAgents(); // 旧响应放行：序号防护丢弃，不覆盖新选择
@@ -448,7 +448,7 @@ public class DimensionPagesTests
 
         // 加载失败：错误面板 + 已加载行保留 + 空态让位（P2-2 纪律）
         host.Stub.ThrowOnAgents = true;
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
         Assert.True(host.Vm.HasLoadError);
         Assert.Equal(5, host.Vm.Rows.Count);
@@ -456,13 +456,13 @@ public class DimensionPagesTests
 
         // 恢复：筛选再变化重试成功 → 错误态清除
         host.Stub.ThrowOnAgents = false;
-        host.Filters.TimeRange = TimeRangeOption.Options[3];
+        host.Filters.TimeRange = TimeRangeOption.Last90Days;
         Dispatcher.UIThread.RunJobs();
         Assert.False(host.Vm.HasLoadError);
 
         // Dispose 退订：筛选变化不再重查
         host.Vm.Dispose();
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         host.Filters.Agent = new AgentOption("Codex", "Codex");
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(afterInit + 2, host.Stub.AgentQueries.Count);
@@ -656,15 +656,15 @@ public class DimensionPagesTests
         var initial = host.Stub.ModelQueries.Count;
 
         // 全局筛选联动（映射窗口对账）
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
         var today = DateOnly.FromDateTime(DateTime.Today);
         Assert.Equal(UsageQueryFilter.FormatDay(today.AddDays(-29)), host.Stub.ModelQueries.Last().FromDay);
 
         // 序号防护：挂起的旧响应不覆盖新选择
         host.Stub.HoldNextModels(new[] { DimRow("stale-model", 1) });
-        host.Filters.TimeRange = TimeRangeOption.Options[3]; // 挂起
-        host.Filters.TimeRange = TimeRangeOption.Options[1]; // 完成
+        host.Filters.TimeRange = TimeRangeOption.Last90Days; // 挂起
+        host.Filters.TimeRange = TimeRangeOption.Last7Days; // 完成
         Assert.Equal(4, host.Vm.Rows.Count);
         host.Stub.ReleaseHeldModels();
         Dispatcher.UIThread.RunJobs();
@@ -673,14 +673,14 @@ public class DimensionPagesTests
 
         // 失败保留上次成功数据 + 错误面板；Dispose 后不再重查
         host.Stub.ThrowOnModels = true;
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
         Assert.True(host.Vm.HasLoadError);
         Assert.Equal(4, host.Vm.Rows.Count);
         Assert.NotNull(host.Vm.Totals); // 合计随上次成功数据保留
 
         host.Vm.Dispose();
-        host.Filters.TimeRange = TimeRangeOption.Options[3];
+        host.Filters.TimeRange = TimeRangeOption.Last90Days;
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(initial + 4, host.Stub.ModelQueries.Count); // 初查 + 30d + 挂起 + 7d + 失败重查
     }
@@ -746,21 +746,21 @@ public class DimensionPagesTests
         Assert.Equal("Codex", host.Stub.ProjectQueries.Last().Agent);
 
         host.Stub.HoldNextProjects(new[] { DimRow("/stale", 1) });
-        host.Filters.TimeRange = TimeRangeOption.Options[2]; // 挂起
-        host.Filters.TimeRange = TimeRangeOption.Options[3]; // 完成
+        host.Filters.TimeRange = TimeRangeOption.Last30Days; // 挂起
+        host.Filters.TimeRange = TimeRangeOption.Last90Days; // 完成
         Assert.Equal(3, host.Vm.Rows.Count);
         host.Stub.ReleaseHeldProjects();
         Dispatcher.UIThread.RunJobs();
         Assert.DoesNotContain(host.Vm.Rows, row => row.Name == "/stale");
 
         host.Stub.ThrowOnProjects = true;
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
         Assert.True(host.Vm.HasLoadError);
         Assert.False(host.Vm.ShowEmptyState);
 
         host.Vm.Dispose();
-        host.Filters.TimeRange = TimeRangeOption.Options[3];
+        host.Filters.TimeRange = TimeRangeOption.Last90Days;
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(initial + 4, host.Stub.ProjectQueries.Count);
     }

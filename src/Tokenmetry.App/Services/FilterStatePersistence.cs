@@ -13,8 +13,10 @@ namespace Tokenmetry.App.Services;
 /// <list type="bullet">
 /// <item><see cref="Apply"/>：启动时把 <see cref="AppSettings"/> 里的时间档 + 自定义起止应用回
 /// <see cref="FilterStateService"/>。日期先于档位设置——自定义档缺起止时 FilterStateService 的
-/// setter 预填（最近 7 天）才会生效；档位用 <see cref="TimeRangeOption.Options"/> 的稳定实例赋值，
-/// 顶部栏 ComboBox 的 SelectedItem 按引用相等匹配才能正确回显。未知档名/坏日期如实回落默认，不抛。</item>
+/// setter 预填（最近 7 天）才会生效；档位选中值 = TimeRangeOption 稳定 Id（D-020）：内置档沿用
+/// 旧枚举名（旧 settings.json 照常解析）+ 新增 Yesterday/ThisMonth/LastMonth，用户预设为
+/// "preset:&lt;guid&gt;"（须先经 TimeRangePresetService.Load 装入选项清单再 Apply）；未知 Id /
+/// 指向已删除预设 / 坏日期如实回落默认，不抛。</item>
 /// <item>变更即存：顶部栏改档位/起止日期后同步回 AppSettings 并原子落盘（单飞行 gate 串行化，
 /// best-effort——磁盘失败不阻断 UI 已生效的更改，打最小诊断，后续任一更改会继续尝试）。
 /// 显式按属性名过滤：语言切换的全属性广播（INPC 空串）不触发落盘。</item>
@@ -54,17 +56,31 @@ public sealed class FilterStatePersistence : IDisposable
             _filters.CustomToDate = to.ToDateTime(TimeOnly.MinValue);
         }
 
-        if (Enum.TryParse(_settings.TimeRange, out TimeRange parsed))
+        if (ResolveStoredOption(_settings.TimeRange) is { } option)
         {
-            var option = TimeRangeOption.Options.FirstOrDefault(o => o.Value == parsed);
-            if (option is not null)
-            {
-                _filters.TimeRange = option;
-            }
+            _filters.TimeRange = option;
         }
 
         // Apply 自身的赋值不回写（订阅在应用完成后挂上）：settings.json 已含这些值。
         _filters.PropertyChanged += OnFilterPropertyChanged;
+    }
+
+    /// <summary>持久化的选中 Id → 选项实例（D-020）：内置档按旧枚举名/新内置名查稳定实例；
+    /// "preset:&lt;guid&gt;" 在 FilterStateService 当前清单中查找（TimeRangePresetService 须已装载，
+    /// 预设被删后指向它的 Id 如实返回 null → 调用侧回落默认档）。未知值返回 null，不抛。</summary>
+    private TimeRangeOption? ResolveStoredOption(string? stored)
+    {
+        if (string.IsNullOrEmpty(stored))
+        {
+            return null;
+        }
+
+        if (stored.StartsWith(TimeRangeOption.PresetPrefix, StringComparison.Ordinal))
+        {
+            return _filters.TimeRangeOptions.FirstOrDefault(o => o.Id == stored);
+        }
+
+        return TimeRangeOption.FindBuiltIn(stored);
     }
 
     private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -78,7 +94,7 @@ public sealed class FilterStatePersistence : IDisposable
             return;
         }
 
-        _settings.TimeRange = _filters.TimeRange.Value.ToString();
+        _settings.TimeRange = _filters.TimeRange.Id;
         _settings.CustomFromDay = FormatDay(_filters.CustomFromDate);
         _settings.CustomToDay = FormatDay(_filters.CustomToDate);
         _ = PersistAsync();

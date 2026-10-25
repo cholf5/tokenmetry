@@ -357,7 +357,7 @@ public class TimeCostPagesTests
         var initialHourly = host.Stub.HourlyQueries.Count;
         var initialDaily = host.Stub.DailyQueries.Count;
 
-        host.Filters.TimeRange = TimeRangeOption.Options[2]; // 最近 30 天
+        host.Filters.TimeRange = TimeRangeOption.Last30Days; // 最近 30 天
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(initialHourly + 1, host.Stub.HourlyQueries.Count);
@@ -385,8 +385,8 @@ public class TimeCostPagesTests
             UnknownSessionCount = 99,
             UnknownTotalTokens = 99_999,
         });
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
-        host.Filters.TimeRange = TimeRangeOption.Options[3];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
+        host.Filters.TimeRange = TimeRangeOption.Last90Days;
         Assert.True(host.Vm.HasUnknownNote);
         Assert.Contains("占 20.0%", host.Vm.UnknownNoteText);
 
@@ -397,13 +397,13 @@ public class TimeCostPagesTests
 
         // 失败保留上一次成功数据 + 错误面板；恢复后清除（P2-2 纪律）
         host.Stub.ThrowOnHourly = true;
-        host.Filters.TimeRange = TimeRangeOption.Options[1];
+        host.Filters.TimeRange = TimeRangeOption.Last7Days;
         Dispatcher.UIThread.RunJobs();
         Assert.True(host.Vm.HasLoadError);
         Assert.True(host.Vm.HasUnknownNote); // 上一次成功标注保留
 
         host.Stub.ThrowOnHourly = false;
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
         Assert.False(host.Vm.HasLoadError);
     }
@@ -415,7 +415,7 @@ public class TimeCostPagesTests
         var afterInit = host.Stub.HourlyQueries.Count;
 
         host.Vm.Dispose();
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         host.Filters.Agent = new AgentOption("Codex", "Codex");
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(afterInit, host.Stub.HourlyQueries.Count);
@@ -439,7 +439,7 @@ public class TimeCostPagesTests
         Dispatcher.UIThread.RunJobs();
         Assert.IsType<CostViewModel>(shell.CurrentPage);
 
-        filters.TimeRange = TimeRangeOption.Options[2];
+        filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(afterInit, stub.HourlyQueries.Count); // 旧页已退订，不再重查
         Assert.NotSame(time, shell.CurrentPage);
@@ -575,7 +575,7 @@ public class TimeCostPagesTests
 
         // 引擎联动：引擎再累计 1 个缺价模型 → 重查后页面计数与引擎一致（同一实例的实时快照）
         engine.PriceTokens("unpriced-delta", new TokenUsageDetail { InputTokens = 10 });
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(4, engine.GetUnpricedModels().Count);
         Assert.Equal("4 个", host.Vm.UnpricedCountText);
@@ -650,15 +650,15 @@ public class TimeCostPagesTests
         var initial = host.Stub.KpiQueries.Count;
 
         // 全局筛选联动（映射窗口对账）
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
         var today = DateOnly.FromDateTime(DateTime.Today);
         Assert.Equal(UsageQueryFilter.FormatDay(today.AddDays(-29)), host.Stub.KpiQueries.Last().FromDay);
 
         // 序号防护：挂起的旧 KPI 响应不覆盖新选择
         host.Stub.HoldNextKpi(new UsageKpiResult { Cost = new AggregatedCost(999m, false) });
-        host.Filters.TimeRange = TimeRangeOption.Options[3]; // 挂起
-        host.Filters.TimeRange = TimeRangeOption.Options[1]; // 完成
+        host.Filters.TimeRange = TimeRangeOption.Last90Days; // 挂起
+        host.Filters.TimeRange = TimeRangeOption.Last7Days; // 完成
         Assert.Equal("$142.20", host.Vm.TotalCostText); // 默认 fixture KPI
         host.Stub.ReleaseHeldKpi();
         Dispatcher.UIThread.RunJobs();
@@ -666,13 +666,13 @@ public class TimeCostPagesTests
 
         // 失败保留上次成功数据 + 错误面板；Dispose 后不再重查
         host.Stub.ThrowOnKpi = true;
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
         Assert.True(host.Vm.HasLoadError);
         Assert.Equal("$142.20", host.Vm.TotalCostText);
 
         host.Vm.Dispose();
-        host.Filters.TimeRange = TimeRangeOption.Options[3];
+        host.Filters.TimeRange = TimeRangeOption.Last90Days;
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(initial + 4, host.Stub.KpiQueries.Count); // 初查 + 30d + 挂起 + 7d + 失败重查
     }

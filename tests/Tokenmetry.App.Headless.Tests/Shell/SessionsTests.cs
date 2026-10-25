@@ -298,7 +298,7 @@ public class SessionsTests
         var stub = new StubQueryService { AllSessions = GenerateSessions(120) };
         var host = CreateHost(stub);
 
-        host.Filters.TimeRange = TimeRangeOption.Options[2]; // 最近 30 天
+        host.Filters.TimeRange = TimeRangeOption.Last30Days; // 最近 30 天
         host.Filters.Agent = new AgentOption("Claude Code", "Claude Code");
         host.Filters.Model = new ModelFilterOption("model-b");
         host.Filters.Project = new ProjectFilterOption("/tmp/beta");
@@ -466,7 +466,7 @@ public class SessionsTests
         Assert.False(host.Vm.ShowEmptyState);
 
         stub.ThrowOnSessions = true;
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         Dispatcher.UIThread.RunJobs();
 
         Assert.NotNull(host.Vm.LoadError);
@@ -585,8 +585,8 @@ public class SessionsTests
             TotalCount = 3,
             PageSize = SessionsViewModel.PageSize,
         });
-        host.Filters.TimeRange = TimeRangeOption.Options[2]; // 30 天 → 挂起
-        host.Filters.TimeRange = TimeRangeOption.Options[3]; // 90 天 → 完成（120 行全集）
+        host.Filters.TimeRange = TimeRangeOption.Last30Days; // 30 天 → 挂起
+        host.Filters.TimeRange = TimeRangeOption.Last90Days; // 90 天 → 完成（120 行全集）
         Assert.Equal("显示 50 / 120 条", host.Vm.CountText);
 
         stub.ReleaseHeldSessions(); // 旧响应放行：序号防护丢弃，不覆盖新选择
@@ -606,7 +606,7 @@ public class SessionsTests
         var afterInit = PageQueries(stub).Count;
 
         host.Vm.Dispose();
-        host.Filters.TimeRange = TimeRangeOption.Options[2];
+        host.Filters.TimeRange = TimeRangeOption.Last30Days;
         host.Filters.Agent = new AgentOption("Codex", "Codex");
         host.Vm.SearchText = "algo";
         host.Vm.CommitSearchForTests(); // 防抖提交也不应再触发
