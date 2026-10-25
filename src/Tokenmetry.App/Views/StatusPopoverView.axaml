@@ -80,7 +80,11 @@
         </Style>
         <!-- 今日花费异常徽章（Q-011 归位、Q-017 迁头部）：日尺度异常的应用级警示位——头部
              品牌/状态之后，不挤占 KPI 格局；配色复用 D-015 warn banner 的既有令牌
-             （AppBannerWarn*），文本用橙强调（明暗各自协调值） -->
+             （AppBannerWarn*），文本用橙强调（明暗各自协调值）。
+             Q-018：文本样式从嵌套后代选择器（Border...badge TextBlock）改自类
+             （popover-cost-warn-text）——ToolTip 在逻辑树上是挂载目标的子节点，后代选择器
+             会把 tooltip 内容 TextBlock 一并染橙（暗色浅底橙字不可读）；tooltip 底色挂
+             chart-tip 令牌类（Semi 默认 ToolTip 配色错配，B-006 图表侧前科） -->
         <Style Selector="Border.popover-cost-warn-badge">
             <Setter Property="CornerRadius" Value="5"/>
             <Setter Property="Padding" Value="5,1"/>
@@ -89,7 +93,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource AppBannerWarnLineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
-        <Style Selector="Border.popover-cost-warn-badge TextBlock">
+        <Style Selector="TextBlock.popover-cost-warn-text">
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource AppAccentOrangeBrush}"/>
@@ -168,10 +172,15 @@
                                    Foreground="{DynamicResource AppMutedTextBrush}"
                                    VerticalAlignment="Center"/>
                         <!-- Q-017 异常徽章：从 KPI 花费格迁头部（品牌/状态之后）——应用级警示位
-                             更醒目，且不挤占本就不宽裕的 KPI 格局；Tooltip = 完整异常消息 -->
+                             更醒目，且不挤占本就不宽裕的 KPI 格局；Q-018：tooltip 显式挂
+                             chart-tip 令牌底（Semi 默认 ToolTip 配色错配，B-006 前科），
+                             内容绑定完整异常消息 -->
                         <Border Classes="popover-cost-warn-badge" IsVisible="{Binding IsCostWarn}"
-                                ToolTip.Tip="{Binding CostWarnDetail}" Margin="6,0,0,0">
-                            <TextBlock Text="{Binding CostWarnBadgeText}"/>
+                                Margin="6,0,0,0">
+                            <ToolTip.Tip>
+                                <ToolTip Classes="chart-tip" Content="{Binding CostWarnDetail}"/>
+                            </ToolTip.Tip>
+                            <TextBlock Classes="popover-cost-warn-text" Text="{Binding CostWarnBadgeText}"/>
                         </Border>
                     </StackPanel>
                     <Button Grid.Column="4" Classes="popover-icon-btn"

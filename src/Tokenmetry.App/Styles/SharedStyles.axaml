@@ -620,7 +620,8 @@
         <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
     </Style>
 
-    <!-- 图表悬浮提示（B-006）：DonutChart/Heatmap 的 ToolTip 统一挂 chart-tip 类（ChartTooltips.Set）。
+    <!-- 应用统一悬浮提示底（B-006 建，Q-018 扩）：DonutChart/Heatmap 的 ToolTip 统一挂 chart-tip 类
+         （ChartTooltips.Set）；Q-018 起弹层头部异常徽章 tooltip 同类直挂（StatusPopoverView）——
          Semi 12.1 默认 ToolTip 配色错配且不随本应用令牌（Light 浅底白字 / Dark 深底黑字，均不可读），
          这里换成本应用令牌：chip 底 + 卡片描边 + 正文文字色；圆角 6 / 内距 10,7 / 字号 12 与
          TrendChart 的 ScottPlot 气泡（ApplyTooltipChrome，令牌相同）在两套悬浮面上观感一致。

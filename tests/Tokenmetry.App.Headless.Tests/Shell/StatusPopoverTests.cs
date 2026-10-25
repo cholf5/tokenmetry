@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Localization;
@@ -307,6 +308,59 @@ public class StatusPopoverTests
         vm.HandleTodayTokensRound(42381 + 3200, T0.AddSeconds(120));
         Assert.False(vm.IsCostWarn);
         Assert.False(badge.IsVisible);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Badge_tooltip_uses_chart_tip_tokens_and_badge_style_does_not_leak_into_tooltips()
+    {
+        // Q-018：用户目检——徽章 hover 提示两主题均橙字 + 反差底（暗色浅底橙字不可读）。
+        // 根因有二：ToolTip 在逻辑树上是挂载目标的子节点，徽章嵌套样式
+        // Border.popover-cost-warn-badge TextBlock（后代选择器）把 tooltip 内容 TextBlock
+        // 一并染橙/压到 10px；底色则是 Semi 12.1 默认 ToolTip 配色（B-006 已证错配，
+        // 图表侧当年绕行）。修法：徽章 tooltip 显式挂 chart-tip 令牌底 + 嵌套样式收敛为
+        // 直接子级选择器。
+        var stub = new StubQueryService { Kpi = FixtureKpi(), Daily = FixtureDaily(), Agents = FixtureAgents() };
+        var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
+        vm.HandleTodayTokensRound(42381, T0);
+        await vm.ReloadAsyncAt(T0);
+        vm.NoteAnomaly("今日成本是过去 7 日均值的 2.3 倍", 2.3m);
+
+        var view = new StatusPopoverView { DataContext = vm };
+        var window = new Window { Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var badge = Assert.Single(view.GetVisualDescendants().OfType<Border>(),
+            b => b.Classes.Contains("popover-cost-warn-badge"));
+        Assert.True(badge.IsVisible);
+
+        // 1) tooltip = 显式 ToolTip + chart-tip 类（逃离 Semi 默认配色，与图表悬浮面同源令牌）
+        var tip = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(badge));
+        Assert.Contains("chart-tip", tip.Classes);
+
+        // 2) 徽章文本（自类 popover-cost-warn-text）仍染橙（样式本体不因收敛而失效）
+        // 2) 徽章文本（自类 popover-cost-warn-text）仍染橙（样式本体不因收敛而失效）。
+        //    橙令牌在 ThemeDictionaries（明暗各自值），须带 ThemeVariant 三参取值——
+        //    单参 FindResource 不解主题字典恒 UnsetValue（Q-014「FindResource 两路径
+        //    非同实例」教训的同族坑，本卡 DIAG 实测留痕）
+        var badgeText = Assert.IsType<TextBlock>(badge.Child);
+        Assert.Contains("popover-cost-warn-text", badgeText.Classes);
+        badgeText.TryFindResource("AppAccentOrangeBrush", badgeText.ActualThemeVariant, out var orangeObj);
+        var orange = Assert.IsType<SolidColorBrush>(orangeObj).Color;
+        Assert.Equal(orange, Assert.IsType<SolidColorBrush>(badgeText.Foreground).Color);
+
+        // 3) badge 类 Border 下的无类深层 TextBlock 不被染（后代选择器越界 = tooltip
+        //    内容漏染的根因；有人改回嵌套后代选择器时此锁红）
+        var deepHost = new StackPanel();
+        var deep = new TextBlock { Text = "deep" };
+        deepHost.Children.Add(deep);
+        Assert.IsAssignableFrom<Panel>(badge.Parent).Children.Add(
+            new Border { Classes = { "popover-cost-warn-badge" }, Child = deepHost });
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(deep.Foreground is ISolidColorBrush b && b.Color == orange,
+            "徽章样式不应作用于无类子级（ToolTip 内容漏染的根因）");
 
         window.Close();
     }
