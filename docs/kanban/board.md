@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-25：**Q-013 自建模型误标「已改/移除覆盖」修正收口**。用户反馈 Add model 添加的新模型哪怕没覆盖任何内置模型也显示 Overridden、Actions 出现 Remove override。取证：`Bind(imported: null)` 对自建条目同样置 `IsPriceOverridden`/`IsMetadataOverridden`（用户确实填了价与元数据，字段来自用户层），行 VM 把「字段来自用户层」错当成「覆盖了导入层」——Core 标志的「字段来源」语义本身无恙（全仓仅行 VM 消费），修 UI 层即可。修法：行 VM `IsOverridden` 加 `Origin != User` 前提（覆盖语义锚定导入层）+ 新增 `IsUserCreated`；操作列拆「删除」（自建）/「移除覆盖」（覆盖导入层）互斥按钮，同一 RemoveModelDefinition 命令；Translations 增 `ModelDeleteButton`（键奇偶不破）；「已覆盖」chip 词义随徽标同步收紧（同一判定，自建条目去「自定义」chip 找），钉住旧词义的筛选测试改新语义。全量 1481 Passed / 0 Failed / 22 Skipped。
+
 > 2026-10-24（晚八）：**Q-011 弹层 Warn 独占修正收口**。用户反馈"当日花费超 7 天均值的常驻警告一出现，'当前正在使用中，消耗速度 xxx'提示就不再显示"。取证三处叠加：AnomalyDetector 判定日累计型（成本只增不减、均值全天固定——触发当天不可能回落）+ RefreshAsync 每轮重检测重 raise + RecomputeState 严格优先级 Warn>Active 提前 return——D-015「下一轮无异常清回」的前提对日累计型异常不成立，触发日速率提示全天消失。修法（三方向中用户拍板"信息贴在它描述的数字旁"）：三态机收敛两态，banner 只承载分钟尺度实时速率；异常归位今日花费 KPI 徽标（↑{ratio}× 均值 + Tooltip 完整消息，AppBannerWarn* 令牌复用零新增），`AnomalyRaised` 增 Ratio；warn 状态灯一并撤除（灯单色语义，不在灯上重演优先级抢占）。headless 弹层 19/19（+4：并存回归锁/无 Ratio 回落/清除/视图层渲染）。**并发注记**：与模型头像特性会话同工作区并行且共享 4 文件——本卡经选择性暂存分账；全量套件 6 失败全属对方进行中用例；互为对方解阻塞两笔（本会话补 DataUriImageConverter 的 Avalonia.Media using，对方把本卡测试 Assert.Single 改谓词重载）。
 
 > 2026-10-24（晚七）：**Q-010 模型目录 Section 英文漏覆盖收口**。用户反馈英语 UI 下 Data & pricing 的「模型目录」仍有大量中文。取证（键差集脚本）：I-035 目录主体键只进了 Zh 字典，En 只补了后加的搜索/筛选/作用域 13 键（En 块注释自证「既有目录键暂无英文覆盖，zh 兜底」）——En 缺项按合并语义回落中文，缺项即英语界面漏中文；全字典差集恰 29 键、全属本 Section，XAML/VM 无硬编码中文排除第二根因。修法：En 目录块重写为与 Zh 同序全量对齐（既有 13 键措辞零改动）；新增 `English_CoversEveryChineseSourceKey` 键奇偶回归测试（TDD RED 29 缺键实锤 → GREEN），回落机制本身仍由既有用例守护、本测试让它不再被触发。全量 1449 Passed / 0 Failed（22 跳过，+1 即新测试）；英语界面观感移交用户。
@@ -93,6 +95,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| Q-013 | 自建模型误标「已改/移除覆盖」——覆盖语义锚定导入层，自建条目行走「删除」 | P2 | 2026-10-25 |
 | Q-012 | 模型头像（图标选择器四模式）——新增模型也有头像，全应用显示统一 | P2 | 2026-10-24 |
 | Q-011 | 托盘弹层 Warn banner 独占——日尺度异常归位今日花费 KPI 徽标，banner 还给实时速率 | P2 | 2026-10-24 |
 | Q-010 | 模型目录 Section 英文漏覆盖——29 键回落中文（I-035 欠账清偿 + En↔Zh 键奇偶测试固化） | P2 | 2026-10-24 |

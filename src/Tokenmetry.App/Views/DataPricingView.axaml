@@ -209,7 +209,12 @@
                                                     Command="{Binding $parent[ListBox].DataContext.EditModelDefinitionCommand}"
                                                     CommandParameter="{Binding Id}"/>
                                             <Button Classes="link-btn"
-                                                    IsVisible="{Binding CanRemove}"
+                                                    IsVisible="{Binding IsUserCreated}"
+                                                    Content="{Binding ModelDeleteButton, Source={x:Static loc:Translations.Instance}}"
+                                                    Command="{Binding $parent[ListBox].DataContext.RemoveModelDefinitionCommand}"
+                                                    CommandParameter="{Binding Id}"/>
+                                            <Button Classes="link-btn"
+                                                    IsVisible="{Binding IsOverridden}"
                                                     Content="{Binding ModelRemoveButton, Source={x:Static loc:Translations.Instance}}"
                                                     Command="{Binding $parent[ListBox].DataContext.RemoveModelDefinitionCommand}"
                                                     CommandParameter="{Binding Id}"/>
