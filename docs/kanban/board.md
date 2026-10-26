@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-26：**D-023 Windows 托盘双击唤出主窗收口**。用户提案"双击托盘图标显示主窗口合理吗"→ brainstorm 评估拍板：双击开主程序是 Windows 老牌托盘惯例，与 D-016 单击弹层构成「单击瞄一眼 / 双击看全貌」OneDrive 式分层互补；**平台仅 Windows**（macOS 菜单栏无双击习惯且 interop 左键不经 OnTrayClicked，Linux 各 DE 行为不一）。技术事实：Avalonia TrayIcon 无 DoubleClick 事件、Win32 双击 = 两次 Clicked——`OnTrayClicked` 前置时间窗拦截（默认 `GetDoubleClickTime()` 尊重系统设置），第二击不 Toggle 改收弹层（仅可见时，防 OnHidden 重复触发）+ ShowWindow；双击消费制清时间戳（三击回单击语义）；与 B-017 失焦守卫互不干扰（守卫只作用第一击 Toggle，计时独立）。三注入点（窗长/时钟/门控）保 headless 确定性（任意宿主平台可测），单击零新增延迟（延迟单击判定明确否决）。TDD（RED 8 处编译失败实锤 → GREEN），测试 +3 + 既有单击用例改假时钟显式化"非双击独立单击"，Headless 399 全绿；App.Tests 266 重跑全绿（全量并发轮 1 处 SingleInstanceGuard 环境性失败同 B-017 家族）。设计全文 `docs/plans/2026-10-26-tray-double-click-design.md`。真机双击手感移交用户。
+
 > 2026-10-26：**B-017 Windows 托盘左键永远 Open 不 Switch 收口**。用户报告"Windows 每次左键点托盘都是 Open，弹窗开着点击也不收；macOS 是正常 Switch"。根因是两条收起/弹出通道的时序竞争：点托盘图标系统在按下瞬间把焦点交给任务栏，弹窗 `Deactivated → 失焦收起` 先发生，`TrayIcon.Clicked` 等 WM_LBUTTONUP（抬起）才 raise——`Toggle()` 看到的已是"关着"，照常 Show 重新弹出，净效果左键永远只会 Open（开着时表现为收起即再弹的闪烁）。macOS interop 左键直回调无此时序分叉故免疫。修法：失焦收起接线从窗口构造移入 `StatusPopoverController`（顺带补上窗口自接线漏掉的 VM.OnHidden），`Toggle` 拆双入口——`ToggleFromTrayClick`（托盘左键专用，前置 400ms 失焦守卫：刚失焦收起视为同一次点击的收起意图维持隐藏，守卫消费制连点可再开）/ `Toggle`（托盘右键菜单项等显式入口不带守卫，打开菜单本身会抢焦点）。测试 +2（headless 经 internal 处理器模拟 Win32 先失焦后 Clicked 时序），Core 189 / Reconciliation 49 / Infra 681 / Headless 396 全绿；App.Tests 265 + 1 失败（SingleInstanceGuardTests）经 git stash 干净工作区复现同款、单类过滤必过——环境性既有问题与本卡零交集（同 2026-10-25 深夜八注记家族），留待独立排查。真机托盘连点目检移交用户。
 
 > 2026-10-25（夜·内存批次）：**内存调查批次——S-007 / P-003 / I-042 同日收口 + I-043 设计卡建卡**。起点是用户反馈"启动后内存几百 MB、没选 Electron 选 Avalonia 就图个省资源"：实机测量（Release 时间线 + dotnet-gcdump + 最小 Avalonia 12 对照应用）拆出构成——稳态 Private ~230-280 MB 而托管堆仅 35 MB，大头是 .NET 运行时/JIT/原生渲染栈（裸 Avalonia ~60 MB、+Semi ~100 MB 的框架地板，igc64/ANGLE/IME 注入占 WS 大头），数据侧问题在采集管线（7 个 JSONL 扫描器全历史驻留 + 每轮全量重建 + 默认 1 分钟空转）。三卡：**S-007** 刷新默认 1→5 分钟（8ab392c；Core.Tests 两处断言追补 e55fc26）；**P-003** 发布产物 PublishReadyToRun（6c545fb；JIT 代码堆缩小/启动提速，包体积 +30-50% 已登记，本地 win-x64 R2R 冒烟通过）；**I-042 无变化轮次短路**——`JsonlScanDiagnostics.FilesChanged: int?`（null=不追踪保守全量）+ 扫描器零变更轮缓存去重产物（不再全历史 SelectMany+去重重跑）+ Copilot 零变更结果缓存 + ZCode count/max(id) 变更探针 + 数据源全源无变化时跳过计价/聚合/落库（facts 空则落穿自愈）+ `IAggregationInvalidator` 一次性强全量旗标接 `TriggerReprice`（I-037 改价格即生效在短路下的新编码，`GetDailyUsage_RepricesRecordsWhenOverridesChange` 迁移到显式失效语义）。测试 +10，全量 1571 Passed / 0 Failed（19 跳过）。I-043（message-grain 记录账本，驻留内存 O(全历史)→O(本轮增量) 的深水区改造）建卡待排期。**并发注记**：与 B-016 会话同工作区并行（其"深夜八"注记所查的两处 App.Tests 单例失败即本批次并行互踩，Core.Tests 欠账已由 e55fc26 收口）；本批次与 B-016 文件面零交集。
@@ -113,6 +115,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-023 | Windows 托盘双击唤出主窗——单击瞄弹层 / 双击看全貌（时间窗拦截，单击语义不动） | P3 | 2026-10-26 |
 | B-017 | Windows 托盘左键永远 Open 不 Switch——失焦收起先于 Clicked 到达，ToggleFromTrayClick 失焦守卫（消费制） | P2 | 2026-10-26 |
 | I-042 | 无变化轮次短路——零数据变化跳过计价/聚合/落库，扫描器零变更轮复用去重产物 | P1 | 2026-10-25 |
 | P-003 | 发布产物 PublishReadyToRun——JIT 代码堆缩小/启动提速（包体积 +30-50% 已登记） | P3 | 2026-10-25 |
