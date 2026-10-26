@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -57,20 +56,6 @@ public class TrayService
     private bool _macInterop;
     private int _macUpdateItemIndex = -1;
     private List<MacTrayInterop.MacTrayItem>? _macItems;
-    private DateTimeOffset? _lastTrayClickedUtc;
-
-    /// <summary>双击判定是否启用（docs/plans/2026-10-26-tray-double-click-design.md §2 设计裁决：
-    /// 仅 Windows——macOS 菜单栏无双击习惯且 interop 左键不经过 <see cref="OnTrayClicked"/>，
-    /// Linux 各 DE 的 Clicked 触发行为不一）。internal 可覆写：headless 用例需在任意宿主平台验证。</summary>
-    internal bool TrayDoubleClickEnabled { get; set; } = OperatingSystem.IsWindows();
-
-    /// <summary>双击判定窗口（两次 Clicked 的最大间隔）。默认取系统双击时长（尊重用户设置，
-    /// Win32 默认 500ms）；非 Windows 为占位默认（门控关闭时本值不被消费）。</summary>
-    internal TimeSpan TrayDoubleClickWindow { get; set; } =
-        OperatingSystem.IsWindows() ? TimeSpan.FromMilliseconds(GetDoubleClickTime()) : TimeSpan.FromMilliseconds(500);
-
-    /// <summary>双击计时时钟（默认真实 UtcNow）；headless 用例注入假时钟保证时序确定性。</summary>
-    internal Func<DateTimeOffset> TrayClock { get; set; } = static () => DateTimeOffset.UtcNow;
 
     public TrayService(Window mainWindow) : this(mainWindow, null, null, null)
     {
@@ -356,30 +341,10 @@ public class TrayService
     /// <summary>托盘左键分派（Avalonia 路径；macOS interop 路径左键直进 <see cref="TogglePopoverOrShowWindow"/>）：
     /// 有弹层控制器 → Toggle 弹窗（开着收起 / 关着弹出，D-015 内容层承载）；未装配（headless 旧构造 /
     /// 测试）维持 A-0 直开主窗。右键 NativeMenu 不动。
-    /// <para><b>双击拦截（2026-10-26 设计，仅 Windows）</b>：Avalonia TrayIcon 无 DoubleClick 事件，
-    /// Win32 双击表现为两次 Clicked——间隔在判定窗口内的第二击不再 Toggle，改为收弹层（仅可见时）+
-    /// <see cref="ShowWindow"/>（单击瞄弹层 / 双击进主窗的分层）。与 B-017 失焦守卫互不干扰：守卫只
-    /// 作用于第一击的 Toggle 语义，双击计时在拦截层独立记录；双击消费后时间戳清空，连点第三击回到单击。</para>
     /// <b>平台事实（实施留证）</b>：本事件仅 Win32/部分 Linux DE 会 raise——macOS 上 Avalonia 从不
     /// raise（TrayIcon.cs 文档原文 "on OSX this event is not raised"，trayicon.mm 亦无点击回调），
     /// macOS 生产左键走 MacTrayInterop 自管状态项。</summary>
-    internal void OnTrayClicked()
-    {
-        var now = TrayClock();
-        var isDoubleClick = TrayDoubleClickEnabled
-            && _lastTrayClickedUtc is { } last
-            && now - last < TrayDoubleClickWindow;
-        _lastTrayClickedUtc = isDoubleClick ? null : now;
-
-        if (isDoubleClick)
-        {
-            _popover?.HideIfVisible();
-            ShowWindow();
-            return;
-        }
-
-        TogglePopoverOrShowWindow();
-    }
+    internal void OnTrayClicked() => TogglePopoverOrShowWindow();
 
     // ── I-039 托盘「检查更新」项 ──
 
@@ -519,11 +484,6 @@ public class TrayService
         using var stream = AssetLoader.Open(new Uri($"avares://Tokenmetry.App/{asset}"));
         return new WindowIcon(stream);
     }
-
-    /// <summary>系统双击时长（ms，控制面板鼠标设置；默认 500）。仅 Windows 初始化路径调用
-    /// （<see cref="TrayDoubleClickWindow"/> 属性初始化器已按平台门控），非 Windows 不触达。</summary>
-    [DllImport("user32.dll")]
-    private static extern uint GetDoubleClickTime();
 
     private static void RunOnUIThread(Action action)
     {
