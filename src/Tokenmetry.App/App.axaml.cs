@@ -129,6 +129,14 @@ public partial class App : Application
                     Avalonia.Threading.Dispatcher.UIThread.Post(trayService.ShowWindow));
             }
 
+            // B-018：macOS 点 Dock 图标唤回主窗（reopen 惯例，Avalonia 不实现——见
+            // MacTrayInterop.TryInstallDockReopen 注释）。与 B-013 同一 ShowWindow 语义；
+            // interop 内部全捕获，失败只降级为现状（Dock 死点）不阻塞启动。
+            if (OperatingSystem.IsMacOS() && !Tray.TrayService.IsHeadlessTestHost)
+            {
+                Tray.MacTrayInterop.TryInstallDockReopen(trayService.ShowWindow);
+            }
+
             // D-003/Q-002：DashboardViewModel 无视图挂载（旧视图已清理），作为后台采集刷新锚点保留——
             // 刷新把本地会话日志解析进 facts 存储，供各页面卡查询（定案见其类型注释）。
             // S-002 审查修复（P0）：刷新接线在 dashboard 与外壳 VM 都就绪后 Attach，随后启动后台

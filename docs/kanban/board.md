@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-26：**Mac 体验调查——B-018 收口 / B-019、B-020 建卡**。用户报告三症状：①关主窗后 Dock 图标仍在且亮灯（**非 bug**：package.sh:110 既定决策"普通应用不设 LSUIElement，Dock 图标是产品语义"，本次会话用户再次拍板维持）②点 Dock 图标无反应——根因：macOS 惯例经 `applicationShouldHandleReopen` 响应"点 Dock 无可见窗"，Avalonia 12.1.4 的 Avalonia.Native 不实现该方法（旁证上游 #20683 dock Quit 不可取消）→ **B-018 同日收口**：`MacTrayInterop.TryInstallDockReopen`（class_addMethod 挂委托类，add 失败=他人已实现则降级）+ App 接线直调 `trayService.ShowWindow`（B-013 同语义）；Core 189 / Reconciliation 49 / Infra 681 / Headless 399 全绿，真机 TC 四项移交用户；③Dock 右键「显示所有窗口」崩溃——环境 macOS 26 Tahoe，上游家族 #19028/#19788 均非精确匹配，假设为窗口概览层枚举全隐藏（orderOut）窗口时崩，**B-019 blocked 待用户取回 ~/Library/Logs/DiagnosticReports/Tokenmetry-\*.ips**。临时解法已存在：双击 .app 二开经单实例管道唤回。**B-020 顺手立卡**：调查③时 App.Tests 又见 `SingleInstanceGuardTests` flake，本次钉死两条证据——测试名 Guid 隔离与真 App 进程无关；失败唯一产出路径是 `TryAcquire` 的 AbandonedMutexException 分支（second 看到被遗弃互斥体 → 持有者句柄被提前关闭或线程退出），疑 GC/线程退出时序，查清前各卡验证遇此失败按 B-020 豁免。
+
 > 2026-10-26：**D-023 Windows 托盘双击唤出主窗收口**。用户提案"双击托盘图标显示主窗口合理吗"→ brainstorm 评估拍板：双击开主程序是 Windows 老牌托盘惯例，与 D-016 单击弹层构成「单击瞄一眼 / 双击看全貌」OneDrive 式分层互补；**平台仅 Windows**（macOS 菜单栏无双击习惯且 interop 左键不经 OnTrayClicked，Linux 各 DE 行为不一）。技术事实：Avalonia TrayIcon 无 DoubleClick 事件、Win32 双击 = 两次 Clicked——`OnTrayClicked` 前置时间窗拦截（默认 `GetDoubleClickTime()` 尊重系统设置），第二击不 Toggle 改收弹层（仅可见时，防 OnHidden 重复触发）+ ShowWindow；双击消费制清时间戳（三击回单击语义）；与 B-017 失焦守卫互不干扰（守卫只作用第一击 Toggle，计时独立）。三注入点（窗长/时钟/门控）保 headless 确定性（任意宿主平台可测），单击零新增延迟（延迟单击判定明确否决）。TDD（RED 8 处编译失败实锤 → GREEN），测试 +3 + 既有单击用例改假时钟显式化"非双击独立单击"，Headless 399 全绿；App.Tests 266 重跑全绿（全量并发轮 1 处 SingleInstanceGuard 环境性失败同 B-017 家族）。设计全文 `docs/plans/2026-10-26-tray-double-click-design.md`。真机双击手感移交用户。
 
 > 2026-10-26：**B-017 Windows 托盘左键永远 Open 不 Switch 收口**。用户报告"Windows 每次左键点托盘都是 Open，弹窗开着点击也不收；macOS 是正常 Switch"。根因是两条收起/弹出通道的时序竞争：点托盘图标系统在按下瞬间把焦点交给任务栏，弹窗 `Deactivated → 失焦收起` 先发生，`TrayIcon.Clicked` 等 WM_LBUTTONUP（抬起）才 raise——`Toggle()` 看到的已是"关着"，照常 Show 重新弹出，净效果左键永远只会 Open（开着时表现为收起即再弹的闪烁）。macOS interop 左键直回调无此时序分叉故免疫。修法：失焦收起接线从窗口构造移入 `StatusPopoverController`（顺带补上窗口自接线漏掉的 VM.OnHidden），`Toggle` 拆双入口——`ToggleFromTrayClick`（托盘左键专用，前置 400ms 失焦守卫：刚失焦收起视为同一次点击的收起意图维持隐藏，守卫消费制连点可再开）/ `Toggle`（托盘右键菜单项等显式入口不带守卫，打开菜单本身会抢焦点）。测试 +2（headless 经 internal 处理器模拟 Win32 先失焦后 Clicked 时序），Core 189 / Reconciliation 49 / Infra 681 / Headless 396 全绿；App.Tests 265 + 1 失败（SingleInstanceGuardTests）经 git stash 干净工作区复现同款、单类过滤必过——环境性既有问题与本卡零交集（同 2026-10-25 深夜八注记家族），留待独立排查。真机托盘连点目检移交用户。
@@ -43,6 +45,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
+| B-019 | macOS Dock「显示所有窗口」崩溃——待 .ips 崩溃日志定位（macOS 26 Tahoe） | P2 | M | 用户提供崩溃日志 | none |
+| B-020 | SingleInstanceGuardTests 间歇失败——AbandonedMutexException 分支是唯一 true 路径，疑 GC/线程退出时序 | P3 | M | none | none |
 | I-043 | 采集真增量（message-grain 记录账本）——驻留内存从 O(全历史) 降到 O(本轮增量) | P2 | L | none | I-042 |
 
 > 2026-10-24（晚六）：**Q-009 修正项 1——? 字形太小，改 circle-help 矢量兜底**。用户看后反馈「问号太小了，能不能大点，或者用 svg 画个 Icon」。取证：文本 `?` 墨迹只占 em 四成（11px 字号实际 ~7px，I-040 同源问题——系统字体渲染墨迹占比低且跨平台不可控），加大字号受 16px 槽位与字形 line-height 限制。修法：走 I-040 管线——生成器白名单加 circle-help（lucide-static@1.61.0）再生 Icons.axaml，model-chip 增 `PathIcon.model-fallback` 槽（13px / lg 22px、中性芯片前景、generic 伪类显隐），5 处消费点（模型页/总览/计价页两处/托盘 lg）接入；`?` 字形退到数据层语义（ModelVisual.Glyph，UI 不渲染），phi 的 Φ 不动。测试：generic 断言翻转（字形隐藏+图标显示）+ 新增墨迹几何量测锁（16px 芯片内 ≥10px，防「太小」回归）；IconResourceTests.GeometryKeys 补 circle-help 并顺手补 Q-007 漏登记的 hard-drive-upload/download 两键。headless 346 Passed（+1），全量 1448 Passed / 0 Failed（22 跳过）；真机观感移交用户。
@@ -115,6 +119,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| B-018 | macOS 点 Dock 图标无反应——interop 挂 applicationShouldHandleReopen 补全唤回（真机 TC 移交用户） | P2 | 2026-10-26 |
 | D-023 | Windows 托盘双击唤出主窗——单击瞄弹层 / 双击看全貌（时间窗拦截，单击语义不动） | P3 | 2026-10-26 |
 | B-017 | Windows 托盘左键永远 Open 不 Switch——失焦收起先于 Clicked 到达，ToggleFromTrayClick 失焦守卫（消费制） | P2 | 2026-10-26 |
 | I-042 | 无变化轮次短路——零数据变化跳过计价/聚合/落库，扫描器零变更轮复用去重产物 | P1 | 2026-10-25 |
