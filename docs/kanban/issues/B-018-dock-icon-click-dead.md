@@ -23,12 +23,13 @@ macOS 上点 Dock 图标：主窗隐藏时唤回、可见时带到前台（macOS
 
 ## Acceptance Criteria
 
-- [x] `MacTrayInterop.TryInstallDockReopen(Action)`：取 `NSApplication.sharedApplication.delegate` 实际类，`class_addMethod` 挂 `applicationShouldHandleReopen:hasAnyVisibleWindows:`（类型串 `B@:@B`，IMP 返回 YES）
-- [x] 已有实现时的安全降级：`class_addMethod` 失败（未来 Avalonia 版本自己接了 reopen）→ 跳过接线 + 诊断日志，不替换他人语义
-- [x] IMP 异常纪律：托管回调异常在托管侧吃干净（跨 ObjC 边界抛出即崩进程，与 TrayButtonActionImp 同款），堆栈留痕
-- [x] App 接线：macOS 且非 headless 时在 `trayService.Initialize()` 后安装，回调直调 `trayService.ShowWindow`（主线程即 UI 线程，与 interop 左键回调同约定）；安装失败不阻塞启动
-- [x] 回调语义复用 `ShowWindow`（Show + 脱最小化 + Activate）：主窗隐藏 → 唤回；可见 → 带到前台；弹层开着 → 主窗激活引发既有失焦通道自然收起
-- [ ] 真机 TC（移交用户）：关窗后点 Dock 图标唤回主窗；弹层开着点 Dock → 弹层收起主窗前置；Cmd+Tab 切走再点 Dock 带回
+- [x] 主通道 `NSAppleEventManager` 'aevt'/'rapp' handler：挂在 delegate 对象类上的 `tokenmetryReopenAppleEvent:withReplyEvent:`（类型串 `v@:@@`），事件直达 `DockReopenAEImp` → `ShowWindow`
+- [x] 纵深通道：正确拼写 `applicationShouldHandleReopen:hasAnyVisibleWindows:`（`B@:@B`，IMP 返回 YES）仍挂 delegate 类；add 失败 = 未来 Avalonia 自己接对了名字 → 跳过不抢语义
+- [x] 时序纪律：AEM 注册必须晚于 NSApp `finishLaunching`（早注册会被 NSApplication 自装的 'rapp' handler 顶掉，实测复现）——App 接线 `Dispatcher.UIThread.Post`
+- [x] cmd-H 应用级隐藏兜底：AEM 通道替换 NSApp 默认 'rapp' handler 后补 `unhide:`（未隐藏时 no-op）
+- [x] 异常纪律：两个 IMP 托管侧吃干净异常 + 堆栈留痕（跨 ObjC 边界抛出即崩进程）；安装失败不阻塞启动
+- [x] AX 模拟真机验证通过：关窗（orderOut）→ 点 Dock 图标 → 窗口唤回；stderr 无错误
+- [ ] 用户真机 TC：①关窗后点 Dock 图标唤回；②弹层开着点 Dock → 弹层收起主窗前置；③Cmd+Tab 切走再点 Dock 带回；④主窗最小化点 Dock → 脱最小化
 
 ## Dependencies
 
@@ -36,9 +37,15 @@ macOS 上点 Dock 图标：主窗隐藏时唤回、可见时带到前台（macOS
 
 ## Development Log
 
-### 2026-10-26
+### 2026-10-26（第二轮：用户反馈未解决，真机取证推翻初始修法）
 
-- 建卡即实施。interop 无 headless 可测面（D-016/D-018 同款先例：ObjC 层真机 TC，托管侧全量套件作回归网），TDD 例外按仓库 interop 卡惯例登记。
-- 实现两件：`MacTrayInterop.TryInstallDockReopen`（selector 缓存补 `delegate` / `applicationShouldHandleReopen:hasAnyVisibleWindows:`；`DockReopenImp` 走既有 UnmanagedCallersOnly + 托管侧吃异常纪律，hasVisibleWindows 不区分对待统一 ShowWindow；add 失败 / delegate 未就位两类降级路径均有诊断日志）+ `App.axaml.cs` 在 B-013 监听块后接线（mac 且非 headless，直调 `trayService.ShowWindow`——AppKit 主线程即 Avalonia UI 线程，与 interop 左键回调同约定）。
-- 全量：Core 189 / Reconciliation 49（19 跳过）/ Infra 681 / Headless 399 全绿；App.Tests 265+1 失败——`SingleInstanceGuardTests` 同款环境性 flake（证据已钉死与本卡及真 App 进程均无关，正式立卡 **B-020**，查清前验证遇此失败按该卡豁免）。
-- 真机 TC 清单移交用户：①关主窗后点 Dock 图标 → 主窗唤回；②弹层开着点 Dock → 弹层收起主窗前置；③Cmd+Tab 切走再点 Dock → 带回；④主窗最小化点 Dock → 脱最小化到前台。
+- **症状复现**：修复后点 Dock 图标依旧无反应。用户以 `dotnet run` 运行（排除旧包干扰）。
+- **取证过程**（全部真机 macOS 26.5，arm64）：
+  1. 启动期 stderr 零日志 → `TryInstallDockReopen` 三条降级路径均未触发，`class_addMethod` 成功；
+  2. AX 关窗后 AXPress Dock 磁贴 → 窗口不回；pid 直发 'rapp' AppleEvent（回执无 errn=被处理）→ 回调仍不触发；
+  3. 静态解剖 Avalonia.Native dylib + 上游源码（app.mm@12.1.4）：`AvnAppDelegate` 实现的是**拼写错误的** `applicationShouldHandleReopen:hasVisibleWindows:`（缺 "Any"）——本意转发 `_events->OnReopen()` → 托管 `ActivatableLifetime(Reopen)`，整条链死在 selector 名字上，是上游 bug；
+  4. 但补挂正确 selector 后 delegate 自己 `respondsToSelector=YES`，事件送达仍不回调；**原生对照实验**（20 行裸 AppKit 应用）同样复现 → macOS 26 裸可执行进程的 reopen 处理不咨询 delegate，与 Avalonia 无关；
+  5. 自有 AEM 'rapp' handler 在启动期注册被顶掉 → 定位出**时序约束**：NSApplication 在 `finishLaunching` 才自装 'rapp' handler（AEM 单 handler 顶替语义）；挪到 finishLaunching 之后注册 → 事件直达 `DockReopenAEImp`。
+- **修订修法**：主通道改自有 AEM 'rapp' handler（`Dispatcher.UIThread.Post` 延迟注册），原 delegate 补挂降为纵深通道；AEM 通道补 `unhide:` 覆盖 cmd-H 应用级隐藏；全部诊断埋点移除。
+- **验证**：AX 关窗 → AXPress Dock 磁贴 → 窗口唤回（onscreen=false→true），stderr 干净；全量 Core 189 / Reconciliation 49 / Infra 678 / Headless 399 全绿；App.Tests `SingleInstanceGuardTests` 4 失败经 stash 对照在干净 HEAD 同样复现（TMPDIR 管道路径超 104 字符上限，B-020 环境性问题，与本卡无关）。
+- **真机 TC 四项移交用户**（AX 模拟已过，真实手感待用户确认）。lldb 取证注意：batch 会话异常退出会被 debugserver 杀目标进程（本案误杀一次，.ips 可辨 `byProc: debugserver`）。

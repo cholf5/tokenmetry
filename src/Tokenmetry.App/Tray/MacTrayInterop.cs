@@ -43,6 +43,7 @@ internal static unsafe class MacTrayInterop
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr MsgSend(IntPtr receiver, IntPtr selector, IntPtr arg1);
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr MsgSend(IntPtr receiver, IntPtr selector, IntPtr arg1, IntPtr arg2);
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr MsgSend(IntPtr receiver, IntPtr selector, IntPtr arg1, IntPtr arg2, IntPtr arg3);
+    [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr MsgSend(IntPtr receiver, IntPtr selector, IntPtr arg1, IntPtr arg2, IntPtr arg3, IntPtr arg4);
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr MsgSend(IntPtr receiver, IntPtr selector, IntPtr arg1, ulong arg2);
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr MsgSend(IntPtr receiver, IntPtr selector, double arg1);
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr MsgSend(IntPtr receiver, IntPtr selector, IntPtr arg1, NSPoint arg2, IntPtr arg3);
@@ -70,7 +71,7 @@ internal static unsafe class MacTrayInterop
         SelButtonAction, SelTag, SelMouseLocation, SelDataWithBytesLength, SelInitWithData,
         SelMenuFontOfSize, SelPointSize, SelSystemStatusBar, SelInitWithTitle,
         SelInitWith3, SelPopUpMenu, SelGetSize,
-        SelSharedApp, SelSetAppIconImage, SelDelegate, SelShouldHandleReopen;
+        SelSharedApp, SelSetAppIconImage, SelDelegate, SelShouldHandleReopen, SelUnhide;
 
     // ── 运行时状态（单状态项，进程生命周期）──
     private static IntPtr _button, _menu, _target;
@@ -249,6 +250,7 @@ internal static unsafe class MacTrayInterop
         SelSetAppIconImage = Sel("setApplicationIconImage:");
         SelDelegate = Sel("delegate");
         SelShouldHandleReopen = Sel("applicationShouldHandleReopen:hasAnyVisibleWindows:");
+        SelUnhide = Sel("unhide:");
     }
 
     private static IntPtr Sel(string name) => sel_registerName(name);
@@ -371,14 +373,18 @@ internal static unsafe class MacTrayInterop
     /// 弹窗会悬空——钳到可视单元。</summary>
     private const double VisibleCellSide = 24;
 
-    /// <summary>Dock 图标点击唤回主窗（B-018）：macOS 惯例要求 app delegate 实现
-    /// <c>applicationShouldHandleReopen:hasAnyVisibleWindows:</c>（点 Dock 图标且无可见窗时 AppKit
-    /// 回调，Safari/Mail 等全系如此），Avalonia 12.1.4 的 Avalonia.Native 不实现该方法——窗口
-    /// orderOut 后点 Dock 图标无反应即此缺口。对 delegate 实例的实际类 class_addMethod 挂我们的
-    /// IMP（委托方法无 NSObject 默认实现，添加必成）；<b>add 失败 = 该类已有实现（未来 Avalonia
-    /// 自己接了 reopen），跳过不替换他人语义</b>，降级为现状。必须主线程调用（App 启动序在
-    /// OnFrameworkInitializationCompleted，delegate 已就位）；回调即 <see cref="TrayButtonActionImp"/>
-    /// 同约定：主线程（AppKit 主线程 = Avalonia UI 线程）直调、异常托管侧吃干净。</summary>
+    /// <summary>Dock 图标点击唤回主窗（B-018）。真机取证推翻了"挂 delegate 即可"的初始假设，
+    /// 两条实锤（对照实验与运行时埋点留证于卡内）：<list type="number">
+    /// <item>上游 AvnAppDelegate 实现的是拼写错误的 <c>applicationShouldHandleReopen:hasVisibleWindows:</c>
+    /// （缺 "Any"，app.mm 死代码），AppKit 按正确名字查找永远落空；</item>
+    /// <item>macOS 26 上裸可执行进程（dotnet run / 非 bundle）即使补挂正确 selector，AppKit 的
+    /// reopen 处理也不咨询 delegate——原生对照应用同样复现，故委托通道只能作纵深。</item></list>
+    /// 因此主通道为自有 NSAppleEventManager 'rapp' handler：事件一到直接回调 ShowWindow。
+    /// <para><b>时序约束</b>：AEM 同一事件只保有一个 handler，注册即替换；NSApplication 在
+    /// finishLaunching 才自装 'rapp' handler，会顶掉更早注册的 ours——调用方必须把本方法
+    /// Post 到 run loop 首个空闲点（晚于 finishLaunching），不得在启动期同步调用。</para>
+    /// <para>回调即 <see cref="TrayButtonActionImp"/> 同约定：主线程（AEM 主线程派发 = Avalonia
+    /// UI 线程）直调、异常托管侧吃干净；失败只降级为现状（Dock 死点）不阻塞启动。</para></summary>
     public static bool TryInstallDockReopen(Action onReopen)
     {
         try
@@ -393,14 +399,31 @@ internal static unsafe class MacTrayInterop
                 return false;
             }
 
-            var imp = (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, byte, byte>)&DockReopenImp;
-            if (!class_addMethod(object_getClass(delegateObject), SelShouldHandleReopen, imp, "B@:@B"))
+            _dockReopen = onReopen;
+            var delegateClass = object_getClass(delegateObject);
+
+            // 主通道：AEM 'rapp' handler 挂在 delegate 对象的类上（其生命周期与进程一致）。
+            var selAEMHandler = Sel("tokenmetryReopenAppleEvent:withReplyEvent:");
+            var impAE = (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, IntPtr, void>)&DockReopenAEImp;
+            if (!class_addMethod(delegateClass, selAEMHandler, impAE, "v@:@@"))
             {
-                Console.Error.WriteLine("[Tokenmetry] Dock reopen 接线跳过：delegate 类已有实现（Avalonia 更新？）");
+                Console.Error.WriteLine("[Tokenmetry] Dock reopen AEM handler 挂载失败（降级为现状）");
                 return false;
             }
 
-            _dockReopen = onReopen;
+            var eventManager = MsgSend(objc_getClass("NSAppleEventManager"), Sel("sharedAppleEventManager"));
+            // kCoreEventClass 'aevt' = 0x61657674；kAEReopenApplication 'rapp' = 0x72617070
+            MsgSend(eventManager, Sel("setEventHandler:andSelector:forEventClass:andEventID:"),
+                delegateObject, selAEMHandler, (IntPtr)0x61657674, (IntPtr)0x72617070);
+
+            // 纵深通道：正确拼写的 reopen 委托方法。上游只有拼错的死实现，add 必成；若未来
+            // Avalonia 自己接对了名字，add 失败即跳过，不替换他人语义。
+            var imp = (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, byte, byte>)&DockReopenImp;
+            if (!class_addMethod(delegateClass, SelShouldHandleReopen, imp, "B@:@B"))
+            {
+                Console.Error.WriteLine("[Tokenmetry] Dock reopen：delegate 已有 reopen 实现（Avalonia 更新？），跳过委托通道");
+            }
+
             return true;
         }
         catch (Exception ex)
@@ -427,6 +450,30 @@ internal static unsafe class MacTrayInterop
         }
 
         return 1; // YES
+    }
+
+    /// <summary>reopen Apple Event IMP（NSAppleEventManager 通道，AEM 主线程派发）。签名固定
+    /// (event, reply) 双对象参数——setEventHandler:andSelector: 的回调约定。委托通道在 macOS 26
+    /// 裸可执行进程整体失灵（对照实验在案），此通道是 B-018 的实际生效路径。</summary>
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void DockReopenAEImp(IntPtr self, IntPtr sel, IntPtr eventDescr, IntPtr replyDescr)
+    {
+        try
+        {
+            // 通道替换掉了 NSApplication 自装的 'rapp' handler，应用级隐藏（cmd-H）的默认唤回
+            // 也随之丢失——unhide 对未隐藏进程是无害 no-op，补上覆盖。
+            var app = MsgSend(objc_getClass("NSApplication"), SelSharedApp);
+            if (app != IntPtr.Zero)
+            {
+                MsgSend(app, SelUnhide, IntPtr.Zero);
+            }
+
+            _dockReopen?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] Dock reopen 处理失败：{ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+        }
     }
 
     /// <summary>图标按钮在 Avalonia 屏幕坐标系中的矩形（Cocoa 点 ≈ Avalonia DIP，macOS Scaling=1）。

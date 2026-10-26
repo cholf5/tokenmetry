@@ -129,12 +129,17 @@ public partial class App : Application
                     Avalonia.Threading.Dispatcher.UIThread.Post(trayService.ShowWindow));
             }
 
-            // B-018：macOS 点 Dock 图标唤回主窗（reopen 惯例，Avalonia 不实现——见
-            // MacTrayInterop.TryInstallDockReopen 注释）。与 B-013 同一 ShowWindow 语义；
-            // interop 内部全捕获，失败只降级为现状（Dock 死点）不阻塞启动。
+            // B-018：macOS 点 Dock 图标唤回主窗。真机取证（卡内留证）：①上游 AvnAppDelegate 只
+            // 实现拼写错误的 applicationShouldHandleReopen:hasVisibleWindows:（缺 Any），AppKit
+            // 永远调不到；②macOS 26 裸可执行进程连正确拼写的委托方法也不被咨询（原生对照实验
+            // 同样复现）——实际生效通道是自有 NSAppleEventManager 'rapp' handler。该注册必须晚于
+            // NSApp finishLaunching（否则被 NSApplication 自装的 'rapp' handler 顶掉），而本方法
+            // 运行于 finishLaunching 之前——必须 Post 到 run loop 首个空闲点。interop 内部全捕获，
+            // 失败只降级为现状（Dock 死点）不阻塞启动。
             if (OperatingSystem.IsMacOS() && !Tray.TrayService.IsHeadlessTestHost)
             {
-                Tray.MacTrayInterop.TryInstallDockReopen(trayService.ShowWindow);
+                Avalonia.Threading.Dispatcher.UIThread.Post(
+                    () => Tray.MacTrayInterop.TryInstallDockReopen(trayService.ShowWindow));
             }
 
             // D-003/Q-002：DashboardViewModel 无视图挂载（旧视图已清理），作为后台采集刷新锚点保留——
