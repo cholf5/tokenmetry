@@ -163,6 +163,17 @@ public sealed class StatusPopoverController
         }
     }
 
+    /// <summary>双击托盘第二击的收层（仅可见时收起）：不可见时跳过——Win32 双击第二击按下瞬间
+    /// 弹层多半已被失焦通道（Deactivated → Hide → OnHidden）收起，无条件 Hide 会重复触发
+    /// <see cref="StatusPopoverViewModel.OnHidden"/>。</summary>
+    public void HideIfVisible()
+    {
+        if (_window?.IsVisible == true)
+        {
+            Hide();
+        }
+    }
+
     // ── 定位 ──
 
     private void PositionWindow()
