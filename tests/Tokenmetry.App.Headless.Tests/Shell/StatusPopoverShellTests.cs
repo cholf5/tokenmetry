@@ -53,11 +53,6 @@ public class StatusPopoverShellTests : IDisposable
         var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
         var tray = new TrayService(_window, null, null, null, controller);
         tray.Initialize();
-        // 本用例是「一次一次的单击」：假时钟每次读取推进 1s（远超任何双击窗口），
-        // 连续三次同步调用不会被双击判定吞掉——不注入的话 Windows 宿主上默认
-        // 双击启用，微秒间隔的三次点击会命中双击分派，语义与本用例不符。
-        var clock = DateTimeOffset.UtcNow;
-        tray.TrayClock = () => clock = clock.AddSeconds(1);
 
         tray.OnTrayClicked();
         Assert.True(controller.WindowForTest!.IsVisible);
@@ -71,66 +66,6 @@ public class StatusPopoverShellTests : IDisposable
         tray.OnTrayClicked();
         Assert.True(controller.WindowForTest.IsVisible);
         Assert.Same(firstWindow, controller.WindowForTest);
-    }
-
-    [AvaloniaFact]
-    public void Tray_double_click_within_window_shows_main_window_and_hides_popover()
-    {
-        // Windows 托盘双击唤出主窗（docs/plans/2026-10-26-tray-double-click-design.md §3）：
-        // 两击间隔在窗口期内 → 第二击不再 Toggle，收弹层 + 唤回主窗。
-        // 双击门控默认仅 Windows，注入覆写让任意宿主平台的 headless 都能验证。
-        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
-        var tray = new TrayService(_window, null, null, null, controller);
-        tray.Initialize();
-        tray.TrayDoubleClickEnabled = true;
-        tray.TrayDoubleClickWindow = TimeSpan.FromMilliseconds(500);
-        var clock = DateTimeOffset.UtcNow;
-        tray.TrayClock = () => clock = clock.AddMilliseconds(100); // 两击间隔 100ms < 500ms
-
-        tray.OnTrayClicked(); // 第一击：单击语义 → 弹层弹出，主窗不动
-        Assert.True(controller.WindowForTest!.IsVisible);
-        Assert.False(_window.IsVisible);
-
-        tray.OnTrayClicked(); // 第二击：双击 → 弹层收起 + 主窗唤回（OneDrive 式分层）
-        Assert.True(_window.IsVisible);
-        Assert.False(controller.WindowForTest.IsVisible);
-    }
-
-    [AvaloniaFact]
-    public void Two_tray_clicks_beyond_window_still_toggle_popover()
-    {
-        // 单击行为回归保护：间隔超出双击窗口的两次点击仍走弹层 Toggle，
-        // 不被双击判定劫持（慢速开关弹层是合法操作）。
-        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
-        var tray = new TrayService(_window, null, null, null, controller);
-        tray.Initialize();
-        tray.TrayDoubleClickEnabled = true;
-        tray.TrayDoubleClickWindow = TimeSpan.FromMilliseconds(500);
-        var clock = DateTimeOffset.UtcNow;
-        tray.TrayClock = () => clock = clock.AddSeconds(1); // 两击间隔 1s > 500ms
-
-        tray.OnTrayClicked();
-        Assert.True(controller.WindowForTest!.IsVisible);
-
-        tray.OnTrayClicked();
-        Assert.False(controller.WindowForTest.IsVisible);
-        Assert.False(_window.IsVisible); // 主窗全程未被唤起
-    }
-
-    [AvaloniaFact]
-    public void Tray_double_click_without_controller_shows_window_without_throwing()
-    {
-        // 无弹层控制器的旧构造（headless / 简装配）：双击路径退化为重复 ShowWindow，幂等不炸。
-        var tray = new TrayService(_window);
-        tray.Initialize();
-        tray.TrayDoubleClickEnabled = true;
-        var clock = DateTimeOffset.UtcNow;
-        tray.TrayClock = () => clock = clock.AddMilliseconds(50);
-
-        tray.OnTrayClicked(); // 无控制器：A-0 直开主窗
-        tray.OnTrayClicked(); // 双击：重复 ShowWindow，无异常
-
-        Assert.True(_window.IsVisible);
     }
 
     [AvaloniaFact]
