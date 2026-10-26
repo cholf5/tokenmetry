@@ -6,7 +6,7 @@ priority: P2
 size: S
 status: done
 created: 2026-10-24
-updated: 2026-10-24
+updated: 2026-10-26
 blocked: none
 ---
 
@@ -57,6 +57,21 @@ Windows exe 文件 / macOS Dock 全是系统默认图标，品牌不闭环。三
       setApplicationIconImage: 两 selector，app 为 nil 时返回 false 不误报成功）
 - [x] `App.axaml.cs`：macOS Dock 调用点（try/catch 不阻塞启动；未来改 .app bundle
       + Info.plist icns 时删除，注释留证）
+
+## 修正项 1（2026-10-26）——window png 是裁切图，Windows 标题栏只见半张图标
+
+用户 Windows 真机反馈标题栏图标只显示一半。取证：`Assets/app-icon-window.png`
+alpha 解码不透明 bbox 仅 (122,0,255,255)——左 122px 全透明、内容贴死右/上/下画布
+边，是"Chrome 直出 256"时截到局部视口的裁切图，Windows 标题栏只是忠实显示它。
+ico（exe/固定任务栏）与 app-icon.png（macOS Dock）均不经过 Window.Icon 且资产完整
+（7 帧阶梯逐帧核过），故只有标题栏暴露；macOS 标题栏本就不显示窗口图标，Mac 上不可见。
+
+修法：ico 内 256 帧全出血渲染原样覆盖 `app-icon-window.png`，与 exe 图标像素级同源，
+代码零改动。headless 回归锁 `WindowIconTests.Window_icon_png_is_full_bleed` +1
+（alpha bbox 必须铺满画布；make-icon.py 烘焙自检覆盖不到这类管线外产物，只能测试里锁）。
+全量 Core 189 / Reconciliation 49 / Infra 678 / Headless 397 全绿；App.Tests 4 失败经
+stash 干净工作区复现为 SingleInstanceGuardTests 环境性失败（本机 TMPDIR 超 Unix 域
+套接字 104 字符上限，B-020 家族），与本次零交集。Windows 真机标题栏目检移交用户。
 
 ## Dev Log
 
