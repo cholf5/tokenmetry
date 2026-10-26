@@ -70,13 +70,14 @@ internal static unsafe class MacTrayInterop
         SelButtonAction, SelTag, SelMouseLocation, SelDataWithBytesLength, SelInitWithData,
         SelMenuFontOfSize, SelPointSize, SelSystemStatusBar, SelInitWithTitle,
         SelInitWith3, SelPopUpMenu, SelGetSize,
-        SelSharedApp, SelSetAppIconImage;
+        SelSharedApp, SelSetAppIconImage, SelDelegate, SelShouldHandleReopen;
 
     // ── 运行时状态（单状态项，进程生命周期）──
     private static IntPtr _button, _menu, _target;
     private static readonly List<IntPtr> NativeItems = new();
     private static IReadOnlyList<MacTrayItem>? _spec;
     private static Action? _leftClick;
+    private static Action? _dockReopen;
 
     /// <summary>是否已安装（TrayService 据此走 interop 分支）。</summary>
     public static bool IsInstalled { get; private set; }
@@ -246,6 +247,8 @@ internal static unsafe class MacTrayInterop
         SelPopUpMenu = Sel("popUpMenuPositioningItem:atLocation:inView:");
         SelSharedApp = Sel("sharedApplication");
         SelSetAppIconImage = Sel("setApplicationIconImage:");
+        SelDelegate = Sel("delegate");
+        SelShouldHandleReopen = Sel("applicationShouldHandleReopen:hasAnyVisibleWindows:");
     }
 
     private static IntPtr Sel(string name) => sel_registerName(name);
@@ -367,6 +370,64 @@ internal static unsafe class MacTrayInterop
     /// NSStatusBarButton 的 frame 往往更高（含命中扩展区，实测高于可视单元十余磅），直接用它锚定
     /// 弹窗会悬空——钳到可视单元。</summary>
     private const double VisibleCellSide = 24;
+
+    /// <summary>Dock 图标点击唤回主窗（B-018）：macOS 惯例要求 app delegate 实现
+    /// <c>applicationShouldHandleReopen:hasAnyVisibleWindows:</c>（点 Dock 图标且无可见窗时 AppKit
+    /// 回调，Safari/Mail 等全系如此），Avalonia 12.1.4 的 Avalonia.Native 不实现该方法——窗口
+    /// orderOut 后点 Dock 图标无反应即此缺口。对 delegate 实例的实际类 class_addMethod 挂我们的
+    /// IMP（委托方法无 NSObject 默认实现，添加必成）；<b>add 失败 = 该类已有实现（未来 Avalonia
+    /// 自己接了 reopen），跳过不替换他人语义</b>，降级为现状。必须主线程调用（App 启动序在
+    /// OnFrameworkInitializationCompleted，delegate 已就位）；回调即 <see cref="TrayButtonActionImp"/>
+    /// 同约定：主线程（AppKit 主线程 = Avalonia UI 线程）直调、异常托管侧吃干净。</summary>
+    public static bool TryInstallDockReopen(Action onReopen)
+    {
+        try
+        {
+            // selector 先就位（同 TrySetDockIcon 的空 selector 段错误教训）
+            CacheSelectors();
+            var app = MsgSend(objc_getClass("NSApplication"), SelSharedApp);
+            var delegateObject = app == IntPtr.Zero ? IntPtr.Zero : MsgSend(app, SelDelegate);
+            if (delegateObject == IntPtr.Zero)
+            {
+                Console.Error.WriteLine("[Tokenmetry] Dock reopen 接线跳过：app delegate 未就位");
+                return false;
+            }
+
+            var imp = (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, byte, byte>)&DockReopenImp;
+            if (!class_addMethod(object_getClass(delegateObject), SelShouldHandleReopen, imp, "B@:@B"))
+            {
+                Console.Error.WriteLine("[Tokenmetry] Dock reopen 接线跳过：delegate 类已有实现（Avalonia 更新？）");
+                return false;
+            }
+
+            _dockReopen = onReopen;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] Dock reopen interop 失败（降级为现状）：{ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>reopen IMP（仅主线程进入；返回 YES = 已处理）。hasVisibleWindows 参数不区分对待：
+    /// 回调统一走 ShowWindow（隐藏 → 唤回 / 可见 → 带到前台 / 最小化 → 脱最小化），与托盘
+    /// 「打开主窗」、B-013 第二实例激活同一语义；弹层开着时主窗激活引发既有失焦通道自然收起。</summary>
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static byte DockReopenImp(IntPtr self, IntPtr sel, IntPtr sender, byte hasVisibleWindows)
+    {
+        try
+        {
+            _dockReopen?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            // 堆栈必须留：跨 ObjC 边界抛出即崩进程（同 TrayButtonActionImp 纪律）
+            Console.Error.WriteLine($"[Tokenmetry] Dock reopen 处理失败：{ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+        }
+
+        return 1; // YES
+    }
 
     /// <summary>图标按钮在 Avalonia 屏幕坐标系中的矩形（Cocoa 点 ≈ Avalonia DIP，macOS Scaling=1）。
     /// 取宿主状态窗口 frame 后**顶对齐钳到可视单元**：状态窗口含命中扩展（实测比可视单元高十余磅、
