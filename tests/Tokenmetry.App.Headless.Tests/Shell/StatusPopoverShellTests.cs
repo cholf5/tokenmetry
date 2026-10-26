@@ -25,7 +25,8 @@ namespace Tokenmetry.App.Headless.Tests.Shell;
 ///        未装配（旧 1 参构造）维持 A-0 直开主窗；
 /// TC-002 既有行为回归：TrayServiceTests / CloseToTrayBehaviorTests / AppShellTests 全量兜底
 ///        （本文件只覆盖新增分派路径）；
-/// Esc 收起与失焦收起（Deactivated → Hide 在窗口构造接线，headless 直发按键验证 Esc 路径）；
+/// Esc 收起与失焦收起（接线在 StatusPopoverController，B-017；headless 直发按键验证 Esc 路径，
+/// 失焦守卫经 internal 处理器直接模拟 Win32"先失焦后 Clicked"时序）；
 /// PopoverPositioner 纯函数：TopRight / AboveCursor 锚定与工作区钳制。
 /// </summary>
 public class StatusPopoverShellTests : IDisposable
@@ -65,6 +66,42 @@ public class StatusPopoverShellTests : IDisposable
         tray.OnTrayClicked();
         Assert.True(controller.WindowForTest.IsVisible);
         Assert.Same(firstWindow, controller.WindowForTest);
+    }
+
+    [AvaloniaFact]
+    public void Toggle_within_focus_loss_guard_stays_closed_then_reopens()
+    {
+        // B-017 回归锁：Win32 点托盘时序是"按下先失焦（Deactivated → 失焦收起）→ 抬起才 Clicked
+        // （→ Toggle）"——没有守卫时 Toggle 看到的已是"关着"，左键永远只会 Open（Windows 实测）。
+        // headless 不产生 Deactivated，经 internal 处理器直接模拟该时序。
+        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
+        controller.Show();
+        Assert.True(controller.WindowForTest!.IsVisible);
+
+        controller.OnShellWindowDeactivated(controller, EventArgs.Empty); // 本次托盘点击的失焦通道：收起 + 记账
+        Assert.False(controller.WindowForTest.IsVisible);
+
+        controller.ToggleFromTrayClick(); // 同一次点击的收起意图：不重新弹出（Switch 语义）
+        Assert.False(controller.WindowForTest.IsVisible);
+
+        controller.ToggleFromTrayClick(); // 守卫消费一次即失效：下一次点击正常再开
+        Assert.True(controller.WindowForTest.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void Self_initiated_hide_does_not_arm_focus_loss_guard()
+    {
+        // Toggle/导航收起引发的 Deactivated（自身 Hide 时窗口已不可见）不算失焦收起，
+        // 不给下一次点击上锁——收起后立刻再点托盘应能再开。
+        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
+        controller.Show();
+
+        controller.ToggleFromTrayClick();
+        Assert.False(controller.WindowForTest!.IsVisible);
+
+        controller.OnShellWindowDeactivated(controller, EventArgs.Empty); // 若误记账，下一行 Toggle 会被守卫吞掉
+        controller.ToggleFromTrayClick();
+        Assert.True(controller.WindowForTest.IsVisible);
     }
 
     [AvaloniaFact]

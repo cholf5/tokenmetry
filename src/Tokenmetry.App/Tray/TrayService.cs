@@ -118,12 +118,14 @@ public class TrayService
         return true;
     }
 
-    /// <summary>弹层 Toggle；未装配弹层时维持 A-0 直开主窗（与 OnTrayClicked 同语义）。</summary>
+    /// <summary>弹层托盘左键 Toggle（macOS interop 左键回调与 Avalonia Clicked 共用；未装配弹层时
+    /// 维持 A-0 直开主窗）。走 <see cref="StatusPopoverController.ToggleFromTrayClick"/> 带失焦守卫
+    /// （B-017）——菜单项的显式 Toggle 不经此处，不带守卫。</summary>
     private void TogglePopoverOrShowWindow()
     {
         if (_popover is { } popover)
         {
-            popover.Toggle();
+            popover.ToggleFromTrayClick();
         }
         else
         {

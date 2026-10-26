@@ -11,9 +11,9 @@ using Avalonia.VisualTree;
 namespace Tokenmetry.App.Tray;
 
 /// <summary>
-/// D-016 弹窗壳（无边框 / 透明 / 失焦收起 / Esc 收起）：交互分工 = 托盘左键 Toggle 弹层、
-/// 右键既有菜单（macOS interop 路径：右键原生 NSMenu；Avalonia 路径：NativeMenu）；内容层 100%
-/// 来自 D-015（DataContext 即 StatusPopoverViewModel）。
+/// D-016 弹窗壳（无边框 / 透明 / Esc 收起；失焦收起由 <see cref="StatusPopoverController"/> 接线）：
+/// 交互分工 = 托盘左键 Toggle 弹层、右键既有菜单（macOS interop 路径：右键原生 NSMenu；
+/// Avalonia 路径：NativeMenu）；内容层 100% 来自 D-015（DataContext 即 StatusPopoverViewModel）。
 /// <para>投影形态（协商失败回落态）：窗口宽 = 卡片 + 两侧投影留白，<see cref="ShadowMargins"/> 是
 /// BoxShadow 的渲染留白（控制器锚定换算的单一来源）；投影色走令牌 AppPopoverShadowColor（随明暗
 /// 翻转）——XAML 无法把 BoxShadow 的颜色部分交给 DynamicResource，故在代码 Behind 按
@@ -43,7 +43,9 @@ public partial class StatusPopoverWindow : Window
     {
         InitializeComponent();
         ShadowHost.Margin = ShadowMargins;
-        Deactivated += (_, _) => Hide();
+        // 失焦收起接线在 StatusPopoverController（B-017 移入）：控制器要同时记账失焦时刻供
+        // Toggle 守卫识别"刚被本次托盘点击的失焦收掉"，且走控制器 Hide 补 VM.OnHidden；
+        // 这里若再自接线会先一步 Hide，控制器处理器看到的已是 IsVisible=false。
         Activated += OnActivated;
         ApplyAcrylic(); // XAML inflate 期 hint 即设即报（B5 踩坑留证），ctor 末尾协商结果已可用
     }
@@ -63,7 +65,7 @@ public partial class StatusPopoverWindow : Window
 
     internal bool IsAcrylic => ActualTransparencyLevel == WindowTransparencyLevel.AcrylicBlur;
 
-    /// <summary>Esc 收起（弹层期间唯一的键盘出口；失焦收起在 Deactivated）。</summary>
+    /// <summary>Esc 收起（弹层期间唯一的键盘出口；失焦收起由控制器接 Deactivated，B-017）。</summary>
     protected override void OnKeyDown(KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
