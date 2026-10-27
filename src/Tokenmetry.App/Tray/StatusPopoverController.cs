@@ -21,7 +21,11 @@ namespace Tokenmetry.App.Tray;
 /// <para>线程约定：托盘 Clicked / 导航命令都在 UI 线程，无需 marshal。</para>
 /// <para>锚定（卡内台阶设计）：Windows 用 GetCursorPos（物理像素，与 Screen.Bounds 同空间）光标
 /// 上方；macOS 零 interop 主屏工作区右上近似——真机目检（TC-003）不可接受再按卡升级最小 interop；
-/// 其余平台回落 TopRight。headless 无屏幕信息时跳过定位（装配/收起逻辑不受影响）。</para>
+/// 其余平台回落 TopRight。宿主不提供屏幕信息（screens.All 为空）时跳过定位（装配/收起逻辑不受影响）。</para>
+/// <para>尺寸跟随（B-021）：<c>SizeToContent="Height"</c> 窗口在显示后仍会因数据异步回填 / banner
+/// 显隐改变高度，且只向下生长。位置只在 Show 后算一次会让底缘越过任务栏（首显尤甚：空态 420 DIP
+/// → 回填后 719 DIP）；故 Show 时捕获本次点击的光标锚点，<see cref="StatusPopoverWindow.SizeChanged"/>
+/// 时按同一锚点重算——Windows 底缘钉在光标上方，macOS/回落顶缘锚定天然幂等。</para>
 /// </summary>
 public sealed class StatusPopoverController
 {
@@ -50,6 +54,10 @@ public sealed class StatusPopoverController
     private StatusPopoverWindow? _window;
     private StatusPopoverViewModel? _viewModel;
     private DateTimeOffset _lastFocusLostUtc = DateTimeOffset.MinValue;
+
+    /// <summary>本次显示周期的 Windows 锚定光标点（点托盘那一刻捕获，重锚复用）：用户随后把鼠标
+    /// 移开再遇到内容高度变化时，仍回到点击位置，而不是跟着当前光标跑。</summary>
+    private PixelPoint? _anchorCursor;
 
     public StatusPopoverController(
         Window mainWindow,
@@ -124,6 +132,10 @@ public sealed class StatusPopoverController
     /// <summary>壳窗实例（headless 测试装配/收起断言用；正常运行无其他消费者）。</summary>
     internal StatusPopoverWindow? WindowForTest => _window;
 
+    /// <summary>锚定光标测试注入：headless 测试无法控制真实光标，注入确定点后可断言「内容变高
+    /// 时底缘不动」。默认 null 走真实 GetCursorPos。</summary>
+    internal PixelPoint? CursorAnchorOverrideForTest { get; set; }
+
     public void Show()
     {
         if (_window is null)
@@ -131,9 +143,13 @@ public sealed class StatusPopoverController
             var window = new StatusPopoverWindow { DataContext = ViewModel };
             // 失焦收起接线（B-017 从窗口构造移入）：走控制器 Hide 补 VM.OnHidden；守卫记账见下
             window.Deactivated += OnShellWindowDeactivated;
+            // 高度跟随（B-021）：数据异步回填 / banner 显隐会让 SizeToContent 窗口继续向下长；
+            // 显示期尺寸一变就按首锚重算，Windows 底缘才不会越长越压过任务栏。
+            window.SizeChanged += OnShellWindowSizeChanged;
             _window = window;
         }
 
+        _anchorCursor = CaptureCursorAnchor(); // 本次点击的光标（非 Windows / 取不到 → null）
         ViewModel.OnShown(); // 可见期才发查询（内容层约定）；速率/三态机不受可见性影响
         _window.Show();
         PositionWindow();
@@ -163,6 +179,17 @@ public sealed class StatusPopoverController
         }
     }
 
+    /// <summary>显示期尺寸变化（SizeToContent 内容高度）→ 按本次显示的首锚重算位置：Windows 底缘
+    /// 钉在托盘光标上方，窗口向上长；macOS / 回落是顶缘锚定，重算等价于不动。隐藏期不处理——下次
+    /// Show 会用新光标 + 当时尺寸从头定位。</summary>
+    private void OnShellWindowSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (_window?.IsVisible == true)
+        {
+            PositionWindow();
+        }
+    }
+
     // ── 定位 ──
 
     private void PositionWindow()
@@ -176,12 +203,11 @@ public sealed class StatusPopoverController
 
         if (OperatingSystem.IsWindows())
         {
-            if (!TryGetCursorPos(out var nativePoint))
+            if (_anchorCursor is not { } cursor)
             {
-                return;
+                return; // 取不到点击光标：保持平台默认位置（同旧行为）
             }
 
-            var cursor = new PixelPoint(nativePoint.X, nativePoint.Y);
             var screen = screens.ScreenFromPoint(cursor) ?? screens.Primary ?? screens.All[0];
             window.Position = PopoverPositioner.AnchorAboveCursor(
                 screen.WorkingArea,
@@ -233,6 +259,7 @@ public sealed class StatusPopoverController
         // 不用 window.Bounds：首次 Show 后 Bounds 高度仍是平台默认值（CW_USEDEFAULT ≈ 720 DIP，
         // SizeToContent 实测高度要等首个布局 tick 才回写 Bounds），用它锚定会把弹窗抬高数百 px
         // ——Windows 首显「弹在屏幕中间偏右」的根因；ClientSize 在 Show() 返回时即已正确。
+        // 显示后内容高度仍会变（数据回填/banner），每次调用取当次 ClientSize，由 SizeChanged 触发重算。
         var size = window.ClientSize;
         return new Size(size.Width * screen.Scaling, size.Height * screen.Scaling);
     }
@@ -281,5 +308,16 @@ public sealed class StatusPopoverController
         public int Y;
     }
 
-    private static bool TryGetCursorPos(out NativePoint point) => GetCursorPos(out point);
+    /// <summary>本次显示的光标锚点：测试注入优先；Windows 取真实光标；其余平台无（用各自锚点）。</summary>
+    private PixelPoint? CaptureCursorAnchor()
+    {
+        if (CursorAnchorOverrideForTest is { } overridden)
+        {
+            return overridden;
+        }
+
+        return OperatingSystem.IsWindows() && GetCursorPos(out var point)
+            ? new PixelPoint(point.X, point.Y)
+            : null;
+    }
 }

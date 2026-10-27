@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-27：**B-021 托盘弹窗首显仍偏下收口（B-016 修正项 1）**。用户反馈 B-016 修复后首显位置仍偏下（截图中 footer 被屏幕底缘裁掉），收起再点第二次就正常。取证：B-016 只修了「首显取陈旧 Bounds 高度」，漏了「显示后内容高度继续增长」——`Show()` 一次性锚定时 VM 还是空态（headless 实测 ClientSize 420 DIP），查询在 Show 返回后才回填，`SizeToContent="Height"` 窗口只向下长（满载 719 DIP），位置不再更新 → 底缘越过任务栏；二次 Show 时数据已就绪故正常。修法：Show 时捕获本次点击光标为首锚（每次重取，重锚复用不跟当前光标跑），壳窗显示期 `SizeChanged` 按同锚重算位置——Windows 底缘钉在光标上方，macOS/回落顶缘锚定天然幂等；隐藏期尺寸变化不处理。headless 回归锁 +1（GatedQueryService 挂起查询复刻异步回填 + 注入确定锚点；去掉接线实测 RED 底缘漂 123 DIP → GREEN）；`PopoverPositioner` 零改动。全量 Core 189 / Reconciliation 49（19 跳过）/ Infra 681 / Headless 398 / App.Tests 306 全绿（App.Tests 首轮 1 失败 = `SingleInstanceGuardTests` 既有 B-020 环境性 flake，单类与重跑均过）。真机 Windows 首显目检移交用户。
+
 > 2026-10-26：**D-018 修正项 1——Windows 标题栏图标只显示一半收口**。用户 Windows 真机反馈标题栏图标只见半张。取证（纯 Mac 可完成）：`app-icon-window.png` 本身是裁切图——alpha 解码不透明 bbox 仅 (122,0,255,255)（左 122px 全透明、右/上/下贴死画布边），标题栏只是忠实显示；ico 7 帧阶梯（16–256）与 1024 Apple 网格主图均完整且不经 Window.Icon（exe/Dock 免疫），故只有标题栏暴露。病根：该资产当日"Chrome 直出 256"系烘焙管线外手工产物（make-icon.py 的 full-bleed 自检只覆盖 ico/png），自 8d2ab6f 落地起即坏。修法：ico 内 256 帧全出血渲染原样覆盖（与 exe 图标像素级同源，代码零改动）；headless 回归锁 +1（alpha bbox 必须铺满画布，RED 实锤 minX=122 → GREEN）。全量 Core 189 / Reconciliation 49 / Infra 678 / Headless 397 全绿；App.Tests 4 失败均为 SingleInstanceGuardTests——本机 TMPDIR 路径超 Unix 域套接字 104 字符上限（stash 干净工作区复现同款，B-020 同族环境性，与图标资产零交集）。真机 Windows 标题栏目检移交用户。
 
 > 2026-10-26（D-023 回退）：**Windows 托盘双击唤出主窗——真机翻车同日回退，卡片退回 Todo**。用户 Windows 真机实测反馈「体验极差，交互上会和单击 Switch 开关冲突」→ revert 7416e82 整体回退：`OnTrayClicked` 双击时间窗拦截 / `HideIfVisible` / `GetDoubleClickTime` P/Invoke / 三 internal 注入点 / +3 headless 用例与既有单击用例假时钟改造全撤，不留死代码，单击分派恢复 B-017 语义原样。冲突机理：B-017 收口后托盘左键单击是 Switch（弹层开着点=收层）——弹层可见时快速第二击本意收层，却被时间窗判成双击直接唤出主窗；两次 WM_LBUTTONUP `Clicked` 流上的时间窗判定无法区分「快速连击收层」与「双击开窗」，方案级冲突调参不可救。另澄清：收口注记引用的设计文档 `docs/plans/2026-10-26-tray-double-click-design.md` 从未入库（悬空引用）。后续出路（彻底放弃 / 另寻双击检测手段）待用户决策。
@@ -124,6 +126,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| B-021 | 托盘弹窗首显仍偏下——SizeToContent 数据异步回填撑高窗口，位置只在 Show 后算一次（B-016 修正项 1） | P2 | 2026-10-27 |
 | D-025 | 第二梯队 es/de/fr 落地——语种决策由「社区认领」改为「即刻全量」（界面语言 10 语种） | P2 | 2026-10-27 |
 | D-024 | 界面多语种扩展——zh-Hant/ja/ko/pt-BR/ru 五语种全量翻译 + 回退链固化（es/de/fr 等社区认领） | P2 | 2026-10-27 |
 | P-004 | Native AOT 支持——反射 JSON 全量源生成，PublishAot 编译零警告（发布矩阵接线不在本卡） | P3 | 2026-10-27 |
@@ -132,7 +135,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | I-042 | 无变化轮次短路——零数据变化跳过计价/聚合/落库，扫描器零变更轮复用去重产物 | P1 | 2026-10-25 |
 | P-003 | 发布产物 PublishReadyToRun——JIT 代码堆缩小/启动提速（包体积 +30-50% 已登记） | P3 | 2026-10-25 |
 | S-007 | 刷新间隔默认 1→5 分钟——后台采集常态空转降频（设置页 1–1440 可调不动） | P2 | 2026-10-25 |
-| B-016 | 托盘弹窗首显锚定取陈旧 Bounds 高度——ScreenSize 改 ClientSize，首显即贴托盘（Windows 中间偏右根因） | P2 | 2026-10-25 |
+| B-016 | 托盘弹窗首显锚定取陈旧 Bounds 高度——ScreenSize 改 ClientSize，首显即贴托盘（Windows 中间偏右根因；修正项 1 见 B-021） | P2 | 2026-10-25 |
 | D-022 | 官网功能页富数据截图套件——stub fixture × zh/en × 明暗 × 7 页 + 托盘（裸窗特写，零 src 改动） | P3 | 2026-10-25 |
 | B-015 | 价格输入双文化解析（invariant Float 优先 + 本机兜底）——de-DE 逗号小数可录入；旧实现对 0,5 实为静默千倍错标非拒绝 | P3 | 2026-10-25 |
 | B-010 | 日志读取共享写（AgentLogReader）——Windows agent 持写句柄期间不再静默缺数据 | P1 | 2026-10-25 |
