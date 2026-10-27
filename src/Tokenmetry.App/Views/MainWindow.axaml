@@ -51,20 +51,23 @@
                 </Animation>
             </Style.Animations>
         </Style>
-        <!-- 侧栏导航列表（原型 .nav）：透明底、条目 8px 圆角、悬停/选中走 D-003 外壳令牌 -->
+        <!-- 侧栏导航列表（原型 .nav）：条目 8px 圆角、悬停/选中走 D-003 外壳令牌；
+             静息态用 AppNavRestBackgroundBrush（同 hover RGB 的 0 alpha）而非 Transparent——
+             BrushTransition 在透明白与原色之间插值会闪白 -->
         <Style Selector="ListBox.nav-list">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="0"/>
         </Style>
         <Style Selector="ListBox.nav-list ListBoxItem">
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Background" Value="{DynamicResource AppNavRestBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource AppNavForegroundBrush}"/>
             <Setter Property="Padding" Value="10,10"/>
             <Setter Property="MinHeight" Value="40"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Margin" Value="0,0,0,5"/>
-            <!-- hover 渐变（motion design §6）：底色/前景 120ms 过渡，不跳变 -->
+            <!-- hover 渐变（motion design §6）：底色/前景 120ms 过渡，不跳变；
+                 底色起止两端同 RGB，过渡只走 alpha（见上方静息态令牌说明） -->
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.12"/>

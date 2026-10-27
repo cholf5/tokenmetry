@@ -7,12 +7,17 @@
 
 > D-003 补充：外壳专用令牌 `AppSidebarBackgroundBrush` / `AppTopbarBackgroundBrush` /
 > `AppNavForegroundBrush` / `AppNavActiveBackgroundBrush` / `AppNavActiveForegroundBrush` /
-> `AppNavActiveIndicatorBrush` / `AppNavHoverBackgroundBrush`（Dark 侧对应原型 `.sidebar/.topbar/.nav`
+> `AppNavActiveIndicatorBrush` / `AppNavHoverBackgroundBrush` / `AppNavRestBackgroundBrush`
+> （Dark 侧对应原型 `.sidebar/.topbar/.nav`
 > 选择器原值，Light 为协调补值）。已进 ThemeDictionaries；外壳导航样式（`ListBox.nav-list` 等）留在
 > `MainWindow.axaml` 的 Window.Styles 内（外壳私有，页面卡勿复用），页面级样式仍从 SharedStyles.axaml 取。
 >
 > Q-021 追加 `AppNavForegroundBrush`（非选中导航项前景）：导航是可点击入口，语义上强于 muted 说明文字。
 > Light `#3d4c63`（侧栏底 7.68:1，对齐原型 .nav 在暗底的 9.09 强度档），Dark `#8293ad`（沿用目检通过的现值）。
+>
+> `AppNavRestBackgroundBrush` 是导航项静息态：与 `AppNavHoverBackgroundBrush` **同 RGB 的 0 alpha**
+> 画刷，专供 `BrushTransition` 起始值。不要用 `Transparent` 当带颜色过渡的起点——Avalonia 的
+> `Transparent` 是透明白 `#00FFFFFF`，颜色插值会扫过半透明白，暗色侧表现为悬停/切换时条目闪白。
 >
 > 首次初始化遮罩补充：`AppOverlayScrimBrush`（MainWindow.axaml 的 `InitializingOverlay` 专用，
 > 页面底色 90% 不透明，Light/Dark 各一份随明暗翻转；外壳私有样式 `overlay-card` /

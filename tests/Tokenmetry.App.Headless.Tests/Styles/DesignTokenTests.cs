@@ -81,6 +81,8 @@ public class DesignTokenTests
         ["AppNavActiveForegroundBrush"] = ("#2b5d9f", "#9dc2ff"),
         ["AppNavActiveIndicatorBrush"] = ("#2e6bdc", "#5794ff"),
         ["AppNavHoverBackgroundBrush"] = ("#e3eaf4", "#1e2531"),
+        // 导航项静息态：与 hover 同 RGB 的 0 alpha 画刷（BrushTransition 起点，不能是 Transparent）
+        ["AppNavRestBackgroundBrush"] = ("#00e3eaf4", "#001e2531"),
         // D-004 图表 chrome（.chart .gridline/.axis 色值；Light 为协调补值）
         ["AppChartGridLineBrush"] = ("#d9e1ec", "#2c343f"),
         ["AppChartAxisLineBrush"] = ("#b9c5d7", "#3d4651"),
