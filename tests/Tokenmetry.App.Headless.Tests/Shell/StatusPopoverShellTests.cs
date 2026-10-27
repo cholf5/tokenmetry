@@ -118,38 +118,6 @@ public class StatusPopoverShellTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void Popover_menu_item_toggles_popover_and_absent_without_controller()
-    {
-        // macOS 事实：TrayIcon.Clicked 不 raise（任何点击都开 NativeMenu）——弹层的零 interop
-        // 入口是本菜单项；Windows 左键已直弹，此项为冗余但一致的入口。
-        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
-        var tray = new TrayService(_window, null, null, null, controller);
-        tray.Initialize();
-
-        var item = tray.PopoverItemForTest;
-        Assert.NotNull(item);
-        Assert.Equal("快捷信息窗", item!.Header);
-        Assert.Contains(item, TrayIcon.GetIcons(Application.Current!)![0].Menu!.Items);
-
-        item.Command!.Execute(null);
-        Assert.True(controller.WindowForTest!.IsVisible);
-        item.Command.Execute(null);
-        Assert.False(controller.WindowForTest.IsVisible);
-    }
-
-    [AvaloniaFact]
-    public void Popover_menu_item_absent_without_controller()
-    {
-        var legacy = new TrayService(new MainWindow());
-        legacy.Initialize();
-        Assert.Null(legacy.PopoverItemForTest);
-        var icon = TrayIcon.GetIcons(Application.Current!)![0];
-        Assert.DoesNotContain(icon.Menu!.Items.OfType<NativeMenuItem>(), i => i.Header as string == "快捷信息窗");
-
-        TrayIcon.GetIcons(Application.Current!)!.Clear();
-    }
-
-    [AvaloniaFact]
     public void Escape_hides_popover()
     {
         var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
