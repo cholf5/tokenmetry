@@ -28,8 +28,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly PricingEngine _pricingEngine;
     private readonly BackgroundRefreshService? _refreshService;
 
+    /// <summary>窗口标题只留品牌名（D-026）：副标题在 caption / 任务栏里重复侧栏品牌，且无人阅读。</summary>
     [ObservableProperty]
-    private string _title = "Tokenmetry — Token Analytics";
+    private string _title = "Tokenmetry";
 
     [ObservableProperty]
     private NavigationItemViewModel? _selectedNavigation;
