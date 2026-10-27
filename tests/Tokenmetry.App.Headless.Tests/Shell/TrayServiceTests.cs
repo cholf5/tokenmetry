@@ -17,8 +17,9 @@ namespace Tokenmetry.App.Headless.Tests.Shell;
 /// A-0 托盘常驻的 headless 验证（headless 宿主无桌面生命周期，App 启动的托盘接线块不执行，
 /// 由本测试直接构造 TrayService 覆盖同一初始化路径）：
 /// 1. Initialize 经 TrayIcon.SetIcons 注册托盘（唯一挂载路径，修复前图标永不出现）；
-/// 2. 菜单规格 = 今日成本行 + 打开主窗 / 立即刷新 / 设置 / 退出（v0.5 规格docs/plans §5）；
-/// 3. UpdateToolTip 回写 tooltip 与菜单首行（修复前为死方法，托盘永远不显示成本）；
+/// 2. 菜单规格 = 打开主窗 / 立即刷新 / 设置 / 退出（v0.5 规格docs/plans §5；今日成本行与
+///    快捷信息窗项已按用户要求移除——成本仅剩 tooltip 出口，弹层走托盘左键）；
+/// 3. UpdateToolTip 回写 tooltip（修复前为死方法，托盘永远不显示成本）；
 /// 4. 用户关窗 = 隐藏到托盘（可再唤回），不真正销毁窗口（修复前关窗即退出）。
 /// D-014 状态栏文本直显经真机取证不可行（Avalonia 方形状态项裁剪宽位图，卡内 B1），
 /// 已回落模板图标——相关接线与测试一并撤除，紧凑格式化器保留在 App.Tests（D-015 复用）。
@@ -59,11 +60,12 @@ public class TrayServiceTests : IDisposable
         Assert.Contains("立即刷新", headers);
         Assert.Contains("设置", headers);
         Assert.Contains("退出", headers);
-        Assert.NotNull(CostItem(icon)); // 今日成本常驻行（macOS 无 tooltip，此行是成本唯一出口）
+        Assert.Null(CostItem(icon)); // 今日成本行已移除：成本只走 tooltip（Avalonia 路径）
+        Assert.DoesNotContain(headers, h => h as string == "快捷信息窗"); // 弹层入口只剩托盘左键
     }
 
     [AvaloniaFact]
-    public void UpdateToolTip_updates_both_tooltip_and_cost_menu_row()
+    public void UpdateToolTip_updates_tooltip_only()
     {
         var tray = new TrayService(_window);
         tray.Initialize();
@@ -73,7 +75,7 @@ public class TrayServiceTests : IDisposable
         tray.UpdateToolTip("今日成本：$12.50");
 
         Assert.Equal("今日成本：$12.50", icon!.ToolTipText);
-        Assert.Equal("今日成本：$12.50", CostItem(icon)!.Header);
+        Assert.Null(CostItem(icon)); // 菜单里没有成本行可回写
     }
 
     [AvaloniaFact]
@@ -92,7 +94,6 @@ public class TrayServiceTests : IDisposable
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal("今日成本：$9.99", icon!.ToolTipText);
-        Assert.Equal("今日成本：$9.99", CostItem(icon)!.Header);
     }
 
     [AvaloniaFact]

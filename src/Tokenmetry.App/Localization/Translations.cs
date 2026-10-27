@@ -117,7 +117,6 @@ public sealed partial class Translations : INotifyPropertyChanged
 
         // ── 托盘（TrayService）──
         [nameof(TrayTooltip)] = "Tokenmetry — Token 成本监控",
-        [nameof(TrayQuickInfo)] = "快捷信息窗",
         [nameof(TrayCostFormat)] = "今日成本：${0:F2}",
         [nameof(TrayCostNoData)] = "今日成本：—（尚无数据）",
         [nameof(TrayOpenWindow)] = "打开主窗",
@@ -552,7 +551,6 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(AllProjects)] = "All projects",
 
         [nameof(TrayTooltip)] = "Tokenmetry — token cost monitor",
-        [nameof(TrayQuickInfo)] = "Quick info panel",
         [nameof(TrayCostFormat)] = "Today: ${0:F2}",
         [nameof(TrayCostNoData)] = "Today: — (no data yet)",
         [nameof(TrayOpenWindow)] = "Open window",
@@ -1135,7 +1133,6 @@ public sealed partial class Translations : INotifyPropertyChanged
 
     // ── 托盘 ──
     public string TrayTooltip => Get();
-    public string TrayQuickInfo => Get();
     public string TrayCostFormat => Get();
     public string TrayCostNoData => Get();
     public string TrayOpenWindow => Get();

@@ -17,7 +17,7 @@ namespace Tokenmetry.App.Tray;
 /// 「弹层内点击 → 唤回主窗 + 既有导航」。壳层零业务逻辑零数据查询——数据全部在 D-015 内容层。
 /// <para>失焦收起接线在控制器（B-017 从窗口构造移入）：<see cref="StatusPopoverWindow"/> 的
 /// Deactivated → 控制器 Hide（补上 VM.OnHidden，与 Esc / 再点收起同语义）+ 失焦时刻记账，
-/// 供 <see cref="Toggle"/> 识别"刚被本次托盘点击的失焦收掉"（Win32 先失焦后 Clicked 的时序）。</para>
+/// 供 <see cref="ToggleFromTrayClick"/> 识别"刚被本次托盘点击的失焦收掉"（Win32 先失焦后 Clicked 的时序）。</para>
 /// <para>线程约定：托盘 Clicked / 导航命令都在 UI 线程，无需 marshal。</para>
 /// <para>锚定（卡内台阶设计）：Windows 用 GetCursorPos（物理像素，与 Screen.Bounds 同空间）光标
 /// 上方；macOS 零 interop 主屏工作区右上近似——真机目检（TC-003）不可接受再按卡升级最小 interop；
@@ -41,7 +41,7 @@ public sealed class StatusPopoverController
     /// 才到）随后才到，ToggleFromTrayClick 看到的已是"关着"，照常弹出左键就永远只会 Open。
     /// 该窗口期内的 ToggleFromTrayClick 视为同一次点击的收起意图：维持隐藏。取值覆盖按下到抬起
     /// 的按压时长（p99 ≈ 250ms）；代价是点走焦点后 400ms 内点托盘会被吞一次，守卫即行失效
-    /// （消费制），再点即开。仅托盘左键带守卫——菜单项 Toggle 是明确入口不带（见 Toggle 注释）。</summary>
+    /// （消费制），再点即开。守卫仅作用于托盘左键 ToggleFromTrayClick。</summary>
     private static readonly TimeSpan FocusLossToggleGuard = TimeSpan.FromMilliseconds(400);
 
     private readonly Window _mainWindow;
@@ -108,20 +108,6 @@ public sealed class StatusPopoverController
         else if (DateTimeOffset.UtcNow - _lastFocusLostUtc < FocusLossToggleGuard)
         {
             _lastFocusLostUtc = DateTimeOffset.MinValue;
-        }
-        else
-        {
-            Show();
-        }
-    }
-
-    /// <summary>显式 Toggle（托盘菜单「快捷信息窗」项等明确入口）：不带失焦守卫——打开托盘
-    /// 菜单本身会抢走弹窗焦点（失焦收起先发生），菜单项随后才到，属用户明确意图应照常执行。</summary>
-    public void Toggle()
-    {
-        if (_window?.IsVisible == true)
-        {
-            Hide();
         }
         else
         {

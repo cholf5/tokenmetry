@@ -83,8 +83,8 @@ internal static unsafe class MacTrayInterop
     /// <summary>是否已安装（TrayService 据此走 interop 分支）。</summary>
     public static bool IsInstalled { get; private set; }
 
-    /// <summary>菜单项描述（TrayService 持有同一份做标题重译 / 成本行回写；Command 为 null 且
-    /// 非 separator = 纯标签行（今日成本））。</summary>
+    /// <summary>菜单项描述（TrayService 持有同一份做语言切换标题重译；Command 为 null 且
+    /// 非 separator = 纯标签行）。</summary>
     public sealed class MacTrayItem
     {
         public MacTrayItem(Func<string> title, Action? command = null, bool enabled = true, bool isSeparator = false)
@@ -104,7 +104,8 @@ internal static unsafe class MacTrayInterop
     // ── 安装 ──
 
     /// <summary>安装自定义状态项（图标 + tooltip + 左键接管 + 右键菜单）。任何异常捕获后返回
-    /// false，调用方回落 Avalonia 托盘路径（托盘常驻语义不打折，只退回菜单项入口）。</summary>
+    /// false，调用方回落 Avalonia 托盘路径（托盘常驻不打折；macOS 该路径 Clicked 不 raise，
+    /// 弹层无入口）。</summary>
     public static bool TryInstall(byte[] iconPng, string tooltip, IReadOnlyList<MacTrayItem> items, Action leftClick)
     {
         try

@@ -96,7 +96,6 @@ public sealed partial class Translations
 
         // ── 트레이 ──
         [nameof(TrayTooltip)] = "Tokenmetry — Token 비용 모니터",
-        [nameof(TrayQuickInfo)] = "빠른 정보 패널",
         [nameof(TrayCostFormat)] = "오늘 비용: ${0:F2}",
         [nameof(TrayCostNoData)] = "오늘 비용: — (데이터 없음)",
         [nameof(TrayOpenWindow)] = "메인 창 열기",

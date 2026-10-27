@@ -19,11 +19,12 @@ namespace Tokenmetry.App.Tray;
 
 /// <summary>
 /// A-0 托盘常驻（v0.5 规格 docs/plans/2026-10-11-opinionated-usage-stats-pivot.md §5）：
-/// 图标常驻，tooltip 与菜单首行展示今日成本；菜单 = 今日成本 + 快捷信息窗 + 打开主窗 / 立即刷新 / 设置 / 退出。
+/// 图标常驻，tooltip 展示今日成本；菜单 = 打开主窗 / 立即刷新 / 设置 / 检查更新 / 退出。
 /// <para><b>双轨（D-016 升级台阶，用户拍板"点图标直接弹层"后实施）</b>：macOS 生产路径经
 /// <see cref="MacTrayInterop"/> 自管 NSStatusItem——左键 Toggle 弹层、右键弹原生菜单（Avalonia 的
 /// TrayIcon.Clicked 在 macOS 从不 raise，官方文档 + trayicon.mm 留证）；安装失败自动回落 Avalonia
-/// 托盘路径（点图标开菜单 → 「快捷信息窗」项进弹层）。Windows 与 headless 测试宿主走 Avalonia
+/// 托盘路径（macOS 上该路径 Clicked 同样不 raise，弹层无入口——弹层只在 interop 左键可达）。
+/// Windows 与 headless 测试宿主走 Avalonia
 /// 托盘：Win32 左键 WM_LBUTTONUP → Clicked → Toggle，右键 NativeMenu。</para>
 /// <para>菜单实例纪律（Avalonia 路径）：macOS 的 NativeMenu 导出器缓存首个挂载实例，运行中替换
 /// 整个 _trayIcon.Menu 会抛 ArgumentException——语言切换只就地改 Header（interop 路径同理，
@@ -36,17 +37,12 @@ namespace Tokenmetry.App.Tray;
 /// </summary>
 public class TrayService
 {
-    /// <summary>interop 菜单里「今日成本」标签行的序号（BuildMacTrayItems 恒为首项）。</summary>
-    private const int MacCostItemIndex = 0;
-
     private readonly Window _mainWindow;
     private readonly DashboardViewModel? _dashboard;
     private readonly MainWindowViewModel? _shell;
     private readonly BackgroundRefreshService? _refreshService;
     private readonly StatusPopoverController? _popover;
     private TrayIcon? _trayIcon;
-    private NativeMenuItem? _costItem;
-    private NativeMenuItem? _popoverItem;
     private NativeMenuItem? _openItem;
     private NativeMenuItem? _refreshItem;
     private NativeMenuItem? _settingsItem;
@@ -74,7 +70,8 @@ public class TrayService
     public void Initialize()
     {
         // 托盘为应用级常驻：订阅语言切换信号重译菜单（NativeMenuItem.Header / NSMenuItem.title
-        // 都不支持绑定，只能命令式改写；成本首行由 UpdateToolTip/BuildCostText 实时取串）。
+        // 都不支持绑定，只能命令式改写；tooltip 成本串由 UpdateToolTip/BuildCostText 实时取串，仅
+        // Avalonia 路径真实显示）。
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
 
         if (!TryInstallMacInteropTray())
@@ -82,7 +79,7 @@ public class TrayService
             InstallAvaloniaTrayIcon();
         }
 
-        // 今日成本联动：KPI 更新（含首轮刷新）即回写 tooltip 与菜单首行（两路径共用）
+        // 今日成本联动：KPI 更新（含首轮刷新）即回写 tooltip（Avalonia 路径的成本出口）
         if (_dashboard != null)
         {
             _dashboard.PropertyChanged += OnDashboardPropertyChanged;
@@ -120,7 +117,7 @@ public class TrayService
 
     /// <summary>弹层托盘左键 Toggle（macOS interop 左键回调与 Avalonia Clicked 共用；未装配弹层时
     /// 维持 A-0 直开主窗）。走 <see cref="StatusPopoverController.ToggleFromTrayClick"/> 带失焦守卫
-    /// （B-017）——菜单项的显式 Toggle 不经此处，不带守卫。</summary>
+    /// （B-017）。</summary>
     private void TogglePopoverOrShowWindow()
     {
         if (_popover is { } popover)
@@ -135,23 +132,13 @@ public class TrayService
 
     private List<MacTrayInterop.MacTrayItem> BuildMacTrayItems()
     {
-        // 标题全部用 Func 活取串：语言切换 / 数据回写时由 OnTranslationsPropertyChanged / UpdateToolTip 回写
+        // 标题全部用 Func 活取串：语言切换时由 OnTranslationsPropertyChanged 回写
         var items = new List<MacTrayInterop.MacTrayItem>
         {
-            new(
-                () => BuildCostText(_dashboard?.TodayCostUsd ?? 0, _dashboard?.HasData ?? false),
-                command: null,
-                enabled: false),
-            new(null!, isSeparator: true),
+            new(() => Translations.Instance.TrayOpenWindow, ShowWindow),
+            new(() => Translations.Instance.TrayRefreshNow, RefreshNow),
+            new(() => Translations.Instance.TraySettings, OpenSettings),
         };
-        if (_popover is { } popover)
-        {
-            items.Add(new(() => Translations.Instance.TrayQuickInfo, () => popover.Toggle()));
-        }
-
-        items.Add(new(() => Translations.Instance.TrayOpenWindow, ShowWindow));
-        items.Add(new(() => Translations.Instance.TrayRefreshNow, RefreshNow));
-        items.Add(new(() => Translations.Instance.TraySettings, OpenSettings));
         // I-039「检查更新」常驻项：未发现新版本时点击即查；发现后标题就地翻成「发现新版本 vX.Y.Z」，
         // 点击改为打开 Release 页（interop 无运行期插项能力，只能常驻 + 改标题，见 MacTrayInterop）。
         _macUpdateItemIndex = items.Count;
@@ -166,20 +153,11 @@ public class TrayService
         // 菜单实例只建一份：macOS 的 NativeMenu 导出器缓存首个挂载实例，运行中替换整个
         // _trayIcon.Menu 会抛 ArgumentException("The menu being updated does not match.")，
         // 且该异常沿 PropertyChanged 同步链向上打断语言切换（实测）——语言切换只就地改 Header。
-        _costItem = new NativeMenuItem { Header = Translations.Instance.TrayCostNoData, IsEnabled = false };
         _openItem = new NativeMenuItem { Header = Translations.Instance.TrayOpenWindow, Command = new RelayCommand(ShowWindow) };
         _refreshItem = new NativeMenuItem { Header = Translations.Instance.TrayRefreshNow, Command = new RelayCommand(RefreshNow) };
         _settingsItem = new NativeMenuItem { Header = Translations.Instance.TraySettings, Command = new RelayCommand(OpenSettings) };
         _updateItem = new NativeMenuItem { Header = UpdateItemTitle(), Command = new RelayCommand(OpenUpdateMenuItem) };
         _exitItem = new NativeMenuItem { Header = Translations.Instance.TrayExit, Command = new RelayCommand(ExitApp) };
-
-        // D-016 快捷信息窗菜单项：macOS 上 TrayIcon.Clicked 不 raise（官方契约 + trayicon.mm 无点击
-        // 回调，任何点击都打开 NativeMenu）——interop 安装失败回落本路径时，弹层经本菜单项进入；
-        // Windows 左键已直弹弹层，此项为冗余但一致的入口。仅装配了弹层控制器时出现。
-        if (_popover is { } popover)
-        {
-            _popoverItem = new NativeMenuItem { Header = Translations.Instance.TrayQuickInfo, Command = new RelayCommand(popover.Toggle) };
-        }
 
         _trayIcon = new TrayIcon
         {
@@ -190,8 +168,6 @@ public class TrayService
             {
                 Items =
                 {
-                    _costItem,
-                    new NativeMenuItemSeparator(),
                     _openItem,
                     _refreshItem,
                     _settingsItem,
@@ -201,10 +177,6 @@ public class TrayService
                 }
             }
         };
-        if (_popoverItem is { } popoverItem)
-        {
-            _trayIcon.Menu!.Items.Insert(2, popoverItem); // 成本行 + 分隔线之后，首区第三位
-        }
 
         _trayIcon.Clicked += (_, _) => OnTrayClicked();
 
@@ -233,9 +205,10 @@ public class TrayService
 
     private string BuildTooltip() => Translations.Instance.TrayTooltip;
 
-    /// <summary>语言切换重译：就地更新各菜单项标题 + tooltip（成本首行仍按当前数据态取串）。
+    /// <summary>语言切换重译：就地更新各菜单项标题 + tooltip（tooltip 按当前数据态取成本串，仅
+    /// Avalonia 路径真实显示）。
     /// <b>不得替换 NativeMenu 实例</b>——macOS 导出器缓存首个挂载实例（见 InstallAvaloniaTrayIcon 注释）；
-    /// Header 就地改写能同步到原生菜单（成本首行的运行时回写一直如此）。interop 路径同理改 NSMenuItem.title。</summary>
+    /// Header 就地改写能同步到原生菜单。interop 路径同理改 NSMenuItem.title。</summary>
     private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(Translations.CurrentLanguage))
@@ -259,11 +232,6 @@ public class TrayService
         if (_trayIcon is null)
         {
             return;
-        }
-
-        if (_popoverItem is { } popover)
-        {
-            popover.Header = Translations.Instance.TrayQuickInfo;
         }
 
         if (_openItem is { } open)
@@ -315,12 +283,9 @@ public class TrayService
 
         if (_macInterop)
         {
-            // Cocoa 调用必须主线程（上面已保证；此分支保留原兜底语义，UI 线程上 RunOnUIThread 就地执行）
-            RunOnUIThread(() =>
-            {
-                MacTrayInterop.SetItemTitle(MacCostItemIndex, tooltip);
-                MacTrayInterop.SetTooltip(BuildTooltip()); // interop 后 tooltip 真实可渲染，恢复产品语义
-            });
+            // Cocoa 调用必须主线程（上面已保证；此分支保留原兜底语义，UI 线程上 RunOnUIThread 就地执行）。
+            // interop 路径 tooltip 恒为产品名（成本串只喂 Avalonia 路径的 ToolTipText）。
+            RunOnUIThread(() => MacTrayInterop.SetTooltip(BuildTooltip()));
             return;
         }
 
@@ -328,15 +293,7 @@ public class TrayService
         {
             _trayIcon.ToolTipText = tooltip;
         }
-
-        if (_costItem != null)
-        {
-            _costItem.Header = tooltip;
-        }
     }
-
-    /// <summary>「快捷信息窗」菜单项（headless 测试断言与命令触发用；未装配弹层时为 null）。</summary>
-    internal NativeMenuItem? PopoverItemForTest => _popoverItem;
 
     /// <summary>托盘左键分派（Avalonia 路径；macOS interop 路径左键直进 <see cref="TogglePopoverOrShowWindow"/>）：
     /// 有弹层控制器 → Toggle 弹窗（开着收起 / 关着弹出，D-015 内容层承载）；未装配（headless 旧构造 /
@@ -419,13 +376,13 @@ public class TrayService
         }
     }
 
-    /// <summary>今日成本文案（菜单首行；调用方保证不变量已检查）。</summary>
+    /// <summary>今日成本文案（tooltip；调用方保证不变量已检查）。</summary>
     private static string BuildCostText(decimal todayCostUsd, bool hasData)
         => hasData
             ? string.Format(Translations.Instance.TrayCostFormat, todayCostUsd.ToString("F2", CultureInfo.InvariantCulture))
             : Translations.Instance.TrayCostNoData;
 
-    /// <summary>interop 菜单按安装序号全量重写标题（重译 / 成本行回写共用循环形态）。
+    /// <summary>interop 菜单按安装序号全量重写标题（语言切换重译的循环形态）。
     /// 分隔线必须跳过：其 Title 恒为 null（BuildMacTrayItems 以 null! 占位，无标题可写），
     /// 与 MacTrayInterop.Install 建项循环同纪律——无脑 Title() 会沿 PropertyChanged 同步链
     /// 炸 NRE 打断语言切换（真机必现；headless 宿主 _macInterop 恒 false 不可达，测试钉住）。</summary>

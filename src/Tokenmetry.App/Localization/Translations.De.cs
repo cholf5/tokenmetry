@@ -96,7 +96,6 @@ public sealed partial class Translations
 
         // ── Tray ──
         [nameof(TrayTooltip)] = "Tokenmetry — Token-Kostenmonitor",
-        [nameof(TrayQuickInfo)] = "Schnellinfo-Panel",
         [nameof(TrayCostFormat)] = "Kosten heute: ${0:F2}",
         [nameof(TrayCostNoData)] = "Kosten heute: — (noch keine Daten)",
         [nameof(TrayOpenWindow)] = "Fenster öffnen",
