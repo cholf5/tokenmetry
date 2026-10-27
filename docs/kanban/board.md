@@ -124,6 +124,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-025 | 第二梯队 es/de/fr 落地——语种决策由「社区认领」改为「即刻全量」（界面语言 10 语种） | P2 | 2026-10-27 |
 | D-024 | 界面多语种扩展——zh-Hant/ja/ko/pt-BR/ru 五语种全量翻译 + 回退链固化（es/de/fr 等社区认领） | P2 | 2026-10-27 |
 | P-004 | Native AOT 支持——反射 JSON 全量源生成，PublishAot 编译零警告（发布矩阵接线不在本卡） | P3 | 2026-10-27 |
 | B-018 | macOS 点 Dock 图标无反应——interop 挂 applicationShouldHandleReopen 补全唤回（真机 TC 移交用户） | P2 | 2026-10-26 |

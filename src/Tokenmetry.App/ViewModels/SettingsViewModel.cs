@@ -55,6 +55,9 @@ public sealed class LanguageOption : ObservableObject
         "ko" => Translations.Instance.LanguageKo,
         "pt-br" => Translations.Instance.LanguagePtBr,
         "ru" => Translations.Instance.LanguageRu,
+        "es" => Translations.Instance.LanguageEs,
+        "de" => Translations.Instance.LanguageDe,
+        "fr" => Translations.Instance.LanguageFr,
         _ => Translations.Instance.LanguageSystem,
     };
 
@@ -77,7 +80,8 @@ public partial class SettingsViewModel : ViewModelBase
     };
 
     /// <summary>界面语言选项（顺序即下拉展示顺序：跟随系统 / 简体中文 / 繁體中文 / English /
-    /// 日本語 / 한국어 / Português (Brasil) / Русский；D-024 第二梯队 es/de/fr 待社区认领再加）。</summary>
+    /// 日本語 / 한국어 / Português (Brasil) / Русский / Español / Deutsch / Français；D-025
+    /// 起第二梯队 es/de/fr 一并首发）。</summary>
     public static IReadOnlyList<LanguageOption> LanguageOptions { get; } = new[]
     {
         new LanguageOption("system"),
@@ -88,6 +92,9 @@ public partial class SettingsViewModel : ViewModelBase
         new LanguageOption("ko"),
         new LanguageOption("pt-br"),
         new LanguageOption("ru"),
+        new LanguageOption("es"),
+        new LanguageOption("de"),
+        new LanguageOption("fr"),
     };
 
     private readonly AppSettings _settings;
