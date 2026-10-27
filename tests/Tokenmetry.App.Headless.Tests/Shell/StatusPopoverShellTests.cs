@@ -30,7 +30,8 @@ namespace Tokenmetry.App.Headless.Tests.Shell;
 /// Esc 收起与失焦收起（接线在 StatusPopoverController，B-017；headless 直发按键验证 Esc 路径，
 /// 失焦守卫经 internal 处理器直接模拟 Win32"先失焦后 Clicked"时序）；
 /// PopoverPositioner 纯函数：TopRight / AboveCursor 锚定与工作区钳制；
-/// B-021 首显偏下回归锁：内容异步回填撑高窗口时按点击光标重锚，底缘不越过任务栏。
+/// B-021 首显偏下回归锁：内容异步回填撑高窗口时按点击光标重锚，底缘不越过任务栏；
+/// B-022 启动预热回归锁：预热后首帧即最终高度，不再空态→回填撑高的闪动。
 /// </summary>
 public class StatusPopoverShellTests : IDisposable
 {
@@ -190,6 +191,36 @@ public class StatusPopoverShellTests : IDisposable
         main.Close();
     }
 
+    [AvaloniaFact]
+    public async Task Warm_up_loads_content_before_first_show_so_the_first_frame_is_final()
+    {
+        // B-022 回归锁：首显闪动的根因是「Show 时 VM 还是空态（约 420 DIP），查询回来才撑高」。
+        // 预热先装好数据后首帧即最终高度——用例让 Show 的重查挂起：若预热没生效，放行后窗口
+        // 会从空态长高，下面的尺寸不变断言即失败。
+        var main = new MainWindow();
+        var stub = new GatedQueryService { GateEnabled = false }; // 预热查询立即返回
+        var controller = new StatusPopoverController(main, null, stub, null, new DateRangeService());
+
+        await controller.WarmUpAsync();
+        Assert.False(controller.ViewModel.VisibleForTest); // 预热不置可见态
+        Assert.Null(controller.WindowForTest);             // 预热不建窗（首显仍懒建）
+        Assert.NotNull(controller.ViewModel.TopAgents);    // 内容已就绪
+
+        stub.GateEnabled = true; // Show 的重查挂起：首帧必须已是预热后的高度
+        controller.Show();
+        var popover = controller.WindowForTest!;
+        var firstFrameHeight = popover.ClientSize.Height;
+
+        stub.Release();
+        for (var i = 0; i < 50; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        Assert.Equal(firstFrameHeight, popover.ClientSize.Height);
+        main.Close();
+    }
+
     private sealed class StubQueryService : IUsageQueryService
     {
         public Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default) => Task.FromResult(new UsageKpiResult());
@@ -202,23 +233,34 @@ public class StatusPopoverShellTests : IDisposable
         public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) => Task.FromResult(new HourlyDistributionResult());
     }
 
-    /// <summary>首显异步回填的 stub：查询全部挂起到 <see cref="Release"/>——复刻真实链路
-    /// （Show 返回时内容为空态，数据到达后窗口才被 SizeToContent 撑高）。</summary>
+    /// <summary>首显异步回填的 stub：查询挂起到 <see cref="Release"/>——复刻真实链路
+    /// （Show 返回时内容为空态，数据到达后窗口才被 SizeToContent 撑高）。
+    /// <see cref="GateEnabled"/>=false 时立即返回，供启动预热用例先装好数据。</summary>
     private sealed class GatedQueryService : IUsageQueryService
     {
         private readonly TaskCompletionSource _gate = new();
 
+        public bool GateEnabled { get; set; } = true;
+
         public void Release() => _gate.SetResult();
+
+        private async Task WaitAsync()
+        {
+            if (GateEnabled)
+            {
+                await _gate.Task;
+            }
+        }
 
         public async Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default)
         {
-            await _gate.Task;
+            await WaitAsync();
             return new UsageKpiResult { TotalTokens = 42381, Cost = new AggregatedCost(12.46m, false), CacheReadShare = 0.68m };
         }
 
         public async Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesAsync(UsageQueryFilter filter, CancellationToken ct = default)
         {
-            await _gate.Task;
+            await WaitAsync();
             return
             [
                 new DailyUsagePoint
@@ -235,7 +277,7 @@ public class StatusPopoverShellTests : IDisposable
 
         public async Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default)
         {
-            await _gate.Task;
+            await WaitAsync();
             return
             [
                 new DimensionUsageRow
@@ -250,7 +292,7 @@ public class StatusPopoverShellTests : IDisposable
 
         public async Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default)
         {
-            await _gate.Task;
+            await WaitAsync();
             return
             [
                 new DimensionUsageRow

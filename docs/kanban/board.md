@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-27：**B-022 托盘弹窗首显闪动收口（B-021 修正项 1）**。用户反馈 B-021 后首次打开快捷窗「闪一下」：`Show()` 先显示空态窗口（headless 实测 420 DIP）再发查询，数据回填后 SizeToContent 撑高（1 Agent + 1 模型 543 / 满载 719 DIP）；B-021 的底缘锚定把这段增长变成可见的整体上跳（123/299 DIP），占位「—」同时被真实数据替换。二次打开不闪（VM 已持数据）。修法走启动预热：`StatusPopoverController.WarmUpAsync()` 显示前只读装数（不建窗/不置可见态/可重复），App 启动立即装一次 + 首轮采集结束后再装一次（覆盖老用户库内已有数据与首次使用首轮才入库两种形态），失败只退回首显重查。headless 回归锁 +1（GateEnabled 先关后开，断言预热后首帧高度 == 放行后高度；预热空操作实测 RED → GREEN）。全量 Core 189 / Reconciliation 49（19 跳过）/ Infra 681 / Headless 397 / App.Tests 306 全绿。真机首显观感移交用户；若仍有横向抖动，归首显毛玻璃 498→438 宽度切换（本卡未动）。
+
 > 2026-10-27：**B-021 托盘弹窗首显仍偏下收口（B-016 修正项 1）**。用户反馈 B-016 修复后首显位置仍偏下（截图中 footer 被屏幕底缘裁掉），收起再点第二次就正常。取证：B-016 只修了「首显取陈旧 Bounds 高度」，漏了「显示后内容高度继续增长」——`Show()` 一次性锚定时 VM 还是空态（headless 实测 ClientSize 420 DIP），查询在 Show 返回后才回填，`SizeToContent="Height"` 窗口只向下长（满载 719 DIP），位置不再更新 → 底缘越过任务栏；二次 Show 时数据已就绪故正常。修法：Show 时捕获本次点击光标为首锚（每次重取，重锚复用不跟当前光标跑），壳窗显示期 `SizeChanged` 按同锚重算位置——Windows 底缘钉在光标上方，macOS/回落顶缘锚定天然幂等；隐藏期尺寸变化不处理。headless 回归锁 +1（GatedQueryService 挂起查询复刻异步回填 + 注入确定锚点；去掉接线实测 RED 底缘漂 123 DIP → GREEN）；`PopoverPositioner` 零改动。全量 Core 189 / Reconciliation 49（19 跳过）/ Infra 681 / Headless 398 / App.Tests 306 全绿（App.Tests 首轮 1 失败 = `SingleInstanceGuardTests` 既有 B-020 环境性 flake，单类与重跑均过）。真机 Windows 首显目检移交用户。
 
 > 2026-10-26：**D-018 修正项 1——Windows 标题栏图标只显示一半收口**。用户 Windows 真机反馈标题栏图标只见半张。取证（纯 Mac 可完成）：`app-icon-window.png` 本身是裁切图——alpha 解码不透明 bbox 仅 (122,0,255,255)（左 122px 全透明、右/上/下贴死画布边），标题栏只是忠实显示；ico 7 帧阶梯（16–256）与 1024 Apple 网格主图均完整且不经 Window.Icon（exe/Dock 免疫），故只有标题栏暴露。病根：该资产当日"Chrome 直出 256"系烘焙管线外手工产物（make-icon.py 的 full-bleed 自检只覆盖 ico/png），自 8d2ab6f 落地起即坏。修法：ico 内 256 帧全出血渲染原样覆盖（与 exe 图标像素级同源，代码零改动）；headless 回归锁 +1（alpha bbox 必须铺满画布，RED 实锤 minX=122 → GREEN）。全量 Core 189 / Reconciliation 49 / Infra 678 / Headless 397 全绿；App.Tests 4 失败均为 SingleInstanceGuardTests——本机 TMPDIR 路径超 Unix 域套接字 104 字符上限（stash 干净工作区复现同款，B-020 同族环境性，与图标资产零交集）。真机 Windows 标题栏目检移交用户。
@@ -126,7 +128,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
-| B-021 | 托盘弹窗首显仍偏下——SizeToContent 数据异步回填撑高窗口，位置只在 Show 后算一次（B-016 修正项 1） | P2 | 2026-10-27 |
+| B-022 | 托盘弹窗首显闪动——Show 先画空态再被回填撑高，启动预热让首帧即最终高度（B-021 修正项 1） | P2 | 2026-10-27 |
+| B-021 | 托盘弹窗首显仍偏下——SizeToContent 数据异步回填撑高窗口，位置只在 Show 后算一次（B-016 修正项 1；修正项 1 见 B-022） | P2 | 2026-10-27 |
 | D-025 | 第二梯队 es/de/fr 落地——语种决策由「社区认领」改为「即刻全量」（界面语言 10 语种） | P2 | 2026-10-27 |
 | D-024 | 界面多语种扩展——zh-Hant/ja/ko/pt-BR/ru 五语种全量翻译 + 回退链固化（es/de/fr 等社区认领） | P2 | 2026-10-27 |
 | P-004 | Native AOT 支持——反射 JSON 全量源生成，PublishAot 编译零警告（发布矩阵接线不在本卡） | P3 | 2026-10-27 |

@@ -156,8 +156,12 @@ public partial class App : Application
             // 启动数据初始化：进程打开立即触发一轮采集刷新（定时器首跑要等一个完整间隔），
             // 顶栏即时切到"正在扫描"反馈；探测到库内完全无数据（首次使用）时挂全窗口
             // "正在初始化"遮罩，本轮结束自动摘除（成败均然）——首启不再是一片空白等用户
-            // 手动点刷新。启动路径不观察成败返回值，回写经 Note* 内部 marshal 到 UI 线程。
-            _ = mainWindowViewModel.BeginStartupDataRefreshAsync();
+            // 手动点刷新。启动路径不对成败做 UI 分支，回写经 Note* 内部 marshal 到 UI 线程；
+            // 任务交给下面的预热链观察异常。
+            var startupRefresh = mainWindowViewModel.BeginStartupDataRefreshAsync();
+            // B-022：弹层数据启动预热——先立即装一次（库内已有上次会话的数据），首轮采集结束后
+            // 再装一次（首次使用要等采集把行写进库）。首次点托盘时内容层已就绪，不再空态→回填闪动。
+            _ = WarmUpPopoverAsync(popover, startupRefresh);
 
             // I-039 更新静默周检：启动 30s 后（错开首轮采集）判 ShouldAutoCheck（≥7 天才发请求），
             // 结果只翻托盘「检查更新」项标题，不弹窗不打扰；用户随时可手动查（托盘项 / 设置页）。
@@ -209,6 +213,25 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// B-022：弹层数据启动预热。两次装载覆盖两种启动形态——库内已有上次会话数据（立即装，
+    /// 用户很快点托盘也能命中）与首次使用/今日数据要等首轮采集才入库（首轮结束后再装）。
+    /// 失败只退回「首显空态 → 回填撑高」的两段式加载，不阻塞启动、不影响托盘。
+    /// </summary>
+    private static async Task WarmUpPopoverAsync(StatusPopoverController popover, Task startupRefresh)
+    {
+        try
+        {
+            await popover.WarmUpAsync();
+            await startupRefresh;
+            await popover.WarmUpAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 弹层数据预热失败（首显仍会重查）：{ex.Message}");
+        }
     }
 
     /// <summary>
