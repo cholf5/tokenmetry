@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Tokenmetry.Core.Models;
 
 namespace Tokenmetry.Infrastructure.CCUsageCli;
@@ -43,12 +44,24 @@ internal class CliMetadata
     public List<string>? Agents { get; set; }
 }
 
+/// <summary>
+/// ccusage CLI DTO 的 JSON 源生成上下文（Native AOT 适配，P-004）：反射式序列化在 AOT 下
+/// 不可用（IL3050），统一走 JsonSerializerContext。闭图覆盖 CliDailyResponse 全部可达类型
+/// （CliDailyItem / CliModelBreakdown / CliMetadata / List&lt;T&gt; / decimal / long）。
+/// </summary>
+[JsonSerializable(typeof(CliDailyResponse))]
+internal sealed partial class CCUsageCliJsonContext : JsonSerializerContext
+{
+    /// <summary>与原反射口径一致：CLI 输出字段大小写不敏感绑定（原 JsonSerializerOptions 唯一设置）。</summary>
+    public static CCUsageCliJsonContext CaseInsensitive { get; } = new(new JsonSerializerOptions
+    {
+        PropertyNameCaseInsensitive = true,
+    });
+}
+
 public class CCUsageCliParser
 {
-    private static readonly JsonSerializerOptions _options = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    private static readonly CCUsageCliJsonContext _context = CCUsageCliJsonContext.CaseInsensitive;
 
     public List<DailyUsageSummary> ParseDailyJson(string json)
     {
@@ -60,7 +73,7 @@ public class CCUsageCliParser
             return new List<DailyUsageSummary>();
         }
 
-        var response = JsonSerializer.Deserialize<CliDailyResponse>(json, _options)
+        var response = JsonSerializer.Deserialize(json, _context.CliDailyResponse)
             ?? throw new InvalidOperationException("Failed to parse daily JSON: result was null");
 
         if (response.Daily == null)

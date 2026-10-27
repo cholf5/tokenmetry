@@ -15,7 +15,7 @@ namespace Tokenmetry.Infrastructure.CodexJsonl;
 /// 产出统一 <see cref="UsageRecord"/>（agent="Codex"）；Codex 日志无内建成本，CostUsd 恒为 null，
 /// 由定价引擎（I-003）按快照价计算。
 /// </summary>
-public class CodexJsonlFileParser
+public partial class CodexJsonlFileParser
 {
     /// <summary>与 codex.rs AGENT_NAME 一致。</summary>
     public const string AgentName = "Codex";
@@ -69,7 +69,7 @@ public class CodexJsonlFileParser
                 // 与 codex.rs 一致：serde_json::from_str 单次完成语法与 DTO 校验，类型不符同计 malformed。
                 try
                 {
-                    entry = document.RootElement.Deserialize<SessionLineDto>();
+                    entry = document.RootElement.Deserialize(CodexJsonContext.Default.SessionLineDto);
                 }
                 catch (JsonException)
                 {
@@ -300,6 +300,14 @@ public class CodexJsonlFileParser
     // ---- 与 Codex 日志真实结构对应的内部 DTO ----
     // serde 规则的等价物：每个属性标注精确 JSON 名（大小写敏感绑定），Option 字段可缺失/为 null；
     // token 分量用 ulong? 对应 serde u64（负数、浮点、字符串在反序列化时抛 JsonException → malformed）。
+
+    // JSON 源生成上下文（Native AOT 适配，P-004）：反射式 Deserialize<T> 在 AOT 下不可用（IL3050）。
+    // Default 口径 = JsonSerializerOptions.Default，与原反射口径一致（精确 JSON 名、大小写敏感绑定；
+    // 类型不符抛 JsonException 与 serde from_str 同判 malformed）。
+    [JsonSerializable(typeof(SessionLineDto))]
+    private sealed partial class CodexJsonContext : JsonSerializerContext
+    {
+    }
 
     internal sealed class SessionLineDto
     {

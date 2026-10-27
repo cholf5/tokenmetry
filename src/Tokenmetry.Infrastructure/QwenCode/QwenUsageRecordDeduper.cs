@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Text;
 using System.Text.Json;
 using Tokenmetry.Core.Models;
 
@@ -32,15 +34,27 @@ public class QwenUsageRecordDeduper
         return deduped;
     }
 
-    /// <summary>与蓝本 entry_id 一致用 JSON 数组序列化（serde_json 转义同规则，字段含逗号/冒号不串键）。</summary>
+    /// <summary>
+    /// 与蓝本 entry_id 一致用 JSON 数组序列化（serde_json 转义同规则，字段含逗号/冒号不串键）。
+    /// 直接用 Utf8JsonWriter 逐元素写出而非 JsonSerializer：object[] 多态元素在 JSON 源生成下
+    /// 无法静态定型（Native AOT 适配，P-004），而本键全部是基元类型，写出结果与反射序列化
+    /// （默认选项）字节一致——字符串走同一默认转义器，数值同为不带小数点的整数字面量。
+    /// </summary>
     internal static string BuildKey(UsageRecord record)
-        => JsonSerializer.Serialize(new object[]
+    {
+        var buffer = new ArrayBufferWriter<byte>(128);
+        using (var writer = new Utf8JsonWriter(buffer))
         {
-            record.SessionId,
-            record.Timestamp.ToUnixTimeMilliseconds(),
-            record.Model ?? string.Empty,
-            record.InputTokens,
-            record.OutputTokens,
-            record.CacheReadTokens,
-        });
+            writer.WriteStartArray();
+            writer.WriteStringValue(record.SessionId);
+            writer.WriteNumberValue(record.Timestamp.ToUnixTimeMilliseconds());
+            writer.WriteStringValue(record.Model ?? string.Empty);
+            writer.WriteNumberValue(record.InputTokens);
+            writer.WriteNumberValue(record.OutputTokens);
+            writer.WriteNumberValue(record.CacheReadTokens);
+            writer.WriteEndArray();
+        }
+
+        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
 }
