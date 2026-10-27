@@ -224,7 +224,7 @@ public class SettingsViewModelTests
         viewModel.SelectedTheme.Value.Should().Be("system");
     }
 
-    // ---- 界面语言（zh / en / system，机制与 Theme 全链路同构）----
+    // ---- 界面语言（system / zh / zh-hant / en / ja / ko / pt-br / ru，机制与 Theme 全链路同构）----
 
     [Fact]
     public void Constructor_ResolvesLanguagePreferenceFromSettings()
@@ -234,6 +234,22 @@ public class SettingsViewModelTests
         var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
 
         viewModel.SelectedLanguage.Should().Be(SettingsViewModel.LanguageOptions.Single(o => o.Value == "en"));
+    }
+
+    [Theory]
+    [InlineData("zh-hant")]
+    [InlineData("ja")]
+    [InlineData("ko")]
+    [InlineData("pt-br")]
+    [InlineData("ru")]
+    public void Constructor_ResolvesNewLanguagePreferencesFromSettings(string code)
+    {
+        // D-024 新语种：持久化的新语言代码要能对回稳定选项实例（未知值才回落 system）。
+        var settings = new AppSettings { Language = code };
+
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
+
+        viewModel.SelectedLanguage.Should().Be(SettingsViewModel.LanguageOptions.Single(o => o.Value == code));
     }
 
     [Fact]

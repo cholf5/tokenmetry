@@ -11,16 +11,20 @@ namespace Tokenmetry.App.Localization;
 /// <summary>
 /// 全部 UI 文案的唯一出处（移植 stupid-dict 的方案，不引入 i18n 库）：
 /// 简体中文字典为源（<see cref="Zh"/>，key = nameof(属性)，漏 key 时 <see cref="Get"/> 回落显示
-/// 属性名——遗漏自暴露），英文字典只放覆盖项（<see cref="En"/>，缺项回落中文）。
+/// 属性名——遗漏自暴露），其余语种字典（En / ZhHant / Ja / Ko / PtBr / Ru，字典体在 partial 分文件）
+/// 只放译文。
+/// <para>回退链（<see cref="FallbackChain"/>）：ja / ko / pt-BR / ru 缺项 → 英文 → 简体；
+/// zh-Hant 缺项 → 简体（同语言变体露简体比露英文可读）；en 缺项 → 简体。链按设计不被触发——
+/// 各语种全量覆盖由 TranslationsTests 固化（Q-010 纪律扩展到全部语种），回落只是漏译安全网。</para>
 /// <para>XAML 经 <c>{Binding 属性, Source={x:Static loc:Translations.Instance}}</c> 消费；
 /// <see cref="SetLanguage"/> 重建合并字典后对全部属性一次性 raise PropertyChanged——
 /// 绑定不重启实时切换；命令式渲染的订阅方以 PropertyChanged(CurrentLanguage) 作为
 /// 「每次切换一次」的信号做重译（同 stupid-dict 的 CurrentLanguage 信号约定）。</para>
-/// <para>语言偏好持久化在 AppSettings.Language（"system"/"zh"/"en"，未知值回落 system），
-/// 启动时 App 在创建主窗/托盘前 ApplyPreference 一次。瞬态文案（toast、一次性状态行）
-/// 保持出现时的语言，不做回溯重译（同 stupid-dict 既定取舍）。</para>
+/// <para>语言偏好持久化在 AppSettings.Language（统一小写："system"/"zh"/"zh-hant"/"en"/"ja"/
+/// "ko"/"pt-br"/"ru"，未知值回落 system），启动时 App 在创建主窗/托盘前 ApplyPreference 一次。
+/// 瞬态文案（toast、一次性状态行）保持出现时的语言，不做回溯重译（同 stupid-dict 既定取舍）。</para>
 /// </summary>
-public sealed class Translations : INotifyPropertyChanged
+public sealed partial class Translations : INotifyPropertyChanged
 {
     // 注意：静态字段按文本顺序初始化——Zh/En/AllPropertyNames 必须先于 Instance 声明，
     // 否则单例构造读到的字典还是 null（C# 静态初始化顺序陷阱）。
@@ -197,7 +201,12 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(LabelLanguage)] = "界面语言",
         [nameof(LanguageSystem)] = "跟随系统",
         [nameof(LanguageZh)] = "简体中文",
+        [nameof(LanguageZhHant)] = "繁體中文",
         [nameof(LanguageEn)] = "English",
+        [nameof(LanguageJa)] = "日本語",
+        [nameof(LanguageKo)] = "한국어",
+        [nameof(LanguagePtBr)] = "Português (Brasil)",
+        [nameof(LanguageRu)] = "Русский",
         [nameof(LanguageHint)] = "切换后立即生效并自动保存（重启后保持）。",
         [nameof(LabelRefreshInterval)] = "刷新间隔（分钟）",
         [nameof(RefreshIntervalMustBeNumber)] = "刷新间隔必须是数字",
@@ -621,7 +630,12 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(LabelLanguage)] = "Language",
         [nameof(LanguageSystem)] = "Follow system",
         [nameof(LanguageZh)] = "简体中文",
+        [nameof(LanguageZhHant)] = "繁體中文",
         [nameof(LanguageEn)] = "English",
+        [nameof(LanguageJa)] = "日本語",
+        [nameof(LanguageKo)] = "한국어",
+        [nameof(LanguagePtBr)] = "Português (Brasil)",
+        [nameof(LanguageRu)] = "Русский",
         [nameof(LanguageHint)] = "Applies and saves automatically (kept across restarts).",
         [nameof(LabelRefreshInterval)] = "Refresh interval (minutes)",
         [nameof(RefreshIntervalMustBeNumber)] = "Refresh interval must be a number",
@@ -868,6 +882,15 @@ public sealed class Translations : INotifyPropertyChanged
         [nameof(ToastRepricing)] = "Saved — re-pricing with the new prices…",
     };
 
+    // ── D-024 新语种字典：字典体在 partial 分文件（Translations.ZhHant.cs 等）——字段声明
+    //    集中在本文件、置于 Instance 之前，保证静态初始化顺序安全（见上注）；字段初始化只调
+    //    Build*() 方法，方法调用不受跨文件字段初始化顺序影响。
+    private static readonly Dictionary<string, string> ZhHant = BuildZhHant();
+    private static readonly Dictionary<string, string> Ja = BuildJa();
+    private static readonly Dictionary<string, string> Ko = BuildKo();
+    private static readonly Dictionary<string, string> PtBr = BuildPtBr();
+    private static readonly Dictionary<string, string> Ru = BuildRu();
+
     private static readonly string[] AllPropertyNames = typeof(Translations)
         .GetProperties(BindingFlags.Public | BindingFlags.Instance)
         .Where(p => p.CanRead && p.GetIndexParameters().Length == 0)
@@ -910,13 +933,19 @@ public sealed class Translations : INotifyPropertyChanged
         }
     }
 
-    /// <summary>AppSettings.Language 字符串偏好（"zh"/"en"/"system"）→ SetLanguage；未知/空值如实回落 system。</summary>
+    /// <summary>AppSettings.Language 字符串偏好（统一小写："zh"/"zh-hant"/"en"/"ja"/"ko"/"pt-br"/"ru"）→
+    /// SetLanguage；未知/空值如实回落 system。</summary>
     public static void ApplyPreference(string? preference)
     {
         var language = (preference?.Trim().ToLowerInvariant()) switch
         {
             "zh" => AppLanguage.SimplifiedChinese,
+            "zh-hant" => AppLanguage.TraditionalChinese,
             "en" => AppLanguage.English,
+            "ja" => AppLanguage.Japanese,
+            "ko" => AppLanguage.Korean,
+            "pt-br" => AppLanguage.BrazilianPortuguese,
+            "ru" => AppLanguage.Russian,
             _ => AppLanguage.System,
         };
         Instance.SetLanguage(language);
@@ -925,19 +954,65 @@ public sealed class Translations : INotifyPropertyChanged
     internal static AppLanguage Resolve(AppLanguage preference, CultureInfo uiCulture) => preference switch
     {
         AppLanguage.SimplifiedChinese => AppLanguage.SimplifiedChinese,
+        AppLanguage.TraditionalChinese => AppLanguage.TraditionalChinese,
         AppLanguage.English => AppLanguage.English,
-        _ => uiCulture.TwoLetterISOLanguageName.Equals("zh", StringComparison.OrdinalIgnoreCase)
-            ? AppLanguage.SimplifiedChinese
-            : AppLanguage.English,
+        AppLanguage.Japanese => AppLanguage.Japanese,
+        AppLanguage.Korean => AppLanguage.Korean,
+        AppLanguage.BrazilianPortuguese => AppLanguage.BrazilianPortuguese,
+        AppLanguage.Russian => AppLanguage.Russian,
+        _ => ResolveSystem(uiCulture),
     };
 
-    /// <summary>zh 为源、en 为覆盖的合并字典：英文缺 key 时回落中文（可视化遗漏由中文串在英文界面出现暴露）。</summary>
+    /// <summary>system 偏好 → 按 OS UI 语言映射：zh 系按书写系统分简繁（zh-TW/zh-HK/zh-MO/zh-Hant*
+    /// → 繁体，其余 zh → 简体），ja/ko/pt/ru 直达对应语言，pt 系统一落 pt-BR（唯一葡语变体），
+    /// 未支持语种落 English（开发者通用回退）。</summary>
+    private static AppLanguage ResolveSystem(CultureInfo uiCulture)
+    {
+        switch (uiCulture.TwoLetterISOLanguageName)
+        {
+            case "zh":
+                var name = uiCulture.Name;
+                return name.Contains("-Hant", StringComparison.OrdinalIgnoreCase)
+                    || name.EndsWith("-TW", StringComparison.OrdinalIgnoreCase)
+                    || name.EndsWith("-HK", StringComparison.OrdinalIgnoreCase)
+                    || name.EndsWith("-MO", StringComparison.OrdinalIgnoreCase)
+                    ? AppLanguage.TraditionalChinese
+                    : AppLanguage.SimplifiedChinese;
+            case "ja":
+                return AppLanguage.Japanese;
+            case "ko":
+                return AppLanguage.Korean;
+            case "pt":
+                return AppLanguage.BrazilianPortuguese;
+            case "ru":
+                return AppLanguage.Russian;
+            default:
+                return AppLanguage.English;
+        }
+    }
+
+    /// <summary>回退链：语种缺 key 时按链序回落（末级最兜底）。新语种 → 英文 → 简体；
+    /// zh-Hant → 简体；en → 简体；zh 即源。链序即 <see cref="StringsFor"/> 的合并覆盖序。
+    /// 链按设计不被触发（各语种全量覆盖由 TranslationsTests 固化），作为漏译安全网存在。</summary>
+    internal static IReadOnlyList<Dictionary<string, string>> FallbackChain(AppLanguage language) => language switch
+    {
+        AppLanguage.TraditionalChinese => [ZhHant, Zh],
+        AppLanguage.English => [En, Zh],
+        AppLanguage.Japanese => [Ja, En, Zh],
+        AppLanguage.Korean => [Ko, En, Zh],
+        AppLanguage.BrazilianPortuguese => [PtBr, En, Zh],
+        AppLanguage.Russian => [Ru, En, Zh],
+        _ => [Zh],
+    };
+
+    /// <summary>按回退链从末级到首级逐层覆盖出合并字典（上层缺 key 时自然露下层语言）。</summary>
     private static Dictionary<string, string> StringsFor(AppLanguage language)
     {
-        var merged = new Dictionary<string, string>(Zh);
-        if (language == AppLanguage.English)
+        var chain = FallbackChain(language);
+        var merged = new Dictionary<string, string>(chain[^1]);
+        for (var i = chain.Count - 2; i >= 0; i--)
         {
-            foreach (var (key, value) in En)
+            foreach (var (key, value) in chain[i])
             {
                 merged[key] = value;
             }
@@ -1118,7 +1193,12 @@ public sealed class Translations : INotifyPropertyChanged
     public string LabelLanguage => Get();
     public string LanguageSystem => Get();
     public string LanguageZh => Get();
+    public string LanguageZhHant => Get();
     public string LanguageEn => Get();
+    public string LanguageJa => Get();
+    public string LanguageKo => Get();
+    public string LanguagePtBr => Get();
+    public string LanguageRu => Get();
     public string LanguageHint => Get();
     public string LabelRefreshInterval => Get();
     public string RefreshIntervalMustBeNumber => Get();

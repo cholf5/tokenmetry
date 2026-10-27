@@ -37,8 +37,9 @@ public sealed class ThemeOption : ObservableObject
     public void RefreshLabel() => OnPropertyChanged(nameof(Label));
 }
 
-/// <summary>界面语言选项（Value 对应 AppSettings.Language 的取值：system / zh / en），机制同 <see cref="ThemeOption"/>。
-/// 语言名按 stupid-dict 惯例经 Translations 显示（英文界面显示 "简体中文"/"English"，中文界面同理）。</summary>
+/// <summary>界面语言选项（Value 对应 AppSettings.Language 的取值，统一小写：system / zh / zh-hant /
+/// en / ja / ko / pt-br / ru），机制同 <see cref="ThemeOption"/>。
+/// 语言名按 stupid-dict 惯例经 Translations 显示——自名不翻译，任何界面语言下都显示各语种原名。</summary>
 public sealed class LanguageOption : ObservableObject
 {
     public LanguageOption(string value) => Value = value;
@@ -48,7 +49,12 @@ public sealed class LanguageOption : ObservableObject
     public string Label => Value switch
     {
         "zh" => Translations.Instance.LanguageZh,
+        "zh-hant" => Translations.Instance.LanguageZhHant,
         "en" => Translations.Instance.LanguageEn,
+        "ja" => Translations.Instance.LanguageJa,
+        "ko" => Translations.Instance.LanguageKo,
+        "pt-br" => Translations.Instance.LanguagePtBr,
+        "ru" => Translations.Instance.LanguageRu,
         _ => Translations.Instance.LanguageSystem,
     };
 
@@ -70,12 +76,18 @@ public partial class SettingsViewModel : ViewModelBase
         new ThemeOption("system"),
     };
 
-    /// <summary>界面语言选项（顺序即下拉展示顺序：跟随系统 / 简体中文 / English）。</summary>
+    /// <summary>界面语言选项（顺序即下拉展示顺序：跟随系统 / 简体中文 / 繁體中文 / English /
+    /// 日本語 / 한국어 / Português (Brasil) / Русский；D-024 第二梯队 es/de/fr 待社区认领再加）。</summary>
     public static IReadOnlyList<LanguageOption> LanguageOptions { get; } = new[]
     {
         new LanguageOption("system"),
         new LanguageOption("zh"),
+        new LanguageOption("zh-hant"),
         new LanguageOption("en"),
+        new LanguageOption("ja"),
+        new LanguageOption("ko"),
+        new LanguageOption("pt-br"),
+        new LanguageOption("ru"),
     };
 
     private readonly AppSettings _settings;

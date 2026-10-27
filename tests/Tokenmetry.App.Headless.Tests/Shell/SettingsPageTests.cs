@@ -93,9 +93,10 @@ public class SettingsPageTests
     }
 
     [AvaloniaFact]
-    public void Language_combo_offers_three_options_and_switching_retranslates_live()
+    public void Language_combo_offers_all_options_and_switching_retranslates_live()
     {
-        // 界面语言（zh/en/system）：三选项 + 切换不重启实时重译（对标 stupid-dict 的语言切换回归测试）。
+        // 界面语言（D-024 起八选项：system/zh/zh-hant/en/ja/ko/pt-br/ru）+ 切换不重启实时重译
+        // （对标 stupid-dict 的语言切换回归测试）。
         // 下拉选项为稳定实例 + RefreshLabel——重建 ItemsSource 会丢选中（Avalonia ComboBox 坑，见 VM 注释）。
         var vm = CreateViewModel();
         var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
@@ -104,7 +105,7 @@ public class SettingsPageTests
 
         var languageCombo = window.GetVisualDescendants().OfType<ComboBox>()
             .First(c => c.ItemsSource is IReadOnlyList<LanguageOption>);
-        Assert.Equal(3, languageCombo.ItemCount);
+        Assert.Equal(SettingsViewModel.LanguageOptions.Count, languageCombo.ItemCount);
         Assert.Same(SettingsViewModel.LanguageOptions.Single(o => o.Value == "system"), languageCombo.SelectedItem);
 
         var originalLanguage = Translations.Instance.CurrentLanguage;

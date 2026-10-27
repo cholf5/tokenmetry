@@ -22,10 +22,13 @@ public class AppSettings
     public string Theme { get; set; } = "system";
 
     /// <summary>
-    /// 界面语言偏好：zh（简体中文）/ en（English）/ system（跟随系统 UI 语言）；缺省 system，
+    /// 界面语言偏好（统一小写）：zh（简体中文）/ zh-hant（繁體中文）/ en（English）/ ja（日本語）/
+    /// ko（한국어）/ pt-br（Português (Brasil)，唯一葡语变体）/ ru（Русский）/ system（跟随系统
+    /// UI 语言：zh 系按书写系统分简繁，ja/ko/pt/ru 直达，其余 → en）；缺省 system，
     /// 未知值在解析处（Localization/Translations.ApplyPreference）如实回落 system。
-    /// 存字符串而非枚举：与 Theme 同风格，且未知值不会让 settings.json 整体反序列化失败。
-    /// 消费者=全部 UI 文案（Tokenmetry.App/Localization/Translations，启动时与设置页切换即时应用）。
+    /// 存字符串而非枚举：与 Theme 同风格，且未知值不会让 settings.json 整体反序列化失败
+    /// （旧值 "zh"/"en" 原样兼容）。消费者=全部 UI 文案（Tokenmetry.App/Localization/Translations，
+    /// 启动时与设置页切换即时应用）。
     /// </summary>
     public string Language { get; set; } = "system";
 
