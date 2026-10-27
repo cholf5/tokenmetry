@@ -135,6 +135,11 @@ public partial class TrendChart : UserControl
         //（滚轮缩放 / 拖拽平移 / 双击复位）。悬停走本控件自有 Avalonia 事件，不受影响。
         PlotControl.UserInputProcessor.Disable();
 
+        // AvaPlot 库行为：OnPointerWheelChanged 恒设 e.Handled=true（HandleMouseWheelEvent 默认
+        // true，与其输入处理器开关无关）——不禁吞则页面根 ScrollViewer 在图上收不到滚轮，
+        // 缩放已禁的场景下事件纯属被浪费，必须放行冒泡。
+        PlotControl.HandleMouseWheelEvent = false;
+
         ModeProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
         DailyPointsProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
         HourlyDistributionProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());

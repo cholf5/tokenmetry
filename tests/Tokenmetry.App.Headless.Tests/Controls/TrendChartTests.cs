@@ -5,7 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -1018,6 +1020,29 @@ public class TrendChartTests
         }
 
         Assert.Equal(0f, chart.Plot.Axes.Bottom.MajorTickStyle.Length); // 无刻度须
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Pointer_wheel_over_plot_bubbles_out_to_page_containers()
+    {
+        // 只读视图（I-032）禁了缩放，但 AvaPlot 库默认仍把 PointerWheelChanged 标记 Handled
+        // 吞掉（与其输入处理器开关无关）——页面根 ScrollViewer 只响应未处理滚轮，图上滚轮
+        // 滚动会整段失效。本测试走真实 headless 输入管线：滚轮命中 AvaPlot 后必须能冒泡
+        // 到窗口级容器（handledEventsToo=false，Handled 即视为未到达）。
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = ChartTestHelpers.DailyPoints30() };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var bubbled = false;
+        window.AddHandler(InputElement.PointerWheelChangedEvent, (_, _) => bubbled = true);
+
+        window.MouseWheel(new Point(window.Width / 2, window.Height / 2), new Vector(0, -120));
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(bubbled, "滚轮事件被图表吞掉，未冒泡到页面级容器（图上滚轮无法滚动页面）");
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
