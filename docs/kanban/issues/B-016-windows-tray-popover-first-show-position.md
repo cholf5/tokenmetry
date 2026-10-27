@@ -38,3 +38,7 @@ Windows 托盘左键首次弹出的快捷信息窗锚定在光标上方（贴托
 - 修复一行：`ScreenSize` 的 `window.Bounds.Size` → `window.ClientSize`，注释留痕根因。诊断打点已全部还原。
 - 测试：本卡相关面全绿——App.Tests 265、App.Headless 386、Infrastructure 672、Reconciliation 49（19 跳过按本机 fixture）。**并发注记**：与 S-007（刷新默认 1→5，8ab392c）/ I-042 / I-043 会话同工作区并行——其间两次 App.Tests 全量单例失败（SingleInstanceGuard / JsonAppSettingsStore）经查属并行会话互踩而非 flaky（后者已被 8ab392c 随卡同步收口）；Core.Tests 现 2 失败（AppSettingsTests / DashboardSummaryTests 仍断言 RefreshMinutes=1）同属该会话默认值改动的测试同步欠账，与本卡无交集（本卡仅动 `ScreenSize` 一行），经选择性暂存分账。
 - 明确不做：不改 Show/定位时序（不动"先 Show 后定位"避免默认位闪烁）；不为此引入 headless 首显 Bounds 断言（headless 平台无 CW_USEDEFAULT 语义，测不了该分叉，真机留证为准）。
+
+### 2026-10-27（追记）
+
+- 用户真机反馈本卡修复后首显**仍偏下**（二次正常）→ 新根因是「显示后内容高度继续增长」而非陈旧 Bounds，独立建 **B-021** 收口（Show 捕获首锚 + 显示期 SizeChanged 重算）。本卡的 `ClientSize` 取法保持有效，B-021 未改动 `ScreenSize`。
