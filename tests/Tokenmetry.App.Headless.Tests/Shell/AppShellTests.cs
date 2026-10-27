@@ -1,12 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -308,6 +312,84 @@ public class AppShellTests
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Nav_item_background_transition_never_glows_white()
+    {
+        // 导航项闪白回归锁：导航项静息态必须是「同 hover RGB 的 0 alpha」画刷，不能退回 Transparent。
+        // Avalonia 的 Transparent 是透明白（#00FFFFFF），BrushTransition 插值会扫过半透明白：
+        // 暗色侧鼠标悬停 / 点选切换时，条目会闪一下白。锁两层：
+        // 1) 静息色与 hover 色同 RGB、alpha=0（渐变只走 alpha 的结构前提）；
+        // 2) 真实切换选中项时，旧选中项的过渡中间帧不得比两端点更亮。
+        var app = Application.Current!;
+        var previousVariant = app.RequestedThemeVariant;
+        app.RequestedThemeVariant = ThemeVariant.Dark;
+        try
+        {
+            var vm = CreateIsolatedShellViewModel();
+            var window = new MainWindow { DataContext = vm };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var navList = window.GetVisualDescendants().OfType<ListBox>()
+                .Single(lb => lb.Classes.Contains("nav-list"));
+            var items = navList.GetRealizedContainers().OfType<ListBoxItem>().ToList();
+            var leaving = items[0];
+
+            Assert.True(app.TryGetResource("AppNavRestBackgroundBrush", ThemeVariant.Dark, out var restValue));
+            var rest = Assert.IsAssignableFrom<ISolidColorBrush>(restValue).Color;
+            Assert.True(app.TryGetResource("AppNavHoverBackgroundBrush", ThemeVariant.Dark, out var hoverValue));
+            var hover = Assert.IsAssignableFrom<ISolidColorBrush>(hoverValue).Color;
+            Assert.True(app.TryGetResource("AppNavActiveBackgroundBrush", ThemeVariant.Dark, out var activeValue));
+            var active = Assert.IsAssignableFrom<ISolidColorBrush>(activeValue).Color;
+
+            Assert.Equal(0, rest.A);
+            Assert.Equal(hover.R, rest.R);
+            Assert.Equal(hover.G, rest.G);
+            Assert.Equal(hover.B, rest.B);
+
+            // 未选中项的实际底色必须就是静息令牌：样式若退回 Transparent（透明白），这里直接红
+            var atRest = Assert.IsAssignableFrom<ISolidColorBrush>(items[3].Background).Color;
+            Assert.Equal(rest, atRest);
+
+            var observed = new List<Color>();
+            leaving.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == TemplatedControl.BackgroundProperty
+                    && leaving.Background is ISolidColorBrush brush)
+                {
+                    observed.Add(brush.Color);
+                }
+            };
+
+            navList.SelectedIndex = 1;
+            // 固定走满过渡窗口：不在 alpha=0 时提前退出——样式切换瞬间值可能先落到静息色、
+            // 动画下一帧才接手；headless 时钟偶尔会一帧跨完整个过渡，故不强制要求采到中间帧
+            for (var i = 0; i < 30; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                Dispatcher.UIThread.RunJobs();
+                Thread.Sleep(8);
+            }
+
+            // 过渡帧检查是补充护栏（结构前提已由上面的令牌/实际底色断言锁死）
+            Assert.NotEmpty(observed);
+
+            var maxChannel = new[] { hover.R, hover.G, hover.B, active.R, active.G, active.B }.Max() + 8;
+            Assert.All(observed, c => Assert.True(
+                c.R <= maxChannel && c.G <= maxChannel && c.B <= maxChannel,
+                $"旧选中项过渡出现亮帧 #{c.A:X2}{c.R:X2}{c.G:X2}{c.B:X2}（通道上限 {maxChannel:X2}）"
+                + "——静息色退化成 Transparent（透明白）会扫过白色"));
+
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            app.RequestedThemeVariant = previousVariant;
+        }
     }
 
     [AvaloniaFact]

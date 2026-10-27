@@ -74,6 +74,10 @@
             <SolidColorBrush x:Key="AppNavActiveForegroundBrush" Color="#2b5d9f"/>
             <SolidColorBrush x:Key="AppNavActiveIndicatorBrush" Color="#2e6bdc"/>
             <SolidColorBrush x:Key="AppNavHoverBackgroundBrush" Color="#e3eaf4"/>
+            <!-- 导航项静息态底色：与 hover 同 RGB 的 0 alpha 画刷，只作 BrushTransition 起点。
+                 不能写 Transparent——Avalonia 的 Transparent 是透明白 #00FFFFFF，颜色插值会扫过
+                 半透明白，暗色侧 hover/切换时闪白；同 RGB 让 120ms 渐变只走 alpha -->
+            <SolidColorBrush x:Key="AppNavRestBackgroundBrush" Color="#00e3eaf4"/>
             <!-- D-004 图表 chrome（ScottPlot 轴/网格）← 原型 .chart .gridline/.axis 色值（Light 为协调补值） -->
             <SolidColorBrush x:Key="AppChartGridLineBrush" Color="#d9e1ec"/>
             <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#b9c5d7"/>
@@ -151,6 +155,8 @@
             <SolidColorBrush x:Key="AppNavActiveForegroundBrush" Color="#9dc2ff"/>
             <SolidColorBrush x:Key="AppNavActiveIndicatorBrush" Color="#5794ff"/>
             <SolidColorBrush x:Key="AppNavHoverBackgroundBrush" Color="#1e2531"/>
+            <!-- 导航项静息态底色：与 hover 同 RGB 的 0 alpha 画刷（原因见 Light 侧同名条目） -->
+            <SolidColorBrush x:Key="AppNavRestBackgroundBrush" Color="#001e2531"/>
             <!-- D-004 图表 chrome（ScottPlot 轴/网格）← 原型 .chart .gridline{#23344b}/.axis{#35465e}（Q-019 降饱和） -->
             <SolidColorBrush x:Key="AppChartGridLineBrush" Color="#2c343f"/>
             <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#3d4651"/>
