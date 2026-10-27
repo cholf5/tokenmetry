@@ -41,7 +41,7 @@ public class HeatmapTests
     /// <summary>窗口底 = 对应变体的 AppBackgroundBrush（截图体现真实页面底色）。</summary>
     private static IBrush ThemeBackground(ThemeVariant variant) =>
         Application.Current!.TryGetResource("AppBackgroundBrush", variant, out var bg)
-            && bg is IBrush brush ? brush : new SolidColorBrush(Color.Parse("#111c2e"));
+            && bg is IBrush brush ? brush : new SolidColorBrush(Color.Parse("#0f1118"));
 
     private static IReadOnlyList<HeatmapCell> Cells35() =>
         Enumerable.Range(0, 35).Select(i => new HeatmapCell

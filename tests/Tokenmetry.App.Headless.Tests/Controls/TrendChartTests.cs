@@ -48,7 +48,7 @@ public class TrendChartTests
     /// <summary>窗口底 = 对应变体的 AppBackgroundBrush（截图体现真实页面底色）。</summary>
     private static IBrush ThemeBackground(ThemeVariant variant) =>
         Application.Current!.TryGetResource("AppBackgroundBrush", variant, out var bg)
-            && bg is IBrush brush ? brush : new SolidColorBrush(Color.Parse("#111c2e"));
+            && bg is IBrush brush ? brush : new SolidColorBrush(Color.Parse("#0f1118"));
 
     // ── TC-001：三形态渲染（明暗两套 + 截图留档）──
 
@@ -366,7 +366,7 @@ public class TrendChartTests
         Dispatcher.UIThread.RunJobs();
 
         var lightTickColor = chart.Plot.Axes.Bottom.TickLabelStyle.ForeColor;
-        Assert.Equal(Color.Parse("#66788f"), ToAvalonia(lightTickColor)); // Light AppMutedTextBrush
+        Assert.Equal(Color.Parse("#546783"), ToAvalonia(lightTickColor)); // Light AppMutedTextBrush
         Assert.NotEqual(darkTickColor, lightTickColor);
 
         window.Close();
@@ -406,13 +406,13 @@ public class TrendChartTests
     public void Hover_renders_themed_bubble_pixels_and_archives()
     {
         // 像素级回归锁（视觉问题只断 style 属性不够）：库默认透明气泡在深色卡上整块隐形——
-        // 修复后 chip 底（#1b2c44）必须以精确色值出现在合成帧（卡片 #121e31/#101a2b、
-        // 网格 #23344b 与它都不可在该容差位混淆），且有近白文字像素；移开后气泡像素应消失。
+        // 修复后 chip 底（#232c39）必须以精确色值出现在合成帧（卡片 #181e27/#151a22、
+        // 网格 #2c343f 与它都不可在该容差位混淆），且有近白文字像素；移开后气泡像素应消失。
         var points = ChartTestHelpers.DailyPoints30();
         var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = points };
         var window = CreateWindow(chart, ThemeVariant.Dark);
         var before = ChartTestHelpers.RenderFrame(window);
-        Assert.False(ChartTestHelpers.FrameContainsColor(before, Color.Parse("#1b2c44"), tolerance: 1),
+        Assert.False(ChartTestHelpers.FrameContainsColor(before, Color.Parse("#232c39"), tolerance: 1),
             "未悬停时不应有气泡底色像素");
 
         var real = ChartTestHelpers.FirstRealPoint(points);
@@ -422,7 +422,7 @@ public class TrendChartTests
         PumpUntilOverlaySettled(overlay, targetOpacity: 1); // 淡入过渡走满（headless 动画钟只在 RunJobs/渲染 tick 推进）
         var frame = ChartTestHelpers.RenderFrame(window);
 
-        var bubble = Color.Parse("#1b2c44"); // chip 底 = Dark AppChipBackgroundBrush（与卡片/网格不可容差重合）
+        var bubble = Color.Parse("#232c39"); // chip 底 = Dark AppChipBackgroundBrush（与卡片/网格不可容差重合）
         Assert.True(ChartTestHelpers.FrameContainsColor(frame, bubble, tolerance: 1), "悬停帧缺少精确气泡底色像素");
         // 文字为 12px 抗锯齿字形，实色核可能被混色，用近白宽容差
         Assert.True(ChartTestHelpers.FrameContainsColor(frame, Color.Parse("#e8eef9"), tolerance: 28), "悬停帧缺少气泡文字像素");

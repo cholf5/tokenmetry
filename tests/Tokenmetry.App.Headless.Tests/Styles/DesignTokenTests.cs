@@ -23,7 +23,7 @@ namespace Tokenmetry.App.Headless.Tests.Styles;
 
 /// <summary>
 /// I-027 设计令牌与共享样式的自动化验证（headless，真实 App.axaml）：
-/// 1. 暗色色板逐键等于原型原值（:root 变量与 .kpi/.chip/.mini-track 等选择器色值）；
+/// 1. 暗色色板逐键等于原型原值经 Q-019 降饱和后的现值（大面积表层去蓝：保色相、保亮度）；
 /// 2. 亮色协调值可解析；
 /// 3. 7 个图表系列色与 mini 填充渐变不随明暗翻转（普通资源语义）；
 /// 4. 全部新令牌键与 Semi 资源零键名冲突；
@@ -35,16 +35,17 @@ namespace Tokenmetry.App.Headless.Tests.Styles;
 /// </summary>
 public class DesignTokenTests
 {
-    /// <summary>主题翻转画刷键 → (Light, Dark) 期望色值。Dark 列 = 原型原值，与 Styles/Tokens.axaml 保持同步。</summary>
+    /// <summary>主题翻转画刷键 → (Light, Dark) 期望色值。Dark 列 = 原型原值经 Q-019 降饱和
+    /// （保色相、保亮度，语义色与文字色不动），与 Styles/Tokens.axaml 保持同步。</summary>
     private static readonly Dictionary<string, (string Light, string Dark)> PaletteBrushes = new()
     {
         // :root --bg/--panel/--panel2/--line/--text/--muted
-        ["AppBackgroundBrush"] = ("#f4f6fa", "#0b1120"),
-        ["AppPanelBrush"] = ("#ffffff", "#111c2e"),
-        ["AppPanelAltBrush"] = ("#eef1f6", "#142137"),
-        ["AppLineBrush"] = ("#d4dbe6", "#24344d"),
+        ["AppBackgroundBrush"] = ("#f4f6fa", "#0f1118"),
+        ["AppPanelBrush"] = ("#ffffff", "#171c25"),
+        ["AppPanelAltBrush"] = ("#eef1f6", "#1b212c"),
+        ["AppLineBrush"] = ("#d4dbe6", "#2c3440"),
         ["AppTextBrush"] = ("#1c2735", "#e8eef9"),
-        ["AppMutedTextBrush"] = ("#66788f", "#8293ad"),
+        ["AppMutedTextBrush"] = ("#546783", "#8293ad"),
         // :root 六个强调色变量
         ["AppAccentBlueBrush"] = ("#2e6bdc", "#4c8dff"),
         ["AppAccentCyanBrush"] = ("#1d9bc4", "#57c7e8"),
@@ -53,12 +54,12 @@ public class DesignTokenTests
         ["AppAccentOrangeBrush"] = ("#c77700", "#ffb454"),
         ["AppAccentRedBrush"] = ("#d9374f", "#ff7185"),
         // 卡片描边（.kpi/.panel 的 #22324a）/ 链接（.linkbtn）/ chip
-        ["AppCardLineBrush"] = ("#d8e0eb", "#22324a"),
+        ["AppCardLineBrush"] = ("#d8e0eb", "#2a323d"),
         ["AppLinkBrush"] = ("#2f6bd8", "#80adff"),
-        ["AppChipBackgroundBrush"] = ("#e3ecfb", "#1b2c44"),
+        ["AppChipBackgroundBrush"] = ("#e3ecfb", "#232c39"),
         ["AppChipTextBrush"] = ("#2b5d9f", "#a8c8ff"),
         // mini 进度条轨道（.mini-track）
-        ["AppMiniTrackBrush"] = ("#e2e8f0", "#23334b"),
+        ["AppMiniTrackBrush"] = ("#e2e8f0", "#2a3340"),
         // KPI 卡顶标签（.kpi-top；D-006，Light 为协调补值）
         ["AppKpiTitleBrush"] = ("#5d6f86", "#b7c5d9"),
         // 图标/头像软色底（.kpi-icon 四变体 + .agenticon.gray）
@@ -73,22 +74,23 @@ public class DesignTokenTests
         ["AppIconChipNeutralBackgroundBrush"] = ("#e8ecf2", "#263143"),
         ["AppIconChipNeutralForegroundBrush"] = ("#5a6b80", "#bac8da"),
         // D-003 应用外壳（.sidebar/.topbar/.nav 各选择器色值；Light 为协调补值）
-        ["AppSidebarBackgroundBrush"] = ("#edf1f7", "#0d1626"),
-        ["AppTopbarBackgroundBrush"] = ("#f0f4f9", "#0e1728"),
-        ["AppNavActiveBackgroundBrush"] = ("#dbe7fb", "#1b2d49"),
+        ["AppSidebarBackgroundBrush"] = ("#edf1f7", "#12161e"),
+        ["AppTopbarBackgroundBrush"] = ("#f0f4f9", "#13171f"),
+        ["AppNavForegroundBrush"] = ("#3d4c63", "#8293ad"),
+        ["AppNavActiveBackgroundBrush"] = ("#dbe7fb", "#242d3c"),
         ["AppNavActiveForegroundBrush"] = ("#2b5d9f", "#9dc2ff"),
         ["AppNavActiveIndicatorBrush"] = ("#2e6bdc", "#5794ff"),
-        ["AppNavHoverBackgroundBrush"] = ("#e3eaf4", "#17253b"),
+        ["AppNavHoverBackgroundBrush"] = ("#e3eaf4", "#1e2531"),
         // D-004 图表 chrome（.chart .gridline/.axis 色值；Light 为协调补值）
-        ["AppChartGridLineBrush"] = ("#d9e1ec", "#23344b"),
-        ["AppChartAxisLineBrush"] = ("#b9c5d7", "#35465e"),
+        ["AppChartGridLineBrush"] = ("#d9e1ec", "#2c343f"),
+        ["AppChartAxisLineBrush"] = ("#b9c5d7", "#3d4651"),
         // 首次初始化全窗遮罩底（MainWindow.axaml；页面底色 90% 不透明，Light 为协调补值）
-        ["AppOverlayScrimBrush"] = ("#e6f4f6fa", "#e60b1120"),
+        ["AppOverlayScrimBrush"] = ("#e6f4f6fa", "#e60f1118"),
         // 滚动条滑块（overlay 细条：闲置隐藏/贴边/无箭头；无原型对应，Light 为协调补值）
-        ["AppScrollBarThumbBrush"] = ("#c2cbd9", "#3d5175"),
-        ["AppScrollBarThumbHoverBrush"] = ("#93a5bd", "#6486bd"),
+        ["AppScrollBarThumbBrush"] = ("#c2cbd9", "#475164"),
+        ["AppScrollBarThumbHoverBrush"] = ("#93a5bd", "#7386a6"),
         // D-016 弹窗卡片毛玻璃半透明面（AppPanelBrush 同基调 90% 不透明，acrylic 生效时启用）
-        ["AppPopoverCardBackgroundBrush"] = ("#e6ffffff", "#e6111c2e"),
+        ["AppPopoverCardBackgroundBrush"] = ("#e6ffffff", "#e6171c25"),
     };
 
     /// <summary>图表系列色（原型 JS colors[] 数组，索引自 0）→ 期望色值，不随明暗翻转。</summary>
@@ -159,11 +161,11 @@ public class DesignTokenTests
     {
         var app = Application.Current!;
 
-        // 卡片渐变 ← 原型 .kpi,.panel linear-gradient(145deg,#121e31,#101a2b)（Dark 原值 / Light 协调值）
+        // 卡片渐变 ← 原型 .kpi,.panel linear-gradient(145deg,#121e31,#101a2b)（Dark 经 Q-019 降饱和 / Light 协调值）
         Assert.True(app.TryGetResource("AppCardBackgroundBrush", ThemeVariant.Dark, out var darkCard));
         var darkGradient = Assert.IsType<LinearGradientBrush>(darkCard);
-        Assert.Equal(Color.Parse("#121e31"), darkGradient.GradientStops[0].Color);
-        Assert.Equal(Color.Parse("#101a2b"), darkGradient.GradientStops[1].Color);
+        Assert.Equal(Color.Parse("#181e27"), darkGradient.GradientStops[0].Color);
+        Assert.Equal(Color.Parse("#151a22"), darkGradient.GradientStops[1].Color);
 
         Assert.True(app.TryGetResource("AppCardBackgroundBrush", ThemeVariant.Light, out var lightCard));
         var lightGradient = Assert.IsType<LinearGradientBrush>(lightCard);

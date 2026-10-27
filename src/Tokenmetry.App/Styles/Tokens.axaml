@@ -6,10 +6,15 @@
         I-027 设计令牌层：UI 原型 docs/design/ccusage_analytics_prototype.html 的视觉规范。
         命名规范与使用规则见 docs/design/design-tokens.md（前缀 App*，与 Semi* / DataGrid* 键避让）。
 
-        1. ThemeDictionaries（明暗翻转画刷）：Dark = 原型原值逐项对应（含 :root 变量与
+        1. ThemeDictionaries（明暗翻转画刷）：Dark = 原型原值经 Q-019 降饱和（含 :root 变量与
            .kpi/.panel/.chip/.linkbtn/.mini-track/.kpi-icon 等选择器里的具体色值，来源见各行注释；
            D-003 追加 .sidebar/.topbar/.nav 外壳 6 组）；
            Light = 同色相、明度反转的协调值（原型只有暗色主题，浅色侧为本卡设计）。
+
+        Q-019 暗色去蓝：原样移植原型后整体偏蓝（原型是大面积高饱和深蓝的看板风），大面积表层
+        色相不动、饱和度砍半，亮度逐项对齐原值——文字/强调色的对比度因此一位不变。语义色
+        （六强调色、KPI 图标软底、告警横幅、图表系列色）与文字色一律不动。各行注释保留原型原值
+        供溯源，箭头右侧为现值。
         2. 普通资源（不随明暗翻转）：7 个图表系列色（原型 JS colors[] 数组）+ mini 进度条填充渐变。
     -->
 
@@ -21,9 +26,11 @@
             <SolidColorBrush x:Key="AppPanelBrush" Color="#ffffff"/>
             <SolidColorBrush x:Key="AppPanelAltBrush" Color="#eef1f6"/>
             <SolidColorBrush x:Key="AppLineBrush" Color="#d4dbe6"/>
-            <!-- 文字 ← 原型 :root 的 text/muted 变量（浅底上加深保证对比度） -->
+            <!-- 文字 ← 原型 :root 的 text/muted 变量（浅底上加深保证对比度）。
+                 Q-020：muted 由 #66788f 加深到 #546783——原值按白底校准（4.52 刚过线），
+                 在侧栏 #edf1f7 上只有 3.99、页面底 4.18，低于 AA；现值侧栏 5.08 / hover 4.76 -->
             <SolidColorBrush x:Key="AppTextBrush" Color="#1c2735"/>
-            <SolidColorBrush x:Key="AppMutedTextBrush" Color="#66788f"/>
+            <SolidColorBrush x:Key="AppMutedTextBrush" Color="#546783"/>
             <!-- 强调色 ← 原型 :root 的 blue/cyan/purple/green/orange/red 变量（浅底上加深） -->
             <SolidColorBrush x:Key="AppAccentBlueBrush" Color="#2e6bdc"/>
             <SolidColorBrush x:Key="AppAccentCyanBrush" Color="#1d9bc4"/>
@@ -60,6 +67,9 @@
             <!-- D-003 应用外壳（sidebar/topbar/nav）← 原型 .sidebar/.topbar/.nav 各选择器色值（Light 为协调补值） -->
             <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#edf1f7"/>
             <SolidColorBrush x:Key="AppTopbarBackgroundBrush" Color="#f0f4f9"/>
+            <!-- Q-021 导航项前景（非选中）：导航是可点击入口，不是次要说明文字，故独立于 muted。
+                 原型 .nav 的 #aab9ce 在暗底上是 9.09:1，浅色侧对齐该强度档（#3d4c63 → 7.68:1） -->
+            <SolidColorBrush x:Key="AppNavForegroundBrush" Color="#3d4c63"/>
             <SolidColorBrush x:Key="AppNavActiveBackgroundBrush" Color="#dbe7fb"/>
             <SolidColorBrush x:Key="AppNavActiveForegroundBrush" Color="#2b5d9f"/>
             <SolidColorBrush x:Key="AppNavActiveIndicatorBrush" Color="#2e6bdc"/>
@@ -89,11 +99,12 @@
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
-            <!-- 页面底 / 面板 / 次面板 / 描边 ← 原型 :root bg:#0b1120 panel:#111c2e panel2:#142137 line:#24344d -->
-            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0b1120"/>
-            <SolidColorBrush x:Key="AppPanelBrush" Color="#111c2e"/>
-            <SolidColorBrush x:Key="AppPanelAltBrush" Color="#142137"/>
-            <SolidColorBrush x:Key="AppLineBrush" Color="#24344d"/>
+            <!-- 页面底 / 面板 / 次面板 / 描边 ← 原型 :root bg:#0b1120 panel:#111c2e panel2:#142137 line:#24344d
+                 （Q-019 降饱和：原型值 → 现值，下同） -->
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0f1118"/>
+            <SolidColorBrush x:Key="AppPanelBrush" Color="#171c25"/>
+            <SolidColorBrush x:Key="AppPanelAltBrush" Color="#1b212c"/>
+            <SolidColorBrush x:Key="AppLineBrush" Color="#2c3440"/>
             <!-- 文字 ← 原型 :root text:#e8eef9 muted:#8293ad -->
             <SolidColorBrush x:Key="AppTextBrush" Color="#e8eef9"/>
             <SolidColorBrush x:Key="AppMutedTextBrush" Color="#8293ad"/>
@@ -106,17 +117,17 @@
             <SolidColorBrush x:Key="AppAccentRedBrush" Color="#ff7185"/>
             <!-- 卡片表面 ← 原型 .kpi,.panel linear-gradient(145deg,#121e31,#101a2b) + 1px #22324a 描边 -->
             <LinearGradientBrush x:Key="AppCardBackgroundBrush" StartPoint="10.058%,-7.043%" EndPoint="89.942%,107.043%">
-                <GradientStop Color="#121e31" Offset="0"/>
-                <GradientStop Color="#101a2b" Offset="1"/>
+                <GradientStop Color="#181e27" Offset="0"/>
+                <GradientStop Color="#151a22" Offset="1"/>
             </LinearGradientBrush>
-            <SolidColorBrush x:Key="AppCardLineBrush" Color="#22324a"/>
+            <SolidColorBrush x:Key="AppCardLineBrush" Color="#2a323d"/>
             <!-- 链接按钮 ← 原型 .linkbtn color:#80adff -->
             <SolidColorBrush x:Key="AppLinkBrush" Color="#80adff"/>
             <!-- chip ← 原型 .chip background:#1b2c44;color:#a8c8ff -->
-            <SolidColorBrush x:Key="AppChipBackgroundBrush" Color="#1b2c44"/>
+            <SolidColorBrush x:Key="AppChipBackgroundBrush" Color="#232c39"/>
             <SolidColorBrush x:Key="AppChipTextBrush" Color="#a8c8ff"/>
             <!-- mini 进度条轨道 ← 原型 .mini-track background:#23334b -->
-            <SolidColorBrush x:Key="AppMiniTrackBrush" Color="#23334b"/>
+            <SolidColorBrush x:Key="AppMiniTrackBrush" Color="#2a3340"/>
             <!-- 图标/头像软色底 ← 原型 .kpi-icon 四变体 + .agenticon.gray -->
             <SolidColorBrush x:Key="AppIconChipBlueBackgroundBrush" Color="#20395b"/>
             <SolidColorBrush x:Key="AppIconChipBlueForegroundBrush" Color="#8db8ff"/>
@@ -132,31 +143,33 @@
             <SolidColorBrush x:Key="AppKpiTitleBrush" Color="#b7c5d9"/>
             <!-- D-003 应用外壳 ← .sidebar{background:#0d1626} / .topbar{background:#0e1728} /
                  .nav button.active{background:#1b2d49;color:#9dc2ff;inset 2px #5794ff} / .nav button:hover{background:#17253b} -->
-            <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#0d1626"/>
-            <SolidColorBrush x:Key="AppTopbarBackgroundBrush" Color="#0e1728"/>
-            <SolidColorBrush x:Key="AppNavActiveBackgroundBrush" Color="#1b2d49"/>
+            <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#12161e"/>
+            <SolidColorBrush x:Key="AppTopbarBackgroundBrush" Color="#13171f"/>
+            <!-- Q-021 导航项前景（非选中）：暗色侧沿用 muted 值（#8293ad on #12161e = 5.80，目检已通过，不动） -->
+            <SolidColorBrush x:Key="AppNavForegroundBrush" Color="#8293ad"/>
+            <SolidColorBrush x:Key="AppNavActiveBackgroundBrush" Color="#242d3c"/>
             <SolidColorBrush x:Key="AppNavActiveForegroundBrush" Color="#9dc2ff"/>
             <SolidColorBrush x:Key="AppNavActiveIndicatorBrush" Color="#5794ff"/>
-            <SolidColorBrush x:Key="AppNavHoverBackgroundBrush" Color="#17253b"/>
-            <!-- D-004 图表 chrome（ScottPlot 轴/网格）← 原型 .chart .gridline{#23344b}/.axis{#35465e}（Dark 原值） -->
-            <SolidColorBrush x:Key="AppChartGridLineBrush" Color="#23344b"/>
-            <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#35465e"/>
-            <!-- 首次初始化全窗遮罩底（MainWindow.axaml）：页面底色 #0b1120 的 90% 不透明补值 -->
-            <SolidColorBrush x:Key="AppOverlayScrimBrush" Color="#e60b1120"/>
+            <SolidColorBrush x:Key="AppNavHoverBackgroundBrush" Color="#1e2531"/>
+            <!-- D-004 图表 chrome（ScottPlot 轴/网格）← 原型 .chart .gridline{#23344b}/.axis{#35465e}（Q-019 降饱和） -->
+            <SolidColorBrush x:Key="AppChartGridLineBrush" Color="#2c343f"/>
+            <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#3d4651"/>
+            <!-- 首次初始化全窗遮罩底（MainWindow.axaml）：页面底色 #0f1118 的 90% 不透明补值 -->
+            <SolidColorBrush x:Key="AppOverlayScrimBrush" Color="#e60f1118"/>
             <!-- D-015 状态栏快捷信息窗三态 banner ← 原型 .banner{background:#172a42;border:#2b4c70}/
-                 .banner.warn{background:#30281b;border:#674d29}（Dark 原值） -->
-            <SolidColorBrush x:Key="AppBannerActiveBackgroundBrush" Color="#172a42"/>
-            <SolidColorBrush x:Key="AppBannerActiveLineBrush" Color="#2b4c70"/>
+                 .banner.warn{background:#30281b;border:#674d29}（活动态 Q-019 降饱和；告警态是语义暖色，原值不动） -->
+            <SolidColorBrush x:Key="AppBannerActiveBackgroundBrush" Color="#202a37"/>
+            <SolidColorBrush x:Key="AppBannerActiveLineBrush" Color="#3a4c5f"/>
             <SolidColorBrush x:Key="AppBannerWarnBackgroundBrush" Color="#30281b"/>
             <SolidColorBrush x:Key="AppBannerWarnLineBrush" Color="#674d29"/>
             <!-- 滚动条滑块（overlay 细条：闲置隐藏/贴边/无箭头，样式在 ScrollBarTheme.axaml；
-                 无原型对应，Dark 取 AppLineBrush #24344d 的提亮档，悬停再向 AppAccentBlueBrush 靠拢） -->
-            <SolidColorBrush x:Key="AppScrollBarThumbBrush" Color="#3d5175"/>
-            <SolidColorBrush x:Key="AppScrollBarThumbHoverBrush" Color="#6486bd"/>
+                 无原型对应，Dark 取 AppLineBrush 的提亮档，悬停再向 AppAccentBlueBrush 靠拢） -->
+            <SolidColorBrush x:Key="AppScrollBarThumbBrush" Color="#475164"/>
+            <SolidColorBrush x:Key="AppScrollBarThumbHoverBrush" Color="#7386a6"/>
             <!-- 品牌色表面上的文字（两主题恒白） -->
             <SolidColorBrush x:Key="AppOnBrandForegroundBrush" Color="#ffffff"/>
-            <!-- D-016 弹窗卡片毛玻璃半透明面（同 Light 侧说明）：原型 panel #111c2e 的 90% 不透明 -->
-            <SolidColorBrush x:Key="AppPopoverCardBackgroundBrush" Color="#e6111c2e"/>
+            <!-- D-016 弹窗卡片毛玻璃半透明面（同 Light 侧说明）：原型 panel #111c2e 的 90% 不透明（Q-019 现值） -->
+            <SolidColorBrush x:Key="AppPopoverCardBackgroundBrush" Color="#e6171c25"/>
             <!-- D-016 弹窗外投影色：暗色侧更重 -->
             <Color x:Key="AppPopoverShadowColor">#a6000000</Color>
         </ResourceDictionary>

@@ -256,10 +256,10 @@ public partial class TrendChart : UserControl
         plot.FigureBackground.Color = new Color(0, 0, 0, 0);
         plot.DataBackground.Color = new Color(0, 0, 0, 0);
 
-        var grid = TokenColor("AppChartGridLineBrush", new Color(35, 52, 75));
+        var grid = TokenColor("AppChartGridLineBrush", new Color(44, 52, 63));
         var text = TokenColor("AppMutedTextBrush", new Color(130, 147, 173));
 
-        // 网格 ← 原型 .gridline #23344b（只保留水平主网格，纵向网格随 I-032 关闭）
+        // 网格 ← 原型 .gridline #23344b（Q-019 降饱和现值见 AppChartGridLineBrush；只保留水平主网格，纵向网格随 I-032 关闭）
         plot.Grid.XAxisStyle.IsVisible = false;
         plot.Grid.YAxisStyle.MajorLineStyle.Color = grid;
         plot.Grid.YAxisStyle.MajorLineStyle.Width = 1f;
@@ -419,8 +419,8 @@ public partial class TrendChart : UserControl
         var blue = TokenColor("AppAccentBlueBrush", new Color(76, 141, 255));    // 原型 var(--blue) 图例「输入」
         var purple = TokenColor("AppAccentPurpleBrush", new Color(167, 121, 255)); // 原型 var(--purple) 图例「输出」
         var cyan = TokenColor("AppAccentCyanBrush", new Color(87, 199, 232));    // 原型 var(--cyan) 图例「总量」
-        var grid = TokenColor("AppChartGridLineBrush", new Color(35, 52, 75));
-        var panel = TokenColor("AppPanelBrush", new Color(17, 28, 46));
+        var grid = TokenColor("AppChartGridLineBrush", new Color(44, 52, 63));
+        var panel = TokenColor("AppPanelBrush", new Color(23, 28, 37));
 
         var xs = points.Select(p => DateTime.Parse(p.Day, CultureInfo.InvariantCulture).ToOADate()).ToArray();
 
@@ -513,8 +513,8 @@ public partial class TrendChart : UserControl
         }
 
         var cyan = TokenColor("AppAccentCyanBrush", new Color(87, 199, 232));
-        var grid = TokenColor("AppChartGridLineBrush", new Color(35, 52, 75));
-        var panel = TokenColor("AppPanelBrush", new Color(17, 28, 46));
+        var grid = TokenColor("AppChartGridLineBrush", new Color(44, 52, 63));
+        var panel = TokenColor("AppPanelBrush", new Color(23, 28, 37));
 
         var xs = points.Select(p => DateTime.Parse(p.Day, CultureInfo.InvariantCulture).ToOADate()).ToArray();
         // y 取已知成本；补零日为 0（真实为零，进连线），未知成本日为 0（仅作淡点/悬停锚点，不进连线）
@@ -604,7 +604,7 @@ public partial class TrendChart : UserControl
         }
 
         var cyan = TokenColor("AppAccentCyanBrush", new Color(87, 199, 232));
-        var panel = TokenColor("AppPanelBrush", new Color(17, 28, 46));
+        var panel = TokenColor("AppPanelBrush", new Color(23, 28, 37));
 
         var xs = hours.Select(h => (double)h.Hour).ToArray();
         var ys = hours.Select(h => (double)h.TotalTokens).ToArray();

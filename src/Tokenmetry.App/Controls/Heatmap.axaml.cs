@@ -302,7 +302,7 @@ public partial class Heatmap : UserControl
     {
         if (!cell.HasData)
         {
-            return ResolveBrush("AppPanelAltBrush", Color.Parse("#142137"));
+            return ResolveBrush("AppPanelAltBrush", Color.Parse("#1b212c"));
         }
 
         var ratio = max > 0 ? cell.Value / max : 0;

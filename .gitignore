@@ -220,3 +220,9 @@ docs/plans/
 # I-039 发布产物（scripts/package.sh 本地打包输出；CI 在 runner 上自产自销）
 dist/
 Tokenmetry-*.zip
+
+# docs/design 下的明暗留档截图（headless 测试产物）
+# 不入库理由：① 渲染源含真实本机数据（app-shell 走真实 DI，含真实用量/模型目录），
+# 提交等于换个出口发布数据；② 非确定性（fixture 含相对时间/动画帧），每次重跑都会 diff。
+# 需要人工留档的精修图请显式 `git add -f`，或改写到已忽略的 artifacts/ 下。
+docs/design/*.png

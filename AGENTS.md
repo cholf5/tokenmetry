@@ -45,6 +45,8 @@ dotnet run --project src/Tokenmetry.App
 
 任务管理用 `docs/kanban/board.md`（Todo|Done 两列）+ `docs/kanban/issues/<ID>-<slug>.md` 卡片；移动卡片 = 同一次操作里改看板行 + 卡片内 status。提交信息为中文，格式 `type: 一句话` + 正文说明"改了什么、为什么、明确不做什么"（参照 git log 风格）。
 
+**开卡必须由用户明确指示**。看板卡是严肃的项目记录，不是随手记账：用户没有明说"开卡 / 建卡 / 立卡"时，一律直接干活，不要自作主张新建卡片或往看板加行。已有卡片的移动与收口仍按上面的约定执行。
+
 ## 隐私红线
 
 SQLite 只存聚合事实与配置；不存 prompt、代码、会话内容。
