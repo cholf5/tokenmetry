@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Infrastructure.Jsonl;
 
@@ -10,7 +11,7 @@ namespace Tokenmetry.Infrastructure.ClaudeCodeJsonl;
 /// 规则逐条移植自 ccusage-tauri claude.rs（usage 标记、agent progress 包装、字段判空、
 /// semver 前缀校验、模型归一化、cache_creation 5m/1h 细分等），不要凭记忆猜测日志格式。
 /// </summary>
-public class ClaudeCodeJsonlLineParser
+public partial class ClaudeCodeJsonlLineParser
 {
     /// <summary>与 claude.rs USAGE_MARKER 一致：只有包含该片段的行才进入 JSON 解析。</summary>
     public const string UsageMarker = "\"usage\":{";
@@ -48,7 +49,7 @@ public class ClaudeCodeJsonlLineParser
 
         if (TryGetPointer(root, WrapperUsagePointer, out _))
         {
-            var wrapper = TryDeserialize<AgentProgressEntry>(root);
+            var wrapper = TryDeserialize(root, ClaudeCodeJsonContext.Default.AgentProgressEntry);
             if (wrapper is null)
             {
                 return null;
@@ -57,7 +58,7 @@ public class ClaudeCodeJsonlLineParser
             return Normalize(wrapper.ToRawEntry(), fileSessionId, projectPath, sourceFile);
         }
 
-        var entry = TryDeserialize<RawUsageEntry>(root);
+        var entry = TryDeserialize(root, ClaudeCodeJsonContext.Default.RawUsageEntry);
         return entry is null ? null : Normalize(entry, fileSessionId, projectPath, sourceFile);
     }
 
@@ -271,14 +272,14 @@ public class ClaudeCodeJsonlLineParser
         return false;
     }
 
-    private static T? TryDeserialize<T>(JsonElement root)
+    private static T? TryDeserialize<T>(JsonElement root, JsonTypeInfo<T> typeInfo)
         where T : class
     {
         try
         {
             // 不开 PropertyNameCaseInsensitive：与 serde 一致按精确 JSON 名绑定，
             // 大小写变体（"SessionID" 等）视为未知字段忽略，而不是被误绑定。
-            return root.Deserialize<T>();
+            return root.Deserialize(typeInfo);
         }
         catch (JsonException)
         {
@@ -356,6 +357,15 @@ public class ClaudeCodeJsonlLineParser
 
     // ---- 与 Claude 日志真实结构对应的内部 DTO ----
     // serde 规则的等价物：每个属性标注精确 JSON 名（大小写敏感绑定）、缺省值、null 拒绝、required 字段。
+
+    // ---- JSON 源生成上下文（Native AOT 适配，P-004）----
+    // 反射式 Deserialize<T> 在 AOT 下不可用（IL3050）。Default 口径 = JsonSerializerOptions.Default，
+    // 与原反射口径一致（精确 JSON 名、大小写敏感绑定，大小写变体视为未知字段忽略）。
+    [JsonSerializable(typeof(RawUsageEntry))]
+    [JsonSerializable(typeof(AgentProgressEntry))]
+    private sealed partial class ClaudeCodeJsonContext : JsonSerializerContext
+    {
+    }
 
     internal sealed class RawUsageEntry
     {

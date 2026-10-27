@@ -124,6 +124,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| P-004 | Native AOT 支持——反射 JSON 全量源生成，PublishAot 编译零警告（发布矩阵接线不在本卡） | P3 | 2026-10-27 |
 | B-018 | macOS 点 Dock 图标无反应——interop 挂 applicationShouldHandleReopen 补全唤回（真机 TC 移交用户） | P2 | 2026-10-26 |
 | B-017 | Windows 托盘左键永远 Open 不 Switch——失焦收起先于 Clicked 到达，ToggleFromTrayClick 失焦守卫（消费制） | P2 | 2026-10-26 |
 | I-042 | 无变化轮次短路——零数据变化跳过计价/聚合/落库，扫描器零变更轮复用去重产物 | P1 | 2026-10-25 |

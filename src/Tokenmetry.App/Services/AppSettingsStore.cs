@@ -15,10 +15,8 @@ public interface IAppSettingsStore
 
 public sealed class JsonAppSettingsStore : IAppSettingsStore
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        WriteIndented = true
-    };
+    // JSON 源生成上下文（Native AOT 适配，P-004）：反射式序列化在 AOT 下不可用（IL3050）。
+    private static readonly AppSettingsJsonContext Context = AppSettingsJsonContext.Indented;
 
     private readonly AppPaths _paths;
 
@@ -41,7 +39,7 @@ public sealed class JsonAppSettingsStore : IAppSettingsStore
         try
         {
             await using var stream = File.OpenRead(_paths.SettingsFilePath);
-            return await JsonSerializer.DeserializeAsync<AppSettings>(stream, SerializerOptions, ct) ?? new AppSettings();
+            return await JsonSerializer.DeserializeAsync(stream, Context.AppSettings, ct) ?? new AppSettings();
         }
         catch (Exception ex) when (ex is JsonException or IOException)
         {
@@ -70,7 +68,7 @@ public sealed class JsonAppSettingsStore : IAppSettingsStore
         var tmpPath = $"{_paths.SettingsFilePath}.tmp";
         await using (var stream = File.Create(tmpPath))
         {
-            await JsonSerializer.SerializeAsync(stream, settings, SerializerOptions, ct);
+            await JsonSerializer.SerializeAsync(stream, settings, Context.AppSettings, ct);
         }
 
         File.Move(tmpPath, _paths.SettingsFilePath, overwrite: true);
