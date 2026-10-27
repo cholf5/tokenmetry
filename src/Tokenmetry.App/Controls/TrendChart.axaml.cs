@@ -959,9 +959,7 @@ public partial class TrendChart : UserControl
     /// <see cref="FormatCompactAxisValue"/>（无 CJK 字形，恒为 ASCII 单位）。
     /// </summary>
     public static string FormatCompactTokens(double value) =>
-        FormatCompact(value,
-            Translations.Instance.CurrentLanguage == AppLanguage.SimplifiedChinese ? ChineseUnits : EnglishUnits,
-            tickPrecision: false);
+        FormatCompact(value, UnitsFor(Translations.Instance.CurrentLanguage), tickPrecision: false);
 
     /// <summary>轴刻度紧凑数值（ScottPlot 渲染无 CJK 字形，恒为 ASCII 短单位；刻度精度略降）。</summary>
     private static string FormatCompactAxisValue(double value) => FormatCompact(value, EnglishUnits, tickPrecision: true);
@@ -986,6 +984,23 @@ public partial class TrendChart : UserControl
         new(1e8, 1e8, "亿", 1e4),
         new(1e12, 1e12, "万亿", double.MaxValue),
     ];
+
+    // 万进制（繁体，zh-Hant）：档位与简体一致，仅字形繁体化（萬/億）——图表数值混入简体字形即漏译。
+    private static readonly CompactUnit[] TraditionalChineseUnits =
+    [
+        new(1e4, 1e4, "萬", 1e4),
+        new(1e8, 1e8, "億", 1e4),
+        new(1e12, 1e12, "萬億", double.MaxValue),
+    ];
+
+    /// <summary>语言 → 紧凑单位制（D-024）：简体/繁体走万进制（字形随语种），其余语种（含日韩——
+    /// 数字单位习惯与英文一致用 K/M）走千进制。</summary>
+    private static CompactUnit[] UnitsFor(AppLanguage language) => language switch
+    {
+        AppLanguage.SimplifiedChinese => ChineseUnits,
+        AppLanguage.TraditionalChinese => TraditionalChineseUnits,
+        _ => EnglishUnits,
+    };
 
     private static string FormatCompact(double value, CompactUnit[] units, bool tickPrecision)
     {

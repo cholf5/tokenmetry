@@ -124,6 +124,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-024 | 界面多语种扩展——zh-Hant/ja/ko/pt-BR/ru 五语种全量翻译 + 回退链固化（es/de/fr 等社区认领） | P2 | 2026-10-27 |
 | P-004 | Native AOT 支持——反射 JSON 全量源生成，PublishAot 编译零警告（发布矩阵接线不在本卡） | P3 | 2026-10-27 |
 | B-018 | macOS 点 Dock 图标无反应——interop 挂 applicationShouldHandleReopen 补全唤回（真机 TC 移交用户） | P2 | 2026-10-26 |
 | B-017 | Windows 托盘左键永远 Open 不 Switch——失焦收起先于 Clicked 到达，ToggleFromTrayClick 失焦守卫（消费制） | P2 | 2026-10-26 |
