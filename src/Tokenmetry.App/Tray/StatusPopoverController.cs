@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
@@ -93,6 +94,28 @@ public sealed class StatusPopoverController
             }
 
             return _viewModel;
+        }
+    }
+
+    /// <summary>启动预热（B-022）：第一次点托盘前把内容层数据装好——首显不再先画空态（约 420 DIP）
+    /// 再被异步回填撑高（满载约 719 DIP）的闪动。只做只读查询：不显示窗口、不置可见态；
+    /// 首轮扫描前后各调一次，重复调用安全（VM 加载序号丢弃过期响应）。
+    /// 失败不回滚——退回首显时重查的两段式加载（仅闪动回归，位置锚定不受影响）。</summary>
+    internal async Task WarmUpAsync()
+    {
+        if (_window?.IsVisible == true)
+        {
+            return; // 已显示：新鲜度由 OnShown / 刷新轮次负责
+        }
+
+        try
+        {
+            await ViewModel.ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            // ReloadAsync 内部已吞查询失败；这里兜住意外（预热失败不阻塞启动）
+            Console.Error.WriteLine($"[Tokenmetry] 弹层数据预热失败（首显仍会重查）：{ex.Message}");
         }
     }
 
