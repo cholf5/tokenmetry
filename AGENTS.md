@@ -31,7 +31,7 @@ dotnet run --project src/Tokenmetry.App
 
 ## i18n 纪律
 
-全部界面文案唯一出处：`src/Tokenmetry.App/Localization/Translations.cs`。简体中文字典为源（key = `nameof(属性)`，漏 key 显示属性名自暴露），其余语种字典只放译文，字典体在 partial 分文件（`Translations.ZhHant.cs` / `.Ja.cs` / `.Ko.cs` / `.PtBr.cs` / `.Ru.cs`；字典**字段声明**留在主文件、置于 `Instance` 之前——跨文件静态初始化顺序陷阱）。支持语种（D-024）：`zh` / `zh-hant` / `en` / `ja` / `ko` / `pt-br` / `ru` + `system`（AppSettings.Language 统一小写存码；`Resolve` 时 zh 系按书写系统分简繁，pt 系统一落 pt-BR；未知值回落 system）。回退链：新语种缺项 → 英文 → 简体，zh-Hant 缺项 → 简体——链只是漏译安全网，**所有语种必须全量覆盖**（`TranslationsTests` 的 `*_CoversEveryChineseSourceKey` 与占位符不变式测试固化，新增 zh key 必须同步补全部语种译文）；语言名选项自名不翻译（各语种同值）。第二梯队 es/de/fr 待社区认领，明确不做 hi/bn/ar/id。XAML 用 `{Binding 属性, Source={x:Static loc:Translations.Instance}}`。`Tokenmetry.App.Tests` 固定 zh-Hans 文化（`TestCulture.cs`），测试断言必须语言无关（不要断言具体中文/英文串）。
+全部界面文案唯一出处：`src/Tokenmetry.App/Localization/Translations.cs`。简体中文字典为源（key = `nameof(属性)`，漏 key 显示属性名自暴露），其余语种字典只放译文，字典体在 partial 分文件（`Translations.ZhHant.cs` / `.Ja.cs` / `.Ko.cs` / `.PtBr.cs` / `.Ru.cs` / `.Es.cs` / `.De.cs` / `.Fr.cs`；字典**字段声明**留在主文件、置于 `Instance` 之前——跨文件静态初始化顺序陷阱）。支持语种（D-024/D-025）：`zh` / `zh-hant` / `en` / `ja` / `ko` / `pt-br` / `ru` / `es` / `de` / `fr` + `system`（AppSettings.Language 统一小写存码；`Resolve` 时 zh 系按书写系统分简繁，pt 系统一落 pt-BR，es/de/fr 不分地区变体；未知值回落 system）。回退链：新语种缺项 → 英文 → 简体，zh-Hant 缺项 → 简体——链只是漏译安全网，**所有语种必须全量覆盖**（`TranslationsTests` 的 `*_CoversEveryChineseSourceKey` 与占位符不变式测试固化，新增 zh key 必须同步补全部语种译文）；语言名选项自名不翻译（各语种同值）。明确不做 hi/bn/ar/id。XAML 用 `{Binding 属性, Source={x:Static loc:Translations.Instance}}`。`Tokenmetry.App.Tests` 固定 zh-Hans 文化（`TestCulture.cs`），测试断言必须语言无关（不要断言具体中文/英文串）。
 
 ## 设计令牌（改 UI 前读 `docs/design/design-tokens.md`）
 

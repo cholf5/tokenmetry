@@ -23,6 +23,9 @@ public class TranslationsTests : IDisposable
     [InlineData("ko", AppLanguage.Korean)]
     [InlineData("pt-br", AppLanguage.BrazilianPortuguese)]
     [InlineData("ru", AppLanguage.Russian)]
+    [InlineData("es", AppLanguage.Spanish)]
+    [InlineData("de", AppLanguage.German)]
+    [InlineData("fr", AppLanguage.French)]
     [InlineData("system", AppLanguage.System)]
     [InlineData("  EN  ", AppLanguage.English)]
     [InlineData("  PT-BR  ", AppLanguage.BrazilianPortuguese)]
@@ -56,8 +59,12 @@ public class TranslationsTests : IDisposable
         // pt 系只出 pt-BR 一个变体：pt-PT 等其余葡语地区也落 pt-BR（单 locale 纪律，不做 pt-PT）
         Translations.Resolve(AppLanguage.System, new CultureInfo("pt-PT")).Should().Be(AppLanguage.BrazilianPortuguese);
         Translations.Resolve(AppLanguage.System, new CultureInfo("ru-RU")).Should().Be(AppLanguage.Russian);
+        Translations.Resolve(AppLanguage.System, new CultureInfo("es-ES")).Should().Be(AppLanguage.Spanish);
+        Translations.Resolve(AppLanguage.System, new CultureInfo("es-MX")).Should().Be(AppLanguage.Spanish);
+        Translations.Resolve(AppLanguage.System, new CultureInfo("de-DE")).Should().Be(AppLanguage.German);
+        Translations.Resolve(AppLanguage.System, new CultureInfo("fr-FR")).Should().Be(AppLanguage.French);
         // 未支持的语种如实落 English（不落简体——英语是事实上的开发者通用回退）
-        Translations.Resolve(AppLanguage.System, new CultureInfo("fr-FR")).Should().Be(AppLanguage.English);
+        Translations.Resolve(AppLanguage.System, new CultureInfo("it-IT")).Should().Be(AppLanguage.English);
     }
 
     [Fact]
@@ -153,6 +160,9 @@ public class TranslationsTests : IDisposable
     [InlineData("Ko")]
     [InlineData("PtBr")]
     [InlineData("Ru")]
+    [InlineData("Es")]
+    [InlineData("De")]
+    [InlineData("Fr")]
     public void NewLanguageDictionaries_CoverEveryChineseSourceKey(string fieldName)
     {
         // 与 English_CoversEveryChineseSourceKey 同纪律（D-024）：回落链是新语种的安全网而非
@@ -171,6 +181,9 @@ public class TranslationsTests : IDisposable
     [InlineData("Ko")]
     [InlineData("PtBr")]
     [InlineData("Ru")]
+    [InlineData("Es")]
+    [InlineData("De")]
+    [InlineData("Fr")]
     public void LanguageDictionaries_KeepInvariantFormatPlaceholders(string fieldName)
     {
         // {0} 风格占位符由 string.Format 消费：任何语言的译文槽位集必须与中文源一致——
@@ -201,6 +214,15 @@ public class TranslationsTests : IDisposable
         Translations.FallbackChain(AppLanguage.Korean)[1].Should().BeSameAs(SourceDictionary("En"));
         Translations.FallbackChain(AppLanguage.BrazilianPortuguese)[1].Should().BeSameAs(SourceDictionary("En"));
         Translations.FallbackChain(AppLanguage.Russian)[1].Should().BeSameAs(SourceDictionary("En"));
+        Translations.FallbackChain(AppLanguage.Spanish).Should().HaveCount(3);
+        Translations.FallbackChain(AppLanguage.Spanish)[0].Should().BeSameAs(SourceDictionary("Es"));
+        Translations.FallbackChain(AppLanguage.Spanish)[1].Should().BeSameAs(SourceDictionary("En"));
+        Translations.FallbackChain(AppLanguage.German).Should().HaveCount(3);
+        Translations.FallbackChain(AppLanguage.German)[0].Should().BeSameAs(SourceDictionary("De"));
+        Translations.FallbackChain(AppLanguage.German)[1].Should().BeSameAs(SourceDictionary("En"));
+        Translations.FallbackChain(AppLanguage.French).Should().HaveCount(3);
+        Translations.FallbackChain(AppLanguage.French)[0].Should().BeSameAs(SourceDictionary("Fr"));
+        Translations.FallbackChain(AppLanguage.French)[1].Should().BeSameAs(SourceDictionary("En"));
     }
 
     [Fact]
@@ -266,6 +288,7 @@ public class TranslationsTests : IDisposable
                  {
                      AppLanguage.English, AppLanguage.Japanese, AppLanguage.Korean,
                      AppLanguage.BrazilianPortuguese, AppLanguage.Russian,
+                     AppLanguage.Spanish, AppLanguage.German, AppLanguage.French,
                  })
         {
             Translations.Instance.SetLanguage(language);

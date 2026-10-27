@@ -242,6 +242,9 @@ public class SettingsViewModelTests
     [InlineData("ko")]
     [InlineData("pt-br")]
     [InlineData("ru")]
+    [InlineData("es")]
+    [InlineData("de")]
+    [InlineData("fr")]
     public void Constructor_ResolvesNewLanguagePreferencesFromSettings(string code)
     {
         // D-024 新语种：持久化的新语言代码要能对回稳定选项实例（未知值才回落 system）。

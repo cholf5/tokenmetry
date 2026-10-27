@@ -21,8 +21,9 @@ namespace Tokenmetry.App.Localization;
 /// 绑定不重启实时切换；命令式渲染的订阅方以 PropertyChanged(CurrentLanguage) 作为
 /// 「每次切换一次」的信号做重译（同 stupid-dict 的 CurrentLanguage 信号约定）。</para>
 /// <para>语言偏好持久化在 AppSettings.Language（统一小写："system"/"zh"/"zh-hant"/"en"/"ja"/
-/// "ko"/"pt-br"/"ru"，未知值回落 system），启动时 App 在创建主窗/托盘前 ApplyPreference 一次。
-/// 瞬态文案（toast、一次性状态行）保持出现时的语言，不做回溯重译（同 stupid-dict 既定取舍）。</para>
+/// "ko"/"pt-br"/"ru"/"es"/"de"/"fr"，未知值回落 system），启动时 App 在创建主窗/托盘前
+/// ApplyPreference 一次。瞬态文案（toast、一次性状态行）保持出现时的语言，不做回溯重译
+/// （同 stupid-dict 既定取舍）。</para>
 /// </summary>
 public sealed partial class Translations : INotifyPropertyChanged
 {
@@ -207,6 +208,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(LanguageKo)] = "한국어",
         [nameof(LanguagePtBr)] = "Português (Brasil)",
         [nameof(LanguageRu)] = "Русский",
+        [nameof(LanguageEs)] = "Español",
+        [nameof(LanguageDe)] = "Deutsch",
+        [nameof(LanguageFr)] = "Français",
         [nameof(LanguageHint)] = "切换后立即生效并自动保存（重启后保持）。",
         [nameof(LabelRefreshInterval)] = "刷新间隔（分钟）",
         [nameof(RefreshIntervalMustBeNumber)] = "刷新间隔必须是数字",
@@ -636,6 +640,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(LanguageKo)] = "한국어",
         [nameof(LanguagePtBr)] = "Português (Brasil)",
         [nameof(LanguageRu)] = "Русский",
+        [nameof(LanguageEs)] = "Español",
+        [nameof(LanguageDe)] = "Deutsch",
+        [nameof(LanguageFr)] = "Français",
         [nameof(LanguageHint)] = "Applies and saves automatically (kept across restarts).",
         [nameof(LabelRefreshInterval)] = "Refresh interval (minutes)",
         [nameof(RefreshIntervalMustBeNumber)] = "Refresh interval must be a number",
@@ -890,6 +897,9 @@ public sealed partial class Translations : INotifyPropertyChanged
     private static readonly Dictionary<string, string> Ko = BuildKo();
     private static readonly Dictionary<string, string> PtBr = BuildPtBr();
     private static readonly Dictionary<string, string> Ru = BuildRu();
+    private static readonly Dictionary<string, string> Es = BuildEs();
+    private static readonly Dictionary<string, string> De = BuildDe();
+    private static readonly Dictionary<string, string> Fr = BuildFr();
 
     private static readonly string[] AllPropertyNames = typeof(Translations)
         .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -946,6 +956,9 @@ public sealed partial class Translations : INotifyPropertyChanged
             "ko" => AppLanguage.Korean,
             "pt-br" => AppLanguage.BrazilianPortuguese,
             "ru" => AppLanguage.Russian,
+            "es" => AppLanguage.Spanish,
+            "de" => AppLanguage.German,
+            "fr" => AppLanguage.French,
             _ => AppLanguage.System,
         };
         Instance.SetLanguage(language);
@@ -960,11 +973,14 @@ public sealed partial class Translations : INotifyPropertyChanged
         AppLanguage.Korean => AppLanguage.Korean,
         AppLanguage.BrazilianPortuguese => AppLanguage.BrazilianPortuguese,
         AppLanguage.Russian => AppLanguage.Russian,
+        AppLanguage.Spanish => AppLanguage.Spanish,
+        AppLanguage.German => AppLanguage.German,
+        AppLanguage.French => AppLanguage.French,
         _ => ResolveSystem(uiCulture),
     };
 
     /// <summary>system 偏好 → 按 OS UI 语言映射：zh 系按书写系统分简繁（zh-TW/zh-HK/zh-MO/zh-Hant*
-    /// → 繁体，其余 zh → 简体），ja/ko/pt/ru 直达对应语言，pt 系统一落 pt-BR（唯一葡语变体），
+    /// → 繁体，其余 zh → 简体），ja/ko/pt/ru/es/de/fr 直达对应语言，pt 系统一落 pt-BR（唯一葡语变体），
     /// 未支持语种落 English（开发者通用回退）。</summary>
     private static AppLanguage ResolveSystem(CultureInfo uiCulture)
     {
@@ -986,6 +1002,12 @@ public sealed partial class Translations : INotifyPropertyChanged
                 return AppLanguage.BrazilianPortuguese;
             case "ru":
                 return AppLanguage.Russian;
+            case "es":
+                return AppLanguage.Spanish;
+            case "de":
+                return AppLanguage.German;
+            case "fr":
+                return AppLanguage.French;
             default:
                 return AppLanguage.English;
         }
@@ -1002,6 +1024,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         AppLanguage.Korean => [Ko, En, Zh],
         AppLanguage.BrazilianPortuguese => [PtBr, En, Zh],
         AppLanguage.Russian => [Ru, En, Zh],
+        AppLanguage.Spanish => [Es, En, Zh],
+        AppLanguage.German => [De, En, Zh],
+        AppLanguage.French => [Fr, En, Zh],
         _ => [Zh],
     };
 
@@ -1199,6 +1224,9 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string LanguageKo => Get();
     public string LanguagePtBr => Get();
     public string LanguageRu => Get();
+    public string LanguageEs => Get();
+    public string LanguageDe => Get();
+    public string LanguageFr => Get();
     public string LanguageHint => Get();
     public string LabelRefreshInterval => Get();
     public string RefreshIntervalMustBeNumber => Get();
