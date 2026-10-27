@@ -47,6 +47,8 @@ public partial class MainWindow : Window
         // 专供窗口语义；Windows exe 文件图标走 csproj ApplicationIcon，macOS Dock 走 interop。
         Icon = new WindowIcon(AssetLoader.Open(
             new Uri("avares://Tokenmetry.App/Assets/app-icon-window.png")));
+        // D-026：Windows 原生标题栏跟随应用明暗（系统边框本身不变，只改 caption 配色）。
+        WindowsCaptionTheme.Default.Attach(this);
         _settings = settings;
         _settingsStore = settingsStore;
 
@@ -240,6 +242,7 @@ public partial class MainWindow : Window
                 Children = { title, body, okButton },
             },
         };
+        WindowsCaptionTheme.Default.Attach(window);
         okButton.Click += (_, _) => window.Close();
         return window;
     }

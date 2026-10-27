@@ -21,7 +21,8 @@
         左侧栏 = 品牌 + 9 项导航；中间 = 页面路由（ContentControl + DataTemplates）。
         2026-10-18 右栏撤除：最近会话/快速筛选定案见 docs/plans/2026-10-18-right-rail-removal-design.md；
         筛选全部并入顶栏四维（FilterStateService）。
-        窗口 chrome 沿用系统边框（2026-10-12 卡内决策，不复刻原型 mac 红绿灯）。
+        窗口 chrome 沿用系统边框（2026-10-12 卡内决策，不复刻原型 mac 红绿灯）；
+        D-026 只让 Windows 原生 caption 跟随明暗（DWM 沉浸式深色），不自绘标题栏。
         最小尺寸 960×640：184 + ≥776 主内容两栏不破（原三栏 276 列归还主内容）。
     -->
 

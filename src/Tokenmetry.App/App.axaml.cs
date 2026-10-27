@@ -265,6 +265,7 @@ public partial class App : Application
                 },
             },
         };
+        WindowsCaptionTheme.Default.Attach(dialog);
         desktop.MainWindow = dialog;
         closeButton.Click += (_, _) => dialog.Close();
         // ShutdownMode 默认 OnLastWindowClose：错误窗关闭 = 进程退出

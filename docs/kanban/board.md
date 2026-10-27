@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-28：**D-026 Windows 原生标题栏深色适配 + 窗口标题缩短收口**。用户反馈（2026-10-27 截图）Windows 深色界面顶一条纯白系统标题栏。取证：经典 Win32 caption 不跟随应用主题，需应用经 DWM `DWMWA_USE_IMMERSIVE_DARK_MODE`（属性 20，Win10 2004+；1809–1903 回落 19）主动声明。修法：新增 Windows-only `WindowsCaptionTheme`（`Attach` 挂 `Opened` + `ActualThemeVariantChanged`，Dark→1 / Light→显式清零防残留；非 Windows / `TOKENMETRY_HEADLESS` / 空句柄在触达 DWM 前返回——headless 句柄非真 HWND，B2 双轨纪律同 StatusPopoverWindow DWM 圆角先例），主窗 / 首关提示窗 / 启动错误窗三处接线共用；标题缩短为 "Tokenmetry"（副标题在 caption / 任务栏重复侧栏品牌）。明确不做：自绘标题栏与 `DWMWA_CAPTION_COLOR`（D-003 系统边框决策不变；后者压掉 active/inactive 与高对比度适配）。TDD（CS0246 RED → 6 用例 GREEN）+ headless 398 全绿守卫零 P/Invoke。真机验证（本机 Win10 19045，系统深色）：DWM 属性 20 回读 = 1（hr=0x0）、`GetWindowText` = "Tokenmetry"、caption 截图深色与顶栏无缝（截图存会话临时目录不入库）。计划两处偏差已登记卡内：测试局部元组补具名（计划代码 CS1061 编译错）；ThemeVariant 实为 record（== 与 Equals 同语义），实现注释改为陈述真实约束。运行期明暗双向切换、边框原生行为、首关提示窗 caption 目检移交用户。
+
 > 2026-10-27：**B-022 托盘弹窗首显闪动收口（B-021 修正项 1）**。用户反馈 B-021 后首次打开快捷窗「闪一下」：`Show()` 先显示空态窗口（headless 实测 420 DIP）再发查询，数据回填后 SizeToContent 撑高（1 Agent + 1 模型 543 / 满载 719 DIP）；B-021 的底缘锚定把这段增长变成可见的整体上跳（123/299 DIP），占位「—」同时被真实数据替换。二次打开不闪（VM 已持数据）。修法走启动预热：`StatusPopoverController.WarmUpAsync()` 显示前只读装数（不建窗/不置可见态/可重复），App 启动立即装一次 + 首轮采集结束后再装一次（覆盖老用户库内已有数据与首次使用首轮才入库两种形态），失败只退回首显重查。headless 回归锁 +1（GateEnabled 先关后开，断言预热后首帧高度 == 放行后高度；预热空操作实测 RED → GREEN）。全量 Core 189 / Reconciliation 49（19 跳过）/ Infra 681 / Headless 397 / App.Tests 306 全绿。真机首显观感移交用户；若仍有横向抖动，归首显毛玻璃 498→438 宽度切换（本卡未动）。
 
 > 2026-10-27：**B-021 托盘弹窗首显仍偏下收口（B-016 修正项 1）**。用户反馈 B-016 修复后首显位置仍偏下（截图中 footer 被屏幕底缘裁掉），收起再点第二次就正常。取证：B-016 只修了「首显取陈旧 Bounds 高度」，漏了「显示后内容高度继续增长」——`Show()` 一次性锚定时 VM 还是空态（headless 实测 ClientSize 420 DIP），查询在 Show 返回后才回填，`SizeToContent="Height"` 窗口只向下长（满载 719 DIP），位置不再更新 → 底缘越过任务栏；二次 Show 时数据已就绪故正常。修法：Show 时捕获本次点击光标为首锚（每次重取，重锚复用不跟当前光标跑），壳窗显示期 `SizeChanged` 按同锚重算位置——Windows 底缘钉在光标上方，macOS/回落顶缘锚定天然幂等；隐藏期尺寸变化不处理。headless 回归锁 +1（GatedQueryService 挂起查询复刻异步回填 + 注入确定锚点；去掉接线实测 RED 底缘漂 123 DIP → GREEN）；`PopoverPositioner` 零改动。全量 Core 189 / Reconciliation 49（19 跳过）/ Infra 681 / Headless 398 / App.Tests 306 全绿（App.Tests 首轮 1 失败 = `SingleInstanceGuardTests` 既有 B-020 环境性 flake，单类与重跑均过）。真机 Windows 首显目检移交用户。
@@ -128,6 +130,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-026 | Windows 原生标题栏深色适配（DWM）+ 窗口标题缩短 | P2 | 2026-10-28 |
 | B-022 | 托盘弹窗首显闪动——Show 先画空态再被回填撑高，启动预热让首帧即最终高度（B-021 修正项 1） | P2 | 2026-10-27 |
 | B-021 | 托盘弹窗首显仍偏下——SizeToContent 数据异步回填撑高窗口，位置只在 Show 后算一次（B-016 修正项 1；修正项 1 见 B-022） | P2 | 2026-10-27 |
 | D-025 | 第二梯队 es/de/fr 落地——语种决策由「社区认领」改为「即刻全量」（界面语言 10 语种） | P2 | 2026-10-27 |
