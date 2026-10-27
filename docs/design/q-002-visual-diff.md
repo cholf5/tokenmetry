@@ -3,8 +3,9 @@
 - 日期：2026-10-13
 - 范围：8 个导航页 × 亮暗两套 + 应用外壳 + 图表控件，对照设计基准
   `docs/design/ccusage_analytics_prototype.html` 全页逐项核对
-- 证据：本文档同目录的 `*-light.png / *-dark.png` 截图留档（headless 离屏渲染，
-  重生成命令见各截图测试的 `TOKENMETRY_*_PREVIEW_DIR` 环境变量约定）
+- 证据：`*-light.png / *-dark.png` 截图（headless 离屏渲染，**Q-022 起不再入库**——
+  渲染源含真实本机数据且非确定性，见 `.gitignore` 注释；重生成命令见各截图测试的
+  `TOKENMETRY_*_PREVIEW_DIR` 环境变量约定，建议输出到已忽略的 `artifacts/design/`）
 - 目检方式：自动化截图 + 本卡执行人逐张人工核对；真机交互复核（读屏 / 实际键盘走查的
   focus ring 观感 / hover 手感）留 PM/用户验收
 

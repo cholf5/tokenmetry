@@ -477,7 +477,7 @@ public class OverviewBottomTests
         Content = new OverviewView { DataContext = vm },
         RequestedThemeVariant = variant,
         Background = Application.Current!.TryGetResource("AppBackgroundBrush", variant, out var bg)
-            && bg is IBrush brush ? brush : new SolidColorBrush(Color.Parse("#0b1120")),
+            && bg is IBrush brush ? brush : new SolidColorBrush(Color.Parse("#0f1118")),
     };
 
     [AvaloniaFact]

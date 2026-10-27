@@ -58,9 +58,9 @@ public class SemiThemeMigrationTests
         themeService.Apply("dark");
         Assert.Equal(ThemeVariant.Dark, app.RequestedThemeVariant);
         Assert.Equal(ThemeVariant.Dark, app.ActualThemeVariant);
-        // I-027 令牌随三态换色（AppPanelBrush：Light #ffffff / Dark #111c2e，见 DesignTokenTests）
+        // I-027 令牌随三态换色（AppPanelBrush：Light #ffffff / Dark #171c25，见 DesignTokenTests）
         Assert.True(app.TryGetResource("AppPanelBrush", app.ActualThemeVariant, out var darkBrush));
-        Assert.Equal(Color.Parse("#111c2e"), Assert.IsAssignableFrom<ISolidColorBrush>(darkBrush).Color);
+        Assert.Equal(Color.Parse("#171c25"), Assert.IsAssignableFrom<ISolidColorBrush>(darkBrush).Color);
         // Semi 自有资源同样经 ThemeVariant 感知随三态换色（Light #F9F9F9 / Dark #1C1F23）
         Assert.True(app.TryGetResource("SemiGrey0Color", app.ActualThemeVariant, out var darkSemi));
         Assert.Equal(Color.Parse("#1C1F23"), Assert.IsAssignableFrom<Color>(darkSemi));

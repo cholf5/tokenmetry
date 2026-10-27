@@ -6,14 +6,24 @@
 本文档是 8 个页面卡（D-006 ~ D-013）与 S-002/Q-002 引用的约定。
 
 > D-003 补充：外壳专用令牌 `AppSidebarBackgroundBrush` / `AppTopbarBackgroundBrush` /
-> `AppNavActiveBackgroundBrush` / `AppNavActiveForegroundBrush` / `AppNavActiveIndicatorBrush` /
-> `AppNavHoverBackgroundBrush`（Dark 侧对应原型 `.sidebar/.topbar/.nav` 选择器原值，Light 为协调补值）
-> 已进 ThemeDictionaries；外壳导航样式（`ListBox.nav-list` 等）留在 `MainWindow.axaml` 的 Window.Styles
-> 内（外壳私有，页面卡勿复用），页面级样式仍从 SharedStyles.axaml 取。
+> `AppNavForegroundBrush` / `AppNavActiveBackgroundBrush` / `AppNavActiveForegroundBrush` /
+> `AppNavActiveIndicatorBrush` / `AppNavHoverBackgroundBrush`（Dark 侧对应原型 `.sidebar/.topbar/.nav`
+> 选择器原值，Light 为协调补值）。已进 ThemeDictionaries；外壳导航样式（`ListBox.nav-list` 等）留在
+> `MainWindow.axaml` 的 Window.Styles 内（外壳私有，页面卡勿复用），页面级样式仍从 SharedStyles.axaml 取。
+>
+> Q-021 追加 `AppNavForegroundBrush`（非选中导航项前景）：导航是可点击入口，语义上强于 muted 说明文字。
+> Light `#3d4c63`（侧栏底 7.68:1，对齐原型 .nav 在暗底的 9.09 强度档），Dark `#8293ad`（沿用目检通过的现值）。
 >
 > 首次初始化遮罩补充：`AppOverlayScrimBrush`（MainWindow.axaml 的 `InitializingOverlay` 专用，
 > 页面底色 90% 不透明，Light/Dark 各一份随明暗翻转；外壳私有样式 `overlay-card` /
 > `overlay-spinner` / `overlay-title` / `overlay-subtitle` 同留 Window.Styles，页面卡勿复用）。
+>
+> **Q-019 暗色去蓝（2026-10-27）**：暗色侧原样移植原型后整体偏蓝——原型是大面积高饱和深蓝的看板风，
+> 表面饱和度 46–49%，约为 GitHub Dark（28%）/ Slack（12%）/ Linear（11%）的 2–9 倍，全屏铺开造成
+> 色适应与「一团蓝」的层级塌陷，强调蓝又与底色同色相（217–223°）而无法跳出。修法：**大面积表层保色相、
+> 饱和度砍半，亮度逐项对齐原值**——文字/强调色/系列色的对比度因此一位不变（正文 16.2:1、次要文字 6.0:1、
+> 强调蓝 5.9:1 前后相同）。语义色不动：六强调色、图表系列色与 Token 类型色、KPI 图标软底、告警横幅。
+> 各行注释保留原型原值供溯源，箭头右侧为现值。Light 侧未改（其蓝偏移仅 2.5%，本就温和）。
 
 ## 1. 键名前缀约定
 
@@ -76,12 +86,12 @@
 
 CSS `linear-gradient(θ, ...)`：0deg 指向上、顺时针；方向向量（屏幕坐标 y 向下）`(sinθ, −cosθ)`；渐变线长 `L = |W·sinθ| + |H·cosθ|`；起止点 = 中心 ∓ 方向·L/2，再归一化到包围盒（Avalonia `MappingMode=RelativeToBoundingBox`，默认 SpreadMethod=Pad 与 CSS 超界取端色一致）。
 
-- 145deg（卡片）：`(0.574, 0.819)`，方形近似下 `StartPoint="10.058%,-7.043%" EndPoint="89.942%,107.043%"`（精确解）；非方形卡片存在角度畸变——固定相对坐标下渐变俯角随宽高比变化（如 340×124 卡约 27.5°，CSS 原值 55°；225×124 KPI 卡约 38°），但原型两 stop 仅 `#121e31→#101a2b`（约 2% 亮度差），方向偏差视觉不可感知，接受近似；页面卡若需逐像素还原可按宽高比换算该页专属起止点。
+- 145deg（卡片）：`(0.574, 0.819)`，方形近似下 `StartPoint="10.058%,-7.043%" EndPoint="89.942%,107.043%"`（精确解）；非方形卡片存在角度畸变——固定相对坐标下渐变俯角随宽高比变化（如 340×124 卡约 27.5°，CSS 原值 55°；225×124 KPI 卡约 38°），但两 stop 原型 `#121e31→#101a2b`／Q-019 现值 `#181e27→#151a22`（约 2% 亮度差），方向偏差视觉不可感知，接受近似；页面卡若需逐像素还原可按宽高比换算该页专属起止点。
 - 90deg（mini 填充）：`StartPoint="0%,50%" EndPoint="100%,50%"`，精确。
 
 ## 6. 令牌 ↔ 原型色值对照
 
-Dark 列全部为原型原值（`:root` 变量 + `.kpi/.chip/.linkbtn/.mini-track/.kpi-icon/.agenticon` 选择器色值）；Light 列为 I-027 设计的协调值（同色相、明度反转、浅底上加深保证对比度）。完整对照见 `Styles/Tokens.axaml` 内逐行注释与 `tests/Tokenmetry.App.Headless.Tests/Styles/DesignTokenTests.cs` 的期望值表（测试与令牌文件同步维护）。
+Dark 列 = 原型原值经 Q-019 降饱和后的现值（`:root` 变量 + `.kpi/.chip/.linkbtn/.mini-track/.kpi-icon/.agenticon` 选择器色值；色相与亮度不变，仅压饱和度，语义色与文字色仍为原值）；Light 列为 I-027 设计的协调值（同色相、明度反转、浅底上加深保证对比度）。完整对照见 `Styles/Tokens.axaml` 内逐行注释与 `tests/Tokenmetry.App.Headless.Tests/Styles/DesignTokenTests.cs` 的期望值表（测试与令牌文件同步维护）。
 
 ## 7. 模型厂商 logo（I-033，lobe-icons 生成资源）
 
