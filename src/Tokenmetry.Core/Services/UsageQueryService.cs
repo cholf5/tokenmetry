@@ -66,28 +66,7 @@ public class UsageQueryService : IUsageQueryService
         }
 
         var byDay = await GetDailyFactsByDayAsync(filter, ct);
-
-        var points = new List<DailyUsagePoint>();
-        if (from is { } boundedFrom && to is { } boundedTo)
-        {
-            // 日历窗口语义（D-002 定案）：双端有界时补零展开每个自然日，空日 HasData=false
-            // 供 UI 图层辨识；稀疏数据的长间隔不再画成连续花费。
-            for (var day = boundedFrom; day <= boundedTo; day = day.AddDays(1))
-            {
-                var dayText = UsageQueryFilter.FormatDay(day);
-                points.Add(BuildDailyPoint(dayText, byDay.GetValueOrDefault(dayText)));
-            }
-        }
-        else
-        {
-            // 无界范围无从补零：只返回实际有数据的日期。
-            foreach (var day in byDay.Keys.OrderBy(day => day, StringComparer.Ordinal))
-            {
-                points.Add(BuildDailyPoint(day, byDay[day]));
-            }
-        }
-
-        return points;
+        return BuildDailyPoints(byDay, from, to);
     }
 
     /// <inheritdoc />
@@ -100,34 +79,11 @@ public class UsageQueryService : IUsageQueryService
         var current = await BuildKpiAggregateAsync(filter, ct);
 
         KpiPeriodComparison? previous = null;
-        if (filter.FromDay is { } && filter.ToDay is { })
+        if (PreviousPeriodFilter(filter) is { } previousFilter)
         {
             // 上一周期 = 等长回看窗口：[FromDay − N, FromDay − 1]，N 为当前窗口自然日天数（含端点）。
-            var from = UsageQueryFilter.ParseDay(filter.FromDay)!.Value;
-            var to = UsageQueryFilter.ParseDay(filter.ToDay)!.Value;
-            var length = to.DayNumber - from.DayNumber + 1;
-            var previousFilter = new UsageQueryFilter
-            {
-                FromDay = UsageQueryFilter.FormatDay(from.AddDays(-length)),
-                ToDay = UsageQueryFilter.FormatDay(from.AddDays(-1)),
-                Agent = filter.Agent,
-                Model = filter.Model,
-                Project = filter.Project,
-            };
             var previousAggregate = await BuildKpiAggregateAsync(previousFilter, ct);
-            previous = new KpiPeriodComparison
-            {
-                FromDay = previousFilter.FromDay!,
-                ToDay = previousFilter.ToDay!,
-                TotalTokens = previousAggregate.TotalTokens,
-                Cost = previousAggregate.Cost,
-                SessionCount = previousAggregate.SessionCount,
-                CacheReadShare = previousAggregate.CacheReadShare,
-                TotalTokensChange = MetricChange.From(current.TotalTokens, previousAggregate.TotalTokens),
-                CostChange = MetricChange.From(current.Cost.KnownCostUsd, previousAggregate.Cost.KnownCostUsd),
-                SessionCountChange = MetricChange.From(current.SessionCount, previousAggregate.SessionCount),
-                CacheReadShareChange = MetricChange.From(current.CacheReadShare, previousAggregate.CacheReadShare),
-            };
+            previous = BuildPreviousComparison(current, previousAggregate, previousFilter);
         }
 
         return new UsageKpiResult
@@ -234,6 +190,71 @@ public class UsageQueryService : IUsageQueryService
     public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
         Task.Run(() => GetHourlyDistributionCoreAsync(filter, ct));
 
+    /// <inheritdoc />
+    public Task<OverviewPageSnapshot> GetOverviewSnapshotAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+        Task.Run(() => GetOverviewSnapshotCoreAsync(filter, ct));
+
+    /// <summary>
+    /// 复合快照核心（P0-2）：单次 facts 全表读 + 单次 sessions 全表读，KPI 当前/上一周期与
+    /// Agent/模型/项目三维聚合在同一份内存数据上换窗重筛、一次算完——替代页面加载的十余次全表重读。
+    /// 线程模型同其余公共入口（Task.Run 边界）；校验与日序列上限一致（超限抛 ArgumentOutOfRange）。
+    /// </summary>
+    private async Task<OverviewPageSnapshot> GetOverviewSnapshotCoreAsync(UsageQueryFilter filter, CancellationToken ct)
+    {
+        ValidateRange(filter);
+        var from = UsageQueryFilter.ParseDay(filter.FromDay);
+        var to = UsageQueryFilter.ParseDay(filter.ToDay);
+        if (from is { } fromDay && to is { } toDay
+            && toDay.DayNumber - fromDay.DayNumber + 1 > UsageQueryFilter.MaxDailySeriesDays)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(filter),
+                $"Daily series range {filter.FromDay}..{filter.ToDay} exceeds the {UsageQueryFilter.MaxDailySeriesDays}-day cap.");
+        }
+
+        var facts = await _store.GetUsageFactsAsync(ct);
+        var sessions = await _store.GetSessionFactsAsync(ct);
+
+        var scopedFacts = ScopeFacts(facts, filter).ToList();
+        var scopedSessions = ScopeSessions(sessions, filter).ToList();
+        var currentByDay = DailyFactsByDay(scopedFacts);
+        var current = BuildKpiAggregate(currentByDay, scopedSessions);
+
+        KpiPeriodComparison? previous = null;
+        if (PreviousPeriodFilter(filter) is { } previousFilter)
+        {
+            var previousByDay = DailyFactsByDay(ScopeFacts(facts, previousFilter).ToList());
+            var previousSessions = ScopeSessions(sessions, previousFilter).ToList();
+            previous = BuildPreviousComparison(current, BuildKpiAggregate(previousByDay, previousSessions), previousFilter);
+        }
+
+        return new OverviewPageSnapshot
+        {
+            Kpi = new UsageKpiResult
+            {
+                TotalTokens = current.TotalTokens,
+                CacheReadTokens = current.CacheReadTokens,
+                Cost = current.Cost,
+                SessionCount = current.SessionCount,
+                CacheReadShare = current.CacheReadShare,
+                PreviousPeriod = previous,
+            },
+            Daily = BuildDailyPoints(currentByDay, from, to),
+            Agents = BuildDimensionBreakdown(
+                scopedFacts, scopedSessions, UsageFactGrain.Agent,
+                fact => fact.Agent, session => session.Agent,
+                withProjectDisplayName: false, withDominantAgent: false, withProvider: false),
+            Models = BuildDimensionBreakdown(
+                scopedFacts, scopedSessions, UsageFactGrain.Model,
+                fact => ResolveModel(fact.Model), session => ResolveModel(session.DominantModel),
+                withProjectDisplayName: false, withDominantAgent: true, withProvider: true),
+            Projects = BuildDimensionBreakdown(
+                scopedFacts, scopedSessions, UsageFactGrain.Project,
+                fact => fact.Project, session => session.Project,
+                withProjectDisplayName: true, withDominantAgent: false, withProvider: false),
+        };
+    }
+
     private async Task<HourlyDistributionResult> GetHourlyDistributionCoreAsync(UsageQueryFilter filter, CancellationToken ct)
     {
         ValidateRange(filter);
@@ -267,8 +288,12 @@ public class UsageQueryService : IUsageQueryService
 
     private async Task<List<UsageFact>> GetScopedUsageFactsAsync(UsageQueryFilter filter, CancellationToken ct)
     {
-        var facts = await _store.GetUsageFactsAsync(ct);
-        var scoped = new List<UsageFact>();
+        return ScopeFacts(await _store.GetUsageFactsAsync(ct), filter).ToList();
+    }
+
+    /// <summary>facts 范围筛选（纯过滤，不发存储读）：复合快照在单次全表读上对当前/上一窗口复用。</summary>
+    private IEnumerable<UsageFact> ScopeFacts(IEnumerable<UsageFact> facts, UsageQueryFilter filter)
+    {
         foreach (var fact in facts)
         {
             if (string.IsNullOrWhiteSpace(fact.Day)
@@ -296,16 +321,18 @@ public class UsageQueryService : IUsageQueryService
                 continue;
             }
 
-            scoped.Add(fact);
+            yield return fact;
         }
-
-        return scoped;
     }
 
     private async Task<List<SessionFact>> GetScopedSessionsAsync(UsageQueryFilter filter, CancellationToken ct)
     {
-        var sessions = await _store.GetSessionFactsAsync(ct);
-        var scoped = new List<SessionFact>();
+        return ScopeSessions(await _store.GetSessionFactsAsync(ct), filter).ToList();
+    }
+
+    /// <summary>会话范围筛选（纯过滤，不发存储读；口径同 facts 侧）。</summary>
+    private IEnumerable<SessionFact> ScopeSessions(IEnumerable<SessionFact> sessions, UsageQueryFilter filter)
+    {
         foreach (var session in sessions)
         {
             if (!string.IsNullOrWhiteSpace(filter.Agent)
@@ -341,16 +368,17 @@ public class UsageQueryService : IUsageQueryService
                 }
             }
 
-            scoped.Add(session);
+            yield return session;
         }
-
-        return scoped;
     }
 
-    private async Task<Dictionary<string, List<UsageFact>>> GetDailyFactsByDayAsync(UsageQueryFilter filter, CancellationToken ct)
+    private async Task<Dictionary<string, List<UsageFact>>> GetDailyFactsByDayAsync(UsageQueryFilter filter, CancellationToken ct) =>
+        DailyFactsByDay(await GetScopedUsageFactsAsync(filter, ct));
+
+    private static Dictionary<string, List<UsageFact>> DailyFactsByDay(IEnumerable<UsageFact> facts)
     {
         var byDay = new Dictionary<string, List<UsageFact>>(StringComparer.Ordinal);
-        foreach (var fact in await GetScopedUsageFactsAsync(filter, ct))
+        foreach (var fact in facts)
         {
             if (!byDay.TryGetValue(fact.Day, out var list))
             {
@@ -362,6 +390,35 @@ public class UsageQueryService : IUsageQueryService
         }
 
         return byDay;
+    }
+
+    /// <summary>
+    /// 按日分组 → 日序列点：双端有界时补零展开每个自然日（日历窗口语义，D-002 定案——空日
+    /// HasData=false 供 UI 图层辨识，稀疏数据的长间隔不画成连续花费）；无界范围只返回实际有数据的日期。
+    /// </summary>
+    private static List<DailyUsagePoint> BuildDailyPoints(
+        Dictionary<string, List<UsageFact>> byDay,
+        DateOnly? from,
+        DateOnly? to)
+    {
+        var points = new List<DailyUsagePoint>();
+        if (from is { } boundedFrom && to is { } boundedTo)
+        {
+            for (var day = boundedFrom; day <= boundedTo; day = day.AddDays(1))
+            {
+                var dayText = UsageQueryFilter.FormatDay(day);
+                points.Add(BuildDailyPoint(dayText, byDay.GetValueOrDefault(dayText)));
+            }
+        }
+        else
+        {
+            foreach (var day in byDay.Keys.OrderBy(day => day, StringComparer.Ordinal))
+            {
+                points.Add(BuildDailyPoint(day, byDay[day]));
+            }
+        }
+
+        return points;
     }
 
     // ---- 日序列与 KPI ----
@@ -413,10 +470,55 @@ public class UsageQueryService : IUsageQueryService
 
     private async Task<KpiAggregate> BuildKpiAggregateAsync(UsageQueryFilter filter, CancellationToken ct)
     {
+        var byDay = DailyFactsByDay(await GetScopedUsageFactsAsync(filter, ct));
+        var sessions = await GetScopedSessionsAsync(filter, ct);
+        return BuildKpiAggregate(byDay, sessions);
+    }
+
+    /// <summary>上一周期等长回看窗口（KPI 与复合快照共用的单一来源）；无界范围返回 null。</summary>
+    private static UsageQueryFilter? PreviousPeriodFilter(UsageQueryFilter filter)
+    {
+        if (filter.FromDay is not { } || filter.ToDay is not { })
+        {
+            return null;
+        }
+
+        var from = UsageQueryFilter.ParseDay(filter.FromDay)!.Value;
+        var to = UsageQueryFilter.ParseDay(filter.ToDay)!.Value;
+        var length = to.DayNumber - from.DayNumber + 1;
+        return new UsageQueryFilter
+        {
+            FromDay = UsageQueryFilter.FormatDay(from.AddDays(-length)),
+            ToDay = UsageQueryFilter.FormatDay(from.AddDays(-1)),
+            Agent = filter.Agent,
+            Model = filter.Model,
+            Project = filter.Project,
+        };
+    }
+
+    private static KpiPeriodComparison BuildPreviousComparison(
+        KpiAggregate current, KpiAggregate previous, UsageQueryFilter previousFilter) => new()
+    {
+        FromDay = previousFilter.FromDay!,
+        ToDay = previousFilter.ToDay!,
+        TotalTokens = previous.TotalTokens,
+        Cost = previous.Cost,
+        SessionCount = previous.SessionCount,
+        CacheReadShare = previous.CacheReadShare,
+        TotalTokensChange = MetricChange.From(current.TotalTokens, previous.TotalTokens),
+        CostChange = MetricChange.From(current.Cost.KnownCostUsd, previous.Cost.KnownCostUsd),
+        SessionCountChange = MetricChange.From(current.SessionCount, previous.SessionCount),
+        CacheReadShareChange = MetricChange.From(current.CacheReadShare, previous.CacheReadShare),
+    };
+
+    /// <summary>KPI 聚合（纯计算，不发存储读）：复合快照在单次全表读上对当前/上一窗口复用。</summary>
+    private static KpiAggregate BuildKpiAggregate(
+        Dictionary<string, List<UsageFact>> byDay, IReadOnlyList<SessionFact> sessions)
+    {
         long totalTokens = 0;
         long cacheReadTokens = 0;
         var cost = AggregatedCost.Empty;
-        foreach (var dayRows in (await GetDailyFactsByDayAsync(filter, ct)).Values)
+        foreach (var dayRows in byDay.Values)
         {
             var resolved = ResolveDailyRows(dayRows);
             totalTokens += resolved.Sum(fact => fact.TotalTokens);
@@ -424,9 +526,8 @@ public class UsageQueryService : IUsageQueryService
             cost = cost.Add(AggregatedCost.FromRowCosts(resolved.Select(fact => fact.CostUsd)));
         }
 
-        var sessionCount = (await GetScopedSessionsAsync(filter, ct)).Count;
         var cacheReadShare = totalTokens > 0 ? (decimal?)Math.Round((decimal)cacheReadTokens / totalTokens, 4) : null;
-        return new KpiAggregate(totalTokens, cacheReadTokens, cost, sessionCount, cacheReadShare);
+        return new KpiAggregate(totalTokens, cacheReadTokens, cost, sessions.Count, cacheReadShare);
     }
 
     private sealed record KpiAggregate(
@@ -448,8 +549,30 @@ public class UsageQueryService : IUsageQueryService
         CancellationToken ct,
         bool withProvider = false)
     {
+        var scopedFacts = await GetScopedUsageFactsAsync(filter, ct);
+        var sessions = await GetScopedSessionsAsync(filter, ct);
+        return BuildDimensionBreakdown(
+            scopedFacts, sessions, decompositionGrain, factKey, sessionKey,
+            withProjectDisplayName, withDominantAgent, withProvider);
+    }
+
+    /// <summary>
+    /// 维度聚合（纯计算，不发存储读）：复合快照在单次全表读上复用。口径与拆分前逐位一致——
+    /// 单日内 full 优先、CLI 分解日只取本维度分解行、键取 facts/会话并集、项目维度展示名歧义守卫、
+    /// 占比分母取同范围全维度行。
+    /// </summary>
+    private IReadOnlyList<DimensionUsageRow> BuildDimensionBreakdown(
+        IEnumerable<UsageFact> scopedFacts,
+        IReadOnlyList<SessionFact> sessions,
+        string decompositionGrain,
+        Func<UsageFact, string> factKey,
+        Func<SessionFact, string> sessionKey,
+        bool withProjectDisplayName,
+        bool withDominantAgent,
+        bool withProvider)
+    {
         var factRowsByKey = new Dictionary<string, List<UsageFact>>(StringComparer.Ordinal);
-        foreach (var dayGroup in (await GetScopedUsageFactsAsync(filter, ct)).GroupBy(fact => fact.Day, StringComparer.Ordinal))
+        foreach (var dayGroup in scopedFacts.GroupBy(fact => fact.Day, StringComparer.Ordinal))
         {
             var dayRows = dayGroup.ToList();
             var full = dayRows.Where(fact => fact.Grain == UsageFactGrain.Full).ToList();
@@ -474,7 +597,6 @@ public class UsageQueryService : IUsageQueryService
             }
         }
 
-        var sessions = await GetScopedSessionsAsync(filter, ct);
         var sessionCountByKey = new Dictionary<string, long>(StringComparer.Ordinal);
         var sessionDisplayByKey = new Dictionary<string, string>(StringComparer.Ordinal);
         // D-010 关联 Agent 列（契约演进定案）：与 SessionCount 同一批会话、同一个 sessionKey 分组，

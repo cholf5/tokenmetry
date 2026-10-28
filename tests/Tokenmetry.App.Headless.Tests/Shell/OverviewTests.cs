@@ -194,6 +194,77 @@ public class OverviewTests
     private static OverviewViewModel CreateVm(StubQueryService stub, FilterStateService? filters = null) =>
         new(ShellPages.For(PageId.Overview), filters ?? new FilterStateService(), stub);
 
+    [AvaloniaFact]
+    public void Overview_page_loads_via_composite_snapshot_query()
+    {
+        // P0-2：总览页必须经复合快照入口一次装载（KPI/日序列/三维度）——五个分量方法的返回值
+        // 不再被消费（stub 恒空），页面数据全部来自 GetOverviewSnapshotAsync 的快照。
+        var stub = new SnapshotOnlyStub();
+        var vm = new OverviewViewModel(ShellPages.For(PageId.Overview), new FilterStateService(), stub);
+
+        Assert.Equal("555万", vm.TokensCard.Value);
+        Assert.NotNull(vm.DailyPoints);
+        Assert.Single(vm.DailyPoints!);
+        Assert.NotEmpty(vm.AgentSegments!);
+        Assert.NotEmpty(vm.ModelRows!);
+        Assert.NotEmpty(vm.ProjectRows!);
+        // 页面数据面收敛到复合快照后，分量方法零调用。
+        Assert.Equal(0, stub.IndividualMethodCalls);
+    }
+
+    /// <summary>只有复合快照产数据的查询桩：五个分量方法返回空值并记账（P0-2c 回归锁）。</summary>
+    private sealed class SnapshotOnlyStub : IUsageQueryService
+    {
+        public int IndividualMethodCalls { get; private set; }
+
+        public Task<OverviewPageSnapshot> GetOverviewSnapshotAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new OverviewPageSnapshot
+            {
+                Kpi = new UsageKpiResult { TotalTokens = 5_550_000 },
+                Daily = [new DailyUsagePoint { Day = "2026-03-10", TotalTokens = 5_550_000, HasData = true }],
+                Agents = [new DimensionUsageRow { Key = "Snapshot Agent", TotalTokens = 5_550_000, SessionCount = 3 }],
+                Models = [new DimensionUsageRow { Key = "snapshot-model", TotalTokens = 5_550_000 }],
+                Projects = [new DimensionUsageRow { Key = "/snapshot/project", TotalTokens = 5_550_000 }],
+            });
+
+        public Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesAsync(UsageQueryFilter filter, CancellationToken ct = default) => EmptyDaily();
+
+        public Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default) => CountEmpty();
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) => CountRows();
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) => CountRows();
+
+        public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) => CountRows();
+
+        public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default) =>
+            Task.FromResult(new SessionListResult());
+
+        public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new HourlyDistributionResult());
+
+        private Task<UsageKpiResult> CountEmpty()
+        {
+            IndividualMethodCalls++;
+            return Task.FromResult(new UsageKpiResult());
+        }
+
+        private Task<IReadOnlyList<DimensionUsageRow>> CountRows()
+        {
+            IndividualMethodCalls++;
+            return Task.FromResult<IReadOnlyList<DimensionUsageRow>>([]);
+        }
+
+        private Task<IReadOnlyList<DailyUsagePoint>> EmptyDaily()
+        {
+            IndividualMethodCalls++;
+            return Task.FromResult<IReadOnlyList<DailyUsagePoint>>([]);
+        }
+    }
+
     // ── KPI 绑定（TC-001 页面层：stub 值 → 卡片显示值）──
 
     [AvaloniaFact]

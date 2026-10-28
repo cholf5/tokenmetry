@@ -252,7 +252,8 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync，序号防护保证与筛选重查并发时旧响应丢弃。</summary>
     public Task OnDataRefreshedAsync() => LoadAsync();
 
-    /// <summary>按当前全局筛选重查 KPI + 日序列 + Agent/模型/项目维度（序号防护见类型说明）。</summary>
+    /// <summary>按当前全局筛选重查整页（序号防护见类型说明）：P0-2 起经复合快照入口一次装载
+    /// KPI/日序列/三维聚合——单次 facts + 单次 sessions 全表读，替代逐方法十余次全表重读。</summary>
     public async Task LoadAsync()
     {
         var sequence = ++_loadSequence;
@@ -260,47 +261,23 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
 
         try
         {
-            var kpi = await _query.GetKpiAsync(filter);
+            var snapshot = await _query.GetOverviewSnapshotAsync(filter);
             if (sequence != _loadSequence)
             {
                 return;
             }
 
-            var daily = await _query.GetDailySeriesAsync(filter);
-            if (sequence != _loadSequence)
-            {
-                return;
-            }
-
-            var agents = await _query.GetAgentBreakdownAsync(filter);
-            if (sequence != _loadSequence)
-            {
-                return;
-            }
-
-            var models = await _query.GetModelBreakdownAsync(filter);
-            if (sequence != _loadSequence)
-            {
-                return;
-            }
-
-            var projects = await _query.GetProjectBreakdownAsync(filter);
-            if (sequence != _loadSequence)
-            {
-                return;
-            }
-
-            ApplyKpi(kpi);
+            ApplyKpi(snapshot.Kpi);
             // 日序列同源复用：上半 Token 趋势与下半成本趋势（CostUsd）吃同一份点（I-028 单列成本），
             // 不为成本趋势另发一次查询（同窗口同筛选必然同结果）。
-            DailyPoints = daily;
-            AgentSegments = CreateAgentSegments(agents);
-            AgentDonutCenterTitle = TrendChart.FormatCompactTokens(kpi.TotalTokens);
-            ModelRows = CreateDimensionRows(models, modelIconResolver: _avatars is { } avatars ? avatars.Resolve : null);
-            ProjectRows = CreateDimensionRows(projects);
-            TypeSegments = CreateTokenTypeSegments(daily);
-            // 环心与上半区 KPI 卡同源（同一次 GetKpiAsync），避免环心/段各算各的口径漂移
-            TypeDonutCenterTitle = TrendChart.FormatCompactTokens(kpi.TotalTokens);
+            DailyPoints = snapshot.Daily;
+            AgentSegments = CreateAgentSegments(snapshot.Agents);
+            AgentDonutCenterTitle = TrendChart.FormatCompactTokens(snapshot.Kpi.TotalTokens);
+            ModelRows = CreateDimensionRows(snapshot.Models, modelIconResolver: _avatars is { } avatars ? avatars.Resolve : null);
+            ProjectRows = CreateDimensionRows(snapshot.Projects);
+            TypeSegments = CreateTokenTypeSegments(snapshot.Daily);
+            // 环心与上半区 KPI 卡同源（同一份快照 KPI），避免环心/段各算各的口径漂移
+            TypeDonutCenterTitle = TrendChart.FormatCompactTokens(snapshot.Kpi.TotalTokens);
             HasLoadError = false;
             LoadError = null;
         }

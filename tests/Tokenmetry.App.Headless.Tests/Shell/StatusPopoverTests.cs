@@ -119,6 +119,78 @@ public class StatusPopoverTests
 
     // ── TC-001: 三态渲染 ──
 
+    /// <summary>P0-2c 回归锁：弹层重查必须经复合快照入口——五个分量方法零消费（stub 恒空），
+    /// KPI/构成/Agent 行全部来自 GetOverviewSnapshotAsync 的快照；最近会话探针仍单独走 GetSessionsAsync。</summary>
+    [AvaloniaFact]
+    public async Task Reload_populates_from_composite_snapshot_query()
+    {
+        var stub = new SnapshotOnlyStub();
+        var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
+
+        await vm.ReloadAsync();
+
+        // KPI 来自复合快照（zh 万档紧凑格式：4.2381万 → 一位小数 4.24万）。
+        Assert.Equal("4.24万", vm.TodayTokensText);
+        Assert.NotEmpty(vm.TopAgents!);
+        Assert.Equal(0, stub.IndividualMethodCalls);
+    }
+
+    /// <summary>只有复合快照产数据的查询桩：五个分量方法返回空值并记账；GetSessionsAsync 照常供最近活动探针。</summary>
+    private sealed class SnapshotOnlyStub : IUsageQueryService
+    {
+        public int IndividualMethodCalls { get; private set; }
+
+        public Task<OverviewPageSnapshot> GetOverviewSnapshotAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new OverviewPageSnapshot
+            {
+                Kpi = new UsageKpiResult { TotalTokens = 42_381, Cost = new AggregatedCost(12.46m, false) },
+                Daily = [new DailyUsagePoint { Day = "2026-10-17", TotalTokens = 42_381, InputTokens = 26_843, OutputTokens = 13_124, CacheReadTokens = 2_414, HasData = true }],
+                Agents = [new DimensionUsageRow { Key = "Claude Code", TotalTokens = 20_624, SessionCount = 4 }],
+                Models = [new DimensionUsageRow { Key = "claude-sonnet-4", TotalTokens = 20_624 }],
+                Projects = [],
+            });
+
+        public Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default) => CountEmpty();
+
+        public Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesAsync(UsageQueryFilter filter, CancellationToken ct = default) => CountDaily();
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) => CountRows();
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) => CountRows();
+
+        public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) => CountRows();
+
+        public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default) =>
+            Task.FromResult(new SessionListResult
+            {
+                Rows = [new SessionListRow { SessionId = "s1", Agent = "Claude Code", LastSeenAt = DateTimeOffset.Now }],
+            });
+
+        public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new HourlyDistributionResult());
+
+        private Task<UsageKpiResult> CountEmpty()
+        {
+            IndividualMethodCalls++;
+            return Task.FromResult(new UsageKpiResult());
+        }
+
+        private Task<IReadOnlyList<DailyUsagePoint>> CountDaily()
+        {
+            IndividualMethodCalls++;
+            return Task.FromResult<IReadOnlyList<DailyUsagePoint>>([]);
+        }
+
+        private Task<IReadOnlyList<DimensionUsageRow>> CountRows()
+        {
+            IndividualMethodCalls++;
+            return Task.FromResult<IReadOnlyList<DimensionUsageRow>>([]);
+        }
+    }
+
     [AvaloniaFact]
     public async Task Reload_populates_kpi_segments_and_top_agents()
     {
