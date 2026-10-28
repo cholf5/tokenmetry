@@ -614,6 +614,77 @@ public class PiAgentAdapterTests : IDisposable
         PiLogLocator.ParseNamedStores(document.RootElement).Should().BeEmpty("非法名整组丢弃（偏差⑥）");
     }
 
+    // ---- I-042 延伸：文件戳探针 + 零变更轮结果记忆化（与 IncrementalJsonlScanner 同构） ----
+
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var root = CreateSessionsRoot();
+        WriteLines(root, "project-a/session-a.jsonl",
+            SessionLine("session-a", "2026-01-02T10:00:00.000Z", null),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3));
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "文件戳（mtime + 大小）未动");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle("记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Records[0].SessionId.Should().Be("session-a");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_AppendedSessionContent_DetectedAsChange()
+    {
+        var root = CreateSessionsRoot();
+        var file = WriteLines(root, "project-a/session-a.jsonl",
+            SessionLine("session-a", "2026-01-02T10:00:00.000Z", null),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3));
+        var adapter = CreateAdapter(root);
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+
+        File.WriteAllText(file, string.Join("\n",
+            SessionLine("session-a", "2026-01-02T10:00:00.000Z", null),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3),
+            UsageLine("2026-01-02T10:01:05.000Z", 10, 1, 2, 0)) + "\n");
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件内容变化（大小 + mtime）");
+        second.Records.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RemovedAndAddedSessions_TriggerFullRescan()
+    {
+        var root = CreateSessionsRoot();
+        WriteLines(root, "project-a/session-a.jsonl",
+            SessionLine("session-a", "2026-01-02T10:00:00.000Z", null),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3));
+        WriteLines(root, "project-a/session-b.jsonl",
+            SessionLine("session-b", "2026-01-02T11:00:00.000Z", null),
+            UsageLine("2026-01-02T11:00:05.000Z", 100, 10, 20, 3));
+        var adapter = CreateAdapter(root);
+        (await adapter.ScanAsync()).Records.Should().HaveCount(2);
+
+        File.Delete(Path.Combine(root, "project-a", "session-b.jsonl"));
+        WriteLines(root, "project-a/session-c.jsonl",
+            SessionLine("session-c", "2026-01-02T12:00:00.000Z", null),
+            UsageLine("2026-01-02T12:00:05.000Z", 100, 10, 20, 3));
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesDiscovered.Should().Be(2);
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Records.Select(record => record.SessionId).Should().BeEquivalentTo("session-a", "session-c");
+    }
+
     // ---- helpers ----
 
     private PiAgentAdapter CreateAdapter(string sessionsDir) =>

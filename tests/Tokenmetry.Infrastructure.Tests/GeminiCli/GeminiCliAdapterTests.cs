@@ -462,6 +462,85 @@ public class GeminiCliAdapterTests : IDisposable
            + "\",\"tokens\":{\"input\":" + input + ",\"output\":" + output + ",\"cached\":" + cached
            + ",\"thoughts\":0,\"tool\":0,\"total\":" + (input + output + cached) + "}}";
 
+    // ---- I-042 延伸：文件戳探针 + 零变更轮结果记忆化（与 IncrementalJsonlScanner 同构） ----
+
+    private const string SessionAOneEvent =
+        """
+        {"sessionId":"session-a","projectHash":"project-a","startTime":"2026-05-17T11:07:00.000Z"}
+        {"id":"msg-a","timestamp":"2026-05-17T11:07:32.000Z","type":"gemini","model":"gemini-3-flash-preview","tokens":{"input":15327,"output":23,"cached":11526,"thoughts":919,"tool":7,"total":16276}}
+        """;
+
+    private const string SessionATwoEvents =
+        """
+        {"sessionId":"session-a","projectHash":"project-a","startTime":"2026-05-17T11:07:00.000Z"}
+        {"id":"msg-a","timestamp":"2026-05-17T11:07:32.000Z","type":"gemini","model":"gemini-3-flash-preview","tokens":{"input":15327,"output":23,"cached":11526,"thoughts":919,"tool":7,"total":16276}}
+        {"id":"msg-b","timestamp":"2026-05-17T11:08:32.000Z","type":"gemini","model":"gemini-3-flash-preview","tokens":{"input":10,"output":20,"total":30}}
+        """;
+
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var root = CreateTempDir();
+        WriteFile(root, "project/chats/session-a.jsonl", SessionAOneEvent);
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "文件戳（mtime + 大小）未动");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle("记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Records[0].SessionId.Should().Be("session-a");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_AppendedLogContent_DetectedAsChange()
+    {
+        var root = CreateTempDir();
+        WriteFile(root, "project/chats/session-a.jsonl", SessionAOneEvent);
+        var adapter = CreateAdapter(root);
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+
+        WriteFile(root, "project/chats/session-a.jsonl", SessionATwoEvents);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件内容变化（大小 + mtime）");
+        second.Records.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RemovedAndAddedLogs_TriggerFullRescan()
+    {
+        var root = CreateTempDir();
+        WriteFile(root, "project/chats/session-a.jsonl", SessionAOneEvent);
+        WriteFile(root, "project/chats/session-b.jsonl",
+            """
+            {"sessionId":"session-b","projectHash":"project-a","startTime":"2026-05-17T12:00:00.000Z"}
+            {"id":"msg-b","timestamp":"2026-05-17T12:00:32.000Z","type":"gemini","model":"gemini-3-flash-preview","tokens":{"input":10,"output":20,"total":30}}
+            """);
+        var adapter = CreateAdapter(root);
+        (await adapter.ScanAsync()).Records.Should().HaveCount(2);
+
+        File.Delete(Path.Combine(root, "project", "chats", "session-b.jsonl"));
+        WriteFile(root, "project/chats/session-c.jsonl",
+            """
+            {"sessionId":"session-c","projectHash":"project-a","startTime":"2026-05-17T13:00:00.000Z"}
+            {"id":"msg-c","timestamp":"2026-05-17T13:00:32.000Z","type":"gemini","model":"gemini-3-flash-preview","tokens":{"input":10,"output":20,"total":30}}
+            """);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesDiscovered.Should().Be(2);
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Records.Select(record => record.SessionId).Should().BeEquivalentTo("session-a", "session-c");
+    }
+
     private GeminiCliAdapter CreateAdapter(string dataDir) => new(configuredDataDir: dataDir);
 
     private string CreateTempDir()

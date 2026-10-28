@@ -458,6 +458,73 @@ public class KiloSqliteAdapterTests : IDisposable
 
     private KiloSqliteAdapter CreateAdapter(string configuredDataDir) => new(configuredDataDir: configuredDataDir);
 
+    // ---- I-042 延伸：SQLite 边车感知文件戳探针 + 零变更轮结果记忆化 ----
+
+    private const string KiloProbeRow =
+        """
+        {"id":"pa","role":"assistant","providerID":"openai","modelID":"gpt-5","time":{"created":1767312000000},"tokens":{"input":100,"output":10}}
+        """;
+
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var directory = CreateTempDir();
+        var db = CreateDatabase(Path.Combine(directory, "kilo.db"));
+        InsertMessage(db, "row-a", "s1", KiloProbeRow);
+        var adapter = CreateAdapter(directory);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "库文件戳（mtime + 大小，含 WAL 边车）未动");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle("记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Records[0].MessageId.Should().Be("pa", "MessageId 取载荷内层 id");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_InsertedRow_DetectedAsChange()
+    {
+        var directory = CreateTempDir();
+        var db = CreateDatabase(Path.Combine(directory, "kilo.db"));
+        InsertMessage(db, "row-a", "s1", KiloProbeRow);
+        var adapter = CreateAdapter(directory);
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+
+        InsertMessage(db, "row-b", "s1", KiloProbeRow.Replace(""""id":"pa"""", """"id":"pb""""));
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "库内容变化（文件戳必变）");
+        second.Records.Should().HaveCount(2, "两行内层 id 不同（pa / pb），不去重");
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RemovedDatabase_DoesNotServeStaleCache()
+    {
+        // Kilo 按目录发现 kilo.db（无库集语义）：库文件消失后记忆必须失效——
+        // 不得把已删除库的记录当零变更缓存继续返回（诚实空态）。
+        var directory = CreateTempDir();
+        var db = CreateDatabase(Path.Combine(directory, "kilo.db"));
+        InsertMessage(db, "row-a", "s1", KiloProbeRow);
+        var adapter = CreateAdapter(directory);
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+
+        // 释放扫描轮的池化只读连接，避免 Windows 下文件锁阻止删除。
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        File.Delete(db);
+        var second = await adapter.ScanAsync();
+
+        second.Records.Should().BeEmpty("库已消失，不得复用上轮记录");
+        second.Diagnostics.FilesDiscovered.Should().Be(0);
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.NoData);
+    }
+
     private string CreateTempDir()
     {
         var path = Path.Combine(Path.GetTempPath(), $"ccusage-kilo-{Guid.NewGuid():N}");

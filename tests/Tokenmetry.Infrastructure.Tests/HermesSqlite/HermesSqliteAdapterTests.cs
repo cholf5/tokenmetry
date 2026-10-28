@@ -343,6 +343,82 @@ public class HermesSqliteAdapterTests : IDisposable
         result.Diagnostics.Status.Should().Be(JsonlScanStatus.NoData);
     }
 
+    // ---- I-042 延伸：SQLite 边车感知文件戳探针 + 零变更轮结果记忆化 ----
+
+    private SessionFixture ProbeSession(string id, double startedAt) => new(
+        Id: id,
+        Model: "claude-sonnet-4-20250514",
+        Provider: "anthropic",
+        StartedAt: startedAt,
+        MessageCount: 1,
+        InputTokens: 100,
+        OutputTokens: 10,
+        CacheReadTokens: 0,
+        CacheWriteTokens: 0,
+        ReasoningTokens: 0,
+        EstimatedCost: null,
+        ActualCost: null);
+
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(Path.Combine(home, "state.db"));
+        InsertSession(db, ProbeSession("session-a", 1_750_000_000.25));
+        var adapter = CreateAdapter(home);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "库文件戳（mtime + 大小，含 WAL 边车）未动");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle("记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Records[0].SessionId.Should().Be("session-a");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_InsertedRow_DetectedAsChange()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(Path.Combine(home, "state.db"));
+        InsertSession(db, ProbeSession("session-a", 1_750_000_000.25));
+        var adapter = CreateAdapter(home);
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+
+        InsertSession(db, ProbeSession("session-b", 1_750_000_100.25));
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "库内容变化（文件戳必变）");
+        second.Records.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RemovedDatabase_DoesNotServeStaleCache()
+    {
+        // Hermes 定位器恒读单一 state.db（无库集语义）：库文件消失后记忆必须失效——
+        // 不得把已删除库的记录当零变更缓存继续返回（诚实空态）。
+        var home = CreateTempHome();
+        var db = CreateDatabase(Path.Combine(home, "state.db"));
+        InsertSession(db, ProbeSession("session-a", 1_750_000_000.25));
+        var adapter = CreateAdapter(home);
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+
+        // 释放扫描轮的池化只读连接，避免 Windows 下文件锁阻止删除。
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        File.Delete(db);
+        var second = await adapter.ScanAsync();
+
+        second.Records.Should().BeEmpty("库已消失，不得复用上轮记录");
+        second.Diagnostics.FilesDiscovered.Should().Be(0);
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.NoData);
+    }
+
     // ---- 映射器纯函数（蓝本 parser.rs 内联测试的候选/归一化部分）----
 
     /// <summary>蓝本 tries_provider_qualified_model_candidate_first：qualified exact 命中时插在最前。</summary>

@@ -855,8 +855,125 @@ public class AntigravityAdapterTests : IDisposable
         var second = await adapter.ScanAsync();
 
         second.Records.Should().HaveCount(first.Records.Count, "托管事务 Dispose 干净归还连接池，重复扫描幂等");
-        second.Diagnostics.FilesRead.Should().Be(first.Diagnostics.FilesRead);
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮复用上轮记录（文件戳未动），FilesRead 为 0");
         second.Diagnostics.Status.Should().Be(first.Diagnostics.Status);
+    }
+
+    // ---- I-042 延伸：文件戳探针 + 零变更轮结果记忆化（与 IncrementalJsonlScanner 同构） ----
+
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var root = CreateTempDir();
+        CreateDatabase(
+            Path.Combine(root, "conversations", "session.db"),
+            [(1, MetadataBlob("gemini-3-pro", new UsageFixture
+            {
+                InputTokens = 10,
+                TotalOutputTokens = 5,
+                VisibleOutputTokens = 5,
+                ResponseId = "probe-response",
+            }, (1_778_000_000, 0), []))],
+            [],
+            []);
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "文件戳（mtime + 大小）未动");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle("记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Records[0].MessageId.Should().Be("probe-response");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RecreatedDatabase_DetectedAsChange()
+    {
+        var root = CreateTempDir();
+        var dbPath = Path.Combine(root, "conversations", "session.db");
+        CreateDatabase(dbPath,
+            [(1, MetadataBlob("gemini-3-pro", new UsageFixture
+            {
+                InputTokens = 10,
+                TotalOutputTokens = 5,
+                VisibleOutputTokens = 5,
+                ResponseId = "first",
+            }, (1_778_000_000, 0), []))],
+            [],
+            []);
+        var adapter = CreateAdapter(root);
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+
+        File.Delete(dbPath);
+        // Microsoft.Data.Sqlite 默认连接池：扫描的只读连接仍指向已 unlink 的旧 inode，
+        // 不清池则同名新建库的建表语句会落在旧文件内容上（table already exists）。
+        SqliteConnection.ClearAllPools();
+        CreateDatabase(dbPath,
+            [(1, MetadataBlob("gemini-3-pro", new UsageFixture
+            {
+                InputTokens = 10,
+                TotalOutputTokens = 5,
+                VisibleOutputTokens = 5,
+                ResponseId = "first",
+            }, (1_778_000_000, 0), [])),
+             (2, MetadataBlob("gemini-3-pro", new UsageFixture
+            {
+                InputTokens = 20,
+                TotalOutputTokens = 10,
+                VisibleOutputTokens = 10,
+                ResponseId = "second",
+            }, (1_778_000_100, 0), []))],
+            [],
+            []);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件重建（mtime + 大小变化）");
+        second.Records.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RemovedDatabase_TriggersFullRescan()
+    {
+        var rootA = CreateTempDir();
+        var rootB = CreateTempDir();
+        var dbA = Path.Combine(rootA, "conversations", "a.db");
+        var dbB = Path.Combine(rootB, "conversations", "b.db");
+        CreateDatabase(dbA,
+            [(1, MetadataBlob("gemini-3-pro", new UsageFixture
+            {
+                InputTokens = 10,
+                TotalOutputTokens = 5,
+                VisibleOutputTokens = 5,
+                ResponseId = "a",
+            }, (1_778_000_000, 0), []))],
+            [],
+            []);
+        CreateDatabase(dbB,
+            [(1, MetadataBlob("gemini-3-pro", new UsageFixture
+            {
+                InputTokens = 11,
+                TotalOutputTokens = 6,
+                VisibleOutputTokens = 6,
+                ResponseId = "b",
+            }, (1_778_000_001, 0), []))],
+            [],
+            []);
+        var adapter = CreateAdapter($"{rootA},{rootB}");
+        (await adapter.ScanAsync()).Records.Should().HaveCount(2);
+
+        File.Delete(dbB);
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Records.Should().ContainSingle().Which.MessageId.Should().Be("a");
     }
 
     [Fact]
