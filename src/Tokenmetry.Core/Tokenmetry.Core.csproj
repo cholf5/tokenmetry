@@ -10,4 +10,9 @@
     <EmbeddedResource Include="Pricing\model-pricing-snapshot.json" LogicalName="Tokenmetry.Core.Pricing.model-pricing-snapshot.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 驻留槽的容量语义（触顶直通）需按小容量注入验证，生产 API 不暴露容量参数。 -->
+    <InternalsVisibleTo Include="Tokenmetry.Core.Tests" />
+  </ItemGroup>
+
 </Project>
