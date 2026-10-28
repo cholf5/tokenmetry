@@ -684,6 +684,70 @@ public class CodebuffAdapterTests : IDisposable
 
     // ---- helpers ----
 
+    // ---- I-042 延伸：文件戳探针 + 零变更轮结果记忆化（与 IncrementalJsonlScanner 同构） ----
+
+    private const string CodebuffOneAssistant =
+        """[{"id":"assistant-message","role":"assistant","timestamp":"2026-01-02T03:04:06.000Z","metadata":{"model":"claude-sonnet-4-20250514","usage":{"inputTokens":100,"outputTokens":50}},"credits":1.25}]""";
+
+    private const string CodebuffTwoAssistants =
+        """[{"id":"assistant-message","role":"assistant","timestamp":"2026-01-02T03:04:06.000Z","metadata":{"model":"claude-sonnet-4-20250514","usage":{"inputTokens":100,"outputTokens":50}},"credits":1.25},{"id":"assistant-message-2","role":"assistant","timestamp":"2026-01-02T03:05:06.000Z","metadata":{"model":"claude-sonnet-4-20250514","usage":{"inputTokens":10,"outputTokens":20}}}]""";
+
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var fixture = CreateFixtureRoot();
+        WriteChatFile(fixture, "projects/project-a/chats/2026-01-02T03-04-05.000Z/chat-messages.json", CodebuffOneAssistant);
+        var adapter = CreateAdapter(fixture);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "文件戳（mtime + 大小）未动");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle("记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Records[0].InputTokens.Should().Be(100);
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_AppendedChatContent_DetectedAsChange()
+    {
+        var fixture = CreateFixtureRoot();
+        WriteChatFile(fixture, "projects/project-a/chats/2026-01-02T03-04-05.000Z/chat-messages.json", CodebuffOneAssistant);
+        var adapter = CreateAdapter(fixture);
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+
+        WriteChatFile(fixture, "projects/project-a/chats/2026-01-02T03-04-05.000Z/chat-messages.json", CodebuffTwoAssistants);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件内容变化（大小 + mtime）");
+        second.Records.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RemovedAndAddedChats_TriggerFullRescan()
+    {
+        var fixture = CreateFixtureRoot();
+        WriteChatFile(fixture, "projects/project-a/chats/2026-01-02T03-04-05.000Z/chat-messages.json", CodebuffOneAssistant);
+        WriteChatFile(fixture, "projects/project-a/chats/2026-01-02T04-04-05.000Z/chat-messages.json", CodebuffOneAssistant);
+        var adapter = CreateAdapter(fixture);
+        (await adapter.ScanAsync()).Records.Should().HaveCount(2);
+
+        File.Delete(Path.Combine(fixture, "projects", "project-a", "chats", "2026-01-02T04-04-05.000Z", "chat-messages.json"));
+        WriteChatFile(fixture, "projects/project-a/chats/2026-01-02T05-04-05.000Z/chat-messages.json", CodebuffOneAssistant);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesDiscovered.Should().Be(2);
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Records.Should().HaveCount(2);
+    }
+
     private CodebuffAdapter CreateAdapter(string dataDir) => new(configuredDataDir: dataDir);
 
     private string CreateFixtureRoot()

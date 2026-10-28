@@ -9,18 +9,22 @@ namespace Tokenmetry.Infrastructure.PiAgent;
 /// pi-agent 直读适配器（I-019，蓝本 ../ccusage/rust/adapters/pi/src/loader.rs 移植主线 +
 /// crates/ccusage-adapter-all 的命名存储装配；蓝本许可：MIT License，Copyright (c) 2025 ryoppippi）：
 /// 目录发现（<see cref="PiLogLocator"/>，PI_AGENT_DIR → ~/.pi/agent/sessions；ccusage.json 的
-/// pi.stores[] 附加命名存储）→ 逐作用域装载数据：递归收集 .jsonl（剔除含 "subagent-artifacts"
-/// 路径段的派生转录）→ 逐文件解析（<see cref="PiSessionParser"/>）→ 重放抑制计划
-/// （<see cref="PiReplayPlan"/>，跳过子会话与父文件一致的前缀）→ 跨文件复合 entry id first-wins
-/// 去重 → 时间戳稳定排序。命名存储<b>作为独立 agent</b> 出账（Agent = store 名，蓝本
+/// pi.stores[] 附加命名存储）→ 汇总全部作用域文件清单（递归收集 .jsonl，剔除含 "subagent-artifacts"
+/// 路径段的派生转录）→ 文件戳探针（<see cref="FileStampMemo"/>，路径 + mtime + 大小，只 stat 不读内容）→
+/// 账面未动复用上轮记录（零读取零解析）→ 否则逐作用域装载数据：逐文件解析（<see cref="PiSessionParser"/>）→
+/// 重放抑制计划（<see cref="PiReplayPlan"/>，跳过子会话与父文件一致的前缀）→ 跨文件复合 entry id
+/// first-wins 去重 → 时间戳稳定排序。命名存储<b>作为独立 agent</b> 出账（Agent = store 名，蓝本
 /// adapter-all loader 同语义），与默认存储的作用域隔离（各自的重放计划与去重集）。
-/// 每次全量重读；实例无扫描状态，线程安全；以单例接入 App DI。
+/// 以 I-042 文件戳记忆化替代每轮全量重读（与共享扫描器的零变更缓存同口径）；记忆化准入：
+/// 全部发现文件都成功读取才落账，有文件打不开的轮次清空记忆下一轮重试（见 <see cref="FileStampMemo"/>）。
+/// 实例持有扫描记忆，非线程安全；以单例接入 App DI（并发由 LocalIngestionDataSource 串行化）。
 /// </summary>
 public class PiAgentAdapter : IPiAgentAdapter
 {
     private readonly string? _configuredDataDir;
     private readonly PiLogLocator _locator;
     private readonly PiSessionParser _parser;
+    private readonly FileStampMemo _memo = new();
 
     public PiAgentAdapter(
         string? configuredDataDir = null,
@@ -39,18 +43,17 @@ public class PiAgentAdapter : IPiAgentAdapter
 
     public Task<JsonlScanResult> ScanAsync(CancellationToken ct = default)
     {
-        var diagnostics = new JsonlScanDiagnostics();
-        var roots = new List<string>();
-        var records = new List<UsageRecord>();
-
-        // 默认作用域（蓝本 load_entries）：store 名 "pi"。
+        // 作用域发现 + 文件清单收集（只 stat 前的目录枚举，不做任何解析）。
+        // 默认作用域（蓝本 load_entries）：store 名 "pi"；命名存储作用域（蓝本
+        // resolve_named_pi_store_paths + load_entries_for_store_paths）：路径与已占用路径重叠的
+        // 存储跳过（蓝本报配置错误终止命令，桌面降级为跳过——见卡片偏差⑤）。
         var defaultRoots = _locator.ResolveSessionDirectories(_configuredDataDir);
-        roots.AddRange(defaultRoots);
-        LoadScope(defaultRoots, storeName: "pi", isNamedScope: false, records, diagnostics, ct);
+        var roots = new List<string>(defaultRoots);
+        var scopes = new List<(string StoreName, List<(string File, string? StoreRoot)> Files)>
+        {
+            ("pi", CollectScopeFiles(defaultRoots, isNamedScope: false, ct)),
+        };
 
-        // 命名存储作用域（蓝本 resolve_named_pi_store_paths + load_entries_for_store_paths）：
-        // 每个命名存储独立 agent、独立重放计划与去重集；路径与已占用路径重叠的存储跳过
-        // （蓝本报配置错误终止命令，桌面降级为跳过——见卡片偏差⑤）。
         var claimedRoots = defaultRoots.Select(NormalizeForOverlap).ToList();
         foreach (var store in _locator.LoadNamedStores())
         {
@@ -75,7 +78,22 @@ public class PiAgentAdapter : IPiAgentAdapter
             }
 
             roots.AddRange(accepted);
-            LoadScope(accepted, store.Name, isNamedScope: true, records, diagnostics, ct);
+            scopes.Add((store.Name, CollectScopeFiles(accepted, isNamedScope: true, ct)));
+        }
+
+        var allFiles = scopes.SelectMany(scope => scope.Files.Select(entry => entry.File)).ToList();
+        var stamps = FileStampMemo.Capture(allFiles);
+
+        if (_memo.TryReuse(stamps, allFiles.Count, roots, out var reused))
+        {
+            return Task.FromResult(reused);
+        }
+
+        var diagnostics = new JsonlScanDiagnostics();
+        var records = new List<UsageRecord>();
+        foreach (var scope in scopes)
+        {
+            LoadScope(scope.StoreName, scope.Files, records, diagnostics, ct);
         }
 
         diagnostics.MissingCostRecords = records.Count(static record => record.CostUsd is null);
@@ -85,6 +103,12 @@ public class PiAgentAdapter : IPiAgentAdapter
             : diagnostics.MalformedLines > 0 || diagnostics.InvalidRecords > 0
                 ? JsonlScanStatus.Partial
                 : JsonlScanStatus.Ok;
+        // FilesChanged：走到全量读取即本轮账面有变化（有文件填 1）；无文件不设值，
+        // 由管道按"本轮发现即空"规则处理（与 ZCode 探针同口径）。
+        diagnostics.FilesChanged = allFiles.Count > 0 ? 1 : null;
+
+        // 记忆化准入：全部发现文件都成功读取才落账（有文件打不开 → null 戳清空记忆，下轮重试）。
+        _memo.Update(diagnostics.FilesRead == allFiles.Count ? stamps : null, records, diagnostics);
 
         return Task.FromResult(new JsonlScanResult
         {
@@ -94,15 +118,12 @@ public class PiAgentAdapter : IPiAgentAdapter
         });
     }
 
-    /// <summary>单作用域装载（蓝本 load_entries_from_paths）：跨全部路径汇总发现清单（路径序 × 枚举序，
-    /// 无排序——蓝本同），单次重放计划 + 单个去重集；命名存储的每文件作用域根 = 收出该文件的路径
+    /// <summary>单作用域文件清单收集：跨全部路径汇总发现清单（路径序 × 枚举序，无排序——蓝本同），
+    /// 剔除派生转录（subagent-artifacts 段）；命名存储的每文件作用域根 = 收出该文件的路径
     /// （蓝本 read_session_file_data_for_store(file, &amp;path)）。</summary>
-    private void LoadScope(
+    private List<(string File, string? StoreRoot)> CollectScopeFiles(
         IReadOnlyList<string> paths,
-        string storeName,
         bool isNamedScope,
-        List<UsageRecord> records,
-        JsonlScanDiagnostics diagnostics,
         CancellationToken ct)
     {
         var files = new List<(string File, string? StoreRoot)>();
@@ -122,6 +143,18 @@ public class PiAgentAdapter : IPiAgentAdapter
             }
         }
 
+        return files;
+    }
+
+    /// <summary>单作用域装载（蓝本 load_entries_from_paths）：单次重放计划 + 单个去重集；
+    /// 文件清单由 <see cref="CollectScopeFiles"/> 预先收集（探针指纹的输入）。</summary>
+    private void LoadScope(
+        string storeName,
+        List<(string File, string? StoreRoot)> files,
+        List<UsageRecord> records,
+        JsonlScanDiagnostics diagnostics,
+        CancellationToken ct)
+    {
         var loaded = new List<PiFileOutcome>(files.Count);
         foreach (var (file, storeRoot) in files)
         {

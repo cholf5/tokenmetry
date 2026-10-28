@@ -751,6 +751,83 @@ public class OpenClawAdapterTests : IDisposable
 
     // ---- helpers ----
 
+    // ---- I-042 延伸：SQLite 边车感知文件戳探针（JSONL 侧沿用共享扫描器增量） ----
+
+    private const string OpenClawSqliteEvent =
+        """{"id":"evt-1","type":"message","message":{"role":"assistant","usage":{"input":100,"output":50},"timestamp":1769753935279}}""";
+
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var root = CreateOpenClawRoot();
+        WriteSession(root, "agents/main/sessions/session.jsonl",
+            SessionLine(1_700_000_000_000, input: 10, output: 5));
+        CreateAgentDatabase(Path.Combine(root, "agents", "main", "agent", "openclaw-agent.sqlite"),
+            ("session-sqlite", 1_769_753_935_279, OpenClawSqliteEvent));
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(2, "首轮无记忆：SQLite 库 + JSONL 各读一次");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+        first.Records.Should().HaveCount(2);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "SQLite 库戳与 JSONL 文件戳均未动");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：SQLite 记忆复用 + 扫描器零变更缓存");
+        second.Records.Should().HaveCount(2, "记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.FilesDiscovered.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_SqliteRowAppended_DetectedAsChange()
+    {
+        var root = CreateOpenClawRoot();
+        var db = Path.Combine(root, "agents", "main", "agent", "openclaw-agent.sqlite");
+        WriteSession(root, "agents/main/sessions/session.jsonl",
+            SessionLine(1_700_000_000_000, input: 10, output: 5));
+        CreateAgentDatabase(db, ("session-sqlite", 1_769_753_935_279, OpenClawSqliteEvent));
+        var adapter = CreateAdapter(root);
+        (await adapter.ScanAsync()).Records.Should().HaveCount(2);
+
+        // 重建库文件（新增一行事件）：戳必变。
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        File.Delete(db);
+        CreateAgentDatabase(db,
+            ("session-sqlite", 1_769_753_935_279, OpenClawSqliteEvent),
+            ("session-sqlite", 1_769_753_935_280, OpenClawSqliteEvent
+                .Replace("evt-1", "evt-2")
+                .Replace("1769753935279", "1769753935280")));
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "SQLite 库内容变化（文件戳必变）");
+        second.Records.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_JsonlAppended_DetectedAsChange()
+    {
+        var root = CreateOpenClawRoot();
+        var sessionFile = Path.Combine(root, "agents", "main", "sessions", "session.jsonl");
+        WriteSession(root, "agents/main/sessions/session.jsonl",
+            SessionLine(1_700_000_000_000, input: 10, output: 5));
+        CreateAgentDatabase(Path.Combine(root, "agents", "main", "agent", "openclaw-agent.sqlite"),
+            ("session-sqlite", 1_769_753_935_279, OpenClawSqliteEvent));
+        var adapter = CreateAdapter(root);
+        (await adapter.ScanAsync()).Records.Should().HaveCount(2);
+
+        WriteSession(root, "agents/main/sessions/session.jsonl",
+            SessionLine(1_700_000_000_000, input: 10, output: 5),
+            SessionLine(1_700_000_060_000, input: 20, output: 8));
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "JSONL 文件戳变化（共享扫描器记账）");
+        second.Records.Should().HaveCount(3);
+    }
+
     private OpenClawAdapter CreateAdapter(string root) => new(configuredDataDir: root);
 
     private string CreateOpenClawRoot()

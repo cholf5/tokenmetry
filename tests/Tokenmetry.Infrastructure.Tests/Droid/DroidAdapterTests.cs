@@ -300,6 +300,81 @@ public class DroidAdapterTests : IDisposable
 
     // ---- helpers ----
 
+    // ---- I-042 延伸：文件戳探针 + 零变更轮结果记忆化（与 IncrementalJsonlScanner 同构） ----
+
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var root = CreateTempDataDir();
+        WriteSettings(root, "session-a.settings.json",
+            Model: "Claude-Sonnet-4-[Anthropic]", Provider: "anthropic",
+            Timestamp: "2026-05-01T01:02:03.000Z",
+            TokenUsage: """{"inputTokens":100,"outputTokens":50}""");
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "文件戳（mtime + 大小）未动");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle("记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Records[0].SessionId.Should().Be("session-a");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RewrittenSettingsContent_DetectedAsChange()
+    {
+        var root = CreateTempDataDir();
+        var adapter = CreateAdapter(root);
+        WriteSettings(root, "session-a.settings.json",
+            Model: "gpt-5", Provider: "openai",
+            Timestamp: "2026-05-01T01:02:03.000Z",
+            TokenUsage: """{"inputTokens":10,"outputTokens":5}""");
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+
+        // 覆写同文件（larger tokenUsage → 大小变化）：latest-wins 快照语义下整文件重读。
+        WriteSettings(root, "session-a.settings.json",
+            Model: "gpt-5", Provider: "openai",
+            Timestamp: "2026-05-01T01:02:03.000Z",
+            TokenUsage: """{"inputTokens":100,"outputTokens":50}""");
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件内容变化（大小 + mtime）");
+        second.Records.Should().ContainSingle();
+        second.Records[0].InputTokens.Should().Be(100, "覆写后的新值");
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RemovedAndAddedSettings_TriggerFullRescan()
+    {
+        var root = CreateTempDataDir();
+        var adapter = CreateAdapter(root);
+        WriteSettings(root, "session-a.settings.json",
+            Model: "gpt-5", Provider: "openai",
+            Timestamp: "2026-05-01T01:02:03.000Z", TokenUsage: """{"inputTokens":10,"outputTokens":5}""");
+        WriteSettings(root, "session-b.settings.json",
+            Model: "gpt-5", Provider: "openai",
+            Timestamp: "2026-05-01T01:02:04.000Z", TokenUsage: """{"inputTokens":10,"outputTokens":5}""");
+        (await adapter.ScanAsync()).Records.Should().HaveCount(2);
+
+        File.Delete(Path.Combine(root, "session-b.settings.json"));
+        WriteSettings(root, "session-c.settings.json",
+            Model: "gpt-5", Provider: "openai",
+            Timestamp: "2026-05-01T01:02:05.000Z", TokenUsage: """{"inputTokens":10,"outputTokens":5}""");
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesDiscovered.Should().Be(2);
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Records.Select(record => record.SessionId).Should().BeEquivalentTo("session-a", "session-c");
+    }
+
     private DroidAdapter CreateAdapter(string dataDir) => new(configuredDataDir: dataDir);
 
     private string CreateTempDataDir()

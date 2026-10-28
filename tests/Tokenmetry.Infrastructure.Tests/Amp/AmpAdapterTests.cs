@@ -386,6 +386,74 @@ public class AmpAdapterTests : IDisposable
         engine.GetUnpricedModels().Should().BeEmpty();
     }
 
+    // ---- I-042 延伸：探针前置 + 零变更轮结果记忆化（与 IncrementalJsonlScanner 同构） ----
+
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var root = CreateTempDataDir();
+        WriteThread(root, "T-thread-a.json",
+            """{"id":"thread-a","usageLedger":{"events":[{"id":"event-a","timestamp":"2026-01-02T00:00:00.000Z","model":"gpt-5","tokens":{"input":1,"output":2}}]}}""");
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+        first.Diagnostics.MissingCostRecords.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "文件戳（mtime + 大小）未动");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle("记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Records[0].SessionId.Should().Be("thread-a");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.MissingCostRecords.Should().Be(1, "累计诊断沿用上轮读取");
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_AppendedThreadContent_DetectedAsChange()
+    {
+        var root = CreateTempDataDir();
+        var adapter = CreateAdapter(root);
+        WriteThread(root, "T-thread-a.json",
+            """{"id":"thread-a","usageLedger":{"events":[{"id":"event-a","timestamp":"2026-01-02T00:00:00.000Z","model":"gpt-5","tokens":{"input":1,"output":2}}]}}""");
+        var first = await adapter.ScanAsync();
+        first.Records.Should().ContainSingle();
+
+        WriteThread(root, "T-thread-a.json",
+            """{"id":"thread-a","usageLedger":{"events":[{"id":"event-a","timestamp":"2026-01-02T00:00:00.000Z","model":"gpt-5","tokens":{"input":1,"output":2}},{"id":"event-b","timestamp":"2026-01-02T00:01:00.000Z","model":"gpt-5","tokens":{"input":3,"output":4}}]}}""");
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件内容变化（大小 + mtime）");
+        second.Records.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ChangeProbe_RemovedAndAddedFiles_TriggerFullRescan()
+    {
+        var root = CreateTempDataDir();
+        var adapter = CreateAdapter(root);
+        WriteThread(root, "T-a.json",
+            """{"id":"a","usageLedger":{"events":[{"id":"e-a","timestamp":"2026-01-02T00:00:00.000Z","model":"gpt-5","tokens":{"input":1,"output":1}}]}}""");
+        WriteThread(root, "T-b.json",
+            """{"id":"b","usageLedger":{"events":[{"id":"e-b","timestamp":"2026-01-02T00:00:01.000Z","model":"gpt-5","tokens":{"input":1,"output":1}}]}}""");
+        var first = await adapter.ScanAsync();
+        first.Records.Should().HaveCount(2);
+
+        File.Delete(Path.Combine(root, "threads", "T-b.json"));
+        WriteThread(root, "T-c.json",
+            """{"id":"c","usageLedger":{"events":[{"id":"e-c","timestamp":"2026-01-02T00:00:02.000Z","model":"gpt-5","tokens":{"input":1,"output":1}}]}}""");
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesDiscovered.Should().Be(2);
+        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Records.Select(record => record.SessionId).Should().BeEquivalentTo("a", "c");
+    }
+
     // ---- 目录发现与环境变量（蓝本 paths.rs 语义） ----
 
     [Fact]

@@ -2,6 +2,7 @@ using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Infrastructure.HermesSqlite;
 using Tokenmetry.Infrastructure.Jsonl;
+using Tokenmetry.Infrastructure.JsonSource;
 using Tokenmetry.Infrastructure.SqliteSource;
 using Microsoft.Data.Sqlite;
 
@@ -11,16 +12,20 @@ namespace Tokenmetry.Infrastructure.HermesSqlite;
 /// Hermes 本地 state SQLite 直读适配器（I-016，移植蓝本
 /// ../ccusage/rust/adapters/hermes/src/loader.rs / paths.rs；蓝本许可：MIT License，
 /// Copyright (c) 2025 ryoppippi（../ccusage/LICENSE））：
-/// 库定位（<see cref="HermesLogLocator"/>：HERMES_HOME 多根 / 默认 ~/.hermes）→ 逐库只读打开
+/// 库定位（<see cref="HermesLogLocator"/>：HERMES_HOME 多根 / 默认 ~/.hermes）→ 文件戳探针
+/// （<see cref="FileStampMemo"/>，主库 + WAL 边车的 mtime/大小——WAL 库写入先落边车，主库 mtime 在
+/// checkpoint 前不变）→ 账面未动复用上轮记录（零读取零映射）→ 否则逐库只读打开
 /// （共享 <see cref="SqliteReadonly"/>）→ 固定列查询 sessions（model 非空白行）→
 /// 行映射（<see cref="HermesSessionParser"/>）→ 按 message id（"hermes:&lt;session_id&gt;"，与 session id
 /// 一一对应）跨库去重（先扫的库优先）→ 按时间稳定排序。
-/// state 库随使用持续变化，mtime 增量不适用，每次全量重读；只读打开兼容 Hermes 运行中的 WAL。
+/// state 库随使用持续变化，mtime 增量不适用；以 I-042 文件戳记忆化替代每轮全量重读（与共享扫描器的
+/// 零变更缓存同口径）。记忆化准入：全部发现库都成功读取才落账（FilesRead == 库数），有库打不开的
+/// 轮次清空记忆下一轮重试（见 <see cref="FileStampMemo"/>）。只读打开兼容 Hermes 运行中的 WAL。
 /// 诊断口径沿用 <see cref="JsonlScanDiagnostics"/>（ZCodeSqlite 口径映射）：FilesDiscovered = 解析出的库数、
-/// FilesRead = 打开且完成查询的库数、LinesSkipped = 五桶与 cost 全零的会话行、MalformedLines 恒 0、
-/// InvalidRecords = 身份列不可读 / 时间戳不可用或越界（蓝本静默跳过的行显式计数）、
+/// FilesRead = 打开且完成查询的库数（零变更轮为 0）、LinesSkipped = 五桶与 cost 全零的会话行、
+/// MalformedLines 恒 0、InvalidRecords = 身份列不可读 / 时间戳不可用或越界（蓝本静默跳过的行显式计数）、
 /// DuplicateRecords = 跨库 session 折叠；状态 Ok/Partial/NoData 同 I-006。
-/// 实例无扫描状态，线程安全；以单例接入 App DI。
+/// 实例持有扫描记忆，非线程安全；以单例接入 App DI（并发由 LocalIngestionDataSource 串行化）。
 /// </summary>
 public class HermesSqliteAdapter : IHermesSqliteAdapter
 {
@@ -51,6 +56,7 @@ public class HermesSqliteAdapter : IHermesSqliteAdapter
 
     private readonly string? _configuredHome;
     private readonly HermesLogLocator _locator;
+    private readonly FileStampMemo _memo = new();
 
     public HermesSqliteAdapter(string? configuredHome = null, HermesLogLocator? locator = null)
     {
@@ -61,6 +67,13 @@ public class HermesSqliteAdapter : IHermesSqliteAdapter
     public Task<JsonlScanResult> ScanAsync(CancellationToken ct = default)
     {
         var databases = _locator.ResolveDatabases(_configuredHome);
+        var stamps = FileStampMemo.CaptureWithOptional(FileStampMemo.SqliteFingerprintFiles(databases));
+
+        if (_memo.TryReuse(stamps, databases.Count, databases, out var reused))
+        {
+            return Task.FromResult(reused);
+        }
+
         var records = new List<UsageRecord>();
         var seenSessions = new HashSet<string>(StringComparer.Ordinal);
         var diagnostics = new JsonlScanDiagnostics
@@ -114,6 +127,12 @@ public class HermesSqliteAdapter : IHermesSqliteAdapter
             : problems || diagnostics.InvalidRecords > 0
                 ? JsonlScanStatus.Partial
                 : JsonlScanStatus.Ok;
+        // FilesChanged：走到全量读取即本轮账面有变化（有库填 1）；无库不设值，
+        // 由管道按"本轮发现即空"规则处理（与 ZCode 探针同口径）。
+        diagnostics.FilesChanged = databases.Count > 0 ? 1 : null;
+
+        // 记忆化准入：全部发现库都成功读取才落账（有库打不开 → null 戳清空记忆，下轮重试）。
+        _memo.Update(diagnostics.FilesRead == databases.Count ? stamps : null, sorted, diagnostics);
 
         return Task.FromResult(new JsonlScanResult
         {

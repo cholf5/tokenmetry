@@ -115,8 +115,7 @@ public class ZCodeSqliteAdapterTests : IDisposable
         result.Diagnostics.MissingCostRecords.Should().Be(1);
     }
 
-    /// <summary>I-042 变更探针：同库二次扫描（账面未动）报告无变化；新行插入后恢复"有变化"。
-    /// 记录计数始终来自真实读取——探针只驱动管道短路，不影响扫描结果本身。</summary>
+    /// <summary>I-042 变更探针：同库二次扫描（账面未动）报告无变化；新行插入后恢复"有变化"。</summary>
     [Fact]
     public async Task ChangeProbe_SecondUnchangedScan_ReportsFilesChangedZero()
     {
@@ -142,6 +141,63 @@ public class ZCodeSqliteAdapterTests : IDisposable
         var third = await adapter.ScanAsync();
         third.Diagnostics.FilesChanged.Should().Be(1, "新 completed 行 = 账面变化");
         third.Records.Should().HaveCount(2);
+    }
+
+    /// <summary>
+    /// I-042 延伸（探针前置 + 结果记忆化）：账面未动的二次扫描零读取——FilesRead=0，
+    /// 记录复用上轮真实读取的集合（同实例），累计诊断与状态照旧。修复前每轮全表重读重映射。
+    /// </summary>
+    [Fact]
+    public async Task ChangeProbe_UnchangedSecondScan_SkipsRereadAndReusesCachedRecords()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(home, legacy: false);
+        InsertRow(db, new ZCodeRow(
+            "usage-1", "s1", 1_786_909_042_666, "GLM-5.3", null,
+            "completed", 40, 5, 0, 0, 45, "/w"));
+        var adapter = CreateAdapter(home);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        first.Diagnostics.MissingCostRecords.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(0, "账本未动（count + max(id) 均未变）");
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle("记录集来自上轮真实读取的复用，注册表累计口径不变");
+        second.Records[0].MessageId.Should().Be("usage-1");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.MissingCostRecords.Should().Be(1, "累计诊断沿用上轮读取");
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    /// <summary>
+    /// 库文件消失 = 账面变化：即使剩余库探针未动，也必须按有变化重新读取——
+    /// 不得让消失库的贡献静默滞留在零变更短路里（既有缺口：探针只比对残留库，
+    /// 库集收缩检测不到）。修复后库集变化必然触发全量重扫。
+    /// </summary>
+    [Fact]
+    public async Task ChangeProbe_RemovedDatabase_DetectedAsChangeAndRescanned()
+    {
+        var homeA = CreateTempHome();
+        var homeB = CreateTempHome();
+        var dbA = CreateDatabase(homeA, legacy: false);
+        var dbB = CreateDatabase(homeB, legacy: false);
+        InsertRow(dbA, new ZCodeRow("usage-a", "s-a", 1_786_909_042_666, "m", null, "completed", 10, 1, 0, 0, 11, "/a"));
+        InsertRow(dbB, new ZCodeRow("usage-b", "s-b", 1_786_909_042_667, "m", null, "completed", 20, 2, 0, 0, 22, "/b"));
+        var adapter = new ZCodeSqliteAdapter(configuredHome: $"{homeA},{homeB}");
+
+        var first = await adapter.ScanAsync();
+        first.Records.Should().HaveCount(2);
+
+        File.Delete(dbB);
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+        second.Diagnostics.FilesChanged.Should().Be(1, "库集变化 = 账面变化");
+        second.Records.Should().ContainSingle();
+        second.Records[0].MessageId.Should().Be("usage-a");
     }
 
     /// <summary>缓存桶截断到 input、computed_total 余量并入 output（对照蓝本 clamp 与 extra tokens 测试）。</summary>
