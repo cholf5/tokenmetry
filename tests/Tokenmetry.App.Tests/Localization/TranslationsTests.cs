@@ -282,17 +282,27 @@ public class TranslationsTests : IDisposable
     }
 
     [Fact]
-    public void FormatCompactTokens_UsesKiloUnitsForNonChineseLanguages()
+    public void FormatCompactTokens_UsesNativeLargeNumberUnitsPerLanguage()
     {
-        foreach (var language in new[]
-                 {
-                     AppLanguage.English, AppLanguage.Japanese, AppLanguage.Korean,
-                     AppLanguage.BrazilianPortuguese, AppLanguage.Russian,
-                     AppLanguage.Spanish, AppLanguage.German, AppLanguage.French,
-                 })
+        // 每个支持语种的原生大数口径抽查一个特征单位（阶梯细节归 TrendChartTests 分语种 Theory）；
+        // 本测试守住「语言 → 单位制」接线，防止某语种漏配回落英文 K/M。50_000 在各制下的落档：
+        // 英 K、日 5万、韩 5만、pt/ru/es 首档 mil/тыс.、德 Tsd.、法 k。
+        (AppLanguage Language, string Marker)[] cases =
+        [
+            (AppLanguage.English, "50K"),
+            (AppLanguage.Japanese, "5万"),
+            (AppLanguage.Korean, "5만"),
+            (AppLanguage.BrazilianPortuguese, "\u00A0mil"),
+            (AppLanguage.Russian, "тыс."),
+            (AppLanguage.Spanish, "\u00A0mil"),
+            (AppLanguage.German, "Tsd."),
+            (AppLanguage.French, "\u00A0k"),
+        ];
+
+        foreach (var (language, marker) in cases)
         {
             Translations.Instance.SetLanguage(language);
-            TrendChart.FormatCompactTokens(50_000).Should().NotContainAny("万", "萬");
+            TrendChart.FormatCompactTokens(50_000).Should().Contain(marker);
         }
     }
 }
