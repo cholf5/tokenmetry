@@ -828,6 +828,36 @@ public class OpenClawAdapterTests : IDisposable
         second.Records.Should().HaveCount(3);
     }
 
+    [Fact]
+    public async Task ChangeProbe_ReusedRoundKeepsPartialStatusAndBadRowCounts()
+    {
+        // 复用轮拿到的诊断必须带着上轮的真实坏行事实：落全零占位会让设置页看到
+        // 坏行数忽 3 忽 0、Partial 被洗成 Ok（“坏数据自己好了”）。
+        var root = CreateOpenClawRoot();
+        var dbPath = Path.Combine(root, "agents", "main", "agent", "openclaw-agent.sqlite");
+        CreateAgentDatabase(dbPath, ("session-sqlite", 1_769_753_935_279, OpenClawSqliteEvent));
+        using (var connection = new SqliteConnection($"Data Source={dbPath}"))
+        {
+            connection.Open();
+            var command = connection.CreateCommand();
+            // session_id 非 TEXT（BLOB）→ 行拒绝（与 rusqlite 严格类型同拒绝面）。
+            command.CommandText =
+                "INSERT INTO transcript_events (session_id, seq, event_json, created_at) VALUES (x'7f7f7f', 9, '{\"type\":\"message\"}', 0)";
+            command.ExecuteNonQuery();
+        }
+
+        var adapter = CreateAdapter(root);
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.InvalidRecords.Should().Be(1);
+        first.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：SQLite 记忆复用");
+        second.Diagnostics.InvalidRecords.Should().Be(1, "坏行计数随记录集一起复用（相邻两轮同口径）");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial, "复用轮不得把 Partial 洗成 Ok");
+    }
+
     private OpenClawAdapter CreateAdapter(string root) => new(configuredDataDir: root);
 
     private string CreateOpenClawRoot()

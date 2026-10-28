@@ -81,8 +81,10 @@ public class PiAgentAdapter : IPiAgentAdapter
             scopes.Add((store.Name, CollectScopeFiles(accepted, isNamedScope: true, ct)));
         }
 
-        var allFiles = scopes.SelectMany(scope => scope.Files.Select(entry => entry.File)).ToList();
-        var stamps = FileStampMemo.Capture(allFiles);
+        var allFiles = scopes.SelectMany(scope => scope.Files).Select(entry => entry.File).ToList();
+        // 文件戳 + 解析期配置签名：文件集不变而 store 改名 / 重叠根迁移时，记录归属（Agent /
+        // Model / ProjectPath）会变而文件戳一字不变——签名折进指纹才不会复用旧归属。
+        var stamps = FileStampMemo.WithConfig(FileStampMemo.Capture(allFiles), ScopeSignature(scopes));
 
         if (_memo.TryReuse(stamps, allFiles.Count, roots, out var reused))
         {
@@ -116,6 +118,23 @@ public class PiAgentAdapter : IPiAgentAdapter
             Records = records,
             Diagnostics = diagnostics,
         });
+    }
+
+    /// <summary>
+    /// 解析期配置签名（折进文件戳指纹）：作用域名 + 该作用域解析出的根。风险场景：store 改名、或
+    /// 新增一个与既有根重叠的 store（文件在作用域间迁移）——文件清单与戳可以完全不变，而 Agent /
+    /// Model / ProjectPath 全变（前两者还是 facts 主键维度：旧归属继续出账、新归属永不出账）。
+    /// </summary>
+    private static string ScopeSignature(
+        IReadOnlyList<(string StoreName, List<(string File, string? StoreRoot)> Files)> scopes)
+    {
+        return string.Join('\n', scopes.Select(static scope =>
+            scope.StoreName
+            + "\u001f"
+            + string.Join('|', scope.Files
+                .Select(static entry => entry.StoreRoot ?? string.Empty)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static root => root, StringComparer.Ordinal))));
     }
 
     /// <summary>单作用域文件清单收集：跨全部路径汇总发现清单（路径序 × 枚举序，无排序——蓝本同），

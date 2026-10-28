@@ -685,10 +685,54 @@ public class PiAgentAdapterTests : IDisposable
         second.Records.Select(record => record.SessionId).Should().BeEquivalentTo("session-a", "session-c");
     }
 
+    [Fact]
+    public async Task ChangeProbe_StoreRenameWithoutFileChange_RescansAndRebindsAgent()
+    {
+        // 风险场景：ccusage.json 里只改 store 名（或新增重叠根），会话文件一字未动——文件戳可以
+        // 完全一致，但 Agent / Model / ProjectPath 全变（前两者是 facts 主键维度）→ 配置签名必须折进指纹。
+        var fakeHome = CreateTempDir();
+        var store = Path.Combine(fakeHome, "omp-store");
+        Directory.CreateDirectory(store);
+        WriteLines(store, "project-a/agent_root.jsonl",
+            SessionLine("session-a", "2026-01-02T10:00:00.000Z", null),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3));
+        var configDir = Path.Combine(fakeHome, ".claude");
+        Directory.CreateDirectory(configDir);
+        WriteNamedStoreConfig(configDir, "omp", store);
+
+        var adapter = new PiAgentAdapter(
+            locator: new PiLogLocator(name => name switch
+            {
+                "USERPROFILE" or "HOME" => fakeHome,
+                _ => null,
+            }));
+
+        var first = await adapter.ScanAsync();
+        first.Records.Should().ContainSingle().Which.Agent.Should().Be("omp");
+
+        WriteNamedStoreConfig(configDir, "omp2", store);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "解析期配置变化必重扫（文件本身未动）");
+        second.Records.Should().ContainSingle().Which.Agent.Should().Be("omp2", "不复用旧 store 归属的记录");
+        second.Records[0].Model.Should().Be("[omp2] gpt-5", "模型前缀随 store 名重算");
+    }
+
     // ---- helpers ----
 
     private PiAgentAdapter CreateAdapter(string sessionsDir) =>
         new(locator: new PiLogLocator(StubEnv(home: null, piAgentDir: sessionsDir)));
+
+    /// <summary>写 ccusage.json 的 pi.stores[]（单命名存储；JsonSerializer 负责路径转义）。</summary>
+    private static void WriteNamedStoreConfig(string configDir, string storeName, string storePath)
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            pi = new { stores = new[] { new { name = storeName, path = storePath } } },
+        });
+        File.WriteAllText(Path.Combine(configDir, "ccusage.json"), json);
+    }
 
     /// <summary>home 与 PI_AGENT_DIR 的桩环境访问器（绕过默认目录发现）。</summary>
     private static Func<string, string?> StubEnv(string? home, string? piAgentDir)

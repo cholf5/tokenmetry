@@ -58,21 +58,34 @@ public class OpenClawAdapter : IOpenClawAdapter
         var sqliteStamps = FileStampMemo.CaptureWithOptional(FileStampMemo.SqliteFingerprintFiles(sqliteDatabases));
         var sqliteFromCache = false;
         List<UsageRecord> sqliteRecords;
-        if (_sqliteMemo.TryReuse(sqliteStamps, sqliteDatabases.Count, roots, out var sqliteReused))
+        if (_sqliteMemo.TryReuse(sqliteStamps, sqliteDatabases.Count, roots, out var sqliteReused, out var previousSqlite))
         {
             sqliteRecords = sqliteReused.Records as List<UsageRecord> ?? sqliteReused.Records.ToList();
             sqliteFromCache = true;
+            // 复用轮的 SQLite 侧诊断：计数随记录集一同复用（设置页相邻两轮同口径，否则坏行数忽 3 忽 0）。
+            // 坏行/结构失败必须把问题标记带回来——本适配器的 Status 在合并后重算，带不回来就是
+            // Partial 被冼成 Ok（“坏数据自己好了”）。
+            if (previousSqlite is { } previous)
+            {
+                diagnostics.MalformedLines += previous.MalformedLines;
+                diagnostics.InvalidRecords += previous.InvalidRecords;
+                diagnostics.LinesSkipped += previous.LinesSkipped;
+                problems |= previous.MalformedLines > 0 || previous.InvalidRecords > 0;
+            }
         }
         else
         {
             sqliteRecords = new List<UsageRecord>();
             var openedDatabases = 0;
+            // SQLite 侧诊断单独记账：落账时存真实对象（不是全零占位），否则复用轮拿不到坏行事实。
+            var sqliteDiagnostics = new JsonlScanDiagnostics();
             foreach (var database in sqliteDatabases)
             {
                 var read = OpenClawSqliteReader.ReadAgentDatabase(database, ct);
                 if (read.Opened)
                 {
                     diagnostics.FilesRead++;
+                    sqliteDiagnostics.FilesRead++;
                     openedDatabases++;
                 }
                 else
@@ -84,6 +97,9 @@ public class OpenClawAdapter : IOpenClawAdapter
                 diagnostics.MalformedLines += read.MalformedRows;
                 diagnostics.InvalidRecords += read.InvalidRows;
                 diagnostics.LinesSkipped += read.SkippedRows;
+                sqliteDiagnostics.MalformedLines += read.MalformedRows;
+                sqliteDiagnostics.InvalidRecords += read.InvalidRows;
+                sqliteDiagnostics.LinesSkipped += read.SkippedRows;
                 sqliteRecords.AddRange(read.Records);
             }
 
@@ -91,7 +107,7 @@ public class OpenClawAdapter : IOpenClawAdapter
             _sqliteMemo.Update(
                 openedDatabases == sqliteDatabases.Count ? sqliteStamps : null,
                 sqliteRecords,
-                new JsonlScanDiagnostics());
+                sqliteDiagnostics);
         }
 
         foreach (var root in roots)
