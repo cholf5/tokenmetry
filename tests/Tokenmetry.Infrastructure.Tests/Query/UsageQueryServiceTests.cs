@@ -1,6 +1,7 @@
 namespace Tokenmetry.Infrastructure.Tests.Query;
 
 using Microsoft.Data.Sqlite;
+using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Cache;
@@ -969,6 +970,165 @@ public class UsageQueryServiceTests : IAsyncLifetime
         TotalTokens = totalTokens,
         CostUsd = cost,
     };
+
+    // ---- P0-2: 总览页复合快照（单次全表读算完一页） ----
+
+    [Fact]
+    public async Task Overview_snapshot_matches_individual_queries()
+    {
+        var filter = new UsageQueryFilter { FromDay = "2026-03-10", ToDay = "2026-03-16" };
+
+        var snapshot = await _service.GetOverviewSnapshotAsync(filter);
+
+        var kpi = await _service.GetKpiAsync(filter);
+        var daily = await _service.GetDailySeriesAsync(filter);
+        var agents = await _service.GetAgentBreakdownAsync(filter);
+        var models = await _service.GetModelBreakdownAsync(filter);
+        var projects = await _service.GetProjectBreakdownAsync(filter);
+
+        snapshot.Kpi.TotalTokens.Should().Be(kpi.TotalTokens);
+        snapshot.Kpi.SessionCount.Should().Be(kpi.SessionCount);
+        snapshot.Kpi.CacheReadTokens.Should().Be(kpi.CacheReadTokens);
+        snapshot.Kpi.Cost.KnownCostUsd.Should().Be(kpi.Cost.KnownCostUsd);
+        snapshot.Kpi.Cost.HasUnknownCost.Should().Be(kpi.Cost.HasUnknownCost);
+        snapshot.Kpi.PreviousPeriod?.TotalTokens.Should().Be(kpi.PreviousPeriod?.TotalTokens);
+        snapshot.Kpi.PreviousPeriod?.SessionCount.Should().Be(kpi.PreviousPeriod?.SessionCount);
+        snapshot.Daily.Select(point => (point.Day, point.TotalTokens, point.HasData))
+            .Should().Equal(daily.Select(point => (point.Day, point.TotalTokens, point.HasData)));
+        snapshot.Agents.Select(row => (row.Key, row.TotalTokens, row.SessionCount))
+            .Should().Equal(agents.Select(row => (row.Key, row.TotalTokens, row.SessionCount)));
+        snapshot.Models.Select(row => (row.Key, row.TotalTokens, row.SessionCount, row.DominantAgent))
+            .Should().Equal(models.Select(row => (row.Key, row.TotalTokens, row.SessionCount, row.DominantAgent)));
+        snapshot.Projects.Select(row => (row.Key, row.DisplayName, row.TotalTokens))
+            .Should().Equal(projects.Select(row => (row.Key, row.DisplayName, row.TotalTokens)));
+    }
+
+    [Fact]
+    public async Task Overview_snapshot_unbounded_range_matches_individual_queries()
+    {
+        var filter = new UsageQueryFilter();
+
+        var snapshot = await _service.GetOverviewSnapshotAsync(filter);
+
+        var kpi = await _service.GetKpiAsync(filter);
+        var daily = await _service.GetDailySeriesAsync(filter);
+        snapshot.Kpi.PreviousPeriod.Should().BeNull("无界范围无上一周期");
+        snapshot.Daily.Select(point => point.Day).Should().Equal(daily.Select(point => point.Day));
+    }
+
+    [Fact]
+    public async Task Overview_snapshot_reads_each_fact_table_once()
+    {
+        var countingStore = new CountingUsageStore(_store);
+        var service = new UsageQueryService(countingStore, TimeZoneInfo.Utc);
+        var filter = new UsageQueryFilter { FromDay = "2026-03-10", ToDay = "2026-03-16" };
+
+        await service.GetOverviewSnapshotAsync(filter);
+
+        countingStore.FactsReads.Should().Be(1, "单次 facts 全表读");
+        countingStore.SessionReads.Should().Be(1, "单次 sessions 全表读");
+    }
+
+    [Fact]
+    public async Task Overview_snapshot_default_composition_serves_minimal_implementations()
+    {
+        // DIM 兜底：只实现五个分量的查询桩（测试 fake 形态）经接口调用快照 → 逐方法组合，逐位一致。
+        IUsageQueryService stub = new MinimalQueryStub();
+        var filter = new UsageQueryFilter { FromDay = "2026-03-10", ToDay = "2026-03-11" };
+
+        var snapshot = await stub.GetOverviewSnapshotAsync(filter);
+
+        snapshot.Kpi.TotalTokens.Should().Be(MinimalQueryStub.StubTotalTokens);
+        snapshot.Daily.Should().HaveCount(2, "双端有界补零窗口");
+        snapshot.Agents.Should().ContainSingle().Which.Key.Should().Be("Stub Agent");
+        snapshot.Models.Should().ContainSingle().Which.Key.Should().Be("stub-model");
+        snapshot.Projects.Should().ContainSingle().Which.Key.Should().Be("/stub/project");
+    }
+
+    [Fact]
+    public async Task Overview_snapshot_rejects_oversized_daily_range()
+    {
+        var filter = new UsageQueryFilter
+        {
+            FromDay = "2026-01-01",
+            ToDay = UsageQueryFilter.FormatDay(
+                UsageQueryFilter.ParseDay("2026-01-01")!.Value.AddDays(UsageQueryFilter.MaxDailySeriesDays)),
+        };
+
+        Func<Task> act = () => _service.GetOverviewSnapshotAsync(filter);
+
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>读取计数包装（IUsageStore 装饰器）：统计全表读次数。</summary>
+    private sealed class CountingUsageStore : IUsageStore
+    {
+        private readonly IUsageStore _inner;
+
+        public CountingUsageStore(IUsageStore inner) => _inner = inner;
+
+        public int FactsReads { get; private set; }
+
+        public int SessionReads { get; private set; }
+
+        public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) =>
+            _inner.UpsertUsageFactsAsync(facts, ct);
+
+        public Task<IReadOnlyList<UsageFact>> GetUsageFactsAsync(CancellationToken ct = default)
+        {
+            FactsReads++;
+            return _inner.GetUsageFactsAsync(ct);
+        }
+
+        public Task UpsertSessionFactsAsync(IReadOnlyList<SessionFact> facts, CancellationToken ct = default) =>
+            _inner.UpsertSessionFactsAsync(facts, ct);
+
+        public Task<IReadOnlyList<SessionFact>> GetSessionFactsAsync(CancellationToken ct = default)
+        {
+            SessionReads++;
+            return _inner.GetSessionFactsAsync(ct);
+        }
+
+        public Task ReplaceUsageFactsByDayAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) =>
+            _inner.ReplaceUsageFactsByDayAsync(facts, ct);
+
+        public Task DeleteDecompositionFactsAsync(CancellationToken ct = default) =>
+            _inner.DeleteDecompositionFactsAsync(ct);
+    }
+
+    /// <summary>只实现五个分量的最小查询桩（DIM 兜底验证用；其余成员抛 NotSupported 不可达）。</summary>
+    private sealed class MinimalQueryStub : IUsageQueryService
+    {
+        public const long StubTotalTokens = 1234;
+
+        public Task<IReadOnlyList<DailyUsagePoint>> GetDailySeriesAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DailyUsagePoint>>(
+            [
+                new DailyUsagePoint { Day = "2026-03-10", TotalTokens = StubTotalTokens, HasData = true },
+                new DailyUsagePoint { Day = "2026-03-11", HasData = false },
+            ]);
+
+        public Task<UsageKpiResult> GetKpiAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new UsageKpiResult { TotalTokens = StubTotalTokens });
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DimensionUsageRow>>([new DimensionUsageRow { Key = "Stub Agent", TotalTokens = StubTotalTokens }]);
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DimensionUsageRow>>([new DimensionUsageRow { Key = "stub-model", TotalTokens = StubTotalTokens }]);
+
+        public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<string>>(["stub-model"]);
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<DimensionUsageRow>>([new DimensionUsageRow { Key = "/stub/project", TotalTokens = StubTotalTokens }]);
+
+        public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default) =>
+            Task.FromResult(new SessionListResult());
+
+        public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(new HourlyDistributionResult());
+    }
 
     private async Task<List<T>> QueryAsync<T>(string sql, Func<SqliteDataReader, T> map)
     {

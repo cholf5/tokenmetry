@@ -386,7 +386,9 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     public Task ReloadAsync() => ReloadAsyncAt(DateTimeOffset.Now);
 
     /// <summary>带快照时刻的重查：分 Agent 速率的时间基准用触发它的那轮回写时刻（比"查完那一刻"
-    /// 更接近相邻两轮的真实间隔）。internal 供测试注入合成时刻。</summary>
+    /// 更接近相邻两轮的真实间隔）。internal 供测试注入合成时刻。P0-2 起经复合快照入口一次装载
+    /// KPI/构成/Agent/模型（单次 facts + 单次 sessions 全表读）；最近活动探针（会话头几页）口径
+    /// 不同（跨日排序取最近），仍单独走 GetSessionsAsync。</summary>
     internal async Task ReloadAsyncAt(DateTimeOffset snapshotAt)
     {
         if (_query is null || _dateService is null)
@@ -399,25 +401,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
         var filter = new UsageQueryFilter { FromDay = today, ToDay = today };
         try
         {
-            var kpi = await _query.GetKpiAsync(filter);
-            if (sequence != _loadSequence)
-            {
-                return;
-            }
-
-            var daily = await _query.GetDailySeriesAsync(filter);
-            if (sequence != _loadSequence)
-            {
-                return;
-            }
-
-            var agents = await _query.GetAgentBreakdownAsync(filter);
-            if (sequence != _loadSequence)
-            {
-                return;
-            }
-
-            var models = await _query.GetModelBreakdownAsync(filter);
+            var snapshot = await _query.GetOverviewSnapshotAsync(filter);
             if (sequence != _loadSequence)
             {
                 return;
@@ -437,7 +421,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
                 return;
             }
 
-            Apply(kpi, daily, agents, models, sessions, snapshotAt);
+            Apply(snapshot.Kpi, snapshot.Daily, snapshot.Agents, snapshot.Models, sessions, snapshotAt);
         }
         catch (Exception ex)
         {

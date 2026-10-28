@@ -69,4 +69,33 @@ public interface IUsageQueryService
     /// 不伪造分布（判定规则见 <see cref="HourlyDistributionResult"/> 说明：UTC 午夜锚定与本地日锚定
     /// 都判为无精度，与查询时区无关地覆盖日期级来源）。</summary>
     Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default);
+
+    /// <summary>
+    /// 总览页复合快照（P0-2 性能收敛）：一次调用返回 KPI（含上一周期环比）+ 日序列 + Agent / 模型 /
+    /// 项目三维聚合。各分量语义与逐方法调用逐位一致；范围校验一致（非法范围抛
+    /// <see cref="ArgumentException"/>，双端有界日序列超上限抛 <see cref="ArgumentOutOfRangeException"/>）。
+    /// 缺省实现为逐方法组合（仅供测试桩兜底，仍是一页多次全表读）；真实存储实现应覆写为
+    /// 单次 facts + 单次 sessions 全表读、内存内一次算完全部分量。
+    /// </summary>
+    Task<OverviewPageSnapshot> GetOverviewSnapshotAsync(UsageQueryFilter filter, CancellationToken ct = default)
+    {
+        return ComposeAsync(filter, ct);
+
+        async Task<OverviewPageSnapshot> ComposeAsync(UsageQueryFilter filter, CancellationToken ct)
+        {
+            var kpi = await GetKpiAsync(filter, ct);
+            var daily = await GetDailySeriesAsync(filter, ct);
+            var agents = await GetAgentBreakdownAsync(filter, ct);
+            var models = await GetModelBreakdownAsync(filter, ct);
+            var projects = await GetProjectBreakdownAsync(filter, ct);
+            return new OverviewPageSnapshot
+            {
+                Kpi = kpi,
+                Daily = daily,
+                Agents = agents,
+                Models = models,
+                Projects = projects,
+            };
+        }
+    }
 }
