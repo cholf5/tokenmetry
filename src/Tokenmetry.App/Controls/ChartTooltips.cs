@@ -12,7 +12,7 @@ namespace Tokenmetry.App.Controls;
 ///
 /// 方案：显式 ToolTip 实例挂 <c>chart-tip</c> 类（SharedStyles.axaml 的令牌化规则：
 /// chip 底 + 卡片描边 + 正文文字色，随明暗翻转），文案 token 数用
-/// <see cref="TrendChart.FormatCompactTokens"/>（随 UI 语言的万/亿或 K/M 口径）。
+/// <see cref="TrendChart.FormatCompactTokens"/>（随 UI 语言的原生大数口径）。
 /// TrendChart 悬停浮窗同为 Avalonia 浮层（XAML HoverTip 挂 chart-hovertip 类），token 数同走
 /// <see cref="TrendChart.FormatCompactTokens"/>；仍不消费本类的只剩 ScottPlot 轴刻度——库内自绘、
 /// 无 CJK 字形，走 <see cref="TrendChart.FormatCompactAxisValue"/>（恒 ASCII）。

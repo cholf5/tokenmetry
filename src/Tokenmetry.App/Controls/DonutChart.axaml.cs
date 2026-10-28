@@ -144,7 +144,7 @@ public partial class DonutChart : UserControl
     /// <summary>
     /// 语言切换重译（B-007）：以 PropertyChanged(CurrentLanguage) 作为「每次切换一次」的信号重跑
     /// Rebuild——build-time 固化文案不重跑就陈旧到下一次数据变更，覆盖两处：分段 tooltip 的
-    /// token 紧凑单位口径（万/亿 vs K/M）与空态中心副题（Translations.Instance.NoData）。
+    /// token 紧凑单位口径（随 UI 语言的原生大数单位制）与空态中心副题（Translations.Instance.NoData）。
     /// XAML 直绑 Translations 的空态 EmptyText 由全量 PropertyChanged 自动刷新，不依赖本订阅。
     /// </summary>
     private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -306,7 +306,7 @@ public partial class DonutChart : UserControl
             sweepPaths.Add((path, start, sweep));
             path.Data = BuildRingSegment(centerX, centerY, outerRadius, innerRadius, start,
                 animate ? SweepAt(0, i, sweep) : sweep);
-            // 图表悬浮提示（B-006）：chart-tip 类装饰（App 令牌配色）+ token 紧凑单位（随 UI 语言万/亿或 K/M）
+            // 图表悬浮提示（B-006）：chart-tip 类装饰（App 令牌配色）+ token 紧凑单位（随 UI 语言原生大数口径）
             ChartTooltips.Set(path, $"{segments[i].Name}: {TrendChart.FormatCompactTokens(segments[i].Value)} tok");
             ArcCanvas.Children.Add(path);
 

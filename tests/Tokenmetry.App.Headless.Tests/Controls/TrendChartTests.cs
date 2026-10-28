@@ -1123,6 +1123,82 @@ public class TrendChartTests
     public void FormatCompactTokens_chinese_uses_wan_yi_scale_units(double value, string expected) =>
         WithLanguage(AppLanguage.SimplifiedChinese, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
 
+    // 日语万进制：万/億/兆 每档 10^4（日式四位分组；千不设档，1万 起缩写），兆为阶梯末端；小数点 "."。
+    [AvaloniaTheory]
+    [InlineData(0, "0")]
+    [InlineData(9_999, "9999")]
+    [InlineData(12_345, "1.23万")]
+    [InlineData(99_995_000, "1億")]        // 9999.5万 越档进位
+    [InlineData(2_500_000_000_000, "2.5兆")]
+    public void FormatCompactTokens_japanese_uses_man_oku_chou_units(double value, string expected) =>
+        WithLanguage(AppLanguage.Japanese, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
+
+    // 韩语万进制：만/억/조（천(千) 不设档，만 起缩写），조为阶梯末端；谚文单位（非汉字 萬）；小数点 "."。
+    [AvaloniaTheory]
+    [InlineData(0, "0")]
+    [InlineData(9_999, "9999")]
+    [InlineData(12_345, "1.23만")]
+    [InlineData(300_000_000, "3억")]
+    [InlineData(99_995_000, "1억")]        // 9999.5만 越档进位
+    [InlineData(2_500_000_000_000, "2.5조")]
+    public void FormatCompactTokens_korean_uses_man_eok_jo_units(double value, string expected) =>
+        WithLanguage(AppLanguage.Korean, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
+
+    // 巴葡千进制：mil/mi(milhão)/bi(bilhão)/tri(trilhão)；小数逗号，数字与单位间不换行空格。
+    [AvaloniaTheory]
+    [InlineData(0, "0")]
+    [InlineData(1_500, "1,5\u00A0mil")]
+    [InlineData(50_000, "50\u00A0mil")]
+    [InlineData(999_999, "1\u00A0mi")]     // 1000 mil 越档进位
+    [InlineData(1_500_000, "1,5\u00A0mi")]
+    [InlineData(2_500_000_000, "2,5\u00A0bi")]
+    [InlineData(3_000_000_000_000, "3\u00A0tri")]
+    public void FormatCompactTokens_brazilian_portuguese_uses_mil_mi_bi_units(double value, string expected) =>
+        WithLanguage(AppLanguage.BrazilianPortuguese, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
+
+    // 俄语千进制：тыс./млн/млрд/трлн；小数逗号，数字与单位间不换行空格。
+    [AvaloniaTheory]
+    [InlineData(0, "0")]
+    [InlineData(1_500, "1,5\u00A0тыс.")]
+    [InlineData(999_999, "1\u00A0млн")]    // 1000 тыс. 越档进位
+    [InlineData(2_500_000, "2,5\u00A0млн")]
+    [InlineData(3_000_000_000_000, "3\u00A0трлн")]
+    public void FormatCompactTokens_russian_uses_thousand_million_billion_units(double value, string expected) =>
+        WithLanguage(AppLanguage.Russian, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
+
+    // 西语千进制：mil/M(millones)/MM(mil millones/millardo)/B(billón=10^12，西语长级)；小数逗号 + 不换行空格。
+    [AvaloniaTheory]
+    [InlineData(0, "0")]
+    [InlineData(1_500, "1,5\u00A0mil")]
+    [InlineData(2_500_000, "2,5\u00A0M")]
+    [InlineData(999_999_999, "1\u00A0MM")]  // 1000 M 越档进位
+    [InlineData(3_000_000_000, "3\u00A0MM")]
+    [InlineData(3_000_000_000_000, "3\u00A0B")]
+    public void FormatCompactTokens_spanish_uses_mil_m_mm_b_units(double value, string expected) =>
+        WithLanguage(AppLanguage.Spanish, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
+
+    // 德语千进制：Tsd./Mio./Mrd./Bio.(Billion=10^12，德语长级)；小数逗号 + 不换行空格。
+    [AvaloniaTheory]
+    [InlineData(0, "0")]
+    [InlineData(1_500, "1,5\u00A0Tsd.")]
+    [InlineData(2_500_000, "2,5\u00A0Mio.")]
+    [InlineData(999_999_999, "1\u00A0Mrd.")] // 1000 Mio. 越档进位
+    [InlineData(3_000_000_000, "3\u00A0Mrd.")]
+    [InlineData(3_000_000_000_000, "3\u00A0Bio.")]
+    public void FormatCompactTokens_german_uses_ts_mio_mrd_units(double value, string expected) =>
+        WithLanguage(AppLanguage.German, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
+
+    // 法语千进制：k/M/Md(milliard)/bn(billion=10^12，法语长级)；小数逗号 + 不换行空格。
+    [AvaloniaTheory]
+    [InlineData(0, "0")]
+    [InlineData(1_500, "1,5\u00A0k")]
+    [InlineData(2_500_000, "2,5\u00A0M")]
+    [InlineData(999_999_999, "1\u00A0Md")]  // 1000 M 越档进位
+    [InlineData(3_000_000_000, "3\u00A0Md")]
+    [InlineData(3_000_000_000_000, "3\u00A0bn")]
+    public void FormatCompactTokens_french_uses_k_m_md_bn_units(double value, string expected) =>
+        WithLanguage(AppLanguage.French, () => Assert.Equal(expected, TrendChart.FormatCompactTokens(value)));
+
     [AvaloniaTheory]
     [InlineData(12.5, false, "$12.50")]
     [InlineData(0, true, "$0.00+")]

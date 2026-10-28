@@ -176,7 +176,7 @@ public partial class TrendChart : UserControl
     /// <summary>
     /// 语言切换重译（B-007 同 DonutChart/Heatmap 纪律）：以 PropertyChanged(CurrentLanguage) 作为
     /// 「每次切换一次」的信号重跑 RebuildPlot——悬停文案 <see cref="_hoverLabels"/> 在重建时按当时
-    /// 语言固化（token 紧凑单位 中文万/亿 vs 英文 K/M），不重跑就陈旧到下一次数据变更。主题切换
+    /// 语言固化（token 紧凑单位随 UI 语言取原生大数单位制），不重跑就陈旧到下一次数据变更。主题切换
     /// 走同一条重建管线，XAML 直绑 Translations 的空态文案由全量 PropertyChanged 自动刷新。
     /// </summary>
     private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -892,7 +892,7 @@ public partial class TrendChart : UserControl
 
     /// <summary>
     /// 日形态 tooltip 文本（Avalonia 浮层 HoverTip 渲染，非 ScottPlot 内绘）。token 数走
-    /// <see cref="FormatCompactTokens"/> 随 UI 语言取单位制（中文 万/亿、英文 K/M——Q-008：浮窗曾是
+    /// <see cref="FormatCompactTokens"/> 随 UI 语言取原生大数单位制（Q-008：浮窗曾是
     /// ScottPlot 自绘时代的恒 ASCII 约束随浮层迁移失效）；"in/out/tot/tok" 记号与补零/成本态文案
     /// 保持 ASCII（与环形图/热力图 tooltip 的 " tok" 后缀同惯例）。token 数为紧凑短单位（B-006
     /// 问题 3：千分位全量 5-9 位数字在悬浮气泡里不可读），成本行按 <see cref="AggregatedCost"/>
@@ -955,24 +955,35 @@ public partial class TrendChart : UserControl
     }
 
     /// <summary>
-    /// 紧凑数值，按 UI 语言取单位制（调用时点读 Translations，语言切换后的下一次重渲染即换单位）：
-    /// 英文千进制 K/M/B/T/Q（1B 显示 1B 而非 1000M）；中文万进制 万/亿/万亿（口语直读——5882万
-    /// 而非 5.88千万，1.23亿 而非 123百万；万进制是中文数字的原生分组）。尾数 ≥1000 取整、≥100
-    /// 一位小数、其余两位（封顶 3~4 位有效数字）；尾数取整越档（如 9999.5万 → "10000万"）升入
-    /// 上一档（"1亿"），杜绝 "10000万"/"1000M" 式越档尾数。Avalonia 文本消费（KPI/列表/环心/
-    /// 环形图与热力图 tooltip、TrendChart 悬停浮层）；ScottPlot 轴刻度走
+    /// 紧凑数值，按 UI 语言取各语种原生大数单位制（调用时点读 Translations，语言切换后的下一次重渲染
+    /// 即换单位制）：中文万进制 万/亿/万亿（口语直读——5882万 而非 5.88千万；万进制是中文数字的原生
+    /// 分组）；日语同万进制 万/億/兆，韩语 만/억/조（千/천 不设档，1万/만 起缩写）；英语千进制
+    /// K/M/B/T/Q；其余语种千进制配本语种惯用缩写——pt-BR mil/mi/bi/tri、ru тыс./млн/млрд/трлн、
+    /// es mil/M/MM/B、de Tsd./Mio./Mrd./Bio.、fr k/M/Md/bn（西德法长级：B/Bio./bn 均指 10^12）。
+    /// 尾数数字按该语种 CultureInfo 渲染（逗号小数语种出 "1,5 Mio."；西文五语种数字与单位间为不换行
+    /// 空格防折行）。尾数 ≥1000 取整、≥100 一位小数、其余两位（封顶 3~4 位有效数字）；尾数取整越档
+    /// （如 9999.5万 → "10000万"）升入上一档（"1億"），杜绝 "10000万"/"1000M" 式越档尾数。Avalonia
+    /// 文本消费（KPI/列表/环心/环形图与热力图 tooltip、TrendChart 悬停浮层）；ScottPlot 轴刻度走
     /// <see cref="FormatCompactAxisValue"/>（无 CJK 字形，恒为 ASCII 单位）。
     /// </summary>
-    public static string FormatCompactTokens(double value) =>
-        FormatCompact(value, UnitsFor(Translations.Instance.CurrentLanguage), tickPrecision: false);
+    public static string FormatCompactTokens(double value)
+    {
+        var style = StyleFor(Translations.Instance.CurrentLanguage);
+        return FormatCompact(value, style.Units, style.Culture, tickPrecision: false);
+    }
 
     /// <summary>轴刻度紧凑数值（ScottPlot 渲染无 CJK 字形，恒为 ASCII 短单位；刻度精度略降）。</summary>
-    private static string FormatCompactAxisValue(double value) => FormatCompact(value, EnglishUnits, tickPrecision: true);
+    private static string FormatCompactAxisValue(double value) =>
+        FormatCompact(value, EnglishUnits, CultureInfo.InvariantCulture, tickPrecision: true);
 
     /// <summary>单位档：生效阈值 / 除数 / 单位 / 尾数上限（取整尾数达到上限即升入上一档；阶梯末端不设限）。</summary>
     private readonly record struct CompactUnit(double Threshold, double Divisor, string Unit, double MantissaMax);
 
-    // 千进制（英文习惯）：K/M/B/T 每档 10^3，Q 为阶梯末端。
+    /// <summary>语言样式：单位阶梯 + 尾数数字的渲染文化（各语种习惯的小数点符号）。</summary>
+    private readonly record struct CompactStyle(CompactUnit[] Units, CultureInfo Culture);
+
+    // 千进制（英文习惯）：K/M/B/T 每档 10^3，Q 为阶梯末端。恒 ASCII（Invariant 文化、无空格），
+    // 兼作 ScottPlot 轴刻度与托盘的口径。
     private static readonly CompactUnit[] EnglishUnits =
     [
         new(1e3, 1e3, "K", 1e3),
@@ -998,22 +1009,102 @@ public partial class TrendChart : UserControl
         new(1e12, 1e12, "萬億", double.MaxValue),
     ];
 
-    /// <summary>语言 → 紧凑单位制（D-024）：简体/繁体走万进制（字形随语种），其余语种（含日韩——
-    /// 数字单位习惯与英文一致用 K/M）走千进制。</summary>
-    private static CompactUnit[] UnitsFor(AppLanguage language) => language switch
+    // 万进制（日语）：万/億/兆 每档 10^4（日式四位分组，千不设档——1万 起缩写），兆为阶梯末端。
+    private static readonly CompactUnit[] JapaneseUnits =
+    [
+        new(1e4, 1e4, "万", 1e4),
+        new(1e8, 1e8, "億", 1e4),
+        new(1e12, 1e12, "兆", double.MaxValue),
+    ];
+
+    // 万进制（韩语）：만/억/조（천(千) 不设档——만 起缩写），조为阶梯末端。单位用谚文，非汉字 萬/億。
+    private static readonly CompactUnit[] KoreanUnits =
+    [
+        new(1e4, 1e4, "만", 1e4),
+        new(1e8, 1e8, "억", 1e4),
+        new(1e12, 1e12, "조", double.MaxValue),
+    ];
+
+    // 千进制（西文语种）：档位每档 10^3，缩写随各语种惯用形；数字与单位间用不换行空格（防 KPI/
+    // tooltip 内折行，法/德/俄文排版亦要求单位前不断行）。西语长级 billón=10^12（故 B 非 10^9）、
+    // 德语长级 Billion=10^12（Bio.）、法语长级 billion=10^12（bn）；10^9 为 mil millones/milliarde/
+    // milliard（MM/Mrd./Md）。
+    private const string Nbsp = "\u00A0";
+
+    private static readonly CompactUnit[] BrazilianPortugueseUnits =
+    [
+        new(1e3, 1e3, Nbsp + "mil", 1e3),
+        new(1e6, 1e6, Nbsp + "mi", 1e3),
+        new(1e9, 1e9, Nbsp + "bi", 1e3),
+        new(1e12, 1e12, Nbsp + "tri", double.MaxValue),
+    ];
+
+    private static readonly CompactUnit[] RussianUnits =
+    [
+        new(1e3, 1e3, Nbsp + "тыс.", 1e3),
+        new(1e6, 1e6, Nbsp + "млн", 1e3),
+        new(1e9, 1e9, Nbsp + "млрд", 1e3),
+        new(1e12, 1e12, Nbsp + "трлн", double.MaxValue),
+    ];
+
+    private static readonly CompactUnit[] SpanishUnits =
+    [
+        new(1e3, 1e3, Nbsp + "mil", 1e3),
+        new(1e6, 1e6, Nbsp + "M", 1e3),
+        new(1e9, 1e9, Nbsp + "MM", 1e3),
+        new(1e12, 1e12, Nbsp + "B", double.MaxValue),
+    ];
+
+    private static readonly CompactUnit[] GermanUnits =
+    [
+        new(1e3, 1e3, Nbsp + "Tsd.", 1e3),
+        new(1e6, 1e6, Nbsp + "Mio.", 1e3),
+        new(1e9, 1e9, Nbsp + "Mrd.", 1e3),
+        new(1e12, 1e12, Nbsp + "Bio.", double.MaxValue),
+    ];
+
+    private static readonly CompactUnit[] FrenchUnits =
+    [
+        new(1e3, 1e3, Nbsp + "k", 1e3),
+        new(1e6, 1e6, Nbsp + "M", 1e3),
+        new(1e9, 1e9, Nbsp + "Md", 1e3),
+        new(1e12, 1e12, Nbsp + "bn", double.MaxValue),
+    ];
+
+    // 尾数数字文化（各语种小数点习惯；GetCultureInfo 自带运行时缓存，此处静态持有免逐次查表）。
+    private static readonly CultureInfo ZhHansCulture = CultureInfo.GetCultureInfo("zh-Hans");
+    private static readonly CultureInfo ZhHantCulture = CultureInfo.GetCultureInfo("zh-Hant");
+    private static readonly CultureInfo JaCulture = CultureInfo.GetCultureInfo("ja");
+    private static readonly CultureInfo KoCulture = CultureInfo.GetCultureInfo("ko");
+    private static readonly CultureInfo PtBrCulture = CultureInfo.GetCultureInfo("pt-BR");
+    private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru");
+    private static readonly CultureInfo EsCulture = CultureInfo.GetCultureInfo("es");
+    private static readonly CultureInfo DeCulture = CultureInfo.GetCultureInfo("de");
+    private static readonly CultureInfo FrCulture = CultureInfo.GetCultureInfo("fr");
+
+    /// <summary>语言 → 原生大数单位制（D-024）：中日韩走万进制（单位字形随语种），其余语种走千进制
+    /// 并配本语种缩写与数字文化。</summary>
+    private static CompactStyle StyleFor(AppLanguage language) => language switch
     {
-        AppLanguage.SimplifiedChinese => ChineseUnits,
-        AppLanguage.TraditionalChinese => TraditionalChineseUnits,
-        _ => EnglishUnits,
+        AppLanguage.SimplifiedChinese => new(ChineseUnits, ZhHansCulture),
+        AppLanguage.TraditionalChinese => new(TraditionalChineseUnits, ZhHantCulture),
+        AppLanguage.Japanese => new(JapaneseUnits, JaCulture),
+        AppLanguage.Korean => new(KoreanUnits, KoCulture),
+        AppLanguage.BrazilianPortuguese => new(BrazilianPortugueseUnits, PtBrCulture),
+        AppLanguage.Russian => new(RussianUnits, RuCulture),
+        AppLanguage.Spanish => new(SpanishUnits, EsCulture),
+        AppLanguage.German => new(GermanUnits, DeCulture),
+        AppLanguage.French => new(FrenchUnits, FrCulture),
+        _ => new(EnglishUnits, CultureInfo.InvariantCulture),
     };
 
-    private static string FormatCompact(double value, CompactUnit[] units, bool tickPrecision)
+    private static string FormatCompact(double value, CompactUnit[] units, CultureInfo culture, bool tickPrecision)
     {
         var abs = Math.Abs(value);
         var index = Array.FindLastIndex(units, unit => abs >= unit.Threshold);
         if (index < 0)
         {
-            return value.ToString("0.##", CultureInfo.InvariantCulture);
+            return value.ToString("0.##", culture);
         }
 
         // 尾数取整达到本档上限（9999.5万 → "10000万"，同英文 "1000M"）时升入上一档再缩放。
@@ -1027,6 +1118,6 @@ public partial class TrendChart : UserControl
             : Math.Abs(scaled) >= 1000 ? "0"
             : Math.Abs(scaled) >= 100 ? "0.#"
             : "0.##";
-        return scaled.ToString(format, CultureInfo.InvariantCulture) + units[index].Unit;
+        return scaled.ToString(format, culture) + units[index].Unit;
     }
 }

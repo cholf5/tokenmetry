@@ -4,7 +4,7 @@ namespace Tokenmetry.App.Tests.Tray;
 
 /// <summary>
 /// 紧凑 tokens+成本格式化（D-014 关卡后保留，D-015 弹层复用）：
-/// 紧凑口径沿原型 tray chip（42.4K · $12.46，ASCII 千进制，语言无关——有意偏离图表的万/亿口径），
+/// 紧凑口径沿原型 tray chip（42.4K · $12.46，ASCII 千进制，语言无关——有意偏离图表的随语言大数口径），
 /// 尾数精度与越档守卫对齐图表 FormatCompact。D-014 状态栏文本直显经真机取证不可行
 /// （Avalonia 方形状态项裁剪宽位图，卡内 B1），字形分派随托盘接线一并撤除。
 /// </summary>
