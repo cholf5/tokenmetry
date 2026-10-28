@@ -102,9 +102,10 @@ public sealed partial class Translations
         [nameof(TrayRefreshNow)] = "立即重新整理",
         [nameof(TraySettings)] = "設定",
         [nameof(TrayExit)] = "結束",
-        [nameof(TrayHintTitle)] = "已最小化到系統列",
-        [nameof(TrayHintBody)] = "Tokenmetry 將繼續在系統列執行，背景擷取重新整理不中斷。可從系統列選單重新開啟主視窗或徹底結束；本提示只顯示一次，關閉行為可在「設定」頁更改。",
-        [nameof(TrayHintOk)] = "知道了",
+        [nameof(FirstCloseDialogTitle)] = "要結束 Tokenmetry 嗎？",
+        [nameof(FirstCloseDialogBody)] = "選擇「縮到系統列」：主視窗關閉後應用繼續在系統列執行，背景擷取重新整理不中斷，可隨時從系統列重新開啟主視窗；選擇「直接結束」：徹底結束應用。此行為之後可在「設定」頁更改。",
+        [nameof(FirstCloseExitButton)] = "直接結束",
+        [nameof(FirstCloseTrayButton)] = "縮到系統列",
 
         // ── 状态栏快捷信息窗 ──
         [nameof(PopoverLiveIdle)] = "即時",

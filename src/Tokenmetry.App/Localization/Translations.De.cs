@@ -102,9 +102,10 @@ public sealed partial class Translations
         [nameof(TrayRefreshNow)] = "Jetzt aktualisieren",
         [nameof(TraySettings)] = "Einstellungen",
         [nameof(TrayExit)] = "Beenden",
-        [nameof(TrayHintTitle)] = "In die Systemablage minimiert",
-        [nameof(TrayHintBody)] = "Tokenmetry läuft in der Systemablage weiter, Hintergrund-Sammlung und -Aktualisierung laufen ununterbrochen. Das Fenster lässt sich über das Tray-Menü wieder öffnen oder dort ganz beenden; dieser Hinweis erscheint nur einmal, das Schließverhalten lässt sich in den Einstellungen ändern.",
-        [nameof(TrayHintOk)] = "Verstanden",
+        [nameof(FirstCloseDialogTitle)] = "Tokenmetry beenden?",
+        [nameof(FirstCloseDialogBody)] = "„In die Systemablage minimieren“: Nach dem Schließen des Fensters läuft die App in der Systemablage weiter, Hintergrund-Sammlung und -Aktualisierung laufen ununterbrochen, und das Fenster lässt sich jederzeit wieder öffnen. „Jetzt beenden“: Die App wird vollständig beendet. Dieses Verhalten lässt sich später in den Einstellungen ändern.",
+        [nameof(FirstCloseExitButton)] = "Jetzt beenden",
+        [nameof(FirstCloseTrayButton)] = "In die Systemablage minimieren",
 
         // ── Status-Popover ──
         [nameof(PopoverLiveIdle)] = "Live",

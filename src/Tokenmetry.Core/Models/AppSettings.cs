@@ -41,11 +41,14 @@ public class AppSettings
     public bool MinimizeToTrayOnClose { get; set; } = true;
 
     /// <summary>
-    /// 「已最小化到托盘」首次关窗提示的一次性状态位（S-005）：非用户偏好、无 UI 出口——提示展示过
-    /// 即置位并落盘，此后不再打扰。消费者 = MainWindow.OnClosing；与 MinimizeToTrayOnClose 同时写入
+    /// 首次关窗选择弹窗的一次性状态位（S-005，前身为「已最小化到托盘」提示位 CloseToTrayHintShown，
+    /// 行为改为让用户选择后更名；旧 settings.json 的旧字段反序列化时被忽略——已见过旧提示的用户
+    /// 会在下次关窗再见到一次选择弹窗，属可接受的一次性打扰）：非用户偏好、无 UI 出口——用户在
+    /// 「直接退出 / 缩到托盘」弹窗做出选择即置位并落盘，此后不再打扰（弹窗被直接关掉视为未选择，
+    /// 不置位、下次关窗再问）。消费者 = MainWindow.OnClosing；与 MinimizeToTrayOnClose 同时写入
     /// 共享的 settings.json（保存为临时文件 + 原子 Move，两侧写同一 AppSettings 单例）。
     /// </summary>
-    public bool CloseToTrayHintShown { get; set; }
+    public bool FirstCloseChoiceMade { get; set; }
 
     /// <summary>
     /// 开机自启动（S-006，默认关闭）：true 时 OS 层注册「当前可执行文件 + --autostart 参数」随用户

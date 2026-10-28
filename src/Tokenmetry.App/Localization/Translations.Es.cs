@@ -102,9 +102,10 @@ public sealed partial class Translations
         [nameof(TrayRefreshNow)] = "Actualizar ahora",
         [nameof(TraySettings)] = "Configuración",
         [nameof(TrayExit)] = "Salir",
-        [nameof(TrayHintTitle)] = "Minimizado a la bandeja",
-        [nameof(TrayHintBody)] = "Tokenmetry sigue funcionando en la bandeja del sistema y la actualización en segundo plano no se interrumpe. Reabre la ventana desde el menú de la bandeja o ciérralo del todo por ahí; este aviso se muestra una sola vez y el comportamiento al cerrar se puede cambiar en «Configuración».",
-        [nameof(TrayHintOk)] = "Entendido",
+        [nameof(FirstCloseDialogTitle)] = "¿Salir de Tokenmetry?",
+        [nameof(FirstCloseDialogBody)] = "Elige «Minimizar a la bandeja»: tras cerrar la ventana, la app sigue en la bandeja del sistema con la actualización en segundo plano, y la ventana se puede reabrir desde la bandeja en cualquier momento. Elige «Salir ahora»: la app se cierra por completo. Este comportamiento se puede cambiar después en «Configuración».",
+        [nameof(FirstCloseExitButton)] = "Salir ahora",
+        [nameof(FirstCloseTrayButton)] = "Minimizar a la bandeja",
 
         // ── Popover de estado ──
         [nameof(PopoverLiveIdle)] = "En vivo",

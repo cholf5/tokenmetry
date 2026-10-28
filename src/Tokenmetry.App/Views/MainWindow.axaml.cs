@@ -20,8 +20,8 @@ public partial class MainWindow : Window
         /// <summary>隐藏到托盘（A-0 常驻语义，可从托盘再唤回）。</summary>
         MinimizeToTray,
 
-        /// <summary>首次"关窗=托盘"：先弹一次性模态提示窗告知应用去了哪里、如何退出，关闭后照常隐藏。</summary>
-        ShowFirstCloseHint,
+        /// <summary>首次关窗：先弹一次性模态选择窗（直接退出 = 默认 / 缩到托盘），按选择分派。</summary>
+        ShowFirstCloseDialog,
 
         /// <summary>真退出：desktop.Shutdown() 生命周期收尾（与托盘「退出」同一通道）。</summary>
         Exit,
@@ -30,9 +30,20 @@ public partial class MainWindow : Window
     private readonly AppSettings? _settings;
     private readonly IAppSettingsStore? _settingsStore;
 
-    /// <summary>当前打开的首关提示窗（S-005）。headless 测试宿主无桌面生命周期（ApplicationLifetime
-    /// 为 null，无从枚举窗口），测试只能经此属性定位提示窗；正常运行无其他消费者，提示流结束即清空。</summary>
-    internal Window? ActiveHintWindow { get; private set; }
+    /// <summary>用户在首关弹窗做出选择后广播（true = 缩到托盘 / false = 直接退出）。消费者 = App 启动
+    /// 接线，把选择写回 SettingsViewModel 的关窗行为开关——该 VM 是 DI 单例、开关只在构造时从 settings
+    /// 起值，弹窗直写单例会让设置页显示脱同步，经同一 VM 属性写入即同步（其自动保存为同内容的
+    /// 幂等重写，与设置页并发写同一 settings.json 的 last-writer-wins 语义一致）。headless 测试无订阅者，
+    /// 弹窗自身直写单例 + 落盘，行为自洽。</summary>
+    internal event Action<bool>? FirstCloseChoiceCommitted;
+
+    /// <summary>当前打开的首关选择窗（S-005）。headless 测试宿主无桌面生命周期（ApplicationLifetime
+    /// 为 null，无从枚举窗口），测试只能经此属性定位弹窗；正常运行无其他消费者，选择流结束即清空。</summary>
+    internal Window? ActiveFirstCloseDialog { get; private set; }
+
+    /// <summary>首关弹窗的两个选择按钮（测试接缝：代码建窗无 NameScope 注册，经属性直取触发 Click）。</summary>
+    internal Button? FirstCloseExitButton { get; private set; }
+    internal Button? FirstCloseTrayButton { get; private set; }
 
     public MainWindow() : this(null, null)
     {
@@ -125,13 +136,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// A-0 常驻体验（v0.5 规格）：用户关窗（点 X / Alt+F4 / 程序内 Close()）= 隐藏到托盘，
-    /// 进程常驻；真正退出只走托盘菜单「退出」→ desktop.Shutdown()。生命周期驱动的关闭
-    /// （托盘退出的 ApplicationShutdown、OS 会话结束的 OSShutdown）不在此列，天然放行。
-    /// S-005：行为可由设置 MinimizeToTrayOnClose 关闭（关窗即退出，仍走生命周期收尾）；
-    /// 首次"关窗=托盘"弹一次性模态提示窗——in-app toast（IToastService）在主窗隐藏后
-    /// 无处渲染，Avalonia 亦无跨平台系统通知 API（balloon 需 Win32 内部句柄、macOS 通知需 interop
-    /// + 权限流程），模态窗是唯一零 interop 且"关窗时点告知"的方案。
+    /// A-0 常驻体验（v0.5 规格）：用户关窗（点 X / Alt+F4 / 程序内 Close()）按设置分派——
+    /// 默认首次关窗弹一次性模态选择窗（直接退出 = 默认 / 缩到托盘，选择即写入 MinimizeToTrayOnClose
+    /// 并落盘），此后关窗按该设置隐藏到托盘（进程常驻）或退出；真正退出走托盘菜单「退出」或首关
+    /// 选「直接退出」→ desktop.Shutdown()。生命周期驱动的关闭（托盘退出的 ApplicationShutdown、
+    /// OS 会话结束的 OSShutdown）不在此列，天然放行。
+    /// S-005：行为可由设置 MinimizeToTrayOnClose 随时在设置页更改；首关弹窗替代旧的一次性告知提示
+    /// ——in-app toast（IToastService）在主窗隐藏后无处渲染，Avalonia 亦无跨平台系统通知 API
+    /// （balloon 需 Win32 内部句柄、macOS 通知需 interop + 权限流程），模态窗是唯一零 interop 且
+    /// "关窗时点询问"的方案。
     /// </summary>
     protected override void OnClosing(WindowClosingEventArgs e)
     {
@@ -151,8 +164,8 @@ public partial class MainWindow : Window
             case UserCloseAction.Exit:
                 ExitViaLifetime();
                 break;
-            case UserCloseAction.ShowFirstCloseHint:
-                ShowFirstCloseHint();
+            case UserCloseAction.ShowFirstCloseDialog:
+                ShowFirstCloseDialog();
                 break;
             default:
                 Hide();
@@ -161,75 +174,102 @@ public partial class MainWindow : Window
     }
 
     /// <summary>关窗决策（纯函数，headless 可测）：设置未注入 = 旧行为隐藏；开关关闭 = 退出；
-    /// 开关开启且提示未展示过 = 先提示；其余 = 直接隐藏。</summary>
+    /// 开关开启且首关选择未做出 = 先弹选择窗；其余 = 按开关隐藏或退出。</summary>
     internal static UserCloseAction ResolveUserCloseAction(AppSettings? settings) => settings switch
     {
         { MinimizeToTrayOnClose: false } => UserCloseAction.Exit,
-        { CloseToTrayHintShown: false } => UserCloseAction.ShowFirstCloseHint,
+        { FirstCloseChoiceMade: false } => UserCloseAction.ShowFirstCloseDialog,
         _ => UserCloseAction.MinimizeToTray,
     };
 
-    private void ShowFirstCloseHint()
+    private void ShowFirstCloseDialog()
     {
-        // 状态位内存先行 + best-effort 落盘：提示只出现这一次；落盘失败则下次启动会再提示一次（可接受）。
-        // 与设置页自动保存并发写同一份共享 settings.json：两侧写的是同一 AppSettings 单例且保存为
-        // 临时文件 + 原子 Move，最坏 last-writer-wins 且内容一致，无需加锁。
-        _settings!.CloseToTrayHintShown = true;
-        _ = SaveHintFlagAsync();
+        // 双开守卫：连续两次关窗事件（弹窗打开前的窗口期内）只开一个弹窗。
+        if (ActiveFirstCloseDialog is not null)
+        {
+            return;
+        }
 
-        // 提示窗模态挂主窗（关窗已被拦截，此刻主窗仍可见）：提示窗关闭后再隐藏主窗——提示期间
-        // 应用始终有可见窗口，默认 ShutdownMode（OnLastWindowClose）不会把这次关窗误判成退出。
-        var hint = BuildHintWindow();
-        ActiveHintWindow = hint;
-        _ = ShowHintThenHideAsync(hint);
+        // 状态位此刻不动：只有用户真正做出选择才置位并落盘；弹窗被直接关掉（标题栏 X）视为
+        // 未选择，主窗保持可见，下次关窗再问。与设置页自动保存并发写同一份共享 settings.json：
+        // 两侧写的是同一 AppSettings 单例且保存为临时文件 + 原子 Move，最坏 last-writer-wins
+        // 且内容一致，无需加锁。
+        var dialog = BuildFirstCloseDialog();
+        ActiveFirstCloseDialog = dialog;
+        _ = ShowFirstCloseDialogThenDispatchAsync(dialog);
     }
 
-    private async Task ShowHintThenHideAsync(Window hint)
+    private async Task ShowFirstCloseDialogThenDispatchAsync(Window dialog)
     {
+        string? choice = null;
         try
         {
-            await hint.ShowDialog(this);
+            choice = await dialog.ShowDialog<string>(this);
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[Tokenmetry] 首关托盘提示窗展示失败（主窗照常隐藏）：{ex.Message}");
+            Console.Error.WriteLine($"[Tokenmetry] 首关选择弹窗展示失败（主窗照常隐藏）：{ex.Message}");
+            choice = "tray"; // 弹窗通道坏了不能反复打扰：按托盘常驻默认语义降级
         }
         finally
         {
-            ActiveHintWindow = null;
-            Hide();
+            ActiveFirstCloseDialog = null;
+            FirstCloseExitButton = null;
+            FirstCloseTrayButton = null;
+        }
+
+        switch (choice)
+        {
+            case "exit":
+                // 直接退出：主窗不隐藏，走生命周期收尾（与托盘「退出」同一通道）。
+                ExitViaLifetime();
+                break;
+            case "tray":
+                Hide();
+                break;
+            // null（标题栏 X / 未决）：视为未选择，主窗保持可见，下次关窗再问。
         }
     }
 
-    private Window BuildHintWindow()
+    private Window BuildFirstCloseDialog()
     {
-        // 代码建窗（同 App.ShowStartupError 先例）：一次性提示，无需 XAML 视图；文案经 Translations
-        // 取串。颜色/字号不硬编码——复用共享样式类（page-subtitle 随明暗走令牌），按钮走 Semi Primary。
-        var okButton = new Button
+        // 代码建窗（同 App.ShowStartupError 先例）：一次性选择弹窗，无需 XAML 视图；文案经
+        // Translations 取串。颜色/字号不硬编码——复用共享样式类（page-subtitle 随明暗走令牌），
+        // 按钮走 Semi 变体类（Primary=默认强调的「直接退出」）。
+        var exitButton = new Button
         {
-            Content = Translations.Instance.TrayHintOk,
+            Content = Translations.Instance.FirstCloseExitButton,
+            Classes = { "Primary" },
             IsDefault = true,
             MinWidth = 96,
-            HorizontalAlignment = HorizontalAlignment.Right,
         };
+        FirstCloseExitButton = exitButton;
+
+        var trayButton = new Button
+        {
+            Content = Translations.Instance.FirstCloseTrayButton,
+            Classes = { "Secondary" },
+            MinWidth = 96,
+        };
+        FirstCloseTrayButton = trayButton;
 
         var title = new TextBlock
         {
-            Text = Translations.Instance.TrayHintTitle,
+            Text = Translations.Instance.FirstCloseDialogTitle,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         };
         title.Classes.Add("panel-title");
 
         var body = new TextBlock
         {
-            Text = Translations.Instance.TrayHintBody,
+            Text = Translations.Instance.FirstCloseDialogBody,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         };
         body.Classes.Add("page-subtitle");
 
         var window = new Window
         {
-            Title = Translations.Instance.TrayHintTitle,
+            Title = Translations.Instance.FirstCloseDialogTitle,
             Width = 480,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
@@ -239,15 +279,38 @@ public partial class MainWindow : Window
             {
                 Margin = new Avalonia.Thickness(24),
                 Spacing = 14,
-                Children = { title, body, okButton },
+                Children =
+                {
+                    title,
+                    body,
+                    new StackPanel
+                    {
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Orientation = Avalonia.Layout.Orientation.Horizontal,
+                        Spacing = 12,
+                        Children = { trayButton, exitButton },
+                    },
+                },
             },
         };
         WindowsCaptionTheme.Default.Attach(window);
-        okButton.Click += (_, _) => window.Close();
+        exitButton.Click += (_, _) => CommitFirstCloseChoice(window, "exit", minimizeToTray: false);
+        trayButton.Click += (_, _) => CommitFirstCloseChoice(window, "tray", minimizeToTray: true);
         return window;
     }
 
-    private async Task SaveHintFlagAsync()
+    /// <summary>首关选择的落账：写关窗行为设置 + 置一次性状态位，best-effort 落盘，随弹窗回执
+    /// 分派隐藏/退出；并广播给设置页开关（App 接线订阅，headless 无订阅者时设置页不存在，无需同步）。</summary>
+    private void CommitFirstCloseChoice(Window dialog, string result, bool minimizeToTray)
+    {
+        _settings!.MinimizeToTrayOnClose = minimizeToTray;
+        _settings.FirstCloseChoiceMade = true;
+        _ = SaveFirstCloseChoiceAsync();
+        FirstCloseChoiceCommitted?.Invoke(minimizeToTray);
+        dialog.Close(result);
+    }
+
+    private async Task SaveFirstCloseChoiceAsync()
     {
         try
         {
@@ -255,7 +318,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[Tokenmetry] 首关提示状态位落盘失败（下次关窗会再次提示）：{ex.Message}");
+            Console.Error.WriteLine($"[Tokenmetry] 首关选择落盘失败（下次关窗会再次询问）：{ex.Message}");
         }
     }
 
