@@ -102,9 +102,10 @@ public sealed partial class Translations
         [nameof(TrayRefreshNow)] = "지금 새로 고침",
         [nameof(TraySettings)] = "설정",
         [nameof(TrayExit)] = "종료",
-        [nameof(TrayHintTitle)] = "시스템 트레이로 최소화됨",
-        [nameof(TrayHintBody)] = "Tokenmetry는 시스템 트레이에서 계속 실행되며 백그라운드 수집·갱신도 중단되지 않습니다. 트레이 메뉴에서 메인 창을 다시 열거나 완전히 종료할 수 있습니다. 이 알림은 한 번만 표시되며, 닫기 동작은 「설정」 페이지에서 변경할 수 있습니다.",
-        [nameof(TrayHintOk)] = "확인",
+        [nameof(FirstCloseDialogTitle)] = "Tokenmetry를 종료하시겠습니까?",
+        [nameof(FirstCloseDialogBody)] = "「트레이로 최소화」를 선택하면 창을 닫은 후에도 앱이 시스템 트레이에서 실행되며 백그라운드 수집·갱신이 중단되지 않고, 트레이에서 언제든 메인 창을 다시 열 수 있습니다. 「지금 종료」를 선택하면 앱을 완전히 종료합니다. 이 동작은 나중에 「설정」 페이지에서 변경할 수 있습니다.",
+        [nameof(FirstCloseExitButton)] = "지금 종료",
+        [nameof(FirstCloseTrayButton)] = "트레이로 최소화",
 
         // ── 상태 팝오버 ──
         [nameof(PopoverLiveIdle)] = "실시간",

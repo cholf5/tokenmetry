@@ -102,9 +102,10 @@ public sealed partial class Translations
         [nameof(TrayRefreshNow)] = "今すぐ更新",
         [nameof(TraySettings)] = "設定",
         [nameof(TrayExit)] = "終了",
-        [nameof(TrayHintTitle)] = "トレイに最小化しました",
-        [nameof(TrayHintBody)] = "Tokenmetry はシステムトレイで動作を続け、バックグラウンドの収集・更新も止まりません。トレイメニューからメインウィンドウを再表示するか、完全に終了できます。この通知は一度だけ表示され、閉じたときの挙動は「設定」ページで変更できます。",
-        [nameof(TrayHintOk)] = "了解",
+        [nameof(FirstCloseDialogTitle)] = "Tokenmetry を終了しますか？",
+        [nameof(FirstCloseDialogBody)] = "「トレイに最小化」を選ぶと、ウィンドウを閉じてもアプリはシステムトレイで動作を続け、バックグラウンドの収集・更新も止まりません。トレイからいつでもメインウィンドウを再表示できます。「今すぐ終了」を選ぶとアプリを完全に終了します。この動作は後から「設定」ページで変更できます。",
+        [nameof(FirstCloseExitButton)] = "今すぐ終了",
+        [nameof(FirstCloseTrayButton)] = "トレイに最小化",
 
         // ── ステータスポップオーバー ──
         [nameof(PopoverLiveIdle)] = "ライブ",

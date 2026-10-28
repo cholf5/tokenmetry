@@ -75,13 +75,18 @@ public partial class App : Application
         {
             var mainWindowViewModel = DependencyInjection.AppServices.Get<MainWindowViewModel>();
             // S-005：主窗持有关窗行为依赖（设置单例 + 落盘 store）——OnClosing 据此分派
-            // 隐藏到托盘 / 首关一次性提示 / 关窗即退出。
+            // 隐藏到托盘 / 首关选择弹窗（直接退出=默认 / 缩到托盘）/ 关窗即退出。
             var mainWindow = new MainWindow(
                 settings,
                 DependencyInjection.AppServices.Get<IAppSettingsStore>())
             {
                 DataContext = mainWindowViewModel,
             };
+            // 首关选择同步回设置页开关：SettingsViewModel 是 DI 单例、开关只在构造时从 settings 起值，
+            // 弹窗直写单例会让设置页显示脱同步；经同一 VM 属性写入即同步（其自动保存与弹窗自身落盘
+            // 是同一单例的同内容幂等重写，原子写语义不受影响）。
+            mainWindow.FirstCloseChoiceCommitted += minimizeToTray =>
+                DependencyInjection.AppServices.Get<SettingsViewModel>().MinimizeToTrayOnClose = minimizeToTray;
             desktop.MainWindow = mainWindow;
 
             // D-018：macOS Dock 图标。裸可执行（无 .app bundle）下 Avalonia 不设 Dock 图标

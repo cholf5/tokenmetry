@@ -123,10 +123,11 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(TrayRefreshNow)] = "立即刷新",
         [nameof(TraySettings)] = "设置",
         [nameof(TrayExit)] = "退出",
-        // S-005：首次"关窗=托盘"的一次性提示窗（MainWindow 模态弹窗——in-app toast 在主窗隐藏后无处渲染）
-        [nameof(TrayHintTitle)] = "已最小化到系统托盘",
-        [nameof(TrayHintBody)] = "Tokenmetry 将继续在系统托盘运行，后台采集刷新不中断。可从托盘菜单重新打开主窗或彻底退出；本提示只显示一次，关闭行为可在「设置」页更改。",
-        [nameof(TrayHintOk)] = "知道了",
+        // S-005：首次关窗的一次性选择弹窗（MainWindow 模态弹窗——in-app toast 在主窗隐藏后无处渲染）
+        [nameof(FirstCloseDialogTitle)] = "要退出 Tokenmetry 吗？",
+        [nameof(FirstCloseDialogBody)] = "选择「缩到托盘」：主窗关闭后应用继续在系统托盘运行，后台采集刷新不中断，可随时从托盘重新打开主窗；选择「直接退出」：彻底退出应用。此行为之后可在「设置」页更改。",
+        [nameof(FirstCloseExitButton)] = "直接退出",
+        [nameof(FirstCloseTrayButton)] = "缩到托盘",
 
         // ── 状态栏快捷信息窗（D-015 StatusPopoverView / StatusPopoverViewModel）──
         [nameof(PopoverLiveIdle)] = "实时",
@@ -557,9 +558,10 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(TrayRefreshNow)] = "Refresh now",
         [nameof(TraySettings)] = "Settings",
         [nameof(TrayExit)] = "Quit",
-        [nameof(TrayHintTitle)] = "Minimized to the tray",
-        [nameof(TrayHintBody)] = "Tokenmetry keeps running in the system tray and background refresh continues. Reopen the window from the tray menu or quit there; this notice shows once, and the close behavior can be changed in Settings.",
-        [nameof(TrayHintOk)] = "Got it",
+        [nameof(FirstCloseDialogTitle)] = "Quit Tokenmetry?",
+        [nameof(FirstCloseDialogBody)] = "Choose “Minimize to tray”: the app keeps running in the system tray after the window closes, background refresh continues, and the window can be reopened from the tray anytime. Choose “Quit now”: the app exits completely. You can change this behavior later in Settings.",
+        [nameof(FirstCloseExitButton)] = "Quit now",
+        [nameof(FirstCloseTrayButton)] = "Minimize to tray",
 
         // ── 状态栏快捷信息窗（D-015）──
         [nameof(PopoverLiveIdle)] = "Live",
@@ -1139,9 +1141,10 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string TrayRefreshNow => Get();
     public string TraySettings => Get();
     public string TrayExit => Get();
-    public string TrayHintTitle => Get();
-    public string TrayHintBody => Get();
-    public string TrayHintOk => Get();
+    public string FirstCloseDialogTitle => Get();
+    public string FirstCloseDialogBody => Get();
+    public string FirstCloseExitButton => Get();
+    public string FirstCloseTrayButton => Get();
 
     // ── 状态栏快捷信息窗（D-015）──
     public string PopoverLiveIdle => Get();

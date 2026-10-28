@@ -102,9 +102,10 @@ public sealed partial class Translations
         [nameof(TrayRefreshNow)] = "Actualiser maintenant",
         [nameof(TraySettings)] = "Paramètres",
         [nameof(TrayExit)] = "Quitter",
-        [nameof(TrayHintTitle)] = "Réduit dans la zone de notification",
-        [nameof(TrayHintBody)] = "Tokenmetry continue de fonctionner dans la zone de notification ; la collecte et l'actualisation en arrière-plan ne s'interrompent pas. Réouvrez la fenêtre depuis le menu de la zone ou quittez-y complètement ; ce message ne s'affiche qu'une fois, et le comportement à la fermeture se change dans « Paramètres ».",
-        [nameof(TrayHintOk)] = "Compris",
+        [nameof(FirstCloseDialogTitle)] = "Quitter Tokenmetry ?",
+        [nameof(FirstCloseDialogBody)] = "« Réduire dans la zone de notification » : après la fermeture de la fenêtre, l'app continue de fonctionner dans la zone, la collecte et l'actualisation en arrière-plan ne s'interrompent pas, et la fenêtre peut être rouverte à tout moment. « Quitter maintenant » : l'application se ferme complètement. Ce comportement se modifie plus tard dans « Paramètres ».",
+        [nameof(FirstCloseExitButton)] = "Quitter maintenant",
+        [nameof(FirstCloseTrayButton)] = "Réduire dans la zone",
 
         // ── Popover d'état ──
         [nameof(PopoverLiveIdle)] = "En direct",
