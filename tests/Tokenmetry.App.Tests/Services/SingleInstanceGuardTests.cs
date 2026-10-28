@@ -10,26 +10,61 @@ namespace Tokenmetry.App.Tests.Services;
 public class SingleInstanceGuardTests
 {
     [Fact]
-    public async Task Second_instance_cannot_acquire_while_first_holds()
+    public void Second_instance_cannot_acquire_while_first_holds()
     {
         var name = UniqueName();
         using var first = new SingleInstanceGuard(name);
         first.TryAcquire().Should().BeTrue();
 
         // Mutex 是线程递归的：同线程重复 WaitOne 会重入成功。真实第二实例是跨进程（必然
-        // 跨线程），守卫语义正确，本用例也必须跨线程尝试获取——LongRunning 保证专用线程；
-        // 普通 Task.Run 会复用刚归还线程池的 xunit 工作线程（正是持锁线程）而偶发重入。
-        var secondAcquired = await Task.Factory.StartNew(
-            () =>
-            {
-                using var second = new SingleInstanceGuard(name);
-                return second.TryAcquire();
-            },
-            CancellationToken.None,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default);
+        // 跨线程），守卫语义正确，本用例也必须跨线程尝试获取——第二获取者用专用 Thread
+        //（全新线程，结构性排除复用持锁线程的重入），主线程 Join 等待。
+        //
+        // 历史教训（本用例曾经的偶发失败根因，勿改回 await 形态）：不能 await 跨线程探测。
+        // await 会把测试方法挂起在拿锁线程上，而该线程（线程池 worker / LongRunning 任务
+        // 收尾的内联续体线程）可能在挂起后随即退出；CoreCLR PAL 按命名 Mutex 语义把死亡
+        // 线程的所有权标记为 abandoned，第二获取者的 WaitOne(0) 反而抛 AbandonedMutex
+        // Exception，TryAcquire 按"上一实例崩溃接管"设计返回 true。拿锁线程必须活到探测
+        // 结束，故整个用例保持同步。诊断依据：xunit 宿主内 200 轮复现 195 次，违例全部走
+        // abandoned 分支且第二对象 createdNew=false（同一命名对象，非名字注册竞态）。
+        bool? secondAcquired = null;
+        var secondThread = new Thread(() =>
+        {
+            using var second = new SingleInstanceGuard(name);
+            secondAcquired = second.TryAcquire();
+        });
+        secondThread.Start();
+        secondThread.Join();
 
         secondAcquired.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Abandoned_mutex_from_dead_owner_thread_is_taken_over()
+    {
+        var name = UniqueName();
+        SingleInstanceGuard? abandoned = null;
+        var ownerAcquired = false;
+
+        // 持有者线程故意不 Dispose 守卫就退出：PAL 把死亡线程持有的命名 Mutex 标记为
+        // abandoned——这正是生产中"上一实例崩溃"的真实形态。线程死亡发生在 Join 返回前，
+        // 废弃状态对后续获取者确定可见。
+        var deadOwner = new Thread(() =>
+        {
+            abandoned = new SingleInstanceGuard(name);
+            ownerAcquired = abandoned.TryAcquire();
+        });
+        deadOwner.Start();
+        deadOwner.Join();
+
+        ownerAcquired.Should().BeTrue();
+
+        using var next = new SingleInstanceGuard(name);
+        next.TryAcquire().Should().BeTrue("持有者线程已死亡，abandoned mutex 应视为已获得");
+
+        // 守卫仍被本测试引用到断言之后：确保 abandoned 状态由线程死亡产生，而不是 GC
+        // 终结器提前释放句柄把对象从名字注册表里移除。
+        GC.KeepAlive(abandoned);
     }
 
     [Fact]
