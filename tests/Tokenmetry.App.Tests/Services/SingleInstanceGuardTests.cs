@@ -90,5 +90,12 @@ public class SingleInstanceGuardTests
         SingleInstanceGuard.TrySignalActivation(name, attempts: 1, connectTimeoutMs: 200).Should().BeFalse();
     }
 
-    private static string UniqueName() => $"{SingleInstanceGuard.DefaultInstanceName}-{Guid.NewGuid():N}";
+    // Unix 命名管道落盘为 $TMPDIR/CoreFxPipe_<管道名> 的 Unix domain socket，macOS 路径上限
+    // 104 字符：32 位完整 hex GUID 必超限（/var/folders 前缀 ~46 字符 + "CoreFxPipe_" +
+    // ".Activation"）。12 位 hex（48 bit）对 xunit 并行隔离绰绰有余且留足余量。
+    private static string UniqueName()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..12];
+        return $"{SingleInstanceGuard.DefaultInstanceName}-{suffix}";
+    }
 }

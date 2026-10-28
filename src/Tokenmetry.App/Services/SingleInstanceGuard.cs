@@ -18,8 +18,13 @@ public sealed class SingleInstanceGuard : IDisposable
 {
     public const string DefaultInstanceName = "Tokenmetry";
 
-    /// <summary>管道行协议：目前仅一种请求（以后扩展多一行一个动作）。</summary>
+    /// <summary>管道行协议：一行请求（以后扩展多一行一个动作），服务器读到请求即回执一行
+    /// "ok"。回执是送达凭证：Unix FIFO 在服务器换实例的间隙（旧实例已停止读取、新实例未就绪）
+    /// 客户端 Connect 仍可能成功而写入被静默吞掉，客户端必须凭回执判定成败，吞掉的写入才会
+    /// 以无回执败露并退避重试到新实例上。</summary>
     public const string ActivationRequest = "show";
+
+    private static readonly byte[] ActivationAckBytes = "ok\n"u8.ToArray();
 
     private readonly string _mutexName;
     private readonly string _pipeName;
@@ -56,8 +61,8 @@ public sealed class SingleInstanceGuard : IDisposable
     }
 
     /// <summary>
-    /// 首实例监听激活请求，收到即回调（管道线程上下文，调用方自行 marshal 到 UI 线程）。
-    /// 循环直到 Dispose；单次连接的客户端异常（秒断、写坏）只作废该次请求，不终止监听。
+    /// 首实例监听激活请求，读到请求先回执再回调（管道线程上下文，调用方自行 marshal 到 UI
+    /// 线程）。循环直到 Dispose；单次连接的客户端异常（秒断、写坏）只作废该次请求，不终止监听。
     /// </summary>
     public void StartListener(Action onActivationRequest)
     {
@@ -77,7 +82,7 @@ public sealed class SingleInstanceGuard : IDisposable
                 {
                     server = new NamedPipeServerStream(
                         _pipeName,
-                        PipeDirection.In,
+                        PipeDirection.InOut,
                         maxNumberOfServerInstances: 1,
                         PipeTransmissionMode.Byte,
                         PipeOptions.Asynchronous);
@@ -86,6 +91,8 @@ public sealed class SingleInstanceGuard : IDisposable
                     var line = await reader.ReadLineAsync(token).ConfigureAwait(false);
                     if (line == ActivationRequest)
                     {
+                        // 先回执再回调：客户端凭回执判定送达（见管道行协议注释）。
+                        await server.WriteAsync(ActivationAckBytes, token).ConfigureAwait(false);
                         onActivationRequest();
                     }
                 }
@@ -106,8 +113,10 @@ public sealed class SingleInstanceGuard : IDisposable
     }
 
     /// <summary>
-    /// 第二实例侧：向首实例发激活请求。带重试——首实例从拿锁到开管道之间有启动窗口期，
-    /// 立即双开也要能送达。全部失败返回 false（调用方仍应退出：互斥保证了不该自己上位）。
+    /// 第二实例侧：向首实例发激活请求并等回执。带重试——首实例从拿锁到开管道之间有启动
+    /// 窗口期，立即双开也要能送达；连上将死实例被吞的写入以无回执败露，同样退避重试。
+    /// true = 首实例确认收到（凭回执，不只是"写进了管道"）。全部失败返回 false（调用方
+    /// 仍应退出：互斥保证了不该自己上位）。
     /// </summary>
     public static bool TrySignalActivation(
         string instanceName,
@@ -120,20 +129,50 @@ public sealed class SingleInstanceGuard : IDisposable
             try
             {
                 using var client = new NamedPipeClientStream(
-                    ".", pipeName, PipeDirection.Out, PipeOptions.Asynchronous);
+                    ".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
                 client.Connect(connectTimeoutMs);
                 using var writer = new StreamWriter(client) { AutoFlush = true };
                 writer.WriteLine(ActivationRequest);
-                return true;
+                if (ReadActivationAck(client, connectTimeoutMs))
+                {
+                    return true;
+                }
             }
-            catch (Exception ex) when (ex is IOException or TimeoutException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or TimeoutException
+                or UnauthorizedAccessException or OperationCanceledException)
             {
-                // 首实例监听未就绪 / 管道忙（服务器实例数 1 且被占）或名字被异物占用：退避重试。
-                Thread.Sleep(200);
+                // 首实例监听未就绪 / 管道忙（服务器实例数 1 且被占）/ 名字被异物占用 /
+                // 回执超时（连上了将死实例、写入被吞）：退避重试，落到新实例上。
             }
+
+            Thread.Sleep(200);
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// 读服务器送达回执（阻塞，超时预算与连接相同）：服务器读到请求即回执，正常亚毫秒；
+    /// EOF（连上了将死的旧实例）、半截回执、超时都返回 false 交由重试——真回执只会来自
+    /// 仍活着并真正读到请求的服务器实例。
+    /// </summary>
+    private static bool ReadActivationAck(NamedPipeClientStream client, int connectTimeoutMs)
+    {
+        var buffer = new byte[ActivationAckBytes.Length];
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(connectTimeoutMs));
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var n = client.ReadAsync(buffer.AsMemory(read), timeout.Token).GetAwaiter().GetResult();
+            if (n <= 0)
+            {
+                return false;
+            }
+
+            read += n;
+        }
+
+        return buffer.AsSpan().SequenceEqual(ActivationAckBytes);
     }
 
     public void Dispose()
