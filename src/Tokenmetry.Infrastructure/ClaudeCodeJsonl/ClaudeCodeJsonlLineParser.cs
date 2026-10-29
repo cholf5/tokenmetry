@@ -252,6 +252,7 @@ public partial class ClaudeCodeJsonlLineParser
             CacheCreationEphemeral5mTokens = ephemeral5m,
             CacheCreationEphemeral1hTokens = ephemeral1h,
             CacheReadTokens = usage.CacheReadInputTokens ?? 0,
+            Speed = speed == RawSpeed.Fast ? SpeedTier.Fast : SpeedTier.Standard,
             IsSidechain = entry.IsSidechain ?? false,
             MessageId = message.Id,
             RequestId = entry.RequestId,
