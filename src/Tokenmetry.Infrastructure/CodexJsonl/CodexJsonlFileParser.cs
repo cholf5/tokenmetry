@@ -270,7 +270,11 @@ public partial class CodexJsonlFileParser
             relative = path;
         }
 
-        if (relative.EndsWith(".jsonl", StringComparison.Ordinal))
+        if (relative.EndsWith(".jsonl.zst", StringComparison.Ordinal))
+        {
+            relative = relative[..^".jsonl.zst".Length];
+        }
+        else if (relative.EndsWith(".jsonl", StringComparison.Ordinal))
         {
             relative = relative[..^".jsonl".Length];
         }

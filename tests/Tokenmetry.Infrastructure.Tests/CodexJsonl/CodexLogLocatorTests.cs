@@ -1,4 +1,4 @@
-namespace Tokenmetry.Infrastructure.Tests.CodexJsonl;
+﻿namespace Tokenmetry.Infrastructure.Tests.CodexJsonl;
 
 using Tokenmetry.Infrastructure.CodexJsonl;
 
@@ -123,6 +123,32 @@ public class CodexLogLocatorTests : IDisposable
         var files = CodexLogLocator.CollectDedupedFiles(sources);
 
         files.Should().BeEquivalentTo([(sessionsDir, nestedFile)]);
+    }
+
+    [Fact]
+    public void Collects_plain_and_compressed_rollouts_without_double_counting()
+    {
+        var home = CreateTempHome();
+        WriteFile(home, "sessions/both.jsonl", "{}");
+        WriteFile(home, "sessions/both.jsonl.zst", "stub");
+        WriteFile(home, "sessions/compressed.jsonl.zst", "stub");
+        WriteFile(home, "sessions/other.zst", "stub");
+        WriteFile(home, "archived_sessions/compressed.jsonl", "{}");
+
+        var sources = new CodexLogLocator(name => null).ResolveSources(home);
+        var files = CodexLogLocator.CollectDedupedFiles(sources);
+
+        files.Should().BeEquivalentTo([
+            (Path.Combine(home, "sessions"), Path.Combine(home, "sessions", "both.jsonl")),
+            (Path.Combine(home, "sessions"), Path.Combine(home, "sessions", "compressed.jsonl.zst")),
+        ], "明文优先于压缩、sessions/ 优先于 archived_sessions/，x.zst 不是 rollout");
+    }
+
+    private static void WriteFile(string home, string relativePath, string contents)
+    {
+        var path = Path.Combine(home, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, contents);
     }
 
     public void Dispose()

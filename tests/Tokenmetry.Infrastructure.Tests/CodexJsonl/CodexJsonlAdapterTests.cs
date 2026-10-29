@@ -437,6 +437,46 @@ public class CodexJsonlAdapterTests : IDisposable
         result.Records.Should().ContainSingle().Subject.Speed.Should().Be(SpeedTier.Flex);
     }
 
+    [Fact]
+    public async Task Reads_a_zstandard_compressed_rollout()
+    {
+        var home = CreateTempHome();
+        const string jsonl =
+            "{\"timestamp\":\"2026-01-01T10:00:00.000Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"z-1\",\"cwd\":\"/work\"}}\n"
+            + "{\"timestamp\":\"2026-01-01T10:00:02.000Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"input_tokens\":100,\"cached_input_tokens\":40,\"output_tokens\":5,\"total_tokens\":105}}}}\n";
+        WriteSessionFile(home, "sessions/2026/01/01/rollout-z.jsonl.zst", jsonl);
+
+        var result = await new CodexJsonlAdapter(configuredHome: home).ScanAsync();
+
+        var record = result.Records.Should().ContainSingle().Subject;
+        record.SessionId.Should().Be("2026/01/01/rollout-z", "会话 id 由路径推导，剥掉 .jsonl.zst");
+        record.InputTokens.Should().Be(60, "input - cached");
+        record.CacheReadTokens.Should().Be(40);
+        result.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+    }
+
+    [Fact]
+    public async Task Keeps_plain_and_compressed_copies_of_the_same_rollout_once()
+    {
+        var home = CreateTempHome();
+        const string jsonl =
+            "{\"timestamp\":\"2026-01-01T10:00:02.000Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"input_tokens\":100,\"output_tokens\":5,\"total_tokens\":105}}}}\n";
+        WriteFile(home, "sessions/rollout-p.jsonl", jsonl);
+        WriteSessionFile(home, "sessions/rollout-p.jsonl.zst", jsonl);
+
+        var result = await new CodexJsonlAdapter(configuredHome: home).ScanAsync();
+
+        result.Records.Should().ContainSingle("同一 rollout 的两种编码只算一次");
+        result.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    private static void WriteFile(string home, string relativePath, string content)
+    {
+        var path = Path.Combine(home, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content);
+    }
+
     public void Dispose()
     {
         foreach (var dir in _tempDirs)
@@ -463,6 +503,15 @@ public class CodexJsonlAdapterTests : IDisposable
     {
         var path = Path.Combine(home, relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        if (path.EndsWith(".jsonl.zst", StringComparison.Ordinal))
+        {
+            using var file = File.Create(path);
+            using var compressor = new ZstdSharp.CompressionStream(file);
+            var bytes = System.Text.Encoding.UTF8.GetBytes(contents);
+            compressor.Write(bytes, 0, bytes.Length);
+            return path;
+        }
+
         File.WriteAllText(path, contents);
         return path;
     }

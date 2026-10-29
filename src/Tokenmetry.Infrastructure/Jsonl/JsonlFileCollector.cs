@@ -1,4 +1,4 @@
-namespace Tokenmetry.Infrastructure.Jsonl;
+﻿namespace Tokenmetry.Infrastructure.Jsonl;
 
 /// <summary>
 /// 目录树下的 .jsonl 文件递归收集（claude.rs usage_files 与 codex.rs collect_jsonl_files 共用）：
@@ -7,6 +7,10 @@ namespace Tokenmetry.Infrastructure.Jsonl;
 public static class JsonlFileCollector
 {
     public static void Collect(string directory, List<string> files)
+        => Collect(directory, files, IsJsonlFile);
+
+    /// <summary>按谓词收集（Codex 需要同时收 .jsonl 与 .jsonl.zst）；符号链接不跟随、读不了的目录静默跳过。</summary>
+    public static void Collect(string directory, List<string> files, Func<string, bool> isUsageFile)
     {
         var dir = new DirectoryInfo(directory);
         if (!dir.Exists)
@@ -14,10 +18,13 @@ public static class JsonlFileCollector
             return;
         }
 
-        Collect(dir, files);
+        Collect(dir, files, isUsageFile);
     }
 
     public static void Collect(DirectoryInfo directory, List<string> files)
+        => Collect(directory, files, IsJsonlFile);
+
+    public static void Collect(DirectoryInfo directory, List<string> files, Func<string, bool> isUsageFile)
     {
         FileSystemInfo[] entries;
         try
@@ -40,12 +47,14 @@ public static class JsonlFileCollector
 
             if (entry is DirectoryInfo subdirectory)
             {
-                Collect(subdirectory, files);
+                Collect(subdirectory, files, isUsageFile);
             }
-            else if (entry is FileInfo file && string.Equals(file.Extension, ".jsonl", StringComparison.Ordinal))
+            else if (entry is FileInfo file && isUsageFile(file.FullName))
             {
                 files.Add(file.FullName);
             }
         }
     }
+
+    private static bool IsJsonlFile(string path) => path.EndsWith(".jsonl", StringComparison.Ordinal);
 }

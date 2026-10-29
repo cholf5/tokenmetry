@@ -1,4 +1,4 @@
-using Tokenmetry.Core.Abstractions;
+﻿using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Infrastructure.ClaudeCodeJsonl;
 using Tokenmetry.Infrastructure.Jsonl;
@@ -30,7 +30,31 @@ public class CodexJsonlAdapter : ICodexJsonlAdapter
         _configuredHome = configuredHome;
         _locator = locator ?? new CodexLogLocator();
         _fileParser = fileParser ?? new CodexJsonlFileParser();
-        _scanner = new IncrementalJsonlScanner(readerFactory, deduper);
+        _scanner = new IncrementalJsonlScanner(readerFactory ?? OpenRolloutReader, deduper);
+    }
+
+    /// <summary>
+    /// 打开 rollout：`.jsonl.zst` 走 ZstdSharp 解压流，其余按 UTF-8 直读。
+    /// 解压失败转成 <see cref="InvalidDataException"/>（IOException 子类）交给共享扫描引擎
+    /// 按"整文件不可信"跳过并下轮重试，与 DSH 的 zstd 失败语义一致。
+    /// </summary>
+    private static TextReader OpenRolloutReader(string path)
+    {
+        var baseStream = AgentLogReader.OpenRead(path);
+        if (!path.EndsWith(".jsonl.zst", StringComparison.Ordinal))
+        {
+            return new StreamReader(baseStream, System.Text.Encoding.UTF8);
+        }
+
+        try
+        {
+            return new StreamReader(new ZstdSharp.DecompressionStream(baseStream), System.Text.Encoding.UTF8);
+        }
+        catch (Exception ex) when (ex is ZstdSharp.ZstdException or InvalidDataException)
+        {
+            baseStream.Dispose();
+            throw new InvalidDataException($"Codex rollout is not readable: {path}", ex);
+        }
     }
 
     public async Task<JsonlScanResult> ScanAsync(CancellationToken ct = default)
