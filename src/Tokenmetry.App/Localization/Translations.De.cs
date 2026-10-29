@@ -193,8 +193,6 @@ public sealed partial class Translations
         [nameof(RefreshIntervalMustBeNumber)] = "Das Aktualisierungsintervall muss eine Zahl sein",
         [nameof(RefreshIntervalOutOfRange)] = "Das Intervall muss zwischen 1 und 1440 Minuten liegen (aktueller Wert bleibt)",
         [nameof(RefreshHint)] = "Wird sofort gespeichert; greift beim nächsten Start des Hintergrund-Aktualisierungsdiensts.",
-        [nameof(LabelCcusageCli)] = "ccusage-CLI (Abgleich / manueller Import)",
-        [nameof(CcusageHint)] = "Die App liest lokale Sitzungsprotokolle direkt — ccusage ist nicht nötig; dieser Befehl dient nur dem Abgleich / manuellen Import und greift ab dem nächsten Start.",
         [nameof(CheckMinimizeToTrayOnClose)] = "Beim Schließen in die Systemablage minimieren",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "Nach dem Schließen läuft die App in der Tray mit geplanter Aktualisierung weiter; ganz beenden über „Beenden“ im Tray-Menü. Ausgeschaltet beendet der Schließen-Knopf die App.",
         [nameof(CheckAutoStartOnBoot)] = "Beim Anmelden starten",

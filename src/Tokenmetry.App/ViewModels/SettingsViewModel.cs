@@ -65,8 +65,8 @@ public sealed class LanguageOption : ObservableObject
 }
 
 /// <summary>
-/// 设置页 VM（S-004 起收缩为应用偏好：主题 / 界面语言 / 刷新间隔 / ccusage 命令 / 异常通知 / 关窗行为 /
-/// 开机自启动 / 本地路径）。
+/// 设置页 VM（S-004 起收缩为应用偏好：主题 / 界面语言 / 刷新间隔 / 关窗行为 / 开机自启动 /
+/// 本地路径）。
 /// 数据源、统计口径、模型目录与别名映射在数据与计价页（<see cref="DataPricingViewModel"/>）。
 /// 全部设置项改完即生效并落盘（无保存按钮——对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）。
 /// </summary>
@@ -105,9 +105,6 @@ public partial class SettingsViewModel : ViewModelBase
 
     /// <summary>自动保存串行化 gate：文本框逐键触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
-
-    [ObservableProperty]
-    private string _ccusageCommand = string.Empty;
 
     [ObservableProperty]
     private string _refreshMinutesText = string.Empty;
@@ -154,7 +151,6 @@ public partial class SettingsViewModel : ViewModelBase
         _autoStartManager = autoStartManager;
         CacheDbPath = paths.CacheDbPath;
         SettingsFilePath = paths.SettingsFilePath;
-        _ccusageCommand = settings.CcusageCommand;
         _refreshMinutesText = settings.RefreshMinutes.ToString();
         _minimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
         _autoStartOnBoot = settings.AutoStartOnBoot;
@@ -292,14 +288,6 @@ public partial class SettingsViewModel : ViewModelBase
 
         RefreshMinutesError = null;
         _settings.RefreshMinutes = parsed;
-        PersistSettings();
-    }
-
-    /// <summary>ccusage 命令输入：内容变化即存；空值按既有语义落默认命令 "ccusage"
-    /// （原始文本保留在输入框，规范化只落盘；命令本身下次启动才被消费）。</summary>
-    partial void OnCcusageCommandChanged(string value)
-    {
-        _settings.CcusageCommand = string.IsNullOrWhiteSpace(value) ? "ccusage" : value.Trim();
         PersistSettings();
     }
 

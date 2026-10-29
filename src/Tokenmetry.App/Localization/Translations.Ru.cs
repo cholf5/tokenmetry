@@ -195,8 +195,6 @@ public sealed partial class Translations
         [nameof(RefreshIntervalMustBeNumber)] = "Интервал обновления должен быть числом",
         [nameof(RefreshIntervalOutOfRange)] = "Интервал должен быть от 1 до 1440 минут (текущее значение сохраняется)",
         [nameof(RefreshHint)] = "Сохраняется сразу; вступит в силу при следующем запуске фоновой службы обновления.",
-        [nameof(LabelCcusageCli)] = "CLI ccusage (сверка / ручной импорт)",
-        [nameof(CcusageHint)] = "Приложение читает локальные журналы сессий напрямую — ccusage не требуется; команда нужна только для сверки / ручного импорта и вступает в силу после следующего запуска.",
         [nameof(CheckMinimizeToTrayOnClose)] = "Свёртывать в трей при закрытии",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "После закрытия приложение остаётся в трее и продолжает обновляться по расписанию; полный выход — пункт «Выход» в меню трея. Выключенный переключатель: кнопка закрытия завершает приложение.",
         [nameof(CheckAutoStartOnBoot)] = "Запуск при входе в систему",

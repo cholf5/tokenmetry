@@ -193,8 +193,6 @@ public sealed partial class Translations
         [nameof(RefreshIntervalMustBeNumber)] = "새로 고침 간격은 숫자여야 합니다",
         [nameof(RefreshIntervalOutOfRange)] = "새로 고침 간격은 1–1440분 사이여야 합니다(현재 값 유지)",
         [nameof(RefreshHint)] = "변경 즉시 저장. 백그라운드 새로 고침 서비스 다음 시작 시 적용됩니다.",
-        [nameof(LabelCcusageCli)] = "ccusage CLI(대조 / 수동 가져오기)",
-        [nameof(CcusageHint)] = "앱은 로컬 세션 로그를 직접 읽으므로 ccusage가 필요 없습니다. 이 명령은 대조 / 수동 가져오기에만 사용되며 다음 시작 시 적용됩니다.",
         [nameof(CheckMinimizeToTrayOnClose)] = "창을 닫을 때 시스템 트레이로 최소화",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "닫은 후에도 앱은 트레이에서 실행되며 주기적 새로 고침을 계속합니다. 완전 종료는 트레이 메뉴의 「종료」. 이 스위치를 끄면 닫기 버튼이 앱을 바로 종료합니다.",
         [nameof(CheckAutoStartOnBoot)] = "로그인 시 자동 시작",

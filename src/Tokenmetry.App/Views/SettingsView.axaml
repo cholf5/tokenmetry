@@ -7,7 +7,7 @@
 
     <!--
         S-004 设置页（自 S-002 合并页拆出后收缩为应用偏好）：外观与通用（主题三态 / 界面语言 /
-        刷新间隔 / 通知 / 关窗行为 / 开机自启动 / ccusage 命令）+ 本地路径（只读说明）。
+        刷新间隔 / 关窗行为 / 开机自启动）+ 本地路径（只读说明）。
         数据源 / 统计口径 / 模型目录 / 别名映射在数据与计价页（DataPricingView）。全部设置项全自动
         保存（改完即生效并落盘，无保存按钮——对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）。
 
@@ -29,7 +29,7 @@
                 <StackPanel Spacing="16">
                     <TextBlock Classes="panel-title" Text="{Binding AppearanceTitle, Source={x:Static loc:Translations.Instance}}"/>
 
-                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="14">
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
 
                         <!-- 主题 -->
                         <TextBlock Grid.Row="0" Grid.Column="0" Classes="setting-label"
@@ -78,16 +78,6 @@
                                        IsVisible="{Binding RefreshMinutesError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                             <TextBlock Classes="setting-hint" TextWrapping="Wrap"
                                        Text="{Binding RefreshHint, Source={x:Static loc:Translations.Instance}}"/>
-                        </StackPanel>
-
-                        <!-- ccusage CLI -->
-                        <TextBlock Grid.Row="3" Grid.Column="0" Classes="setting-label"
-                                   Text="{Binding LabelCcusageCli, Source={x:Static loc:Translations.Instance}}"/>
-                        <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
-                            <TextBox Text="{Binding CcusageCommand}" PlaceholderText="ccusage" Width="360"
-                                     HorizontalAlignment="Left"/>
-                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                                       Text="{Binding CcusageHint, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
                     </Grid>
 

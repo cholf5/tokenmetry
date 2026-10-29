@@ -193,8 +193,6 @@ public sealed partial class Translations
         [nameof(RefreshIntervalMustBeNumber)] = "重新整理間隔必須是數字",
         [nameof(RefreshIntervalOutOfRange)] = "重新整理間隔必須在 1–1440 分鐘之間（目前值保持不變）",
         [nameof(RefreshHint)] = "修改即時儲存；於下次啟動背景重新整理服務時生效。",
-        [nameof(LabelCcusageCli)] = "ccusage CLI（對帳 / 手動匯入）",
-        [nameof(CcusageHint)] = "應用預設直讀本機工作階段日誌，無需安裝 ccusage；此命令僅對帳 / 手動匯入時使用，下次啟動生效。",
         [nameof(CheckMinimizeToTrayOnClose)] = "關閉視窗時最小化到系統列",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "關閉主視窗後應用仍在系統列執行、繼續定時重新整理；徹底結束用系統列選單「結束」。關閉此開關後，點關閉按鈕將直接結束應用。",
         [nameof(CheckAutoStartOnBoot)] = "開機自動啟動（登入時隨系統啟動）",

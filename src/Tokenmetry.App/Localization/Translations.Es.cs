@@ -193,8 +193,6 @@ public sealed partial class Translations
         [nameof(RefreshIntervalMustBeNumber)] = "El intervalo de actualización debe ser un número",
         [nameof(RefreshIntervalOutOfRange)] = "El intervalo debe estar entre 1 y 1440 minutos (se conserva el valor actual)",
         [nameof(RefreshHint)] = "Se guarda al instante; surte efecto en el próximo arranque del servicio de actualización en segundo plano.",
-        [nameof(LabelCcusageCli)] = "CLI de ccusage (conciliación / importación manual)",
-        [nameof(CcusageHint)] = "La app lee directamente los registros de sesión locales, no necesita ccusage; este comando solo se usa para conciliación / importación manual y surte efecto en el próximo inicio.",
         [nameof(CheckMinimizeToTrayOnClose)] = "Minimizar a la bandeja al cerrar",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "Tras cerrar, la app sigue en la bandeja con actualización programada; para salir del todo usa «Salir» en el menú de la bandeja. Con el interruptor apagado, el botón de cerrar sale de la app.",
         [nameof(CheckAutoStartOnBoot)] = "Iniciar con el sistema",

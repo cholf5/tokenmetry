@@ -19,7 +19,6 @@ public class JsonAppSettingsStoreTests : IDisposable
 
         var settings = await store.LoadAsync();
 
-        settings.CcusageCommand.Should().Be("ccusage");
         settings.RefreshMinutes.Should().Be(5); // S-007 默认档
         settings.ShowDebugInfo.Should().BeTrue();
     }
@@ -30,7 +29,6 @@ public class JsonAppSettingsStoreTests : IDisposable
         var store = new JsonAppSettingsStore(new AppPaths(_tempDirectory));
         var settings = new AppSettings
         {
-            CcusageCommand = "C:\\Tools\\ccusage.cmd",
             RefreshMinutes = 30,
             ShowDebugInfo = false
         };
@@ -38,7 +36,6 @@ public class JsonAppSettingsStoreTests : IDisposable
         await store.SaveAsync(settings);
         var loaded = await store.LoadAsync();
 
-        loaded.CcusageCommand.Should().Be("C:\\Tools\\ccusage.cmd");
         loaded.RefreshMinutes.Should().Be(30);
         loaded.ShowDebugInfo.Should().BeFalse();
         loaded.Theme.Should().Be("system"); // 缺省值往返
@@ -103,7 +100,6 @@ public class JsonAppSettingsStoreTests : IDisposable
 
         var settings = await store.LoadAsync();
 
-        settings.CcusageCommand.Should().Be("ccusage");
         settings.RefreshMinutes.Should().Be(5); // S-007 默认档
         File.Exists(Path.Combine(_tempDirectory, "settings.json")).Should().BeFalse();
         Directory.EnumerateFiles(_tempDirectory, "settings.json.bad-*").Should().ContainSingle();
@@ -116,7 +112,7 @@ public class JsonAppSettingsStoreTests : IDisposable
         var store = new JsonAppSettingsStore(new AppPaths(_tempDirectory));
         Directory.CreateDirectory(_tempDirectory);
 
-        await store.SaveAsync(new AppSettings { CcusageCommand = "x" });
+        await store.SaveAsync(new AppSettings { RefreshMinutes = 17 });
 
         File.Exists(Path.Combine(_tempDirectory, "settings.json")).Should().BeTrue();
         Directory.EnumerateFiles(_tempDirectory, "settings.json.tmp*").Should().BeEmpty();
