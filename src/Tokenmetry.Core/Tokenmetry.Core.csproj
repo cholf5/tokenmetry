@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Pricing\model-pricing-snapshot.json" LogicalName="Tokenmetry.Core.Pricing.model-pricing-snapshot.json" />
+    <EmbeddedResource Include="Pricing\speed-multipliers.json" LogicalName="Tokenmetry.Core.Pricing.speed-multipliers.json" />
   </ItemGroup>
 
   <ItemGroup>
