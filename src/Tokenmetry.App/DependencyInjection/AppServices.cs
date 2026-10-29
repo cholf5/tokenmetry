@@ -11,6 +11,7 @@ using Tokenmetry.Infrastructure.Amp;
 using Tokenmetry.Infrastructure.CCUsageCli;
 using Tokenmetry.Infrastructure.Cache;
 using Tokenmetry.Infrastructure.ClaudeCodeJsonl;
+using Tokenmetry.Infrastructure.Cindy;
 using Tokenmetry.Infrastructure.Codebuff;
 using Tokenmetry.Infrastructure.CodexJsonl;
 using Tokenmetry.Infrastructure.CopilotSession;
@@ -140,6 +141,11 @@ public static class AppServices
         services.AddSingleton<PiAgentAdapter>(sp => new PiAgentAdapter(
             pricingEngine: sp.GetRequiredService<PricingEngine>())); // PI-3（I-024）：identity cost 与主管道同一引擎（用户覆盖 / 远程数据同源）。
         services.AddSingleton<IPiAgentAdapter>(sp => sp.GetRequiredService<PiAgentAdapter>());
+        // Cindy（桌面 Agent 宿主）只接 Pi runtime，Agent 恒为 "Cindy"（不区分 runtime，避免共享
+        // ~/.claude 下的归属猜测与双算）；identity cost 同 Pi 接共享计价引擎。
+        services.AddSingleton<CindyPiAdapter>(sp => new CindyPiAdapter(
+            pricingEngine: sp.GetRequiredService<PricingEngine>()));
+        services.AddSingleton<ICindyAdapter>(sp => sp.GetRequiredService<CindyPiAdapter>());
         services.AddSingleton<GrokAdapter>();
         services.AddSingleton<IGrokAdapter>(sp => sp.GetRequiredService<GrokAdapter>());
         services.AddSingleton<OpenClawAdapter>();

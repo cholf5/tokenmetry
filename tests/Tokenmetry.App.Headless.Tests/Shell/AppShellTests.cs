@@ -142,7 +142,7 @@ public class AppShellTests
         Assert.True(window.GetVisualDescendants().OfType<DataPricingView>().Any());
         // S-002：单例页重进刷新（INavigationAware.OnNavigatedTo）——数据源表按真实采集注册表重建，
         // 行数 = 管道注册的 19 个数据源（快照有无随本机扫描而定，行数环境无关）
-        Assert.Equal(19, vm.DataPricing.SourceRows.Count);
+        Assert.Equal(20, vm.DataPricing.SourceRows.Count);
 
         // 切到设置：路由到 SettingsView（S-004 拆分后收缩为应用偏好）
         vm.SelectedNavigation = vm.NavigationItems[8];

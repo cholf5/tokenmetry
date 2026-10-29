@@ -4,6 +4,7 @@ using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Antigravity;
 using Tokenmetry.Infrastructure.Amp;
 using Tokenmetry.Infrastructure.ClaudeCodeJsonl;
+using Tokenmetry.Infrastructure.Cindy;
 using Tokenmetry.Infrastructure.Codebuff;
 using Tokenmetry.Infrastructure.CodexJsonl;
 using Tokenmetry.Infrastructure.CopilotSession;
@@ -28,7 +29,8 @@ namespace Tokenmetry.Infrastructure.LocalIngestion;
 /// 本地采集数据源（I-005，I-006 起含 ZCode，I-007 起含 DSH，I-008 起含 Copilot CLI，
 /// I-009 起含 OpenCode，I-012 起含 Goose，I-016 起含 Hermes，I-017 起含 Kilo，I-010 起含 Gemini CLI，
 /// I-014 起含 Amp，I-015 起含 Droid，I-011 起含 Qwen Code，I-013 起含 Kimi，I-018 起含 Codebuff，
-/// I-019 起含 pi-agent，I-022 起含 Grok，I-020 起含 OpenClaw，I-021 起含 Antigravity）：
+/// I-019 起含 pi-agent，I-022 起含 Grok，I-020 起含 OpenClaw，I-021 起含 Antigravity，
+/// 本轮起含 Cindy——只接 Pi runtime，Agent 恒为 "Cindy"）：
 /// 直读适配器扫描 → 定价 → facts 落库 → 从 facts 读回每日汇总。刷新流程：各适配器扫描
 /// （JSONL 增量 / SQLite 账本全量）→
 /// <see cref="PricingEngine"/> 为无 costUSD 的记录补价（补价结果进侧表、不写回记录实例——增量扫描
@@ -65,6 +67,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
     private readonly IKimiCodeAdapter _kimiAdapter;
     private readonly ICodebuffAdapter _codebuffAdapter;
     private readonly IPiAgentAdapter _piAdapter;
+    private readonly ICindyAdapter _cindyAdapter;
     private readonly IGrokAdapter _grokAdapter;
     private readonly IOpenClawAdapter _openClawAdapter;
     private readonly IAntigravityAdapter _antigravityAdapter;
@@ -94,6 +97,77 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             && result.Records.Count == 0);
 
     /// <summary>
+    /// 逐源结果的记录拼接 + 文件级归属仲裁（不双算）：某物理文件被 Cindy 源读到时，其它源从同一文件
+    /// 读出的记录整份丢弃。
+    /// <para>
+    /// 为什么需要：facts 主键含 agent（<c>day × grain × agent × model × provider × project</c>），
+    /// 同一会话被两个源各出一次账会变成两行、日/模型/项目/成本全部翻倍（会话表按 <c>session_id</c>
+    /// 主键反而看不出来）。Cindy 的 sessions 目录本应独占，但用户完全可能把 PI_AGENT_DIR 指过去
+    /// （本仓此前就是这样建议的），所以仲裁不能只靠“路径不重叠”的约定。
+    /// </para>
+    /// <para>
+    /// 判等用 <c>SourceFile</c> 归一后的全路径：只要两边读的是同一份文件，就一定重复；反过来，
+    /// 不同文件即使会话 id 偶然相同也不受影响（比按 session id 或路径前缀猜测更保守）。
+    /// </para>
+    /// </summary>
+    internal static List<UsageRecord> ApplyFileOwnership(
+        IReadOnlyList<(string Agent, JsonlScanResult Result)> scanned)
+    {
+        HashSet<string>? cindyFiles = null;
+        foreach (var (agent, result) in scanned)
+        {
+            if (!string.Equals(agent, CindyPiAdapter.AgentName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (var record in result.Records)
+            {
+                if (record.SourceFile.Length == 0)
+                {
+                    continue;
+                }
+
+                (cindyFiles ??= new HashSet<string>(StringComparer.Ordinal)).Add(NormalizeOwnedPath(record.SourceFile));
+            }
+        }
+
+        var records = new List<UsageRecord>(scanned.Sum(static entry => entry.Result.Records.Count));
+        foreach (var (agent, result) in scanned)
+        {
+            var isCindy = string.Equals(agent, CindyPiAdapter.AgentName, StringComparison.Ordinal);
+            foreach (var record in result.Records)
+            {
+                if (!isCindy
+                    && cindyFiles is not null
+                    && record.SourceFile.Length > 0
+                    && cindyFiles.Contains(NormalizeOwnedPath(record.SourceFile)))
+                {
+                    continue;
+                }
+
+                records.Add(record);
+            }
+        }
+
+        return records;
+    }
+
+    /// <summary>归属判等键：尽量归一为全路径（两条源各自枚举同一目录时字符串通常已一致，归一只是双保险）。</summary>
+    private static string NormalizeOwnedPath(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                   or System.Security.SecurityException or ArgumentException)
+        {
+            return path;
+        }
+    }
+
+    /// <summary>
     /// 管道扫描清单（S-002 数据源表的"已识别数据源"即此清单，经 <see cref="IngestionScanRegistry"/>
     /// 注册，UI 不手写）：(源名, 扫描委托) 对，顺序即 <see cref="GetDailyUsageAsync"/> 的扫描与
     /// 记录拼接顺序。源名 = 各适配器解析器声明的 <c>AgentName</c>（= facts agent 维度出账名）；
@@ -120,6 +194,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         (KimiLogParser.AgentName, async ct => await _kimiAdapter.ScanAsync(ct)),
         (CodebuffChatParser.AgentName, async ct => await _codebuffAdapter.ScanAsync(ct)),
         ("pi-agent", async ct => await _piAdapter.ScanAsync(ct)),
+        (CindyPiAdapter.AgentName, async ct => await _cindyAdapter.ScanAsync(ct)),
         (GrokLogParser.AgentName, async ct => await _grokAdapter.ScanAsync(ct)),
         (OpenClawLogParser.AgentName, async ct => await _openClawAdapter.ScanAsync(ct)),
         ("Antigravity", async ct => await _antigravityAdapter.ScanAsync(ct)),
@@ -145,6 +220,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         IKimiCodeAdapter kimiAdapter,
         ICodebuffAdapter codebuffAdapter,
         IPiAgentAdapter piAdapter,
+        ICindyAdapter cindyAdapter,
         IGrokAdapter grokAdapter,
         IOpenClawAdapter openClawAdapter,
         IAntigravityAdapter antigravityAdapter,
@@ -170,6 +246,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         _kimiAdapter = kimiAdapter ?? throw new ArgumentNullException(nameof(kimiAdapter));
         _codebuffAdapter = codebuffAdapter ?? throw new ArgumentNullException(nameof(codebuffAdapter));
         _piAdapter = piAdapter ?? throw new ArgumentNullException(nameof(piAdapter));
+        _cindyAdapter = cindyAdapter ?? throw new ArgumentNullException(nameof(cindyAdapter));
         _grokAdapter = grokAdapter ?? throw new ArgumentNullException(nameof(grokAdapter));
         _openClawAdapter = openClawAdapter ?? throw new ArgumentNullException(nameof(openClawAdapter));
         _antigravityAdapter = antigravityAdapter ?? throw new ArgumentNullException(nameof(antigravityAdapter));
@@ -195,7 +272,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
     /// 管道主体。公共入口经 <c>Task.Run</c> 整体移到线程池（线程模型同
     /// <see cref="Tokenmetry.Core.Services.CacheService"/> 的公共入口约定：调用方可能在 UI 线程，
     /// 而 <c>Microsoft.Data.Sqlite</c> 的 *Async API 同步完成、JSONL 读取多为缓冲同步完成——不隔离
-    /// 的话整条 19 源管道的续体会逐段排回调用方上下文，首启全量扫描曾在 UI 线程上内联执行
+    /// 的话整条全量源管道的续体会逐段排回调用方上下文，首启全量扫描曾在 UI 线程上内联执行
     /// （DashboardViewModel 构造初始化触发），把窗口冻住到扫描结束）。
     /// </summary>
     private async Task<List<DailyUsageSummary>> GetDailyUsageCoreAsync(CancellationToken ct)
@@ -213,8 +290,8 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             // S-002：逐源扫描（顺序与拼接序 = BuildScanPipeline 清单），每源完成后向注册表登记
             // 真实快照（状态 / 累计记录数 / 完成时刻），供设置页数据源表读取。
             // A-6 逐源异常隔离：任一适配器抛出只跳过该源（登记 Error 快照供设置页如实显示），
-            // 其余源正常出数——此前无隔离，一源抛出即整轮 19 源全部失败且几乎不可观测。
-            var scanResults = new List<JsonlScanResult>(BuildScanPipeline().Length);
+            // 其余源正常出数——此前无隔离，一源抛出即整轮全部源失败且几乎不可观测。
+            var scanResults = new List<(string Agent, JsonlScanResult Result)>(BuildScanPipeline().Length);
             foreach (var (agent, scan) in BuildScanPipeline())
             {
                 JsonlScanResult result;
@@ -233,11 +310,14 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
                     continue;
                 }
 
-                scanResults.Add(result);
+                scanResults.Add((agent, result));
                 _scanRegistry?.ReportScan(agent, result.Diagnostics.Status, result.Records.Count, DateTimeOffset.Now);
             }
 
-            var records = scanResults.SelectMany(r => r.Records).ToList();
+            // 归属仲裁（不双算）：Cindy 的会话文件由 Cindy 独占，其它源读到同一物理文件时整份丢弃。
+            // 典型场景 = 用户把 PI_AGENT_DIR 指到 <Cindy>/pi-agent-home/sessions（pi 适配器与 Cindy 适配器
+            // 会各出一通账）；按 SourceFile 归一判等，不靠路径前缀猜归属。
+            var records = ApplyFileOwnership(scanResults);
             if (records.Count == 0)
             {
                 // 无记录（日志目录不存在 / 全空）时不动存储：保留既有数据（含旧 CLI 行），
@@ -248,7 +328,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             // I-042 无变化轮短路：全部源账面未动 → 计价/聚合/落库的必然结果与现状逐位相同，
             // 直接读 facts 返回（短路轮连 ClearUnpricedModels 都不做——无新记录，未知清单不变）。
             // facts 读回为空（库被外部清空 / 迁移异常）则落穿全量管道自愈重建。
-            if (!_forceFullNextRound && scanResults.All(IsScanUnchanged))
+            if (!_forceFullNextRound && scanResults.All(static entry => IsScanUnchanged(entry.Result)))
             {
                 var cachedFacts = await _store.GetUsageFactsAsync(ct);
                 if (cachedFacts.Count > 0)
