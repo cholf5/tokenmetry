@@ -161,7 +161,8 @@ public class DataPricingPageTests
         var pendingText = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "● 尚未扫描");
         Assert.Contains("status-pending", pendingText.Classes);
 
-        // 行序 = 注册序（管道扫描序）
+        // 行序 = 已连接置顶 + 组内记录数降序，其后 错误 → 未检出 → 尚未扫描（排序策略由
+        // DataPricingViewModelTests.SourceRows_PutConnectedFirstThenByRecordCount 逐层锁定，此处只验渲染序）
         Assert.Equal(
             new[] { "Claude Code", "Copilot CLI", "Gemini CLI", "ZCode" },
             vm.SourceRows.Select(r => r.Agent).ToArray());

@@ -55,6 +55,33 @@ public class DataPricingViewModelTests
     }
 
     [Fact]
+    public void SourceRows_PutConnectedFirstThenByRecordCount()
+    {
+        // 行序定案：已连接（Ok / Partial）整体置顶，组内按累计记录数降序，同数回落注册序；
+        // 其后 错误 → 未检出 → 尚未扫描（这三组记录数恒 0 / 无快照，实际仍按注册序）。
+        // 注册序故意打乱，确保断言锁的是排序策略而非巧合。
+        var reader = new FakeScanReader();
+        reader.Register("Gemini CLI", new IngestionSourceScanSnapshot("Gemini CLI", JsonlScanStatus.NoData, 0, Now));
+        reader.Register("ZCode", new IngestionSourceScanSnapshot("ZCode", JsonlScanStatus.Error, 0, Now));
+        reader.Register("Qwen", new IngestionSourceScanSnapshot("Qwen", JsonlScanStatus.Ok, 12, Now));
+        reader.Register("Pi", new IngestionSourceScanSnapshot("Pi", JsonlScanStatus.Ok, 12, Now));
+        reader.Register("Claude Code", new IngestionSourceScanSnapshot("Claude Code", JsonlScanStatus.Ok, 2184, Now));
+        reader.Register("Copilot CLI", new IngestionSourceScanSnapshot("Copilot CLI", JsonlScanStatus.Partial, 128, Now));
+        reader.Registered.Add("Kilo"); // 已注册但本轮尚未扫描
+
+        var viewModel = CreateViewModel(new AppSettings(), new FakeSettingsStore(), reader: reader);
+
+        viewModel.SourceRows.Select(r => r.Agent).Should().Equal(
+            "Claude Code", // 已连接，记录数最多
+            "Copilot CLI", // 已连接（Partial 也算连上）
+            "Qwen",        // 已连接，与 Pi 同数 → 注册序在前
+            "Pi",
+            "ZCode",       // 错误：需关注
+            "Gemini CLI",  // 未检出：正常态
+            "Kilo");       // 尚未扫描：瞬态
+    }
+
+    [Fact]
     public void OnNavigatedTo_RebuildsSourceRowsFromLatestSnapshot()
     {
         // 单例页重进刷新（INavigationAware）：进入页面按最新快照重建
