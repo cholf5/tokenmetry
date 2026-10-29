@@ -437,6 +437,15 @@ public sealed partial class Translations
         // ── 차트 컨트롤 ──
         [nameof(NoUsageInRange)] = "이 기간에 사용 기록이 없습니다",
         [nameof(HeatmapNoDataTooltip)] = "{0} · 데이터 없음",
+        [nameof(DonutCenterSubtitle)] = "전체 토큰",
+        [nameof(ChartTipIn)] = "입력",
+        [nameof(ChartTipOut)] = "출력",
+        [nameof(ChartTipTotal)] = "합계",
+        [nameof(ChartTipTokenUnit)] = "tok",
+        [nameof(ChartTipNoDataZeroFilled)] = "데이터 없음(0 채움)",
+        [nameof(ChartTipCostUnknown)] = "비용 알 수 없음",
+        [nameof(ChartTipNoCostData)] = "비용 데이터 없음",
+        [nameof(ChartTipSessionsFormat)] = "세션 {0}개",
 
         // ── 이상 감지 ──
         [nameof(AnomalyCostSpikeFormat)] = "오늘 비용은 지난 {0}일 평균의 {1:0.0}배입니다",

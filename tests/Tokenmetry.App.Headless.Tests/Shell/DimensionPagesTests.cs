@@ -542,10 +542,10 @@ public class DimensionPagesTests
         // 关联 Agent 图标与文案同源（I-034 补）：显示 Agent 名 → 有图标，且变体识别正确
         Assert.True(first.HasAssociatedAgentIcon);
         Assert.Equal("claudecode", first.AssociatedAgentVendor);
-        Assert.Equal("4008", first.InputTokensText);
-        Assert.Equal("2672", first.OutputTokensText);
+        Assert.Equal("4,008", first.InputTokensText);
+        Assert.Equal("2,672", first.OutputTokensText);
         Assert.Equal("668", first.CacheReadTokensText);
-        Assert.Equal("6680", first.TotalTokensText);
+        Assert.Equal("6,680", first.TotalTokensText);
         Assert.Equal("$3.06", first.CostText);
 
         var multi = host.Vm.Rows[1];
@@ -585,9 +585,9 @@ public class DimensionPagesTests
         var totals = host.Vm.Totals;
         Assert.NotNull(totals);
         Assert.Equal("合计（4 个模型）", totals!.ModelCountText);
-        Assert.Equal("6474", totals.InputTokensText); // 4008 + 2370 + 96 + 0（含缺价行的 96）
-        Assert.Equal("4316", totals.OutputTokensText);
-        Assert.Equal("1079", totals.CacheReadTokensText);
+        Assert.Equal("6,474", totals.InputTokensText); // 4008 + 2370 + 96 + 0（含缺价行的 96）
+        Assert.Equal("4,316", totals.OutputTokensText);
+        Assert.Equal("1,079", totals.CacheReadTokensText);
         Assert.Equal("1.08万", totals.TotalTokensText); // 10790（≥1万 → 万档）；含缺价行 160 —— Token 计入
         Assert.Equal("$5.60+", totals.CostText); // 3.06 + 2.54（缺价行成本未计入，混合行保留未知标记）
         Assert.Equal(2, totals.UnknownCount);
@@ -697,10 +697,10 @@ public class DimensionPagesTests
         Assert.Equal("alpha", first.Name); // 归一化展示名
         Assert.Equal("/work/alpha", first.RawPath); // 原始路径（跳转筛选值）
         Assert.Equal("3", first.SessionCountText);
-        Assert.Equal("5500", first.TotalTokensText); // 紧凑格式（列宽裁定，同 Agent/模型页；zh 基线 <1万 全量显示）
+        Assert.Equal("5,500", first.TotalTokensText); // 紧凑格式（列宽裁定，同 Agent/模型页；zh 基线 <1万 全量显示）
         Assert.Equal("$2.25", first.CostText);
         Assert.Equal("56.2%", first.ShareText);
-        Assert.Equal("1833", first.AverageText); // round(5500 / 3) = 1833 → 紧凑格式
+        Assert.Equal("1,833", first.AverageText); // round(5500 / 3) = 1833 → 紧凑格式
 
         // 除零保护：零会话（纯 CLI 源项目）均值 "—"，不伪造 0
         Assert.Equal("—", host.Vm.Rows[1].AverageText);

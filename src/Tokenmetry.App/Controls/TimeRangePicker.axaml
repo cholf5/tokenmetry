@@ -109,7 +109,7 @@
                                 <TextBox MinWidth="80" Text="{Binding RollingDaysText}"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Classes="Secondary"
+                                <Button Classes="app-btn"
                                         Content="{Binding TimePresetAddAction, Source={x:Static loc:Translations.Instance}}"
                                         Command="{Binding AddPresetCommand}"/>
                                 <TextBlock Classes="page-subtitle" VerticalAlignment="Center" TextWrapping="Wrap"

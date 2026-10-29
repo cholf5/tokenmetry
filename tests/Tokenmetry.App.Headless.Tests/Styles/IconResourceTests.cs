@@ -52,6 +52,8 @@ public class IconResourceTests
         ["hard-drive-upload"] = "AppIconHardDriveUpload",
         ["hard-drive-download"] = "AppIconHardDriveDownload",
         ["circle-help"] = "AppIconCircleHelp",
+        ["arrow-up"] = "AppIconArrowUp",
+        ["arrow-down"] = "AppIconArrowDown",
         ["x"] = "AppIconClose",
     };
 

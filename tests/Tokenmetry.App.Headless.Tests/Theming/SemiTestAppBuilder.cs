@@ -34,6 +34,7 @@ public static class SemiTestAppBuilder
 
         return AppBuilder.Configure<App>()
             .UseSkia() // 注册 Skia 渲染/字体后端（UseHeadlessDrawing=false 时 IPlatformRenderInterface/IFontManagerImpl 由此提供）
+            .WithInterFont() // 与 Program.BuildAvaloniaApp 对齐：AppFontFamily 令牌指向的嵌入字体必须在测试宿主注册
             .UseHeadless(new AvaloniaHeadlessPlatformOptions
             {
                 UseHeadlessDrawing = false,

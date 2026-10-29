@@ -262,9 +262,9 @@ public class TrendChartTests
         WithLanguage(AppLanguage.SimplifiedChinese, () =>
         {
             hover();
-            Assert.Contains("tot 55.6万 tok", received!.LabelText);
-            Assert.Contains("in  40.2万", received.LabelText);
-            Assert.Contains("out 15.4万", received.LabelText);
+            Assert.Contains("总量 55.6万 Token", received!.LabelText);
+            Assert.Contains("输入  40.2万", received.LabelText);
+            Assert.Contains("输出 15.4万", received.LabelText);
         });
 
         // 语言切换实时性（B-007 CurrentLanguage 信号重译）：不换数据、不重建控件，浮窗单位即随切换换制
@@ -320,7 +320,7 @@ public class TrendChartTests
 
         Assert.NotNull(received);
         Assert.True(received!.IsActive);
-        Assert.Contains("no data (zero-filled)", received.LabelText);
+        Assert.Contains(Translations.Instance.ChartTipNoDataZeroFilled, received.LabelText);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -767,7 +767,7 @@ public class TrendChartTests
         var padded = ChartTestHelpers.FirstPaddedPoint(vm.DailyPoints);
         chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(padded.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
         Assert.NotNull(received);
-        Assert.Contains("no data (zero-filled)", received!.LabelText);
+        Assert.Contains(Translations.Instance.ChartTipNoDataZeroFilled, received!.LabelText);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -808,7 +808,7 @@ public class TrendChartTests
 
         // (null, true) 全未知（有用量但计价缺失）：明示 cost unknown，绝不折 0
         var allUnknown = TrendChart.DailyTooltipText(Point(new AggregatedCost(null, hasUnknownCost: true)));
-        Assert.Contains("cost unknown", allUnknown);
+        Assert.Contains(Translations.Instance.ChartTipCostUnknown, allUnknown);
         Assert.DoesNotContain("$", allUnknown);
 
         // (null, false) 无成本数据：既非 0 也非未知 → 不显示成本行
@@ -817,7 +817,7 @@ public class TrendChartTests
         Assert.DoesNotContain("cost unknown", noCost);
 
         // HasData=false 补零日：与成本四态无关，明示 no data
-        Assert.Contains("no data (zero-filled)", TrendChart.DailyTooltipText(new DailyUsagePoint
+        Assert.Contains(Translations.Instance.ChartTipNoDataZeroFilled, TrendChart.DailyTooltipText(new DailyUsagePoint
         {
             Day = day,
             HasData = false,
@@ -837,10 +837,10 @@ public class TrendChartTests
         Assert.Contains("$1.23+", TrendChart.CostTooltipText(Point(new AggregatedCost(1.23m, hasUnknownCost: true))));
         // (null, true) 全未知 → "cost unknown"（不再与无成本数据塌缩成同一句）
         var allUnknown = TrendChart.CostTooltipText(Point(new AggregatedCost(null, hasUnknownCost: true)));
-        Assert.Contains("cost unknown", allUnknown);
+        Assert.Contains(Translations.Instance.ChartTipCostUnknown, allUnknown);
         // (null, false) 无成本数据 → "no cost data"
         var noCost = TrendChart.CostTooltipText(Point(AggregatedCost.Empty));
-        Assert.Contains("no cost data", noCost);
+        Assert.Contains(Translations.Instance.ChartTipNoCostData, noCost);
         Assert.DoesNotContain("cost unknown", noCost);
     }
 
@@ -888,7 +888,7 @@ public class TrendChartTests
         chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(padded.Day, CultureInfo.InvariantCulture).ToOADate(), 0));
         Assert.NotNull(received);
         Assert.True(received!.IsActive);
-        Assert.Contains("no cost data", received.LabelText);
+        Assert.Contains(Translations.Instance.ChartTipNoCostData, received.LabelText);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -929,7 +929,7 @@ public class TrendChartTests
         chart.ShowHoverAt(new ScottPlot.Coordinates(DateTime.Parse(points[3].Day, CultureInfo.InvariantCulture).ToOADate(), 0));
         Assert.NotNull(received);
         Assert.True(received!.IsActive);
-        Assert.Contains("cost unknown", received.LabelText);
+        Assert.Contains(Translations.Instance.ChartTipCostUnknown, received.LabelText);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
@@ -1107,7 +1107,7 @@ public class TrendChartTests
     [AvaloniaTheory]
     [InlineData(0, "0")]
     [InlineData(42, "42")]
-    [InlineData(9_999, "9999")]
+    [InlineData(9_999, "9,999")]
     [InlineData(12_345, "1.23万")]
     [InlineData(999_999, "100万")]
     [InlineData(1_234_567, "123.5万")]
@@ -1126,7 +1126,7 @@ public class TrendChartTests
     // 日语万进制：万/億/兆 每档 10^4（日式四位分组；千不设档，1万 起缩写），兆为阶梯末端；小数点 "."。
     [AvaloniaTheory]
     [InlineData(0, "0")]
-    [InlineData(9_999, "9999")]
+    [InlineData(9_999, "9,999")]
     [InlineData(12_345, "1.23万")]
     [InlineData(99_995_000, "1億")]        // 9999.5万 越档进位
     [InlineData(2_500_000_000_000, "2.5兆")]
@@ -1136,7 +1136,7 @@ public class TrendChartTests
     // 韩语万进制：만/억/조（천(千) 不设档，만 起缩写），조为阶梯末端；谚文单位（非汉字 萬）；小数点 "."。
     [AvaloniaTheory]
     [InlineData(0, "0")]
-    [InlineData(9_999, "9999")]
+    [InlineData(9_999, "9,999")]
     [InlineData(12_345, "1.23만")]
     [InlineData(300_000_000, "3억")]
     [InlineData(99_995_000, "1억")]        // 9999.5만 越档进位

@@ -437,6 +437,15 @@ public sealed partial class Translations
         // ── Controles de gráfico ──
         [nameof(NoUsageInRange)] = "Nenhum registro de uso neste intervalo",
         [nameof(HeatmapNoDataTooltip)] = "{0} · sem dados",
+        [nameof(DonutCenterSubtitle)] = "Tokens totais",
+        [nameof(ChartTipIn)] = "entrada",
+        [nameof(ChartTipOut)] = "saída",
+        [nameof(ChartTipTotal)] = "total",
+        [nameof(ChartTipTokenUnit)] = "tok",
+        [nameof(ChartTipNoDataZeroFilled)] = "sem dados (preenchido com zero)",
+        [nameof(ChartTipCostUnknown)] = "custo desconhecido",
+        [nameof(ChartTipNoCostData)] = "sem dados de custo",
+        [nameof(ChartTipSessionsFormat)] = "{0} sessões",
 
         // ── Detecção de anomalias ──
         [nameof(AnomalyCostSpikeFormat)] = "O custo de hoje é {1:0.0}× a média de {0} dias",

@@ -271,8 +271,8 @@ public class OverviewBottomTests
             rows.Select(r => r.Name).ToArray());
         Assert.DoesNotContain("其他", rows.Select(r => r.Name));
 
-        // token 千分位 + 占比（一位小数）+ mini bar 值 = 占比 × 100（宽度即占比，任务卡定案）
-        Assert.Equal("3,215,482", rows[0].TokensText);
+        // token 紧凑格式（与模型/项目统计页同口径）+ 占比（一位小数）+ mini bar 值 = 占比 × 100（宽度即占比，任务卡定案）
+        Assert.Equal("321.5万", rows[0].TokensText);
         Assert.Equal("32.2%", rows[0].ShareText);
         Assert.Equal(32.15482, rows[0].BarValue, 5);
         Assert.Equal("4.2%", rows[^1].ShareText);
@@ -317,7 +317,7 @@ public class OverviewBottomTests
         // 归一化项目名；歧义守卫行（同名展示名）按 I-029 契约退回原始路径
         Assert.Equal(new[] { "Project-A", "AI-Project", "/data/work/project-a" }, rows.Select(r => r.Name).ToArray());
         Assert.Equal(new[] { 1, 2, 3 }, rows.Select(r => r.Rank).ToArray());
-        Assert.Equal("2,341,628", rows[0].TokensText);
+        Assert.Equal("234.2万", rows[0].TokensText);
         Assert.Equal("23.4%", rows[0].ShareText);
         Assert.Equal(23.41628, rows[0].BarValue, 5);
     }
@@ -570,7 +570,7 @@ public class OverviewBottomTests
         var expectedProjects = Task.Run(() => query.GetProjectBreakdownAsync(filter)).GetAwaiter().GetResult();
         var expectedDaily = Task.Run(() => query.GetDailySeriesAsync(filter)).GetAwaiter().GetResult();
 
-        // TC-001（页面层）：预览行 == 直查行经同一映射口径（排序 / TopN / 归一化名 / 千分位 / 占比）的产物
+        // TC-001（页面层）：预览行 == 直查行经同一映射口径（排序 / TopN / 归一化名 / 紧凑格式 / 占比）的产物
         var expectedModelRows = expectedModels
             .Where(r => r.TotalTokens > 0)
             .OrderByDescending(r => r.TotalTokens)
@@ -580,7 +580,7 @@ public class OverviewBottomTests
             expectedModelRows.Select(r => r.DisplayName ?? r.Key),
             vm.ModelRows?.Select(r => r.Name) ?? Enumerable.Empty<string>());
         Assert.Equal(
-            expectedModelRows.Select(r => r.TotalTokens.ToString("N0", CultureInfo.InvariantCulture)),
+            expectedModelRows.Select(r => TrendChart.FormatCompactTokens(r.TotalTokens)),
             vm.ModelRows?.Select(r => r.TokensText) ?? Enumerable.Empty<string>());
 
         var expectedProjectRows = expectedProjects

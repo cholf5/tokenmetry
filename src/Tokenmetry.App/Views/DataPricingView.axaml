@@ -29,7 +29,7 @@
                     <!-- panelhead：标题 + meta + 全局重扫（per-source 重扫不支持，语义见按钮文案） -->
                     <DockPanel Grid.Row="0" LastChildFill="True">
                         <Button DockPanel.Dock="Right"
-                                Classes="Secondary"
+                                Classes="app-btn"
                                 Content="{Binding ScanButtonText}"
                                 Command="{Binding RescanCommand}"
                                 IsEnabled="{Binding !IsScanning}"
@@ -103,7 +103,11 @@
                                         Padding="0,9,0,7">
                                     <Grid ColumnDefinitions="1.6*,1.8*" ColumnSpacing="12">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                                            <Border Classes="chip" VerticalAlignment="Top">
+                                            <!-- 口径徽章带状态：always on = 绿软底，未提供 = 中性退后 -->
+                                            <Border Classes="chip"
+                                                    Classes.ok="{Binding !IsMuted}"
+                                                    Classes.muted="{Binding IsMuted}"
+                                                    VerticalAlignment="Top">
                                                 <TextBlock Text="{Binding Badge}"/>
                                             </Border>
                                             <TextBlock Classes="table-td" FontWeight="SemiBold"
@@ -126,7 +130,7 @@
                 <StackPanel Spacing="10">
                     <DockPanel LastChildFill="True">
                         <Button DockPanel.Dock="Right"
-                                Classes="Secondary"
+                                Classes="app-btn"
                                 VerticalAlignment="Center"
                                 Content="{Binding ModelFormCreate, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding AddModelDefinitionCommand}"/>
@@ -308,7 +312,7 @@
                         </StackPanel>
                     </Grid>
                     <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button Classes="Secondary"
+                        <Button Classes="app-btn"
                                 Content="{Binding AliasAdd, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding AddAliasRuleCommand}"
                                 VerticalAlignment="Center"/>

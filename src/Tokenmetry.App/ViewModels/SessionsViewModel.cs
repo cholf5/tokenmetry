@@ -100,6 +100,8 @@ public sealed class SessionRowViewModel
         IconGlyph = icon.Glyph.ToString();
         LogoVendor = icon.LogoVendor;
         ModelText = FirstNotEmpty(row.DominantModel, "—");
+        // 数字口径：明细表保留逐条精确值（千分位，便于对账单条会话）；聚合/排行表与 KPI
+        // 走紧凑格式（万/亿或 K/M），避免同一屏里混用三种写法。
         TokensText = row.TotalTokens.ToString("N0", CultureInfo.InvariantCulture);
         CostText = FormatCost(row.CostUsd);
         LastActivityText = SessionsViewModel.FormatRelativeTime(row.LastSeenAt);

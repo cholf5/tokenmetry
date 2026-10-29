@@ -118,7 +118,7 @@
             <!-- 图片：上传即标准化（居中裁方 + 64×64 PNG 圆角，见 AvatarImageProcessor） -->
             <StackPanel IsVisible="{Binding AvatarPicker.IsModeImage}" Spacing="8">
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Button Classes="Secondary"
+                    <Button Classes="app-btn"
                             Content="{Binding AvatarUploadButton, Source={x:Static loc:Translations.Instance}}"
                             Click="OnUploadAvatarClick"/>
                     <Button Classes="link-btn" VerticalAlignment="Center"
@@ -136,7 +136,7 @@
         </Panel>
 
         <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
-            <Button Classes="Secondary"
+            <Button Classes="app-btn primary"
                     IsEnabled="{Binding AvatarPicker.CanConfirm}"
                     Content="{Binding AvatarPickerConfirm, Source={x:Static loc:Translations.Instance}}"
                     Command="{Binding ConfirmAvatarPickerCommand}"/>

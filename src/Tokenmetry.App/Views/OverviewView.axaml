@@ -52,9 +52,9 @@
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="5">
                         <TextBlock Grid.Column="0" Classes="kpi-foot"
                                    Text="{Binding TokensCard.ChangeText}"
-                                   Classes.kpi-change-up="{Binding TokensCard.IsUp}"
-                                   Classes.kpi-change-down="{Binding TokensCard.IsDown}"
-                                   Classes.kpi-change-flat="{Binding TokensCard.IsFlat}"/>
+                                   Classes.kpi-change-good="{Binding TokensCard.IsPositive}"
+                                   Classes.kpi-change-bad="{Binding TokensCard.IsNegative}"
+                                   Classes.kpi-change-neutral="{Binding TokensCard.IsNeutral}"/>
                         <TextBlock Grid.Column="1" Classes="kpi-foot"
                                    Text="{Binding KpiFootVsPrevious, Source={x:Static loc:Translations.Instance}}" TextWrapping="Wrap"/>
                     </Grid>
@@ -78,9 +78,9 @@
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="5">
                         <TextBlock Grid.Column="0" Classes="kpi-foot"
                                    Text="{Binding CostCard.ChangeText}"
-                                   Classes.kpi-change-up="{Binding CostCard.IsUp}"
-                                   Classes.kpi-change-down="{Binding CostCard.IsDown}"
-                                   Classes.kpi-change-flat="{Binding CostCard.IsFlat}"/>
+                                   Classes.kpi-change-good="{Binding CostCard.IsPositive}"
+                                   Classes.kpi-change-bad="{Binding CostCard.IsNegative}"
+                                   Classes.kpi-change-neutral="{Binding CostCard.IsNeutral}"/>
                         <TextBlock Grid.Column="1" Classes="kpi-foot"
                                    Text="{Binding KpiFootPriceEstimate, Source={x:Static loc:Translations.Instance}}" TextWrapping="Wrap"/>
                     </Grid>
@@ -104,9 +104,9 @@
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="5">
                         <TextBlock Grid.Column="0" Classes="kpi-foot"
                                    Text="{Binding SessionsCard.ChangeText}"
-                                   Classes.kpi-change-up="{Binding SessionsCard.IsUp}"
-                                   Classes.kpi-change-down="{Binding SessionsCard.IsDown}"
-                                   Classes.kpi-change-flat="{Binding SessionsCard.IsFlat}"/>
+                                   Classes.kpi-change-good="{Binding SessionsCard.IsPositive}"
+                                   Classes.kpi-change-bad="{Binding SessionsCard.IsNegative}"
+                                   Classes.kpi-change-neutral="{Binding SessionsCard.IsNeutral}"/>
                         <TextBlock Grid.Column="1" Classes="kpi-foot"
                                    Text="{Binding KpiFootAcrossAgents, Source={x:Static loc:Translations.Instance}}" TextWrapping="Wrap"/>
                     </Grid>
@@ -131,9 +131,9 @@
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="5">
                         <TextBlock Grid.Column="0" Classes="kpi-foot"
                                    Text="{Binding CacheCard.ChangeText}"
-                                   Classes.kpi-change-up="{Binding CacheCard.IsUp}"
-                                   Classes.kpi-change-down="{Binding CacheCard.IsDown}"
-                                   Classes.kpi-change-flat="{Binding CacheCard.IsFlat}"/>
+                                   Classes.kpi-change-good="{Binding CacheCard.IsPositive}"
+                                   Classes.kpi-change-bad="{Binding CacheCard.IsNegative}"
+                                   Classes.kpi-change-neutral="{Binding CacheCard.IsNeutral}"/>
                         <TextBlock Grid.Column="1" Classes="kpi-foot"
                                    Text="{Binding KpiFootCacheOfInput, Source={x:Static loc:Translations.Instance}}" TextWrapping="Wrap"/>
                     </Grid>
@@ -160,7 +160,7 @@
                                 <Border Classes="series-dot"
                                         Background="{DynamicResource AppAccentBlueBrush}"
                                         VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding LegendInput, Source={x:Static loc:Translations.Instance}}" FontSize="10"
+                                <TextBlock Text="{Binding LegendInput, Source={x:Static loc:Translations.Instance}}" FontSize="11"
                                            Foreground="{DynamicResource AppMutedTextBrush}"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -168,7 +168,7 @@
                                 <Border Classes="series-dot"
                                         Background="{DynamicResource AppAccentPurpleBrush}"
                                         VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding LegendOutput, Source={x:Static loc:Translations.Instance}}" FontSize="10"
+                                <TextBlock Text="{Binding LegendOutput, Source={x:Static loc:Translations.Instance}}" FontSize="11"
                                            Foreground="{DynamicResource AppMutedTextBrush}"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -176,7 +176,7 @@
                                 <Border Classes="series-dot"
                                         Background="{DynamicResource AppAccentCyanBrush}"
                                         VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding LegendTotal, Source={x:Static loc:Translations.Instance}}" FontSize="10"
+                                <TextBlock Text="{Binding LegendTotal, Source={x:Static loc:Translations.Instance}}" FontSize="11"
                                            Foreground="{DynamicResource AppMutedTextBrush}"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -197,7 +197,7 @@
                     </DockPanel>
                     <c:DonutChart Segments="{Binding AgentSegments}"
                                   CenterTitle="{Binding AgentDonutCenterTitle}"
-                                  CenterSubtitle="Total Tokens"
+                                  CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"
                                   HorizontalAlignment="Left"/>
                 </StackPanel>
             </Border>
@@ -281,7 +281,7 @@
                     </DockPanel>
                     <c:DonutChart Segments="{Binding TypeSegments}"
                                   CenterTitle="{Binding TypeDonutCenterTitle}"
-                                  CenterSubtitle="Total Tokens"
+                                  CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"
                                   HorizontalAlignment="Left"/>
                 </StackPanel>
             </Border>

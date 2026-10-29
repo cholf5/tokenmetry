@@ -233,7 +233,13 @@ public partial class TrendChart : UserControl
         _tipActive = false;
         _tipVelocityY = 0;
 
-        EmptyState.IsVisible = _hoverLabels.Length == 0;
+        // 空态皮肤：ScottPlot 无数据时坐标轴默认停在 -10..10，会露出一套无意义的坐标系。
+        // 空态只留 EmptyState 文案，轴与网格一并隐藏；有数据重建时恢复（清屏不重置轴可见性）。
+        var isEmpty = _hoverLabels.Length == 0;
+        EmptyState.IsVisible = isEmpty;
+        plot.Axes.Bottom.IsVisible = !isEmpty;
+        plot.Axes.Left.IsVisible = !isEmpty;
+        plot.Grid.YAxisStyle.IsVisible = !isEmpty;
         PlotControl.Refresh();
     }
 
@@ -621,8 +627,11 @@ public partial class TrendChart : UserControl
         hourMarkers.MarkerLineWidth = 1f;
 
         _hoverCoords = xs.Select((x, i) => new Coordinates(x, ys[i])).ToArray();
+        var t = Translations.Instance;
+        var unit = t.ChartTipTokenUnit;
         _hoverLabels = hours.Select(h =>
-            $"{h.Hour:00}:00\n{FormatCompactTokens(h.TotalTokens)} tok\n{h.SessionCount:N0} sessions").ToArray();
+            $"{h.Hour:00}:00\n{FormatCompactTokens(h.TotalTokens)} {unit}\n" +
+            string.Format(t.ChartTipSessionsFormat, h.SessionCount.ToString("N0", CultureInfo.InvariantCulture))).ToArray();
 
         plot.Axes.SetLimitsX(-0.5, 23.5);
         StyleTokenAxisFormatter(plot.Axes.Left, compact: true);
@@ -893,25 +902,26 @@ public partial class TrendChart : UserControl
     /// <summary>
     /// 日形态 tooltip 文本（Avalonia 浮层 HoverTip 渲染，非 ScottPlot 内绘）。token 数走
     /// <see cref="FormatCompactTokens"/> 随 UI 语言取原生大数单位制（Q-008：浮窗曾是
-    /// ScottPlot 自绘时代的恒 ASCII 约束随浮层迁移失效）；"in/out/tot/tok" 记号与补零/成本态文案
-    /// 保持 ASCII（与环形图/热力图 tooltip 的 " tok" 后缀同惯例）。token 数为紧凑短单位（B-006
+    /// ScottPlot 自绘时代的恒 ASCII 约束随浮层迁移失效）；输入/输出/总量/单位与补零/成本态文案
+    /// 全部走 Translations（B-007 重译订阅保证切换语言后重建）。token 数为紧凑短单位（B-006
     /// 问题 3：千分位全量 5-9 位数字在悬浮气泡里不可读），成本行按 <see cref="AggregatedCost"/>
     /// 四态区分（审查 P1-1，契约"不要只读 KnownCostUsd"）：
-    /// (x,*) 已知成本（+ 下限标记）；(null,true) 全未知 → "cost unknown"；(null,false) 无成本数据 → 不显示成本行。
+    /// (x,*) 已知成本（+ 下限标记）；(null,true) 全未知 → 成本未知；(null,false) 无成本数据 → 不显示成本行。
     /// </summary>
     public static string DailyTooltipText(DailyUsagePoint p)
     {
+        var t = Translations.Instance;
         if (!p.HasData)
         {
-            return $"{p.Day}\nno data (zero-filled)";
+            return $"{p.Day}\n{t.ChartTipNoDataZeroFilled}";
         }
 
         var lines = new List<string>
         {
             p.Day,
-            $"in  {FormatCompactTokens(p.InputTokens)}",
-            $"out {FormatCompactTokens(p.OutputTokens)}",
-            $"tot {FormatCompactTokens(p.TotalTokens)} tok",
+            $"{t.ChartTipIn}  {FormatCompactTokens(p.InputTokens)}",
+            $"{t.ChartTipOut} {FormatCompactTokens(p.OutputTokens)}",
+            $"{t.ChartTipTotal} {FormatCompactTokens(p.TotalTokens)} {t.ChartTipTokenUnit}",
         };
 
         if (p.Cost.KnownCostUsd is { } known)
@@ -920,7 +930,7 @@ public partial class TrendChart : UserControl
         }
         else if (p.Cost.HasUnknownCost)
         {
-            lines.Add("cost unknown");
+            lines.Add(t.ChartTipCostUnknown);
         }
         // (null, false)：范围内没有任何成本数据，不显示成本行（既非 0 也非未知）
 
@@ -929,14 +939,14 @@ public partial class TrendChart : UserControl
 
     /// <summary>
     /// 成本形态 tooltip 文本（审查 P1-1 四态锁定）：
-    /// (x,false) "$x.xx"；((x,true) "$x.xx+"（已知成本下限）；(null,true) "cost unknown"（有用量但计价全缺失）；
-    /// (null,false) "no cost data"（无成本数据）——(null) 的两种语义不再塌缩成同一句。
+    /// (x,false) "$x.xx"；((x,true) "$x.xx+"（已知成本下限）；(null,true) 成本未知（有用量但计价全缺失）；
+    /// (null,false) 无成本数据——(null) 的两种语义不再塌缩成同一句。
     /// </summary>
     public static string CostTooltipText(DailyUsagePoint p) => p.Cost.KnownCostUsd is { } known
         ? $"{p.Day}\n{FormatCostUsd(known, p.Cost.HasUnknownCost)}"
         : p.Cost.HasUnknownCost
-            ? $"{p.Day}\ncost unknown"
-            : $"{p.Day}\nno cost data";
+            ? $"{p.Day}\n{Translations.Instance.ChartTipCostUnknown}"
+            : $"{p.Day}\n{Translations.Instance.ChartTipNoCostData}";
 
     /// <summary>
     /// 成本两位小数 USD（对账口径）。HasUnknownCost=true 时以 "+" 结尾表示"已知成本下限，实际更高"；
@@ -1104,7 +1114,10 @@ public partial class TrendChart : UserControl
         var index = Array.FindLastIndex(units, unit => abs >= unit.Threshold);
         if (index < 0)
         {
-            return value.ToString("0.##", culture);
+            // 未达首个单位档（<1000 / <10000）时保留千分位：紧凑格式化不得把 6750 读成 6750；
+            // 这是唯一一处「全量数字」出口，KPI/表格/热力图在同一函数下保持一致可读性。
+            // 分组符与小数符跟随该语种 culture（de/fr 为 6.750 / 6 750 的本地写法）。
+            return value.ToString("#,0.##", culture);
         }
 
         // 尾数取整达到本档上限（9999.5万 → "10000万"，同英文 "1000M"）时升入上一档再缩放。

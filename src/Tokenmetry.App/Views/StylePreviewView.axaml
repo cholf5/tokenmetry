@@ -5,6 +5,7 @@
              xmlns:vm="using:Tokenmetry.App.ViewModels"
              xmlns:c="using:Tokenmetry.App.Controls"
              xmlns:views="using:Tokenmetry.App.Views"
+             xmlns:loc="using:Tokenmetry.App.Localization"
              mc:Ignorable="d"
              x:Class="Tokenmetry.App.Views.StylePreviewView"
              x:DataType="vm:ChartPreviewViewModel">
@@ -152,7 +153,7 @@
                         </StackPanel>
                         <c:DonutChart Segments="{Binding AgentSegments}"
                                       CenterTitle="{Binding TotalTokensCompact}"
-                                      CenterSubtitle="Total Tokens"
+                                      CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"
                                       HorizontalAlignment="Left"/>
                     </StackPanel>
                 </Border>

@@ -80,7 +80,7 @@
                    Foreground="{DynamicResource AppAccentRedBrush}"
                    IsVisible="{Binding ModelFormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
         <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
-            <Button Classes="Secondary"
+            <Button Classes="app-btn primary"
                     Content="{Binding ModelFormSave, Source={x:Static loc:Translations.Instance}}"
                     Command="{Binding SaveModelDefinitionCommand}"/>
             <Button Classes="link-btn"

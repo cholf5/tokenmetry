@@ -19,9 +19,10 @@ namespace Tokenmetry.App.ViewModels;
 /// <summary>
 /// 统计口径区单行（S-002 定案）：本版全部为说明项——逐项评估后没有可真实生效的用户开关
 /// （要么是管道/计价的始终生效行为，要么尚未实现），落 AppSettings 即假开关（卡内红线），
-/// 故以「徽标 + 说明」样式呈现：<see cref="Badge"/> ∈ {始终生效, 未提供}。
+/// 故以「徽标 + 说明」样式呈现：<see cref="Badge"/> ∈ {始终生效, 未提供}；
+/// <see cref="IsMuted"/> 表达「未提供」（徽章退为中性），其余为绿软底的「始终生效」。
 /// </summary>
-public sealed record CaliberItem(string Text, string Badge, string Note);
+public sealed record CaliberItem(string Text, string Badge, string Note, bool IsMuted = false);
 
 /// <summary>
 /// 数据源表行 VM（S-002）：数据全部来自采集扫描注册表的快照（真实可得，见卡 Dev Log 来源表），
@@ -173,7 +174,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
                 new CaliberItem(t.CaliberDedupText, t.BadgeAlways, t.CaliberDedupNote),
                 new CaliberItem(t.CaliberSplitText, t.BadgeAlways, t.CaliberSplitNote),
                 new CaliberItem(t.CaliberUnknownPriceText, t.BadgeAlways, t.CaliberUnknownPriceNote),
-                new CaliberItem(t.CaliberMergeText, t.BadgeNotProvided, t.CaliberMergeNote),
+                new CaliberItem(t.CaliberMergeText, t.BadgeNotProvided, t.CaliberMergeNote, IsMuted: true),
                 new CaliberItem(t.CaliberLocalOnlyText, t.BadgeAlways, t.CaliberLocalOnlyNote),
             };
         }

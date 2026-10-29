@@ -67,9 +67,9 @@ public partial class DonutChart : UserControl
     public static readonly StyledProperty<string> CenterTitleProperty =
         AvaloniaProperty.Register<DonutChart, string>(nameof(CenterTitle), string.Empty);
 
-    /// <summary>环中心副文字（如 "Total Tokens"）。</summary>
+    /// <summary>环中心副文字（如 "Total tokens"；由视图绑定 Translations.DonutCenterSubtitle）。</summary>
     public static readonly StyledProperty<string> CenterSubtitleProperty =
-        AvaloniaProperty.Register<DonutChart, string>(nameof(CenterSubtitle), "Total Tokens");
+        AvaloniaProperty.Register<DonutChart, string>(nameof(CenterSubtitle), string.Empty);
 
     /// <summary>环直径（原型 .donut 142px）。</summary>
     public static readonly StyledProperty<double> DonutSizeProperty =
@@ -145,7 +145,7 @@ public partial class DonutChart : UserControl
     /// 语言切换重译（B-007）：以 PropertyChanged(CurrentLanguage) 作为「每次切换一次」的信号重跑
     /// Rebuild——build-time 固化文案不重跑就陈旧到下一次数据变更，覆盖两处：分段 tooltip 的
     /// token 紧凑单位口径（随 UI 语言的原生大数单位制）与空态中心副题（Translations.Instance.NoData）。
-    /// XAML 直绑 Translations 的空态 EmptyText 由全量 PropertyChanged 自动刷新，不依赖本订阅。
+    /// 空态不再有第二处（右侧 EmptyText）文案，单一中心副题由本订阅统一重译。
     /// </summary>
     private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -268,7 +268,6 @@ public partial class DonutChart : UserControl
         var ringMid = size / 2 - 2 - thickness / 2;
         EmptyRing.Width = ringMid * 2;
         EmptyRing.Height = ringMid * 2;
-        EmptyText.IsVisible = isEmpty;
 
         if (isEmpty)
         {
@@ -307,7 +306,8 @@ public partial class DonutChart : UserControl
             path.Data = BuildRingSegment(centerX, centerY, outerRadius, innerRadius, start,
                 animate ? SweepAt(0, i, sweep) : sweep);
             // 图表悬浮提示（B-006）：chart-tip 类装饰（App 令牌配色）+ token 紧凑单位（随 UI 语言原生大数口径）
-            ChartTooltips.Set(path, $"{segments[i].Name}: {TrendChart.FormatCompactTokens(segments[i].Value)} tok");
+            ChartTooltips.Set(path,
+                $"{segments[i].Name}: {TrendChart.FormatCompactTokens(segments[i].Value)} {Translations.Instance.ChartTipTokenUnit}");
             ArcCanvas.Children.Add(path);
 
             var percent = total > 0 ? segments[i].Value / total * 100 : 0;
