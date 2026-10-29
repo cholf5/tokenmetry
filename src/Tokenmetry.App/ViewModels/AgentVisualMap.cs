@@ -19,6 +19,11 @@ public sealed record AgentVisual(string LogoVendor, char Glyph);
 /// 散列字形降级为<b>兜底</b>：lobe-icons 1.95.1 无对应标的 Agent（Codebuff / Droid / pi-agent 及
 /// 命名存储——pi 适配器把 store 名作为独立 agent 出账）落 generic，仍给散列字形，列表里多个未识别
 /// Agent 之间保持可区分（比单一 ◇ 更有信息量；诚实回退，不伪造品牌标）。
+/// <para>
+/// 唯一例外 Cindy：官方标识是一幅插画头像（红渐变方底 + 人物 + 黑猫），无法矢量化成单色路径
+/// （75k 独立色、压到 4 色仍有上千轮廓），所以走<b>位图彩标</b>——`Assets/agent-cindy.png`
+/// 经 DrawingImage 包一层 ImageDrawing 后仍是同一条 DynamicResource 契约，明暗同用（与其它彩标一致）。
+/// </para>
 ///
 /// 匹配只看传入的 Agent 展示名（采集层 AgentName 常量：Claude Code / Codex / Gemini CLI / DSH / …）：
 /// 大小写不敏感的包含规则按序判定。规则顺序有讲究——openclaw 在 opencode 前（互不为子串，顺序仅在
@@ -29,7 +34,7 @@ internal static class AgentVisualMap
     /// <summary>附加属性伪类要逐一 Set 的品牌名单（顺序 = 生成器 AGENT_VENDORS 顺序 + generic 兜底）。</summary>
     internal static readonly string[] Vendors =
     [
-        "claudecode", "codex", "geminicli", "amp", "openclaw", "qwen", "kimi", "goose",
+        "cindy", "claudecode", "codex", "geminicli", "amp", "openclaw", "qwen", "kimi", "goose",
         "opencode", "kilo", "hermes", "grok", "antigravity", "copilot", "zai", "dsh", "generic",
     ];
 
@@ -48,6 +53,11 @@ internal static class AgentVisualMap
         if (name.Length == 0)
         {
             return "generic";
+        }
+
+        if (Contains(name, "cindy"))
+        {
+            return "cindy";
         }
 
         if (Contains(name, "claude"))

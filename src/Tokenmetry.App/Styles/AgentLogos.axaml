@@ -9,9 +9,12 @@
         Light=黑 / Dark=白；kimi 双版本（彩标主体为白，暗底设计）。
         zai = Z.ai 的编程 CLI ZCode 用 Z.ai 三块 "Z" 标（与模型表 glm 内联标同一形状）；
         dsh = DSH 的标与 DeepSeek 同形状、官方呈现为黑色 → 复用 deepseek 单色几何。
+        cindy = 唯一位图彩标：官方标识是一幅插画头像（红渐变方底 + 人物 + 黑猫），无法矢量化成
+        单色路径，故用 Assets/agent-cindy.png（128px）包一层 ImageDrawing 当 DrawingImage 用——
+        资源键与 DynamicResource 契约不变，明暗同用；由生成器的 INLINE_IMAGE_LOGOS 产出。
         未覆盖的 Agent（Codebuff / Droid / pi-agent 及命名存储）视图层回退字形（不在此文件）。
         再生：python3 scripts/generate-brand-logos.py
-        键清单（App* 前缀，与 Semi 避让）：AppAgentLogoClaudeCode, AppAgentLogoCodex, AppAgentLogoGeminiCli, AppAgentLogoAmp, AppAgentLogoOpenClaw, AppAgentLogoQwen, AppAgentLogoKimi, AppAgentLogoGoose, AppAgentLogoOpenCode, AppAgentLogoKilo, AppAgentLogoHermes, AppAgentLogoGrok, AppAgentLogoAntigravity, AppAgentLogoCopilot, AppAgentLogoZai, AppAgentLogoDsh
+        键清单（App* 前缀，与 Semi 避让）：AppAgentLogoCindy, AppAgentLogoClaudeCode, AppAgentLogoCodex, AppAgentLogoGeminiCli, AppAgentLogoAmp, AppAgentLogoOpenClaw, AppAgentLogoQwen, AppAgentLogoKimi, AppAgentLogoGoose, AppAgentLogoOpenCode, AppAgentLogoKilo, AppAgentLogoHermes, AppAgentLogoGrok, AppAgentLogoAntigravity, AppAgentLogoCopilot, AppAgentLogoZai, AppAgentLogoDsh
     -->
 
     <ResourceDictionary.ThemeDictionaries>
@@ -166,6 +169,14 @@
         </DrawingImage>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
+
+    <!-- cindy：位图彩标（官方标是插画，无法矢量化）——ImageDrawing 包一层仍产出 DrawingImage，
+         与其它彩标同为明暗同用的字典级共享实例；Rect = 资源本身的像素尺寸。 -->
+    <DrawingImage x:Key="AppAgentLogoCindy">
+        <DrawingImage.Drawing>
+            <ImageDrawing ImageSource="avares://Tokenmetry.App/Assets/agent-cindy.png" Rect="0,0,128,128"/>
+        </DrawingImage.Drawing>
+    </DrawingImage>
 
     <DrawingImage x:Key="AppAgentLogoClaudeCode">
         <DrawingImage.Drawing>

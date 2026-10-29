@@ -72,6 +72,7 @@ MODEL_VENDORS: list[tuple[str, str | None, str | None]] = [
 #   只有彩色版 → 明暗同用 color；只有单色版 → Light=黑 / Dark=白；kimi 双版本（暗底设计）。
 # 无 lobe 对应的 Agent（Codebuff / Droid / pi-agent + 命名存储）不进本表，视图层回退字形。
 AGENT_VENDORS: list[tuple[str, str | None, str | None]] = [
+    ("cindy", None, None),                # 无 lobe 标，官方标为插画位图 → INLINE_IMAGE_LOGOS
     ("claudecode", None, "claudecode-color"),
     ("codex", None, "codex-color"),
     ("geminicli", None, "geminicli-color"),
@@ -104,6 +105,16 @@ INLINE_MONO_LOGOS: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
+# 内联位图彩标：官方标识本身是位图插画、无法矢量化时的例外（vendor → (资源相对路径, 像素边长)）。
+# 与 lobe 来源的区别只是数据来源；落地产物仍是 DrawingImage（内部包一层 ImageDrawing），
+# 所以资源键 / DynamicResource 契约 / 「明暗同用」策略与其它彩标完全一致。
+# 资源文件不入 npm 包：路径是 App 项目内的 AvaloniaResource（csproj 的 Assets/** 已包含）。
+INLINE_IMAGE_LOGOS: dict[str, tuple[str, int]] = {
+    # Cindy 的官方标识是插画头像（红渐变方底 + 人物 + 黑猫）：75,645 种独立颜色，压到 4 色仍有
+    # 上千个闭合轮廓，单色化后只剩一片剪影——矢量化不可行，故用官方图降采样的 128px 位图（16px 槽 8×）。
+    "cindy": ("Assets/agent-cindy.png", 128),
+}
+
 # vendor → 资源键的 Pascal 段（与 Tokens.axaml 旧命名习惯一致：OpenAI / DeepSeek / MiniMax）
 MODEL_PASCAL = {
     "claude": "Claude", "openai": "OpenAI", "gemini": "Gemini", "glm": "Glm",
@@ -115,6 +126,7 @@ MODEL_PASCAL = {
 
 # Agent vendor → 资源键的 Pascal 段（AgentLogos.axaml 的 AppAgentLogo* 后缀）
 AGENT_PASCAL = {
+    "cindy": "Cindy",
     "claudecode": "ClaudeCode", "codex": "Codex", "geminicli": "GeminiCli",
     "amp": "Amp", "openclaw": "OpenClaw", "qwen": "Qwen", "kimi": "Kimi",
     "goose": "Goose", "opencode": "OpenCode", "kilo": "Kilo", "hermes": "Hermes",
@@ -375,6 +387,13 @@ def drawing_image(key_prefix: str, pascal: dict[str, str], vendor: str, inner: s
             f'{indent}</DrawingImage>')
 
 
+def inline_image_inner(vendor: str, indent: str = "            ") -> str:
+    """内联位图彩标 → DrawingImage.Drawing 内部 XML（ImageDrawing 包位图，与几何版同层）。"""
+    asset, size = INLINE_IMAGE_LOGOS[vendor]
+    return (f'{indent}<ImageDrawing ImageSource="avares://Tokenmetry.App/{asset}" '
+            f'Rect="0,0,{size},{size}"/>')
+
+
 @dataclass(frozen=True)
 class LogoSet:
     """一套图标表的全部参数（模型 / Agent 各一份，共用下面的 build_xaml）。"""
@@ -395,13 +414,20 @@ def build_xaml(cache_dir: Path, logo_set: LogoSet) -> str:
     dark_entries: list[str] = []        # ThemeDictionaries Dark（单色白 / kimi 彩色）
 
     inline = INLINE_MONO_LOGOS if logo_set.key_prefix == "AppModelLogo" else {}
+    inline_images = INLINE_IMAGE_LOGOS if logo_set.key_prefix == "AppAgentLogo" else {}
 
     unknown = inline.keys() - {v for v, _, _ in logo_set.vendors}
     if unknown:
         die(f"INLINE_MONO_LOGOS 里的 {sorted(unknown)} 不在 {logo_set.key_prefix} 表")
+    unknown = inline_images.keys() - {v for v, _, _ in logo_set.vendors}
+    if unknown:
+        die(f"INLINE_IMAGE_LOGOS 里的 {sorted(unknown)} 不在 {logo_set.key_prefix} 表")
 
     for vendor, mono_id, color_id in logo_set.vendors:
-        if vendor in inline:            # 内联单色几何：Light=黑 / Dark=白
+        if vendor in inline_images:     # 内联位图彩标：明暗同用（与彩色版同策略）
+            color_entries.append(drawing_image(logo_set.key_prefix, logo_set.pascal, vendor,
+                                               inline_image_inner(vendor)))
+        elif vendor in inline:          # 内联单色几何：Light=黑 / Dark=白
             shapes = inline[vendor]
             light_entries.append(drawing_image(logo_set.key_prefix, logo_set.pascal, vendor,
                                                inline_mono_inner(vendor, shapes, MONO_LIGHT), indent="        "))
@@ -480,6 +506,9 @@ AGENT_LOGOS = LogoSet(
         f"        Light=黑 / Dark=白；kimi 双版本（彩标主体为白，暗底设计）。\n"
         f"        zai = Z.ai 的编程 CLI ZCode 用 Z.ai 三块 \"Z\" 标（与模型表 glm 内联标同一形状）；\n"
         f"        dsh = DSH 的标与 DeepSeek 同形状、官方呈现为黑色 → 复用 deepseek 单色几何。\n"
+        f"        cindy = 唯一位图彩标：官方标识是一幅插画头像（红渐变方底 + 人物 + 黑猫），无法矢量化成\n"
+        f"        单色路径，故用 Assets/agent-cindy.png（128px）包一层 ImageDrawing 当 DrawingImage 用——\n"
+        f"        资源键与 DynamicResource 契约不变，明暗同用；由生成器的 INLINE_IMAGE_LOGOS 产出。\n"
         f"        未覆盖的 Agent（Codebuff / Droid / pi-agent 及命名存储）视图层回退字形（不在此文件）。"),
 )
 

@@ -29,6 +29,7 @@ public class AgentLogoTests
     /// 新增 Agent 必须同时更新生成器、AgentLogos.axaml（重跑脚本）与本表。</summary>
     internal static readonly Dictionary<string, string> LogoKeys = new()
     {
+        ["cindy"] = "AppAgentLogoCindy",
         ["claudecode"] = "AppAgentLogoClaudeCode",
         ["codex"] = "AppAgentLogoCodex",
         ["geminicli"] = "AppAgentLogoGeminiCli",
@@ -145,6 +146,32 @@ public class AgentLogoTests
         var drawing = Assert.IsType<GeometryDrawing>(
             Assert.IsType<DrawingGroup>(Assert.IsType<DrawingImage>(lightValue).Drawing).Children[0]);
         Assert.Equal(Color.Parse("#D97757"), Assert.IsAssignableFrom<ISolidColorBrush>(drawing.Brush).Color);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Cindy", "cindy")]
+    [InlineData("cindy", "cindy")]
+    public void Cindy_agent_names_resolve_to_the_cindy_vendor(string agent, string expected)
+    {
+        Assert.Equal(expected, AgentVisualMap.ResolveVendor(agent));
+    }
+
+    [AvaloniaFact]
+    public void Cindy_is_the_only_bitmap_color_logo_and_stays_one_shared_instance()
+    {
+        // Cindy 的官方标识是插画（无法矢量化），是唯一的位图彩标：为保持 DynamicResource 契约，
+        // 用 ImageDrawing 包一层仍产出 DrawingImage；明暗同用 → 两主题同一实例。
+        var app = Application.Current!;
+
+        Assert.True(app.TryGetResource("AppAgentLogoCindy", ThemeVariant.Light, out var lightValue));
+        Assert.True(app.TryGetResource("AppAgentLogoCindy", ThemeVariant.Dark, out var darkValue));
+        Assert.Same(lightValue, darkValue);
+
+        var imageDrawing = Assert.IsType<ImageDrawing>(Assert.IsType<DrawingImage>(lightValue).Drawing);
+        Assert.NotNull(imageDrawing.ImageSource);
+        var bitmap = Assert.IsType<Avalonia.Media.Imaging.Bitmap>(imageDrawing.ImageSource);
+        Assert.Equal(128, (int)bitmap.Size.Width);
+        Assert.Equal(128d, imageDrawing.Rect.Width);
     }
 
     [AvaloniaTheory]
