@@ -355,15 +355,12 @@
                     <StackPanel DockPanel.Dock="Top" Margin="8,18,8,16" Orientation="Horizontal" Spacing="9">
                         <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"
                                Width="24" Height="24"/>
-                        <StackPanel VerticalAlignment="Center" Spacing="1">
-                            <TextBlock Text="Tokenmetry"
-                                       FontSize="15"
-                                       FontWeight="Bold"
-                                       Foreground="{DynamicResource AppTextBrush}"/>
-                            <TextBlock Text="ANALYTICS"
-                                       FontSize="9"
-                                       Foreground="{DynamicResource AppMutedTextBrush}"/>
-                        </StackPanel>
+                        <!-- P1-10：原「ANALYTICS」9px 全大写英文眉标已删除（不承载信息，中文界面尤其突兀） -->
+                        <TextBlock Text="Tokenmetry"
+                                   VerticalAlignment="Center"
+                                   FontSize="15"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource AppTextBrush}"/>
                     </StackPanel>
                     <!-- 8 项导航（ListBox：条目可聚焦、方向键可移动选中，满足键盘可达） -->
                     <ListBox x:Name="NavList"

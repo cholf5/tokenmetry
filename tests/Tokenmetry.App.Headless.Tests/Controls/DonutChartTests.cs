@@ -281,6 +281,27 @@ public class DonutChartTests
     }
 
     [AvaloniaFact]
+    public void Empty_state_says_no_data_only_once()
+    {
+        // P0-3：空态环心副题与图例槽 EmptyText 同时取 NoData，"暂无数据"在卡片里说两遍。
+        // 空态只留环心一份（占位环 + "0/暂无数据"），图例行照旧有数据时出现。
+        var chart = new DonutChart { Segments = Array.Empty<DonutSegment>(), CenterTitle = "0" };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var noDataText = Translations.Instance.NoData;
+        var occurrences = chart.GetVisualDescendants().OfType<TextBlock>()
+            .Where(t => t.Text == noDataText && ChartTestHelpers.IsEffectivelyVisible(t))
+            .ToList();
+
+        Assert.Single(occurrences);
+        Assert.Equal("CenterSubtitleText", occurrences[0].Name);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void Empty_center_subtitle_retranslates_on_language_switch()
     {
         // B-007 TC-002 空态场景：CenterSubtitleText.Text = NoData 是 build-time 固化（旧账一并修）

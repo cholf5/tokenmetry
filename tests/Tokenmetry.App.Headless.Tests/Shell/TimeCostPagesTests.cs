@@ -593,6 +593,40 @@ public class TimeCostPagesTests
     }
 
     [AvaloniaFact]
+    public void Cost_token_share_basis_footer_renders_once_outside_kpi_cards()
+    {
+        // P1-6 去重：输入/输出/缓存读/缓存写四张卡原本各排一遍同一句 Token 构成口径脚注，
+        // 同一句话在一屏出现四遍不是强调而是噪音。现在由 KPI 网格下方的一行 page-subtitle 统一承担。
+        var host = CreateCostHost();
+        var window = new Window
+        {
+            Width = 1180,
+            Height = 860,
+            Content = new CostAnalysisView { DataContext = host.Vm },
+            RequestedThemeVariant = ThemeVariant.Dark,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var basis = Translations.Instance.KpiFootTokenShareBasis;
+        var footers = window.GetVisualDescendants().OfType<TextBlock>()
+            .Where(t => t.Text == basis && t.IsVisible)
+            .ToList();
+        var footer = Assert.Single(footers);
+
+        var cards = window.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("kpi"))
+            .ToList();
+        Assert.Equal(6, cards.Count);
+        Assert.DoesNotContain(cards, card => card.GetVisualDescendants().Contains(footer));
+        Assert.Contains("page-subtitle", footer.Classes);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void Cost_kpi_cards_lay_out_in_two_rows_of_three()
     {
         // Q-007 修正项 1：单排六列挤压（1180px 窗口卡宽 ≈179px，首卡标题溢出）→ 两排三列。

@@ -699,6 +699,15 @@
     <Style Selector="ListBox.data-table ListBoxItem:selected:pointerover">
         <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
     </Style>
+    <!-- 模板级反制（同 btn-soft / filter-chip 的理由）：Semi 的条目模板若在选中伪类下直写模板内
+         ContentPresenter 背景，控件级 setter 会被压过而"样式写了但屏幕没变"。把 presenter 显式钉在
+         同源令牌上，headless 探针断言的就是 presenter 背景（而不是我们写的那个属性）。 -->
+    <Style Selector="ListBox.data-table ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+    </Style>
+    <Style Selector="ListBox.data-table ListBoxItem:selected:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+    </Style>
 
     <!-- 数据源表状态色（S-002，原型 .up 为绿色 / ● 部分数据 为橙色）：
          未检出 / 尚未扫描用 muted（无数据的源不做绿色假象）。颜色复用 :root 强调色令牌
@@ -841,6 +850,15 @@
         <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
     </Style>
     <Style Selector="ListBox.time-range-list ListBoxItem:selected:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+    </Style>
+    <!-- 模板级反制：同 data-table 选中态（Semi 条目模板可能直写 presenter 背景） -->
+    <Style Selector="ListBox.time-range-list ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+    </Style>
+    <Style Selector="ListBox.time-range-list ListBoxItem:selected:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
     </Style>

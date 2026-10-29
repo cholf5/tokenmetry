@@ -65,9 +65,6 @@
                             <TextBlock Classes="kpi-top" Text="{Binding KpiInputCostShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Classes="kpi-value" Text="{Binding InputShareText}"/>
-                        <TextBlock Classes="kpi-foot"
-                                   Text="{Binding KpiFootTokenShareBasis, Source={x:Static loc:Translations.Instance}}"
-                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
@@ -85,9 +82,6 @@
                             <TextBlock Classes="kpi-top" Text="{Binding KpiOutputCostShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Classes="kpi-value" Text="{Binding OutputShareText}"/>
-                        <TextBlock Classes="kpi-foot"
-                                   Text="{Binding KpiFootTokenShareBasis, Source={x:Static loc:Translations.Instance}}"
-                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
@@ -106,9 +100,6 @@
                             <TextBlock Classes="kpi-top" Text="{Binding KpiCacheReadShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Classes="kpi-value" Text="{Binding CacheReadShareText}"/>
-                        <TextBlock Classes="kpi-foot"
-                                   Text="{Binding KpiFootTokenShareBasis, Source={x:Static loc:Translations.Instance}}"
-                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
@@ -127,9 +118,6 @@
                             <TextBlock Classes="kpi-top" Text="{Binding KpiCacheWriteShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock Classes="kpi-value" Text="{Binding CacheWriteShareText}"/>
-                        <TextBlock Classes="kpi-foot"
-                                   Text="{Binding KpiFootTokenShareBasis, Source={x:Static loc:Translations.Instance}}"
-                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
@@ -159,6 +147,12 @@
                     </StackPanel>
                 </Border>
             </Grid>
+
+            <!-- Token 构成口径（P1-6 去重）：原来 2-5 四张卡各自排一遍同一句脚注，
+                 同一句话在一屏里出现四遍不是强调，是噪音；网格下方统一说一次 -->
+            <TextBlock Classes="page-subtitle"
+                       Text="{Binding KpiFootTokenShareBasis, Source={x:Static loc:Translations.Instance}}"
+                       TextWrapping="Wrap"/>
 
             <!-- 未知成本说明行（估算总成本含未知贡献时可见；D-010 口径的页面级说明） -->
             <TextBlock Classes="page-subtitle" Text="{Binding UnknownCostNoteText}"
