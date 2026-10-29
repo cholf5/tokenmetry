@@ -1,4 +1,4 @@
-﻿namespace Tokenmetry.Infrastructure.Tests.CodexJsonl;
+namespace Tokenmetry.Infrastructure.Tests.CodexJsonl;
 
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
@@ -468,6 +468,22 @@ public class CodexJsonlAdapterTests : IDisposable
 
         result.Records.Should().ContainSingle("同一 rollout 的两种编码只算一次");
         result.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Corrupt_compressed_rollout_does_not_abort_the_whole_source()
+    {
+        var home = CreateTempHome();
+        WriteFile(home, "sessions/rollout-good.jsonl",
+            "{\"timestamp\":\"2026-01-01T10:00:02.000Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"input_tokens\":100,\"output_tokens\":5,\"total_tokens\":105}}}}\n");
+        WriteFile(home, "sessions/rollout-bad.jsonl.zst", "not a zstd frame");
+
+        var result = await new CodexJsonlAdapter(configuredHome: home).ScanAsync();
+
+        result.Records.Should().ContainSingle("坏文件按整文件不可信丢弃，好文件照常产出")
+            .Which.SessionId.Should().Be("rollout-good");
+        result.Diagnostics.MalformedLines.Should().Be(1);
+        result.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial);
     }
 
     private static void WriteFile(string home, string relativePath, string content)

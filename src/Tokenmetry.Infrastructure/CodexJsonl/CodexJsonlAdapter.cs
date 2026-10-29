@@ -1,4 +1,4 @@
-﻿using Tokenmetry.Core.Abstractions;
+using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Infrastructure.ClaudeCodeJsonl;
 using Tokenmetry.Infrastructure.Jsonl;
@@ -35,26 +35,16 @@ public class CodexJsonlAdapter : ICodexJsonlAdapter
 
     /// <summary>
     /// 打开 rollout：`.jsonl.zst` 走 ZstdSharp 解压流，其余按 UTF-8 直读。
-    /// 解压失败转成 <see cref="InvalidDataException"/>（IOException 子类）交给共享扫描引擎
-    /// 按"整文件不可信"跳过并下轮重试，与 DSH 的 zstd 失败语义一致。
+    /// 解压损坏在 <see cref="TextReader.Read"/> 时才暴露（ZstdException），由 <see cref="ScanAsync"/>
+    /// 的解析委托按"整文件不可信"接住——与 DSH 同款语义（ZstdException 不继承 IOException，
+    /// 共享扫描引擎的 IOException 过滤器接不住它）。
     /// </summary>
     private static TextReader OpenRolloutReader(string path)
     {
         var baseStream = AgentLogReader.OpenRead(path);
-        if (!path.EndsWith(".jsonl.zst", StringComparison.Ordinal))
-        {
-            return new StreamReader(baseStream, System.Text.Encoding.UTF8);
-        }
-
-        try
-        {
-            return new StreamReader(new ZstdSharp.DecompressionStream(baseStream), System.Text.Encoding.UTF8);
-        }
-        catch (Exception ex) when (ex is ZstdSharp.ZstdException or InvalidDataException)
-        {
-            baseStream.Dispose();
-            throw new InvalidDataException($"Codex rollout is not readable: {path}", ex);
-        }
+        return path.EndsWith(".jsonl.zst", StringComparison.Ordinal)
+            ? new StreamReader(new ZstdSharp.DecompressionStream(baseStream), System.Text.Encoding.UTF8)
+            : new StreamReader(baseStream, System.Text.Encoding.UTF8);
     }
 
     public async Task<JsonlScanResult> ScanAsync(CancellationToken ct = default)
@@ -73,7 +63,28 @@ public class CodexJsonlAdapter : ICodexJsonlAdapter
 
         var output = await _scanner.ScanAsync(
             paths,
-            (path, reader, token) => _fileParser.ParseAsync(reader, sourceDirByFile[path], path, token),
+            async (path, reader, token) =>
+            {
+                try
+                {
+                    return await _fileParser
+                        .ParseAsync(reader, sourceDirByFile[path], path, token)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is InvalidDataException or ZstdSharp.ZstdException)
+                {
+                    // 压缩 rollout 结构/内容损坏：蓝本按读取失败弃全文件——不产出记录，计 1 次
+                    // malformed 并让状态降级 Partial；文件级记账照常落账，避免每轮无限重试。
+                    // 不接住会冲出 ScanAsync，让整轮 Codex 采集变 Error（所有文件都不落库）。
+                    return new JsonlFileParseOutcome(
+                        Records: [],
+                        FilesRead: 0,
+                        LinesSkipped: 0,
+                        MalformedLines: 1,
+                        InvalidRecords: 0,
+                        Interrupted: false);
+                }
+            },
             ct);
 
         return new JsonlScanResult
