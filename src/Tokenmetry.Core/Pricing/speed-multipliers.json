@@ -1,0 +1,52 @@
+{
+  "_provenance": {
+    "anchor": "ccusage 20.0.45 rust/crates/ccusage-core/src/fast-multiplier-overrides.json + flex-multiplier-overrides.json 逐条照抄（2026-10-30）",
+    "note": "ccusage 还会从 LiteLLM 的 provider_specific_entry.fast|flex 读倍率；本仓库只认官方价、不接 LiteLLM，故只维护这份静态表。刷新时与本文件 anchor 版本一起走。"
+  },
+  "fast": {
+    "exact": {
+      "gpt-5.6-sol": 2.0,
+      "gpt-5.6-terra": 2.0,
+      "gpt-5.6-luna": 2.0,
+      "gpt-5.5": 2.5,
+      "gpt-5.4": 2.0,
+      "gpt-5.3-codex": 2.0,
+      "gpt-6-astra": 2.0,
+      "gpt-6-sol": 2.0,
+      "gpt-6.1-sol": 2.0,
+      "gpt-6.1-terra": 2.0,
+      "gpt-6-luna": 2.0
+    },
+    "prefix": {
+      "claude-opus-4-6": 6.0,
+      "claude-opus-4-7": 6.0,
+      "claude-opus-4-8": 2.0
+    }
+  },
+  "flex": {
+    "exact": {
+      "gpt-6-astra": 0.5,
+      "gpt-6.1-sol": 0.5,
+      "gpt-6.1-terra": 0.5,
+      "gpt-6-luna": 0.5,
+      "gpt-6-sol": 0.5,
+      "gpt-5.6-sol": 0.5,
+      "gpt-5.6-terra": 0.5,
+      "gpt-5.6-luna": 0.5,
+      "gpt-5.5": 0.5,
+      "gpt-5.5-pro": 0.5,
+      "gpt-5.4": 0.5,
+      "gpt-5.4-mini": 0.5,
+      "gpt-5.4-nano": 0.5,
+      "gpt-5.4-pro": 0.5,
+      "gpt-5.2": 0.5,
+      "gpt-5.1": 0.5,
+      "gpt-5": 0.5,
+      "gpt-5-mini": 0.5,
+      "gpt-5-nano": 0.5,
+      "o3": 0.5,
+      "o4-mini": 0.5
+    },
+    "prefix": {}
+  }
+}
