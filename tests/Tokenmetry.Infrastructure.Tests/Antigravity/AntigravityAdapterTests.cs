@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 
 namespace Tokenmetry.Infrastructure.Tests.Antigravity;
 
@@ -115,6 +115,36 @@ public class AntigravityAdapterTests : IDisposable
         paths.Should().HaveCount(2);
         paths.Should().Contain(Path.Combine(first, "conversations", "a.db"));
         paths.Should().Contain(Path.Combine(second, "b.db"));
+    }
+
+    [Fact]
+    public void Skips_default_roots_without_conversations_directory()
+    {
+        var root = CreateTempDir();
+        Directory.CreateDirectory(Path.Combine(root, ".gemini", "antigravity-cli"));
+        File.WriteAllBytes(
+            Path.Combine(root, ".gemini", "antigravity-cli", "conversation_summaries.db"),
+            Array.Empty<byte>());
+
+        var locator = new AntigravityLogLocator(HomeAccessor(root));
+
+        locator.CollectConversationDatabasePaths(null).Should().BeEmpty(
+            "默认根没有 conversations/ 时不该把同级摘要库当会话库");
+    }
+
+    [Fact]
+    public void Keeps_custom_roots_even_without_conversations_directory()
+    {
+        var root = CreateTempDir();
+        var custom = Path.Combine(root, "custom-root");
+        Directory.CreateDirectory(custom);
+        var database = Path.Combine(custom, "direct.db");
+        File.WriteAllBytes(database, Array.Empty<byte>());
+
+        var locator = new AntigravityLogLocator(NameAccessor(("ANTIGRAVITY_DATA_DIR", custom)));
+
+        locator.CollectConversationDatabasePaths(null).Should().ContainSingle().Which.Should().Be(database,
+            "自定义根可以是数据根，也可以是会话目录本身");
     }
 
     // ---- 蓝本 parser.rs 内联测试同名场景（protobuf 字段语义 + 归一化表） ----
