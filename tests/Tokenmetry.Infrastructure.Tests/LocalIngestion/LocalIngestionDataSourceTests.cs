@@ -6,6 +6,7 @@ using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Antigravity;
 using Tokenmetry.Infrastructure.Amp;
 using Tokenmetry.Infrastructure.ClaudeCodeJsonl;
+using Tokenmetry.Infrastructure.Cindy;
 using Tokenmetry.Infrastructure.Codebuff;
 using Tokenmetry.Infrastructure.CodexJsonl;
 using Tokenmetry.Infrastructure.CopilotSession;
@@ -388,7 +389,7 @@ public class LocalIngestionDataSourceTests : IDisposable
         var source = CreateSource(store, claudeRoot, codexHome, registry: registry);
         await source.GetDailyUsageAsync();
 
-        registry.RegisteredSources.Should().HaveCount(19);
+        registry.RegisteredSources.Should().HaveCount(20);
 
         var claude = registry.GetLastScan(ClaudeCodeJsonlLineParser.AgentName);
         claude.Should().NotBeNull();
@@ -463,9 +464,35 @@ public class LocalIngestionDataSourceTests : IDisposable
         observed.Context.Should().BeNull("线程池上没有同步上下文；观察到调用线程的上下文即管道内联在调用方执行");
     }
 
+    [Fact]
+    public async Task Cindy_sessions_are_not_double_counted_when_pi_source_sees_same_files()
+    {
+        // 用户把 PI_AGENT_DIR 指到 <Cindy>/pi-agent-home/sessions（本轮改动之前的建议做法）时，pi 适配器
+        // 与 Cindy 适配器会读到同一批文件。facts 主键含 agent：不去重就是两行、总额翻倍，而会话表按
+        // session_id 主键反而看不出来——所以归属仲裁必须在拼接处做。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        var userData = CreateTempDir();
+        var sessions = Path.Combine(userData, "pi-agent-home", "sessions");
+        Directory.CreateDirectory(sessions);
+        File.WriteAllText(
+            Path.Combine(sessions, "2026-01-02T10-00-00-000Z_session-a.jsonl"),
+            string.Join("\n",
+                """{"type":"session","id":"session-a","timestamp":"2026-01-02T10:00:00.000Z","cwd":"E:/dev/demo"}""",
+                """{"type":"message","timestamp":"2026-01-02T10:00:05.000Z","message":{"role":"assistant","model":"gpt-5","usage":{"input":100,"output":10,"cacheRead":20,"cacheWrite":3,"totalTokens":133}}}""") + "\n");
+
+        var source = CreateSource(store, claudeRoot, codexHome, piDir: sessions, cindyUserDataRoot: userData);
+
+        var daily = await source.GetDailyUsageAsync();
+
+        var day = daily.Should().ContainSingle().Subject;
+        day.TotalTokens.Should().Be(133, "同一份会话文件只出一份账");
+        day.Agents.Should().ContainSingle().Which.Agent.Should().Be("Cindy", "文件归属 Cindy，pi 源的重复记录被丢弃");
+    }
+
     // ---- helpers ----
 
-    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null, string? dshHome = null, IZCodeSqliteAdapter? zcodeAdapter = null, IClaudeCodeJsonlAdapter? claudeAdapter = null)
+    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null, string? dshHome = null, IZCodeSqliteAdapter? zcodeAdapter = null, IClaudeCodeJsonlAdapter? claudeAdapter = null, string? piDir = null, string? cindyUserDataRoot = null)
     {
         pricingEngine ??= new PricingEngine(overrides: new[]
         {
@@ -489,7 +516,8 @@ public class LocalIngestionDataSourceTests : IDisposable
             new QwenCodeAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "qwen-missing")),
             new KimiCodeAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "kimi-missing")),
             new CodebuffAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "codebuff-missing")),
-            new PiAgentAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "pi-missing")),
+            new PiAgentAdapter(configuredDataDir: piDir ?? Path.Combine(Path.GetDirectoryName(claudeRoot)!, "pi-missing")),
+            new CindyPiAdapter(configuredUserDataRoot: cindyUserDataRoot ?? Path.Combine(Path.GetDirectoryName(claudeRoot)!, "cindy-missing")),
             new GrokAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "grok-missing")),
             new OpenClawAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "openclaw-missing")),
             new AntigravityAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "antigravity-missing")),

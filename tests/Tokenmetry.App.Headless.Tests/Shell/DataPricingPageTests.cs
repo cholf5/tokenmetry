@@ -257,7 +257,7 @@ public class DataPricingPageTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal(19, vm.SourceRows.Count);
+        Assert.Equal(20, vm.SourceRows.Count);
         var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
         Assert.Contains("已识别的数据源", texts);
         Assert.Contains("统计口径", texts);
@@ -290,8 +290,8 @@ public class DataPricingPageTests
         // 走通真实采集线的三个可观测点：
         Assert.Equal("scan finished", vm.Status);                       // 1. 接线层上报成功（非兜底空转假成功路径）
         Assert.StartsWith("最近更新", shell.LastUpdatedText);           // 2. 外壳时间戳被本轮回写
-        Assert.DoesNotContain(vm.SourceRows, r => r.IsPending);         // 3. 一轮真实刷新后 19 源全部有快照
-        Assert.Equal(19, vm.SourceRows.Count);
+        Assert.DoesNotContain(vm.SourceRows, r => r.IsPending);         // 3. 一轮真实刷新后 20 源全部有快照
+        Assert.Equal(20, vm.SourceRows.Count);
     }
 
     [AvaloniaFact]

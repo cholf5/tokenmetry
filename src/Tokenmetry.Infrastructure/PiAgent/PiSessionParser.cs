@@ -12,8 +12,14 @@ namespace Tokenmetry.Infrastructure.PiAgent;
 public sealed record PiStoreContext(string StoreName, string? StoreRoot);
 
 /// <summary>会话头（蓝本 PiSessionHeader）：parentSession 文本、是否畸形（键存在但非非空字符串）、
-/// 严格 RFC3339 时间戳。</summary>
-public sealed record PiSessionHeader(string? ParentSession, bool ParentSessionIsMalformed, DateTimeOffset? Timestamp);
+/// 严格 RFC3339 时间戳；<see cref="Cwd"/> 为仓库增强（非蓝本，缺省 null）——会话记录里的工作目录，
+/// 仅 <c>CindyPiAdapter</c> 消费（Cindy 的扁平 sessions 布局下蓝本 extract_project 会退化成文件名）。
+/// pi 适配器不读该字段，蓝本口径不受影响。</summary>
+public sealed record PiSessionHeader(
+    string? ParentSession,
+    bool ParentSessionIsMalformed,
+    DateTimeOffset? Timestamp,
+    string? Cwd = null);
 
 /// <summary>
 /// 重放签名（蓝本 PiUsageSignature 逐字段移植）：时间戳时刻、<b>裸</b>模型名、total 兜底后的四桶、
@@ -286,7 +292,11 @@ public sealed class PiSessionParser
                                         && StrictRfc3339Timestamp.TryParse(timestampText, out var parsed)
                 ? parsed
                 : null;
-            return new PiSessionHeader(parentSession, parentMalformed, timestamp);
+            return new PiSessionHeader(
+                parentSession,
+                parentMalformed,
+                timestamp,
+                LenientJson.GetNonEmptyString(root, "cwd"));
         }
     }
 
