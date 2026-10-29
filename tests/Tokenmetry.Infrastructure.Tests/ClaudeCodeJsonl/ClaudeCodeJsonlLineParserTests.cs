@@ -79,6 +79,32 @@ public class ClaudeCodeJsonlLineParserTests
     }
 
     [Fact]
+    public void Maps_fast_speed_to_the_fast_tier()
+    {
+        var record = ParseLine(UsageLine(speed: "\"fast\""));
+
+        record.Should().NotBeNull();
+        record!.Speed.Should().Be(SpeedTier.Fast);
+        record.Model.Should().Be("claude-opus-4-6-fast", "展示口径仍带 -fast 后缀");
+    }
+
+    [Fact]
+    public void Maps_standard_and_missing_speed_to_the_standard_tier()
+    {
+        ParseLine(UsageLine(speed: "\"standard\""))!.Speed.Should().Be(SpeedTier.Standard);
+        ParseLine(UsageLine(speed: "null"))!.Speed.Should().Be(SpeedTier.Standard);
+        ParseLine(UsageLine(speed: null))!.Speed.Should().Be(SpeedTier.Standard);
+    }
+
+    private static string UsageLine(string? speed)
+    {
+        var speedField = speed is null ? string.Empty : $",\"speed\":{speed}";
+        return "{\"sessionId\":\"s-1\",\"timestamp\":\"2026-09-14T08:15:00.000Z\",\"version\":\"2.1.5\","
+               + "\"message\":{\"id\":\"msg-1\",\"model\":\"claude-opus-4-6\","
+               + "\"usage\":{\"input_tokens\":1000,\"output_tokens\":200" + speedField + "}}}";
+    }
+
+    [Fact]
     public void Parses_nullable_metadata_from_real_claude_logs()
     {
         var record = ParseLine(
