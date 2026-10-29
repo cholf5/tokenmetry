@@ -21,6 +21,9 @@ public sealed class TokenUsageDetail
 
     public long CacheReadTokens { get; init; }
 
+    /// <summary>服务档位（计价倍率维度）；<see cref="SpeedTier.Standard"/> 不乘倍率。</summary>
+    public SpeedTier Speed { get; init; }
+
     /// <summary>总 token 数（input + output + cache_creation + cache_read，与 ccusage 口径一致）。</summary>
     public long TotalTokens => InputTokens + OutputTokens + CacheCreationTokens + CacheReadTokens;
 
@@ -34,6 +37,7 @@ public sealed class TokenUsageDetail
             CacheCreationEphemeral5mTokens = record.CacheCreationEphemeral5mTokens,
             CacheCreationEphemeral1hTokens = record.CacheCreationEphemeral1hTokens,
             CacheReadTokens = record.CacheReadTokens,
+            Speed = record.Speed,
         };
     }
 }
