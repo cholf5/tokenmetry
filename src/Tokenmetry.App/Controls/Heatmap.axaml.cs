@@ -311,7 +311,7 @@ public partial class Heatmap : UserControl
 
     /// <summary>悬停 tooltip：当日数值（token 紧凑单位，随 UI 语言的原生大数口径）或"无数据"。</summary>
     public static string BuildCellTooltip(HeatmapCell cell) => cell.HasData
-        ? $"{cell.Label} · {TrendChart.FormatCompactTokens(cell.Value)} tok"
+        ? $"{cell.Label} · {TrendChart.FormatCompactTokens(cell.Value)} {Translations.Instance.ChartTipTokenUnit}"
         : string.Format(Translations.Instance.HeatmapNoDataTooltip, cell.Label);
 
     /// <summary>强度色基准 = AppSeries0Color（原型 rgba(76,141,255,α) 即 #4c8dff；普通资源不随明暗翻转）。</summary>

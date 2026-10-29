@@ -3,7 +3,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:c="using:Tokenmetry.App.Controls"
-             xmlns:loc="using:Tokenmetry.App.Localization"
              mc:Ignorable="d"
              x:Class="Tokenmetry.App.Controls.DonutChart">
     <!-- D-005 环形图控件（原型 .donutrow：左环 + 右图例）。几何为自绘 StreamGeometry 圆弧段
@@ -11,7 +10,7 @@
          DynamicResource 自动翻转（纯 Avalonia 绘制，无需手工重建）。
          根布局用 Grid（Auto,*）而非横向 StackPanel：横向 StackPanel 以无限宽测量子级，
          图例行（8,*,Auto）会按名字全宽展开溢出面板；Grid 的 * 列把图例约束在环右侧剩余宽度内。 -->
-    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="15">
         <!-- 环 + 中心文字（尺寸由 DonutSize 驱动，原型 142px） -->
         <Panel x:Name="DonutHost" Grid.Column="0" Width="142" Height="142" VerticalAlignment="Center">
             <Canvas x:Name="ArcCanvas" Width="142" Height="142"/>
@@ -34,7 +33,7 @@
                            Foreground="{DynamicResource AppTextBrush}"
                            TextAlignment="Center"/>
                 <TextBlock x:Name="CenterSubtitleText"
-                           FontSize="10"
+                           FontSize="11"
                            Foreground="{DynamicResource AppMutedTextBrush}"
                            TextAlignment="Center"/>
             </StackPanel>
@@ -66,13 +65,7 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <!-- 空数据占位文案（无图例行时与占位环一起呈现） -->
-        <TextBlock x:Name="EmptyText"
-                   Grid.Column="2"
-                   Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
-                   FontSize="11"
-                   VerticalAlignment="Center"
-                   Foreground="{DynamicResource AppMutedTextBrush}"
-                   IsVisible="False"/>
+        <!-- 空数据只由环心副题承载（"暂无数据"）：右侧再放一条同义文案会在同一面板里说两遍，
+             且与图例列争宽。图例列保持空（Auto 列宽归零）。 -->
     </Grid>
 </UserControl>

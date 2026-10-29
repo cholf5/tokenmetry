@@ -29,6 +29,15 @@
 > 饱和度砍半，亮度逐项对齐原值**——文字/强调色/系列色的对比度因此一位不变（正文 16.2:1、次要文字 6.0:1、
 > 强调蓝 5.9:1 前后相同）。语义色不动：六强调色、图表系列色与 Token 类型色、KPI 图标软底、告警横幅。
 > 各行注释保留原型原值供溯源，箭头右侧为现值。Light 侧未改（其蓝偏移仅 2.5%，本就温和）。
+>
+> **2026-10-29 界面审视修正**：显式启用 Inter（`AppFontFamily`，`App.axaml`；Program 与 headless
+> 测试宿主均已注册字体集合）取代平台默认字形，数值列开 `tnum`（KPI 主值、表格数字列）；KPI 环比
+> 颜色改为「语义极性」——`kpi-change-good/bad/neutral`，成本下降是好事（绿）、成本上升是坏事（红）、
+> 用量/会话数涨跌无好坏（muted），不再沿用「涨=绿、跌=红」的方向色；图表空态隐藏 ScottPlot 默认
+> 坐标轴（无数据时 -10..10 的假坐标系），环形空态只保留环心一处「暂无数据」；图表 tooltip 与环心
+> 副标全部进 `Translations`（10 语种全量，不再有整句英文硬编码）；会话/模型/代理/项目表列宽按
+> 表头实际宽度重排、表头允许折行，Agent/模型/项目名称列改 `Grid(Auto,*)` 约束（英文表头与长名字
+> 不再被裁断或压到邻列）。
 
 ## 1. 键名前缀约定
 
@@ -86,6 +95,11 @@
 | `series-dot` | Border | `.modeldot` | 7×7 圆角 3；颜色给 `AppSeries{N}Brush` |
 | `mini` | ProgressBar | `.mini-track`/`.mini-fill` | 4px 高；Value 0-100 直接驱动填充宽度（内置 PART_Track/PART_Indicator） |
 | `chart-tip` | ToolTip | （原型无 tooltip，B-006 补） | 图表悬浮提示统一装饰：chip 底 + 卡片描边 + AppTextBrush 文字、圆角 6 / Padding 10,7 / 字号 12；控件经 `ChartTooltips.Set` 挂类（Donut/Heatmap）。ScottPlot 图内气泡（TrendChart）不适用本类，但走同源令牌（`ApplyTooltipChrome`）与同一文案口径 |
+| `app-btn` / `app-btn.primary` | Button | （无原型对应） | 应用级按钮（数据与计价页 Rescan / Add model、设置页更新检查）：PanelAlt 底 + Line 描边 + 12px 正文；`.primary` 品牌蓝 + 恒白字。Semi 模板 hover/pressed 逐态钉住（同 filter-chip 配方） |
+| `setting-label` / `setting-hint` | TextBlock | （无原型对应） | 设置页表单标签（12px SemiBold 正文色，可折行）/ 提示（11px muted、行高 17）：标签与帮助文字分层，不再共用 `page-subtitle` |
+| `chip.ok` / `chip.muted` | Border | （无原型对应） | 口径徽章状态：ok = 绿软底（始终生效），muted = 中性退后（未提供）；复用图标芯片软底令牌 |
+| `icon-chip.neutral` / `.warn` | Border | （无原型对应） | 图标芯片状态（成本页「待确认价格」）：neutral = 无缺价，warn = 有缺价（琥珀警示）。缺价是数据质量风险，不用成功绿 |
+| `kpi-change-good` / `.bad` / `.neutral` | TextBlock | `.kpi-foot .up/.down` | 环比「语义极性」色：good = 朝好的方向（成本降/缓存升），bad = 朝差的方向，neutral = 用量类中性指标。方向由箭头表达，颜色只表达好坏 |
 
 ## 5. 渐变角度换算（CSS → Avalonia）
 
@@ -140,11 +154,13 @@ circle/ellipse/rect/line/polyline 转 arc/H/V/A 路径）。**勿手改**；再�
 - 起因：原 Unicode 字形图标（⟳ ⚙ ◌ ⌂ ▤ ◉ ⬡ ▣ ◷ ＄ ⌗ ◈ ▣ ↻）在应用未激活任何
   FontFamily 的现实下经系统回退字体（macOS = Apple Symbols）渲染，墨迹只占 em 四到五成，
   34px 按钮里 14pt 字形实际图形仅 6~8px，且 Windows/Linux 回退字体墨迹率不同、跨平台不可控。
-- 键名 `AppIcon{Pascal}` 13 个：House/Table/Bot/Cpu/Folder/Clock/DollarCircle/Database/
+- 键名 `AppIcon{Pascal}` 15 个：House/Table/Bot/Cpu/Folder/Clock/DollarCircle/Database/
   Settings（侧栏九页；Settings 兼顶栏入口）、RotateCw（顶栏手动刷新）、LoaderCircle
   （刷新进行中菊花 + 侧栏品牌内圈标）、Coins/DollarCircle/Table/Zap（KPI 四卡；成本卡用
   带圈版本与导航成本图标一致——裸 dollar-sign 竖杆长伸、横端子大敞，15px 下读作「歪」，
-  2026-10-24 真机目检退场）。
+  2026-10-24 真机目检退场）、ArrowUp/ArrowDown（成本分析页输入/输出成本占比卡，
+  2026-10-29 替换原 ↓ / ↑ 文本字形）、CircleHelp（模型芯片 generic 兜底与成本页
+  「待确认价格」卡）。
 - 渲染：`PathIcon`（隐式 ControlTheme 在 Icons.axaml，内层 Path 自适应墨迹尺寸 + Center
   对齐、StrokeThickness=1.5 圆角端点定值）。**必须用 PathIcon 而非裸 Path + Stretch=Uniform**：
   Avalonia 的 `Shape.CalculateSizeAndTransform` 只缩放适配并钉在元素左上角（无 WPF 的居中项），

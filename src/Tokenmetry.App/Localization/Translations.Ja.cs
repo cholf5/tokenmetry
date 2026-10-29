@@ -437,6 +437,15 @@ public sealed partial class Translations
         // ── チャートコントロール ──
         [nameof(NoUsageInRange)] = "この期間の使用記録はありません",
         [nameof(HeatmapNoDataTooltip)] = "{0} · データなし",
+        [nameof(DonutCenterSubtitle)] = "合計トークン",
+        [nameof(ChartTipIn)] = "入力",
+        [nameof(ChartTipOut)] = "出力",
+        [nameof(ChartTipTotal)] = "合計",
+        [nameof(ChartTipTokenUnit)] = "tok",
+        [nameof(ChartTipNoDataZeroFilled)] = "データなし（ゼロ補完）",
+        [nameof(ChartTipCostUnknown)] = "コスト不明",
+        [nameof(ChartTipNoCostData)] = "コストデータなし",
+        [nameof(ChartTipSessionsFormat)] = "{0} セッション",
 
         // ── 異常検知 ──
         [nameof(AnomalyCostSpikeFormat)] = "今日のコストは過去 {0} 日平均の {1:0.0} 倍です",

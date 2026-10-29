@@ -40,14 +40,15 @@
                     <TextBlock Classes="panel-title" Text="{Binding PanelProjectRankingShort, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                 </DockPanel>
 
-                <!-- 表头（列宽与行模板一致） -->
-                <Grid Grid.Row="1" ColumnDefinitions="1.5*,52,56,64,44,56" ColumnSpacing="6" Margin="0,0,0,2">
-                    <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThSessionCount, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="3" Classes="table-th" TextAlignment="Right" Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="4" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="5" Classes="table-th" TextAlignment="Right" Text="{Binding ThAvgPerSession, Source={x:Static loc:Translations.Instance}}"/>
+                <!-- 表头（列宽与行模板一致；2026-10-29 界面修正：成本列表头改短称 ThCost、平均列放宽到 72px，
+                     表头允许换行以承接各语种长文案） -->
+                <Grid Grid.Row="1" ColumnDefinitions="1.5*,64,64,64,48,72" ColumnSpacing="6" Margin="0,0,0,2">
+                    <TextBlock Grid.Column="0" Classes="table-th" TextWrapping="Wrap" Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThSessionCount, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="2" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="3" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThCost, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="4" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="5" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThAvgPerSession, Source={x:Static loc:Translations.Instance}}"/>
                 </Grid>
 
                 <!-- 排行行（ListBox 虚拟化；SelectedProject = 行点击跳会话页带项目筛选） -->
@@ -60,7 +61,7 @@
                             <Border BorderBrush="{DynamicResource AppLineBrush}"
                                     BorderThickness="0,1,0,0"
                                     Padding="0,8,0,2">
-                                <Grid ColumnDefinitions="1.5*,52,56,64,44,56" ColumnSpacing="6">
+                                <Grid ColumnDefinitions="1.5*,64,64,64,48,72" ColumnSpacing="6">
                                     <TextBlock Grid.Column="0" Classes="table-td" Text="{Binding Name}"
                                                ToolTip.Tip="{Binding RawPath}"
                                                VerticalAlignment="Center"

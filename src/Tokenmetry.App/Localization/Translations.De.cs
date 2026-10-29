@@ -437,6 +437,15 @@ public sealed partial class Translations
         // ── Diagrammsteuerelemente ──
         [nameof(NoUsageInRange)] = "Keine Nutzungsdatensätze in diesem Bereich",
         [nameof(HeatmapNoDataTooltip)] = "{0} · keine Daten",
+        [nameof(DonutCenterSubtitle)] = "Token gesamt",
+        [nameof(ChartTipIn)] = "Eingabe",
+        [nameof(ChartTipOut)] = "Ausgabe",
+        [nameof(ChartTipTotal)] = "Gesamt",
+        [nameof(ChartTipTokenUnit)] = "Tok.",
+        [nameof(ChartTipNoDataZeroFilled)] = "keine Daten (Nullauffüllung)",
+        [nameof(ChartTipCostUnknown)] = "Kosten unbekannt",
+        [nameof(ChartTipNoCostData)] = "keine Kostendaten",
+        [nameof(ChartTipSessionsFormat)] = "{0} Sitzungen",
 
         // ── Anomalieerkennung ──
         [nameof(AnomalyCostSpikeFormat)] = "Die heutigen Kosten sind {1:0.0}× des {0}-Tage-Durchschnitts",

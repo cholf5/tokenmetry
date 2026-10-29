@@ -115,14 +115,16 @@ public class DesignTokenTests
         ("AppTokenTypeCacheColor", "#38d6a4"),
     ];
 
-    /// <summary>全部新令牌键（冲突检测用）：主题画刷 + 卡片/填充渐变 + 系列色/类型色 Color/Brush
-    /// + 模型厂商 logo（I-033，ModelLogos.axaml）+ Agent 品牌 logo（I-034，AgentLogos.axaml）
-    /// 的 DrawingImage 键 + 界面图标（2026-10-24，Icons.axaml 的 AppIcon* StreamGeometry）。</summary>
+    /// <summary>全部新令牌键（冲突检测用）：主题画刷 + 卡片/填充渐变 + 全局字体（AppFontFamily）
+    /// + 系列色/类型色 Color/Brush + 模型厂商 logo（I-033，ModelLogos.axaml）+ Agent 品牌 logo
+    ///（I-034，AgentLogos.axaml）的 DrawingImage 键 + 界面图标（2026-10-24，Icons.axaml 的
+    /// AppIcon* StreamGeometry）。</summary>
     private static readonly string[] AllTokenKeys =
     [
         .. PaletteBrushes.Keys,
         "AppCardBackgroundBrush",
         "AppMiniFillBrush",
+        "AppFontFamily",
         .. SeriesColors.Select(s => s.Key),
         .. SeriesColors.Select(s => s.Key.Replace("Color", "Brush", StringComparison.Ordinal)),
         .. TokenTypeColors.Select(s => s.Key),
@@ -227,9 +229,38 @@ public class DesignTokenTests
     }
 
     [AvaloniaFact]
-    public void New_tokens_have_no_key_collision_with_semi_theme()
+    public void App_font_family_is_inter_and_inherits_into_window_content()
     {
-        // 用独立 SemiTheme 实例查询 Semi 自身资源：若撞名，App 资源会遮蔽 Semi 控件模板配色（方法同 I-026）。
+        // 字体基础（2026-10-29）：显式声明 Inter 取代平台默认字形。此前全仓零 FontFamily，
+        // Windows/macOS/Linux 各用各的系统字体；此用例锁住「令牌存在 + Window 样式真的把
+        // 它继承到文本框」两条，防止资源键改名/样式选择器失效后界面静默退回系统字体。
+        var app = Application.Current!;
+        Assert.True(app.TryGetResource("AppFontFamily", ThemeVariant.Light, out var value),
+            "缺少 AppFontFamily 资源（App.axaml）");
+        var family = Assert.IsType<FontFamily>(value);
+        Assert.Contains("Inter", family.ToString(), StringComparison.Ordinal);
+
+        var text = new TextBlock { Text = "tnum 0123456789" };
+        var numeric = new TextBlock { Classes = { "table-num" }, Text = "1,234" };
+        var window = new Window { Content = new StackPanel { Children = { text, numeric } } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.NotNull(text.FontFamily);
+        Assert.Contains("Inter", text.FontFamily.ToString(), StringComparison.Ordinal);
+
+        // 数值列开 tabular figures：FontFeatureCollection 解析 "tnum" 并落到 table-num 样式
+        var features = Avalonia.Controls.Documents.TextElement.GetFontFeatures(numeric);
+        Assert.NotNull(features);
+        Assert.Contains(features, f => f.Tag == "tnum");
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void New_tokens_have_no_key_collision_with_semi_theme()
+    {        // 用独立 SemiTheme 实例查询 Semi 自身资源：若撞名，App 资源会遮蔽 Semi 控件模板配色（方法同 I-026）。
         var semi = new Semi.Avalonia.SemiTheme();
 
         foreach (var key in AllTokenKeys)
@@ -321,6 +352,27 @@ public class DesignTokenTests
         Assert.True(item.IsPointerOver, "悬停应命中行容器");
         Assert.True(Application.Current!.TryGetResource("AppNavHoverBackgroundBrush", window.ActualThemeVariant, out var hover));
         Assert.Same(hover, item.Background);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Data_table_rows_select_with_nav_active_brush()
+    {
+        // 选中态覆盖（2026-10-29）：此前只定义了 hover，选中行落回 Semi 默认选中底色
+        //（与令牌不同源）。当前行 = 导航 active 档，hover 不得覆盖选中。
+        var listBox = new ListBox { Classes = { "data-table" }, ItemsSource = new[] { "a", "b" } };
+        var window = new Window { Width = 400, Height = 300, Content = listBox };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var item = Assert.IsType<ListBoxItem>(listBox.GetRealizedContainers().First());
+        item.IsSelected = true;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(Application.Current!.TryGetResource("AppNavActiveBackgroundBrush", window.ActualThemeVariant, out var active));
+        Assert.Same(active, item.Background);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

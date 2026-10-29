@@ -10,9 +10,13 @@
         刷新间隔 / 通知 / 关窗行为 / 开机自启动 / ccusage 命令）+ 本地路径（只读说明）。
         数据源 / 统计口径 / 模型目录 / 别名映射在数据与计价页（DataPricingView）。全部设置项全自动
         保存（改完即生效并落盘，无保存按钮——对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）。
+
+        2026-10-29 版式收敛：表单改成「标签列 + 控件列」两列（标签 setting-label、说明 setting-hint），
+        内容最大宽度 760——此前是 220px 控件贴左、标签与说明同款 muted 12px，右侧三分之二空白，
+        标签、控件与帮助文字没有层级。设置页的信息结构本身也是产品的一部分，不再沿用默认表单皮肤。
     -->
     <ScrollViewer Classes="page-root">
-        <StackPanel Spacing="13" Margin="0,0,0,4">
+        <StackPanel Spacing="13" Margin="0,0,0,4" MaxWidth="760" HorizontalAlignment="Left">
 
             <!-- 页头（原型 .pagehead） -->
             <StackPanel Spacing="4">
@@ -20,72 +24,81 @@
                 <TextBlock Classes="page-subtitle" Text="{Binding Page.Subtitle}"/>
             </StackPanel>
 
-            <!-- ═══ 外观与通用（既有设置项；全部设置项全自动保存：改完即生效并落盘）═══ -->
+            <!-- ═══ 外观与通用（全部设置项全自动保存：改完即生效并落盘）═══ -->
             <Border Classes="panel">
-                <StackPanel Spacing="12">
+                <StackPanel Spacing="16">
                     <TextBlock Classes="panel-title" Text="{Binding AppearanceTitle, Source={x:Static loc:Translations.Instance}}"/>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock Classes="page-subtitle" Text="{Binding LabelTheme, Source={x:Static loc:Translations.Instance}}"/>
-                        <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}"
-                                  Width="220" HorizontalAlignment="Left"
-                                  HorizontalContentAlignment="Stretch">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ThemeOption">
-                                    <TextBlock Text="{Binding Label}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                                   Text="{Binding ThemeHint, Source={x:Static loc:Translations.Instance}}"/>
-                    </StackPanel>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="14">
 
-                    <!-- 界面语言（zh/en/system；切换即时全局生效并落盘） -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Classes="page-subtitle" Text="{Binding LabelLanguage, Source={x:Static loc:Translations.Instance}}"/>
-                        <ComboBox ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}"
-                                  Width="220" HorizontalAlignment="Left"
-                                  HorizontalContentAlignment="Stretch">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:LanguageOption">
-                                    <TextBlock Text="{Binding Label}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                                   Text="{Binding LanguageHint, Source={x:Static loc:Translations.Instance}}"/>
-                    </StackPanel>
+                        <!-- 主题 -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Classes="setting-label"
+                                   Text="{Binding LabelTheme, Source={x:Static loc:Translations.Instance}}"/>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                            <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}"
+                                      Width="300" HorizontalAlignment="Left"
+                                      HorizontalContentAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ThemeOption">
+                                        <TextBlock Text="{Binding Label}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                       Text="{Binding ThemeHint, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock Classes="page-subtitle" Text="{Binding LabelRefreshInterval, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="1" Width="220"
-                                 HorizontalAlignment="Left"/>
-                        <!-- 全自动保存的行内校验：非法输入显示提示且不落盘（保留上一个合法值） -->
-                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                                   Text="{Binding RefreshMinutesError}"
-                                   Foreground="{DynamicResource AppAccentRedBrush}"
-                                   IsVisible="{Binding RefreshMinutesError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                                   Text="{Binding RefreshHint, Source={x:Static loc:Translations.Instance}}"/>
-                    </StackPanel>
+                        <!-- 界面语言（切换即时全局生效并落盘） -->
+                        <TextBlock Grid.Row="1" Grid.Column="0" Classes="setting-label"
+                                   Text="{Binding LabelLanguage, Source={x:Static loc:Translations.Instance}}"/>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                            <ComboBox ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}"
+                                      Width="300" HorizontalAlignment="Left"
+                                      HorizontalContentAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:LanguageOption">
+                                        <TextBlock Text="{Binding Label}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                       Text="{Binding LanguageHint, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock Classes="page-subtitle" Text="{Binding LabelCcusageCli, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBox Text="{Binding CcusageCommand}" PlaceholderText="ccusage" Width="320"
-                                 HorizontalAlignment="Left"/>
-                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
-                                   Text="{Binding CcusageHint, Source={x:Static loc:Translations.Instance}}"/>
-                    </StackPanel>
+                        <!-- 刷新间隔 -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Classes="setting-label"
+                                   Text="{Binding LabelRefreshInterval, Source={x:Static loc:Translations.Instance}}"/>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                            <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="1" Width="300"
+                                     HorizontalAlignment="Left"/>
+                            <!-- 全自动保存的行内校验：非法输入显示提示且不落盘（保留上一个合法值） -->
+                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                       Text="{Binding RefreshMinutesError}"
+                                       Foreground="{DynamicResource AppAccentRedBrush}"
+                                       IsVisible="{Binding RefreshMinutesError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                       Text="{Binding RefreshHint, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+
+                        <!-- ccusage CLI -->
+                        <TextBlock Grid.Row="3" Grid.Column="0" Classes="setting-label"
+                                   Text="{Binding LabelCcusageCli, Source={x:Static loc:Translations.Instance}}"/>
+                        <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
+                            <TextBox Text="{Binding CcusageCommand}" PlaceholderText="ccusage" Width="360"
+                                     HorizontalAlignment="Left"/>
+                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                       Text="{Binding CcusageHint, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </Grid>
 
                     <!-- Q-016：「启用异常通知」随 in-app toast 通道整体删除（日累计异常 × 分钟级刷新
                          = 整日轰炸，用户拍板删除；异常持续状态由弹层今日花费 KPI 徽标承载，Q-011）。
                          A-11 假开关红线同向适用：通道没了，开关必须一起走。 -->
-                    <!-- S-005：关窗行为（关窗=托盘常驻为 A-0 默认；消费者 = MainWindow.OnClosing 的关窗分派，
-                         开关关闭后点关闭按钮即退出进程） -->
+                    <!-- S-005：关窗行为（消费者 = MainWindow.OnClosing 的关窗分派） -->
                     <StackPanel Spacing="4">
                         <CheckBox Content="{Binding CheckMinimizeToTrayOnClose, Source={x:Static loc:Translations.Instance}}"
                                   IsChecked="{Binding MinimizeToTrayOnClose}"/>
-                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                        <TextBlock Classes="setting-hint" TextWrapping="Wrap" Margin="24,0,0,0"
                                    Text="{Binding CheckMinimizeToTrayOnCloseHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
 
@@ -93,7 +106,7 @@
                     <StackPanel Spacing="4">
                         <CheckBox Content="{Binding CheckAutoStartOnBoot, Source={x:Static loc:Translations.Instance}}"
                                   IsChecked="{Binding AutoStartOnBoot}"/>
-                        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                        <TextBlock Classes="setting-hint" TextWrapping="Wrap" Margin="24,0,0,0"
                                    Text="{Binding CheckAutoStartOnBootHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
                 </StackPanel>
@@ -103,12 +116,12 @@
             <Border Classes="panel">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="panel-title" Text="{Binding LocalPathsTitle, Source={x:Static loc:Translations.Instance}}"/>
-                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelCacheDb, Source={x:Static loc:Translations.Instance}}"/>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelCacheDb, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding CacheDbPath}" TextWrapping="Wrap"/>
                     </Grid>
-                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelSettingsFile, Source={x:Static loc:Translations.Instance}}"/>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelSettingsFile, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding SettingsFilePath}" TextWrapping="Wrap"/>
                     </Grid>
                 </StackPanel>
@@ -118,44 +131,47 @@
             <Border Classes="panel">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="panel-title" Text="{Binding AboutTitle, Source={x:Static loc:Translations.Instance}}"/>
-                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelCurrentVersion, Source={x:Static loc:Translations.Instance}}"/>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelCurrentVersion, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding UpdateAppVersion}"/>
                     </Grid>
-                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelCopyright, Source={x:Static loc:Translations.Instance}}"/>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelCopyright, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding AboutCopyright}"/>
                     </Grid>
-                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelLicense, Source={x:Static loc:Translations.Instance}}"/>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelLicense, Source={x:Static loc:Translations.Instance}}"/>
                         <!-- 许可名是专有名词不进 i18n（同 stupid-dict 的 "MIT"）；点击直达仓库 LICENSE 文件 -->
                         <HyperlinkButton Grid.Column="1" Padding="0" VerticalAlignment="Center"
                                          Content="GNU AGPL-3.0" NavigateUri="{Binding AboutLicenseUrl}"/>
                     </Grid>
-                    <Grid ColumnDefinitions="90,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Classes="page-subtitle" Text="{Binding LabelRepository, Source={x:Static loc:Translations.Instance}}"/>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelRepository, Source={x:Static loc:Translations.Instance}}"/>
                         <HyperlinkButton Grid.Column="1" Padding="0" VerticalAlignment="Center"
                                          Content="{Binding AboutRepositoryUrl}" NavigateUri="{Binding AboutRepositoryUrl}"/>
                     </Grid>
                     <!-- AGPL-3.0 §7(d)：交互界面显示 Appropriate Legal Notices 的「无担保」半句 -->
-                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
                                Text="{Binding AboutWarrantyHint, Source={x:Static loc:Translations.Instance}}"/>
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <Button Content="{Binding SettingsCheckUpdate, Source={x:Static loc:Translations.Instance}}"
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                        <Button Classes="app-btn"
+                                Content="{Binding SettingsCheckUpdate, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding CheckUpdateCommand}"/>
                         <!-- 发现新版本才亮出的一对出口：应用内直下（落「下载」文件夹 + 文件管理器显示）
                              与浏览器开 Release 页（逃生口）。 -->
-                        <Button Content="{Binding SettingsDownloadUpdate, Source={x:Static loc:Translations.Instance}}"
+                        <Button Classes="app-btn primary"
+                                Content="{Binding SettingsDownloadUpdate, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding DownloadUpdateCommand}"
                                 IsVisible="{Binding IsUpdateAvailable}"/>
-                        <Button Content="{Binding SettingsOpenReleasePage, Source={x:Static loc:Translations.Instance}}"
+                        <Button Classes="app-btn"
+                                Content="{Binding SettingsOpenReleasePage, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding OpenReleasePageCommand}"
                                 IsVisible="{Binding IsUpdateAvailable}"/>
                     </StackPanel>
-                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
                                Text="{Binding UpdateStatusText}"
                                IsVisible="{Binding UpdateStatusText, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
                                Text="{Binding AboutHint, Source={x:Static loc:Translations.Instance}}"/>
                 </StackPanel>
             </Border>

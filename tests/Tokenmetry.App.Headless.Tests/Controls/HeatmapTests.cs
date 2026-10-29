@@ -138,7 +138,7 @@ public class HeatmapTests
         // GetTip 返回 chart-tip 装饰的 ToolTip 实例，文案在 Content 里。
         var withValue = borders[0];
         var withValueTip = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(withValue));
-        Assert.Contains("10万 tok", (string)withValueTip.Content!);
+        Assert.Contains("10万 Token", (string)withValueTip.Content!);
         Assert.DoesNotContain("100,000", (string)withValueTip.Content!);
 
         // 补零格（HasData=false）：诚实"无数据"
@@ -196,7 +196,7 @@ public class HeatmapTests
 
             // zh 基线（同既有用例口径）：有数据格万档单位、补零格"无数据"
             var zhTip = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(CellBorders(heatmap)[0]));
-            Assert.Contains("10万 tok", (string)zhTip.Content!);
+            Assert.Contains("10万 Token", (string)zhTip.Content!);
             var zhPadded = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(CellBorders(heatmap)[5]));
             Assert.Contains("无数据", (string)zhPadded.Content!);
 
@@ -218,7 +218,7 @@ public class HeatmapTests
             Dispatcher.UIThread.RunJobs();
 
             var zhAgain = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(CellBorders(heatmap)[0]));
-            Assert.Contains("10万 tok", (string)zhAgain.Content!);
+            Assert.Contains("10万 Token", (string)zhAgain.Content!);
         }
         finally
         {

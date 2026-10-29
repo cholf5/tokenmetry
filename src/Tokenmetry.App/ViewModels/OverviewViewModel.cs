@@ -18,15 +18,32 @@ using Tokenmetry.Core.Models;
 namespace Tokenmetry.App.ViewModels;
 
 /// <summary>
+/// 环比指标的价值极性（颜色语义）：涨跌方向与「好/坏」分开表达。
+/// 成本越低越好、缓存命中占比越高越好；Tokens/会话数只是用量，涨跌本身没有好坏，
+/// 用中性色（不给绿/红暗示）。
+/// </summary>
+public enum KpiChangeValence
+{
+    /// <summary>中性指标（用量/会话数）：方向由箭头表达，颜色保持 muted。</summary>
+    Neutral,
+
+    /// <summary>越高越好（缓存命中占比）：↑ 绿 / ↓ 红。</summary>
+    HigherIsBetter,
+
+    /// <summary>越低越好（成本）：↓ 绿 / ↑ 红。</summary>
+    LowerIsBetter,
+}
+
+/// <summary>
 /// 单张 KPI 卡的展示模型（D-006）：主数值 + 环比箭头文案。不可变小对象，
 /// 由 <see cref="OverviewViewModel"/> 整体替换实例触发绑定刷新。
-/// 箭头颜色不落在数据上：视图经 <c>Classes.kpi-change-up/down/flat</c> 类绑定切换
-/// AppAccentGreenBrush（↑ 绿）/ AppAccentRedBrush（↓ 红）/ AppMutedTextBrush（→ 平），
-/// 明暗主题由 DynamicResource 兜底（对齐原型 .kpi-foot 的 .up/.down 色语义）。
+/// 颜色不落在数据方向上：<see cref="KpiChangeValence"/> 决定涨跌是「好」还是「坏」，
+/// 视图经 <c>Classes.kpi-change-good/bad/neutral</c> 切换 AppAccentGreen/Red/MutedText 令牌
+/// （明暗主题由 DynamicResource 兜底）。成本下降是好事——不能沿用「涨=绿、跌=红」的股票色。
 /// </summary>
 public sealed class KpiCardViewModel
 {
-    public KpiCardViewModel(string value, MetricChange change)
+    public KpiCardViewModel(string value, MetricChange change, KpiChangeValence valence = KpiChangeValence.Neutral)
     {
         Value = value;
         var arrow = change.Direction switch
@@ -42,9 +59,13 @@ public sealed class KpiCardViewModel
             ? Math.Abs(p).ToString("F1", CultureInfo.InvariantCulture) + "%"
             : change.Direction == ChangeDirection.Neutral ? "—" : "∞";
         ChangeText = $"{arrow} {percent}";
-        IsUp = change.Direction == ChangeDirection.Increase;
-        IsDown = change.Direction == ChangeDirection.Decrease;
-        IsFlat = change.Direction == ChangeDirection.Neutral;
+
+        // 方向 × 极性 → 颜色语义：中性指标永远 muted；有极性时「朝好的方向」为 Positive。
+        var hasSentiment = change.Direction != ChangeDirection.Neutral && valence != KpiChangeValence.Neutral;
+        var isGoodDirection = (change.Direction == ChangeDirection.Increase) == (valence == KpiChangeValence.HigherIsBetter);
+        IsPositive = hasSentiment && isGoodDirection;
+        IsNegative = hasSentiment && !isGoodDirection;
+        IsNeutral = !hasSentiment;
     }
 
     /// <summary>加载完成前的占位（诚实：未加载不冒充 0）。</summary>
@@ -56,11 +77,14 @@ public sealed class KpiCardViewModel
     /// <summary>环比文案（含箭头前缀，如 "↑ 23.6%"、"→ —"；上一周期为 0 → "↑ ∞"）。</summary>
     public string ChangeText { get; }
 
-    public bool IsUp { get; }
+    /// <summary>朝「更好」的方向（成本下降 / 缓存占比上升）→ 绿。</summary>
+    public bool IsPositive { get; }
 
-    public bool IsDown { get; }
+    /// <summary>朝「更差」的方向（成本上升 / 缓存占比下降）→ 红。</summary>
+    public bool IsNegative { get; }
 
-    public bool IsFlat { get; }
+    /// <summary>中性涨跌（用量/会话数）或无对比基准 → muted，不做好坏暗示。</summary>
+    public bool IsNeutral { get; }
 }
 
 /// <summary>
@@ -77,7 +101,9 @@ public sealed class DimensionRowViewModel
     {
         Rank = rank;
         Name = name;
-        TokensText = tokens.ToString("N0", CultureInfo.InvariantCulture);
+        // 预览表是汇总视图（不是逐条对账表）：紧凑格式与模型/项目页同源，10 位全量数字
+        // 在 76px 列里会被裁断（真实数据的十亿级 token 已经踩到）。
+        TokensText = TrendChart.FormatCompactTokens(tokens);
         ShareText = OverviewViewModel.FormatShare(tokenShare);
         BarValue = tokenShare is { } share ? Math.Clamp((double)(share * 100m), 0d, 100d) : 0d;
         DotBrush = dotBrush;
@@ -90,7 +116,7 @@ public sealed class DimensionRowViewModel
     /// <summary>展示名（项目维度为归一化名——歧义守卫下可能是原始路径；模型/Agent 为 Key）。</summary>
     public string Name { get; }
 
-    /// <summary>token 数千分位文案。</summary>
+    /// <summary>token 紧凑文案（万/亿或 K/M；与模型/项目统计页同口径，窄列不裁断）。</summary>
     public string TokensText { get; }
 
     /// <summary>占比文案（0..1 → "36.8%"；无基数 → "—"，不伪造 0%）。</summary>
@@ -297,19 +323,24 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
 
     private void ApplyKpi(UsageKpiResult kpi)
     {
-        // PreviousPeriod 为 null（如"全部时间"无界窗口）→ 平箭头 + "—"，不臆造对比
+        // PreviousPeriod 为 null（如"全部时间"无界窗口）→ 平箭头 + "—"，不臆造对比。
+        // 极性：用量/会话数中性（涨跌无好坏），成本越低越好，缓存命中越高越好。
         TokensCard = new KpiCardViewModel(
             TrendChart.FormatCompactTokens(kpi.TotalTokens),
-            kpi.PreviousPeriod?.TotalTokensChange ?? MetricChange.Neutral);
+            kpi.PreviousPeriod?.TotalTokensChange ?? MetricChange.Neutral,
+            KpiChangeValence.Neutral);
         CostCard = new KpiCardViewModel(
             FormatCost(kpi.Cost),
-            kpi.PreviousPeriod?.CostChange ?? MetricChange.Neutral);
+            kpi.PreviousPeriod?.CostChange ?? MetricChange.Neutral,
+            KpiChangeValence.LowerIsBetter);
         SessionsCard = new KpiCardViewModel(
             kpi.SessionCount.ToString("N0", CultureInfo.InvariantCulture),
-            kpi.PreviousPeriod?.SessionCountChange ?? MetricChange.Neutral);
+            kpi.PreviousPeriod?.SessionCountChange ?? MetricChange.Neutral,
+            KpiChangeValence.Neutral);
         CacheCard = new KpiCardViewModel(
             FormatShare(kpi.CacheReadShare),
-            kpi.PreviousPeriod?.CacheReadShareChange ?? MetricChange.Neutral);
+            kpi.PreviousPeriod?.CacheReadShareChange ?? MetricChange.Neutral,
+            KpiChangeValence.HigherIsBetter);
     }
 
     /// <summary>

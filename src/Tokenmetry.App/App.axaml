@@ -35,6 +35,11 @@
                      矢量图标，描边样式在 SharedStyles 的 Path.app-icon（2026-10-24 矢量图标化） -->
                 <ResourceInclude Source="avares://Tokenmetry.App/Styles/Icons.axaml" />
             </ResourceDictionary.MergedDictionaries>
+            <!-- 全局界面字体：Inter（Program.cs 的 WithInterFont 注册的嵌入字体）。
+                 此前全仓零 FontFamily 声明，字形随平台漂移（Windows=Segoe UI / macOS=SF）；
+                 显式声明后三平台拉丁字形一致，CJK 字形由系统回退字体补（Inter 无中文字形）。
+                 Window 级继承见 SharedStyles 的 Window 样式。 -->
+            <FontFamily x:Key="AppFontFamily">avares://Avalonia.Fonts.Inter/Assets#Inter</FontFamily>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

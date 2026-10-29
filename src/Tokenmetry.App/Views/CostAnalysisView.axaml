@@ -39,8 +39,10 @@
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <Border Classes="icon-chip"
                                     Background="{DynamicResource AppIconChipAmberBackgroundBrush}">
-                                <TextBlock Text="$"
-                                           Foreground="{DynamicResource AppIconChipAmberForegroundBrush}"/>
+                                <PathIcon Classes="app-icon"
+                                          Data="{StaticResource AppIconDollarCircle}"
+                                          Width="15" Height="15"
+                                          Foreground="{DynamicResource AppIconChipAmberForegroundBrush}"/>
                             </Border>
                             <TextBlock Classes="kpi-top" Text="{Binding KpiTotalCost, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -55,8 +57,10 @@
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <Border Classes="icon-chip"
                                     Background="{DynamicResource AppIconChipBlueBackgroundBrush}">
-                                <TextBlock Text="↓"
-                                           Foreground="{DynamicResource AppIconChipBlueForegroundBrush}"/>
+                                <PathIcon Classes="app-icon"
+                                          Data="{StaticResource AppIconArrowDown}"
+                                          Width="15" Height="15"
+                                          Foreground="{DynamicResource AppIconChipBlueForegroundBrush}"/>
                             </Border>
                             <TextBlock Classes="kpi-top" Text="{Binding KpiInputCostShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -73,8 +77,10 @@
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <Border Classes="icon-chip"
                                     Background="{DynamicResource AppIconChipPurpleBackgroundBrush}">
-                                <TextBlock Text="↑"
-                                           Foreground="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
+                                <PathIcon Classes="app-icon"
+                                          Data="{StaticResource AppIconArrowUp}"
+                                          Width="15" Height="15"
+                                          Foreground="{DynamicResource AppIconChipPurpleForegroundBrush}"/>
                             </Border>
                             <TextBlock Classes="kpi-top" Text="{Binding KpiOutputCostShare, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -132,10 +138,13 @@
                         ToolTip.Tip="{Binding UnpricedModelsTooltip}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="9">
+                            <!-- 缺价是数据质量风险：0 个 = 中性芯片，>0 = 琥珀警示（不再用成功绿） -->
                             <Border Classes="icon-chip"
-                                    Background="{DynamicResource AppIconChipGreenBackgroundBrush}">
-                                <TextBlock Text="?"
-                                           Foreground="{DynamicResource AppIconChipGreenForegroundBrush}"/>
+                                    Classes.neutral="{Binding !HasUnpricedModels}"
+                                    Classes.warn="{Binding HasUnpricedModels}">
+                                <PathIcon Classes="app-icon"
+                                          Data="{StaticResource AppIconCircleHelp}"
+                                          Width="15" Height="15"/>
                             </Border>
                             <TextBlock Classes="kpi-top" Text="{Binding KpiUnpriced, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                         </StackPanel>

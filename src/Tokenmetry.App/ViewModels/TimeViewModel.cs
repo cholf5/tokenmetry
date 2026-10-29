@@ -41,7 +41,7 @@ public sealed class TimeKpiCardViewModel
 /// <summary>
 /// D-021 星期分布单行（周一..周日固定七行）：星期名 + token 合计 + 占比 + bar 值。
 /// bar 口径同 <see cref="DimensionRowViewModel"/>：占窗口内全部 token 的百分比（0..100，
-/// ProgressBar.mini 直接消费）；行尾文案 = 千分位 tokens · 一位小数占比。
+/// ProgressBar.mini 直接消费）；行尾文案 = 紧凑 tokens（万/亿或 K/M）· 一位小数占比。
 /// </summary>
 public sealed class WeekdayUsageRowViewModel
 {
@@ -62,7 +62,7 @@ public sealed class WeekdayUsageRowViewModel
     /// <summary>bar 值 = 占 Σ token 百分比（0..100）。</summary>
     public double BarValue { get; }
 
-    /// <summary>行尾文案（"6,750 · 77.1%"，InvariantCulture）。</summary>
+    /// <summary>行尾文案（"6,750 · 77.1%" / "650万 · 77.1%"，紧凑格式与 KPI 同源）。</summary>
     public string ValueText { get; }
 }
 
@@ -390,7 +390,9 @@ public partial class TimeViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
                 labels[i],
                 byDayOfWeek[i],
                 share,
-                $"{byDayOfWeek[i].ToString("N0", CultureInfo.InvariantCulture)} · {share.ToString("F1", CultureInfo.InvariantCulture)}%"));
+                // 数字口径与 KPI/图表同源（紧凑格式：万/亿或 K/M；<1 万仍带千分位），
+                // 不再在同一页里混用 "520.6万 / 6,500,000 / 2.5M" 三种写法
+                $"{TrendChart.FormatCompactTokens(byDayOfWeek[i])} · {share.ToString("F1", CultureInfo.InvariantCulture)}%"));
         }
 
         var workweekShare = byDayOfWeek.Take(5).Sum() * 100.0 / total;

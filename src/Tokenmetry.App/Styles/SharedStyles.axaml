@@ -8,6 +8,13 @@
         规范见 docs/design/design-tokens.md。
     -->
 
+    <!-- 全局字体（AppFontFamily，Inter）：Window 级声明沿文本树继承，替代平台默认字形。
+         CJK 缺字形由系统回退字体补齐（Inter 不含中文），弹层（Flyout/ToolTip）自成视觉根，
+         必要时另行声明。 -->
+    <Style Selector="Window">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    </Style>
+
     <!-- 卡片表面 ← 原型 .kpi,.panel{background:linear-gradient(145deg,…);border:1px solid #22324a;border-radius:11px} -->
     <Style Selector="Border.card">
         <Setter Property="Background" Value="{DynamicResource AppCardBackgroundBrush}"/>
@@ -41,13 +48,15 @@
         <Setter Property="Foreground" Value="{DynamicResource AppKpiTitleBrush}"/>
     </Style>
 
-    <!-- KPI 主数值 ← 原型 .kpi-value{font-size:25px;font-weight:700;letter-spacing:-.6px;margin:8px 0 4px;white-space:nowrap} -->
+    <!-- KPI 主数值 ← 原型 .kpi-value{font-size:25px;font-weight:700;letter-spacing:-.6px;margin:8px 0 4px;white-space:nowrap}
+         数字开 tabular figures（tnum）：环比刷新时字形宽度稳定，KPI/表格右对齐列不跳动 -->
     <Style Selector="TextBlock.kpi-value">
         <Setter Property="FontSize" Value="25"/>
         <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="LetterSpacing" Value="-0.6"/>
         <Setter Property="Margin" Value="0,8,0,4"/>
         <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        <Setter Property="TextElement.FontFeatures" Value="tnum"/>
     </Style>
 
     <!-- KPI 脚注 ← 原型 .kpi-foot{font-size:11px;color=muted 变量} -->
@@ -56,17 +65,18 @@
         <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
     </Style>
 
-    <!-- KPI 环比箭头 ← 原型 .kpi-foot 的 .up=var green / .down=var red（D-006）。
-         颜色复用 :root 强调色令牌（AppAccentGreen/RedBrush 与 green/red 变量同源）；
-         箭头态经 Classes.kpi-change-up/down/flat 类绑定切换，平/无对比用 muted。
-         注意必须排在 kpi-foot 之后：同为单类选择器，后声明的 Foreground 覆盖脚注底色。 -->
-    <Style Selector="TextBlock.kpi-change-up">
+    <!-- KPI 环比颜色 ← 语义极性（KpiChangeValence，见 OverviewViewModel）：
+         good = 朝「更好」的方向（成本下降 / 缓存占比上升）；
+         bad = 朝「更差」的方向（成本上升 / 缓存占比下降）；
+         neutral = 用量/会话数这类中性指标——涨跌本身无好坏，只用箭头表达方向。
+         必须是单类选择器且排在 kpi-foot 之后：后声明的 Foreground 覆盖脚注底色。 -->
+    <Style Selector="TextBlock.kpi-change-good">
         <Setter Property="Foreground" Value="{DynamicResource AppAccentGreenBrush}"/>
     </Style>
-    <Style Selector="TextBlock.kpi-change-down">
+    <Style Selector="TextBlock.kpi-change-bad">
         <Setter Property="Foreground" Value="{DynamicResource AppAccentRedBrush}"/>
     </Style>
-    <Style Selector="TextBlock.kpi-change-flat">
+    <Style Selector="TextBlock.kpi-change-neutral">
         <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
     </Style>
 
@@ -81,6 +91,22 @@
     <!-- 页面副标题 ← 原型 .subtitle{color: muted 变量; font-size:12px} -->
     <Style Selector="TextBlock.page-subtitle">
         <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+    </Style>
+
+    <!-- 设置页表单标签/提示（S-004）：标签是标签（正文色 + SemiBold），提示是提示
+         （muted + 11px / 行高 17）——此前两者共用 page-subtitle，界面没有层级。 -->
+    <Style Selector="TextBlock.setting-label">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        <!-- 标签列定宽 132：长标签（"ccusage CLI（对账 / 手动导入）"、德语长词）折行而不是被裁 -->
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="LineHeight" Value="17"/>
+    </Style>
+    <Style Selector="TextBlock.setting-hint">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="LineHeight" Value="17"/>
         <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
     </Style>
 
@@ -100,14 +126,66 @@
         <Setter Property="Foreground" Value="{DynamicResource AppLinkBrush}"/>
     </Style>
 
+    <!-- 应用级按钮（数据与计价页 Rescan / Add model 等）：脱离 Semi 默认按钮皮肤（字号/底色/渐变
+         都不在该系统里），与卡片表面同源——AppPanelAlt 底 + AppLine 描边 + 正文色；primary 变体用
+         品牌蓝 + 恒白字。Semi 模板在 hover/pressed 伪类里直写 ContentPresenter 背景，必须逐态钉住
+         （同 filter-chip 配方），否则悬停会闪半透明主题色。 -->
+    <Style Selector="Button.app-btn">
+        <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppLineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Padding" Value="12,5"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+    </Style>
+    <Style Selector="Button.app-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+    </Style>
+    <Style Selector="Button.app-btn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+    </Style>
+    <Style Selector="Button.app-btn.primary">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBlueBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBlueBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppOnBrandForegroundBrush}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.app-btn.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppLinkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppOnBrandForegroundBrush}"/>
+    </Style>
+    <Style Selector="Button.app-btn.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBlueBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppOnBrandForegroundBrush}"/>
+    </Style>
+    <!-- 禁用态整体降透明：primary 的品牌蓝底不能看起来仍可点（如头像选择器未选图时的「确定」） -->
+    <Style Selector="Button.app-btn:disabled">
+        <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+
     <!-- chip 标签 ← 原型 .chip{padding:3px 7px;border-radius:5px;background:#1b2c44;color:#a8c8ff;font-size:10px}
-         用在 Border 上（TextBlock 无 CornerRadius），文字颜色经附加属性继承给子 TextBlock。 -->
+         用在 Border 上（TextBlock 无 CornerRadius），文字颜色经附加属性继承给子 TextBlock。
+         字号 10→11：chip 承载"未知/待确认价格"等状态词，10px 中文在 100% 缩放下笔画糊。 -->
     <Style Selector="Border.chip">
         <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
         <Setter Property="CornerRadius" Value="5"/>
         <Setter Property="Padding" Value="7,3"/>
         <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppChipTextBrush}"/>
-        <Setter Property="TextBlock.FontSize" Value="10"/>
+        <Setter Property="TextBlock.FontSize" Value="11"/>
+    </Style>
+
+    <!-- chip 语义变体（数据与计价页「统计口径」）：ok = 始终生效（绿软底），
+         muted = 未提供（中性退后）。复用图标芯片的既有软底令牌，不新增色值。 -->
+    <Style Selector="Border.chip.ok">
+        <Setter Property="Background" Value="{DynamicResource AppIconChipGreenBackgroundBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppIconChipGreenForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.chip.muted">
+        <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
     </Style>
 
     <!-- filter-chip（模型目录筛选）：Semi ToggleButton 收敛为 .chip 的小号标签观感，选中态用导航强调色 -->
@@ -160,6 +238,20 @@
     <Style Selector="Border.icon-chip > PathIcon.app-icon">
         <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <!-- 图标芯片状态变体（成本分析页「待确认价格」）：neutral = 无缺价，warn = 有缺价（琥珀警示）。
+         背景/前景成对给，明暗由令牌翻转；用状态类而不是就地绑色，避免视图里出现色彩分支。 -->
+    <Style Selector="Border.icon-chip.neutral">
+        <Setter Property="Background" Value="{DynamicResource AppIconChipNeutralBackgroundBrush}"/>
+    </Style>
+    <Style Selector="Border.icon-chip.neutral > PathIcon.app-icon">
+        <Setter Property="Foreground" Value="{DynamicResource AppIconChipNeutralForegroundBrush}"/>
+    </Style>
+    <Style Selector="Border.icon-chip.warn">
+        <Setter Property="Background" Value="{DynamicResource AppIconChipAmberBackgroundBrush}"/>
+    </Style>
+    <Style Selector="Border.icon-chip.warn > PathIcon.app-icon">
+        <Setter Property="Foreground" Value="{DynamicResource AppIconChipAmberForegroundBrush}"/>
     </Style>
 
     <!-- 界面矢量图标（Icons.axaml 的 AppIcon* StreamGeometry，lucide stroke 语义）：
@@ -566,6 +658,8 @@
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="TextAlignment" Value="Right"/>
         <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        <!-- tabular figures：右对齐数字列逐位对齐，刷新时宽度不抖动 -->
+        <Setter Property="TextElement.FontFeatures" Value="tnum"/>
     </Style>
     <!-- 表格空态 ← 原型 .empty{padding:20px;color:var muted;text-align:center} -->
     <Style Selector="TextBlock.table-empty">
@@ -596,6 +690,14 @@
     </Style>
     <Style Selector="ListBox.data-table ListBoxItem:pointerover">
         <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
+    </Style>
+    <!-- 选中态（行点击 = 下钻入口）：此前只定义了 hover，选中行落回 Semi 默认选中底色（与令牌不同源）。
+         选中是「当前行」而不是强调动作，底色取导航 active 档，hover 不覆盖选中。 -->
+    <Style Selector="ListBox.data-table ListBoxItem:selected">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+    </Style>
+    <Style Selector="ListBox.data-table ListBoxItem:selected:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
     </Style>
 
     <!-- 数据源表状态色（S-002，原型 .up 为绿色 / ● 部分数据 为橙色）：
@@ -732,6 +834,15 @@
     </Style>
     <Style Selector="ListBox.time-range-list ListBoxItem:pointerover">
         <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
+    </Style>
+    <!-- 当前档位 = 选中态：与导航同一组 active 令牌，不再落回 Semi 默认选中底色 -->
+    <Style Selector="ListBox.time-range-list ListBoxItem:selected">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
+    </Style>
+    <Style Selector="ListBox.time-range-list ListBoxItem:selected:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppNavActiveBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppNavActiveForegroundBrush}"/>
     </Style>
     <!-- 弹层分区隔线（档位清单 | 自定义日期 | 我的预设）：1px 令牌画刷，不硬编码色值 -->
     <Style Selector="Border.time-range-divider">

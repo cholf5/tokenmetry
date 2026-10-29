@@ -98,6 +98,11 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
     [ObservableProperty]
     private string _unpricedModelsTooltip = Translations.Instance.NoUnpricedModels;
 
+    /// <summary>是否存在缺价模型（驱动「待确认价格」卡片的警示态：>0 琥珀，=0 中性）。
+    /// 缺价是数据质量风险，不能用成功色（绿）表达。</summary>
+    [ObservableProperty]
+    private bool _hasUnpricedModels;
+
     /// <summary>未知成本说明行（估算总成本存在未知贡献时可见；D-010 口径的页面级说明）。</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasUnknownCostNote))]
@@ -174,6 +179,7 @@ public partial class CostViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
                 Translations.Instance.UnpricedCountFormat,
                 unpriced.Count.ToString("N0", CultureInfo.InvariantCulture));
             UnpricedModelsTooltip = BuildUnpricedTooltip(unpriced);
+            HasUnpricedModels = unpriced.Count > 0;
             LoadError = null;
         }
         catch (Exception ex)

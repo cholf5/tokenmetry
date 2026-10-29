@@ -220,7 +220,7 @@ public class DonutChartTests
 
         // zh-Hans 测试文化与 B-006 同口径：紧凑 token 值（万制）+ "tok" 后缀，非千分位全量
         var first = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(ToolTip.GetTip(paths[0]));
-        Assert.Contains("Claude Code: 360万 tok", (string)first.Content!);   // 3,600,000 → zh 万档
+        Assert.Contains("Claude Code: 360万 Token", (string)first.Content!);   // 3,600,000 → zh 万档
         Assert.DoesNotContain("3,600,000", (string)first.Content!);         // 气泡里放不下全量数字
 
         // 每段都挂了带装饰类的显式 ToolTip（ChartTooltips.Set / 类名 / SharedStyles 规则回归时任一会红）
@@ -251,7 +251,7 @@ public class DonutChartTests
             Dispatcher.UIThread.RunJobs();
             var zhTip = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(
                 ToolTip.GetTip(chart.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().First()));
-            Assert.Contains("Claude Code: 360万 tok", (string)zhTip.Content!);
+            Assert.Contains("Claude Code: 360万 Token", (string)zhTip.Content!);
 
             // zh → en：无数据变更，仅语言信号
             Translations.Instance.SetLanguage(AppLanguage.English);
@@ -268,7 +268,7 @@ public class DonutChartTests
             Dispatcher.UIThread.RunJobs();
             var zhAgain = Assert.IsAssignableFrom<Avalonia.Controls.ToolTip>(
                 ToolTip.GetTip(chart.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().First()));
-            Assert.Contains("Claude Code: 360万 tok", (string)zhAgain.Content!);
+            Assert.Contains("Claude Code: 360万 Token", (string)zhAgain.Content!);
         }
         finally
         {

@@ -439,6 +439,15 @@ public sealed partial class Translations
         // ── Элементы графиков ──
         [nameof(NoUsageInRange)] = "За этот период нет записей использования",
         [nameof(HeatmapNoDataTooltip)] = "{0} · нет данных",
+        [nameof(DonutCenterSubtitle)] = "Всего токенов",
+        [nameof(ChartTipIn)] = "ввод",
+        [nameof(ChartTipOut)] = "вывод",
+        [nameof(ChartTipTotal)] = "итого",
+        [nameof(ChartTipTokenUnit)] = "ток.",
+        [nameof(ChartTipNoDataZeroFilled)] = "нет данных (нули)",
+        [nameof(ChartTipCostUnknown)] = "стоимость неизвестна",
+        [nameof(ChartTipNoCostData)] = "нет данных о стоимости",
+        [nameof(ChartTipSessionsFormat)] = "сессий: {0}",
 
         // ── Обнаружение аномалий ──
         [nameof(AnomalyCostSpikeFormat)] = "Затраты сегодня — {1:0.0}× от среднего за {0} дн.",

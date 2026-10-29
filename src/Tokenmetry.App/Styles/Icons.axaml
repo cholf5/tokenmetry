@@ -77,5 +77,10 @@
     <StreamGeometry x:Key="AppIconCircleHelp">M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0 M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01</StreamGeometry>
     <!-- x -->
     <StreamGeometry x:Key="AppIconClose">M18 6 6 18 M6 6 l12 12</StreamGeometry>
+    <!-- arrow-up / arrow-down（成本分析页「输入成本占比 / 输出成本占比」卡，2026-10-29）：
+         替换原 ↓ / ↑ 文本字形（同 I-040 的字形回退问题）。lucide 1.61.0 同名图标路径，
+         生成器 ICONS 已登记；离线环境按生成规则落盘，联网重跑结果一致。 -->
+    <StreamGeometry x:Key="AppIconArrowUp">M5 12 l7-7 7 7 M12 19V5</StreamGeometry>
+    <StreamGeometry x:Key="AppIconArrowDown">M12 5v14 M19 12 l-7 7-7-7</StreamGeometry>
 
 </ResourceDictionary>

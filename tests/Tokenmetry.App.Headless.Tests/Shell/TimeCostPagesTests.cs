@@ -283,7 +283,7 @@ public class TimeCostPagesTests
         Assert.DoesNotContain(hourly.Hours, h => h.SessionCount == 2); // unknown 会话不在任何桶
         Assert.Contains("2 个会话缺少精确时间", host.Vm.UnknownNoteText);
         Assert.Contains("占 20.0%", host.Vm.UnknownNoteText);
-        Assert.Contains("1200 tokens 用量", host.Vm.UnknownNoteText);
+        Assert.Contains("1,200 tokens 用量", host.Vm.UnknownNoteText);
 
         // 页面可见性：渲染后标注文本出现在视觉树
         var texts = RenderAndGetTexts(new TimeAnalysisView { DataContext = host.Vm });
@@ -330,7 +330,7 @@ public class TimeCostPagesTests
         Assert.True(cells[2].HasData);
         Assert.Equal(1200, cells[2].Value);
 
-        Assert.Equal("2026-03-10 · 6750 tok", Heatmap.BuildCellTooltip(cells[0])); // B-006 为 token 数改紧凑单位口径
+        Assert.Equal("2026-03-10 · 6,750 Token", Heatmap.BuildCellTooltip(cells[0])); // B-006 为 token 数改紧凑单位口径
         Assert.Equal("2026-03-11 · 无数据", Heatmap.BuildCellTooltip(cells[1]));
     }
 

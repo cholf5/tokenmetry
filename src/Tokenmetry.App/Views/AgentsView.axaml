@@ -121,15 +121,17 @@
                     <TextBlock Classes="panel-title" Text="{Binding PanelAgentRanking, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                 </DockPanel>
 
-                <!-- 表头（列宽与行模板一致；数字列定宽右对齐，Agent 列星宽截断） -->
-                <Grid Grid.Row="1" ColumnDefinitions="1.5*,52,56,56,56,64,44" ColumnSpacing="6" Margin="0,0,0,2">
-                    <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThSessionCount, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThInputTokens, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="3" Classes="table-th" TextAlignment="Right" Text="{Binding ThOutputTokens, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="4" Classes="table-th" TextAlignment="Right" Text="{Binding ThTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="5" Classes="table-th" TextAlignment="Right" Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="6" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
+                <!-- 表头（列宽与行模板一致；数字列定宽右对齐，Agent 列星宽截断）。
+                     2026-10-29 界面修正：数字列按英文表头宽度放宽（"Input tok." 等 56px 下会被裁），表头允许换行；
+                     成本列改用短表头 ThCost（"估算成本"/"Estimated cost" 定宽列里放不下全称） -->
+                <Grid Grid.Row="1" ColumnDefinitions="1.5*,66,64,64,64,64,48" ColumnSpacing="6" Margin="0,0,0,2">
+                    <TextBlock Grid.Column="0" Classes="table-th" TextWrapping="Wrap" Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThSessionCount, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="2" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThInputTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="3" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThOutputTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="4" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="5" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThCost, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="6" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
                 </Grid>
 
                 <!-- 排行行（ListBox 虚拟化；SelectedAgent = 行点击跳会话页带该 Agent 筛选） -->
@@ -142,22 +144,23 @@
                             <Border BorderBrush="{DynamicResource AppLineBrush}"
                                     BorderThickness="0,1,0,0"
                                     Padding="0,8,0,2">
-                                <Grid ColumnDefinitions="1.5*,52,56,56,56,64,44" ColumnSpacing="6">
+                                <Grid ColumnDefinitions="1.5*,66,64,64,64,64,48" ColumnSpacing="6">
                                     <!-- Agent 列：品牌 logo（I-034，与模型明细行同口径；未覆盖的 Agent
-                                         回退散列字形）。原行序系列色圆点随 Agent logo 化退场 -->
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7"
-                                                VerticalAlignment="Center">
-                                        <Border Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
+                                         回退散列字形）。原行序系列色圆点随 Agent logo 化退场。
+                                         2026-10-29 界面修正：Grid(Auto,*) 约束名字列，长名不再压到会话数列 -->
+                                    <Grid Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="7"
+                                          VerticalAlignment="Center">
+                                        <Border Grid.Column="0" Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
                                                 ToolTip.Tip="{Binding Name}">
                                             <Panel>
                                                 <TextBlock Text="{Binding Glyph}"/>
                                                 <Image Classes="agent-logo"/>
                                             </Panel>
                                         </Border>
-                                        <TextBlock Classes="table-td" Text="{Binding Name}"
+                                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding Name}"
                                                    ToolTip.Tip="{Binding Name}"
                                                    TextTrimming="CharacterEllipsis"/>
-                                    </StackPanel>
+                                    </Grid>
                                     <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding SessionCountText}"
                                                VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding InputTokensText}"

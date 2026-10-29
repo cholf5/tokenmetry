@@ -465,6 +465,15 @@ public sealed partial class Translations : INotifyPropertyChanged
         // ── 图表控件（TrendChart / Heatmap / DonutChart）──
         [nameof(NoUsageInRange)] = "该时间范围内没有用量记录",
         [nameof(HeatmapNoDataTooltip)] = "{0} · 无数据",
+        [nameof(DonutCenterSubtitle)] = "总 Token",
+        [nameof(ChartTipIn)] = "输入",
+        [nameof(ChartTipOut)] = "输出",
+        [nameof(ChartTipTotal)] = "总量",
+        [nameof(ChartTipTokenUnit)] = "Token",
+        [nameof(ChartTipNoDataZeroFilled)] = "无数据（补零）",
+        [nameof(ChartTipCostUnknown)] = "成本未知",
+        [nameof(ChartTipNoCostData)] = "无成本数据",
+        [nameof(ChartTipSessionsFormat)] = "{0} 个会话",
 
         // ── 异常检测（DashboardViewModel → AnomalyDetected 事件 → 弹层 KPI 徽标；toast 通道 Q-016 删除）──
         [nameof(AnomalyCostSpikeFormat)] = "今日成本是过去 {0} 日均值的 {1:0.0} 倍",
@@ -821,6 +830,15 @@ public sealed partial class Translations : INotifyPropertyChanged
 
         [nameof(NoUsageInRange)] = "No usage records in this range",
         [nameof(HeatmapNoDataTooltip)] = "{0} · no data",
+        [nameof(DonutCenterSubtitle)] = "Total tokens",
+        [nameof(ChartTipIn)] = "in",
+        [nameof(ChartTipOut)] = "out",
+        [nameof(ChartTipTotal)] = "tot",
+        [nameof(ChartTipTokenUnit)] = "tok",
+        [nameof(ChartTipNoDataZeroFilled)] = "no data (zero-filled)",
+        [nameof(ChartTipCostUnknown)] = "cost unknown",
+        [nameof(ChartTipNoCostData)] = "no cost data",
+        [nameof(ChartTipSessionsFormat)] = "{0} sessions",
 
         [nameof(AnomalyCostSpikeFormat)] = "Today's cost is {1:0.0}× the {0}-day average",
 
@@ -1478,6 +1496,15 @@ public sealed partial class Translations : INotifyPropertyChanged
     // ── 图表控件 ──
     public string NoUsageInRange => Get();
     public string HeatmapNoDataTooltip => Get();
+    public string DonutCenterSubtitle => Get();
+    public string ChartTipIn => Get();
+    public string ChartTipOut => Get();
+    public string ChartTipTotal => Get();
+    public string ChartTipTokenUnit => Get();
+    public string ChartTipNoDataZeroFilled => Get();
+    public string ChartTipCostUnknown => Get();
+    public string ChartTipNoCostData => Get();
+    public string ChartTipSessionsFormat => Get();
 
     // ── 异常检测 ──
     public string AnomalyCostSpikeFormat => Get();

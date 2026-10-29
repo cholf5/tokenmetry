@@ -279,27 +279,29 @@ public class OverviewTests
             Projects = FixtureProjects,
         });
 
-        // 总 Token：紧凑格式（原型 "8.74M"；zh 基线为万档）+ ↑ 绿方向
+        // 总 Token：紧凑格式（原型 "8.74M"；zh 基线为万档）+ ↑ 方向；用量类指标无好坏 → 中性色
         Assert.Equal("874万", vm.TokensCard.Value);
         Assert.Equal("↑ 23.6%", vm.TokensCard.ChangeText);
-        Assert.True(vm.TokensCard.IsUp);
-        Assert.False(vm.TokensCard.IsDown);
-        Assert.False(vm.TokensCard.IsFlat);
+        Assert.True(vm.TokensCard.IsNeutral);
+        Assert.False(vm.TokensCard.IsPositive);
+        Assert.False(vm.TokensCard.IsNegative);
 
-        // 估算成本：已知成本两位小数；↓ 红
+        // 估算成本：已知成本两位小数；成本下降是好事 → 正向（绿），不是红
         Assert.Equal("$286.41", vm.CostCard.Value);
         Assert.Equal("↓ 18.2%", vm.CostCard.ChangeText);
-        Assert.True(vm.CostCard.IsDown);
+        Assert.True(vm.CostCard.IsPositive);
+        Assert.False(vm.CostCard.IsNegative);
 
-        // 会话数：千分位
+        // 会话数：千分位；用量类指标 → 中性
         Assert.Equal("412", vm.SessionsCard.Value);
         Assert.Equal("↑ 12.8%", vm.SessionsCard.ChangeText);
-        Assert.True(vm.SessionsCard.IsUp);
+        Assert.True(vm.SessionsCard.IsNeutral);
 
-        // 缓存读取占比：0..1 → 一位小数百分数；上一周期为 0 → 箭头有方向、百分比呈 "∞"（除数为 0 的如实表达）
+        // 缓存读取占比：0..1 → 一位小数百分数；上一周期为 0 → 箭头有方向、百分比呈 "∞"（除数为 0 的如实表达）。
+        // 缓存命中上升是好事 → 正向（绿）
         Assert.Equal("67.3%", vm.CacheCard.Value);
         Assert.Equal("↑ ∞", vm.CacheCard.ChangeText);
-        Assert.True(vm.CacheCard.IsUp);
+        Assert.True(vm.CacheCard.IsPositive);
 
         // 日序列与 Agent 段已装载；D-007 预览行已就位
         Assert.NotNull(vm.DailyPoints);
@@ -346,7 +348,7 @@ public class OverviewTests
         Assert.Equal("—", vm.CostCard.Value);
         Assert.Equal("—", vm.CacheCard.Value);
         Assert.Equal("→ —", vm.TokensCard.ChangeText);
-        Assert.True(vm.TokensCard.IsFlat);
+        Assert.True(vm.TokensCard.IsNeutral);
         Assert.Null(vm.LoadError);
     }
 
@@ -385,7 +387,7 @@ public class OverviewTests
         Assert.Null(stub.KpiFilters[^1].FromDay);
         Assert.Null(stub.KpiFilters[^1].ToDay);
         Assert.Equal("Codex", stub.KpiFilters[^1].Agent); // Agent 维度保留
-        Assert.True(vm.TokensCard.IsFlat);
+        Assert.True(vm.TokensCard.IsNeutral);
         Assert.Equal("→ —", vm.TokensCard.ChangeText);
     }
 
@@ -538,15 +540,16 @@ public class OverviewTests
             Assert.NotNull(ChartTestHelpers.FindTextBlock(window, "67.3%"));
             Assert.NotNull(ChartTestHelpers.FindTextBlock(window, "Claude Code")); // 环形图例行
 
-            // 环比箭头颜色经 Classes.kpi-change-* 类绑定切换（↑ 绿 / ↓ 红，回归防线）
+            // 环比颜色 = 语义极性（KpiChangeValence，回归防线）：
+            // 用量上升无好坏 → muted；成本下降是好事 → 绿（不再沿用「涨=绿、跌=红」的方向色）
             Assert.True(Application.Current!.TryGetResource("AppAccentGreenBrush", variant, out var green));
-            Assert.True(Application.Current!.TryGetResource("AppAccentRedBrush", variant, out var red));
+            Assert.True(Application.Current!.TryGetResource("AppMutedTextBrush", variant, out var muted));
             var upText = ChartTestHelpers.FindTextBlock(window, "↑ 23.6%");
             Assert.NotNull(upText);
-            Assert.Same(green, upText!.Foreground);
+            Assert.Same(muted, upText!.Foreground);
             var downText = ChartTestHelpers.FindTextBlock(window, "↓ 18.2%");
             Assert.NotNull(downText);
-            Assert.Same(red, downText!.Foreground);
+            Assert.Same(green, downText!.Foreground);
 
             var emptyText = ChartTestHelpers.FindTextBlock(window, "暂无数据");
             if (emptyText is not null)
@@ -569,7 +572,11 @@ public class OverviewTests
     {
         var vm = CreateVm(new StubQueryService { Kpi = new UsageKpiResult { Cost = AggregatedCost.Empty } });
         var window = CreateOverviewWindow(vm, ThemeVariant.Dark);
-        ChartTestHelpers.RenderFrame(window);
+        var frame = ChartTestHelpers.RenderFrame(window);
+
+        // 空态留档（同有数据用例）：首启扫描完成前 / 库内无数据的真实画面，用于目检
+        // 「坐标轴不露出 -10..10 默认坐标系、环形不重复"暂无数据"」这两条空态契约
+        ChartTestHelpers.SaveArchive(frame, ArchiveDir, "overview-empty-dark.png");
 
         // 全补零窗口：趋势图空态可见；KPI 如实 0 / "—"；环形空态（DonutChart 内建）
         var emptyText = ChartTestHelpers.FindTextBlock(window, "暂无数据");

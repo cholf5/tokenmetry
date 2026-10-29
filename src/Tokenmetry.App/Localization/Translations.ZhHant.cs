@@ -437,6 +437,15 @@ public sealed partial class Translations
         // ── 图表控件 ──
         [nameof(NoUsageInRange)] = "該時間範圍內沒有用量記錄",
         [nameof(HeatmapNoDataTooltip)] = "{0} · 無資料",
+        [nameof(DonutCenterSubtitle)] = "總 Token",
+        [nameof(ChartTipIn)] = "輸入",
+        [nameof(ChartTipOut)] = "輸出",
+        [nameof(ChartTipTotal)] = "總量",
+        [nameof(ChartTipTokenUnit)] = "Token",
+        [nameof(ChartTipNoDataZeroFilled)] = "無資料（補零）",
+        [nameof(ChartTipCostUnknown)] = "成本未知",
+        [nameof(ChartTipNoCostData)] = "無成本資料",
+        [nameof(ChartTipSessionsFormat)] = "{0} 個工作階段",
 
         // ── 异常检测 ──
         [nameof(AnomalyCostSpikeFormat)] = "今日成本是過去 {0} 日均值的 {1:0.0} 倍",
