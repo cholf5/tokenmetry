@@ -1,4 +1,4 @@
-namespace Tokenmetry.Infrastructure.Tests.CodexJsonl;
+﻿namespace Tokenmetry.Infrastructure.Tests.CodexJsonl;
 
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
@@ -391,6 +391,50 @@ public class CodexJsonlAdapterTests : IDisposable
         result.Roots.Should().BeEquivalentTo(new[] { Path.Combine(homeA, "sessions"), Path.Combine(homeB, "sessions") });
         result.Records.Should().HaveCount(2);
         result.Records.Select(record => record.SessionId).Should().BeEquivalentTo(["rollout-a", "rollout-b"]);
+    }
+
+    [Fact]
+    public async Task Applies_thread_settings_service_tier_to_following_usage()
+    {
+        var home = CreateTempHome();
+        WriteSessionFile(home, "sessions/2026/01/01/rollout-fast.jsonl",
+            """{"timestamp":"2026-01-01T10:00:00.000Z","type":"session_meta","payload":{"id":"s-fast","cwd":"/work","source":"cli"}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:01.000Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"service_tier":"priority"}}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:02.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"output_tokens":10,"total_tokens":1010},"last_token_usage":{"input_tokens":1000,"output_tokens":10,"total_tokens":1010}}}}""");
+
+        var result = await new CodexJsonlAdapter(configuredHome: home).ScanAsync();
+
+        var record = result.Records.Should().ContainSingle().Subject;
+        record.Speed.Should().Be(SpeedTier.Fast, "\"priority\" 是 fast 档的另一种写法");
+    }
+
+    [Fact]
+    public async Task Clears_the_tier_when_a_later_settings_event_is_unrecognized()
+    {
+        var home = CreateTempHome();
+        WriteSessionFile(home, "sessions/2026/01/01/rollout-tier.jsonl",
+            """{"timestamp":"2026-01-01T10:00:00.000Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"service_tier":"priority"}}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:01.000Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"service_tier":"turbo"}}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:02.000Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":5,"output_tokens":1,"total_tokens":6}}}}""");
+
+        var result = await new CodexJsonlAdapter(configuredHome: home).ScanAsync();
+
+        result.Records.Should().ContainSingle().Subject.Speed
+            .Should().Be(SpeedTier.Standard, "未知档位意味着档位变了，不能继承旧值（蓝本同语义）");
+    }
+
+    [Fact]
+    public async Task Keeps_the_previous_tier_when_a_settings_event_omits_it()
+    {
+        var home = CreateTempHome();
+        WriteSessionFile(home, "sessions/2026/01/01/rollout-keep.jsonl",
+            """{"timestamp":"2026-01-01T10:00:00.000Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"service_tier":"flex"}}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:01.000Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{}}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:02.000Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":5,"output_tokens":1,"total_tokens":6}}}}""");
+
+        var result = await new CodexJsonlAdapter(configuredHome: home).ScanAsync();
+
+        result.Records.Should().ContainSingle().Subject.Speed.Should().Be(SpeedTier.Flex);
     }
 
     public void Dispose()

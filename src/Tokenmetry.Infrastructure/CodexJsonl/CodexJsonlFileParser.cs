@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Infrastructure.Jsonl;
@@ -28,6 +28,9 @@ public partial class CodexJsonlFileParser
     public const string TurnContextMarker = "turn_context";
     public const string SessionMetaMarker = "session_meta";
 
+    /// <summary>Codex 在会话内切换服务档位的事件类型（`payload.type`）。</summary>
+    public const string ThreadSettingsType = "thread_settings_applied";
+
     /// <summary>
     /// 解析一个会话文件。<paramref name="sourceDir"/> 为该文件所属数据源目录（sessions/、
     /// archived_sessions/ 或 home 回退目录），会话 id 由相对该目录的路径推导。
@@ -46,7 +49,8 @@ public partial class CodexJsonlFileParser
         {
             if (!line.Contains(TokenCountMarker, StringComparison.Ordinal)
                 && !line.Contains(TurnContextMarker, StringComparison.Ordinal)
-                && !line.Contains(SessionMetaMarker, StringComparison.Ordinal))
+                && !line.Contains(SessionMetaMarker, StringComparison.Ordinal)
+                && !line.Contains(ThreadSettingsType, StringComparison.Ordinal))
             {
                 linesSkipped++;
                 continue;
@@ -124,6 +128,18 @@ public partial class CodexJsonlFileParser
         var payload = entry.Payload;
         if (payload is null)
         {
+            return;
+        }
+
+        if (payload.Type == ThreadSettingsType)
+        {
+            // 蓝本 parser.rs：事件里完全没有 service_tier 时“什么也没说”，旧档位保持；
+            // 有值但取值不认识时说明档位变了，按未知档位清空（不继承旧值）。
+            if (!string.IsNullOrEmpty(payload.ThreadSettings?.ServiceTier))
+            {
+                state.Speed = ParseSpeedTier(payload.ThreadSettings.ServiceTier);
+            }
+
             return;
         }
 
@@ -236,6 +252,7 @@ public partial class CodexJsonlFileParser
             // Codex 的 output_tokens 已含 reasoning 输出（蓝本仅将其作信息字段，不计价）。
             OutputTokens = (long)current.Output,
             CacheReadTokens = (long)cached,
+            Speed = state.Speed ?? SpeedTier.Standard,
             SourceFile = path,
         });
     }
@@ -268,6 +285,16 @@ public partial class CodexJsonlFileParser
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
 
+    /// <summary>与 codex parser.rs `codex_service_tier` 一致：default/standard → Standard，
+    /// fast/priority → Fast，flex → Flex，其它取值 → null（未知档位）。</summary>
+    private static SpeedTier? ParseSpeedTier(string value) => value switch
+    {
+        "default" or "standard" => SpeedTier.Standard,
+        "fast" or "priority" => SpeedTier.Fast,
+        "flex" => SpeedTier.Flex,
+        _ => null,
+    };
+
     private static Usage SubtractUsage(Usage current, Usage? previous)
     {
         var previousUsage = previous ?? default;
@@ -295,6 +322,9 @@ public partial class CodexJsonlFileParser
         public string? CurrentModel { get; set; }
 
         public string? ProjectPath { get; set; }
+
+        /// <summary>当前服务档位；null = 日志尚未给出（按 Standard 计价）。</summary>
+        public SpeedTier? Speed { get; set; }
     }
 
     // ---- 与 Codex 日志真实结构对应的内部 DTO ----
@@ -337,6 +367,15 @@ public partial class CodexJsonlFileParser
 
         [JsonPropertyName("model_name")]
         public string? ModelName { get; set; }
+
+        [JsonPropertyName("thread_settings")]
+        public ThreadSettingsDto? ThreadSettings { get; set; }
+    }
+
+    internal sealed class ThreadSettingsDto
+    {
+        [JsonPropertyName("service_tier")]
+        public string? ServiceTier { get; set; }
     }
 
     internal sealed class InfoDto
