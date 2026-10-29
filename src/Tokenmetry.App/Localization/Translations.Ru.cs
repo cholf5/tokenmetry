@@ -202,6 +202,7 @@ public sealed partial class Translations
         [nameof(LocalPathsTitle)] = "Локальные пути",
         [nameof(LabelCacheDb)] = "База кэша",
         [nameof(LabelSettingsFile)] = "Файл настроек",
+        [nameof(SettingsOpenDataFolder)] = "Открыть в файловом менеджере",
         [nameof(AboutTitle)] = "О программе",
         [nameof(LabelCurrentVersion)] = "Версия",
         [nameof(LabelCopyright)] = "Авторские права",

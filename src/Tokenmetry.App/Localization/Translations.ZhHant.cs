@@ -200,6 +200,7 @@ public sealed partial class Translations
         [nameof(LocalPathsTitle)] = "本機路徑",
         [nameof(LabelCacheDb)] = "快取資料庫",
         [nameof(LabelSettingsFile)] = "設定檔",
+        [nameof(SettingsOpenDataFolder)] = "在檔案管理員中開啟",
         [nameof(AboutTitle)] = "關於",
         [nameof(LabelCurrentVersion)] = "目前版本",
         [nameof(LabelCopyright)] = "版權",

@@ -7,7 +7,7 @@
 
     <!--
         S-004 设置页（自 S-002 合并页拆出后收缩为应用偏好）：外观与通用（主题三态 / 界面语言 /
-        刷新间隔 / 关窗行为 / 开机自启动）+ 本地路径（只读说明）。
+        刷新间隔 / 关窗行为 / 开机自启动）+ 本地路径（只读说明 + 在文件管理器中打开）。
         数据源 / 统计口径 / 模型目录 / 别名映射在数据与计价页（DataPricingView）。全部设置项全自动
         保存（改完即生效并落盘，无保存按钮——对齐 stupid-dict；刷新间隔非法输入用行内提示兜住不落盘）。
 
@@ -102,17 +102,26 @@
                 </StackPanel>
             </Border>
 
-            <!-- ═══ 本地路径（只读说明）═══ -->
+            <!-- ═══ 本地路径（只读说明 + 一个「打开目录」出口）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="8">
-                    <TextBlock Classes="panel-title" Text="{Binding LocalPathsTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <!-- 标题行右侧一个按钮：两个文件同目录，打开目录一个动作就够（不每行配一个）。
+                         只读语义不变——不提供更改数据目录。 -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Classes="panel-title" VerticalAlignment="Center"
+                                   Text="{Binding LocalPathsTitle, Source={x:Static loc:Translations.Instance}}"/>
+                        <Button Grid.Column="1" Classes="app-btn" VerticalAlignment="Center"
+                                Content="{Binding SettingsOpenDataFolder, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding OpenDataFolderCommand}"/>
+                    </Grid>
                     <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
                         <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelCacheDb, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding CacheDbPath}" TextWrapping="Wrap"/>
+                        <!-- SelectableTextBlock：路径要能选中复制（只读说明区且失败时靠它自取路径） -->
+                        <SelectableTextBlock Grid.Column="1" Classes="table-td" Text="{Binding CacheDbPath}" TextWrapping="Wrap"/>
                     </Grid>
                     <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
                         <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelSettingsFile, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding SettingsFilePath}" TextWrapping="Wrap"/>
+                        <SelectableTextBlock Grid.Column="1" Classes="table-td" Text="{Binding SettingsFilePath}" TextWrapping="Wrap"/>
                     </Grid>
                 </StackPanel>
             </Border>

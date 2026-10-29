@@ -34,14 +34,44 @@ public class SettingsPageTests
     /// <summary>截图留档目录（验证时传 docs/design）；未设置时跳过留档，只断言可渲染。</summary>
     private static string? ArchiveDir => Environment.GetEnvironmentVariable("TOKENMETRY_SETTINGS_PREVIEW_DIR");
 
-    private static SettingsViewModel CreateViewModel(FakeAutoStartManager? autoStartManager = null)
+    private static SettingsViewModel CreateViewModel(FakeAutoStartManager? autoStartManager = null,
+        Action<string>? openDataFolder = null)
     {
         return new SettingsViewModel(
             new AppSettings(),
             new AppPaths(Path.Combine(Path.GetTempPath(), "ccusage-settings-tests")),
             new JsonAppSettingsStore(new AppPaths(Path.Combine(Path.GetTempPath(), "ccusage-settings-tests"))),
             new ThemeService(),
-            autoStartManager ?? new FakeAutoStartManager());
+            autoStartManager ?? new FakeAutoStartManager(),
+            openDataFolderOverride: openDataFolder);
+    }
+
+    [AvaloniaFact]
+    public void Local_paths_panel_opens_data_directory_and_keeps_paths_selectable()
+    {
+        // 本地路径区从「只能看」补上出口：标题行右侧一个打开按钮（目标 = 两文件共同目录）、
+        // 两行路径改为可选中（原先裸 TextBlock 连复制都做不到）。打开动作注入记录器，不真弹 Finder。
+        string? opened = null;
+        var vm = CreateViewModel(openDataFolder: path => opened = path);
+        var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var selectableTexts = window.GetVisualDescendants().OfType<SelectableTextBlock>()
+            .Select(t => t.Text).ToList();
+        Assert.Contains(vm.CacheDbPath, selectableTexts);
+        Assert.Contains(vm.SettingsFilePath, selectableTexts);
+
+        var openButton = window.GetVisualDescendants().OfType<Button>()
+            .Single(b => b.Content as string == Translations.Instance.SettingsOpenDataFolder);
+        Assert.NotNull(openButton.Command);
+        openButton.Command!.Execute(openButton.CommandParameter);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(vm.AppDataDirectory, opened);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]

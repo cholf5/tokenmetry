@@ -200,6 +200,7 @@ public sealed partial class Translations
         [nameof(LocalPathsTitle)] = "ローカルパス",
         [nameof(LabelCacheDb)] = "キャッシュデータベース",
         [nameof(LabelSettingsFile)] = "設定ファイル",
+        [nameof(SettingsOpenDataFolder)] = "ファイルマネージャーで開く",
         [nameof(AboutTitle)] = "アプリ情報",
         [nameof(LabelCurrentVersion)] = "現在のバージョン",
         [nameof(LabelCopyright)] = "著作権",

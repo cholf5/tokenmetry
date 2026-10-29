@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -133,7 +131,8 @@ public sealed class UpdateDownloadService
         }
     }
 
-    /// <summary>在文件管理器中显示已下载的文件（best-effort：失败只打诊断，不打断主流程）。</summary>
+    /// <summary>在文件管理器中显示已下载的文件（best-effort：失败只打诊断，不打断主流程）。
+    /// 平台分支集中在 <see cref="Services.ShellLauncher"/>（与设置页「打开数据目录」共用一份方言）。</summary>
     public void Reveal(string filePath)
     {
         if (_revealOverride is { } reveal)
@@ -142,31 +141,6 @@ public sealed class UpdateDownloadService
             return;
         }
 
-        try
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                // explorer 对参数自己做解析（不用标准引号规则），/select,"path" 必须拼成单串。
-                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"")
-                {
-                    UseShellExecute = true,
-                });
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                Process.Start(new ProcessStartInfo("open", $"-R \"{filePath}\"") { UseShellExecute = true });
-            }
-            else
-            {
-                Process.Start(new ProcessStartInfo("xdg-open", Path.GetDirectoryName(filePath)!)
-                {
-                    UseShellExecute = true,
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"[Tokenmetry] 文件管理器显示更新包失败（{filePath}）：{ex.Message}");
-        }
+        Services.ShellLauncher.RevealFile(filePath);
     }
 }

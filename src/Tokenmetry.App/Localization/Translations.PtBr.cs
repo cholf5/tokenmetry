@@ -200,6 +200,7 @@ public sealed partial class Translations
         [nameof(LocalPathsTitle)] = "Caminhos locais",
         [nameof(LabelCacheDb)] = "Banco de dados de cache",
         [nameof(LabelSettingsFile)] = "Arquivo de configurações",
+        [nameof(SettingsOpenDataFolder)] = "Mostrar no gerenciador de arquivos",
         [nameof(AboutTitle)] = "Sobre",
         [nameof(LabelCurrentVersion)] = "Versão",
         [nameof(LabelCopyright)] = "Copyright",
