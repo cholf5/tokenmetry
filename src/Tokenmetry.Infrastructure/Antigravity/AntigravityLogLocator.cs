@@ -1,4 +1,4 @@
-using Tokenmetry.Infrastructure.Jsonl;
+﻿using Tokenmetry.Infrastructure.Jsonl;
 using Tokenmetry.Infrastructure.JsonSource;
 
 namespace Tokenmetry.Infrastructure.Antigravity;
@@ -53,11 +53,19 @@ public class AntigravityLogLocator
     /// </summary>
     public IReadOnlyList<string> CollectConversationDatabasePaths(string? configuredDataDir)
     {
-        var roots = ResolveRoots(configuredDataDir);
+        var (roots, isCustomRoot) = ResolveRootsWithOrigin(configuredDataDir);
         var paths = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var root in roots)
         {
+            // 默认根必须含 conversations/：否则新装环境根目录只有 conversation_summaries.db，
+            // 会被当会话库读成 no such table: gen_metadata。自定义根（ANTIGRAVITY_DATA_DIR /
+            // 显式配置）保留回退——它可以是数据根，也可以直接就是会话目录本身。
+            if (!isCustomRoot && !Directory.Exists(Path.Combine(root, ConversationsDirectoryName)))
+            {
+                continue;
+            }
+
             var files = new List<string>();
             SourceFileCollector.Collect(ConversationDirectory(root), "db", files);
             foreach (var file in files)
@@ -80,6 +88,10 @@ public class AntigravityLogLocator
     /// 即只用配置根（逗号分隔、去空白、空段丢弃、无存在性过滤）；否则主目录下六默认根按序。
     /// </summary>
     public IReadOnlyList<string> ResolveRoots(string? configuredDataDir)
+        => ResolveRootsWithOrigin(configuredDataDir).Roots;
+
+    /// <summary>根解析 + 是否来自自定义配置（蓝本 resolve_roots 的 `(Vec<PathBuf>, bool)`）。</summary>
+    private (IReadOnlyList<string> Roots, bool IsCustomRoot) ResolveRootsWithOrigin(string? configuredDataDir)
     {
         var raw = configuredDataDir ?? _getEnvironmentVariable(DataDirEnvironmentVariable);
         if (raw is not null)
@@ -96,17 +108,17 @@ public class AntigravityLogLocator
                 roots.Add(Path.GetFullPath(JsonlHomePath.ExpandHomePath(trimmed, _getEnvironmentVariable)));
             }
 
-            return roots;
+            return (roots, true);
         }
 
         if (JsonlHomePath.GetHomeDir(_getEnvironmentVariable) is not { } home)
         {
-            return [];
+            return ([], false);
         }
 
-        return DefaultHomeRoots
+        return (DefaultHomeRoots
             .Select(relative => Path.GetFullPath(Path.Combine(home, relative)))
-            .ToList();
+            .ToList(), false);
     }
 
     /// <summary>会话目录（蓝本 conversation_dir）：&lt;root&gt;/conversations 存在即用它，否则根本身。</summary>
