@@ -1,4 +1,4 @@
-namespace Tokenmetry.Infrastructure.Tests.KimiCode;
+﻿namespace Tokenmetry.Infrastructure.Tests.KimiCode;
 
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
@@ -335,11 +335,11 @@ public class KimiCodeAdapterTests : IDisposable
     }
 
     [Fact]
-    public async Task Default_display_model_stays_unpriced_candidate_pricing_debt()
+    public async Task Default_display_model_prices_against_the_dated_moonshot_model()
     {
-        // 蓝本对缺省模型 kimi-for-coding 按时间戳选 moonshot/kimi-k2.5|k2.6 定价档（calculate_kimi_cost
-        // model_candidates）；仓库口径不做适配器级候选计价（I-024 欠账）——显示模型保持原名，成本记 0
-        // fail-loud（真实含缺省模型数据会在对账成本分量上响亮失败）。
+        // 蓝本对缺省模型 kimi-for-coding 按时间戳选 moonshot/kimi-k2.5|k2.6 定价档
+        // （calculate_kimi_cost model_candidates）。1770983427 秒早于切点 → k2.5：
+        // 100×$0.6/M + 50×$3/M = 0.00021，显示名保持 kimi-for-coding。
         var root = CreateTempDataDir();
         WriteWire(root, "sessions/group/session-a/wire.jsonl",
             """{"timestamp":1770983427,"message":{"type":"StatusUpdate","payload":{"token_usage":{"input_other":100,"output":50}}}}""");
@@ -349,8 +349,47 @@ public class KimiCodeAdapterTests : IDisposable
 
         var record = result.Records.Should().ContainSingle().Subject;
         record.Model.Should().Be("kimi-for-coding", "蓝本 DEFAULT_MODEL 显示名不变");
-        engine.PriceRecord(record).Source.Should().Be(PricingSourceKind.Missing);
-        engine.GetUnpricedModels().Should().Contain(info => info.Model == "kimi-for-coding");
+        var priced = engine.PriceRecord(record);
+        priced.Source.Should().Be(PricingSourceKind.Snapshot);
+        priced.CostUsd.Should().Be(0.00021m);
+        engine.GetUnpricedModels().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Kimi_for_coding_prices_against_the_dated_moonshot_model()
+    {
+        var beforeCutoff = CreateTempDataDir();
+        WriteWire(beforeCutoff, "sessions/group/session-a/wire.jsonl",
+            """{"type":"usage.record","model":"kimi-for-coding","usage":{"inputOther":1000,"output":100},"usageScope":"turn","time":1770983427123}""");
+
+        var afterCutoff = CreateTempDataDir();
+        WriteWire(afterCutoff, "sessions/group/session-a/wire.jsonl",
+            """{"type":"usage.record","model":"kimi-for-coding","usage":{"inputOther":1000,"output":100},"usageScope":"turn","time":1782113184943}""");
+
+        var before = (await CreateAdapter(beforeCutoff).ScanAsync()).Records.Single();
+        var after = (await CreateAdapter(afterCutoff).ScanAsync()).Records.Single();
+
+        before.Pricing!.ModelCandidates[0].Should().Be("moonshot/kimi-k2.5", "切点之前按 k2.5 计价");
+        after.Pricing!.ModelCandidates[0].Should().Be("moonshot/kimi-k2.6", "切点及之后按 k2.6 计价");
+        before.Pricing.ModelCandidates.Should().Equal(
+            "moonshot/kimi-k2.5", "moonshot/kimi-for-coding", "kimi/kimi-for-coding", "kimi-for-coding");
+        before.Model.Should().Be("kimi-for-coding", "展示口径不变");
+
+        var engine = new PricingEngine();
+        engine.PriceRecord(before).CostUsd.Should().NotBeNull("候选链第 0 位就该命中内置快照");
+        engine.GetUnpricedModels().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Explicit_models_keep_the_provider_candidate_chain()
+    {
+        var root = CreateTempDataDir();
+        WriteWire(root, "sessions/group/session-a/wire.jsonl",
+            """{"type":"usage.record","model":"kimi-code/kimi-k2.5","usage":{"inputOther":1000,"output":100},"usageScope":"turn","time":1782113184943}""");
+
+        var record = (await CreateAdapter(root).ScanAsync()).Records.Single();
+
+        record.Pricing!.ModelCandidates.Should().Equal("moonshot/kimi-k2.5", "kimi/kimi-k2.5", "kimi-k2.5");
     }
 
     // ---- helpers ----
