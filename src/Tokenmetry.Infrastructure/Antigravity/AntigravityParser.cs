@@ -1,4 +1,4 @@
-﻿using Tokenmetry.Infrastructure.JsonSource;
+using Tokenmetry.Infrastructure.JsonSource;
 using Tokenmetry.Infrastructure.SqliteSource;
 using Microsoft.Data.Sqlite;
 

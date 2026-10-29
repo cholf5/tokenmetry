@@ -1,4 +1,4 @@
-﻿using Tokenmetry.Infrastructure.Jsonl;
+using Tokenmetry.Infrastructure.Jsonl;
 
 namespace Tokenmetry.Infrastructure.CodexJsonl;
 

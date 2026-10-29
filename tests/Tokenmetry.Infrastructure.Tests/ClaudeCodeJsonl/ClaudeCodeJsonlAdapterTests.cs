@@ -1,4 +1,4 @@
-﻿namespace Tokenmetry.Infrastructure.Tests.ClaudeCodeJsonl;
+namespace Tokenmetry.Infrastructure.Tests.ClaudeCodeJsonl;
 
 using Tokenmetry.Core.Models;
 using Tokenmetry.Infrastructure.ClaudeCodeJsonl;

@@ -1,4 +1,4 @@
-﻿namespace Tokenmetry.Infrastructure.Tests.KimiCode;
+namespace Tokenmetry.Infrastructure.Tests.KimiCode;
 
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;

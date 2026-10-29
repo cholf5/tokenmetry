@@ -1,4 +1,4 @@
-﻿namespace Tokenmetry.Core.Tests.Services;
+namespace Tokenmetry.Core.Tests.Services;
 
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
