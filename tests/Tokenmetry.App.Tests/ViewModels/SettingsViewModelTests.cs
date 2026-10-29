@@ -32,6 +32,23 @@ public class SettingsViewModelTests
         viewModel.SettingsFilePath.Should().Be(System.IO.Path.Combine(paths.AppDataDirectory, "settings.json"));
     }
 
+    // ---- 本地路径区「打开目录」出口（S-007）：显示路径的用途就是去看/备份/排障，动作必须一步可达 ----
+
+    [Fact]
+    public void OpenDataFolder_invokes_launcher_with_app_data_directory()
+    {
+        // 按钮目标 = 两个文件共同的所在目录（缓存库与设置文件同目录，不每行配一个按钮）。
+        string? opened = null;
+        var paths = new AppPaths("C:\\Users\\tester\\AppData\\Local\\Tokenmetry");
+        var viewModel = CreateViewModel(new AppSettings(), paths, new FakeSettingsStore(),
+            openDataFolder: path => opened = path);
+
+        viewModel.AppDataDirectory.Should().Be(paths.AppDataDirectory);
+        viewModel.OpenDataFolderCommand.Execute(null);
+
+        opened.Should().Be(paths.AppDataDirectory);
+    }
+
     // ---- I-041：关于区法律信息行的单一出处接线（版权 = 程序集属性 / URL = UpdateAssets）----
     // 断言语言无关（不断言中文/英文文案）；<Copyright> 被从 Directory.Build.props 删掉时这里抓到空串。
 
@@ -359,7 +376,8 @@ public class SettingsViewModelTests
         FakeSettingsStore store,
         IThemeService? themeService = null,
         FakeAutoStartManager? autoStartManager = null,
-        Tokenmetry.App.Update.UpdateService? updateService = null)
+        Tokenmetry.App.Update.UpdateService? updateService = null,
+        Action<string>? openDataFolder = null)
     {
         return new SettingsViewModel(
             settings,
@@ -367,7 +385,8 @@ public class SettingsViewModelTests
             store,
             themeService ?? new FakeThemeService(),
             autoStartManager ?? new FakeAutoStartManager(),
-            updateService);
+            updateService,
+            openDataFolder);
     }
 
     private sealed class FakeThemeService : IThemeService

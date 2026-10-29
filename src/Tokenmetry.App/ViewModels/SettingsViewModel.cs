@@ -103,6 +103,9 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly IAutoStartManager _autoStartManager;
     private readonly UpdateService _updateService;
 
+    /// <summary>「打开数据目录」的系统出口（生产 = <see cref="ShellLauncher.OpenFolder"/>；测试注入记录器）。</summary>
+    private readonly Action<string> _openDataFolder;
+
     /// <summary>自动保存串行化 gate：文本框逐键触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
 
@@ -142,15 +145,18 @@ public partial class SettingsViewModel : ViewModelBase
         IAppSettingsStore store,
         IThemeService themeService,
         IAutoStartManager autoStartManager,
-        UpdateService? updateService = null)
+        UpdateService? updateService = null,
+        Action<string>? openDataFolderOverride = null)
     {
         _settings = settings;
         _store = store;
         _themeService = themeService;
         ArgumentNullException.ThrowIfNull(autoStartManager);
         _autoStartManager = autoStartManager;
+        AppDataDirectory = paths.AppDataDirectory;
         CacheDbPath = paths.CacheDbPath;
         SettingsFilePath = paths.SettingsFilePath;
+        _openDataFolder = openDataFolderOverride ?? ShellLauncher.OpenFolder;
         _refreshMinutesText = settings.RefreshMinutes.ToString();
         _minimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
         _autoStartOnBoot = settings.AutoStartOnBoot;
@@ -168,6 +174,9 @@ public partial class SettingsViewModel : ViewModelBase
 
     public string CacheDbPath { get; }
     public string SettingsFilePath { get; }
+
+    /// <summary>两个文件共同的所在目录（「本地路径」区打开按钮的目标；缓存库与设置文件同目录）。</summary>
+    public string AppDataDirectory { get; }
 
     /// <summary>「关于」区展示的当前版本，与更新检查同源（csproj &lt;Version&gt; → 程序集版本）。</summary>
     public string UpdateAppVersion => UpdateChecker.CurrentVersion.TrimStart('v');
@@ -223,6 +232,15 @@ public partial class SettingsViewModel : ViewModelBase
     /// <summary>打开这次检查发现的 Release 页（浏览器；失败静默诊断——按钮之外托盘菜单同一出口）。</summary>
     [RelayCommand]
     private void OpenReleasePage() => _updateService.OpenReleasePage();
+
+    /// <summary>
+    /// 「本地路径」区的打开按钮：在文件管理器中打开数据目录。这个面板本来就只为「去文件系统里看一眼」
+    /// 而存在（备份数据库 / 排障 / 亲自核对库里没有会话内容），显示路径是手段，打开目录才是终点——
+    /// 少这一步，用户只能照着屏幕抄路径。best-effort：失败只打诊断（ShellLauncher 内 catch），不弹框。
+    /// 不提供「更改数据目录」：库路径固定，换目录会牵出迁移 / 权限 / 双实例一致性问题。
+    /// </summary>
+    [RelayCommand]
+    private void OpenDataFolder() => _openDataFolder(AppDataDirectory);
 
     /// <summary>把 UpdateService 当前状态翻译成状态行文案（检查/下载命令完成后与构造时各调一次）。</summary>
     private void RefreshUpdateStatusFromState()

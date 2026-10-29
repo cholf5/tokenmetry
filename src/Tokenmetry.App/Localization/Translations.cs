@@ -225,6 +225,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(LocalPathsTitle)] = "本地路径",
         [nameof(LabelCacheDb)] = "缓存数据库",
         [nameof(LabelSettingsFile)] = "设置文件",
+        [nameof(SettingsOpenDataFolder)] = "在文件管理器中打开",
         // I-039 关于区（版本 + 更新检查）
         [nameof(AboutTitle)] = "关于",
         [nameof(LabelCurrentVersion)] = "当前版本",
@@ -662,6 +663,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(LocalPathsTitle)] = "Local paths",
         [nameof(LabelCacheDb)] = "Cache database",
         [nameof(LabelSettingsFile)] = "Settings file",
+        [nameof(SettingsOpenDataFolder)] = "Show in file manager",
         [nameof(AboutTitle)] = "About",
         [nameof(LabelCurrentVersion)] = "Version",
         [nameof(LabelCopyright)] = "Copyright",
@@ -1253,6 +1255,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string LocalPathsTitle => Get();
     public string LabelCacheDb => Get();
     public string LabelSettingsFile => Get();
+    public string SettingsOpenDataFolder => Get();
     public string AboutTitle => Get();
     public string LabelCurrentVersion => Get();
     public string LabelCopyright => Get();

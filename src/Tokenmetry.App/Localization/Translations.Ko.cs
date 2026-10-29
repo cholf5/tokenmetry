@@ -200,6 +200,7 @@ public sealed partial class Translations
         [nameof(LocalPathsTitle)] = "로컬 경로",
         [nameof(LabelCacheDb)] = "캐시 데이터베이스",
         [nameof(LabelSettingsFile)] = "설정 파일",
+        [nameof(SettingsOpenDataFolder)] = "파일 관리자에서 열기",
         [nameof(AboutTitle)] = "정보",
         [nameof(LabelCurrentVersion)] = "현재 버전",
         [nameof(LabelCopyright)] = "저작권",
