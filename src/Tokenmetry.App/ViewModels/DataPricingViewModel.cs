@@ -417,13 +417,25 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         }
     }
 
-    /// <summary>从采集扫描注册表重建数据源表（注册序 = 管道扫描序；未扫描的源如实显示"尚未扫描"）。</summary>
+    /// <summary>
+    /// 从采集扫描注册表重建数据源表（未扫描的源如实显示"尚未扫描"）。
+    /// <para>
+    /// 行序 = 「谁在真正供数」优先：<b>已连接</b>（Ok / Partial）整体置顶，其后是 错误 → 未检出 → 尚未扫描
+    /// （见 <see cref="ConnectionTier"/>）。已连接组内按累计记录数降序——记录多的源贡献的数字更多、
+    /// 更值得先看；记录数相同再回落注册序（管道扫描序），保证结果确定、不随重扫抖动。
+    /// 非已连接组内记录数恒为 0 / 无快照，实际等于仍按注册序排列。
+    /// </para>
+    /// </summary>
     private void RebuildSourceRows()
     {
         var rows = _scanReader.RegisteredSources
-            .Select(agent => _scanReader.GetLastScan(agent) is { } snapshot
+            .Select((agent, index) => (Agent: agent, Index: index, Snapshot: _scanReader.GetLastScan(agent)))
+            .OrderBy(source => ConnectionTier(source.Snapshot))
+            .ThenByDescending(source => source.Snapshot?.RecordCount ?? 0)
+            .ThenBy(source => source.Index)
+            .Select(source => source.Snapshot is { } snapshot
                 ? new DataSourceRowViewModel(
-                    agent,
+                    source.Agent,
                     DescribeStatus(snapshot.Status),
                     IsOk: snapshot.Status == JsonlScanStatus.Ok,
                     IsPartial: snapshot.Status == JsonlScanStatus.Partial,
@@ -432,7 +444,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
                     IsPending: false,
                     FormatLastScan(snapshot.ScannedAt),
                     snapshot.RecordCount.ToString("N0", CultureInfo.InvariantCulture))
-                : DataSourceRowViewModel.NotScannedYet(agent))
+                : DataSourceRowViewModel.NotScannedYet(source.Agent))
             .ToList();
 
         SourceRows.Clear();
@@ -441,6 +453,19 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
             SourceRows.Add(row);
         }
     }
+
+    /// <summary>
+    /// 行序分层：0 = 已连接（Ok / Partial，真正产出了记录）→ 1 = 错误（本轮该源被逐源隔离跳过，需关注）
+    /// → 2 = 未检出（本机没有该工具的日志，正常态）→ 3 = 尚未扫描（首轮管道未跑到的瞬态）。
+    /// 已连接判据只认"有记录产出"，与状态文案口径一致（Partial 也算连上了，只是含坏行）。
+    /// </summary>
+    private static int ConnectionTier(IngestionSourceScanSnapshot? snapshot) => snapshot?.Status switch
+    {
+        JsonlScanStatus.Ok or JsonlScanStatus.Partial => 0,
+        JsonlScanStatus.Error => 1,
+        JsonlScanStatus.NoData => 2,
+        _ => 3,
+    };
 
     /// <summary>扫描状态 → 展示文案（三态语义与适配器口径对齐：JsonlScanDiagnostics.Status；
     /// 行的状态着色由各 Is* 布尔经 Classes 条件绑定驱动，见 SharedStyles 的 status-* 类）。</summary>
