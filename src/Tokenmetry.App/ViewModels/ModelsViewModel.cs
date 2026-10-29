@@ -58,10 +58,15 @@ public sealed class ModelDetailRowViewModel
         var agentIcon = AgentVisualMap.Resolve(displayedAgent ?? string.Empty);
         AssociatedAgentGlyph = agentIcon.Glyph.ToString();
         AssociatedAgentVendor = agentIcon.LogoVendor;
-        InputTokensText = TrendChart.FormatCompactTokens(row.InputTokens);
-        OutputTokensText = TrendChart.FormatCompactTokens(row.OutputTokens);
-        CacheReadTokensText = TrendChart.FormatCompactTokens(row.CacheReadTokens);
-        TotalTokensText = TrendChart.FormatCompactTokens(row.TotalTokens);
+        // 数字口径政策（2026-10-29 定稿，出处 docs/plans/2026-10-29-ui-review-p0p1-fixes.md）：
+        // 明细表（会话 / 模型，含合计行）精确 N0 千分位——逐 token 可读，对齐 ccusage 对账锚点；
+        // 汇总面（KPI 卡 / 环心 / 图例 / 总览预览表）紧凑随语言；Agent 统计表与项目排行表是
+        // 汇总维度表，维持紧凑（有意豁免，非遗漏）；图表轴与 in/out/tot/tok 记号恒 ASCII。
+        // 会话明细表早已是 N0，模型明细表跟着对齐——同应用两张"明细"表不能一个精确一个缩写。
+        InputTokensText = TokenText.Exact(row.InputTokens);
+        OutputTokensText = TokenText.Exact(row.OutputTokens);
+        CacheReadTokensText = TokenText.Exact(row.CacheReadTokens);
+        TotalTokensText = TokenText.Exact(row.TotalTokens);
         CostText = OverviewViewModel.FormatCost(row.Cost);
         IsUnknownCost = row.Cost.KnownCostUsd is null && row.Cost.HasUnknownCost;
     }
@@ -109,6 +114,15 @@ public sealed class ModelDetailRowViewModel
 }
 
 /// <summary>
+/// 明细表 token 数字的唯一出处（数字口径政策 2026-10-29）：明细表（会话 / 模型，含合计行）
+/// 精确 N0 千分位。汇总面另走 <see cref="TrendChart.FormatCompactTokens"/>。改这里等于改政策。
+/// </summary>
+internal static class TokenText
+{
+    internal static string Exact(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
+}
+
+/// <summary>
 /// D-010 模型明细合计行（口径在页面可见，TC-001）：
 /// <list type="bullet">
 /// <item>各 Token 列合计 = 全部模型行之和（<b>含缺价模型</b>——缺价只影响成本，不影响用量）；</item>
@@ -125,10 +139,11 @@ public sealed class ModelsTotalViewModel
             Translations.Instance.TotalsModelCountFormat,
             rows.Count.ToString("N0", CultureInfo.InvariantCulture));
         // Token 合计用紧凑格式（行同口径，见 ModelDetailRowViewModel 的列宽裁定）
-        InputTokensText = TrendChart.FormatCompactTokens(rows.Sum(row => row.InputTokens));
-        OutputTokensText = TrendChart.FormatCompactTokens(rows.Sum(row => row.OutputTokens));
-        CacheReadTokensText = TrendChart.FormatCompactTokens(rows.Sum(row => row.CacheReadTokens));
-        TotalTokensText = TrendChart.FormatCompactTokens(rows.Sum(row => row.TotalTokens));
+        // 合计行与明细行同列同宽：混排 "5.9万" 与 "5,882,300" 会破坏列对齐（口径政策见明细行注释）
+        InputTokensText = TokenText.Exact(rows.Sum(row => row.InputTokens));
+        OutputTokensText = TokenText.Exact(rows.Sum(row => row.OutputTokens));
+        CacheReadTokensText = TokenText.Exact(rows.Sum(row => row.CacheReadTokens));
+        TotalTokensText = TokenText.Exact(rows.Sum(row => row.TotalTokens));
         Cost = rows.Aggregate(AggregatedCost.Empty, (acc, row) => acc.Add(row.Cost));
         CostText = OverviewViewModel.FormatCost(Cost);
         UnknownCount = rows.Count(row => row.Cost.HasUnknownCost);

@@ -588,7 +588,7 @@ public class DimensionPagesTests
         Assert.Equal("6,474", totals.InputTokensText); // 4008 + 2370 + 96 + 0（含缺价行的 96）
         Assert.Equal("4,316", totals.OutputTokensText);
         Assert.Equal("1,079", totals.CacheReadTokensText);
-        Assert.Equal("1.08万", totals.TotalTokensText); // 10790（≥1万 → 万档）；含缺价行 160 —— Token 计入
+        Assert.Equal("10,790", totals.TotalTokensText); // 明细表精确 N0（数字口径政策）；含缺价行 160 —— Token 计入
         Assert.Equal("$5.60+", totals.CostText); // 3.06 + 2.54（缺价行成本未计入，混合行保留未知标记）
         Assert.Equal(2, totals.UnknownCount);
         Assert.True(totals.HasUnknownNote);

@@ -287,6 +287,26 @@ public class AppShellTests
     }
 
     [AvaloniaFact]
+    public void Sidebar_brand_has_no_orphan_eyebrow()
+    {
+        // P1-10：「ANALYTICS」是 9px 全大写英文眉标（原型遗留），中文界面里突兀、且不承载信息。
+        // 品牌块只保留 app 图标 + Tokenmetry 字标。
+        var vm = CreateIsolatedShellViewModel();
+        var window = new MainWindow { DataContext = vm };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var texts = window.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text)
+            .ToList();
+        Assert.Contains("Tokenmetry", texts);
+        Assert.DoesNotContain("ANALYTICS", texts);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void MainWindow_at_minimum_size_keeps_two_columns_intact()
     {
         var vm = CreateIsolatedShellViewModel();

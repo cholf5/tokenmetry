@@ -57,8 +57,9 @@
                      文本经 TextTrimming 截断，不把最后列挤出面板。
                      2026-10-29 界面修正：Agent 列 60→104（行内 logo+名字不能挤在 60px 里）、成本列 58→64 并
                      改用短表头 ThCost（"估算成本"/"Estimated cost" 在 58px 下被中段裁断）；
-                     表头统一允许换行——10 个语种的表头长度差异大，定宽列里换行比裁字诚实） -->
-                <Grid Grid.Row="1" ColumnDefinitions="2*,104,1.2*,72,64,68" ColumnSpacing="8" Margin="0,0,0,2">
+                     表头统一允许换行——10 个语种的表头长度差异大，定宽列里换行比裁字诚实。
+                     Token 列 72→78：N0 千分位 10 位数（"1,234,567,890"）实测 72.8px，72 差 0.8px 硬裁数字。 -->
+                <Grid Grid.Row="1" ColumnDefinitions="2*,104,1.2*,78,64,68" ColumnSpacing="8" Margin="0,0,0,2">
                     <TextBlock Grid.Column="0" Classes="table-th" TextWrapping="Wrap" Text="{Binding ThSession, Source={x:Static loc:Translations.Instance}}"/>
                     <TextBlock Grid.Column="1" Classes="table-th" TextWrapping="Wrap" Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
                     <TextBlock Grid.Column="2" Classes="table-th" TextWrapping="Wrap" Text="{Binding LabelModels, Source={x:Static loc:Translations.Instance}}"/>
@@ -77,7 +78,7 @@
                             <Border BorderBrush="{DynamicResource AppLineBrush}"
                                     BorderThickness="0,1,0,0"
                                     Padding="0,8,0,2">
-                                <Grid ColumnDefinitions="2*,104,1.2*,72,64,68" ColumnSpacing="8">
+                                <Grid ColumnDefinitions="2*,104,1.2*,78,64,68" ColumnSpacing="8">
                                     <!-- 会话（项目主文本 + 会话标识副文本；tooltip 挂完整 SessionId 可复制） -->
                                     <StackPanel Grid.Column="0" Spacing="3" ToolTip.Tip="{Binding SessionIdText}">
                                         <TextBlock Classes="table-td" Text="{Binding TitleText}"

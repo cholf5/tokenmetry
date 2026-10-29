@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
@@ -373,6 +374,11 @@ public class DesignTokenTests
 
         Assert.True(Application.Current!.TryGetResource("AppNavActiveBackgroundBrush", window.ActualThemeVariant, out var active));
         Assert.Same(active, item.Background);
+
+        // 真正决定屏幕颜色的是模板内 ContentPresenter，不是 ListBoxItem.Background 本身：
+        // Semi 的 ToggleButton 模板就在伪类下直写 presenter 背景（filter-chip 注释的实锤）。
+        var presenter = item.GetVisualDescendants().OfType<ContentPresenter>().First();
+        Assert.Same(active, presenter.Background);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

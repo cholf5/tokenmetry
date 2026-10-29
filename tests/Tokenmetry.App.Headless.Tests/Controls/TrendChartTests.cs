@@ -614,6 +614,40 @@ public class TrendChartTests
     // ── 空态（审查 P1-2：空集与"全补零窗口"都呈诚实空态，环境无关）──
 
     [AvaloniaFact]
+    public void Empty_state_hides_axes_and_grid_chrome()
+    {
+        // P0-3：空数据时 ApplyChartChrome 照跑会把 ScottPlot 默认 ±10 坐标系画出来，
+        // 空卡片看起来像"有数据但全是 0"的图。空态 = 纯卡片底 + 居中两行文案，
+        // 轴与水平网格一并隐藏；有数据时照旧可见（不把 chrome 永久关掉）。
+        var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = Array.Empty<DailyUsagePoint>() };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        Assert.False(chart.Plot.Axes.Bottom.IsVisible, "空态不应暴露 X 轴刻度体系");
+        Assert.False(chart.Plot.Axes.Left.IsVisible, "空态不应暴露 Y 轴刻度体系");
+        Assert.False(chart.Plot.Grid.YAxisStyle.IsVisible, "空态不应画水平网格");
+
+        // 同一个实例换数据（RebuildPlot 复用同一 Plot 实例：plot.Clear() 不清轴的可见性，
+        // 一次性关掉就再也不回来——这是空态→有数据这条最常见的真实路径）
+        chart.DailyPoints = ChartTestHelpers.DailyPoints30();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(chart.Plot.Axes.Bottom.IsVisible, "有数据后 X 轴应恢复");
+        Assert.True(chart.Plot.Axes.Left.IsVisible, "有数据后 Y 轴应恢复");
+        Assert.True(chart.Plot.Grid.YAxisStyle.IsVisible, "有数据后水平网格应恢复");
+
+        // 小时形态换轴路径（BuildHourlyLine 不替换 bottom 轴实例，最易漏）
+        chart.Mode = TrendChartMode.HourlyTokens;
+        chart.HourlyDistribution = HourlyFixture();
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(chart.Plot.Axes.Bottom.IsVisible, "小时形态换数据后 X 轴应恢复");
+        Assert.True(chart.Plot.Axes.Left.IsVisible);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void Empty_data_shows_honest_empty_state_and_handles_hover()
     {
         var chart = new TrendChart { Mode = TrendChartMode.DailyTokens, DailyPoints = Array.Empty<DailyUsagePoint>() };
