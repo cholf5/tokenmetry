@@ -193,8 +193,6 @@ public sealed partial class Translations
         [nameof(RefreshIntervalMustBeNumber)] = "L'intervalle d'actualisation doit être un nombre",
         [nameof(RefreshIntervalOutOfRange)] = "L'intervalle doit être entre 1 et 1440 minutes (valeur actuelle conservée)",
         [nameof(RefreshHint)] = "Enregistré immédiatement ; prend effet au prochain démarrage du service d'actualisation en arrière-plan.",
-        [nameof(LabelCcusageCli)] = "CLI ccusage (réconciliation / import manuel)",
-        [nameof(CcusageHint)] = "L'app lit directement les journaux de session locaux — ccusage n'est pas requis ; cette commande sert uniquement à la réconciliation / import manuel et prend effet au prochain démarrage.",
         [nameof(CheckMinimizeToTrayOnClose)] = "Réduire dans la zone de notification à la fermeture",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "Après fermeture, l'app reste en zone de notification avec actualisation planifiée ; pour quitter complètement, « Quitter » dans le menu de la zone. Interrupteur désactivé : le bouton de fermeture quitte l'app.",
         [nameof(CheckAutoStartOnBoot)] = "Lancer à l'ouverture de session",

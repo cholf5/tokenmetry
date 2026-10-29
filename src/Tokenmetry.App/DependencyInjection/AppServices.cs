@@ -8,7 +8,6 @@ using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Antigravity;
 using Tokenmetry.Infrastructure.Amp;
-using Tokenmetry.Infrastructure.CCUsageCli;
 using Tokenmetry.Infrastructure.Cache;
 using Tokenmetry.Infrastructure.ClaudeCodeJsonl;
 using Tokenmetry.Infrastructure.Cindy;
@@ -153,8 +152,7 @@ public static class AppServices
         services.AddSingleton<AntigravityAdapter>();
         services.AddSingleton<IAntigravityAdapter>(sp => sp.GetRequiredService<AntigravityAdapter>());
 
-        // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）；
-        // CLI 数据源保留注册用于对账与手动导入（Reconciliation 测试套件 / 后续接线），不再是默认。
+        // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）。
         // S-002：采集扫描状态注册表（单例）随本地采集源装配——管道组合（19 个适配器）在此注册，
         // 每轮刷新逐源登记扫描快照，设置页数据源表读取（"已识别数据源"不手写清单）。
         services.AddSingleton<IngestionScanRegistry>();
@@ -163,7 +161,6 @@ public static class AppServices
         services.AddSingleton<IUsageDataSource>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
         // I-042：价格/别名热更新后的强制全量通道（I-037 契约在无变化短路下的新编码）
         services.AddSingleton<IAggregationInvalidator>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
-        services.AddSingleton(_ => new CCUsageCliDataSource(settings.CcusageCommand));
 
         // Facts 存储（I-002）：启动时执行顺序迁移（同上：经 Task.Run 隔离异步链，防启动期
         // sync-over-async 死锁——SQLite 迁移内部的 await 同样可能真异步完成）

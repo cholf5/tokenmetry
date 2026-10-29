@@ -11,7 +11,7 @@ using Tokenmetry.Core.Models;
 namespace Tokenmetry.App.Tests.ViewModels;
 
 /// <summary>
-/// 设置页 VM 测试（S-004 收缩为应用偏好）：主题 / 语言 / 刷新间隔 / ccusage 命令 / 通知开关的
+/// 设置页 VM 测试（S-004 收缩为应用偏好）：主题 / 语言 / 刷新间隔 / 关窗行为 / 开机自启的
 /// 全自动保存语义。数据源表、重扫、模型目录与别名映射在 DataPricingViewModelTests。
 /// </summary>
 public class SettingsViewModelTests
@@ -21,14 +21,12 @@ public class SettingsViewModelTests
     {
         var settings = new AppSettings
         {
-            CcusageCommand = "ccusage.cmd",
             RefreshMinutes = 20
         };
         var paths = new AppPaths("C:\\Users\\tester\\AppData\\Local\\Tokenmetry");
 
         var viewModel = CreateViewModel(settings, paths, new FakeSettingsStore());
 
-        viewModel.CcusageCommand.Should().Be("ccusage.cmd");
         viewModel.RefreshMinutesText.Should().Be("20");
         viewModel.CacheDbPath.Should().Be(System.IO.Path.Combine(paths.AppDataDirectory, "tokenmetry.db"));
         viewModel.SettingsFilePath.Should().Be(System.IO.Path.Combine(paths.AppDataDirectory, "settings.json"));
@@ -99,24 +97,6 @@ public class SettingsViewModelTests
         settings.RefreshMinutes.Should().Be(30);
         store.SaveCalls.Should().Be(1);
         viewModel.RefreshMinutesError.Should().BeNull();
-    }
-
-    [Fact]
-    public void CcusageCommandChange_PersistsTrimmedAndBlankCoercesToDefault()
-    {
-        var settings = new AppSettings();
-        var store = new FakeSettingsStore();
-        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store);
-
-        viewModel.CcusageCommand = "  ccusage.cmd  ";
-
-        settings.CcusageCommand.Should().Be("ccusage.cmd"); // 输入框保留原文，规范化只落盘
-        store.SaveCalls.Should().Be(1);
-
-        viewModel.CcusageCommand = "   ";
-
-        settings.CcusageCommand.Should().Be("ccusage");
-        store.SaveCalls.Should().Be(2);
     }
 
     [Fact]

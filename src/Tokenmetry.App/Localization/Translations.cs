@@ -216,8 +216,6 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(RefreshIntervalMustBeNumber)] = "刷新间隔必须是数字",
         [nameof(RefreshIntervalOutOfRange)] = "刷新间隔必须在 1–1440 分钟之间（当前值保持不变）",
         [nameof(RefreshHint)] = "修改即时保存；于下次启动后台刷新服务时生效。",
-        [nameof(LabelCcusageCli)] = "ccusage CLI（对账 / 手动导入）",
-        [nameof(CcusageHint)] = "应用默认直读本地会话日志，无需安装 ccusage；此命令仅对账 / 手动导入时使用，下次启动生效。",
         // S-005：关窗行为开关（消费者 = MainWindow.OnClosing 的关窗分派）
         [nameof(CheckMinimizeToTrayOnClose)] = "关闭窗口时最小化到系统托盘",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "关闭主窗后应用仍在托盘运行、继续定时刷新；彻底退出用托盘菜单「退出」。关闭此开关后，点关闭按钮将直接退出应用。",
@@ -657,8 +655,6 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(RefreshIntervalMustBeNumber)] = "Refresh interval must be a number",
         [nameof(RefreshIntervalOutOfRange)] = "Refresh interval must be between 1 and 1440 minutes (current value kept)",
         [nameof(RefreshHint)] = "Saved automatically; takes effect the next time the background refresh service starts.",
-        [nameof(LabelCcusageCli)] = "ccusage CLI (reconciliation / manual import)",
-        [nameof(CcusageHint)] = "The app reads local session logs directly — ccusage is not required; this command is only used for reconciliation / manual import and takes effect on next start.",
         [nameof(CheckMinimizeToTrayOnClose)] = "Minimize to the system tray on close",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "After closing, the app keeps running in the tray with scheduled refresh; quit via the tray menu. When off, the close button exits the app.",
         [nameof(CheckAutoStartOnBoot)] = "Launch at login",
@@ -1250,8 +1246,6 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string RefreshIntervalMustBeNumber => Get();
     public string RefreshIntervalOutOfRange => Get();
     public string RefreshHint => Get();
-    public string LabelCcusageCli => Get();
-    public string CcusageHint => Get();
     public string CheckMinimizeToTrayOnClose => Get();
     public string CheckMinimizeToTrayOnCloseHint => Get();
     public string CheckAutoStartOnBoot => Get();

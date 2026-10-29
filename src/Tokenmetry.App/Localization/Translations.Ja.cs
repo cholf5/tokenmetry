@@ -193,8 +193,6 @@ public sealed partial class Translations
         [nameof(RefreshIntervalMustBeNumber)] = "更新間隔は数値で入力してください",
         [nameof(RefreshIntervalOutOfRange)] = "更新間隔は 1–1440 分の間で指定してください（現在値は変更されません）",
         [nameof(RefreshHint)] = "変更は即時保存。バックグラウンド更新サービスの次回起動時に反映されます。",
-        [nameof(LabelCcusageCli)] = "ccusage CLI（突合 / 手動インポート）",
-        [nameof(CcusageHint)] = "アプリはローカルのセッションログを直接読むため ccusage は不要です。このコマンドは突合 / 手動インポート時のみ使用し、次回起動時に反映されます。",
         [nameof(CheckMinimizeToTrayOnClose)] = "閉じるとシステムトレイに最小化",
         [nameof(CheckMinimizeToTrayOnCloseHint)] = "閉じてもアプリはトレイに常駐して定期更新を続けます。完全に終了するにはトレイメニューの「終了」。オフにすると閉じるボタンでアプリを終了します。",
         [nameof(CheckAutoStartOnBoot)] = "ログイン時に自動起動",

@@ -8,7 +8,6 @@ namespace Tokenmetry.Core.Models;
 /// </summary>
 public class AppSettings
 {
-    public string CcusageCommand { get; set; } = "ccusage";
     public bool ShowDebugInfo { get; set; } = true;
 
     /// <summary>
