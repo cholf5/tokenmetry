@@ -76,6 +76,12 @@ public class UsageRecord
     /// <summary>是否为 subagent sidechain 会话记录。</summary>
     public bool IsSidechain { get; set; }
 
+    /// <summary>
+    /// 服务档位（计价倍率维度）：<see cref="SpeedTier.Standard"/> 不乘倍率，
+    /// Fast / Flex 由 <c>SpeedMultiplierTable</c> 给出倍率。默认 Standard。
+    /// </summary>
+    public SpeedTier Speed { get; set; }
+
     /// <summary>消息级去重标识：assistant message id（部分真实日志为 null）。</summary>
     public string? MessageId { get; set; }
 
