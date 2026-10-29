@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Infrastructure.Jsonl;
 using Tokenmetry.Infrastructure.JsonSource;
@@ -45,6 +45,15 @@ public sealed class KimiLogParser
 
     /// <summary>缺省模型名（蓝本 DEFAULT_MODEL）。</summary>
     public const string DefaultModel = "kimi-for-coding";
+
+    /// <summary>与 kimi.rs DEFAULT_PROVIDER 一致：候选链的默认 provider 前缀。</summary>
+    public const string DefaultProvider = "moonshot";
+
+    /// <summary>
+    /// 与 kimi.rs KIMI_FOR_CODING_K2_6_CUTOFF_MS 一致：该毫秒时刻及之后 `kimi-for-coding`
+    /// 按 kimi-k2.6 计价，之前按 kimi-k2.5（模型名本身不含版本号，只能按时间切档）。
+    /// </summary>
+    public const long KimiForCodingK26CutoffUnixMs = 1_776_698_890_072;
 
     /// <summary>新格式模型前缀（蓝本 wire_line_to_entry_new 的 strip_prefix）。</summary>
     private const string KimiCodeModelPrefix = "kimi-code/";
@@ -216,6 +225,10 @@ public sealed class KimiLogParser
             SessionId = KimiLogLocator.SessionIdFromWirePath(sourceFile),
             Model = model,
             CostUsd = null,
+            // 蓝本 calculate_kimi_cost 的候选链：kimi-for-coding 按时间切到具体 k2.x，
+            // 其余模型走 provider/、kimi/ 前缀与裸名——裸名 kimi-for-coding 在内置快照里不存在，
+            // 不填候选链该源就整源未定价。
+            Pricing = BuildPricingPlan(model, timestamp),
             InputTokens = usage.InputTokens,
             OutputTokens = usage.OutputTokens.SaturatingAddClamped(extraTotalTokens),
             CacheCreationTokens = usage.CacheCreationTokens,
@@ -227,6 +240,24 @@ public sealed class KimiLogParser
             RequestId = null,
             SourceFile = sourceFile,
         };
+    }
+
+    /// <summary>与 kimi.rs model_candidates 一致（去重保序）。</summary>
+    private static UsagePricingPlan BuildPricingPlan(string model, DateTimeOffset timestamp)
+    {
+        var candidates = new List<string>(4);
+        if (string.Equals(model, DefaultModel, StringComparison.Ordinal))
+        {
+            candidates.Add(timestamp.ToUnixTimeMilliseconds() < KimiForCodingK26CutoffUnixMs
+                ? "moonshot/kimi-k2.5"
+                : "moonshot/kimi-k2.6");
+        }
+
+        candidates.Add($"{DefaultProvider}/{model}");
+        candidates.Add($"kimi/{model}");
+        candidates.Add(model);
+
+        return new UsagePricingPlan(candidates.Distinct(StringComparer.Ordinal).ToList());
     }
 
     /// <summary>旧格式 timestamp（蓝本 timestamp_from_seconds）：非有限 / 越界回退 null（调用方回退 mtime）。</summary>
