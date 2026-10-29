@@ -1,4 +1,4 @@
-namespace Tokenmetry.Core.Tests.Services;
+﻿namespace Tokenmetry.Core.Tests.Services;
 
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
@@ -526,6 +526,32 @@ public class PricingEngineTests
 
         resolved.Should().BeTrue();
         price.Source.Should().Be(PricingSourceKind.UserOverride);
+    }
+
+    [Theory]
+    [InlineData("gemini-4-argon", 2, 10, 0.1)]
+    [InlineData("gemini-3.1-flash-lite", 0.25, 1.5, 0.025)]
+    [InlineData("gpt-6.1-sol", 2, 10, 0.1)]
+    [InlineData("gpt-6.1-terra", 1, 5, 0.05)]
+    public void Snapshot_prices_models_added_with_the_20_0_45_sync(
+        string model, double input, double output, double cacheRead)
+    {
+        var engine = new PricingEngine();
+
+        engine.TryResolveModelPrice(model, out var resolved).Should().BeTrue($"{model} 应在内置快照里");
+        resolved.Entry.InputPerMillion.Should().Be((decimal)input);
+        resolved.Entry.OutputPerMillion.Should().Be((decimal)output);
+        resolved.Entry.CacheReadPerMillion.Should().Be((decimal)cacheRead);
+    }
+
+    [Fact]
+    public void Gpt_6_1_models_keep_their_long_context_tier()
+    {
+        var engine = new PricingEngine();
+
+        engine.TryResolveModelPrice("gpt-6.1-terra", out var resolved).Should().BeTrue();
+        resolved.Entry.LongContextThreshold.Should().Be(272_000);
+        resolved.Entry.InputAboveThresholdPerMillion.Should().Be(2m);
     }
 
     private static UsageRecord CreateRecord(
