@@ -1,4 +1,4 @@
-using Tokenmetry.Infrastructure.Jsonl;
+﻿using Tokenmetry.Infrastructure.Jsonl;
 
 namespace Tokenmetry.Infrastructure.CodexJsonl;
 
@@ -99,8 +99,17 @@ public class CodexLogLocator
         return sources;
     }
 
+    /// <summary>rollout 文件判定（蓝本 reader.rs is_rollout_file）：`.jsonl` 或 `.jsonl.zst`；`x.zst` 不算。</summary>
+    public static bool IsRolloutFile(string path)
+        => path.EndsWith(".jsonl", StringComparison.Ordinal)
+           || path.EndsWith(".jsonl.zst", StringComparison.Ordinal);
+
+    /// <summary>与编码无关的 rollout 路径（蓝本 uncompressed_rollout_path）：`.jsonl.zst` → `.jsonl`。</summary>
+    public static string UncompressedRolloutPath(string path)
+        => path.EndsWith(".jsonl.zst", StringComparison.Ordinal) ? path[..^".zst".Length] : path;
+
     /// <summary>
-    /// 枚举所有数据源下的 .jsonl 文件（与 codex.rs collect_deduped_files 一致）：
+    /// 枚举所有数据源下的 rollout 文件（与 codex.rs collect_deduped_files 一致）：
     /// 每个数据源内按完整路径排序；同一去重范围（home）内相对路径相同的文件只保留先出现的
     /// （sources 顺序保证 sessions/ 活动副本优先于 archived_sessions/）。
     /// </summary>
@@ -113,12 +122,15 @@ public class CodexLogLocator
         foreach (var source in sources)
         {
             var sourceFiles = new List<string>();
-            JsonlFileCollector.Collect(source.DirectoryPath, sourceFiles);
+            JsonlFileCollector.Collect(source.DirectoryPath, sourceFiles, IsRolloutFile);
             sourceFiles.Sort(StringComparer.Ordinal);
 
             foreach (var file in sourceFiles)
             {
-                var relative = GetRelativePathOrSelf(source.DirectoryPath, file);
+                // 排序把 x.jsonl 排在 x.jsonl.zst 之前，明文优先（Codex 恢复压缩 rollout 时也是
+                // 先还原明文再删 .zst）；跨 sessions/ 与 archived_sessions/ 的同名 rollout 同样按
+                // 解压后相对路径去重。
+                var relative = UncompressedRolloutPath(GetRelativePathOrSelf(source.DirectoryPath, file));
                 if (seen.Add((source.DedupeScope, relative)))
                 {
                     files.Add((source.DirectoryPath, file));
