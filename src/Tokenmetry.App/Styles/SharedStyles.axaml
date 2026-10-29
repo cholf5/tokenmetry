@@ -296,6 +296,8 @@
     <!-- Agent 图标槽（I-034，原 D-008 的「chip-* 四色软色底 + 散列字形」退场）：
          行内官方品牌 logo（AppAgentLogo* DrawingImage，生成自 lobe-icons，与模型图标同机制），
          未覆盖的 Agent（Codebuff / Droid / pi-agent 及命名存储）保留散列字形兜底（中性前景随明暗翻转）。
+         cindy 是唯一位图彩标（官方标为插画，见 AgentLogos.axaml），同样走 DrawingImage 契约，
+         故此处样式与其它彩标完全同形。
          两种槽位：agent-chip = 16×16 透明行内槽（会话明细 Agent 列，对齐 model-chip 行高）；
          agent-chip-lg = 30×30 圆角 9 中性软底（Agent 统计页 KPI 卡 / 右栏最近会话行，保留原型 .kpi-icon
          的视觉锚点，但底色改中性——原散列色对一个 Agent 无语义）。品牌伪类经附加属性
@@ -342,6 +344,10 @@
         <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.agent-cindy Image.agent-logo">
+        <Setter Property="Source" Value="{DynamicResource AppAgentLogoCindy}"/>
+        <Setter Property="IsVisible" Value="True"/>
     </Style>
     <Style Selector="Border.agent-claudecode Image.agent-logo">
         <Setter Property="Source" Value="{DynamicResource AppAgentLogoClaudeCode}"/>
