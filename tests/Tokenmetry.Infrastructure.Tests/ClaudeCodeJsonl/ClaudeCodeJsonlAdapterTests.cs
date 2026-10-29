@@ -1,4 +1,4 @@
-namespace Tokenmetry.Infrastructure.Tests.ClaudeCodeJsonl;
+﻿namespace Tokenmetry.Infrastructure.Tests.ClaudeCodeJsonl;
 
 using Tokenmetry.Core.Models;
 using Tokenmetry.Infrastructure.ClaudeCodeJsonl;
@@ -79,11 +79,13 @@ public class ClaudeCodeJsonlAdapterTests : IDisposable
         var result = await adapter.ScanAsync();
 
         result.Roots.Should().BeEquivalentTo(new[] { rootA, rootB });
-        result.Records.Should().HaveCount(9); // 6 + 3（第二条 root 的流式重复行被折叠）
+        // 6 + 4：duplicate fixture 里 msg-stream 无 requestId 且非 msg_/resp_ 前缀，两个时间戳
+        // 不能证明是同一次响应（ccusage 20.0.45 口径）→ 保留两条；msg-replay 被 sidechain 兜底折叠。
+        result.Records.Should().HaveCount(10);
         result.Records.Select(record => record.ProjectPath).Should().Contain("project-a");
         result.Records.Select(record => record.ProjectPath).Should().Contain("project-b");
         result.Diagnostics.FilesDiscovered.Should().Be(2);
-        result.Diagnostics.DuplicateRecords.Should().Be(2);
+        result.Diagnostics.DuplicateRecords.Should().Be(1);
     }
 
     [Fact]
@@ -143,12 +145,12 @@ public class ClaudeCodeJsonlAdapterTests : IDisposable
         var first = await adapter.ScanAsync();
         var second = await adapter.ScanAsync();
 
-        first.Records.Should().HaveCount(3);
-        second.Records.Should().HaveCount(3);
+        first.Records.Should().HaveCount(4);
+        second.Records.Should().HaveCount(4);
         second.Records.Should().BeEquivalentTo(first.Records);
         second.Diagnostics.FilesRead.Should().Be(0); // 未变更文件不重复解析
         second.Diagnostics.FilesDiscovered.Should().Be(1);
-        second.Diagnostics.DuplicateRecords.Should().Be(2); // 消息级去重按累计记录集稳定计数
+        second.Diagnostics.DuplicateRecords.Should().Be(1); // sidechain 回放折叠；另有 2 条同 message id 不同时刻的占位 id 不折叠
         second.Diagnostics.Status.Should().Be(ClaudeCodeScanStatus.Ok);
     }
 
