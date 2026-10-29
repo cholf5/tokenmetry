@@ -1,4 +1,4 @@
-using Tokenmetry.Infrastructure.JsonSource;
+﻿using Tokenmetry.Infrastructure.JsonSource;
 using Tokenmetry.Infrastructure.SqliteSource;
 using Microsoft.Data.Sqlite;
 
@@ -799,6 +799,9 @@ public static class AntigravityParser
             1071 => "gemini-3.6-flash-high",
             1072 => "gemini-3.6-flash-medium",
             1073 => "gemini-3.6-flash-low",
+            1417 or 1418 or 1419 => "gemini-4-argon",
+            1402 => "claude-opus-5-5",
+            1050 => "gemini-3.1-flash-lite",
             >= 1_000 => $"model_placeholder_m{modelId - 1_000}",
             _ => $"antigravity-model-{modelId}",
         };
@@ -861,6 +864,10 @@ public static class AntigravityParser
             "model_placeholder_m71" => "gemini-3.6-flash-high",
             "model_placeholder_m72" => "gemini-3.6-flash-medium",
             "model_placeholder_m73" => "gemini-3.6-flash-low",
+            "model_placeholder_m417" or "model_placeholder_m418" or "model_placeholder_m419"
+                => "gemini-4-argon",
+            "model_placeholder_m402" => "claude-opus-5-5",
+            "model_placeholder_m50" => "gemini-3.1-flash-lite",
             "model_placeholder_m26" => "claude-opus-4-6",
             "model_placeholder_m35" => "claude-sonnet-4-6",
             "model_placeholder_m36" or "model_placeholder_m37" or "model_placeholder_m16" => "gemini-3.1-pro",
