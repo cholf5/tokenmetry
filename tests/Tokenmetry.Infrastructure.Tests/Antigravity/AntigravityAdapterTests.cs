@@ -208,6 +208,28 @@ public class AntigravityAdapterTests : IDisposable
         AntigravityParser.ModelNameFromId(42).Should().Be("antigravity-model-42");
     }
 
+    [Theory]
+    [InlineData(1402UL, "claude-opus-5-5")]
+    [InlineData(1417UL, "gemini-4-argon")]
+    [InlineData(1418UL, "gemini-4-argon")]
+    [InlineData(1419UL, "gemini-4-argon")]
+    [InlineData(1050UL, "gemini-3.1-flash-lite")]
+    public void Maps_new_model_ids(ulong modelId, string expected)
+    {
+        AntigravityParser.ModelNameFromId(modelId).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("model_placeholder_m402", "claude-opus-5-5")]
+    [InlineData("model_placeholder_m417", "gemini-4-argon")]
+    [InlineData("model_placeholder_m418", "gemini-4-argon")]
+    [InlineData("model_placeholder_m419", "gemini-4-argon")]
+    [InlineData("model_placeholder_m50", "gemini-3.1-flash-lite")]
+    public void Maps_new_model_placeholders(string raw, string expected)
+    {
+        AntigravityParser.NormalizeAntigravityModel(raw).Should().Be(expected);
+    }
+
     // ---- 蓝本 loader.rs 内联测试同名场景 ----
 
     [Fact]
