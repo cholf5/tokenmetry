@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 
@@ -99,7 +99,7 @@ public sealed class PricingEngine
             return new PricingResult
             {
                 Source = resolved.Source,
-                CostUsd = ComputeCost(tokens, resolved.Entry),
+                CostUsd = ComputeCost(tokens, resolved.Entry, model: model),
                 Model = model,
                 MatchedKey = resolved.MatchedKey,
             };
@@ -133,7 +133,7 @@ public sealed class PricingEngine
             return new PricingResult
             {
                 Source = scopedResolved.Source,
-                CostUsd = ComputeCost(tokens, scopedResolved.Entry, plan.OutputTokenOverride),
+                CostUsd = ComputeCost(tokens, scopedResolved.Entry, plan.OutputTokenOverride, displayModel),
                 Model = displayModel,
                 MatchedKey = scopedResolved.MatchedKey,
             };
@@ -187,7 +187,7 @@ public sealed class PricingEngine
             return new PricingResult
             {
                 Source = resolved.Source,
-                CostUsd = ComputeCost(tokens, resolved.Entry, plan.OutputTokenOverride),
+                CostUsd = ComputeCost(tokens, resolved.Entry, plan.OutputTokenOverride, displayModel),
                 Model = displayModel,
                 MatchedKey = resolved.MatchedKey,
             };
@@ -380,7 +380,11 @@ public sealed class PricingEngine
     /// 长上下文分档（蓝本 cost.rs 两段式）：请求上下文（input + cache 各桶）超过条目阈值时全部桶
     /// 整体切换分档单价（缺项回落基础档；1h cache write 按"生效 input 价 × 2"跟随切换）。
     /// </summary>
-    private static decimal ComputeCost(TokenUsageDetail tokens, ModelPriceEntry entry, long? outputTokenOverride = null)
+    private static decimal ComputeCost(
+        TokenUsageDetail tokens,
+        ModelPriceEntry entry,
+        long? outputTokenOverride = null,
+        string? model = null)
     {
         var cacheCreation1h = tokens.CacheCreationEphemeral1hTokens;
         var hasEphemeralSplit = tokens.CacheCreationEphemeral5mTokens > 0 || cacheCreation1h > 0;
@@ -403,11 +407,14 @@ public sealed class PricingEngine
             }
         }
 
-        return Price(tokens.InputTokens, inputPerMillion)
-               + Price(outputTokens, outputPerMillion)
-               + Price(cacheCreation5m, cacheWritePerMillion)
-               + Price(cacheCreation1h, inputPerMillion * 2m)
-               + Price(tokens.CacheReadTokens, cacheReadPerMillion);
+        var cost = Price(tokens.InputTokens, inputPerMillion)
+                   + Price(outputTokens, outputPerMillion)
+                   + Price(cacheCreation5m, cacheWritePerMillion)
+                   + Price(cacheCreation1h, inputPerMillion * 2m)
+                   + Price(tokens.CacheReadTokens, cacheReadPerMillion);
+
+        // 蓝本 cost.rs calculate_cost_from_tokens：倍率乘在整条成本上（不是逐桶）。
+        return cost * SpeedMultiplierTable.Resolve(model, tokens.Speed);
     }
 
     /// <summary>token 计数饱和加（lenient 解析域内防御，蓝本 u64 saturating_add 同式）。</summary>
