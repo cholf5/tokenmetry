@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Infrastructure.Jsonl;
 using Tokenmetry.Infrastructure.JsonSource;

@@ -1,4 +1,4 @@
-﻿namespace Tokenmetry.Infrastructure.Jsonl;
+namespace Tokenmetry.Infrastructure.Jsonl;
 
 /// <summary>
 /// 目录树下的 .jsonl 文件递归收集（claude.rs usage_files 与 codex.rs collect_jsonl_files 共用）：
