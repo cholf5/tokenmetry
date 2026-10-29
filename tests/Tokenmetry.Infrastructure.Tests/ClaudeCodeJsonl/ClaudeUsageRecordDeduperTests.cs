@@ -68,6 +68,66 @@ public class ClaudeUsageRecordDeduperTests
         _deduper.Dedupe(Array.Empty<UsageRecord>()).Should().BeEmpty();
     }
 
+    [Fact]
+    public void Keeps_requestless_placeholder_ids_from_different_sessions_separate()
+    {
+        var deduped = new ClaudeUsageRecordDeduper().Dedupe([
+            Row("gw-reused", requestId: null, session: "s-a", minute: 0),
+            Row("gw-reused", requestId: null, session: "s-b", minute: 0),
+        ]);
+
+        deduped.Should().HaveCount(2, "网关占位 id 在不同会话里是两次真实请求");
+    }
+
+    [Fact]
+    public void Keeps_requestless_non_anthropic_ids_at_distinct_timestamps_separate()
+    {
+        var deduped = new ClaudeUsageRecordDeduper().Dedupe([
+            Row("gw-reused", requestId: null, session: "s-a", minute: 0),
+            Row("gw-reused", requestId: null, session: "s-a", minute: 1),
+        ]);
+
+        deduped.Should().HaveCount(2, "非 msg_/resp_ 前缀的 id 无法证明是同一次响应");
+    }
+
+    [Fact]
+    public void Collapses_requestless_anthropic_and_response_ids_across_timestamps_in_one_session()
+    {
+        foreach (var messageId in new[] { "msg_01abc", "resp_01abc" })
+        {
+            var deduped = new ClaudeUsageRecordDeduper().Dedupe([
+                Row(messageId, requestId: null, session: "s-a", minute: 0),
+                Row(messageId, requestId: null, session: "s-a", minute: 1),
+            ]);
+
+            deduped.Should().ContainSingle($"{messageId} 是真实响应 id，多行只是逐 content block 写入");
+        }
+    }
+
+    [Fact]
+    public void Collapses_matching_request_ids_across_sessions()
+    {
+        var deduped = new ClaudeUsageRecordDeduper().Dedupe([
+            Row("msg-x", requestId: "req-1", session: "s-a", minute: 0),
+            Row("msg-x", requestId: "req-1", session: "s-b", minute: 5),
+        ]);
+
+        deduped.Should().ContainSingle("有 requestId 时它足以证明是同一次响应");
+    }
+
+    private static UsageRecord Row(string messageId, string? requestId, string session, int minute)
+        => new()
+        {
+            MessageId = messageId,
+            RequestId = requestId,
+            SessionId = session,
+            Timestamp = new DateTimeOffset(2026, 9, 14, 8, minute, 0, TimeSpan.Zero),
+            InputTokens = 100,
+            OutputTokens = 10,
+            IsSidechain = false,
+            Model = "claude-sonnet-4-5-20250929",
+        };
+
     private static UsageRecord Record(string? messageId, string? requestId, bool isSidechain, long inputTokens, string? model = null)
         => new()
         {
