@@ -271,6 +271,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(LegendInput)] = "输入",
         [nameof(LegendOutput)] = "输出",
         [nameof(LegendTotal)] = "总量",
+        [nameof(LegendHourly)] = "按小时",
         [nameof(PanelTrend)] = "Token 使用趋势",
         [nameof(MetaByTotalTokens)] = "按 Token 总量",
         [nameof(PanelAgentDonut)] = "Agent 使用占比",
@@ -473,6 +474,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ChartTipCostUnknown)] = "成本未知",
         [nameof(ChartTipNoCostData)] = "无成本数据",
         [nameof(ChartTipSessionsFormat)] = "{0} 个会话",
+        [nameof(ChartTipHourNotYet)] = "尚未到达",
+        [nameof(AttributionSessionStart)] = "按会话开始时间归集",
 
         // ── 异常检测（DashboardViewModel → AnomalyDetected 事件 → 弹层 KPI 徽标；toast 通道 Q-016 删除）──
         [nameof(AnomalyCostSpikeFormat)] = "今日成本是过去 {0} 日均值的 {1:0.0} 倍",
@@ -704,6 +707,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(LegendInput)] = "Input",
         [nameof(LegendOutput)] = "Output",
         [nameof(LegendTotal)] = "Total",
+        [nameof(LegendHourly)] = "Hourly",
         [nameof(PanelTrend)] = "Token usage trend",
         [nameof(MetaByTotalTokens)] = "By total tokens",
         [nameof(PanelAgentDonut)] = "Agent share",
@@ -837,6 +841,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ChartTipCostUnknown)] = "cost unknown",
         [nameof(ChartTipNoCostData)] = "no cost data",
         [nameof(ChartTipSessionsFormat)] = "{0} sessions",
+        [nameof(ChartTipHourNotYet)] = "not reached yet",
+        [nameof(AttributionSessionStart)] = "grouped by session start time",
 
         [nameof(AnomalyCostSpikeFormat)] = "Today's cost is {1:0.0}× the {0}-day average",
 
@@ -1298,6 +1304,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string LegendInput => Get();
     public string LegendOutput => Get();
     public string LegendTotal => Get();
+    public string LegendHourly => Get();
     public string PanelTrend => Get();
     public string MetaByTotalTokens => Get();
     public string PanelAgentDonut => Get();
@@ -1502,6 +1509,8 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string ChartTipCostUnknown => Get();
     public string ChartTipNoCostData => Get();
     public string ChartTipSessionsFormat => Get();
+    public string ChartTipHourNotYet => Get();
+    public string AttributionSessionStart => Get();
 
     // ── 异常检测 ──
     public string AnomalyCostSpikeFormat => Get();

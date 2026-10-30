@@ -243,6 +243,7 @@ public sealed partial class Translations
         [nameof(LegendInput)] = "入力",
         [nameof(LegendOutput)] = "出力",
         [nameof(LegendTotal)] = "合計",
+        [nameof(LegendHourly)] = "時間別",
         [nameof(PanelTrend)] = "Token 使用トレンド",
         [nameof(MetaByTotalTokens)] = "Token 総量順",
         [nameof(PanelAgentDonut)] = "エージェント別シェア",
@@ -445,6 +446,8 @@ public sealed partial class Translations
         [nameof(ChartTipCostUnknown)] = "コスト不明",
         [nameof(ChartTipNoCostData)] = "コストデータなし",
         [nameof(ChartTipSessionsFormat)] = "{0} セッション",
+        [nameof(ChartTipHourNotYet)] = "まだ到達していません",
+        [nameof(AttributionSessionStart)] = "セッション開始時刻で集計",
 
         // ── 異常検知 ──
         [nameof(AnomalyCostSpikeFormat)] = "今日のコストは過去 {0} 日平均の {1:0.0} 倍です",

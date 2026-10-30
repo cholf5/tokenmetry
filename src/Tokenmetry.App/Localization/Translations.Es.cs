@@ -243,6 +243,7 @@ public sealed partial class Translations
         [nameof(LegendInput)] = "Entrada",
         [nameof(LegendOutput)] = "Salida",
         [nameof(LegendTotal)] = "Total",
+        [nameof(LegendHourly)] = "Por hora",
         [nameof(PanelTrend)] = "Tendencia de uso de tokens",
         [nameof(MetaByTotalTokens)] = "Por tokens totales",
         [nameof(PanelAgentDonut)] = "Proporción por agente",
@@ -445,6 +446,8 @@ public sealed partial class Translations
         [nameof(ChartTipCostUnknown)] = "coste desconocido",
         [nameof(ChartTipNoCostData)] = "sin datos de coste",
         [nameof(ChartTipSessionsFormat)] = "{0} sesiones",
+        [nameof(ChartTipHourNotYet)] = "aún no alcanzado",
+        [nameof(AttributionSessionStart)] = "agrupado por la hora de inicio de la sesión",
 
         // ── Detección de anomalías ──
         [nameof(AnomalyCostSpikeFormat)] = "El costo de hoy es {1:0.0}× el promedio de {0} días",

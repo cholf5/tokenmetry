@@ -243,6 +243,7 @@ public sealed partial class Translations
         [nameof(LegendInput)] = "輸入",
         [nameof(LegendOutput)] = "輸出",
         [nameof(LegendTotal)] = "總量",
+        [nameof(LegendHourly)] = "按小時",
         [nameof(PanelTrend)] = "Token 使用趨勢",
         [nameof(MetaByTotalTokens)] = "按 Token 總量",
         [nameof(PanelAgentDonut)] = "Agent 使用佔比",
@@ -445,6 +446,8 @@ public sealed partial class Translations
         [nameof(ChartTipCostUnknown)] = "成本未知",
         [nameof(ChartTipNoCostData)] = "無成本資料",
         [nameof(ChartTipSessionsFormat)] = "{0} 個工作階段",
+        [nameof(ChartTipHourNotYet)] = "尚未到達",
+        [nameof(AttributionSessionStart)] = "按工作階段開始時間歸集",
 
         // ── 异常检测 ──
         [nameof(AnomalyCostSpikeFormat)] = "今日成本是過去 {0} 日均值的 {1:0.0} 倍",

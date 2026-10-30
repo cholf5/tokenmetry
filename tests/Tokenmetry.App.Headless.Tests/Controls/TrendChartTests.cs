@@ -137,6 +137,116 @@ public class TrendChartTests
         TimeZoneId = TimeZoneInfo.Local.Id,
     };
 
+    // ── D-027：单日窗口的小时形态（已发生边界 / 小时成本断线 / tooltip 口径）──
+
+    [AvaloniaTheory]
+    [InlineData(null, 24)]  // 昨天及更早：24 小时全已发生
+    [InlineData(-1, 0)]     // 未来单日：整天尚未到达
+    [InlineData(0, 1)]      // 今天 00 点刚过
+    [InlineData(5, 6)]
+    [InlineData(23, 24)]
+    [InlineData(99, 24)]    // 时钟越界夹回（不让调用方的钟漂画到桶外）
+    [InlineData(-5, 0)]
+    public void Real_hour_count_clamps_cutoff_to_bucket_range(int? cutoffHour, int expected) =>
+        Assert.Equal(expected, TrendChart.RealHourCount(24, cutoffHour));
+
+    [AvaloniaFact]
+    public void Hourly_cutoff_keeps_not_yet_reached_hours_off_the_line()
+    {
+        var chart = new TrendChart
+        {
+            Mode = TrendChartMode.HourlyTokens,
+            HourlyDistribution = HourlyFixture(),
+            HourlyCutoffHour = 5, // 今天 05:xx：0..5 已发生，06..23 尚未到达
+        };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        // 曲线与面积填充只覆盖已发生的小时：未来小时不是真实 0，绝不被连成“降到零”的曲线
+        var line = chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Scatter>().Single(s => s.LineWidth > 0);
+        var lineXs = line.Data.GetScatterPoints().Select(p => p.X).ToArray();
+        Assert.True(lineXs.Max() <= 5, $"曲线不应越过 05:00，实际最大 X = {lineXs.Max()}");
+        Assert.True(line.FillY, "已发生段保留零基线面积填充");
+
+        // 未来小时仅作淡化小点（锚在零轴），且 18 个桶全在（0..23 全量桶不变）
+        var scatters = chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Scatter>().ToList();
+        Assert.Contains(scatters, s => s.LineWidth == 0 && s.Data.GetScatterPoints().Count == 6);   // 已发生标记点
+        Assert.Contains(scatters, s => s.LineWidth == 0 && s.Data.GetScatterPoints().Count == 18);  // 尚未到达淡点
+
+        // 只有 1 个已发生小时时无从成线，也不崩（仅标记点呈现）
+        chart.HourlyCutoffHour = 0;
+        Dispatcher.UIThread.RunJobs();
+        Assert.DoesNotContain(chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Scatter>(), s => s.LineWidth > 0);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Hourly_cost_mode_breaks_line_on_unknown_cost_hours()
+    {
+        var hours = Enumerable.Range(0, 24).Select(h => new HourlyUsageBucket
+        {
+            Hour = h,
+            SessionCount = 1,
+            TotalTokens = 1_000,
+            // 10、11 点有用量但无价（未知成本）：断线，绝不折 0 连过去
+            Cost = h is 10 or 11 ? new AggregatedCost(null, true) : new AggregatedCost(0.5m, false),
+        }).ToList();
+        var chart = new TrendChart
+        {
+            Mode = TrendChartMode.HourlyCost,
+            HourlyDistribution = new HourlyDistributionResult { Hours = hours },
+        };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var runs = chart.Plot.PlottableList.OfType<ScottPlot.Plottables.Scatter>()
+            .Where(s => s.LineWidth > 0).ToList();
+        Assert.Equal(2, runs.Count); // 0..9 与 12..23 两段
+        Assert.True(runs[0].Data.GetScatterPoints().Max(p => p.X) <= 9);
+        Assert.True(runs[1].Data.GetScatterPoints().Min(p => p.X) >= 12);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Hourly_tooltips_state_session_start_attribution_and_not_yet_hours()
+    {
+        var t = Translations.Instance;
+        var bucket = new HourlyUsageBucket
+        {
+            Hour = 14,
+            TotalTokens = 42_000,
+            SessionCount = 3,
+            Cost = new AggregatedCost(1.25m, false),
+        };
+
+        // 口径可见（卡内定案路线 A）：小时图归因于会话开始时间，与按 fact.Day 归日的 KPI 不同口径
+        var tokens = TrendChart.HourlyTokenTooltipText(bucket, notYet: false);
+        Assert.Contains("14:00", tokens);
+        Assert.Contains(TrendChart.FormatCompactTokens(42_000), tokens);
+        Assert.Contains(t.AttributionSessionStart, tokens);
+
+        var cost = TrendChart.HourlyCostTooltipText(bucket, notYet: false);
+        Assert.Contains(TrendChart.FormatCostUsd(1.25m, false)!, cost);
+        Assert.Contains(t.AttributionSessionStart, cost);
+
+        // 未知成本小时：四态文案同 CostTooltipText，绝不显示 $0.00
+        var unknownCost = TrendChart.HourlyCostTooltipText(
+            new HourlyUsageBucket { Hour = 9, TotalTokens = 100, SessionCount = 1, Cost = new AggregatedCost(null, true) },
+            notYet: false);
+        Assert.Contains(t.ChartTipCostUnknown, unknownCost);
+        Assert.DoesNotContain("$0", unknownCost);
+
+        // 尚未到达的小时只写「尚未到达」——不冒充 0 用量，也不拿归因口径解释空气
+        var future = TrendChart.HourlyTokenTooltipText(bucket, notYet: true);
+        Assert.Contains("14:00", future);
+        Assert.Contains(t.ChartTipHourNotYet, future);
+        Assert.DoesNotContain(t.AttributionSessionStart, future);
+    }
+
     // ── 浮窗锚点（motion design）：右偏 14px / 垂直居中 / 右半翻转 / 数据区夹回 ──
 
     [AvaloniaFact]

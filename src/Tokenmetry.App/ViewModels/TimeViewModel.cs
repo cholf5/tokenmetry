@@ -237,37 +237,19 @@ public partial class TimeViewModel : ViewModelBase, IDisposable, IDataRefreshAwa
         }
     }
 
-    /// <summary>入桶会话数（= Σ 各桶 SessionCount；I-029 不变式：入桶 + unknown = 全部会话）。</summary>
+    /// <summary>入桶会话数（= Σ 各桶 SessionCount；I-029 不变式：入桶 + unknown = 全部会话）。
+    /// D-027 起实现在 <see cref="HourlyAttribution"/>——总览页单日窗口消费同一份口径。</summary>
     internal static long SumKnownSessions(IReadOnlyList<HourlyUsageBucket> hours) =>
-        hours.Sum(h => h.SessionCount);
+        HourlyAttribution.SumKnownSessions(hours);
 
     /// <summary>
-    /// unknown 占比标注文案（internal 供测试对账）：
+    /// unknown 占比标注文案（internal 供测试对账；实现在 <see cref="HourlyAttribution"/>，D-027 抽出）：
     /// 「N 个会话缺少精确时间，未计入小时分布（占 X.X%）」，unknown 会话携带 token 时追加
     /// 「，涉及 M tokens 用量」。占比分母 = 入桶 + unknown 会话数（每个会话非入桶即 unknown，
     /// 无第三态）；unknown 为 0 时返回 null（无需标注，页面隐藏）。
     /// </summary>
-    internal static string? BuildUnknownNote(long unknownSessions, long knownSessions, long unknownTokens)
-    {
-        if (unknownSessions <= 0)
-        {
-            return null;
-        }
-
-        var total = knownSessions + unknownSessions;
-        var share = total > 0 ? (decimal)unknownSessions / total * 100m : 100m;
-        var t = Translations.Instance;
-        var note = string.Format(
-            t.UnknownNoteFormat,
-            unknownSessions.ToString("N0", CultureInfo.InvariantCulture),
-            share.ToString("F1", CultureInfo.InvariantCulture));
-        if (unknownTokens > 0)
-        {
-            note += string.Format(t.UnknownNoteTokensSuffix, TrendChart.FormatCompactTokens(unknownTokens));
-        }
-
-        return note;
-    }
+    internal static string? BuildUnknownNote(long unknownSessions, long knownSessions, long unknownTokens) =>
+        HourlyAttribution.BuildUnknownNote(unknownSessions, knownSessions, unknownTokens);
 
     /// <summary>
     /// D-021 KPI 行计算（零新查询：I-029 小时分布 + I-028 日序列客户端聚合；internal 供测试对账）：
