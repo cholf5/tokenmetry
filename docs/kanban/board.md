@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-30：**D-027 建卡（Overview 单日窗口趋势图切小时形态）**。用户提案：切"今天/昨天"后 Token/成本两张趋势图只剩单点，建议单日时 X 轴换成当天小时刻度。评估：值得做，基础设施大半现成——TrendChart 已有 `HourlyTokens` 形态（时间页在用）、`GetHourlyDistributionAsync` 同吃 `UsageQueryFilter`、`HourlyUsageBucket` 连 `Cost` 都有（成本趋势只需新增 `HourlyCost` 形态）。核心口径坑：I-029 小时分布按会话 `first_seen_at` 归桶（整会话量记到开始小时；粗粒度剔 unknown；跨天会话不在窗口），与日序列 facts 按 `Day` 归日不一致——小时曲线加总 ≠ KPI 总量。拍板路线 A：复用会话开始归因、差异做成可见（tooltip 标注 + unknown 占比，对齐时间页）；路线 B（usage_facts 加小时维度，存量不可回填、需源文件重采）明确不做，将来要精确"用量发生时间"归因再另开卡。触发条件定为 `FromDay == ToDay`（自定义单日档一并覆盖）；两日窗口不动。
+
 > 2026-10-30：**Todo 清账——首版发版前把三张旧卡收口（B-019 / B-020 / D-023），Todo 只剩 I-043**。①**B-019**（macOS Dock 右键「显示所有窗口」崩溃，P2）：用户确认已不复现，按指示关闭；卡内实写证据缺口——仓库无该崩溃的独立修复提交、`.ips` 始终没取回、根因未取证，只把“不再复现”当事实记下；同期唯一相关变更是 B-018 的 Dock 唤回通道改造（783c8f5），路径相邻但无实测关联。②**B-020**（SingleInstanceGuardTests 间歇失败，P3）：**已于 2026-10-28 修复却未回写卡片**（913b8cc），本次补账；真凶是 CoreCLR PAL 按**线程**跟踪命名 Mutex 所有权——旧用例 `await` 把测试挂起在拿锁线程上、该线程随即退出致废弃，故全量并发跑偶发、单跑稳定；修法是测试侧改同步（专用 `Thread` + `Join`）+ 新增废弃接管语义用例，`TryAcquire` 生产语义不改。③**D-023**（Windows 托盘双击，P3）：用户确认回退到位且不重启该方案，卡片关为“不做”；回退完整性已核对——全仓 `GetDoubleClickTime` / `HideIfVisible` 零命中，只余 B-017 的 `ToggleFromTrayClick`，AC 保持未勾选以准确记录“未交付”。全量复核：Core 222 / Reconciliation 49（19 跳过）/ Infra 761（3 跳过）/ App 325 / Headless 494，0 失败。**遗留讨论**：I-043（message-grain 记录账本）仍 P2 挂在 Todo，但其触发前提（记录数上万 + 频繁混轮）按 `docs/perf-investigation-2026-10-28.md` 实测（真实库 1–2k 记录、全量重算 < 50 ms）尚未到达，是否降级待用户决定。
 
 > 2026-10-30（同日·作废）：**I-043 采集真增量（message-grain 记录账本）由用户拍板作废，卡片留档不删**。判定口径：本卡不是“代码难写”而是“边界压在信任锚上”——①去重口径从内存 first-wins 变 DB 主键 first-wins，单轮等价、跨轮不等价，而 tokens 要精确；且去重键 2026-10-30 仍在演进，键一旦成主键则每次键变更都要写迁移 + 洗历史行；②失败语义由“整轮放弃”变“已入账要回滚”，而源降级是常态（97479af / 76ad97c / edecddc）；③计价搬聚合期要重证逐分钱一致，而倍率表同日刚落地；④可能反而更慢（账本行数比 facts 高一个数量级，全表读本就是主成本）；⑤隐私口径措辞要改。触发前提按实测尚未到（1–2k 记录、全量重算 < 50 ms）。**卡片置 `status: wontfix` 保留全部设计要点与风险清单**，Done 表按“作废”登记；若日后真到重开条件（记录数上万 且 频繁单源变化触发全量轮），先做“驻留记忆窗口化”这步可逆改动，再考虑全量账本。本批四卡（B-019 / B-020 / D-023 / I-043）至此全部出清。
@@ -63,6 +65,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
+| D-027 | Overview 单日窗口趋势图切小时形态——今天/昨天不再单点死图（会话开始时间归因，口径差异可见） | P3 | M | none | none |
 
 > 2026-10-30：本轮清理后本表无行（B-019 / B-020 / D-023 收口，I-043 作废留档）。
 
