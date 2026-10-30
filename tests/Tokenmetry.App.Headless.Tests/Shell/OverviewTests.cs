@@ -10,8 +10,10 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.DependencyInjection;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
@@ -52,6 +54,11 @@ public class OverviewTests
         public IReadOnlyList<DimensionUsageRow> Models { get; set; } = Array.Empty<DimensionUsageRow>();
 
         public IReadOnlyList<DimensionUsageRow> Projects { get; set; } = Array.Empty<DimensionUsageRow>();
+
+        /// <summary>单日窗口的小时分布（D-027；非单日窗口不该被查）。</summary>
+        public HourlyDistributionResult Hourly { get; set; } = new();
+
+        public int HourlyCalls { get; private set; }
 
         public int KpiCalls { get; private set; }
 
@@ -120,8 +127,11 @@ public class OverviewTests
         public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<string>>([]);
 
-        public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-            Task.FromResult(new HourlyDistributionResult { Hours = Array.Empty<HourlyUsageBucket>() });
+        public Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default)
+        {
+            HourlyCalls++;
+            return Task.FromResult(Hourly);
+        }
     }
 
     // ── fixture ──
@@ -350,6 +360,133 @@ public class OverviewTests
         Assert.Equal("→ —", vm.TokensCard.ChangeText);
         Assert.True(vm.TokensCard.IsNeutral);
         Assert.Null(vm.LoadError);
+    }
+
+    // ── D-027：单日窗口切小时形态（今天/昨天单点死图收口）──
+
+    /// <summary>小时分布 fixture：10/14 点高峰、每桶都有成本；3 个会话无分钟级精度（unknown 可见）。</summary>
+    private static HourlyDistributionResult FixtureHourly { get; } = new()
+    {
+        Hours = Enumerable.Range(0, 24).Select(h => new HourlyUsageBucket
+        {
+            Hour = h,
+            SessionCount = h is 10 or 14 ? 4 : 1,
+            TotalTokens = h * 1_000,
+            Cost = new AggregatedCost(1.5m, false),
+        }).ToList(),
+        UnknownSessionCount = 3,
+        UnknownTotalTokens = 12_000,
+        TimeZoneId = TimeZoneInfo.Local.Id,
+    };
+
+    [AvaloniaFact]
+    public void Single_day_window_switches_trend_charts_to_hourly_mode()
+    {
+        var filters = new FilterStateService { TimeRange = TimeRangeOption.Today };
+        var stub = new StubQueryService
+        {
+            Kpi = FixtureKpi,
+            Daily = ChartTestHelpers.AllPadded30(),
+            Agents = FixtureAgents,
+            Hourly = FixtureHourly,
+        };
+        var vm = CreateVm(stub, filters);
+
+        // 单日窗口：两张趋势图切小时形态，小时数据 + 已发生边界 + unknown 标注一次落位
+        Assert.True(vm.IsSingleDayWindow);
+        Assert.Equal(TrendChartMode.HourlyTokens, vm.TokenTrendMode);
+        Assert.Equal(TrendChartMode.HourlyCost, vm.CostTrendMode);
+        Assert.Same(FixtureHourly, vm.HourlyDistribution);
+        Assert.Equal(DateTimeOffset.Now.Hour, vm.HourlyCutoffHour); // 今天 → 当前小时（含，本小时进行中也是真实数据）
+
+        // unknown 占比与时间分析页同一实现（口径同级不是「看起来差不多」）
+        Assert.Equal(
+            TimeViewModel.BuildUnknownNote(3, TimeViewModel.SumKnownSessions(FixtureHourly.Hours), 12_000),
+            vm.HourlyUnknownNoteText);
+        Assert.True(vm.HasHourlyUnknownNote);
+
+        // 回到多日窗口：形态复位、小时数据清空，日序列仍在（非单日窗口行为零变化）
+        filters.TimeRange = TimeRangeOption.Last7Days;
+        Assert.False(vm.IsSingleDayWindow);
+        Assert.Equal(TrendChartMode.DailyTokens, vm.TokenTrendMode);
+        Assert.Equal(TrendChartMode.CostUsd, vm.CostTrendMode);
+        Assert.Null(vm.HourlyDistribution);
+        Assert.Null(vm.HourlyCutoffHour);
+        Assert.Null(vm.HourlyUnknownNoteText);
+        Assert.False(vm.HasHourlyUnknownNote);
+        Assert.NotNull(vm.DailyPoints);
+    }
+
+    [AvaloniaFact]
+    public void Multi_day_window_does_not_query_hourly_distribution()
+    {
+        // 默认 7 天档：小时查询一次都不发（多日窗口不走小时形态，不多付一次 sessions 读）
+        var stub = new StubQueryService { Kpi = FixtureKpi, Hourly = FixtureHourly };
+        var vm = CreateVm(stub);
+        Assert.False(vm.IsSingleDayWindow);
+        Assert.Null(vm.HourlyDistribution);
+        Assert.Equal(0, stub.HourlyCalls);
+    }
+
+    [AvaloniaFact]
+    public void Single_day_yesterday_window_has_no_future_hour_cutoff()
+    {
+        // 昨天档 0..23 全是真实过去：不做淡化处理（cutoff null）
+        var filters = new FilterStateService { TimeRange = TimeRangeOption.Yesterday };
+        var vm = CreateVm(new StubQueryService { Kpi = FixtureKpi, Hourly = FixtureHourly }, filters);
+        Assert.True(vm.IsSingleDayWindow);
+        Assert.Null(vm.HourlyCutoffHour);
+    }
+
+    [AvaloniaFact]
+    public void Hourly_cutoff_hour_and_single_day_detection_are_pure()
+    {
+        var local = new DateTime(2026, 5, 20, 9, 15, 0, DateTimeKind.Unspecified);
+        var now = new DateTimeOffset(local, TimeZoneInfo.Local.GetUtcOffset(local));
+
+        Assert.Equal(9, OverviewViewModel.ResolveHourlyCutoffHour("2026-05-20", now));   // 今天 → 当前小时
+        Assert.Null(OverviewViewModel.ResolveHourlyCutoffHour("2026-05-19", now));        // 昨天 → 全已发生
+        Assert.Equal(-1, OverviewViewModel.ResolveHourlyCutoffHour("2026-05-21", now));  // 未来单日 → 整天未到
+        Assert.Null(OverviewViewModel.ResolveHourlyCutoffHour(null, now));                // 无上界 → 不适用
+
+        Assert.True(OverviewViewModel.IsSingleDayFilter(
+            new UsageQueryFilter { FromDay = "2026-05-20", ToDay = "2026-05-20" }));
+        Assert.False(OverviewViewModel.IsSingleDayFilter(
+            new UsageQueryFilter { FromDay = "2026-05-19", ToDay = "2026-05-20" })); // 两日窗口不扩
+        Assert.False(OverviewViewModel.IsSingleDayFilter(
+            new UsageQueryFilter { FromDay = "2026-05-20" }));                       // 单边无界
+        Assert.False(OverviewViewModel.IsSingleDayFilter(new UsageQueryFilter()));  // 全部时间
+    }
+
+    [AvaloniaFact]
+    public void Overview_view_renders_hourly_trends_for_single_day_window()
+    {
+        var filters = new FilterStateService { TimeRange = TimeRangeOption.Today };
+        var vm = CreateVm(new StubQueryService
+        {
+            Kpi = FixtureKpi,
+            Daily = ChartTestHelpers.AllPadded30(),
+            Agents = FixtureAgents,
+            Hourly = FixtureHourly,
+        }, filters);
+
+        var window = CreateOverviewWindow(vm, ThemeVariant.Dark);
+        var frame = ChartTestHelpers.RenderFrame(window);
+        ChartTestHelpers.SaveArchive(frame, ArchiveDir, "overview-hourly-dark.png");
+
+        // 编译绑定真的把两张图切到小时形态（属性名拼错 / 漏绑会在这里露出来）
+        var charts = window.GetVisualDescendants().OfType<TrendChart>().ToList();
+        Assert.Equal(2, charts.Count);
+        Assert.Contains(charts, c => c.Mode == TrendChartMode.HourlyTokens && c.HourlyCutoffHour is not null);
+        Assert.Contains(charts, c => c.Mode == TrendChartMode.HourlyCost);
+
+        // 口径标注可见（按会话开始时间归集 + unknown 占比）
+        var attribution = ChartTestHelpers.FindTextBlock(window, Translations.Instance.AttributionSessionStart);
+        Assert.NotNull(attribution);
+        Assert.True(ChartTestHelpers.IsEffectivelyVisible(attribution!));
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 
     // ── 筛选 → 查询参数映射 + 重查触发 ──

@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-30：**D-027 收口（Overview 单日窗口趋势图切小时形态）——今天/昨天不再单点死图**。单日窗口（`FromDay == ToDay`，内置今天/昨天与自定义单日档同命中）两张趋势图切小时形态：`TrendChart` 新增 `HourlyCost`（分段规则同 `BuildCostLine`：已知成本小时与无会话小时成线、有用量无价的小时断线，未知成本绝不折 0）+ `HourlyCutoffHour` 已发生边界（今天的未来小时只留淡化小点、不进曲线/面积填充，tooltip 写「尚未到达」而非 0；昨天档 0..23 全真实故为 null）。口径差异做成可见（路线 A）：工具提示与面板标注「按会话开始时间归集」，unknown 占比与时间分析页**共享同一实现**（`SumKnownSessions`/`BuildUnknownNote` 从 `TimeViewModel` 抽到 `App/Services/HourlyAttribution.cs`，两处 VM 共同调用）。单日窗口与复合快照**并行**发小时查询（不并入快照，卡内已明确不做那步优化）；两日及多日窗口零变化（形态、`DateTimeTicksBottom`、代码路径全部原样），多日窗口一次小时查询都不发（回归锁 `HourlyCalls == 0`）。测试 +17 headless（cutoff 夹回 Theory、曲线止于边界/未来只留淡点、单已发生小时不成线、小时成本未知断线、两种小时 tooltip 文案、今天档切形态含 cutoff=当前小时、切回 7 天档全复位、昨天档 cutoff null、cutoff/单日判定纯函数边界、真实 `OverviewView` 编译绑定渲染锁 + 截图）；全量 Core 222 / Reconciliation 49（19 跳过）/ App 325 / Infra 761（3 跳过）/ Headless 509，0 失败。已登记边界：未来小时淡点贴零轴可见度低（与补零日刻意同语言）、小时曲线加总 ≠ KPI（会话开始归因 vs facts 按日归日，路线 B 仍不做）、单日多一次 sessions 读。
+
 > 2026-10-30：**D-027 建卡（Overview 单日窗口趋势图切小时形态）**。用户提案：切"今天/昨天"后 Token/成本两张趋势图只剩单点，建议单日时 X 轴换成当天小时刻度。评估：值得做，基础设施大半现成——TrendChart 已有 `HourlyTokens` 形态（时间页在用）、`GetHourlyDistributionAsync` 同吃 `UsageQueryFilter`、`HourlyUsageBucket` 连 `Cost` 都有（成本趋势只需新增 `HourlyCost` 形态）。核心口径坑：I-029 小时分布按会话 `first_seen_at` 归桶（整会话量记到开始小时；粗粒度剔 unknown；跨天会话不在窗口），与日序列 facts 按 `Day` 归日不一致——小时曲线加总 ≠ KPI 总量。拍板路线 A：复用会话开始归因、差异做成可见（tooltip 标注 + unknown 占比，对齐时间页）；路线 B（usage_facts 加小时维度，存量不可回填、需源文件重采）明确不做，将来要精确"用量发生时间"归因再另开卡。触发条件定为 `FromDay == ToDay`（自定义单日档一并覆盖）；两日窗口不动。
 
 > 2026-10-30：**Todo 清账——首版发版前把三张旧卡收口（B-019 / B-020 / D-023），Todo 只剩 I-043**。①**B-019**（macOS Dock 右键「显示所有窗口」崩溃，P2）：用户确认已不复现，按指示关闭；卡内实写证据缺口——仓库无该崩溃的独立修复提交、`.ips` 始终没取回、根因未取证，只把“不再复现”当事实记下；同期唯一相关变更是 B-018 的 Dock 唤回通道改造（783c8f5），路径相邻但无实测关联。②**B-020**（SingleInstanceGuardTests 间歇失败，P3）：**已于 2026-10-28 修复却未回写卡片**（913b8cc），本次补账；真凶是 CoreCLR PAL 按**线程**跟踪命名 Mutex 所有权——旧用例 `await` 把测试挂起在拿锁线程上、该线程随即退出致废弃，故全量并发跑偶发、单跑稳定；修法是测试侧改同步（专用 `Thread` + `Join`）+ 新增废弃接管语义用例，`TryAcquire` 生产语义不改。③**D-023**（Windows 托盘双击，P3）：用户确认回退到位且不重启该方案，卡片关为“不做”；回退完整性已核对——全仓 `GetDoubleClickTime` / `HideIfVisible` 零命中，只余 B-017 的 `ToggleFromTrayClick`，AC 保持未勾选以准确记录“未交付”。全量复核：Core 222 / Reconciliation 49（19 跳过）/ Infra 761（3 跳过）/ App 325 / Headless 494，0 失败。**遗留讨论**：I-043（message-grain 记录账本）仍 P2 挂在 Todo，但其触发前提（记录数上万 + 频繁混轮）按 `docs/perf-investigation-2026-10-28.md` 实测（真实库 1–2k 记录、全量重算 < 50 ms）尚未到达，是否降级待用户决定。
@@ -65,9 +67,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| D-027 | Overview 单日窗口趋势图切小时形态——今天/昨天不再单点死图（会话开始时间归因，口径差异可见） | P3 | M | none | none |
 
-> 2026-10-30：本轮清理后本表无行（B-019 / B-020 / D-023 收口，I-043 作废留档）。
+> 2026-10-30：本表无行（D-027 收口；B-019 / B-020 / D-023 已关，I-043 作废留档）。
 
 > 2026-10-24（晚六）：**Q-009 修正项 1——? 字形太小，改 circle-help 矢量兜底**。用户看后反馈「问号太小了，能不能大点，或者用 svg 画个 Icon」。取证：文本 `?` 墨迹只占 em 四成（11px 字号实际 ~7px，I-040 同源问题——系统字体渲染墨迹占比低且跨平台不可控），加大字号受 16px 槽位与字形 line-height 限制。修法：走 I-040 管线——生成器白名单加 circle-help（lucide-static@1.61.0）再生 Icons.axaml，model-chip 增 `PathIcon.model-fallback` 槽（13px / lg 22px、中性芯片前景、generic 伪类显隐），5 处消费点（模型页/总览/计价页两处/托盘 lg）接入；`?` 字形退到数据层语义（ModelVisual.Glyph，UI 不渲染），phi 的 Φ 不动。测试：generic 断言翻转（字形隐藏+图标显示）+ 新增墨迹几何量测锁（16px 芯片内 ≥10px，防「太小」回归）；IconResourceTests.GeometryKeys 补 circle-help 并顺手补 Q-007 漏登记的 hard-drive-upload/download 两键。headless 346 Passed（+1），全量 1448 Passed / 0 Failed（22 跳过）；真机观感移交用户。
 
@@ -139,6 +140,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| D-027 | Overview 单日窗口趋势图切小时形态——今天/昨天不再单点死图（`HourlyCost` 形态 + 已发生边界淡点 + 会话开始归因可见） | P3 | 2026-10-30 |
 | I-043 | 采集真增量（message-grain 记录账本）——**作废（不做，留档）**：去重口径/迁移不可逆/失败回滚三条风险压在信任锚上，触发前提（记录数上万 + 频繁混轮）实测未到 | P2 | 2026-10-30（作废） |
 | B-019 | macOS Dock「显示所有窗口」崩溃——用户真机复验不再复现；仓库无独立修复提交、`.ips` 未取回，根因未取证 | P2 | 2026-10-30 |
 | B-020 | SingleInstanceGuardTests 间歇失败——根因是 await 挂起让拿锁线程退出、PAL 按线程废弃命名 Mutex（修复 913b8cc，本次账目追平） | P3 | 2026-10-30 |

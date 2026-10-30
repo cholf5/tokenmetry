@@ -15,7 +15,7 @@ using ScottPlot.Plottables;
 
 namespace Tokenmetry.App.Controls;
 
-/// <summary>TrendChart 的形态（D-004：三形态参数化，同一绘图管线）。</summary>
+/// <summary>TrendChart 的形态（D-004：参数化多形态共用同一绘图管线；D-027 增小时成本形态）。</summary>
 public enum TrendChartMode
 {
     /// <summary>日趋势：输入/输出堆叠柱 + 总量折线（I-028 日序列，含补零日辨识）。</summary>
@@ -27,6 +27,11 @@ public enum TrendChartMode
 
     /// <summary>小时折线：0..23 全量桶总 token（I-029 小时分布）。</summary>
     HourlyTokens,
+
+    /// <summary>小时成本折线（D-027）：0..23 全量桶成本，按会话开始时间归集——语义与
+    /// <see cref="CostUsd"/> 同构（已知成本成线、未知成本断线、无会话小时真实 $0），
+    /// 区别只在 X 轴是当天小时而非日历日（见 <see cref="BuildHourlyCost"/>）。</summary>
+    HourlyCost,
 }
 
 /// <summary>悬停状态变化事件（宿主页状态行可订阅；LabelText 与图上 tooltip 同源同格式）。</summary>
@@ -81,6 +86,10 @@ public partial class TrendChart : UserControl
     public static readonly StyledProperty<HourlyDistributionResult?> HourlyDistributionProperty =
         AvaloniaProperty.Register<TrendChart, HourlyDistributionResult?>(nameof(HourlyDistribution));
 
+    /// <summary>小时形态最后一个「已发生」的小时（含；D-027）。</summary>
+    public static readonly StyledProperty<int?> HourlyCutoffHourProperty =
+        AvaloniaProperty.Register<TrendChart, int?>(nameof(HourlyCutoffHour));
+
     public TrendChartMode Mode
     {
         get => GetValue(ModeProperty);
@@ -97,6 +106,17 @@ public partial class TrendChart : UserControl
     {
         get => GetValue(HourlyDistributionProperty);
         set => SetValue(HourlyDistributionProperty, value);
+    }
+
+    /// <summary>
+    /// 小时形态的「已发生」边界（D-027，含该小时）：null = 24 小时全部已发生（昨天的单日窗口、
+    /// 时间分析页的多日窗口）；值 = 今天窗口由页面传当前小时（-1 = 整天尚未到达）。其后的小时
+    /// <b>不是真实 0</b>——只画淡化小点、不进连线（视觉语言同 I-028 补零日，语义是「还没发生」）。
+    /// </summary>
+    public int? HourlyCutoffHour
+    {
+        get => GetValue(HourlyCutoffHourProperty);
+        set => SetValue(HourlyCutoffHourProperty, value);
     }
 
     /// <summary>底层 ScottPlot Plot（测试用于断言重建后的样式）。</summary>
@@ -143,6 +163,7 @@ public partial class TrendChart : UserControl
         ModeProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
         DailyPointsProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
         HourlyDistributionProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
+        HourlyCutoffHourProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
 
         // ScottPlot 不支持 Avalonia 动态资源：主题变体变化时整图重建（chrome 色重新现取令牌）。
         // 订阅控件自身事件（EffectiveThemeVariant 继承 App/Window 的设置，含 app.TrySetTheme 路径）。
@@ -210,6 +231,9 @@ public partial class TrendChart : UserControl
                 break;
             case TrendChartMode.HourlyTokens:
                 BuildHourlyLine(plot);
+                break;
+            case TrendChartMode.HourlyCost:
+                BuildHourlyCost(plot);
                 break;
             default:
                 break;
@@ -600,7 +624,12 @@ public partial class TrendChart : UserControl
         return runs;
     }
 
-    /// <summary>小时折线：0..23 全量桶（I-029）总 token；粗粒度会话不在图上（页面层展示 unknown 占比）。</summary>
+    /// <summary>
+    /// 小时折线：0..23 全量桶（I-029）总 token；粗粒度会话不在图上（页面层展示 unknown 占比）。
+    /// D-027：今天窗口的「尚未到达」小时（<see cref="HourlyCutoffHour"/> 之后）<b>不是真实 0</b>——
+    /// 只画淡化小点、不进连线/面积填充，tooltip 如实写「尚未到达」（同 I-028 补零日视觉语言，
+    /// 语义更弱：补零日是真的没用量，未来小时是还没发生）。
+    /// </summary>
     private void BuildHourlyLine(Plot plot)
     {
         var hours = HourlyDistribution?.Hours ?? Array.Empty<HourlyUsageBucket>();
@@ -610,33 +639,111 @@ public partial class TrendChart : UserControl
         }
 
         var cyan = TokenColor("AppAccentCyanBrush", new Color(87, 199, 232));
+        var grid = TokenColor("AppChartGridLineBrush", new Color(44, 52, 63));
         var panel = TokenColor("AppPanelBrush", new Color(23, 28, 37));
 
         var xs = hours.Select(h => (double)h.Hour).ToArray();
         var ys = hours.Select(h => (double)h.TotalTokens).ToArray();
+        var realCount = RealHourCount(hours.Count, HourlyCutoffHour);
 
-        // 平滑曲线 + 面积填充（I-032）；标记点独立成散点，仍锚在真实小时值上
-        AddSmoothLine(plot, xs, ys, cyan, areaFill: true);
+        // 平滑曲线 + 面积填充（I-032）：只连接已发生的小时（未来小时不是 0，绝不入曲线）；
+        // 只剩 1 个真实点时无从成线，由标记点独立呈现
+        if (realCount >= 2)
+        {
+            AddSmoothLine(plot, xs[..realCount], ys[..realCount], cyan, areaFill: true);
+        }
 
-        var hourCoords = xs.Select((x, i) => new Coordinates(x, ys[i])).ToArray();
-        var hourMarkers = plot.Add.ScatterPoints(hourCoords, cyan);
-        hourMarkers.LineWidth = 0;
-        hourMarkers.MarkerShape = MarkerShape.FilledCircle;
-        hourMarkers.MarkerSize = 4f;
-        hourMarkers.MarkerLineColor = panel;
-        hourMarkers.MarkerLineWidth = 1f;
+        var realMarkers = plot.Add.ScatterPoints(
+            xs[..realCount].Select((x, i) => new Coordinates(x, ys[i])).ToArray(), cyan);
+        realMarkers.LineWidth = 0;
+        realMarkers.MarkerShape = MarkerShape.FilledCircle;
+        realMarkers.MarkerSize = 4f;
+        realMarkers.MarkerLineColor = panel;
+        realMarkers.MarkerLineWidth = 1f;
+
+        // 尚未到达的小时：淡化小点（同补零日视觉语言），锚在零轴
+        var futureMarkers = plot.Add.ScatterPoints(
+            xs[realCount..].Select(x => new Coordinates(x, 0)).ToArray(), grid);
+        futureMarkers.LineWidth = 0;
+        futureMarkers.MarkerShape = MarkerShape.FilledCircle;
+        futureMarkers.MarkerSize = 3f;
 
         _hoverCoords = xs.Select((x, i) => new Coordinates(x, ys[i])).ToArray();
-        var t = Translations.Instance;
-        var unit = t.ChartTipTokenUnit;
-        _hoverLabels = hours.Select(h =>
-            $"{h.Hour:00}:00\n{FormatCompactTokens(h.TotalTokens)} {unit}\n" +
-            string.Format(t.ChartTipSessionsFormat, h.SessionCount.ToString("N0", CultureInfo.InvariantCulture))).ToArray();
+        _hoverLabels = hours.Select((h, i) => HourlyTokenTooltipText(h, i >= realCount)).ToArray();
 
         plot.Axes.SetLimitsX(-0.5, 23.5);
         StyleTokenAxisFormatter(plot.Axes.Left, compact: true);
         StyleTokenAxisFormatter(plot.Axes.Bottom, integer: true);
     }
+
+    /// <summary>
+    /// 小时成本折线（D-027，单日窗口的成本趋势）：折线分段规则与 <see cref="BuildCostLine"/> 同构——
+    /// <b>已知成本</b>小时与<b>无任何会话</b>的小时（成本真实为 $0）成线；有用量但无价的小时断线
+    /// （未知成本绝不静默折 0，P2-7 口径在小时桶延续）；尚未到达的小时既不进线也不淡点占位零轴。
+    /// 已知小时实心点、未知/无会话小时淡点（未知点锚在 0，仅供悬停定位）。
+    /// </summary>
+    private void BuildHourlyCost(Plot plot)
+    {
+        var hours = HourlyDistribution?.Hours ?? Array.Empty<HourlyUsageBucket>();
+        if (hours.Count == 0)
+        {
+            return;
+        }
+
+        var cyan = TokenColor("AppAccentCyanBrush", new Color(87, 199, 232));
+        var grid = TokenColor("AppChartGridLineBrush", new Color(44, 52, 63));
+        var panel = TokenColor("AppPanelBrush", new Color(23, 28, 37));
+
+        var xs = hours.Select(h => (double)h.Hour).ToArray();
+        // y 取已知成本；无会话小时为 0（真实为零，进连线），未知成本小时为 0（仅作淡点/悬停锚点）
+        var ys = hours.Select(h => (double)(h.Cost.KnownCostUsd ?? 0m)).ToArray();
+        var realCount = RealHourCount(hours.Count, HourlyCutoffHour);
+        var knownFlags = hours.Select((h, i) => i < realCount && h.Cost.KnownCostUsd is { }).ToArray();
+        // 成线小时 = 已发生 ∧（已知成本 ∨ 无任何会话 → 真实 $0）；未知成本小时断线
+        var connectFlags = hours
+            .Select((h, i) => i < realCount && (h.Cost.KnownCostUsd is { } || h.Cost.IsEmpty))
+            .ToArray();
+
+        // 面积填充刻意不用（同 BuildCostLine：成本峰稀疏时补零段贴零轴，填充会把无用量时段涂成实块）
+        foreach (var (start, end) in BuildLineRuns(connectFlags))
+        {
+            AddSmoothLine(plot, xs[start..(end + 1)], ys[start..(end + 1)], cyan, areaFill: false);
+        }
+
+        var knownCoords = new List<Coordinates>();
+        var faintCoords = new List<Coordinates>();
+        for (var i = 0; i < hours.Count; i++)
+        {
+            (knownFlags[i] ? knownCoords : faintCoords).Add(new Coordinates(xs[i], ys[i]));
+        }
+
+        var knownMarkers = plot.Add.ScatterPoints(knownCoords, cyan);
+        knownMarkers.LineWidth = 0;
+        knownMarkers.MarkerShape = MarkerShape.FilledCircle;
+        knownMarkers.MarkerSize = 5f;
+        knownMarkers.MarkerLineColor = panel;
+        knownMarkers.MarkerLineWidth = 1.5f;
+
+        var faintMarkers = plot.Add.ScatterPoints(faintCoords, grid);
+        faintMarkers.LineWidth = 0;
+        faintMarkers.MarkerShape = MarkerShape.FilledCircle;
+        faintMarkers.MarkerSize = 3f;
+
+        _hoverCoords = xs.Select((x, i) => new Coordinates(x, ys[i])).ToArray();
+        _hoverLabels = hours.Select((h, i) => HourlyCostTooltipText(h, i >= realCount)).ToArray();
+
+        plot.Axes.SetLimitsX(-0.5, 23.5);
+        StyleTokenAxisFormatter(plot.Axes.Left, dollar: true);
+        StyleTokenAxisFormatter(plot.Axes.Bottom, integer: true);
+    }
+
+    /// <summary>
+    /// 小时形态的「已发生」小时数（D-027，纯函数）：<paramref name="cutoffHour"/> 为最后一个已发生
+    /// 小时（含；-1 = 整天尚未到达，0 = 只有 00 点已发生）；null = 24 小时全已发生（历史单日窗口 /
+    /// 多日窗口）。越界值夹回 0..hourCount，不让调用方的时钟漂移画到桶外。
+    /// </summary>
+    public static int RealHourCount(int hourCount, int? cutoffHour) =>
+        cutoffHour is { } cutoff ? Math.Clamp(cutoff + 1, 0, hourCount) : hourCount;
 
     /// <summary>y 轴（或小时形态的 x 轴）数字刻度格式：美元前缀 / 紧凑 token / 整数小时。</summary>
     private void StyleTokenAxisFormatter(IAxis axis, bool dollar = false, bool compact = false, bool integer = false)
@@ -935,6 +1042,48 @@ public partial class TrendChart : UserControl
         // (null, false)：范围内没有任何成本数据，不显示成本行（既非 0 也非未知）
 
         return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// 小时形态 tooltip（D-027）：普通小时「HH:00 / 紧凑 token / N 个会话」；尚未到达的小时只写
+    /// 「尚未到达」（不冒充 0）；两者都带口径标注「按会话开始时间归集」——小时分布把整个会话的
+    /// 用量记到 <c>first_seen_at</c> 所在小时，与按 <c>fact.Day</c> 归日的 KPI/日序列口径不同，
+    /// 这个差异必须在图上可见（卡内定案路线 A）。
+    /// </summary>
+    public static string HourlyTokenTooltipText(HourlyUsageBucket bucket, bool notYet)
+    {
+        var t = Translations.Instance;
+        var head = $"{bucket.Hour:00}:00";
+        if (notYet)
+        {
+            return $"{head}\n{t.ChartTipHourNotYet}";
+        }
+
+        return string.Join('\n',
+            head,
+            $"{FormatCompactTokens(bucket.TotalTokens)} {t.ChartTipTokenUnit}",
+            string.Format(t.ChartTipSessionsFormat, bucket.SessionCount.ToString("N0", CultureInfo.InvariantCulture)),
+            t.AttributionSessionStart);
+    }
+
+    /// <summary>
+    /// 小时成本 tooltip（D-027）：四态与 <see cref="CostTooltipText"/> 一致（已知 / 已知下限 /
+    /// 未知 / 无成本数据，未知成本绝不折 0），另加「按会话开始时间归集」口径标注；
+    /// 尚未到达的小时只写「尚未到达」。
+    /// </summary>
+    public static string HourlyCostTooltipText(HourlyUsageBucket bucket, bool notYet)
+    {
+        var t = Translations.Instance;
+        var head = $"{bucket.Hour:00}:00";
+        if (notYet)
+        {
+            return $"{head}\n{t.ChartTipHourNotYet}";
+        }
+
+        var costLine = bucket.Cost.KnownCostUsd is { } known
+            ? FormatCostUsd(known, bucket.Cost.HasUnknownCost)!
+            : bucket.Cost.HasUnknownCost ? t.ChartTipCostUnknown : t.ChartTipNoCostData;
+        return string.Join('\n', head, costLine, t.AttributionSessionStart);
     }
 
     /// <summary>

@@ -245,6 +245,7 @@ public sealed partial class Translations
         [nameof(LegendInput)] = "Ввод",
         [nameof(LegendOutput)] = "Вывод",
         [nameof(LegendTotal)] = "Всего",
+        [nameof(LegendHourly)] = "По часам",
         [nameof(PanelTrend)] = "Тренд использования токенов",
         [nameof(MetaByTotalTokens)] = "По сумме токенов",
         [nameof(PanelAgentDonut)] = "Доля агентов",
@@ -447,6 +448,8 @@ public sealed partial class Translations
         [nameof(ChartTipCostUnknown)] = "стоимость неизвестна",
         [nameof(ChartTipNoCostData)] = "нет данных о стоимости",
         [nameof(ChartTipSessionsFormat)] = "сессий: {0}",
+        [nameof(ChartTipHourNotYet)] = "ещё не наступил",
+        [nameof(AttributionSessionStart)] = "сгруппировано по времени начала сессии",
 
         // ── Обнаружение аномалий ──
         [nameof(AnomalyCostSpikeFormat)] = "Затраты сегодня — {1:0.0}× от среднего за {0} дн.",

@@ -187,6 +187,42 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     [ObservableProperty]
     private IReadOnlyList<DailyUsagePoint>? _dailyPoints;
 
+    /// <summary>
+    /// 单日窗口标记（D-027）：<c>FromDay == ToDay</c>（内置今天/昨天档 + 自定义单日档）。true 时两张
+    /// 趋势图切小时形态（见 <see cref="TokenTrendMode"/> / <see cref="CostTrendMode"/>）并展示会话开始
+    /// 归因的口径标注；false 时两张图回到日序列形态，行为与本卡之前零变化。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TokenTrendMode))]
+    [NotifyPropertyChangedFor(nameof(CostTrendMode))]
+    private bool _isSingleDayWindow;
+
+    /// <summary>小时分布（I-029；仅单日窗口有值，趋势图小时形态直接消费）。</summary>
+    [ObservableProperty]
+    private HourlyDistributionResult? _hourlyDistribution;
+
+    /// <summary>小时形态「已发生」边界（仅单日窗口有值：今天就传当前小时，昨天/更早为 null）。</summary>
+    [ObservableProperty]
+    private int? _hourlyCutoffHour;
+
+    /// <summary>
+    /// 小时分布 unknown 占比标注（粗粒度时间戳的会话未入桶）。与时间分析页同一实现
+    /// （<see cref="HourlyAttribution.BuildUnknownNote"/>）——口径同级不是“差不多”；null 时视图隐藏。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHourlyUnknownNote))]
+    private string? _hourlyUnknownNoteText;
+
+    public bool HasHourlyUnknownNote => HourlyUnknownNoteText is not null;
+
+    /// <summary>Token 趋势形态（D-027：单日 → 小时折线，其余 → 日序列）。</summary>
+    public TrendChartMode TokenTrendMode =>
+        IsSingleDayWindow ? TrendChartMode.HourlyTokens : TrendChartMode.DailyTokens;
+
+    /// <summary>成本趋势形态（D-027：单日 → 小时成本折线，其余 → 日成本折线）。</summary>
+    public TrendChartMode CostTrendMode =>
+        IsSingleDayWindow ? TrendChartMode.HourlyCost : TrendChartMode.CostUsd;
+
     /// <summary>Agent 环形段（token 量 Top6 + 「其他」聚合，段序映射 AppSeries0..6）。</summary>
     [ObservableProperty]
     private IReadOnlyList<DonutSegment>? _agentSegments;
@@ -275,11 +311,43 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     /// </summary>
     internal UsageQueryFilter BuildQueryFilter() => GlobalFilterMapper.Build(_filters);
 
+    /// <summary>
+    /// 单日窗口判定（D-027，纯函数）：双端都已确定且相等。<b>不</b>把「只有一个端点」或双端无界的
+    /// 窗口当单日——那不是「今天/昨天」语义，日序列形态照旧。
+    /// </summary>
+    internal static bool IsSingleDayFilter(UsageQueryFilter filter) =>
+        filter.FromDay is { } from
+        && filter.ToDay is { } to
+        && string.Equals(from, to, StringComparison.Ordinal);
+
+    /// <summary>
+    /// 小时形态的「已发生」边界（D-027，纯函数；now 注入供测试钉死时钟）：窗口落在今天 → 当前小时
+    /// （含，本小时进行中也是真实数据）；落在未来 → -1（整天尚未到达，不画虚构曲线）；
+    /// 昨天及更早 → null（0..23 全部是真实过去，不做淡化处理）。
+    /// </summary>
+    internal static int? ResolveHourlyCutoffHour(string? toDay, DateTimeOffset now)
+    {
+        if (UsageQueryFilter.ParseDay(toDay) is not { } day)
+        {
+            return null;
+        }
+
+        var local = now.LocalDateTime;
+        var today = DateOnly.FromDateTime(local);
+        if (day == today)
+        {
+            return local.Hour;
+        }
+
+        return day > today ? -1 : null;
+    }
+
     /// <summary>后台采集刷新轮次完成后重查本页（IDataRefreshAware）：复用 LoadAsync，序号防护保证与筛选重查并发时旧响应丢弃。</summary>
     public Task OnDataRefreshedAsync() => LoadAsync();
 
     /// <summary>按当前全局筛选重查整页（序号防护见类型说明）：P0-2 起经复合快照入口一次装载
-    /// KPI/日序列/三维聚合——单次 facts + 单次 sessions 全表读，替代逐方法十余次全表重读。</summary>
+    /// KPI/日序列/三维聚合——单次 facts + 单次 sessions 全表读，替代逐方法十余次全表重读。
+    /// D-027：单日窗口额外起一次小时分布查询（与快照并行，不并入快照——那步性能优化不在本卡范围）。</summary>
     public async Task LoadAsync()
     {
         var sequence = ++_loadSequence;
@@ -287,7 +355,11 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
 
         try
         {
-            var snapshot = await _query.GetOverviewSnapshotAsync(filter);
+            var singleDay = IsSingleDayFilter(filter);
+            var snapshotTask = _query.GetOverviewSnapshotAsync(filter);
+            var hourlyTask = singleDay ? _query.GetHourlyDistributionAsync(filter) : null;
+
+            var snapshot = await snapshotTask;
             if (sequence != _loadSequence)
             {
                 return;
@@ -306,6 +378,32 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
             TypeDonutCenterTitle = TrendChart.FormatCompactTokens(snapshot.Kpi.TotalTokens);
             HasLoadError = false;
             LoadError = null;
+
+            // 小时形态（D-027）：数据、已发生边界与 unknown 占比一次落位；非单日窗口复位，
+            // 两张图回到日序列形态。先落数据再翻形态——切换间不出现「形态已变但数据未到」的空态帧。
+            if (hourlyTask is not null)
+            {
+                var hourly = await hourlyTask;
+                if (sequence != _loadSequence)
+                {
+                    return;
+                }
+
+                HourlyDistribution = hourly;
+                HourlyCutoffHour = ResolveHourlyCutoffHour(filter.ToDay, DateTimeOffset.Now);
+                HourlyUnknownNoteText = HourlyAttribution.BuildUnknownNote(
+                    hourly.UnknownSessionCount,
+                    HourlyAttribution.SumKnownSessions(hourly.Hours),
+                    hourly.UnknownTotalTokens);
+                IsSingleDayWindow = true;
+            }
+            else
+            {
+                IsSingleDayWindow = false;
+                HourlyDistribution = null;
+                HourlyCutoffHour = null;
+                HourlyUnknownNoteText = null;
+            }
         }
         catch (Exception ex)
         {

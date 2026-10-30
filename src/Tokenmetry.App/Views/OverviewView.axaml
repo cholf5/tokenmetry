@@ -154,9 +154,12 @@
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="12"
                                     VerticalAlignment="Center">
-                            <TextBlock Classes="kpi-foot" Text="{Binding LegendDaily, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                            <!-- 图例三色 ← 原型 legend 输入=blue / 输出=purple / 总量=cyan -->
-                            <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Classes="kpi-foot" Text="{Binding LegendDaily, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !IsSingleDayWindow}" VerticalAlignment="Center"/>
+                            <!-- D-027：单日窗口的 X 轴是当天小时，粒度标注换成「按小时」 -->
+                            <TextBlock Classes="kpi-foot" Text="{Binding LegendHourly, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding IsSingleDayWindow}" VerticalAlignment="Center"/>
+                            <!-- 图例三色 ← 原型 legend 输入=blue / 输出=purple / 总量=cyan；
+                                 小时形态没有输入/输出堆叠柱，对应图例随之隐藏（不列不存在的系列） -->
+                            <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding !IsSingleDayWindow}">
                                 <Border Classes="series-dot"
                                         Background="{DynamicResource AppAccentBlueBrush}"
                                         VerticalAlignment="Center"/>
@@ -164,7 +167,7 @@
                                            Foreground="{DynamicResource AppMutedTextBrush}"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="5">
+                            <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding !IsSingleDayWindow}">
                                 <Border Classes="series-dot"
                                         Background="{DynamicResource AppAccentPurpleBrush}"
                                         VerticalAlignment="Center"/>
@@ -183,7 +186,18 @@
                         </StackPanel>
                         <TextBlock Classes="panel-title" Text="{Binding PanelTrend, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </DockPanel>
-                    <c:TrendChart Height="190" Mode="DailyTokens" DailyPoints="{Binding DailyPoints}"/>
+                    <!-- D-027：单日窗口（今天/昨天/自定义单日）切小时形态——日序列在该窗口只剩 1 个点，
+                         画不出线；小时形态用 I-029 会话开始时间归因，tooltip 与下方标注写明口径。 -->
+                    <c:TrendChart Height="190" Mode="{Binding TokenTrendMode}"
+                                  DailyPoints="{Binding DailyPoints}"
+                                  HourlyDistribution="{Binding HourlyDistribution}"
+                                  HourlyCutoffHour="{Binding HourlyCutoffHour}"/>
+                    <TextBlock Classes="page-subtitle"
+                               Text="{Binding AttributionSessionStart, Source={x:Static loc:Translations.Instance}}"
+                               IsVisible="{Binding IsSingleDayWindow}" TextWrapping="Wrap"/>
+                    <!-- unknown 占比标注（粗粒度时间戳会话未入桶）：与时间分析页同一实现 -->
+                    <TextBlock Classes="page-subtitle" Text="{Binding HourlyUnknownNoteText}"
+                               IsVisible="{Binding HasHourlyUnknownNote}" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 
@@ -343,7 +357,8 @@
             </Border>
 
             <!-- 成本趋势（TrendChart CostUsd 吃同窗口日序列成本列：补零日 $0 成线 + 淡点辨识，
-                 未知成本日断线 + 淡点，空态内置） -->
+                 未知成本日断线 + 淡点，空态内置；D-027 单日窗口切小时成本形态 HourlyCost，语义同构：
+                 未知成本小时断线不折 0、尚未到达的小时不画） -->
             <Border Grid.Column="1" Classes="panel">
                 <StackPanel Spacing="10">
                     <DockPanel>
@@ -351,7 +366,13 @@
                                    VerticalAlignment="Center"/>
                         <TextBlock Classes="panel-title" Text="{Binding PanelCostTrend, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                     </DockPanel>
-                    <c:TrendChart Height="190" Mode="CostUsd" DailyPoints="{Binding DailyPoints}"/>
+                    <c:TrendChart Height="190" Mode="{Binding CostTrendMode}"
+                                  DailyPoints="{Binding DailyPoints}"
+                                  HourlyDistribution="{Binding HourlyDistribution}"
+                                  HourlyCutoffHour="{Binding HourlyCutoffHour}"/>
+                    <TextBlock Classes="page-subtitle"
+                               Text="{Binding AttributionSessionStart, Source={x:Static loc:Translations.Instance}}"
+                               IsVisible="{Binding IsSingleDayWindow}" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
         </Grid>

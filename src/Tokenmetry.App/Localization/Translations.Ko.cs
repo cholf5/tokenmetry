@@ -243,6 +243,7 @@ public sealed partial class Translations
         [nameof(LegendInput)] = "입력",
         [nameof(LegendOutput)] = "출력",
         [nameof(LegendTotal)] = "총량",
+        [nameof(LegendHourly)] = "시간별",
         [nameof(PanelTrend)] = "Token 사용 추이",
         [nameof(MetaByTotalTokens)] = "Token 총량순",
         [nameof(PanelAgentDonut)] = "에이전트 사용 비중",
@@ -445,6 +446,8 @@ public sealed partial class Translations
         [nameof(ChartTipCostUnknown)] = "비용 알 수 없음",
         [nameof(ChartTipNoCostData)] = "비용 데이터 없음",
         [nameof(ChartTipSessionsFormat)] = "세션 {0}개",
+        [nameof(ChartTipHourNotYet)] = "아직 도달하지 않음",
+        [nameof(AttributionSessionStart)] = "세션 시작 시각 기준 집계",
 
         // ── 이상 감지 ──
         [nameof(AnomalyCostSpikeFormat)] = "오늘 비용은 지난 {0}일 평균의 {1:0.0}배입니다",
