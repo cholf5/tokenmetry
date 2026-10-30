@@ -15,10 +15,12 @@
 # check); scripts/release.sh bumps the csproj before tagging, and CI rejects
 # a tag that disagrees.
 #
-# Asset naming contract: Tokenmetry-{version}-{rid}.zip with rid ∈
-# {osx-arm64, osx-x64, win-x64, linux-x64}. The in-app updater
-# (src/Tokenmetry.App/Update/UpdateAssets.cs) downloads by exactly this
-# name — renaming assets here breaks "下载更新包" for every installed client.
+# Asset naming contract (five assets): Tokenmetry-{version}-{rid}.zip with
+# rid ∈ {osx-arm64, osx-x64, win-x64, linux-x64}, plus the Windows installer
+# Tokenmetry-{version}-win-x64-setup.exe. The in-app updater
+# (src/Tokenmetry.App/Update/UpdateAssets.cs) downloads by exactly these
+# names — renaming assets here breaks "下载更新包" for every installed client,
+# and picking the wrong one for installed copies breaks silent upgrades.
 name: CI
 
 on:
@@ -135,22 +137,70 @@ jobs:
       # PublishReadyToRun (P-003): methods precompiled into the binary — smaller
       # JIT code heap at runtime (tray-resident memory matters) and faster
       # startup; costs ~30-50% package size (trade logged on card P-003).
+      #
+      # The staging layout (dist/publish/<rid> -> dist/stage/<rid>) mirrors
+      # scripts/package.sh and is where installer/Tokenmetry.iss picks the exe
+      # up from: one layout for local fallback and CI, no /D path overrides.
       - name: Publish self-contained exe
         shell: pwsh
         run: >
           dotnet publish $env:APP_PROJECT -c Release -r win-x64
           --self-contained true -p:PublishSingleFile=true
           -p:PublishReadyToRun=true
-          -p:IncludeNativeLibrariesForSelfExtract=true -o "publish-win"
-      - name: Zip with product-name binary
+          -p:IncludeNativeLibrariesForSelfExtract=true -o "dist/publish/win-x64"
+      - name: Stage portable zip with product-name binary
         shell: pwsh
         run: |
-          Copy-Item "publish-win/Tokenmetry.App.exe" "Tokenmetry.exe"
-          Compress-Archive -Path "Tokenmetry.exe" -DestinationPath "Tokenmetry-$env:VERSION-win-x64.zip"
+          New-Item -ItemType Directory -Force -Path "dist/stage/win-x64" | Out-Null
+          Copy-Item "dist/publish/win-x64/Tokenmetry.App.exe" "dist/stage/win-x64/Tokenmetry.exe"
+          Compress-Archive -Path "dist/stage/win-x64/Tokenmetry.exe" -DestinationPath "dist/Tokenmetry-$env:VERSION-win-x64.zip"
+      # Installer is the primary Windows artifact: the zip stays for portable use,
+      # but only the installer gives an uninstaller, Start-menu entry and a fixed
+      # install path (which is what keeps HKCU\...\Run autostart valid).
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:VERSION" "installer\Tokenmetry.iss"
+          if (-not (Test-Path "dist/Tokenmetry-$env:VERSION-win-x64-setup.exe")) { throw "installer not produced" }
+      # Silent install -> files land -> silent uninstall -> files gone. This also
+      # proves the [Run] postinstall entry fires under /SILENT (an in-app upgrade
+      # must bring the app back on its own), so the installed app is asserted to
+      # start and then stopped before uninstalling.
+      - name: Smoke test installer (silent install + uninstall)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $setup = "dist/Tokenmetry-$env:VERSION-win-x64-setup.exe"
+          $dir = Join-Path $env:LOCALAPPDATA "Programs/Tokenmetry"
+          $exe = Join-Path $dir "Tokenmetry.exe"
+
+          Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/NOCANCEL" -Wait
+          if (-not (Test-Path $exe)) { throw "installed exe missing: $exe" }
+          if (-not (Test-Path (Join-Path $dir "unins000.exe"))) { throw "uninstaller missing" }
+          if (-not (Test-Path (Join-Path $env:LOCALAPPDATA "../Roaming/Microsoft/Windows/Start Menu/Programs/Tokenmetry.lnk"))) { Write-Host "start menu shortcut not found (per-user programs folder differs; not fatal)" }
+
+          $process = $null
+          for ($i = 0; $i -lt 30; $i++) {
+            $process = Get-Process -Name Tokenmetry -ErrorAction SilentlyContinue
+            if ($process) { break }
+            Start-Sleep -Milliseconds 500
+          }
+          if (-not $process) { throw "[Run] postinstall did not start the app after a silent install" }
+          $process | Stop-Process -Force
+          Start-Sleep -Seconds 2
+
+          Start-Process -FilePath (Join-Path $dir "unins000.exe") -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
+          if (Test-Path $exe) { throw "uninstall left the exe behind: $exe" }
+
       - uses: actions/upload-artifact@v4
         with:
           name: package-win-x64
-          path: Tokenmetry-*-win-x64.zip
+          # Both the portable zip and the installer: the release ships them as a pair
+          # (UpdateAssets picks the installer for installed copies, the zip otherwise).
+          path: |
+            dist/Tokenmetry-*-win-x64.zip
+            dist/Tokenmetry-*-win-x64-setup.exe
           if-no-files-found: error
 
   linux:
