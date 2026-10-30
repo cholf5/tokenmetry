@@ -102,20 +102,10 @@
                 </StackPanel>
             </Border>
 
-            <!-- ═══ 本地路径（只读说明 + 一个「打开目录」出口）═══ -->
+            <!-- ═══ 本地路径（只读说明 + 底部一个「打开目录」出口）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="8">
-                    <!-- 标题行右侧一个动作：沿用概览页区段标题的「右侧轻链接」语言（DockPanel + link-btn，
-                         11px 链接色无边框），不用实心 app-btn——实心按钮的体积比标题大一倍，浮在右上角
-                         与下方左对齐的键值行不在同一视觉体系，看着悬空。两个文件同目录，一个动作就够。
-                         只读语义不变——不提供更改数据目录。 -->
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Classes="link-btn" VerticalAlignment="Center"
-                                Content="{Binding SettingsOpenDataFolder, Source={x:Static loc:Translations.Instance}}"
-                                Command="{Binding OpenDataFolderCommand}"/>
-                        <TextBlock Classes="panel-title" VerticalAlignment="Center"
-                                   Text="{Binding LocalPathsTitle, Source={x:Static loc:Translations.Instance}}"/>
-                    </DockPanel>
+                    <TextBlock Classes="panel-title" Text="{Binding LocalPathsTitle, Source={x:Static loc:Translations.Instance}}"/>
                     <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
                         <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelCacheDb, Source={x:Static loc:Translations.Instance}}"/>
                         <!-- SelectableTextBlock：路径要能选中复制（只读说明区且失败时靠它自取路径） -->
@@ -125,6 +115,15 @@
                         <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelSettingsFile, Source={x:Static loc:Translations.Instance}}"/>
                         <SelectableTextBlock Grid.Column="1" Classes="table-td" Text="{Binding SettingsFilePath}" TextWrapping="Wrap"/>
                     </Grid>
+                    <!-- 动作回到面板底部左对齐一行（同「关于」区的「检查更新」位置与样式）：标题行右侧挂
+                         实心按钮会在宽面板上悬在右缘、与左侧键值行脱开；底部左对齐让面板级动作“读完之后
+                         就在下面”，也与页内其它面板按钮同列。两个文件同目录，一个动作就够。
+                         只读语义不变——不提供更改数据目录。 -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                        <Button Classes="app-btn"
+                                Content="{Binding SettingsOpenDataFolder, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding OpenDataFolderCommand}"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
