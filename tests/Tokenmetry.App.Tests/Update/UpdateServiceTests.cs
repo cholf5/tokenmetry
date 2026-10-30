@@ -91,7 +91,8 @@ public class UpdateServiceTests
         var (service, _) = Create(
             _ => FakeUpdateHttpHandler.Redirect("/cholf5/tokenmetry/releases/tag/v0.3.0"),
             downloader: new UpdateDownloadService(
-                new FakeUpdateHttpHandler(_ => FakeUpdateHttpHandler.Bytes(new byte[] { 1, 2, 3 })),
+                // 载荷需形似 zip：下载器现在校验 ZIP 魔数（HTML 限流页不能被当安装包）。
+                new FakeUpdateHttpHandler(_ => FakeUpdateHttpHandler.Bytes(new byte[] { 0x50, 0x4B, 0x03, 0x04, 1, 2, 3 })),
                 downloadDirectory: Path.Combine(Path.GetTempPath(), $"tokenmetry-svc-tests-{Guid.NewGuid():N}")));
 
         await service.CheckNowAsync();

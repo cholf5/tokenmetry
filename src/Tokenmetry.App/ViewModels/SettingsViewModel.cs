@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -168,6 +169,13 @@ public partial class SettingsViewModel : ViewModelBase
         _updateService = updateService ?? new UpdateService(new UpdateChecker(), settings, store);
         RefreshUpdateStatusFromState();
 
+        // 跳入口同步（首个公开发布前补）：本页 VM 是 DI 单例、不实现 INavigationAware——重进导航
+        // 不会重建也不会重读状态。而升级的默认路径正是「启动 30 秒后静默周检 / 托盘菜单发现新版本
+        // → 老用户进设置页点下载」，旧实现下那个按钮一直 IsVisible=false。订阅后托盘与后台周检
+        // 的结果会自己跟过来（Changed 可能在后台线程触发，统一 marshal 回 UI 线程）。
+        // 不退订：VM 与进程同生命周期（同 Translations 订阅惯例）。
+        _updateService.Changed += OnUpdateServiceChanged;
+
         // 语言切换重译订阅：本页 VM 为 DI 单例（与外壳同生命周期），直订阅无需退订。
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
     }
@@ -241,6 +249,24 @@ public partial class SettingsViewModel : ViewModelBase
     /// </summary>
     [RelayCommand]
     private void OpenDataFolder() => _openDataFolder(AppDataDirectory);
+
+    /// <summary>更新服务状态变化（任意入口触发）→ 重算关于区状态行。可能来自后台线程，故走 <see cref="UiPost"/>。</summary>
+    private void OnUpdateServiceChanged() => UiPost(RefreshUpdateStatusFromState);
+
+    /// <summary>UI 线程 marshal 入口：生产走 Avalonia Dispatcher；测试注入内联执行（无 dispatcher 的宿主）。</summary>
+    internal Action<Action> UiPost { get; set; } = PostToUiThread;
+
+    private static void PostToUiThread(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(action);
+        }
+    }
 
     /// <summary>把 UpdateService 当前状态翻译成状态行文案（检查/下载命令完成后与构造时各调一次）。</summary>
     private void RefreshUpdateStatusFromState()
