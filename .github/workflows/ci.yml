@@ -181,6 +181,12 @@ jobs:
     permissions:
       contents: write
     steps:
+      # checkout 只为取 docs/release/notes/<tag>.md（手写发版说明）；没写就回落
+      # --generate-notes。首版没有上一个 tag 时 generate-notes 会把全部提交抖出来，
+      # 所以首个版本必须提供手写文件。
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: actions/download-artifact@v4
         with:
           pattern: package-*
@@ -191,6 +197,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          NOTES_FILE="docs/release/notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            NOTES_ARG="--notes-file $NOTES_FILE"
+          else
+            NOTES_ARG="--generate-notes"
+          fi
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
-            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+            gh release create "$GITHUB_REF_NAME" --verify-tag $NOTES_ARG
           gh release upload "$GITHUB_REF_NAME" dist/* --clobber
