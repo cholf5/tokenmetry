@@ -35,15 +35,22 @@ public sealed class UpdateService
     private readonly AppSettings _settings;
     private readonly IAppSettingsStore _store;
     private readonly UpdateDownloadService _downloader;
+    private readonly UpdateInstaller _installer;
     private readonly Action<string> _openUrl;
+    private readonly bool _windowsInstalledCopy;
 
     public UpdateService(UpdateChecker checker, AppSettings settings, IAppSettingsStore store,
-        UpdateDownloadService? downloader = null, Action<string>? openUrl = null)
+        UpdateDownloadService? downloader = null, Action<string>? openUrl = null,
+        UpdateInstaller? installer = null, bool? windowsInstalledCopy = null)
     {
         _checker = checker;
         _settings = settings;
         _store = store;
         _downloader = downloader ?? new UpdateDownloadService();
+        _installer = installer ?? new UpdateInstaller();
+        // 升级方式在构造时定一次：进程的可执行文件位置整个生命周期不变，没必要每次下载重算；
+        // 测试可注入（否则用例会跟着构建机是否恰好装在安装目录而飘）。
+        _windowsInstalledCopy = windowsInstalledCopy ?? UpdateAssets.IsInstalledCopy();
         // 默认经 shell 打 URL（跨平台 Process.Start + UseShellExecute）；测试注入记录器。
         _openUrl = openUrl ?? (url =>
         {
@@ -71,6 +78,12 @@ public sealed class UpdateService
     /// <summary>状态变化通知（可能在任意线程触发——订阅方自行 marshal 到 UI 线程）。</summary>
     public event Action? Changed;
 
+    /// <summary>本进程是 Windows 安装目录里的副本（而不是解压出来的便携版）——升级走安装器静默升级。</summary>
+    public bool CanSilentUpgrade => _windowsInstalledCopy;
+
+    /// <summary>静默安装已拉起，本进程应当尽快退出（订阅方负责 Shutdown；跳过则旧实例会与安装器抢文件锁）。</summary>
+    public event Action? InstallStarted;
+
     /// <summary>发现新版本时浏览器打开的页面：优先这次检查结果的 URL，退回 Release 列表页。</summary>
     public void OpenReleasePage() => _openUrl(
         State == UpdateState.Available && LastResult?.ReleaseUrl is { } url
@@ -80,13 +93,36 @@ public sealed class UpdateService
     /// <summary>下载当前已知新版本的平台资产，返回落盘完整路径。仅 Available 状态可调（其余状态没有可信的 tag）。</summary>
     public Task<string> DownloadLatestAsync(IProgress<double>? progress = null, CancellationToken ct = default)
     {
-        var tag = State == UpdateState.Available
-            ? LastResult?.LatestVersion
-            : null;
+        var tag = AvailableTag();
         return tag is null
             ? Task.FromException<string>(new InvalidOperationException("no update available"))
-            : _downloader.DownloadAsync(tag, progress, ct);
+            : _downloader.DownloadAsync(tag, UpdateAssets.PickAssetName(tag, _windowsInstalledCopy), progress, ct);
     }
+
+    /// <summary>
+    /// 下载并（若适用）启动静默升级。
+    /// Windows 已安装副本 → 下安装器并拉起 <c>/SILENT</c> 升级，然后发 <see cref="InstallStarted"/> 让宿主退出；
+    /// 其余情形（便携版 / macOS / Linux / 安装器起不来）→ 只下载，<see cref="UpdateInstallResult.InstallStarted"/> 为 false，
+    /// 由调用方在文件管理器里显示文件。
+    /// </summary>
+    public async Task<UpdateInstallResult> DownloadAndInstallAsync(IProgress<double>? progress = null,
+        CancellationToken ct = default)
+    {
+        var tag = AvailableTag() ?? throw new InvalidOperationException("no update available");
+        var assetName = UpdateAssets.PickAssetName(tag, _windowsInstalledCopy);
+        var path = await _downloader.DownloadAsync(tag, assetName, progress, ct);
+
+        if (!_windowsInstalledCopy || !_installer.TryStartSilent(path))
+        {
+            return new UpdateInstallResult(path, InstallStarted: false);
+        }
+
+        InstallStarted?.Invoke();
+        return new UpdateInstallResult(path, InstallStarted: true);
+    }
+
+    private string? AvailableTag() =>
+        State == UpdateState.Available ? LastResult?.LatestVersion : null;
 
     /// <summary>下载完成后在文件管理器中显示（转手下载器，保持单一出口便于测试注入）。</summary>
     public void RevealDownloaded(string filePath) => _downloader.Reveal(filePath);
@@ -130,3 +166,7 @@ public sealed class UpdateService
         Changed?.Invoke();
     }
 }
+
+/// <summary>下载结果：<see cref="Path"/> 是落盘文件；<see cref="InstallStarted"/> true 表示安装器已拉起、
+/// 本进程应随即退出（此时不需要再 reveal 一个用户不会去点开的安装包）。</summary>
+public readonly record struct UpdateInstallResult(string Path, bool InstallStarted);

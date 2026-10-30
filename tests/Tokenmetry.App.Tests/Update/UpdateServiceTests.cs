@@ -119,6 +119,100 @@ public class UpdateServiceTests
         service.ShouldAutoCheck(TimeSpan.FromDays(7)).Should().BeTrue(); // 过期
     }
 
+    // ---- Windows 安装器静默升级（P-008）----
+
+    /// <summary>已安装副本 / 便携版两条分支同一构造，差别只在 windowsInstalledCopy。</summary>
+    private static async Task<(UpdateService Service, List<(string Path, string Args)> Started)> CreateForInstall(
+        bool installedCopy)
+    {
+        var started = new List<(string Path, string Args)>();
+        var service = new UpdateService(
+            new UpdateChecker(
+                new FakeUpdateHttpHandler(_ =>
+                    FakeUpdateHttpHandler.Redirect("/cholf5/tokenmetry/releases/tag/v0.3.0")),
+                "v0.2.0"),
+            new AppSettings(),
+            new FakeStore(),
+            new UpdateDownloadService(
+                // 已安装副本下的是安装器（PE 头），便携版下的是 zip（ZIP 头）；分支各用各的合法载荷。
+                new FakeUpdateHttpHandler(_ => FakeUpdateHttpHandler.Bytes(installedCopy
+                    ? new byte[] { 0x4D, 0x5A, 1, 2, 3 }
+                    : new byte[] { 0x50, 0x4B, 0x03, 0x04, 1, 2, 3 })),
+                downloadDirectory: Path.Combine(Path.GetTempPath(), $"tokenmetry-install-tests-{Guid.NewGuid():N}")),
+            _ => { },
+            new UpdateInstaller((path, args) =>
+            {
+                started.Add((path, args));
+                return true;
+            }),
+            windowsInstalledCopy: installedCopy);
+        await service.CheckNowAsync();
+        return (service, started);
+    }
+
+    [Fact]
+    public async Task DownloadAndInstallAsync_installed_copy_runs_silent_install_and_signals_shutdown()
+    {
+        var (service, started) = await CreateForInstall(installedCopy: true);
+        var shutdownRequested = false;
+        service.InstallStarted += () => shutdownRequested = true;
+
+        var result = await service.DownloadAndInstallAsync();
+
+        result.InstallStarted.Should().BeTrue();
+        Path.GetFileName(result.Path).Should().Be("Tokenmetry-0.3.0-win-x64-setup.exe");
+        started.Should().ContainSingle();
+        started[0].Path.Should().Be(result.Path);
+        started[0].Args.Should().Be(UpdateInstaller.SilentArguments);
+        // 安装器要替换正在跑的文件：不发这个信号就等于让旧实例和安装器抢锁。
+        shutdownRequested.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DownloadAndInstallAsync_portable_copy_just_downloads_the_zip()
+    {
+        var (service, started) = await CreateForInstall(installedCopy: false);
+        var shutdownRequested = false;
+        service.InstallStarted += () => shutdownRequested = true;
+
+        var result = await service.DownloadAndInstallAsync();
+
+        result.InstallStarted.Should().BeFalse();
+        Path.GetFileName(result.Path).Should().Be(UpdateAssets.AssetFileName("v0.3.0"));
+        started.Should().BeEmpty();          // 便携版永远不拉起安装器（不静默改变用户的安装形态）
+        shutdownRequested.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DownloadAndInstallAsync_falls_back_to_the_download_when_the_installer_will_not_start()
+    {
+        var started = new List<string>();
+        var service = new UpdateService(
+            new UpdateChecker(
+                new FakeUpdateHttpHandler(_ =>
+                    FakeUpdateHttpHandler.Redirect("/cholf5/tokenmetry/releases/tag/v0.3.0")),
+                "v0.2.0"),
+            new AppSettings(),
+            new FakeStore(),
+            new UpdateDownloadService(
+                new FakeUpdateHttpHandler(_ => FakeUpdateHttpHandler.Bytes(new byte[] { 0x4D, 0x5A, 1, 2, 3 })),
+                downloadDirectory: Path.Combine(Path.GetTempPath(), $"tokenmetry-install-tests-{Guid.NewGuid():N}")),
+            _ => { },
+            // 安装器拉不起来（UAC / 杀软拦截 / 文件被删）：必须退回「下载完在文件管理器里显示」，
+            // 不能把已下好的包白白丢掉，更不能照样 Shutdown。
+            new UpdateInstaller((_, _) => false),
+            windowsInstalledCopy: true);
+        await service.CheckNowAsync();
+        var shutdownRequested = false;
+        service.InstallStarted += () => { shutdownRequested = true; started.Add("shutdown"); };
+
+        var result = await service.DownloadAndInstallAsync();
+
+        result.InstallStarted.Should().BeFalse(); // 退回「下载完在文件管理器里显示」
+        result.Path.Should().NotBeNull();
+        shutdownRequested.Should().BeFalse();
+    }
+
     private sealed class FakeStore : IAppSettingsStore
     {
         public AppSettings? Settings { get; private set; }

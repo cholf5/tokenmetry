@@ -8,10 +8,11 @@ using System.Threading.Tasks;
 namespace Tokenmetry.App.Update;
 
 /// <summary>
-/// 更新包下载器：按当前平台挑资产（<see cref="UpdateAssets.PickAssetName"/>），GitHub 直链 +
-/// 镜像列表依次尝试，流式落盘（.part → 改名，中断不产半截 zip），成功后在文件管理器中 reveal。
-/// 不做自更新替换——应用无签名、单文件/​.app 被运行中进程锁定，替换自身是跨平台雷区；下载 +
-/// reveal 已经把「跳 GitHub 翻页找资产」省掉，用户只差一次解压/安装。
+/// 更新包下载器：按调用方给定的资产名（<see cref="UpdateAssets.PickAssetName"/>：便携版 zip / Windows 已安装副本的
+/// 安装器 exe）下载，GitHub 直链 + 镜像列表依次尝试，流式落盘（.part → 改名，中断不产半截文件），
+/// 成功后在文件管理器中 reveal。
+/// 替文件本身仍然不由应用做：Windows 已安装副本把活儿交给安装器（<see cref="UpdateInstaller"/>，Inno 的
+/// /SILENT 升级），便携版 / macOS / Linux 仍只下载 + reveal，用户自己解压覆盖。
 /// </summary>
 public sealed class UpdateDownloadService
 {
@@ -40,26 +41,34 @@ public sealed class UpdateDownloadService
     }
 
     /// <summary>
-    /// 下载 latestTag（形如 v0.3.0）对应的平台资产到落盘目录，返回完整路径。
+    /// 便携资产（zip）下载的便捷重载：资产名取本机 RID 的 zip。生产路径请用
+    /// <see cref="DownloadAsync(string, string, IProgress{double}?, CancellationToken)"/> 由
+    /// <see cref="UpdateAssets.PickAssetName"/> 决定下 zip 还是下安装器；这个重载只服务「就下 zip」的调用面。
+    /// </summary>
+    public Task<string> DownloadAsync(string latestTag, IProgress<double>? progress = null,
+        CancellationToken ct = default) =>
+        DownloadAsync(latestTag, UpdateAssets.ZipAssetFileName(latestTag), progress, ct);
+
+    /// <summary>
+    /// 下载 <paramref name="assetName"/> 到落盘目录，返回完整路径。
     /// 镜像列表按序尝试：一个 URL 下载启动失败（连接/HTTP/超时）才试下一个；
     /// 已写出部分的 .part 文件每次尝试前清掉。全部失败抛 <see cref="InvalidOperationException"/>，
     /// 消息聚合各尝试的失败原因（UI 直接展示）。
     /// </summary>
-    public async Task<string> DownloadAsync(string latestTag, IProgress<double>? progress = null,
+    public async Task<string> DownloadAsync(string latestTag, string assetName, IProgress<double>? progress = null,
         CancellationToken ct = default)
     {
-        var asset = UpdateAssets.AssetFileName(latestTag);
-        var targetPath = Path.Combine(_downloadDirectory, asset);
+        var targetPath = Path.Combine(_downloadDirectory, assetName);
         var partPath = targetPath + ".part";
         // 落盘目录缺省取真实「下载」文件夹（必然存在）；注入/回落路径可能没有，自建兜底。
         Directory.CreateDirectory(_downloadDirectory);
 
         var failures = new List<string>();
-        foreach (var url in UpdateAssets.MirrorUrls(UpdateAssets.AssetDownloadUrl(latestTag, asset)))
+        foreach (var url in UpdateAssets.MirrorUrls(UpdateAssets.AssetDownloadUrl(latestTag, assetName)))
         {
             try
             {
-                await DownloadToAsync(new Uri(url), partPath, targetPath, progress, ct);
+                await DownloadToAsync(new Uri(url), partPath, targetPath, assetName, progress, ct);
                 return targetPath;
             }
             // 只把“调用方真的取消了”当取消。HttpClient.Timeout 到期抛的是 TaskCanceledException
@@ -81,7 +90,7 @@ public sealed class UpdateDownloadService
         throw new InvalidOperationException(string.Join("；", failures));
     }
 
-    private async Task DownloadToAsync(Uri url, string partPath, string targetPath,
+    private async Task DownloadToAsync(Uri url, string partPath, string targetPath, string assetName,
         IProgress<double>? progress, CancellationToken ct)
     {
         using var client = CreateClient();
@@ -114,15 +123,17 @@ public sealed class UpdateDownloadService
             throw new IOException($"incomplete body: {written}/{total.Value} bytes");
         }
 
-        // 镜像限流时常回 200 + HTML 错误页：不校验就会把网页改名成 .zip 并在文件管理器里选中它。
-        EnsureLooksLikeZip(partPath);
+        // 镜像限流时常回 200 + HTML 错误页：不校验就会把网页改名成安装包并在文件管理器里选中它。
+        EnsurePayloadLooksRight(partPath, assetName);
 
         File.Move(partPath, targetPath, overwrite: true);
     }
 
-    /// <summary>发行包都是 zip：只读头部 4 字节看 ZIP 本地文件头魔数（PK\x03\x04），空文件同样拒。</summary>
-    private static void EnsureLooksLikeZip(string partPath)
+    /// <summary>按资产类型校验载荷头：zip → ZIP 本地文件头魔数（PK\x03\x04），安装器 exe → PE 头（MZ）。
+    /// 两者都是二进制魔数，镜像回的 HTML 错误页（'&lt;!DO' / '&lt;htm'）一律不匹配，空文件同样拒。</summary>
+    private static void EnsurePayloadLooksRight(string partPath, string assetName)
     {
+        var expectsExecutable = assetName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
         Span<byte> magic = stackalloc byte[4];
         int read;
         using (var stream = File.OpenRead(partPath))
@@ -130,10 +141,16 @@ public sealed class UpdateDownloadService
             read = stream.ReadAtLeast(magic, magic.Length, throwOnEndOfStream: false);
         }
 
-        if (read < magic.Length
-            || magic[0] != 0x50 || magic[1] != 0x4B || magic[2] != 0x03 || magic[3] != 0x04)
+        var looksRight = expectsExecutable
+            ? read >= 2 && magic[0] == 0x4D && magic[1] == 0x5A
+            : read >= magic.Length
+              && magic[0] == 0x50 && magic[1] == 0x4B && magic[2] == 0x03 && magic[3] == 0x04;
+
+        if (!looksRight)
         {
-            throw new InvalidDataException("payload is not a zip archive");
+            throw new InvalidDataException(expectsExecutable
+                ? "payload is not a PE executable"
+                : "payload is not a zip archive");
         }
     }
 

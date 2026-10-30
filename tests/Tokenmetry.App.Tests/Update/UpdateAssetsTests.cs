@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Linq;
 using Tokenmetry.App.Update;
 using Xunit;
@@ -42,5 +44,45 @@ public class UpdateAssetsTests
         urls[1].Should().StartWith("https://ghfast.top/https://github.com/");
         urls[2].Should().StartWith("https://gh-proxy.com/https://github.com/");
         urls[3].Should().StartWith("https://ghproxy.net/https://github.com/");
+    }
+
+    // ---- Windows 安装器（P-008）：已安装副本升级下安装器，其余仍下 zip ----
+
+    [Fact]
+    public void PickAssetName_installed_copy_takes_the_installer_others_take_the_zip()
+    {
+        UpdateAssets.PickAssetName("v0.3.1", windowsInstalledCopy: true)
+            .Should().Be("Tokenmetry-0.3.1-win-x64-setup.exe");
+        UpdateAssets.PickAssetName("v0.3.1", windowsInstalledCopy: false)
+            .Should().Be($"Tokenmetry-0.3.1-{UpdateAssets.PickRid()}.zip");
+    }
+
+    [Fact]
+    public void Installer_asset_name_matches_the_ci_and_package_sh_output()
+    {
+        // 三处同改契约：package.sh / ci.yml 出 dist/Tokenmetry-{版本}-win-x64-setup.exe，
+        // Inno 脚本的 OutputBaseFilename 与这里必须逐字相同。
+        UpdateAssets.InstallerAssetFileName("v9.9.9").Should().Be("Tokenmetry-9.9.9-win-x64-setup.exe");
+    }
+
+    [Theory]
+    [InlineData(true, @"C:\Users\u\AppData\Local\Programs\Tokenmetry\Tokenmetry.exe", @"C:\Users\u\AppData\Local\Programs\Tokenmetry", true)]
+    [InlineData(true, @"c:\users\U\appdata\local\programs\tokenmetry\tokenmetry.exe", @"C:\Users\u\AppData\Local\Programs\Tokenmetry", true)] // Windows 路径大小写不敏感
+    [InlineData(true, @"D:\tools\Tokenmetry.exe", @"C:\Users\u\AppData\Local\Programs\Tokenmetry", false)] // 解压出来的便携版
+    [InlineData(false, "/Applications/Tokenmetry.app/Contents/MacOS/Tokenmetry", @"C:\x", false)] // 非 Windows 永不静默升级
+    [InlineData(true, null, @"C:\x", false)]
+    public void IsInstalledCopy_compares_the_process_directory_with_the_install_directory(
+        bool isWindows, string? processPath, string installDirectory, bool expected)
+    {
+        UpdateAssets.IsInstalledCopy(isWindows, processPath, installDirectory).Should().Be(expected);
+    }
+
+    [Fact]
+    public void InstallDirectory_matches_the_inno_default_dir_name()
+    {
+        // installer/Tokenmetry.iss 的 DefaultDirName={localappdata}\Programs\Tokenmetry 必须与这里一致：
+        // 不一致则已安装副本认不出来，升级会退化成“下载 zip 让你自己解压”。
+        UpdateAssets.InstallDirectory.Should().EndWith(Path.Combine("Programs", "Tokenmetry"));
+        Path.GetFileName(UpdateAssets.InstallDirectory).Should().Be("Tokenmetry");
     }
 }

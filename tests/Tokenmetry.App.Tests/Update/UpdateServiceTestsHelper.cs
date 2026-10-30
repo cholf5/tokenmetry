@@ -16,13 +16,19 @@ namespace Tokenmetry.App.Tests.Update;
 internal static class UpdateServiceTestsHelper
 {
     /// <summary>releases/latest 回 302 指向 latestTag 的假响应更新服务。</summary>
-    public static UpdateService CreateService(string latestTag, string currentVersion)
+    public static UpdateService CreateService(string latestTag, string currentVersion,
+        UpdateDownloadService? downloader = null, UpdateInstaller? installer = null,
+        bool? windowsInstalledCopy = null)
     {
         var handler = new FakeUpdateHttpHandler(_ => Redirect(latestTag));
         return new UpdateService(
             new UpdateChecker(handler, currentVersion),
             new AppSettings(),
-            new FakeStore());
+            new FakeStore(),
+            downloader,
+            _ => { },
+            installer,
+            windowsInstalledCopy);
     }
 
     /// <summary>检查必失败（HTTP 403）的更新服务。</summary>
