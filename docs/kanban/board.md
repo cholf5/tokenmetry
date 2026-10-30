@@ -67,8 +67,18 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
+| I-044 | 上架 Homebrew cask——用 brew 装就绕开 macOS Gatekeeper 弹窗（quarantine 被剥离，首次双击不弹窗） | P2 | M | none | none |
 
-> 2026-10-30：本表无行（D-027 收口；B-019 / B-020 / D-023 已关，I-043 作废留档）。
+> 2026-10-30（晚）：**I-044 建卡（上架 Homebrew cask）**。背景：macOS 26 的放行流程被评估为“对非技术用户地狱、
+> 对开发者认知成本为零”（右键「打开」已失效，只能进系统设置最下面点「仍要打开」再输开机密码）。
+> 用户拍板不为此买证书，改为用 brew 绕开：cask 安装时 Homebrew 会剥掉 quarantine 标记，Gatekeeper
+> 检查根本不触发。选型为“先自建 tap”而非 `homebrew/cask` 官方仓库（后者对未公证应用有审核口径，进展不可控）；
+> cask 直接吃 zip，与第 13 条“不做 dmg”不冲突。卡内已记三条待验证前提（当前 Homebrew 是否默认总剥 quarantine、
+> `livecheck` 配法、未来是否提官方仓库），第一条是整个卡的基础，用 `xattr -p com.apple.quarantine` 留证。
+> 同批文档修正：`known-limitations.md` 第 9 条、README 中英安装段、v0.3.0 / v0.3.2 发版说明里的 macOS 放行步骤
+> 改为 macOS 26 的真实流程（`xattr -cr` 排第一，“右键打开”那句已删除——它在 macOS 26 上会把人带进死胡同）。
+
+> 2026-10-30：本表无行（D-027 收口；B-019 / B-020 / D-023 已关，I-043 作废留档）。**（当日后续建 I-044，见上）**
 
 > 2026-10-24（晚六）：**Q-009 修正项 1——? 字形太小，改 circle-help 矢量兜底**。用户看后反馈「问号太小了，能不能大点，或者用 svg 画个 Icon」。取证：文本 `?` 墨迹只占 em 四成（11px 字号实际 ~7px，I-040 同源问题——系统字体渲染墨迹占比低且跨平台不可控），加大字号受 16px 槽位与字形 line-height 限制。修法：走 I-040 管线——生成器白名单加 circle-help（lucide-static@1.61.0）再生 Icons.axaml，model-chip 增 `PathIcon.model-fallback` 槽（13px / lg 22px、中性芯片前景、generic 伪类显隐），5 处消费点（模型页/总览/计价页两处/托盘 lg）接入；`?` 字形退到数据层语义（ModelVisual.Glyph，UI 不渲染），phi 的 Φ 不动。测试：generic 断言翻转（字形隐藏+图标显示）+ 新增墨迹几何量测锁（16px 芯片内 ≥10px，防「太小」回归）；IconResourceTests.GeometryKeys 补 circle-help 并顺手补 Q-007 漏登记的 hard-drive-upload/download 两键。headless 346 Passed（+1），全量 1448 Passed / 0 Failed（22 跳过）；真机观感移交用户。
 
