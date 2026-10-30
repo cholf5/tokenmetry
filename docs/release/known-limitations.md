@@ -109,23 +109,41 @@ macOS 上"失焦自动关闭"与"点击即切换"会撞成开-关-开的抖动�
 
 ## 四、分发与安装
 
-### 9. 只有 zip，没有安装器
+### 9. 包都是未签名的
 
-**症状**：没有"下一步下一步"的安装向导、没有开始菜单项、没有卸载入口；Linux 没有 deb/rpm/AppImage。
+**症状**：Windows 上装安装器时 SmartScreen 提示「未知发布者」；macOS 首次打开 `.app` 提示
+`"Tokenmetry" 无法验证开发者`；部分企业环境/杀软会直接拦掉下载或启动。
 
-**原因**：v1.0 里程碑内容（Windows 安装器、macOS 公证），首版刻意不做。macOS 产物是最小 `.app`
-bundle + ad-hoc 签名（无付费开发者账号，不公证），所以首次打开会看到系统提示：
+**原因**：没有代码签名证书（Windows EV 证书 / Apple 开发者账号都是付费且需实名）。macOS 产物是最小
+`.app` bundle + ad-hoc 签名，只保证不报「已损坏」，不消除上面那个提示。
 
-- macOS：`"Tokenmetry" 无法验证开发者` → 右键「打开」一次，或系统设置里放行，或 `xattr -cr Tokenmetry.app`；
-- Windows：SmartScreen「未知发布者」→「更多信息」→「仍要运行」；
-- Linux：解压即用（`chmod +x` 后直接运行）。
+**现在怎么绕**：
 
-### 10. 更新不是自更新
+- Windows：安装器 →「更多信息」→「仍要运行」；
+- macOS：右键「打开」一次，或系统设置里放行，或 `xattr -cr Tokenmetry.app`；
+- Linux：解压即用。
 
-**症状**：检查到新版本后，应用只帮你下载并在文件管理器里选中，剩下的解压替换要自己做。
+**后续**：买证书 / Apple 开发者账号后接进 `package.sh`（macOS 还需公证 + staple）。付费前提，不是代码问题。
 
-**原因**：应用无签名，运行中替换自身单文件 exe / `.app` 是跨平台雷区（进程锁、封签、Gatekeeper）。
-详见 [`ci-release.md`](ci-release.md) 的「应用内更新机制」。
+### 10. 安装器只有 Windows 有，向导也只有英文
+
+**症状**：macOS / Linux 仍只有 zip，没有 `.dmg` / `.deb` / AppImage；Windows 安装向导的按钮与提示
+是英文，而应用界面本身可以是中文。
+
+**原因**：两边各要一套新东西（dmg 打包 + 签约流程、deb/rpm/AppImage 的仓库与依赖），首版只把 Windows
+做满。向导语言：Inno Setup 官方只内置英文，中文要非官方 `chinesesimplified.isl`——而应用内静默升级
+根本不显示向导，价值不在首位。
+
+**后续**：Windows 向导中文可以随时补（一个 `.isl` 文件）；Linux 包格式待有用户需要再谈。
+
+### 11. 更新在 macOS / Linux 仍是「下载 + 自己解压」
+
+**症状**：macOS / Linux 点「下载更新」只把 zip 下载并在文件管理器里定位，替换要自己做。
+
+**原因**：只有 Windows 有安装器可以接管替换。macOS 的 `.app` 可以在运行中被替换（目录可卸），但没有
+安装器就没有可靠的回滚与“关旧实例→换文件→重启”流程；Linux 则连统一分发格式都没有。
+
+**后续**：macOS 可试「下载 → 解压到临时目录 → 脚本替换 + 重启」；Linux 等 AppImage。
 
 ## 五、内部小瑕疵（不影响日常使用）
 
@@ -133,3 +151,5 @@ bundle + ad-hoc 签名（无付费开发者账号，不公证），所以首次�
   而迁移 1 一定会先建它——所以是洁癖级问题，不是隐患。
 - 首次发版没有上一个 tag，`gh release create --generate-notes` 会把整个提交历史抖出来。首版用
   [`notes/v0.3.0.md`](notes/v0.3.0.md) 手写说明（CI 已支持 `docs/release/notes/<tag>.md`）。
+- Windows 安装器从 v0.3.1 起提供：v0.3.0 的 Windows 用户要手动跑一次安装器才能进入「可静默升级」状态
+  （安装到 `%LOCALAPPDATA%\Programs\Tokenmetry`，数据不受影响；旧 zip 目录可自行删掉）。
