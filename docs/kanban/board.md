@@ -67,7 +67,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| I-044 | 上架 Homebrew cask——**前提已修正**：brew 不免疫 Gatekeeper，收益降为「放行一次后 `brew upgrade` 不再弹」 | P2 | M | none | none |
+| I-044 | 上架 Homebrew cask——**前提已修正**：brew 不免疫 Gatekeeper，收益降为「放行一次后 `brew upgrade` 不再弹」 | P3 | M | none | none |
 
 > 2026-10-30（晚）：**I-044 建卡（上架 Homebrew cask）**。背景：macOS 26 的放行流程被评估为“对非技术用户地狱、
 > 对开发者认知成本为零”（右键「打开」已失效，只能进系统设置最下面点「仍要打开」再输开机密码）。
@@ -83,6 +83,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 > 收益只能是“放行一次 + 之后升级不再弹”（对比 zip 的每个新版本都要重新放行）。卡内已删掉“首次双击不弹窗”
 > 那条不可能验收的 AC，改为“upgrade 不再弹窗”作为唯一硬验收；端到端 `brew install --cask` 因本机 brew 需
 > bootstrap portable-ruby、ghcr.io 下载失败未跑成（已中止、未污染 cask 清单），故结论属**代码级证据**。
+> **优先级同步降为 P3**（用户确认）：收益只剩“升级少放行一次”，不占 P2 的位置。
 
 > 2026-10-30：本表无行（D-027 收口；B-019 / B-020 / D-023 已关，I-043 作废留档）。**（当日后续建 I-044，见上）**
 
