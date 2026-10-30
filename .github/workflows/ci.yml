@@ -175,23 +175,44 @@ jobs:
           $dir = Join-Path $env:LOCALAPPDATA "Programs/Tokenmetry"
           $exe = Join-Path $dir "Tokenmetry.exe"
 
-          Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/NOCANCEL" -Wait
+          # Never use Start-Process -Wait here: it waits for the whole process
+          # tree, and the installer's [Run] entry relaunches Tokenmetry as its
+          # child — that combination deadlocks until the job times out (v0.3.1
+          # first dry run died exactly this way). Wait on the process handle
+          # with an explicit timeout instead.
+          function Invoke-Bounded([string]$file, [string[]]$arguments, [int]$timeoutMs) {
+            Write-Host "run: $file $($arguments -join ' ')"
+            $process = Start-Process -FilePath $file -ArgumentList $arguments -PassThru
+            if (-not $process.WaitForExit($timeoutMs)) {
+              $process | Stop-Process -Force -ErrorAction SilentlyContinue
+              throw "timed out after ${timeoutMs}ms: $file"
+            }
+            Write-Host "exit code: $($process.ExitCode)"
+            if ($process.ExitCode -ne 0) { throw "$file exited with $($process.ExitCode)" }
+          }
+
+          Invoke-Bounded $setup @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/NOCANCEL") 300000
           if (-not (Test-Path $exe)) { throw "installed exe missing: $exe" }
           if (-not (Test-Path (Join-Path $dir "unins000.exe"))) { throw "uninstaller missing" }
-          if (-not (Test-Path (Join-Path $env:LOCALAPPDATA "../Roaming/Microsoft/Windows/Start Menu/Programs/Tokenmetry.lnk"))) { Write-Host "start menu shortcut not found (per-user programs folder differs; not fatal)" }
+          Write-Host "installed: $exe"
 
-          $process = $null
+          # [Run] postinstall must fire under /SILENT too — an in-app upgrade
+          # has to bring the app back on its own, not leave the user staring at
+          # a vanished window.
+          $app = $null
           for ($i = 0; $i -lt 30; $i++) {
-            $process = Get-Process -Name Tokenmetry -ErrorAction SilentlyContinue
-            if ($process) { break }
+            $app = Get-Process -Name Tokenmetry -ErrorAction SilentlyContinue
+            if ($app) { break }
             Start-Sleep -Milliseconds 500
           }
-          if (-not $process) { throw "[Run] postinstall did not start the app after a silent install" }
-          $process | Stop-Process -Force
+          if (-not $app) { throw "[Run] postinstall did not start the app after a silent install" }
+          Write-Host "app relaunched by installer: pid $($app.Id)"
+          $app | Stop-Process -Force
           Start-Sleep -Seconds 2
 
-          Start-Process -FilePath (Join-Path $dir "unins000.exe") -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
+          Invoke-Bounded (Join-Path $dir "unins000.exe") @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") 300000
           if (Test-Path $exe) { throw "uninstall left the exe behind: $exe" }
+          Write-Host "uninstalled cleanly"
 
       - uses: actions/upload-artifact@v4
         with:
