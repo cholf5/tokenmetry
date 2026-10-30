@@ -60,6 +60,11 @@ public sealed class UpdateService
 
     public UpdateState State { get; private set; } = UpdateState.Idle;
 
+    /// <summary>本服务的比较基线（v 前缀、三段数字）——正常构造即程序集版本，测试可注入。
+    /// 界面上的「当前版本」与 UpToDate 状态行必须读它而不是静态 <see cref="UpdateChecker.CurrentVersion"/>：
+    /// 注入了基线的服务在状态行里显示程序集版本，自相矛盾。</summary>
+    public string CurrentVersion => _checker.Version;
+
     /// <summary>最近一次检查的原始结果（Idle 时 null；Available 时 LatestVersion/ReleaseUrl 可用）。</summary>
     public UpdateCheckResult? LastResult { get; private set; }
 

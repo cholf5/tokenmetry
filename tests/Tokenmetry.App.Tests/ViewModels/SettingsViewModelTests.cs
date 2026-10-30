@@ -388,6 +388,22 @@ public class SettingsViewModelTests
         viewModel.UpdateStatusText.Should().NotBeNullOrEmpty();
     }
 
+    // 版本号一拍板立就暴露：状态行的「已是最新（vX）」与「当前版本」曾读静态程序集版本，
+    // 注入了基线的服务下会显示与本地基线不一致的版号（升 0.3.0 时既有用例当场变红）。
+    [Fact]
+    public async Task About_version_and_up_to_date_line_follow_the_injected_baseline()
+    {
+        var service = Tokenmetry.App.Tests.Update.UpdateServiceTestsHelper.CreateService(
+            latestTag: "v0.7.8", currentVersion: "v0.7.8");
+        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), updateService: service);
+
+        viewModel.UpdateAppVersion.Should().Be("0.7.8");
+
+        await viewModel.CheckUpdateCommand.ExecuteAsync(null);
+
+        viewModel.UpdateStatusText.Should().Contain("0.7.8");
+    }
+
     // ---- helpers ----
 
     private static SettingsViewModel CreateViewModel(
