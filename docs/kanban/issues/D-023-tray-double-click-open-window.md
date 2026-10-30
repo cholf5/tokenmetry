@@ -4,10 +4,10 @@ title: Windows 托盘双击唤出主窗——单击瞄弹层 / 双击进主窗�
 type: feature
 priority: P3
 size: S
-status: todo
+status: done
 created: 2026-10-26
-updated: 2026-10-26
-blocked: 用户决策
+updated: 2026-10-30
+blocked: none（2026-10-30 关闭）
 ---
 
 ## Goal
@@ -49,3 +49,9 @@ Windows 上双击托盘图标直接唤出主窗（单击弹层 Toggle 语义完�
 - 用户 Windows 真机实测反馈「体验极差，交互上会和单击 Switch 开关冲突」→ revert 7416e82 整体回退，卡片退回 Todo 待用户决策出路。冲突机理：B-017 收口后托盘左键单击是 Switch 语义（弹层开着点=收层）——弹层可见时快速第二击本意收层，却被时间窗判定成双击直接唤出主窗；两次 WM_LBUTTONUP `Clicked` 流上的时间窗判定无法区分「快速连击收层」与「双击开窗」，属方案级冲突，调参不可救。
 - 回退面：`TrayService` 拦截层（时间戳字段 / 三注入点 / `GetDoubleClickTime` P/Invoke）、`StatusPopoverController.HideIfVisible`、+3 用例与既有单击用例假时钟改造全部撤除，不留死代码；B-017 失焦守卫原样不动。AC 复选框随回退复位。
 - 澄清：本卡 Background 曾引用设计文档 `docs/plans/2026-10-26-tray-double-click-design.md`，该文件从未入库（悬空引用）；若日后重启本卡，先补设计记录再动工。
+
+### 2026-10-30 关闭（不做）
+
+- 用户确认：回退已到位、**不再重启本方案**，卡片收口。
+- 回退完整性核对（本次）：`1df933f` 为 `7416e82` 的整体 revert；全仓已无双击时间窗残留——`GetDoubleClickTime` / `HideIfVisible` 零命中，仅余 B-017 的失焦守卫入口 `ToggleFromTrayClick`（与双击无关，保留）。上列 AC 复选框保持未勾选状态，作为“未交付”的准确记录。
+- 留存结论（供日后同类提案参考）：冲突是方案级的——托盘左键单击已是「弹层开/关」切换，时间窗无法区分「快速连击收层」与「双击开窗」；要重拾这层分层，必须先找到一个不依赖两次 `Clicked` 间隔的双击信号（如 Windows shell 托盘双击通知），而不是调时间窗参数。
