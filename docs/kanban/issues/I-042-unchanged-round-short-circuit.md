@@ -42,7 +42,7 @@ blocked: none
 
 ## Dependencies
 
-- none（I-043 真增量账本是本卡的后续深水区，独立排期）
+- none（原设想的后续深水区 I-043（真增量账本）已于 2026-10-30 由用户拍板作废，卡片留档；本卡不依赖任何未完成项）
 
 ## Development Log
 
