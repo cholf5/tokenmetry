@@ -186,8 +186,9 @@ public partial class SettingsViewModel : ViewModelBase
     /// <summary>两个文件共同的所在目录（「本地路径」区打开按钮的目标；缓存库与设置文件同目录）。</summary>
     public string AppDataDirectory { get; }
 
-    /// <summary>「关于」区展示的当前版本，与更新检查同源（csproj &lt;Version&gt; → 程序集版本）。</summary>
-    public string UpdateAppVersion => UpdateChecker.CurrentVersion.TrimStart('v');
+    /// <summary>「关于」区展示的当前版本，与更新检查同源（csproj &lt;Version&gt; → 程序集版本 → 检查器基线）。
+    /// 走服务而不是静态属性：注入了基线的测试/嵌入场景下两处显示必须一致。</summary>
+    public string UpdateAppVersion => _updateService.CurrentVersion.TrimStart('v');
 
     /// <summary>「关于」区版权行（I-041）：csproj &lt;Copyright&gt; → 程序集 AssemblyCopyright（Directory.Build.props 单一出处，不二次硬编码）。</summary>
     public string AboutCopyright { get; } =
@@ -277,7 +278,7 @@ public partial class SettingsViewModel : ViewModelBase
             UpdateState.Available => string.Format(
                 Translations.Instance.UpdateAvailableFormat, _updateService.LastResult?.LatestVersion),
             UpdateState.UpToDate => string.Format(
-                Translations.Instance.UpdateUpToDate, UpdateChecker.CurrentVersion),
+                Translations.Instance.UpdateUpToDate, _updateService.CurrentVersion),
             UpdateState.Failed => string.Format(
                 Translations.Instance.UpdateCheckFailed, _updateService.LastResult?.Error),
             _ => null,
