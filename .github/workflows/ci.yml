@@ -203,6 +203,7 @@ jobs:
           else
             NOTES_ARG="--generate-notes"
           fi
+          # 不给 --title 时 Release 标题是空串（v0.3.0 首版现场补过），一律给「Tokenmetry vX.Y.Z」。
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
-            gh release create "$GITHUB_REF_NAME" --verify-tag $NOTES_ARG
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "Tokenmetry ${GITHUB_REF_NAME}" $NOTES_ARG
           gh release upload "$GITHUB_REF_NAME" dist/* --clobber
