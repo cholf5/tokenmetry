@@ -4,9 +4,9 @@ title: SingleInstanceGuardTests.Second_instance_cannot_acquire_while_first_holds
 type: bug
 priority: P3
 size: M
-status: todo
+status: done
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-30
 blocked: none
 ---
 
@@ -24,10 +24,10 @@ blocked: none
 
 ## Acceptance Criteria
 
-- [ ] 复现脚本化（循环跑单用例直至失败，记录失败率）
-- [ ] 定位遗弃时序的真凶（GC 终结器日志 / handle 追踪）
-- [ ] 修复（测试侧或守卫侧）+ 回归锁
-- [ ] 全量套件连跑 3 次零失败
+- [x] 复现脚本化（循环跑单用例直至失败，记录失败率）——xunit 宿主内 200 轮，195 次失败（98%）
+- [x] 定位遗弃时序的真凶（GC 终结器日志 / handle 追踪）——不是 GC、不是 .NET 语义缺陷：CoreCLR PAL 的命名 Mutex 按**线程**跟踪所有权，持有者线程退出即废弃
+- [x] 修复（测试侧或守卫侧）+ 回归锁——测试侧修（改同步探测），新增 `Abandoned_mutex_from_dead_owner_thread_is_taken_over` 固化语义
+- [x] 全量套件连跑 3 次零失败——实际连跑 5 轮全绿
 
 ## Dependencies
 
@@ -38,3 +38,11 @@ blocked: none
 ### 2026-10-26
 
 - 建卡（B-018 调查时顺手钉死两条证据，见 Background）。
+
+### 2026-10-30 补记（修复早于本次收口，卡片账目滞后）
+
+- 根因与修复已于 **2026-10-28 落地**，提交 `913b8cc`（fix: 单实例守卫测试偶发失败根因修复），当时未回写本卡状态，本次补记。
+- 真凶：CoreCLR PAL 的命名 Mutex 不是 Win32 那种「持有者进程死亡才废弃」的语义，而是按**线程**跟踪所有权——持有者线程一退出，其持有的命名 Mutex 就被标记 abandoned，后来者 `WaitOne(0)` 抛 `AbandonedMutexException`，`TryAcquire` 按「上一实例崩溃接管」设计返回 true。
+- 触发形态：旧用例 `await Task.Factory.StartNew(..., LongRunning)` 把测试方法挂起在拿锁线程上，该线程（线程池收缩回收的 worker、或 LongRunning 任务收尾的内联续体线程）随即退出——拿锁线程活不到探测结束，故全量并发跑偶发、单跑稳定。
+- 修复（测试侧，不动守卫语义）：第二获取者改专用 `Thread` + `Join`，拿锁线程活到探测结束；新增 `Abandoned_mutex_from_dead_owner_thread_is_taken_over` 把「持有者线程死亡 → abandoned → 新实例接管」固化为确定性用例。`TryAcquire` 的跨进程接管语义确认正确，不改。
+- 验证：App.Tests 313/313；全仓连跑 5 轮全绿（Core 192 / App 313 / Infrastructure 722 / Reconciliation 49 / Headless 444）。本次收口又跑一轮：Core 222 / Recon 49（19 跳过）/ Infra 761（3 跳过）/ App 325 / Headless 494，0 失败。

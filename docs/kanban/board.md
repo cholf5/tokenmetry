@@ -5,6 +5,8 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-10-30：**Todo 清账——首版发版前把三张旧卡收口（B-019 / B-020 / D-023），Todo 只剩 I-043**。①**B-019**（macOS Dock 右键「显示所有窗口」崩溃，P2）：用户确认已不复现，按指示关闭；卡内实写证据缺口——仓库无该崩溃的独立修复提交、`.ips` 始终没取回、根因未取证，只把“不再复现”当事实记下；同期唯一相关变更是 B-018 的 Dock 唤回通道改造（783c8f5），路径相邻但无实测关联。②**B-020**（SingleInstanceGuardTests 间歇失败，P3）：**已于 2026-10-28 修复却未回写卡片**（913b8cc），本次补账；真凶是 CoreCLR PAL 按**线程**跟踪命名 Mutex 所有权——旧用例 `await` 把测试挂起在拿锁线程上、该线程随即退出致废弃，故全量并发跑偶发、单跑稳定；修法是测试侧改同步（专用 `Thread` + `Join`）+ 新增废弃接管语义用例，`TryAcquire` 生产语义不改。③**D-023**（Windows 托盘双击，P3）：用户确认回退到位且不重启该方案，卡片关为“不做”；回退完整性已核对——全仓 `GetDoubleClickTime` / `HideIfVisible` 零命中，只余 B-017 的 `ToggleFromTrayClick`，AC 保持未勾选以准确记录“未交付”。全量复核：Core 222 / Reconciliation 49（19 跳过）/ Infra 761（3 跳过）/ App 325 / Headless 494，0 失败。**遗留讨论**：I-043（message-grain 记录账本）仍 P2 挂在 Todo，但其触发前提（记录数上万 + 频繁混轮）按 `docs/perf-investigation-2026-10-28.md` 实测（真实库 1–2k 记录、全量重算 < 50 ms）尚未到达，是否降级待用户决定。
+
 > 2026-10-28（续·静息 tick 评估）：**“零变化 tick 也重载当前页”值不值得改——实测后结论：不改**。方法：临时 headless 测量（真实 `SqliteUsageStore` + 真实 `UsageQueryService` + 真实 `OverviewView` 窗口，Release 构建由 `dotnet test -c Release` 跑；用例跑完已删，副本存 `dist/bench/headless/IdleTickCostMeasurement.cs.txt`，需要时拷回 `tests/Tokenmetry.App.Headless.Tests/Shell/` 即可重跑），三档规模各测 5 轮取中位数，分「无重载静息帧 / 仅 VM 重载 / 重载+一帧」。数据：无重载静息帧 0.6 ms（成本全部来自重载）；真实规模（147 facts / 637 sessions，对齐本机应用库 154 / 662）：VM 重载 13.2 ms、重载+一帧 41.8 ms；三年投影（3.3k / 14.2k）：81.4 / 94.1 ms；重用户（21.9k / 65.7k）：217.4 / 230.1 ms（headless 是软件光栅，真机 GPU 会低于此值）。判定：每 5 分钟一次的刷新，真实用户一次静息 tick ≈ 15 ms（探针）+ ≈ 42 ms（页面）= 不可感知；而把“是否 reload”改成条件触发要重新定义手动刷新语义、相对时间文案、数据源状态灯与筛选交互，风险/收益不成立（重用户 230 ms 才可见，且那时该做的是局部重绘 / 可见性节流）。**数据面三条轴（采集探针 / 快照查询 / 驻留池）到此收口**；真实库 49 天只有 154 行 facts（≈3 行/天），十年也就万行量级，压测的高绝对值只对应多年代码库 + 多项目的极端用户。（方法、数字与判定全文见 `docs/perf-investigation-2026-10-28.md`）
 
 > 2026-10-28（性能实测批次）：**perf 三提交（74110a3 / d37c6a5 / b294741）与评审批次一（5f4b0fd）的实测基线**。方法：`dist/bench`（已 gitignore，不入库）三个构建变体共享同一份基准源码——`prepool`=74110a3（未驻留）、`poolcount`=b294741（驻留 + `ConcurrentDictionary.Count` 判容量）、`current`=HEAD；记录侧 300k 记录 / 12k 会话文件 / 8 agent / 300 model / 500 project，两处防优化措施（记录集 `GC.KeepAlive`；解析记录必须逃逸到 sink 数组，否则 .NET 10 栈上分配会把 `new` 消掉，测到的是空循环）；查询侧临时 SQLite，规模 A 57.6k facts + 18k sessions、规模 B 175.2k + 73k；采集侧 1200 个 Gemini jsonl × 40 行 = 48k 记录；环境 macOS 25.5 arm64 / .NET 10 Release。结果：①**驻留内存** 208.2 MB → 154.7 MB（728 → 541 B/记录，300k 记录省 ≈54 MB）——原提交"百 MB → MB 量级"的口径不成立，真实收益是整记录堆 -26%、重复串部分约 -187 B/记录。②**解析吞吐**（200k 记录，逃逸分配）：`poolcount` 单线程 23.7k–37.8k 记录/秒、4 线程 13.9k–22.8k（比单线程更慢 = 全局桶锁串行化坐实）；`prepool` 1.46M–1.99M、`current` 1.49M–2.47M 单线程 / 1.50M–2.16M 四线程——5f4b0fd 的计数器修复把吞吐从"慢约 70 倍"拉回与不驻留同级。③**总览查询**：910 ms → 190 ms（规模 A）、3190 ms → 685 ms（规模 B），快照 -79%（13 次全表读收成 2 次）；规模 B 分解 = facts 全表读 339 ms + sessions 全表读 168 ms + 内存聚合 ≈178 ms。④**采集零变更轮**：全量 302 ms → 12–15 ms（1200 文件，FilesRead=0 / FilesChanged=0，≈9.7 µs/文件 stat）。新发现（后续口径）：a) 规模 B 快照仍 685 ms 且两次全表读占 74%——"一次装载"只减少重复读次数，不减少读全表，重库用户页面仍卡，真要解决得把聚合下推 SQL 或做增量缓存；b) 弹层的最近活动仍自成一次 sessions 全表读 + 内存排序（规模 B 202 ms），快照后每轮仍是 1 facts + 2 sessions 读；c) 本次数据集去重串仅 12.8k，驻留槽未触顶，分槽预算只验证了热路径开销，触顶语义仅有单测覆盖。（方法、数字与判定全文见 `docs/perf-investigation-2026-10-28.md`）
@@ -59,9 +61,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| B-019 | macOS Dock「显示所有窗口」崩溃——待 .ips 崩溃日志定位（macOS 26 Tahoe） | P2 | M | 用户提供崩溃日志 | none |
-| B-020 | SingleInstanceGuardTests 间歇失败——AbandonedMutexException 分支是唯一 true 路径，疑 GC/线程退出时序 | P3 | M | none | none |
-| D-023 | Windows 托盘双击唤出主窗——真机与单击 Switch 冲突已回退，出路待用户决策 | P3 | S | 用户决策 | none |
 | I-043 | 采集真增量（message-grain 记录账本）——驻留内存从 O(全历史) 降到 O(本轮增量) | P2 | L | none | I-042 |
 
 > 2026-10-24（晚六）：**Q-009 修正项 1——? 字形太小，改 circle-help 矢量兜底**。用户看后反馈「问号太小了，能不能大点，或者用 svg 画个 Icon」。取证：文本 `?` 墨迹只占 em 四成（11px 字号实际 ~7px，I-040 同源问题——系统字体渲染墨迹占比低且跨平台不可控），加大字号受 16px 槽位与字形 line-height 限制。修法：走 I-040 管线——生成器白名单加 circle-help（lucide-static@1.61.0）再生 Icons.axaml，model-chip 增 `PathIcon.model-fallback` 槽（13px / lg 22px、中性芯片前景、generic 伪类显隐），5 处消费点（模型页/总览/计价页两处/托盘 lg）接入；`?` 字形退到数据层语义（ModelVisual.Glyph，UI 不渲染），phi 的 Φ 不动。测试：generic 断言翻转（字形隐藏+图标显示）+ 新增墨迹几何量测锁（16px 芯片内 ≥10px，防「太小」回归）；IconResourceTests.GeometryKeys 补 circle-help 并顺手补 Q-007 漏登记的 hard-drive-upload/download 两键。headless 346 Passed（+1），全量 1448 Passed / 0 Failed（22 跳过）；真机观感移交用户。
@@ -134,6 +133,9 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| B-019 | macOS Dock「显示所有窗口」崩溃——用户真机复验不再复现；仓库无独立修复提交、`.ips` 未取回，根因未取证 | P2 | 2026-10-30 |
+| B-020 | SingleInstanceGuardTests 间歇失败——根因是 await 挂起让拿锁线程退出、PAL 按线程废弃命名 Mutex（修复 913b8cc，本次账目追平） | P3 | 2026-10-30 |
+| D-023 | Windows 托盘双击唤出主窗——真机与单击 Switch 冲突，已整体回退（1df933f），用户拍板不重启（不做） | P3 | 2026-10-30 |
 | D-026 | Windows 原生标题栏深色适配（DWM）+ 窗口标题缩短 | P2 | 2026-10-28 |
 | B-022 | 托盘弹窗首显闪动——Show 先画空态再被回填撑高，启动预热让首帧即最终高度（B-021 修正项 1） | P2 | 2026-10-27 |
 | B-021 | 托盘弹窗首显仍偏下——SizeToContent 数据异步回填撑高窗口，位置只在 Show 后算一次（B-016 修正项 1；修正项 1 见 B-022） | P2 | 2026-10-27 |
@@ -145,6 +147,10 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | I-042 | 无变化轮次短路——零数据变化跳过计价/聚合/落库，扫描器零变更轮复用去重产物 | P1 | 2026-10-25 |
 | P-003 | 发布产物 PublishReadyToRun——JIT 代码堆缩小/启动提速（包体积 +30-50% 已登记） | P3 | 2026-10-25 |
 | S-007 | 刷新间隔默认 1→5 分钟——后台采集常态空转降频（设置页 1–1440 可调不动） | P2 | 2026-10-25 |
+| Q-018 | 徽章 tooltip 橙字漏染修复 + chart-tip 令牌底——Semi 默认 tooltip 配色错配绕行 | P2 | 2026-10-25 |
+| Q-017 | 弹层 KPI 三格同字号（22/17 层级撤除）+ 异常徽章迁头部品牌/状态之后 | P2 | 2026-10-25 |
+| Q-016 | 异常通知 in-app toast 通道整体删除——异常唯一出口 = 弹层 KPI 徽标 | P2 | 2026-10-25 |
+| Q-015 | 异常 toast 当天只弹一次——日累计异常 × 分钟级刷新的整日轰炸收敛 | P2 | 2026-10-25 |
 | B-016 | 托盘弹窗首显锚定取陈旧 Bounds 高度——ScreenSize 改 ClientSize，首显即贴托盘（Windows 中间偏右根因；修正项 1 见 B-021） | P2 | 2026-10-25 |
 | D-022 | 官网功能页富数据截图套件——stub fixture × zh/en × 明暗 × 7 页 + 托盘（裸窗特写，零 src 改动） | P3 | 2026-10-25 |
 | B-015 | 价格输入双文化解析（invariant Float 优先 + 本机兜底）——de-DE 逗号小数可录入；旧实现对 0,5 实为静默千倍错标非拒绝 | P3 | 2026-10-25 |
