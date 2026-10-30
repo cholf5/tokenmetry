@@ -37,7 +37,7 @@ Local-first · Tray-resident · Reconcilable — usage from every AI coding agen
 - **Honest cost accounting** — costUSD from logs is used as-is; models without pricing show "unknown", **never zero-filled or folded into totals**
 - **Incremental ingestion** — tracked by file mtime/size, rescanned only on change; reruns never duplicate records, deleted files drop out of the facts
 - **Tray-resident** — the popover shows today's tokens / spend / live rate at a glance, with cost anomalies flagged by a badge
-- **Light & dark themes, Chinese & English UI** — follow the system or override
+- **Light & dark themes, 10 UI languages** — follow the system or override; Simplified/Traditional Chinese, English, Japanese, Korean, Portuguese (BR), Russian, Spanish, German, French — all switchable at runtime
 - **CSV export + global filters** — time range, agent, model, and project filters carry across every view
 
 ## Supported data sources
@@ -59,7 +59,7 @@ All are **read-only** (streaming JSONL/JSON parsing, or read-only SQLite connect
 
 ## Getting started
 
-**Run from source** (the primary method for now) — you need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) and to have used at least one agent from the table above (so local logs exist):
+**Run from source** — you need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) and to have used at least one agent from the table above (so local logs exist):
 
 ```bash
 git clone https://github.com/cholf5/tokenmetry.git
@@ -67,7 +67,7 @@ cd tokenmetry
 dotnet run --project src/Tokenmetry.App
 ```
 
-**Installers** — the release pipeline is ready: pushing a version tag makes CI produce macOS (arm64/x64 .app zips) plus Windows/Linux single-file zips, published to [Releases](https://github.com/cholf5/tokenmetry/releases). The app also checks for updates in-app (tray menu "Check for updates" or the About section in Settings, one-click download). Until the first public release ships, please build from source.
+**Packages** — grab the zip for your platform from [Releases](https://github.com/cholf5/tokenmetry/releases) (macOS arm64/x64 `.app`, Windows/Linux single-file) and extract. The app also checks for updates in-app (tray menu "Check for updates" or the About section in Settings, one-click download). macOS builds are ad-hoc signed and not notarized, so the first launch needs one Gatekeeper allowance; Windows hits SmartScreen once — both are spelled out in [known limitations](docs/release/known-limitations.md).
 
 With no data, the app shows an empty-state guide (supported agents + rescan) instead of a stack trace. Release pipeline details: [`docs/release/ci-release.md`](docs/release/ci-release.md).
 
@@ -91,6 +91,10 @@ The homegrown pipeline (direct JSONL parsing → unified usage records → own p
 
 The SQLite store holds **aggregated facts and settings only** — never prompts, code, or conversation content. All data stays on your machine (`%LOCALAPPDATA%\Tokenmetry\` on Windows, the user data directory on macOS/Linux).
 
+## Known limitations
+
+The first release ships with known issues — a failed read in one source is swallowed silently (numbers look normal but may undercount), changing your system timezone can double-count, there is no installer and no self-update, and one bad timestamp can knock out the Kimi/DSH source entirely. Symptoms, triggers and follow-up plans are in [`docs/release/known-limitations.md`](docs/release/known-limitations.md) (Chinese); the double-count fix is the top priority after release.
+
 ## Architecture
 
 ```
@@ -110,7 +114,7 @@ Three layers, strictly one-way dependencies. Adding an agent source = Core inter
 |---|---|---|
 | v0.1–v0.2 | Real-data dashboard, reports, CSV export, settings | ✅ |
 | v0.3 | Own ingestion engine (Claude/Codex direct reads, facts tables, pricing engine, reconciliation tests) | ✅ |
-| v0.3.5 | Multi-source coverage (17 more adapters landed) | ✅ |
+| v0.3.5 | Multi-source coverage (all 19 adapters landed) | ✅ |
 | v0.4 | UI prototype realized (Semi theme + 3-pane shell + 9 views + charts) | ✅ |
 | v0.5 | Resident experience (notification dedup, budget thresholds, autostart, refresh reliability) | planned |
 | v0.9 | Release automation (tag-triggered 3-platform CI packaging + Releases + in-app update check/download) | ✅ |

@@ -35,7 +35,7 @@
 - **诚实的成本口径** —— 日志自带 costUSD 直接采用;缺价模型显示「未知」,**不折零、不混入合计**,绝不假装精确
 - **增量采集** —— 按文件 mtime/大小记账,变更才重扫;重复运行不产生重复记录,文件删除后记录随之移除
 - **托盘常驻** —— 弹层一眼看今日 tokens / 花费 / 实时速率,成本异常以徽章标出
-- **明暗主题 + 中英双语** —— light / dark / system 跟随,zh / en / system 即时切换
+- **明暗主题 + 10 语种** —— light / dark / system 跟随,简体中文 / 繁体中文 / 英 / 日 / 韩 / 葡(BR) / 俄 / 西 / 德 / 法 + 跟随系统即时切换
 - **CSV 导出 + 全局筛选** —— 时间范围、Agent、模型、项目四维筛选贯穿所有视图
 
 ## 支持的数据源
@@ -57,7 +57,7 @@
 
 ## 快速开始
 
-**从源码运行**(当前主要方式)—— 前提:本机装有 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0),且用过上表任一 Agent(有本地日志):
+**从源码运行** —— 前提:本机装有 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0),且用过上表任一 Agent(有本地日志):
 
 ```bash
 git clone https://github.com/cholf5/tokenmetry.git
@@ -65,7 +65,7 @@ cd tokenmetry
 dotnet run --project src/Tokenmetry.App
 ```
 
-**安装包** —— 发布流水线已就绪:打上版本 tag 后 CI 自动产出 macOS(arm64/x64 .app zip)、Windows / Linux 单文件 zip 并发布到 [Releases](https://github.com/cholf5/tokenmetry/releases),应用内亦有更新检查(托盘菜单「检查更新」或设置页「关于」区,可一键下载更新包)。首个公开版本发布之前,请先用源码方式。
+**安装包** —— 从 [Releases](https://github.com/cholf5/tokenmetry/releases) 取对应平台的 zip(macOS arm64/x64 `.app`、Windows / Linux 单文件),解压即用;应用内亦有更新检查(托盘菜单「检查更新」或设置页「关于」区,可一键下载更新包)。macOS 为 ad-hoc 签名、未公证,首次打开需在系统提示里放行一次;Windows 首次运行会被 SmartScreen 拦一次——两条都在[已知限制](docs/release/known-limitations.md)里写明。
 
 无数据时应用显示空态引导(支持的 Agent 清单 + 重新扫描),不暴露堆栈。发布流程细节见 [`docs/release/ci-release.md`](docs/release/ci-release.md)。
 
@@ -89,6 +89,12 @@ dotnet run --project src/Tokenmetry.App
 
 SQLite 只存**聚合事实与配置**,不存 prompt、代码、会话内容;所有数据留在本机(Windows 为 `%LOCALAPPDATA%\Tokenmetry\`,macOS/Linux 为用户数据目录)。
 
+## 已知限制
+
+首版带有若干已知问题——某源读失败会被静默吞掉(界面仍显示正常,可能少算)、改过系统时区后可能双算、
+没有安装器也不做自更新、Kimi/DSH 一条坏时间戳能让整源停摆。逐条写清症状、触发条件与后续计划:
+[`docs/release/known-limitations.md`](docs/release/known-limitations.md)。其中双算那条是发版后的第一优先级。
+
 ## 架构
 
 ```
@@ -108,7 +114,7 @@ Tokenmetry.App              Avalonia UI(Semi 主题)· 9 视图 · DI · 托盘 
 |---|---|---|
 | v0.1–v0.2 | 真实数据 Dashboard、Reports、CSV 导出、Settings | ✅ |
 | v0.3 | 自主采集引擎(Claude/Codex 直读、facts 表、定价引擎、对账测试) | ✅ |
-| v0.3.5 | 多源覆盖(17 源适配器全部落地) | ✅ |
+| v0.3.5 | 多源覆盖(19 源适配器全部落地) | ✅ |
 | v0.4 | UI 原型落地(Semi 主题 + 三栏外壳 + 9 视图 + 图表) | ✅ |
 | v0.5 | 常驻体验(通知去重、预算阈值、自启、刷新可靠性) | 规划 |
 | v0.9 | 发布自动化(tag 触发三平台 CI 打包 + Release + 应用内更新检查/下载) | ✅ |
