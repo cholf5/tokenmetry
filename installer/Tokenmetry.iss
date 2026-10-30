@@ -16,8 +16,8 @@
   #define MyAppVersion "0.0.0"
 #endif
 
-#ifndef SourceExe
-  #define SourceExe "..\dist\stage\win-x64\Tokenmetry.exe"
+#ifndef SourceDir
+  #define SourceDir "..\dist\stage\win-x64-aot"
 #endif
 
 #ifndef OutputDir
@@ -67,7 +67,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: {#SourceExe}; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
+; 安装器装的是 AOT 散开产物（exe + 原生 dll），不是单文件包：没有首次启动把原生库解到
+; %TEMP% 的动作（杀软启发式与“企业禁写 temp”都在这条路上翻车），启动也更快。
+; recursesubdirs 保留 publish 目录结构（若有子目录）。
+Source: {#SourceDir}\*; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

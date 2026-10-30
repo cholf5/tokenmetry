@@ -9,9 +9,9 @@
 scripts/release.sh 0.3.0          # bump csproj <Version> → commit → tag v0.3.0 → push
   └─ CI (.github/workflows/ci.yml)
        ├─ test: 全量 dotnet test（tag 必须等于 csproj <Version>，否则拒绝打包）
-       ├─ macos:  scripts/package.sh --rids "osx-arm64"/"osx-x64" → Tokenmetry.app zip
-       ├─ windows: 单文件 self-contained publish → Tokenmetry.exe → zip + ISCC 出 setup.exe（随后静默装/卸冒烟）
-       ├─ linux:  scripts/package.sh --rids linux-x64 → Tokenmetry → zip
+       ├─ macos:  scripts/package.sh --rids "osx-arm64"/"osx-x64" → AOT 散开 + .app bundle → zip
+       ├─ windows: 单文件 publish → zip；另出一份 AOT 散开 → ISCC 安装器（随后静默装/卸冒烟）
+       ├─ linux:  scripts/package.sh --rids linux-x64 → 单文件 → zip（xvfb 启动冒烟）
        └─ release: gh release create v0.3.0（说明取 docs/release/notes/v0.3.0.md，缺文件回落 --generate-notes）+ 上传五个资产
 ```
 
@@ -36,6 +36,25 @@ scripts/release.sh 0.3.0          # bump csproj <Version> → commit → tag v0.
 亮点、已知限制（链接 [`known-limitations.md`](known-limitations.md)）、安装方式三块是基本盘；
 安装方式里 macOS 的 Gatekeeper 提示与 Windows SmartScreen 提示必须写明，否则首版会被当成装不上。
 
+## 打包形态矩阵（v0.3.2 起）
+
+同一个应用按产物形态用两种构建，不是“顺手”：AOT 不支持 `PublishSingleFile`，而单文件的全部价值是
+“一个文件就能跑”。两边各自取自己需要的那个。
+
+| 产物 | 构建 | 为何 |
+|---|---|---|
+| macOS `.app` | **Native AOT，散开** | 无首次启动解包、198MB → 50MB（zip 66MB → 22MB）；dylib 与 exe 同在 `Contents/MacOS/` |
+| Windows 安装器 | **Native AOT，散开** | 装进固定目录，单文件的“分发方便”没价值；无解包、启动最快、杀软看不到 temp 里写二进制 |
+| Windows 便携 zip | 单文件 + R2R | “一个 exe 就能跑”是便携版存在的理由 |
+| Linux zip | 单文件 + R2R | 解压即用；AOT 未真机验证（见 known-limitations） |
+
+单文件 + `IncludeNativeLibrariesForSelfExtract=true` 的代价（实测 mac arm64）：首次启动把 20MB 原生库
+写到 `%TEMP%\.net\<app>\<内容哈希>\`，暖启动 0.32–0.36s vs 冷启动 0.84s；每次版本更新解到新哈希目录，
+旧目录等缓存回收。AOT 形态完全不碰 temp。
+
+AOT 的两个硬前提：`TreatWarningsAsErrors` 下零 IL 警告（P-004 把反射 JSON 全迁到源生成）、
+任何运行时反射都是“发布时静默、运行时炸”。Windows 与 macOS 都已真机验过；Linux 未验。
+
 ## 资产命名契约（改一处必须三处同改）
 
 便携包：`Tokenmetry-{版本}-{rid}.zip`，rid ∈ `osx-arm64 | osx-x64 | win-x64 | linux-x64`。
@@ -49,6 +68,11 @@ Windows 安装器：`Tokenmetry-{版本}-win-x64-setup.exe`（Inno 脚本的 `Ou
 
 脚本：`installer/Tokenmetry.iss`；CI 的 windows job 里 `choco install innosetup` + `ISCC /DMyAppVersion=<版本>`；
 本地 `scripts/package.sh --rids win-x64` 在有 ISCC 的机器上也会出（缺则跳过并提示）。
+
+**取料是 AOT 散开产物**（`dist/stage/win-x64-aot`，由 `[Files] Source: {#SourceDir}\*` 整目录装入），
+不是那个单文件 exe：安装器把文件装进固定目录，单文件的好处不存在，而 AOT 少了运行时 JIT 预热、
+也把“启动时往 temp 写原生库”这个动作彻底去掉。**整目录复制、不猜依赖**——AOT 的原生依赖随平台/库版本变，
+漏一个就是启动即崩。
 
 几条硬约束（改了会静默地损坏升级路径）：
 

@@ -139,8 +139,8 @@ jobs:
       # startup; costs ~30-50% package size (trade logged on card P-003).
       #
       # The staging layout (dist/publish/<rid> -> dist/stage/<rid>) mirrors
-      # scripts/package.sh and is where installer/Tokenmetry.iss picks the exe
-      # up from: one layout for local fallback and CI, no /D path overrides.
+      # scripts/package.sh and is where installer/Tokenmetry.iss picks the
+      # payload up from: one layout for local fallback and CI, no /D overrides.
       - name: Publish self-contained exe
         shell: pwsh
         run: >
@@ -154,6 +154,23 @@ jobs:
           New-Item -ItemType Directory -Force -Path "dist/stage/win-x64" | Out-Null
           Copy-Item "dist/publish/win-x64/Tokenmetry.App.exe" "dist/stage/win-x64/Tokenmetry.exe"
           Compress-Archive -Path "dist/stage/win-x64/Tokenmetry.exe" -DestinationPath "dist/Tokenmetry-$env:VERSION-win-x64.zip"
+      # The installer gets a separate AOT build, not the portable single file:
+      # Native AOT cannot be bundled into one file, and once the payload lives in
+      # a fixed install directory the single-file form has no upside — AOT drops
+      # the runtime, so startup needs no JIT warm-up and nothing is extracted to
+      # %TEMP% (that extraction is both a startup cost and a classic AV/EDR
+      # heuristic hit). AOT is compiled by MSVC from the windows-latest image.
+      # Copy the whole publish directory instead of guessing which native
+      # dependencies are required — flapping one out is a start-up crash.
+      - name: Publish native AOT payload for the installer
+        shell: pwsh
+        run: |
+          dotnet publish $env:APP_PROJECT -c Release -r win-x64
+          -p:PublishAot=true -p:PublishSingleFile=false -p:SelfContained=true -o "dist/publish/win-x64-aot"
+          New-Item -ItemType Directory -Force -Path "dist/stage/win-x64-aot" | Out-Null
+          Copy-Item "dist/publish/win-x64-aot/*" "dist/stage/win-x64-aot" -Recurse
+          Remove-Item "dist/stage/win-x64-aot/*.pdb", "dist/stage/win-x64-aot/*.xml" -ErrorAction SilentlyContinue
+          Rename-Item "dist/stage/win-x64-aot/Tokenmetry.App.exe" "Tokenmetry.exe"
       # Installer is the primary Windows artifact: the zip stays for portable use,
       # but only the installer gives an uninstaller, Start-menu entry and a fixed
       # install path (which is what keeps HKCU\...\Run autostart valid).
@@ -238,6 +255,33 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       - name: Package binary
         run: scripts/package.sh --rids linux-x64
+      # Boot smoke under a virtual X server: no human ever double-clicked the
+      # Linux build, so this is the closest thing to a launch test CI can do.
+      # It catches "dies during host/Avalonia/SQLite init" — the class of failure
+      # a platform switch (e.g. Native AOT) would cause. Rendering correctness
+      # still needs a real desktop.
+      - name: Smoke test (xvfb boot)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb >/dev/null
+          mkdir -p smoke && unzip -q dist/Tokenmetry-*-linux-x64.zip -d smoke
+          chmod +x smoke/Tokenmetry
+          Xvfb :99 -screen 0 1280x1024x24 >/dev/null 2>&1 &
+          export DISPLAY=:99
+          # --autostart: 托盘常驻启动（不弹主窗），最接近真实自启动路径。
+          ./smoke/Tokenmetry --autostart > smoke/app.log 2>&1 &
+          APP_PID=$!
+          sleep 20
+          if ! kill -0 "$APP_PID" 2>/dev/null; then
+            echo "::error::app exited during boot"; cat smoke/app.log; exit 1
+          fi
+          DB="$HOME/.local/share/Tokenmetry/tokenmetry.db"
+          if [ ! -f "$DB" ]; then
+            echo "::warning::tokenmetry.db not created at $DB"; ls -la "$HOME/.local/share" 2>/dev/null || true
+          else
+            echo "db created: $(stat -c%s "$DB") bytes"
+          fi
+          kill "$APP_PID" || true
+          echo "boot smoke ok (process alive 20s)"
       - uses: actions/upload-artifact@v4
         with:
           name: package-linux-x64

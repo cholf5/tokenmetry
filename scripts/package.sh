@@ -59,9 +59,17 @@ APP_VERSION=${APP_VERSION:-1.0}
 # developer. Ad-hoc keeps the seal intact, so the downloaded copy gets the
 # standard unidentified-developer prompt instead. Notarization would remove
 # the prompt entirely but needs a paid Apple Developer account.
+#
+# AOT 产物是「exe + 若干 dylib」的散开形态（AOT 不支持 PublishSingleFile），
+# 所以嵌套的原生库必须逐个先封，否则整包验签不过。
 sign_app() {
   local app="$1"
   if command -v codesign >/dev/null 2>&1; then
+    local nested
+    for nested in "$app"/Contents/MacOS/*.dylib; do
+      [[ -f "$nested" ]] || continue
+      codesign --force -s - "$nested" || { echo "ad-hoc 签名失败: ${nested}" >&2; exit 1; }
+    done
     codesign --force -s - "$app" || { echo "ad-hoc 签名失败: ${app}" >&2; exit 1; }
     codesign --verify --strict "$app" || { echo "签名校验失败（封签不完整）: ${app}" >&2; exit 1; }
   else
@@ -86,6 +94,26 @@ make_icns() {
   done
   iconutil -c icns "$iconset" -o "$out"
   rm -rf "$iconset"
+}
+
+# Windows 安装器的取料：一份 AOT 散开产物（exe + 原生 dll）。
+# AOT 不支持 PublishSingleFile，产物本来就是多个文件——正好匹配安装器“装进固定目录”的形态，
+# 且没有首次启动把原生库解到 %TEMP% 的动作（那一步是杀软启发式与“企业禁用 temp”的经典翻车点）。
+publish_windows_aot() {
+  local rid="$1"
+  echo "==> publish $rid (AOT, 供安装器)"
+  dotnet publish src/Tokenmetry.App -c Release -r "$rid" \
+    -p:PublishAot=true -p:PublishSingleFile=false -p:SelfContained=true \
+    -o "dist/publish/$rid-aot"
+
+  local stage="dist/stage/$rid-aot"
+  rm -rf "$stage"; mkdir -p "$stage"
+  # 整个 publish 目录搬过去再改名，不猜哪些文件是必需的：AOT 的原生依赖因平台/库版本
+  # 而异（e_sqlite3.dll、ANGLE 的 av_libglesv2.dll…），漏一个就是启动即崩。
+  cp -R "dist/publish/$rid-aot"/. "$stage"/
+  rm -f "$stage"/*.pdb "$stage"/*.xml
+  mv "$stage/Tokenmetry.App.exe" "$stage/Tokenmetry.exe"
+  [[ -f "$stage/Tokenmetry.exe" ]] || { echo "AOT 产物缺失: $stage/Tokenmetry.exe" >&2; return 1; }
 }
 
 # Windows 安装器（Inno Setup）。ISCC 是 Windows 程序：只有 Windows 主机或显式给
@@ -117,17 +145,33 @@ cd "$REPO_ROOT"
 mkdir -p "$DIST"
 
 for rid in $RID_LIST; do
-  echo "==> publish $rid"
-  # PublishReadyToRun (P-003): 预编译进产物——运行时 JIT 代码堆变小、启动更快；包体积 +30-50%（卡内登记的取舍）。
-  dotnet publish src/Tokenmetry.App -c Release -r "$rid" --self-contained true \
-    -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:IncludeNativeLibrariesForSelfExtract=true \
-    -o "dist/publish/$rid"
+  if [[ "$rid" == osx-* ]]; then
+    # macOS：AOT + 散开（P-009）。AOT 不支持 PublishSingleFile，所以形态就是
+    # 「一个原生 exe + 几个 dylib」全放 Contents/MacOS/；好处是没有首次启动的
+    # 原生库解包、体积从 ~190MB 降到 ~50MB、杀软看不到 temp 里写二进制。
+    echo "==> publish $rid (AOT)"
+    dotnet publish src/Tokenmetry.App -c Release -r "$rid" \
+      -p:PublishAot=true -p:PublishSingleFile=false -p:SelfContained=true \
+      -o "dist/publish/$rid"
 
-  # 发布产物名 = 程序集名 Tokenmetry.App(.exe)；出厂统一改回产品名 Tokenmetry(.exe)
-  #（与 macOS .app 的 CFBundleExecutable、压缩包内布局一致）。
-  PUBLISHED="dist/publish/$rid/Tokenmetry.App"
-  [[ "$rid" == win-* ]] && PUBLISHED="dist/publish/$rid/Tokenmetry.App.exe"
-  [[ -f "$PUBLISHED" ]] || { echo "发布产物缺失: $PUBLISHED"; exit 1; }
+    # 发布产物名 = 程序集名 Tokenmetry.App；出厂统一改回产品名 Tokenmetry
+    #（与 CFBundleExecutable、压缩包内布局一致）。
+    PUBLISHED="dist/publish/$rid/Tokenmetry.App"
+    [[ -f "$PUBLISHED" ]] || { echo "发布产物缺失: $PUBLISHED" >&2; exit 1; }
+  else
+    # Windows / Linux：单文件 self-contained + ReadyToRun（P-003：预编译进产物，运行时 JIT
+    # 代码堆变小、启动更快，代价是包体积 +30-50%）。
+    # 为何这两条不 AOT：AOT 不支持单文件，会把产物压成目录，丢掉“一个文件就能跑”这个
+    # 便携版/解压即用的全部价值。Windows 的安装器形态另用一份 AOT 产物（见下）。
+    echo "==> publish $rid (single-file R2R)"
+    dotnet publish src/Tokenmetry.App -c Release -r "$rid" --self-contained true \
+      -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:IncludeNativeLibrariesForSelfExtract=true \
+      -o "dist/publish/$rid"
+
+    PUBLISHED="dist/publish/$rid/Tokenmetry.App"
+    [[ "$rid" == win-* ]] && PUBLISHED="dist/publish/$rid/Tokenmetry.App.exe"
+    [[ -f "$PUBLISHED" ]] || { echo "发布产物缺失: $PUBLISHED" >&2; exit 1; }
+  fi
 
   STAGE="dist/stage/$rid"
   rm -rf "$STAGE"; mkdir -p "$STAGE"
@@ -137,6 +181,7 @@ for rid in $RID_LIST; do
     APP="$STAGE/Tokenmetry.app"
     mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
     cp "$PUBLISHED" "$APP/Contents/MacOS/Tokenmetry"
+    cp "dist/publish/$rid"/*.dylib "$APP/Contents/MacOS/"
     chmod +x "$APP/Contents/MacOS/Tokenmetry"
     make_icns "$REPO_ROOT/src/Tokenmetry.App/Assets/app-icon.png" "$APP/Contents/Resources/app-icon.icns" || true
     cat > "$APP/Contents/Info.plist" <<PLIST
@@ -160,6 +205,8 @@ PLIST
     # win/linux：单文件可执行，zip 内即产品名（Tokenmetry.exe / Tokenmetry）。
     if [[ "$rid" == win-* ]]; then
       cp "$PUBLISHED" "$STAGE/Tokenmetry.exe"
+      # 安装器另用一份 AOT 散开产物：zip 保「一个 exe」，安装器保「无解包、启动最快」。
+      publish_windows_aot "$rid"
     else
       cp "$PUBLISHED" "$STAGE/Tokenmetry"
     fi
