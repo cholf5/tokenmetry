@@ -67,7 +67,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| I-044 | 上架 Homebrew cask——用 brew 装就绕开 macOS Gatekeeper 弹窗（quarantine 被剥离，首次双击不弹窗） | P2 | M | none | none |
+| I-044 | 上架 Homebrew cask——**前提已修正**：brew 不免疫 Gatekeeper，收益降为「放行一次后 `brew upgrade` 不再弹」 | P2 | M | none | none |
 
 > 2026-10-30（晚）：**I-044 建卡（上架 Homebrew cask）**。背景：macOS 26 的放行流程被评估为“对非技术用户地狱、
 > 对开发者认知成本为零”（右键「打开」已失效，只能进系统设置最下面点「仍要打开」再输开机密码）。
@@ -77,6 +77,12 @@ Moving a card means updating its row here and `status` in the issue file in the 
 > `livecheck` 配法、未来是否提官方仓库），第一条是整个卡的基础，用 `xattr -p com.apple.quarantine` 留证。
 > 同批文档修正：`known-limitations.md` 第 9 条、README 中英安装段、v0.3.0 / v0.3.2 发版说明里的 macOS 放行步骤
 > 改为 macOS 26 的真实流程（`xattr -cr` 排第一，“右键打开”那句已删除——它在 macOS 26 上会把人带进死胡同）。
+> **当晚验证推翻了本卡前提**：读本机 Homebrew 7.0.9 源码，`cask/download.rb:255` 主动给下载打 quarantine
+> （agent 名 "Homebrew Cask"），`Quarantine.release!` 除测试外零调用、也没有 `--no-quarantine` 开关，
+> `quarantine.rb:169` 注释说明 upgrade 会保留 quarantine 并继承上次 approval。即 **brew 装不免疫 Gatekeeper**，
+> 收益只能是“放行一次 + 之后升级不再弹”（对比 zip 的每个新版本都要重新放行）。卡内已删掉“首次双击不弹窗”
+> 那条不可能验收的 AC，改为“upgrade 不再弹窗”作为唯一硬验收；端到端 `brew install --cask` 因本机 brew 需
+> bootstrap portable-ruby、ghcr.io 下载失败未跑成（已中止、未污染 cask 清单），故结论属**代码级证据**。
 
 > 2026-10-30：本表无行（D-027 收口；B-019 / B-020 / D-023 已关，I-043 作废留档）。**（当日后续建 I-044，见上）**
 
