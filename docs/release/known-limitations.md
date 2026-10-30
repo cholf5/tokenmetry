@@ -131,8 +131,18 @@ macOS 上"失焦自动关闭"与"点击即切换"会撞成开-关-开的抖动�
 
 **现在怎么绕**：
 
-- Windows：安装器 →「更多信息」→「仍要运行」；
-- macOS：右键「打开」一次，或系统设置里放行，或 `xattr -cr Tokenmetry.app`；
+- Windows：安装器 →「更多信息」→「仍要运行」。
+- **macOS 26（Tahoe）已没有“右键 → 打开”这条捷径了**：右键打开会直接告诉你用不了，唯一的图形界面
+  路径是「系统设置 → 隐私与安全性 → 滚到最下面 →『仍要打开』→ 输开机密码」，再双击一次确认。
+  所以文档把**终端那条排在第一位**——一行 `xattr -cr` 就把 quarantine 标抹掉，之后双击直接过，
+  不分系统版本、不用找菜单：
+
+  ```bash
+  xattr -cr /Applications/Tokenmetry.app
+  ```
+
+  若 App 不在应用程序目录，换成实际路径。彻底不想碰 Gatekeeper 的话，直接从源码跑：
+  `dotnet run --project src/Tokenmetry.App`。
 - Linux：解压即用。
 
 **后续**：买证书 / Apple 开发者账号后接进 `package.sh`（macOS 还需公证 + staple）。付费前提，不是代码问题。

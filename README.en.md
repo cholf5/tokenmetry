@@ -67,7 +67,15 @@ cd tokenmetry
 dotnet run --project src/Tokenmetry.App
 ```
 
-**Packages** — on Windows grab `Tokenmetry-{version}-win-x64-setup.exe` (a wizard that installs per-user into `%LOCALAPPDATA%\Programs\Tokenmetry`, with Start-menu/desktop shortcuts and an uninstaller); elsewhere take the zip for your platform (macOS arm64/x64 `.app`, Linux single file) and extract it. In-app "Check for updates" downloads the installer and upgrades silently with an automatic restart on installed Windows copies; portable copies and macOS/Linux still get "download, then reveal in the file manager" and update by extracting over the old app. No package is code-signed: Windows SmartScreen and macOS Gatekeeper each block once on first launch — both are spelled out in [known limitations](docs/release/known-limitations.md).
+**Packages** — on Windows grab `Tokenmetry-{version}-win-x64-setup.exe` (a wizard that installs per-user into `%LOCALAPPDATA%\Programs\Tokenmetry`, with Start-menu/desktop shortcuts and an uninstaller); elsewhere take the zip for your platform (macOS arm64/x64 `.app`, Linux single file) and extract it. In-app "Check for updates" downloads the installer and upgrades silently with an automatic restart on installed Windows copies; portable copies and macOS/Linux still get "download, then reveal in the file manager" and update by extracting over the old app.
+
+**macOS needs one Gatekeeper allowance on first launch** (unsigned): on macOS 26 the old right-click → Open trick **no longer works** — either go to System Settings → Privacy & Security → scroll to the bottom → "Open Anyway" → authenticate, or skip all of it with one command:
+
+```bash
+xattr -cr /Applications/Tokenmetry.app
+```
+
+Windows is blocked once by SmartScreen (→ "More info" → "Run anyway"). Full steps: [known limitations](docs/release/known-limitations.md), item 9.
 
 With no data, the app shows an empty-state guide (supported agents + rescan) instead of a stack trace. Release pipeline details: [`docs/release/ci-release.md`](docs/release/ci-release.md).
 

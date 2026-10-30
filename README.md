@@ -65,7 +65,15 @@ cd tokenmetry
 dotnet run --project src/Tokenmetry.App
 ```
 
-**安装包** —— Windows 取 `Tokenmetry-{版本}-win-x64-setup.exe`(安装向导,按用户安装到 `%LOCALAPPDATA%\Programs\Tokenmetry`,带开始菜单/桌面快捷方式与卸载器);其余平台取对应 zip(macOS arm64/x64 `.app`、Linux 单文件)解压即用。应用内「检查更新」在 Windows 安装版上会下载安装包并静默升级、自动重启;便携版与 macOS/Linux 则下载后在文件管理器里定位,解压替换即完成。所有包均未签名:Windows SmartScreen 与 macOS Gatekeeper 首次会各拦一次——两条都在[已知限制](docs/release/known-limitations.md)里写明。
+**安装包** —— Windows 取 `Tokenmetry-{版本}-win-x64-setup.exe`(安装向导,按用户安装到 `%LOCALAPPDATA%\Programs\Tokenmetry`,带开始菜单/桌面快捷方式与卸载器);其余平台取对应 zip(macOS arm64/x64 `.app`、Linux 单文件)解压即用。应用内「检查更新」在 Windows 安装版上会下载安装包并静默升级、自动重启;便携版与 macOS/Linux 则下载后在文件管理器里定位,解压替换即完成。
+
+**macOS 首次打开要放行一次**(包未签名):macOS 26 上**右键「打开」已经不管用了**,要么走「系统设置 → 隐私与安全性 → 最下面 → 仍要打开 → 输密码」,要么一行命令省掉全部麻烦:
+
+```bash
+xattr -cr /Applications/Tokenmetry.app
+```
+
+Windows 同理会被 SmartScreen 拦一次(→「更多信息」→「仍要运行」)。两者的完整步骤见[已知限制](docs/release/known-limitations.md)第 9 条。
 
 无数据时应用显示空态引导(支持的 Agent 清单 + 重新扫描),不暴露堆栈。发布流程细节见 [`docs/release/ci-release.md`](docs/release/ci-release.md)。
 
