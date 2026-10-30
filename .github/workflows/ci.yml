@@ -265,11 +265,20 @@ jobs:
       # still needs a real desktop.
       - name: Smoke test (xvfb boot)
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb >/dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb x11-utils >/dev/null
           mkdir -p smoke && unzip -q dist/Tokenmetry-*-linux-x64.zip -d smoke
           chmod +x smoke/Tokenmetry
           Xvfb :99 -screen 0 1280x1024x24 >/dev/null 2>&1 &
           export DISPLAY=:99
+          # Wait for the server to *accept connections* before launching: Xvfb
+          # creates its socket asynchronously and the first attempt raced it
+          # (XOpenDisplay failed on an otherwise green build). xdpyinfo is the
+          # cheapest readiness probe.
+          for _ in $(seq 1 50); do
+            xdpyinfo -display :99 >/dev/null 2>&1 && break
+            sleep 0.2
+          done
+          xdpyinfo -display :99 >/dev/null 2>&1 || { echo "::error::Xvfb did not become ready"; exit 1; }
           # --autostart: 托盘常驻启动（不弹主窗），最接近真实自启动路径。
           ./smoke/Tokenmetry --autostart > smoke/app.log 2>&1 &
           APP_PID=$!
