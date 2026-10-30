@@ -157,8 +157,8 @@
                         <Button Classes="app-btn"
                                 Content="{Binding SettingsCheckUpdate, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding CheckUpdateCommand}"/>
-                        <!-- 发现新版本才亮出的一对出口：应用内直下（落「下载」文件夹 + 文件管理器显示）
-                             与浏览器开 Release 页（逃生口）。 -->
+                        <!-- 发现新版本才亮出的一对出口：应用内直下（已安装副本下载后直接静默升级；
+                             其余落「下载」文件夹 + 文件管理器显示）与浏览器开 Release 页（逃生口）。 -->
                         <Button Classes="app-btn primary"
                                 Content="{Binding SettingsDownloadUpdate, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding DownloadUpdateCommand}"
@@ -171,7 +171,13 @@
                     <TextBlock Classes="setting-hint" TextWrapping="Wrap"
                                Text="{Binding UpdateStatusText}"
                                IsVisible="{Binding UpdateStatusText, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <!-- 升级方式不同，提示也不同：Windows 安装副本点「下载更新」= 下载后自动安装并重启；
+                         便携版 / macOS / Linux 仍是「下载 → 解压覆盖」。 -->
                     <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                               IsVisible="{Binding IsInstalledCopy}"
+                               Text="{Binding AboutHintInstaller, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                               IsVisible="{Binding !IsInstalledCopy}"
                                Text="{Binding AboutHint, Source={x:Static loc:Translations.Instance}}"/>
                 </StackPanel>
             </Border>

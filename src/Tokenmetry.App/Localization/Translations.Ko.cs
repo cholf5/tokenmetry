@@ -219,6 +219,8 @@ public sealed partial class Translations
         [nameof(UpdateDownloaded)] = "{0}에 저장했고 파일 관리자에서 표시했습니다",
         [nameof(UpdateDownloadFailed)] = "다운로드 실패: {0}",
         [nameof(AboutHint)] = "업데이트 패키지는 현재 플랫폼용 zip이며 「다운로드」 폴더에 저장한 뒤 저장 위치를 자동으로 엽니다. 압축을 풀어 기존 앱을 교체하면 업데이트가 끝납니다.",
+        [nameof(AboutHintInstaller)] = "업데이트 패키지는 이 플랫폼용 설치 프로그램입니다. 내려받은 뒤 자동으로 설치되고 앱이 다시 시작됩니다. 압축을 풀 필요가 없습니다.",
+        [nameof(UpdateInstalling)] = "업데이트를 설치하는 중입니다. 앱이 자동으로 다시 시작됩니다…",
         [nameof(TrayUpdateCheck)] = "업데이트 확인",
         [nameof(TrayUpdateChecking)] = "확인 중…",
         [nameof(TrayUpdateAvailable)] = "새 버전 발견 {0}",

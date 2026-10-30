@@ -219,6 +219,8 @@ public sealed partial class Translations
         [nameof(UpdateDownloaded)] = "Salvo em {0} e revelado no gerenciador de arquivos",
         [nameof(UpdateDownloadFailed)] = "Falha no download: {0}",
         [nameof(AboutHint)] = "O pacote de atualização é um zip para esta plataforma, salvo na pasta Downloads e revelado no gerenciador de arquivos. Extraia por cima do app existente para concluir a atualização.",
+        [nameof(AboutHintInstaller)] = "O pacote de atualização é um instalador para esta plataforma: ele é baixado, executado e o app reinicia sozinho. Atualiza no lugar — sem extrair nada.",
+        [nameof(UpdateInstalling)] = "Instalando a atualização — o app será reiniciado automaticamente…",
         [nameof(TrayUpdateCheck)] = "Verificar atualizações",
         [nameof(TrayUpdateChecking)] = "Verificando…",
         [nameof(TrayUpdateAvailable)] = "Nova versão disponível: {0}",

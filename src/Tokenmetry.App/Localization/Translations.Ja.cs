@@ -219,6 +219,8 @@ public sealed partial class Translations
         [nameof(UpdateDownloaded)] = "{0} に保存し、ファイルマネージャーで表示しました",
         [nameof(UpdateDownloadFailed)] = "ダウンロードに失敗：{0}",
         [nameof(AboutHint)] = "更新パッケージはこのプラットフォーム向けの zip です。「ダウンロード」フォルダーに保存後、保存先を自動で開きます。展開して既存アプリに上書きすれば更新完了です。",
+        [nameof(AboutHintInstaller)] = "更新パッケージはこのプラットフォーム向けのインストーラーです。ダウンロード後に自動でインストールされ、アプリが再起動します。展開は不要です。",
+        [nameof(UpdateInstalling)] = "更新をインストールしています。アプリは自動的に再起動します…",
         [nameof(TrayUpdateCheck)] = "更新を確認",
         [nameof(TrayUpdateChecking)] = "確認中…",
         [nameof(TrayUpdateAvailable)] = "新しいバージョン {0}",

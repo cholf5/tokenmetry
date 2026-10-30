@@ -246,6 +246,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(UpdateDownloaded)] = "已保存到 {0}，已尝试在文件管理器中显示",
         [nameof(UpdateDownloadFailed)] = "下载失败：{0}",
         [nameof(AboutHint)] = "更新包为当前平台的压缩包，保存到「下载」文件夹后自动打开所在位置；解压并替换现有应用即完成更新。",
+        [nameof(AboutHintInstaller)] = "更新包为当前平台的安装程序：下载后自动安装并重启应用，就地升级，路径与固定入口都不变，无需手动解压。",
+        [nameof(UpdateInstalling)] = "正在安装更新，应用将自动重启…",
         // I-039 托盘菜单「检查更新」项（发现新版本后标题就地翻为 TrayUpdateAvailable）
         [nameof(TrayUpdateCheck)] = "检查更新",
         [nameof(TrayUpdateChecking)] = "检查中…",
@@ -685,6 +687,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(UpdateDownloaded)] = "Saved to {0} and revealed in your file manager",
         [nameof(UpdateDownloadFailed)] = "Download failed: {0}",
         [nameof(AboutHint)] = "The update package is a zip for this platform, saved to your Downloads folder and revealed in the file manager. Extract it over the existing app to finish updating.",
+        [nameof(AboutHintInstaller)] = "The update package is an installer for this platform: it is downloaded, run, and the app restarts automatically. It upgrades in place — no manual extraction.",
+        [nameof(UpdateInstalling)] = "Installing the update — the app will restart automatically…",
         [nameof(TrayUpdateCheck)] = "Check for updates",
         [nameof(TrayUpdateChecking)] = "Checking…",
         [nameof(TrayUpdateAvailable)] = "New version available: {0}",
@@ -1278,6 +1282,8 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string UpdateDownloading => Get();
     public string UpdateDownloadingPercent => Get();
     public string UpdateDownloaded => Get();
+    public string UpdateInstalling => Get();
+    public string AboutHintInstaller => Get();
     public string UpdateDownloadFailed => Get();
     public string AboutHint => Get();
     public string TrayUpdateCheck => Get();

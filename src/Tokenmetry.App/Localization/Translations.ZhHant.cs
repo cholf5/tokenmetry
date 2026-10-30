@@ -219,6 +219,8 @@ public sealed partial class Translations
         [nameof(UpdateDownloaded)] = "已儲存到 {0}，已嘗試在檔案管理器中顯示",
         [nameof(UpdateDownloadFailed)] = "下載失敗：{0}",
         [nameof(AboutHint)] = "更新套件為目前平台的壓縮檔，儲存到「下載」資料夾後自動開啟所在位置；解壓縮並替換現有應用即完成更新。",
+        [nameof(AboutHintInstaller)] = "更新套件為目前平台的安裝程式：下載後自動安裝並重新啟動應用程式，就地升級，路徑與固定入口都不變，無需手動解壓縮。",
+        [nameof(UpdateInstalling)] = "正在安裝更新，應用程式將自動重新啟動…",
         [nameof(TrayUpdateCheck)] = "檢查更新",
         [nameof(TrayUpdateChecking)] = "檢查中…",
         [nameof(TrayUpdateAvailable)] = "發現新版本 {0}",

@@ -44,6 +44,35 @@ public class UpdateDownloadServiceTests : IDisposable
     private static byte[] ZipPayload(string text) =>
         [0x50, 0x4B, 0x03, 0x04, .. Encoding.UTF8.GetBytes(text)];
 
+    /// <summary>安装器载荷 = PE 头（MZ）+ 任意体。安装器不是 zip（Inno 出的 exe），
+    /// 校验按资产后缀分流，用 zip 魔数会被拒。</summary>
+    private static byte[] ExePayload(string text) =>
+        [0x4D, 0x5A, .. Encoding.UTF8.GetBytes(text)];
+
+    [Fact]
+    public async Task DownloadAsync_accepts_a_PE_payload_for_the_installer_asset()
+    {
+        var payload = ExePayload("fake installer bytes");
+        var service = CreateService(new FakeUpdateHttpHandler(_ => FakeUpdateHttpHandler.Bytes(payload)));
+
+        var path = await service.DownloadAsync("v0.3.1", "Tokenmetry-0.3.1-win-x64-setup.exe");
+
+        Path.GetFileName(path).Should().Be("Tokenmetry-0.3.1-win-x64-setup.exe");
+        (await File.ReadAllBytesAsync(path)).Should().Equal(payload);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_rejects_an_html_page_for_the_installer_asset()
+    {
+        var service = CreateService(new FakeUpdateHttpHandler(_ =>
+            FakeUpdateHttpHandler.Bytes(Encoding.UTF8.GetBytes("<!DOCTYPE html><html>rate limited"))));
+
+        var act = () => service.DownloadAsync("v0.3.1", "Tokenmetry-0.3.1-win-x64-setup.exe");
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        Directory.GetFiles(_dir).Should().BeEmpty();
+    }
+
     [Fact]
     public async Task DownloadAsync_writes_platform_asset_into_download_directory()
     {

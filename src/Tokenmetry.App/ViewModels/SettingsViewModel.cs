@@ -198,6 +198,10 @@ public partial class SettingsViewModel : ViewModelBase
     public string AboutRepositoryUrl { get; } = UpdateAssets.RepositoryUrl;
     public string AboutLicenseUrl { get; } = UpdateAssets.LicenseUrl;
 
+    /// <summary>Windows 已安装副本：「关于」区提示换成「下载后自动安装并重启」，而不是「解压覆盖」。
+    /// 视图据此二选一绑哪条 hint（<c>IsVisible</c> + 取反）。</summary>
+    public bool IsInstalledCopy => _updateService.CanSilentUpgrade;
+
     /// <summary>检查更新：结果整体切换状态行（发现新版本时同时亮出下载/打开 Release 页按钮）。
     /// 与托盘「检查更新」走同一 UpdateService 单例——任一处查完，另一处的标题/状态行同步反映。</summary>
     [RelayCommand]
@@ -217,9 +221,10 @@ public partial class SettingsViewModel : ViewModelBase
         RefreshUpdateStatusFromState();
     }
 
-    /// <summary>下载新版本的平台更新包到「下载」文件夹，完成后在文件管理器中显示（best-effort）。
+    /// <summary>下载新版本并将其交到手上：Windows 已安装副本走安装器静默升级（下载 → 拉起 → 本进程退出，
+    /// 安装完自动重启）；其余情形（便携版 / macOS / Linux）落「下载」文件夹并在文件管理器中显示。
     /// 进度经 <see cref="Progress{T}"/> 回传（生产在 UI 线程构造，回调自动回 UI 线程；无同步上下文
-    /// 的测试环境则内联，无绑定无碍）。不做自更新替换——见 UpdateDownloadService 注释。</summary>
+    /// 的测试环境则内联，无绑定无碍）。</summary>
     [RelayCommand]
     private async Task DownloadUpdateAsync()
     {
@@ -228,9 +233,16 @@ public partial class SettingsViewModel : ViewModelBase
             UpdateStatusText = string.Format(Translations.Instance.UpdateDownloadingPercent, (int)p));
         try
         {
-            var path = await _updateService.DownloadLatestAsync(progress);
-            _updateService.RevealDownloaded(path);
-            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloaded, path);
+            var result = await _updateService.DownloadAndInstallAsync(progress);
+            if (result.InstallStarted)
+            {
+                // 安装器已在跑：状态行给个交代，宿主随后 Shutdown（App 订阅 InstallStarted）。
+                UpdateStatusText = Translations.Instance.UpdateInstalling;
+                return;
+            }
+
+            _updateService.RevealDownloaded(result.Path);
+            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloaded, result.Path);
         }
         catch (Exception ex)
         {

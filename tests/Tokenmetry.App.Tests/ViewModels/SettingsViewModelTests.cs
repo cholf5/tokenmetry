@@ -404,8 +404,37 @@ public class SettingsViewModelTests
         viewModel.UpdateStatusText.Should().Contain("0.7.8");
     }
 
-    // ---- helpers ----
+    // 已安装副本点「下载更新」：拉起安装器、状态行改成「正在安装」——绝不能再走「在文件管理器里
+    // 显示一个用户不会去点的文件」那条旧路（否则安装器已跑、旧实例不退出，两边抢文件锁）。
+    [Fact]
+    public async Task DownloadUpdate_on_an_installed_copy_reports_installing_instead_of_revealing()
+    {
+        var installerStarted = false;
+        var service = Tokenmetry.App.Tests.Update.UpdateServiceTestsHelper.CreateService(
+            latestTag: "v0.3.1",
+            currentVersion: "v0.3.0",
+            downloader: new UpdateDownloadService(
+                new Tokenmetry.App.Tests.Update.FakeUpdateHttpHandler(_ =>
+                    Tokenmetry.App.Tests.Update.FakeUpdateHttpHandler.Bytes([0x4D, 0x5A, 1, 2, 3])),
+                downloadDirectory: System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"tokenmetry-vm-install-{Guid.NewGuid():N}"),
+                revealOverride: _ => throw new InvalidOperationException("installed copy must not reveal the installer")),
+            installer: new UpdateInstaller((_, _) =>
+            {
+                installerStarted = true;
+                return true;
+            }),
+            windowsInstalledCopy: true);
+        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), updateService: service);
 
+        await service.CheckNowAsync();
+        await viewModel.DownloadUpdateCommand.ExecuteAsync(null);
+
+        installerStarted.Should().BeTrue();
+        viewModel.UpdateStatusText.Should().Be(Translations.Instance.UpdateInstalling);
+        viewModel.IsInstalledCopy.Should().BeTrue();
+    }
+
+    // ---- helpers ----
     private static SettingsViewModel CreateViewModel(
         AppSettings settings,
         AppPaths paths,
