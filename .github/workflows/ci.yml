@@ -165,8 +165,11 @@ jobs:
       - name: Publish native AOT payload for the installer
         shell: pwsh
         run: |
-          dotnet publish $env:APP_PROJECT -c Release -r win-x64
-          -p:PublishAot=true -p:PublishSingleFile=false -p:SelfContained=true -o "dist/publish/win-x64-aot"
+          # One physical line: PowerShell does not continue a command across
+          # lines without a trailing backtick, and `run: >` folding is not
+          # available inside a `run: |` block (first attempt died on "-p: is
+          # not recognized").
+          dotnet publish $env:APP_PROJECT -c Release -r win-x64 -p:PublishAot=true -p:PublishSingleFile=false -p:SelfContained=true -o "dist/publish/win-x64-aot"
           New-Item -ItemType Directory -Force -Path "dist/stage/win-x64-aot" | Out-Null
           Copy-Item "dist/publish/win-x64-aot/*" "dist/stage/win-x64-aot" -Recurse
           Remove-Item "dist/stage/win-x64-aot/*.pdb", "dist/stage/win-x64-aot/*.xml" -ErrorAction SilentlyContinue
