@@ -67,7 +67,7 @@ cd tokenmetry
 dotnet run --project src/Tokenmetry.App
 ```
 
-**Packages** — grab the zip for your platform from [Releases](https://github.com/cholf5/tokenmetry/releases) (macOS arm64/x64 `.app`, Windows/Linux single-file) and extract. The app also checks for updates in-app (tray menu "Check for updates" or the About section in Settings, one-click download). macOS builds are ad-hoc signed and not notarized, so the first launch needs one Gatekeeper allowance; Windows hits SmartScreen once — both are spelled out in [known limitations](docs/release/known-limitations.md).
+**Packages** — on Windows grab `Tokenmetry-{version}-win-x64-setup.exe` (a wizard that installs per-user into `%LOCALAPPDATA%\Programs\Tokenmetry`, with Start-menu/desktop shortcuts and an uninstaller); elsewhere take the zip for your platform (macOS arm64/x64 `.app`, Linux single file) and extract it. In-app "Check for updates" downloads the installer and upgrades silently with an automatic restart on installed Windows copies; portable copies and macOS/Linux still get "download, then reveal in the file manager" and update by extracting over the old app. No package is code-signed: Windows SmartScreen and macOS Gatekeeper each block once on first launch — both are spelled out in [known limitations](docs/release/known-limitations.md).
 
 With no data, the app shows an empty-state guide (supported agents + rescan) instead of a stack trace. Release pipeline details: [`docs/release/ci-release.md`](docs/release/ci-release.md).
 
@@ -93,7 +93,7 @@ The SQLite store holds **aggregated facts and settings only** — never prompts,
 
 ## Known limitations
 
-The first release ships with known issues — a failed read in one source is swallowed silently (numbers look normal but may undercount), changing your system timezone can double-count, there is no installer and no self-update, and one bad timestamp can knock out the Kimi/DSH source entirely. Symptoms, triggers and follow-up plans are in [`docs/release/known-limitations.md`](docs/release/known-limitations.md) (Chinese); the double-count fix is the top priority after release.
+The first release ships with known issues — a failed read in one source is swallowed silently (numbers look normal but may undercount), changing your system timezone can double-count, no package is code-signed (SmartScreen/Gatekeeper each block once), macOS and Linux still need a manual extract-over, and one bad timestamp can knock out the Kimi/DSH source entirely. Symptoms, triggers and follow-up plans are in [`docs/release/known-limitations.md`](docs/release/known-limitations.md) (Chinese); the double-count fix is the top priority after release.
 
 ## Architecture
 
@@ -118,7 +118,7 @@ Three layers, strictly one-way dependencies. Adding an agent source = Core inter
 | v0.4 | UI prototype realized (Semi theme + 3-pane shell + 9 views + charts) | ✅ |
 | v0.5 | Resident experience (notification dedup, budget thresholds, autostart, refresh reliability) | planned |
 | v0.9 | Release automation (tag-triggered 3-platform CI packaging + Releases + in-app update check/download) | ✅ |
-| v1.0 | Stable release (Windows installer, macOS notarization) | planned |
+| v1.0 | Stable release (Windows installer ✅, macOS notarization ⬜) | in progress |
 
 Full direction in [`docs/kanban/roadmap.md`](docs/kanban/roadmap.md); task cards on the kanban board in [`docs/kanban/board.md`](docs/kanban/board.md).
 

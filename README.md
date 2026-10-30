@@ -65,7 +65,7 @@ cd tokenmetry
 dotnet run --project src/Tokenmetry.App
 ```
 
-**安装包** —— 从 [Releases](https://github.com/cholf5/tokenmetry/releases) 取对应平台的 zip(macOS arm64/x64 `.app`、Windows / Linux 单文件),解压即用;应用内亦有更新检查(托盘菜单「检查更新」或设置页「关于」区,可一键下载更新包)。macOS 为 ad-hoc 签名、未公证,首次打开需在系统提示里放行一次;Windows 首次运行会被 SmartScreen 拦一次——两条都在[已知限制](docs/release/known-limitations.md)里写明。
+**安装包** —— Windows 取 `Tokenmetry-{版本}-win-x64-setup.exe`(安装向导,按用户安装到 `%LOCALAPPDATA%\Programs\Tokenmetry`,带开始菜单/桌面快捷方式与卸载器);其余平台取对应 zip(macOS arm64/x64 `.app`、Linux 单文件)解压即用。应用内「检查更新」在 Windows 安装版上会下载安装包并静默升级、自动重启;便携版与 macOS/Linux 则下载后在文件管理器里定位,解压替换即完成。所有包均未签名:Windows SmartScreen 与 macOS Gatekeeper 首次会各拦一次——两条都在[已知限制](docs/release/known-limitations.md)里写明。
 
 无数据时应用显示空态引导(支持的 Agent 清单 + 重新扫描),不暴露堆栈。发布流程细节见 [`docs/release/ci-release.md`](docs/release/ci-release.md)。
 
@@ -92,7 +92,8 @@ SQLite 只存**聚合事实与配置**,不存 prompt、代码、会话内容;所
 ## 已知限制
 
 首版带有若干已知问题——某源读失败会被静默吞掉(界面仍显示正常,可能少算)、改过系统时区后可能双算、
-没有安装器也不做自更新、Kimi/DSH 一条坏时间戳能让整源停摆。逐条写清症状、触发条件与后续计划:
+所有包都未签名(Windows SmartScreen / macOS Gatekeeper 首次会各拦一次)、macOS 与 Linux 的更新仍需手动解压替换、
+Kimi/DSH 一条坏时间戳能让整源停摆。逐条写清症状、触发条件与后续计划:
 [`docs/release/known-limitations.md`](docs/release/known-limitations.md)。其中双算那条是发版后的第一优先级。
 
 ## 架构
@@ -118,7 +119,7 @@ Tokenmetry.App              Avalonia UI(Semi 主题)· 9 视图 · DI · 托盘 
 | v0.4 | UI 原型落地(Semi 主题 + 三栏外壳 + 9 视图 + 图表) | ✅ |
 | v0.5 | 常驻体验(通知去重、预算阈值、自启、刷新可靠性) | 规划 |
 | v0.9 | 发布自动化(tag 触发三平台 CI 打包 + Release + 应用内更新检查/下载) | ✅ |
-| v1.0 | 稳定发布(Windows 安装器、macOS 公证) | 规划 |
+| v1.0 | 稳定发布(Windows 安装器 ✅、macOS 公证 ⬜) | 进行中 |
 
 完整方向见 [`docs/kanban/roadmap.md`](docs/kanban/roadmap.md),任务卡片看板见 [`docs/kanban/board.md`](docs/kanban/board.md)。
 
