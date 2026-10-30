@@ -68,6 +68,11 @@ git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && { echo "本地已存在
 CUR=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' "$PROJECT" | head -1 | tr -d '[:space:]')
 [ -n "$CUR" ] || { echo "无法从 $PROJECT 读取 <Version>" >&2; exit 1; }
 
+# 手写发版说明：CI 的 release 步骤优先 --notes-file，缺文件才回落 --generate-notes。
+# 首个版本（没有上一个 tag）缺文件时，Release 会把全部提交历史按合抖出来，所以这里早提示。
+NOTES="docs/release/notes/${TAG}.md"
+[ -f "$NOTES" ] || echo "注意：没有 ${NOTES}，CI 将回落 --generate-notes（无上一个 tag 时=全部提交历史）" >&2
+
 if [ "$SKIP_TEST" != true ]; then
   echo "本地跑测试（--skip-test 可跳过）..."
   dotnet test Tokenmetry.sln --nologo -v q || { echo "本地测试失败，中止" >&2; exit 1; }

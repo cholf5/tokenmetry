@@ -12,8 +12,20 @@ scripts/release.sh 0.3.0          # bump csproj <Version> → commit → tag v0.
        ├─ macos:  scripts/package.sh --rids "osx-arm64"/"osx-x64" → Tokenmetry.app zip
        ├─ windows: 单文件 self-contained publish → Tokenmetry.exe → zip
        ├─ linux:  scripts/package.sh --rids linux-x64 → Tokenmetry → zip
-       └─ release: gh release create v0.3.0 --generate-notes + 上传四个 zip
+       └─ release: gh release create v0.3.0（说明取 docs/release/notes/v0.3.0.md，缺文件回落 --generate-notes）+ 上传四个 zip
 ```
+
+## 发版说明（Release notes）
+
+手写说明放在 `docs/release/notes/<tag>.md`（如 `notes/v0.3.0.md`），CI 的 release 步骤检测到就
+`--notes-file`，没有则回落 `--generate-notes` 按合自动生成。
+
+**首个版本必须手写**：没有上一个 tag 时 `--generate-notes` 会把全部提交历史按合抖出来（二百余条），
+读者看不到「这一版有什么」。后续版本可以两者混用：手写的亮点 + `--generate-notes` 的完整变更列表无法
+直接合（gh 只接受一个来源），惯例是手写里自行链接「完整变更」。
+
+亮点、已知限制（链接 [`known-limitations.md`](known-limitations.md)）、安装方式三块是基本盘；
+安装方式里 macOS 的 Gatekeeper 提示与 Windows SmartScreen 提示必须写明，否则首版会被当成装不上。
 
 ## 资产命名契约（改一处必须三处同改）
 
