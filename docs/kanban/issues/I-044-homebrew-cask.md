@@ -2,7 +2,7 @@
 id: I-044
 title: 上架 Homebrew cask——给 brew 用户版本管理与升级便利（Gatekeeper 首次仍需放行一次）
 type: infra
-priority: P2
+priority: P3
 size: M
 status: todo
 created: 2026-10-30
@@ -99,8 +99,8 @@ ghcr.io 下载反复失败重试，已中止并清理，未污染 cask 清单。
 - 若用户是通过 `brew install` 直接从 GitHub Release 下载，`version` 变化能否被自动感知（`livecheck` 需在 tap
   里配 `livecheck do` 或接受手动 `brew update`）。
 - 是否顺带提 `homebrew/cask`：官方对未公证应用有审核口径；**当前明确不做**，除非将来买证书。
-- **优先级待重估**：收益从“免掉首次弹窗”降为“免掉每次升级弹窗”后，还值不值 P2 由用户定
-  （P3 更贴实际收益）。
+- **优先级：已定为 P3**（2026-10-30 用户确认）。收益从“免掉首次弹窗”降为“免掉每次升级弹窗”后，
+  不值得按 P2 排期；动手前先把下面那条 AC 在干净机器上验一次。
 
 ## Dependencies
 
@@ -126,4 +126,4 @@ ghcr.io 下载反复失败重试，已中止并清理，未污染 cask 清单。
 - 端到端 `brew install --cask` 未跑成：本机 brew 需临时 bootstrap portable-ruby，ghcr.io 下载反复失败，
   已中止；未安装任何东西、未污染 cask 清单。因此上面的结论是**代码级证据**，实现时仍需在一台干净机器
   上用 `xattr -p com.apple.quarantine` 亲眼确认，并把“upgrade 不再弹窗”作为唯一的硬验收。
-- 优先级建议降为 P3（收益面变窄）；是否降级由用户定，卡内不自行改。
+- 优先级建议降为 P3（收益面变窄）；**2026-10-30 用户确认降为 P3**。
