@@ -115,7 +115,39 @@ public class JsonAppSettingsStoreTests : IDisposable
         await store.SaveAsync(new AppSettings { RefreshMinutes = 17 });
 
         File.Exists(Path.Combine(_tempDirectory, "settings.json")).Should().BeTrue();
-        Directory.EnumerateFiles(_tempDirectory, "settings.json.tmp*").Should().BeEmpty();
+        Directory.EnumerateFiles(_tempDirectory, "settings.json.*.tmp").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SaveAsync_ConcurrentWriters_NeverCorruptTheFile()
+    {
+        // 六个调用方（设置页 / 数据计价页 / 时间预设 / 筛选持久化 / 后台周检 / 首关弹窗）各持私有
+        // gate，store 自身无锁；旧实现又把临时文件名写死为 settings.json.tmp——两边同时写时
+        // macOS/Linux 的 O_TRUNC 会让先写方在旧偏移继续写，落下带 \0 空洞的文件，下次启动判定
+        // 损坏并把全部设置（含用户自定义价格/别名）回落默认。
+        var store = new JsonAppSettingsStore(new AppPaths(_tempDirectory));
+        Directory.CreateDirectory(_tempDirectory);
+
+        var writes = Enumerable.Range(1, 24).Select(minutes => store.SaveAsync(new AppSettings
+        {
+            RefreshMinutes = minutes,
+            // 把序列化拉长以拉宽竞争窗口（真实用户的价格覆盖表就是这个量级）
+            PricingOverrides = Enumerable.Range(0, 300).Select(i => new ModelPricingOverride
+            {
+                Model = $"model-{i}",
+                InputPerMillion = i,
+                OutputPerMillion = i + 1,
+            }).ToList(),
+        })).ToArray();
+
+        await Task.WhenAll(writes);
+
+        // 文件必须仍是合法 JSON：不能被判为损坏、不能留下 .bad 副本
+        Directory.EnumerateFiles(_tempDirectory, "settings.json.bad-*").Should().BeEmpty();
+        var loaded = await store.LoadAsync();
+        loaded.RefreshMinutes.Should().BeInRange(1, 24);
+        loaded.PricingOverrides.Should().HaveCount(300);
+        Directory.EnumerateFiles(_tempDirectory, "*.tmp*").Should().BeEmpty();
     }
 
     public void Dispose()

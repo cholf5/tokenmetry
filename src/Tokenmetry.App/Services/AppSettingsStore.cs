@@ -20,6 +20,9 @@ public sealed class JsonAppSettingsStore : IAppSettingsStore
 
     private readonly AppPaths _paths;
 
+    /// <summary>保存串行化（见 <see cref="SaveAsync"/> 并发纪律）：store 是 DI 单例，这一个 gate 管全部调用方。</summary>
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+
     public JsonAppSettingsStore(AppPaths paths)
     {
         _paths = paths;
@@ -61,16 +64,46 @@ public sealed class JsonAppSettingsStore : IAppSettingsStore
     }
 
     /// <summary>A-7 原子保存：先写同目录临时文件再 <see cref="File.Move(string,string,bool)"/> 覆盖，
-    /// 崩溃 / 断电不会留下半截 settings.json（配合 LoadAsync 自愈双保险）。</summary>
+    /// 崩溃 / 断电不会留下半截 settings.json（配合 LoadAsync 自愈双保险）。
+    /// <para><b>并发纪律</b>：调用方（设置页 / 数据计价页 / 时间预设 / 筛选持久化 / 后台周检 /
+    /// 首关弹窗）各自拿着不同的私有 gate，管不住彼此——串行化和临时文件唯一性都必须在 store
+    /// 这一层。旧实现把临时文件名写死为 <c>settings.json.tmp</c>：两个写者同时 <c>File.Create</c>
+    /// （位于 Unix 上就是 open+O_TRUNC）时，先写方会继续在旧偏移写，落下带 \0 空洞的文件，
+    /// 下次启动判 JSON 损坏 → 全部设置（含用户自定义价格/别名）回落默认。</para></summary>
     public async Task SaveAsync(AppSettings settings, CancellationToken ct = default)
     {
-        Directory.CreateDirectory(_paths.AppDataDirectory);
-        var tmpPath = $"{_paths.SettingsFilePath}.tmp";
-        await using (var stream = File.Create(tmpPath))
+        await _saveGate.WaitAsync(ct);
+        try
         {
-            await JsonSerializer.SerializeAsync(stream, settings, Context.AppSettings, ct);
-        }
+            Directory.CreateDirectory(_paths.AppDataDirectory);
+            var tmpPath = $"{_paths.SettingsFilePath}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                await using (var stream = new FileStream(tmpPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    await JsonSerializer.SerializeAsync(stream, settings, Context.AppSettings, ct);
+                }
 
-        File.Move(tmpPath, _paths.SettingsFilePath, overwrite: true);
+                File.Move(tmpPath, _paths.SettingsFilePath, overwrite: true);
+            }
+            finally
+            {
+                // 序列化/改名失败（含取消）不留孤儿临时文件；删除失败不掩盖原始异常。
+                try
+                {
+                    if (File.Exists(tmpPath))
+                    {
+                        File.Delete(tmpPath);
+                    }
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
     }
 }

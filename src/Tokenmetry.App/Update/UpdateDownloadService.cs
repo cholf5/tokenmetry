@@ -62,12 +62,16 @@ public sealed class UpdateDownloadService
                 await DownloadToAsync(new Uri(url), partPath, targetPath, progress, ct);
                 return targetPath;
             }
-            catch (OperationCanceledException)
+            // 只把“调用方真的取消了”当取消。HttpClient.Timeout 到期抛的是 TaskCanceledException
+            // （OperationCanceledException 的子类）而 ct 并未取消——旧实现把它当成用户取消直接终止整条
+            // 镜像链，恰恰在慢网（三个 CN 前缀存在的理由）下让一个镜像都拿不到。超时归入下一支。
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 TryCleanup(partPath);
                 throw;
             }
-            catch (Exception ex) when (ex is HttpRequestException or IOException)
+            catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException
+                                          or OperationCanceledException)
             {
                 TryCleanup(partPath);
                 failures.Add($"{new Uri(url).Host}: {ex.Message}");
@@ -86,11 +90,12 @@ public sealed class UpdateDownloadService
         response.EnsureSuccessStatusCode();
         var total = response.Content.Headers.ContentLength;
 
+        long written;
         await using (var source = await response.Content.ReadAsStreamAsync(ct))
         await using (var output = File.Create(partPath))
         {
             var buffer = new byte[81920];
-            long written = 0;
+            written = 0;
             int read;
             while ((read = await source.ReadAsync(buffer, ct)) > 0)
             {
@@ -103,7 +108,33 @@ public sealed class UpdateDownloadService
             }
         }
 
+        // 完整性：声称多少就得收多少（chunked 截断 / 代理提前断连）。
+        if (total is > 0 && written != total.Value)
+        {
+            throw new IOException($"incomplete body: {written}/{total.Value} bytes");
+        }
+
+        // 镜像限流时常回 200 + HTML 错误页：不校验就会把网页改名成 .zip 并在文件管理器里选中它。
+        EnsureLooksLikeZip(partPath);
+
         File.Move(partPath, targetPath, overwrite: true);
+    }
+
+    /// <summary>发行包都是 zip：只读头部 4 字节看 ZIP 本地文件头魔数（PK\x03\x04），空文件同样拒。</summary>
+    private static void EnsureLooksLikeZip(string partPath)
+    {
+        Span<byte> magic = stackalloc byte[4];
+        int read;
+        using (var stream = File.OpenRead(partPath))
+        {
+            read = stream.ReadAtLeast(magic, magic.Length, throwOnEndOfStream: false);
+        }
+
+        if (read < magic.Length
+            || magic[0] != 0x50 || magic[1] != 0x4B || magic[2] != 0x03 || magic[3] != 0x04)
+        {
+            throw new InvalidDataException("payload is not a zip archive");
+        }
     }
 
     private HttpClient CreateClient()

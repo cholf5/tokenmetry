@@ -356,6 +356,26 @@ public class SettingsViewModelTests
         viewModel.UpdateStatusText.Should().Contain("0.3.0");
     }
 
+    // ---- 跨入口同步（首个公开发布前补）：启动期静默周检发现新版本后，设置页必须自己跟上 ----
+
+    [Fact]
+    public async Task UpdateSection_follows_service_changes_from_other_surfaces()
+    {
+        // 老用户的升级路径：启动 30 秒后静默周检（或托盘菜单）发现新版本 → 进设置页点「下载更新包」。
+        // 页 VM 是 DI 单例、不实现 INavigationAware，旧实现只在构造时读一次状态，于是按钮一直隐藏。
+        var service = Tokenmetry.App.Tests.Update.UpdateServiceTestsHelper.CreateService(
+            latestTag: "v0.3.0", currentVersion: "v0.2.0");
+        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore(), updateService: service);
+        viewModel.UiPost = action => action(); // 测试宿主无 dispatcher：内联执行
+
+        viewModel.IsUpdateAvailable.Should().BeFalse(); // 构造时服务还是 Idle
+
+        await service.CheckNowAsync(); // 另一个入口（托盘 / 后台周检）查完了
+
+        viewModel.IsUpdateAvailable.Should().BeTrue();
+        viewModel.UpdateStatusText.Should().Contain("0.3.0");
+    }
+
     [Fact]
     public async Task CheckUpdate_command_failure_lands_in_status_text_not_exception()
     {
