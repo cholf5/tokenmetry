@@ -171,7 +171,8 @@ if [ "$i" -eq 3 ]; then
 fi
 MISSING=
 for want in "Tokenmetry-$VERSION-osx-arm64.zip" "Tokenmetry-$VERSION-osx-x64.zip" \
-  "Tokenmetry-$VERSION-win-x64.zip" "Tokenmetry-$VERSION-linux-x64.zip"; do
+  "Tokenmetry-$VERSION-win-x64.zip" "Tokenmetry-$VERSION-win-x64-setup.exe" \
+  "Tokenmetry-$VERSION-linux-x64.zip"; do
   case ",$ASSETS," in
     *",$want,"*) ;;
     *) MISSING="$MISSING $want" ;;

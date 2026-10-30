@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds release assets into dist/:
-#   dist/Tokenmetry-{VERSION}-{rid}.zip — rid ∈ osx-arm64 / osx-x64 / win-x64 / linux-x64
+#   dist/Tokenmetry-{VERSION}-{rid}.zip            — rid ∈ osx-arm64 / osx-x64 / win-x64 / linux-x64
+#   dist/Tokenmetry-{VERSION}-win-x64-setup.exe     — Windows 安装器（Inno Setup；需本机有 ISCC，缺则跳过）
 #
 # Usage: scripts/package.sh [--rids "osx-arm64 osx-x64 ..."]
 #
@@ -87,6 +88,31 @@ make_icns() {
   rm -rf "$iconset"
 }
 
+# Windows 安装器（Inno Setup）。ISCC 是 Windows 程序：只有 Windows 主机或显式给
+# ISCC=<路径> 时才出，其余平台跳过并说明——发版由 CI 的 windows job 负责这一份。
+build_windows_installer() {
+  local rid="$1"
+  local iscc="${ISCC:-}"
+  if [[ -z "$iscc" ]]; then
+    if [[ -x "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]]; then
+      iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+    elif command -v iscc >/dev/null 2>&1; then
+      iscc="$(command -v iscc)"
+    fi
+  fi
+
+  if [[ -z "$iscc" ]]; then
+    echo "    跳过安装器（本机无 Inno Setup 的 ISCC；CI 的 windows job 会出 ${rid} 安装器）"
+    return 0
+  fi
+
+  # 安装器从 stage 里的产品名 exe 取料（与 CI 同一布局），版本由 /D 注入。
+  "$iscc" "/DMyAppVersion=${APP_VERSION}" "$REPO_ROOT/installer/Tokenmetry.iss" >/dev/null
+  local setup="$DIST/Tokenmetry-${APP_VERSION}-${rid}-setup.exe"
+  [[ -f "$setup" ]] || { echo "安装器产物缺失: $setup" >&2; return 1; }
+  echo "    $setup"
+}
+
 cd "$REPO_ROOT"
 mkdir -p "$DIST"
 
@@ -146,6 +172,10 @@ PLIST
   rm -f "$APP_ZIP"
   (cd "$STAGE" && zip -q -r -X "$APP_ZIP" .)
   echo "    $APP_ZIP"
+
+  if [[ "$rid" == win-* ]]; then
+    build_windows_installer "$rid"
+  fi
 done
 
 rm -rf dist/stage dist/publish
@@ -157,8 +187,10 @@ ls -lh "$DIST" | awk 'NR>1 {print "  " $9 "  (" $5 ")"}'
 cat <<'NEXT'
 
 === 发布步骤（正常发版走 scripts/release.sh，CI 打包并建 Release）===
-1. 本地手动兜底: gh release create vX dist/Tokenmetry-*.zip --title "..." --notes "..."
+1. 本地手动兜底: gh release create vX dist/Tokenmetry-* --title "..." --notes-file docs/release/notes/vX.md
+   （Win 安装器与 zip 一个 glob 都带上；忘了 notes-file 会让 Release 正文变成提交列表）
 2. macOS 用户首次打开 .app: Gatekeeper 会提示无法验证开发者（ad-hoc 签名、未公证）
    ——右键「打开」一次，或系统设置 → 隐私与安全性 → 仍要打开；
    彻底绕过: xattr -cr "Tokenmetry.app"
+3. Windows 用户装 setup.exe: SmartScreen 提示未知发布者（未签名）→「更多信息」→「仍要运行」
 NEXT

@@ -10,10 +10,19 @@ scripts/release.sh 0.3.0          # bump csproj <Version> → commit → tag v0.
   └─ CI (.github/workflows/ci.yml)
        ├─ test: 全量 dotnet test（tag 必须等于 csproj <Version>，否则拒绝打包）
        ├─ macos:  scripts/package.sh --rids "osx-arm64"/"osx-x64" → Tokenmetry.app zip
-       ├─ windows: 单文件 self-contained publish → Tokenmetry.exe → zip
+       ├─ windows: 单文件 self-contained publish → Tokenmetry.exe → zip + ISCC 出 setup.exe（随后静默装/卸冒烟）
        ├─ linux:  scripts/package.sh --rids linux-x64 → Tokenmetry → zip
-       └─ release: gh release create v0.3.0（说明取 docs/release/notes/v0.3.0.md，缺文件回落 --generate-notes）+ 上传四个 zip
+       └─ release: gh release create v0.3.0（说明取 docs/release/notes/v0.3.0.md，缺文件回落 --generate-notes）+ 上传五个资产
 ```
+
+## 资产清单（五个）
+
+| 资产 | 谁需要 |
+|---|---|
+| `Tokenmetry-{版本}-win-x64-setup.exe` | **Windows 首选**：Inno Setup 安装器（按用户装到 `%LOCALAPPDATA%\Programs\Tokenmetry`，带卸载器/快捷键/固定路径）；应用内静默升级也用它 |
+| `Tokenmetry-{版本}-win-x64.zip` | Windows 便携版（免安装） |
+| `Tokenmetry-{版本}-osx-arm64.zip` / `-osx-x64.zip` | macOS（.app bundle） |
+| `Tokenmetry-{版本}-linux-x64.zip` | Linux 单文件 |
 
 ## 发版说明（Release notes）
 
@@ -29,10 +38,31 @@ scripts/release.sh 0.3.0          # bump csproj <Version> → commit → tag v0.
 
 ## 资产命名契约（改一处必须三处同改）
 
-`Tokenmetry-{版本}-{rid}.zip`，rid ∈ `osx-arm64 | osx-x64 | win-x64 | linux-x64`。
+便携包：`Tokenmetry-{版本}-{rid}.zip`，rid ∈ `osx-arm64 | osx-x64 | win-x64 | linux-x64`。
+Windows 安装器：`Tokenmetry-{版本}-win-x64-setup.exe`（Inno 脚本的 `OutputBaseFilename` 即此名）。
 消费方：`scripts/package.sh`（产出）、`.github/workflows/ci.yml`（上传）、
-`src/Tokenmetry.App/Update/UpdateAssets.cs`（应用内「下载更新包」按此名拼直链）。
-`scripts/release.sh --watch` 也按此清单核对 Release 产物齐全。
+`src/Tokenmetry.App/Update/UpdateAssets.cs`（应用内「下载更新包」按此名拼直链，并按
+「是否跑在安装目录」在安装器与 zip 之间二选一）。
+`scripts/release.sh --watch` 也按这份清单核对 Release 产物齐全（五条）。
+
+## Windows 安装器（Inno Setup 6）
+
+脚本：`installer/Tokenmetry.iss`；CI 的 windows job 里 `choco install innosetup` + `ISCC /DMyAppVersion=<版本>`；
+本地 `scripts/package.sh --rids win-x64` 在有 ISCC 的机器上也会出（缺则跳过并提示）。
+
+几条硬约束（改了会静默地损坏升级路径）：
+
+- `DefaultDirName` 必须等于 `UpdateAssets.InstallDirectory`（`%LOCALAPPDATA%\Programs\Tokenmetry`）。
+  应用据此判定「已安装副本」→ 决定是下安装器还是下 zip；两边跑偏，已安装用户就永远拿不到静默升级。
+- `AppId` 是永久身份：一改，覆盖安装就变成并存两个版本。
+- `AppMutex=Local\Tokenmetry.SingleInstance` 与 `SingleInstanceGuard` 同名：托盘常驻应用不先让开文件锁，
+  升级就是一场文件占用拉锯战。
+- `[Run]` 的 postinstall 条目**不加** `skipifsilent`：静默升级后用户期待应用自己回来。
+- 按用户安装（`PrivilegesRequired=lowest`）：不弹 UAC，也避开 Program Files 下升级要提权。
+
+CI 在打包后紧跟一步静默装/卸冒烟（`/VERYSILENT` 安装 → 确认 exe/卸载器存在 → 确认 `[Run]` 把应用拉起 →
+杀进程 → `/VERYSILENT` 卸载 → 确认 exe 消失）。向导本身的中文文案没有接入：Inno 官方只内置英文，
+而静默升级不显示向导，所以暂时不值得为它引一份非官方翻译文件。
 
 ## 版本号唯一事实
 
@@ -84,6 +114,15 @@ git push origin :refs/tags/v0.3.0 && git tag -d v0.3.0   # 删 tag
 - **下载**：按当前平台 RID 挑资产（macOS 分 arm64/x64 按进程架构；Windows/Linux 单资产），GitHub
   直链 + 三个 CN 加速镜像前缀依次尝试，`.part` 中转防半截包，进度百分比进设置页状态行；完成后在
   文件管理器中显示（explorer `/select` / Finder `open -R` / `xdg-open` 目录）。
-- **不做自更新替换**：应用无签名，运行中替换自身的单文件 exe / .app 是跨平台雷区（进程锁、封签、
-  Gatekeeper）；用户拿到包后解压替换即完成更新（设置页 AboutHint 文案已如实说明）。
-  若未来做 Windows 安装器（Inno）或 Linux AppImage，可再评估升级为半自动/全自动安装。
+  完整性：`Content-Length` 收满 + 载荷头魔数（zip → `PK\x03\x04`，Windows 安装器 → PE `MZ`）。
+- **升级方式分两类**（`UpdateAssets.IsInstalledCopy`：进程可执行文件是否就在
+  `%LOCALAPPDATA%\Programs\Tokenmetry`）：
+  - **Windows 安装副本** → 下 `…-win-x64-setup.exe`，以
+    `/SILENT /CLOSEAPPLICATIONS /NORESTART /SUPPRESSMSGBOXES` 拉起，发 `InstallStarted` 让旧实例
+    立即正常退出（释放文件锁），安装器原地升级后按 `[Run]` 把新版本拉起来。全程不弹向导、不要求
+    管理员（按用户安装）。
+  - **便携版 / macOS / Linux** → 下 zip，在文件管理器里显示，用户解压替换。
+    便携版**永不**被静默转成安装版（那等于替用户改了安装形态）。
+- **不做自更新替文件**：替文件的是安装器（它懂文件锁重试与回滚），应用自己连连文件都不能碰；
+  便携版与 macOS/Linux 依旧无自更新（应用无签名，运行中替换自身单文件 exe / .app 是跨平台雷区）。
+  若未来上签名证书或 AppImage，可再评估。
