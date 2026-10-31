@@ -129,22 +129,19 @@
             <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
             <Setter Property="CornerRadius" Value="6"/>
         </Style>
-        <!-- footer 双按钮 ← 原型 .foot；主按钮走品牌蓝 + 恒白文字 -->
+        <!-- footer 双按钮 ← 原型 .foot（flex:1 本为等宽）：两钮同为"离开弹窗去某页"的导航出口，
+             无决策可收口，primary 色块强调没有支撑——撤除移植期带入的品牌蓝底，退安静样式。
+             蓝在本卡已被状态灯/banner/进度条/链接占用为活动语义色，footer 作为 glance surface
+             的出口层保持全卡最安静（app-btn.primary 只归设置页等真决策场景） -->
         <Style Selector="Button.popover-btn">
             <Setter Property="Padding" Value="9"/>
-            <!-- 同行钮：覆盖 Semi 主题 Center，按钮须填满 *,1.4* 网格列 -->
+            <!-- 同行钮：覆盖 Semi 主题 Center，按钮须填满等宽网格列 -->
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
-        </Style>
-        <Style Selector="Button.popover-btn.primary">
-            <Setter Property="Background" Value="{DynamicResource AppAccentBlueBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBlueBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppOnBrandForegroundBrush}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="Border.popover-hr">
             <Setter Property="Height" Value="1"/>
@@ -386,12 +383,12 @@
 
                 <Border Classes="popover-hr"/>
 
-                <!-- footer：最近会话 → 会话页（修正项 5）/ 打开完整统计 → 总览页（主按钮） -->
-                <Grid ColumnDefinitions="*,1.4*" ColumnSpacing="7">
+                <!-- footer：最近会话 → 会话页（修正项 5）/ 打开完整统计 → 总览页；等宽同安静样式 -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="7">
                     <Button Grid.Column="0" Classes="popover-btn"
                             Content="{Binding PopoverRecentSessions, Source={x:Static loc:Translations.Instance}}"
                             Command="{Binding OpenRecentSessionsCommand}"/>
-                    <Button Grid.Column="1" Classes="popover-btn primary"
+                    <Button Grid.Column="1" Classes="popover-btn"
                             Content="{Binding PopoverOpenStats, Source={x:Static loc:Translations.Instance}}"
                             Command="{Binding OpenStatsCommand}"/>
                 </Grid>
