@@ -77,7 +77,7 @@
                         <DataTemplate x:DataType="vm:SessionRowViewModel">
                             <Border BorderBrush="{DynamicResource AppLineBrush}"
                                     BorderThickness="0,1,0,0"
-                                    Padding="0,8,0,2">
+                                    Padding="0,13,0,13">
                                 <Grid ColumnDefinitions="2*,104,1.2*,78,64,68" ColumnSpacing="8">
                                     <!-- 会话（项目主文本 + 会话标识副文本；tooltip 挂完整 SessionId 可复制） -->
                                     <StackPanel Grid.Column="0" Spacing="3" ToolTip.Tip="{Binding SessionIdText}">

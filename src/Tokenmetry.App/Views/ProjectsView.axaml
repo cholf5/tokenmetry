@@ -60,7 +60,7 @@
                         <DataTemplate x:DataType="vm:ProjectRankRowViewModel">
                             <Border BorderBrush="{DynamicResource AppLineBrush}"
                                     BorderThickness="0,1,0,0"
-                                    Padding="0,8,0,2">
+                                    Padding="0,13,0,13">
                                 <Grid ColumnDefinitions="1.5*,64,64,64,48,72" ColumnSpacing="6">
                                     <TextBlock Grid.Column="0" Classes="table-td" Text="{Binding Name}"
                                                ToolTip.Tip="{Binding RawPath}"

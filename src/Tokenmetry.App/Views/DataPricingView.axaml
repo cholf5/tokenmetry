@@ -175,7 +175,7 @@
                             <DataTemplate x:DataType="vm:ModelDefinitionRowViewModel">
                                 <Border BorderBrush="{DynamicResource AppLineBrush}"
                                         BorderThickness="0,1,0,0"
-                                        Padding="0,7,0,5">
+                                        Padding="0,14,0,14">
                                     <Grid ColumnDefinitions="1.3*,0.8*,0.9*,0.5*,Auto" ColumnSpacing="8">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                                             <Border Classes="model-chip" c:ModelChip.Avatar="{Binding Avatar}">

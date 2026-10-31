@@ -64,7 +64,7 @@
                         <DataTemplate x:DataType="vm:ModelDetailRowViewModel">
                             <Border BorderBrush="{DynamicResource AppLineBrush}"
                                     BorderThickness="0,1,0,0"
-                                    Padding="0,8,0,2">
+                                    Padding="0,13,0,13">
                                 <Grid ColumnDefinitions="1.3*,0.9*,80,80,80,80,64" ColumnSpacing="6">
                                     <!-- 模型列：内置厂商 logo + 名称（logo 恒显示，phi/未识别回退字形）
                                          + 服务商副行（I-036 三元组的第三元；无观测时不渲染，列高回到单行）。
