@@ -93,7 +93,7 @@ if [ "$CUR" != "$VERSION" ]; then
   [ "$NEW" = "$VERSION" ] || { echo "版本替换校验失败：期望 ${VERSION}，实得 ${NEW}" >&2; exit 1; }
 
   git add "$PROJECT"
-  git commit -m "chore: 版本提升至 $VERSION（scripts/release.sh 自动提交，发版 tag $TAG 与之配套，CI 校验两者一致）"
+  git commit -m "chore: 版本提升至 ${VERSION}（scripts/release.sh 自动提交，发版 tag ${TAG} 与之配套，CI 校验两者一致）"
 else
   echo "csproj 已是 ${VERSION}，跳过 bump 提交，直接打 tag"
 fi
