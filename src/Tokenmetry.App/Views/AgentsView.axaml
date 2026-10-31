@@ -143,7 +143,7 @@
                         <DataTemplate x:DataType="vm:AgentRankRowViewModel">
                             <Border BorderBrush="{DynamicResource AppLineBrush}"
                                     BorderThickness="0,1,0,0"
-                                    Padding="0,8,0,2">
+                                    Padding="0,13,0,13">
                                 <Grid ColumnDefinitions="1.5*,66,64,64,64,64,48" ColumnSpacing="6">
                                     <!-- Agent 列：品牌 logo（I-034，与模型明细行同口径；未覆盖的 Agent
                                          回退散列字形）。原行序系列色圆点随 Agent logo 化退场。

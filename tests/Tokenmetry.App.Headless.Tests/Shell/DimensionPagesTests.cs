@@ -18,6 +18,7 @@ using Tokenmetry.App.DependencyInjection;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
+using Tokenmetry.App.Headless.Tests.Controls;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Xunit;
@@ -524,6 +525,65 @@ public class DimensionPagesTests
         Assert.Equal("Claude Code", filters.Agent.Id);
         Assert.Contains(filters.AgentOptions, o => o.Id == "Claude Code");
         Assert.IsType<SessionsViewModel>(shell.CurrentPage);
+    }
+
+    [AvaloniaFact]
+    public void Agent_rank_hover_band_is_flush_with_row_rule_lines()
+    {
+        // 配方几何回归锁（2026-10-31 hover 贴齐修正）：data-table 行的 hover 带（item bounds）
+        // 上缘必须压住本行行顶分隔线、下缘必须抵住下一行的行顶分隔线。旧配方 ListBoxItem
+        // Padding=0,8 把行线推进带内 8px——上线叠 tint、下线浮空 8px（用户报告的"hover
+        // 不对称"）；归零后竖向呼吸感由行模板内距上下等分承担，行高不变。
+        var stub = new StubQueryService { Agents = FixtureAgents() };
+        var shell = CreateShell(stub, new FilterStateService(), new StubToast());
+        var window = new MainWindow { DataContext = shell };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        shell.SelectedNavigation = shell.NavigationItems[2]; // Agent 统计
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+
+        var listBox = window.GetVisualDescendants().OfType<ListBox>()
+            .Single(lb => lb.Classes.Contains("data-table"));
+        var items = listBox.GetRealizedContainers().OfType<ListBoxItem>().ToList();
+        Assert.True(items.Count >= 3, "fixture 至少 3 行才能同时取证上、下两条分隔线");
+
+        static Border? RuleBorder(ListBoxItem item) =>
+            item.GetVisualDescendants().OfType<Border>()
+                .FirstOrDefault(b => b.BorderThickness.Top > 0);
+
+        var band = items[1]; // 第二行：上、下两个方向的分隔线都能取证
+        var rule = RuleBorder(band);
+        var nextRule = RuleBorder(items[2]);
+        Assert.NotNull(rule);
+        Assert.NotNull(nextRule);
+
+        // 悬停命中行容器（band 即 hover 带的承载者，DesignTokenTests 已锁其画刷）
+        var at = band.TranslatePoint(new Point(band.Bounds.Width / 2, band.Bounds.Height / 2), window)!.Value;
+        window.MouseMove(at);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(band.IsPointerOver, "悬停应命中行容器");
+
+        // 上缘压线 / 下缘抵线：行顶分隔线与 hover 带边缘重合（旧配方偏差 = 8px）
+        var bandTop = band.TranslatePoint(new Point(0, 0), window)!.Value.Y;
+        Assert.Equal(bandTop, rule!.TranslatePoint(new Point(0, 0), window)!.Value.Y, 1);
+        Assert.Equal(bandTop + band.Bounds.Height,
+            nextRule!.TranslatePoint(new Point(0, 0), window)!.Value.Y, 1);
+
+        // 呼吸感上下等分：行内容在带内垂直居中（不再上贴线、下浮空）
+        Assert.Equal(rule.Padding.Top, rule.Padding.Bottom);
+
+        // 可选留档（模式同 TOKENMETRY_DIMENSION_PREVIEW_DIR）：验证 hover 带贴齐观感时传目录
+        var hoverShotDir = Environment.GetEnvironmentVariable("TOKENMETRY_HOVER_PREVIEW_DIR");
+        if (hoverShotDir is not null)
+        {
+            ChartTestHelpers.SaveArchive(ChartTestHelpers.RenderFrame(window), hoverShotDir, "agents-hover-flush.png");
+        }
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 
     // ══════════════════════════ D-010 模型统计页 ══════════════════════════

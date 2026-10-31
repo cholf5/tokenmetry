@@ -679,15 +679,20 @@
          （收编自 4 个页面的局部副本，原类名 rank-table / session-table 统一为 data-table）。
          行 hover ← 原型 tr:hover{background:#17253a}：Dark 经 AppNavHoverBackgroundBrush（同源令牌，
          与外壳导航 hover 一致），Light 用其协调值；透明 ListBox 本体、行内距与圆角同原配方。
-         行顶分隔线与单元格令牌（table-th/td/num）仍在各页行模板里。 -->
+         行顶分隔线与单元格令牌（table-th/td/num）仍在各页行模板里。
+         2026-10-31 hover 贴齐修正：item 竖向 padding 归零、呼吸感移交行模板内距（上下等分）——
+         hover 带上缘压住本行行顶分隔线、下缘抵住下一行线，还原原型 tr:hover 边框贴齐行为；
+         旧配方 Padding=0,8 曾把上线叠进 tint、下线浮空 8px（用户报告的不对称）。首行线的
+         表头侧间距由本处 Margin 补偿（原 8px 在首行 item padding 里）。 -->
     <Style Selector="ListBox.data-table">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0,8,0,0"/>
     </Style>
     <Style Selector="ListBox.data-table ListBoxItem">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Padding" Value="0,8"/>
+        <Setter Property="Padding" Value="0,0"/>
         <Setter Property="MinHeight" Value="0"/>
         <Setter Property="CornerRadius" Value="6"/>
         <!-- hover 不挂 BrushTransition（motion design §6 偏差）：headless 合成器不推进刷过渡、
