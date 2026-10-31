@@ -1,63 +1,139 @@
 <div align="center">
 
-  <img src="docs/app-icon.png" width="112" alt="Tokenmetry" />
+  <img src="docs/app-icon.png" width="96" alt="Tokenmetry" />
 
 # Tokenmetry
 
-**打开就知道 AI 编程花了多少钱、是否异常、钱花在哪。**
+**Open it and know what your AI coding costs.**
 
-本地优先 · 托盘常驻 · 可对账 —— 把所有 AI 编程 Agent 的用量,聚成一套替你选好的固定视图。
+Tokenmetry is a desktop app for Windows, macOS and Linux that reads the local logs your coding
+agents already write — Claude Code, Codex, ZCode and 17 more — indexes them incrementally into a
+local SQLite store, and lays usage and cost out in a fixed set of views. Nothing is uploaded, and
+every cost figure can be checked against ccusage.
 
 [![CI](https://github.com/cholf5/tokenmetry/actions/workflows/ci.yml/badge.svg)](https://github.com/cholf5/tokenmetry/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/cholf5/tokenmetry)](https://github.com/cholf5/tokenmetry/releases/latest)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
-![Avalonia](https://img.shields.io/badge/Avalonia-12-9B4FCA?logo=avaloniaui&logoColor=white)
+[![Website](https://img.shields.io/badge/website-tokenmetry.app-1d9e79)](https://tokenmetry.app)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
-**简体中文** | [English](README.en.md)
+**English** | [简体中文](README.zh-CN.md)
 
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/overview-zh-dark.png" alt="Tokenmetry 总览页(暗色主题)" width="880" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-en-dark.png">
+    <img src="docs/screenshots/overview-en-light.png" alt="Tokenmetry overview: KPI cards for total tokens, estimated cost, sessions and cache-read share; a daily token trend; agent and token-type donuts" width="880" />
+  </picture>
 </p>
 
-## 为什么做这个
+## Why another usage tool
 
-- **数字散落各处。** Claude Code、Codex、ZCode……每个 Agent 的日志格式不同、位置不同,混用时你根本说不清今天烧了多少钱。
-- **现成 CLI 太慢。** `ccusage` 每次全量重扫日志,冷启动动辄几十秒(分析见 [`docs/chore/why-ccusage-so-slow.md`](docs/chore/why-ccusage-so-slow.md))。Tokenmetry 直读本地日志、增量落进 SQLite,打开即出数。
-- **不信任黑盒。** 任何成本数字都能与 `ccusage` CLI 输出对账(见[下文](#可对账信任锚))——这是产品的信任锚。
+Every agent keeps its own log: JSONL here, session snapshots there, a SQLite database elsewhere.
+Use two or three of them and you honestly cannot say what today cost. Tokenmetry reads them all —
+read-only, auto-detected, zero config.
 
-## 特性
+`ccusage` re-parses every log on every run, and a cold start can take tens of seconds
+([measurements](docs/chore/why-ccusage-so-slow.md)). Tokenmetry tracks files by mtime and size,
+re-reads only what changed, and lands results incrementally in SQLite — the numbers are ready when
+the window opens.
 
-- **19 个 Agent 数据源只读直读** —— 零配置自动探测本地日志/数据库,不 spawn 外部进程
-- **9 个固定视图** —— 总览 / 会话 / Agent / 模型 / 项目 / 时间分析 / 成本分析 / 数据与计价 / 设置;时间分析含小时热力图与星期分布
-- **三级定价回退** —— 用户覆盖 → models.dev 远程刷新(后台、TTL 24h、永不阻塞 UI)→ 内置价格快照
-- **诚实的成本口径** —— 日志自带 costUSD 直接采用;缺价模型显示「未知」,**不折零、不混入合计**,绝不假装精确
-- **增量采集** —— 按文件 mtime/大小记账,变更才重扫;重复运行不产生重复记录,文件删除后记录随之移除
-- **托盘常驻** —— 弹层一眼看今日 tokens / 花费 / 实时速率,成本异常以徽章标出
-- **明暗主题 + 10 语种** —— light / dark / system 跟随,简体中文 / 繁体中文 / 英 / 日 / 韩 / 葡(BR) / 俄 / 西 / 德 / 法 + 跟随系统即时切换
-- **CSV 导出 + 全局筛选** —— 时间范围、Agent、模型、项目四维筛选贯穿所有视图
+And an estimate you cannot verify is just a guess. So cost is treated as a correctness target: day
+by day, model by model, Tokenmetry's numbers reconcile against the ccusage CLI
+([see below](#check-the-numbers)). Models without prices show **unknown** — they are never zeroed
+into totals.
 
-## 支持的数据源
+## A look inside
 
-全部为**只读直读**(JSONL/JSON 文件流式解析,或 SQLite 只读连接),支持环境变量覆盖数据目录:
+Nine fixed views: Overview, Sessions, Agents, Models, Projects, Time, Cost, Data & pricing,
+Settings. No plugins, no layout customization — the views are chosen for you, and time-range,
+agent, model and project filters run through all of them.
 
-| Agent | 读取方式 | Agent | 读取方式 |
+<div align="center">
+  <table>
+    <tr>
+      <td><img src="docs/screenshots/views-sessions-en-dark.png" alt="Sessions view: a searchable table of agent, model, project, tokens and cost per session" width="420" /></td>
+      <td><img src="docs/screenshots/views-models-en-dark.png" alt="Models view: token and cost shares per model, with unpriced models marked unknown" width="420" /></td>
+    </tr>
+    <tr>
+      <td><img src="docs/screenshots/views-cost-en-dark.png" alt="Cost analysis: cost KPIs, the three-line cost methodology and period deltas" width="420" /></td>
+      <td><img src="docs/screenshots/views-pricing-en-dark.png" alt="Data & pricing view: per-source status and record counts, plus the model price catalog" width="420" /></td>
+    </tr>
+  </table>
+</div>
+
+It also lives in the tray — today's tokens, estimated cost and cache-hit rate at a glance, live
+rate tracking, and a badge when spend looks abnormal:
+
+<p align="center">
+  <img src="docs/screenshots/tray-en-dark.png" alt="Tray popover: today's tokens, estimated cost, cache-hit KPIs, input/output/cache mix and top agents" width="300" />
+</p>
+
+## What it does
+
+<table>
+  <tr><td width="230"><strong>20 data sources, read-only</strong></td><td>Auto-detected local logs and databases — streaming JSONL/JSON parsers or read-only SQLite connections. No external processes are spawned.</td></tr>
+  <tr><td><strong>Incremental ingestion</strong></td><td>Files are tracked by mtime and size; only changes get re-read. Re-runs never duplicate records, and deleted files drop out of the store.</td></tr>
+  <tr><td><strong>Costs you can audit</strong></td><td>costUSD carried by the logs is used as-is; unpriced models show "unknown" and stay out of cost totals.</td></tr>
+  <tr><td><strong>Three-tier pricing</strong></td><td>Your overrides → a models.dev refresh in the background (24 h TTL, never blocks the UI) → a price snapshot bundled with the app.</td></tr>
+  <tr><td><strong>Tray-resident</strong></td><td>Today's tokens, spend and live rate in the popover; abnormal spend raises a badge.</td></tr>
+  <tr><td><strong>CSV export + global filters</strong></td><td>Time range, agent, model and project filters carry across every view.</td></tr>
+  <tr><td><strong>Light & dark, 10 languages</strong></td><td>English, Simplified/Traditional Chinese, Japanese, Korean, Portuguese (BR), Russian, Spanish, German, French — switchable at runtime, follow-system by default.</td></tr>
+  <tr><td><strong>An honest empty state</strong></td><td>With no data, the app shows the supported-agent list and a rescan button, not a stack trace.</td></tr>
+</table>
+
+## Data sources
+
+All 20 are read-only (streamed JSONL/JSON parsing, or read-only SQLite connections), with
+environment-variable overrides for data directories:
+
+| Agent | How it reads | Agent | How it reads |
 |---|---|---|---|
-| Claude Code | JSONL 直读 | Kimi Code | JSONL 直读 |
-| Codex CLI | JSONL 直读 | Amp | JSON 线程文件 |
-| ZCode | SQLite 只读 | Droid (Factory) | 会话快照 JSON |
-| DSH | 会话日志(zstd JSONL) | Hermes | SQLite 只读 |
-| GitHub Copilot CLI | 会话 events.jsonl + otel | Kilo | SQLite 只读 |
-| OpenCode | SQLite 只读 | Codebuff | chat-messages JSON |
-| Gemini CLI | JSON / JSONL | pi-agent | 会话目录 |
-| Qwen Code | JSONL 直读 | OpenClaw | SQLite + 双格式 |
-| Goose | SQLite 只读 | Antigravity | SQLite 多根去重 |
-| Grok | updates.jsonl | | |
+| Claude Code | JSONL files | Kimi Code | JSONL files |
+| Codex CLI | JSONL files | Amp | JSON thread files |
+| ZCode | SQLite (read-only) | Droid (Factory) | session snapshot JSON |
+| DSH | session logs (zstd JSONL) | Hermes | SQLite (read-only) |
+| GitHub Copilot CLI | events.jsonl + otel | Kilo | SQLite (read-only) |
+| OpenCode | SQLite (read-only) | Codebuff | chat-messages JSON |
+| Gemini CLI | JSON / JSONL | pi-agent | session directories |
+| Qwen Code | JSONL files | OpenClaw | SQLite + dual formats |
+| Goose | SQLite (read-only) | Antigravity | SQLite, multi-root dedup |
+| Grok | updates.jsonl | Cindy | pi session dirs |
 
-## 快速开始
+Cindy covers the Pi runtime only: sessions it starts for Claude Code / Codex still count toward
+those agents; zero-cost entries backfilled by its gateway count as unknown, never zero; and one
+session file is billed once, never twice.
 
-**从源码运行** —— 前提:本机装有 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0),且用过上表任一 Agent(有本地日志):
+## Install
+
+Grab a package from [Releases](https://github.com/cholf5/tokenmetry/releases/latest). CI builds
+all three platforms on every tag:
+
+| Platform | Package | Size (v0.3.2) | Notes |
+|---|---|---|---|
+| Windows x64 | `Tokenmetry-0.3.2-win-x64-setup.exe` | 17.3 MB | Recommended — per-user install with shortcuts and an uninstaller; in-app updates are silent |
+| Windows x64 | `Tokenmetry-0.3.2-win-x64.zip` | 70.8 MB | Portable, single exe |
+| macOS Apple Silicon | `Tokenmetry-0.3.2-osx-arm64.zip` | 23.1 MB | `.app`, Native AOT |
+| macOS Intel | `Tokenmetry-0.3.2-osx-x64.zip` | 24.6 MB | `.app`, Native AOT |
+| Linux x64 | `Tokenmetry-0.3.2-linux-x64.zip` | 66.4 MB | Single-file binary |
+
+Installed Windows copies upgrade themselves ("Check for updates" downloads, installs and
+restarts); portable copies and macOS/Linux update by extracting over the old version.
+
+**macOS needs one Gatekeeper allowance on first launch** (the app is unsigned, and on macOS 26 the
+old right-click → Open trick no longer works). Either allow it in System Settings → Privacy &
+Security → "Open Anyway", or run:
+
+```bash
+xattr -cr /Applications/Tokenmetry.app
+```
+
+Windows is blocked once by SmartScreen (→ "More info" → "Run anyway"). Full steps for both:
+[known limitations](docs/release/known-limitations.md), item 9.
+
+**Run from source** — you need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+and local logs from at least one agent in the table above:
 
 ```bash
 git clone https://github.com/cholf5/tokenmetry.git
@@ -65,89 +141,88 @@ cd tokenmetry
 dotnet run --project src/Tokenmetry.App
 ```
 
-**安装包** —— Windows 取 `Tokenmetry-{版本}-win-x64-setup.exe`(安装向导,按用户安装到 `%LOCALAPPDATA%\Programs\Tokenmetry`,带开始菜单/桌面快捷方式与卸载器);其余平台取对应 zip(macOS arm64/x64 `.app`、Linux 单文件)解压即用。应用内「检查更新」在 Windows 安装版上会下载安装包并静默升级、自动重启;便携版与 macOS/Linux 则下载后在文件管理器里定位,解压替换即完成。
+## Check the numbers
 
-**macOS 首次打开要放行一次**(包未签名):macOS 26 上**右键「打开」已经不管用了**,要么走「系统设置 → 隐私与安全性 → 最下面 → 仍要打开 → 输密码」,要么一行命令省掉全部麻烦:
+The homegrown pipeline (direct JSONL/SQLite reads → unified usage records → own pricing engine →
+UTC calendar-day buckets) is reconciled day-by-day and model-by-model against `npx ccusage@20.0.29`:
+
+- All five token components match exactly — input, output, cache write, cache read, total.
+- On real local data (Codex: 19 files / 2,931 records), costs matched to the cent: $101.3856438
+  over the full period.
+- Reconciliation tests parse only the golden JSON committed to the repo, so they repeat offline.
+  The full alignment rules (costUSD priority, `-fast` price stripping, message dedup, cumulative
+  guards, …) are in
+  [`docs/reconciliation/2026-10-11-reconciliation.md`](docs/reconciliation/2026-10-11-reconciliation.md).
+
+## Privacy
+
+The SQLite store holds aggregated facts and settings only — never prompts, code or conversation
+content. Everything stays on your machine (`%LOCALAPPDATA%\Tokenmetry\` on Windows, the user data
+directory on macOS/Linux). The only two network touchpoints are the models.dev price refresh and
+the in-app update check.
+
+## Known limitations
+
+Stated plainly rather than hidden
+([full list](docs/release/known-limitations.md)):
+
+- Packages are unsigned — SmartScreen (Windows) and Gatekeeper (macOS) each block once.
+- A failed read in one source is swallowed silently: the UI still looks normal, but that source may
+  undercount. This is the top priority after release.
+- Changing the system timezone (or crossing a DST boundary) can double-count some days.
+- One corrupt timestamp can knock out the Kimi or DSH source until the offending file is moved.
+- Only installed Windows copies update silently; portable and macOS/Linux copies update by hand.
+
+## How it's built
+
+```
+Tokenmetry.Core             models · adapter interfaces · query/pricing/anomaly services · built-in price snapshot
+        ▲
+Tokenmetry.Infrastructure   20 source adapters · SQLite facts store (sequential schema_migrations)
+                            · ModelsDev pricing client · ccusage CLI reconciliation
+        ▲
+Tokenmetry.App              Avalonia UI (Semi theme) · 9 views · DI · tray · i18n
+```
+
+Three layers, strictly one-way dependencies. Adding a source = a Core interface + an
+Infrastructure adapter + DI registration + fixture tests. Engineering conventions for AI agents
+(architecture boundaries, i18n/design-token discipline, naming-history traps) live in
+[`AGENTS.md`](AGENTS.md).
 
 ```bash
-xattr -cr /Applications/Tokenmetry.app
+dotnet build Tokenmetry.sln     # build
+dotnet test  Tokenmetry.sln     # all tests
 ```
 
-Windows 同理会被 SmartScreen 拦一次(→「更多信息」→「仍要运行」)。两者的完整步骤见[已知限制](docs/release/known-limitations.md)第 9 条。
+.NET 10 / C# / Avalonia 12; 1,600+ tests (xUnit + FluentAssertions), the UI layer running on
+Avalonia Headless so no display is needed. Before changing parsing, pricing or aggregation
+semantics, read the
+[reconciliation doc](docs/reconciliation/2026-10-11-reconciliation.md) first — the item-by-item
+alignment table with ccusage lives there.
 
-无数据时应用显示空态引导(支持的 Agent 清单 + 重新扫描),不暴露堆栈。发布流程细节见 [`docs/release/ci-release.md`](docs/release/ci-release.md)。
+## Roadmap
 
-## 设计立场
-
-1. **本地优先** —— 不上传、不登录、不云同步;断网功能完整。
-2. **可对账** —— 成本数字与 `ccusage` CLI 容差内一致。
-3. **离线优先定价** —— 联网刷新只是后台增强,永远不阻塞 UI。
-4. **固定信息架构** —— 视图是我们替你选好的,不做插件、不做布局自定义。
-5. **克制的数据表达** —— 趋势、构成、异常,三种表达够用。
-
-## 可对账(信任锚)
-
-自研链路(JSONL 直读 → 统一 usage 记录 → 自有定价引擎 → UTC 自然日聚合)与 `npx ccusage@20.0.29` 逐日 × 逐模型对账:
-
-- **tokens 五分量(input / output / cache_creation / cache_read / total)精确一致**;
-- 真实数据实测 cost 两侧**逐分钱一致**(本机 Codex:19 文件 / 2931 条记录,全期 $101.3856438);
-- 对账测试只解析提交进仓库的 golden JSON,离线可重复;口径逐项对齐规则(costUSD 优先、`-fast` 剥价、消息去重、cumulative 守卫等)见 [`docs/reconciliation/2026-10-11-reconciliation.md`](docs/reconciliation/2026-10-11-reconciliation.md)。
-
-## 隐私
-
-SQLite 只存**聚合事实与配置**,不存 prompt、代码、会话内容;所有数据留在本机(Windows 为 `%LOCALAPPDATA%\Tokenmetry\`,macOS/Linux 为用户数据目录)。
-
-## 已知限制
-
-首版带有若干已知问题——某源读失败会被静默吞掉(界面仍显示正常,可能少算)、改过系统时区后可能双算、
-所有包都未签名(Windows SmartScreen / macOS Gatekeeper 首次会各拦一次)、macOS 与 Linux 的更新仍需手动解压替换、
-Kimi/DSH 一条坏时间戳能让整源停摆。逐条写清症状、触发条件与后续计划:
-[`docs/release/known-limitations.md`](docs/release/known-limitations.md)。其中双算那条是发版后的第一优先级。
-
-## 架构
-
-```
-Tokenmetry.Core             模型 · 适配器接口 · 查询/定价/异常检测 · 内置价格快照
-        ▲
-Tokenmetry.Infrastructure   19 源适配器 · SQLite facts 存储(schema_migrations 顺序迁移)
-                            · ModelsDev 定价客户端 · ccusage CLI 对账集成
-        ▲
-Tokenmetry.App              Avalonia UI(Semi 主题)· 9 视图 · DI · 托盘 · i18n
-```
-
-三层严格单向依赖;新增 Agent 源 = Core 接口 + Infrastructure 适配器 + DI 注册 + fixture 测试。详见 [`AGENTS.md`](AGENTS.md)。
-
-## 路线图
-
-| 里程碑 | 内容 | 状态 |
+| Milestone | Scope | Status |
 |---|---|---|
-| v0.1–v0.2 | 真实数据 Dashboard、Reports、CSV 导出、Settings | ✅ |
-| v0.3 | 自主采集引擎(Claude/Codex 直读、facts 表、定价引擎、对账测试) | ✅ |
-| v0.3.5 | 多源覆盖(19 源适配器全部落地) | ✅ |
-| v0.4 | UI 原型落地(Semi 主题 + 三栏外壳 + 9 视图 + 图表) | ✅ |
-| v0.5 | 常驻体验(通知去重、预算阈值、自启、刷新可靠性) | 规划 |
-| v0.9 | 发布自动化(tag 触发三平台 CI 打包 + Release + 应用内更新检查/下载) | ✅ |
-| v1.0 | 稳定发布(Windows 安装器 ✅、macOS 公证 ⬜) | 进行中 |
+| v0.1–v0.2 | Real-data dashboard, reports, CSV export, settings | ✅ |
+| v0.3 | Own ingestion engine (Claude/Codex direct reads, facts store, pricing engine, reconciliation tests) | ✅ |
+| v0.3.5 | Multi-source coverage (all 20 adapters landed) | ✅ |
+| v0.4 | UI realization (Semi theme + three-pane shell + 9 views + charts) | ✅ |
+| v0.3.1–v0.3.2 | Windows installer + silent in-app updates; Native AOT installers | ✅ |
+| v0.9 | Release automation (tag-triggered 3-platform CI packaging + Releases + in-app update check) | ✅ |
+| v0.5 | Resident experience (notification dedup, budget thresholds, autostart, refresh reliability) | planned |
+| v1.0 | Stable release (Windows installer ✅, macOS notarization ⬜) | in progress |
 
-完整方向见 [`docs/kanban/roadmap.md`](docs/kanban/roadmap.md),任务卡片看板见 [`docs/kanban/board.md`](docs/kanban/board.md)。
-
-## 开发
-
-```bash
-dotnet build Tokenmetry.sln     # 构建
-dotnet test  Tokenmetry.sln     # 全部测试
-```
-
-- .NET 10 / C# / Avalonia 12;1500+ 测试(xUnit + FluentAssertions),UI 层测试跑在 Avalonia Headless 上,可无头运行。
-- 改动解析、计价或聚合口径前,先读[对账文档](docs/reconciliation/2026-10-11-reconciliation.md)——口径与 ccusage 的逐项对齐表在那里。
-- 面向 AI Agent 的工程约定(架构边界、i18n/设计令牌纪律、命名史陷阱)见 [`AGENTS.md`](AGENTS.md)。
+Full direction in [`docs/kanban/roadmap.md`](docs/kanban/roadmap.md); task cards on the kanban
+board in [`docs/kanban/board.md`](docs/kanban/board.md).
 
 ## License
 
-本项目以 **AGPL-3.0-or-later** 发布(全文见 [`LICENSE`](LICENSE)):
+Released under **AGPL-3.0-or-later** ([full text](LICENSE)). You are free to use, study, modify
+and redistribute this project, including inside a company. If you offer a modified version in any
+form — a package, or a network service — the complete source must come out under the same
+license. If you need a closed-source integration that AGPL doesn't permit, contact the author via
+GitHub Issues to discuss a commercial license.
 
-- 你可以自由地使用、学习、修改和再分发本项目,包括在公司内部日常使用;
-- 修改后的版本无论以何种形式提供——分发安装包,还是仅作为网络服务运行——都必须以相同许可证开放完整源代码;
-- 需要在不满足 AGPL 义务的场景下闭源集成,欢迎联系作者(GitHub Issues)单独协商商业授权。
-
-「Tokenmetry」名称与应用图标属于项目品牌标识,不在本许可证授权范围内;再分发衍生版本时请更换品牌,或明确标注为非官方版本。
+The "Tokenmetry" name and app icon are brand marks, outside the scope of this license; rebrand
+derivative distributions or mark them clearly as unofficial.
