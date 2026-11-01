@@ -55,6 +55,28 @@ public class DataPricingViewModelTests
     }
 
     [Fact]
+    public void SourceRows_ShowInProgressRowsFirstWithProcessedCounts()
+    {
+        // I-046：进行中源置顶显示「正在处理 x/y」（文案含千分位计数）；其余行维持既有排序。
+        var reader = new FakeScanReader();
+        reader.Registered.Add("Claude Code");
+        reader.Registered.Add("Codex");
+        reader.Register("Codex", new IngestionSourceScanSnapshot("Codex", JsonlScanStatus.Ok, 42, Now));
+        // Claude Code 正在扫描（BeginScan 后、ReportScan 前）
+        reader.RegisterProgress("Claude Code", new IngestionScanProgress("Claude Code", 3200, 16403, Now));
+
+        var viewModel = CreateViewModel(new AppSettings(), new FakeSettingsStore(), reader: reader);
+
+        var rows = viewModel.SourceRows;
+        rows[0].Agent.Should().Be("Claude Code", "进行中源置顶");
+        rows[0].IsPending.Should().BeTrue();
+        rows[0].StatusText.Should().Contain("3,200").And.Contain("16,403");
+        rows[0].RecordCountText.Should().Be("—", "本轮未落账，不伪造记录数");
+        rows[1].Agent.Should().Be("Codex");
+        rows[1].IsOk.Should().BeTrue();
+    }
+
+    [Fact]
     public void SourceRows_PutConnectedFirstThenByRecordCount()
     {
         // 行序定案：已连接（Ok / Partial）整体置顶，组内按累计记录数降序，同数回落注册序；
@@ -1131,11 +1153,15 @@ public class DataPricingViewModelTests
     {
         public List<string> Registered { get; } = new();
         private readonly Dictionary<string, IngestionSourceScanSnapshot> _scans = new();
+        private readonly Dictionary<string, IngestionScanProgress> _progress = new();
 
         public IReadOnlyList<string> RegisteredSources => Registered;
 
         public IngestionSourceScanSnapshot? GetLastScan(string agent) =>
             _scans.GetValueOrDefault(agent);
+
+        public IngestionScanProgress? GetScanProgress(string agent) =>
+            _progress.GetValueOrDefault(agent);
 
         public void Register(string agent, IngestionSourceScanSnapshot snapshot)
         {
@@ -1145,6 +1171,16 @@ public class DataPricingViewModelTests
             }
 
             _scans[agent] = snapshot;
+        }
+
+        public void RegisterProgress(string agent, IngestionScanProgress progress)
+        {
+            if (!Registered.Contains(agent))
+            {
+                Registered.Add(agent);
+            }
+
+            _progress[agent] = progress;
         }
     }
 

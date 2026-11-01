@@ -67,10 +67,32 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| I-045 | 采集管线文件日志——可开关、含堆栈、按大小轮转，让「卡住」与「慢跑」外部可区分 | P1 | M | none | none |
-| I-046 | 源内进度上报——数据源表显示「正在处理 3200/16403」，用户能区分「在跑」与「卡了」 | P2 | M | none | none |
-| I-047 | 采集 gate 等待加超时——一轮挂死不再让后续刷新永久排队失效 | P2 | S | none | 建议在 I-045 之后（超时事件落点复用文件日志，不硬依赖） |
 | I-044 | 上架 Homebrew cask——**前提已修正**：brew 不免疫 Gatekeeper，收益降为「放行一次后 `brew upgrade` 不再弹」 | P3 | M | none | none |
+
+> 2026-11-01（晚）：**I-045 / I-046 / I-047 同日收口（issue #1 的诊断面与防线三项，用户指示实现）**。
+> **I-045 文件日志**：Infrastructure 新增轻量 `IngestionFileLogger`（不引第三方框架，同步 append + 锁行级原子，
+> 写失败降级 stderr 不反噬采集），落 `<数据目录>/logs/app.log`（AppPaths.LogDirectory，跟随现有数据目录约定，
+> 不另设三平台惯例路径——卡内开放问题定案取 Windows 式同根），5 MB × 3 份轮转、默认开、关闭态零写盘。
+> 埋点三级：轮开始/结束（含 forceFull 旗标与 I-042 短路轮如实记录 "unchanged shortcut"——短路与卡死外部可区分）、
+> 每源开始/结束（耗时/发现/读取/变更文件数/记录数/状态，异常分支含 `ex.ToString()` 全堆栈）、写库起止。
+> 解析失败落点：`IncrementalJsonlScanner.ParseFileAsync` 两处静默吞点（打开失败/读取中途失败）经新注入的
+> `parseFailureLog` 回调交管道写日志（含堆栈），引擎不直依赖 logger（保持纯）。设置页开关
+> （`AppSettings.FileLoggingEnabled` 默认开，重启生效——与刷新间隔同语义）+ 「打开日志文件夹」入口
+> （本地路径区加一行日志目录 + 面板底第二个按钮）；`StatusInProgressFormat` 等 5 新键全语种覆盖。
+> **I-046 源内进度**：`ScanAsync` 加可选 `progress` 回调（每 500 文件或 2 秒取大者——报告者建议 500 文件），
+> `IngestionScanRegistry` 新增 `BeginScan`/`ReportScanProgress`/`GetScanProgress` 进行中快照
+> （BeginScan 先清上轮结果快照：进行中不顶旧结果；ReportScan 覆盖进行中：一轮结束不残留中间态），
+> 七个共用引擎的适配器（Claude/Codex/DSH/Qwen/Kimi/Grok/OpenClaw）构造注入注册表透传回调（SQLite 账本类不做，
+> 卡内定案）；数据源表进行中源置顶显示「● 正在处理 3,200/16,403」（N0 千分位、记录数列 "—" 不伪造）。
+> **I-047 gate 超时**：`WaitAsync(30 min, ct)`（常量注释取值依据：远大于最慢合法轮、远小于当天再看尺度），
+> 超时返回空列表 + 文件日志/stderr 双通道记录（含已等时长），**不强杀持锁轮**（卡内写死约束）；
+> ct 取消语义不变；`_forceFullNextRound` 不受放弃轮影响（旗标只在全量成功后清除，既有语义）。
+> 测试 +26：logger 7（写入/开关/轮转/并发原子/异常堆栈）、管道日志 4（全量轮/短路轮/异常源含堆栈/关闭态零写盘）、
+> 进度节流 5（单调/500 粒度/无回调风暴/null 等价/失败日志含路径与堆栈）、gate 超时 3（超时放弃/后续可重进/正常路径零变化）、
+> 注册表进行中 5、App 4（开关初始/即存/日志入口目标路径/数据源表进行中行）、headless 1（进行中渲染 + 完成回结果态）。
+> 全量 Core 227 / Infra 781（3 跳过）/ Reconciliation 49（19 跳过）/ App 351 / Headless 514，0 失败；
+> 既有适配器与管道测试零改动通过（扫描语义未变——AC 硬性要求）。基建同步：Infrastructure csproj 加
+> InternalsVisibleTo Infrastructure.Tests（gate/超时注入点 internal）。
 
 > 2026-11-01：**I-045 / I-046 / I-047 建卡（issue #1 的三项改进，用户指示建卡）**。GitHub 首个 issue
 > （[macOS] 首启扫描 15–30 秒后彻底静止、界面永久停在「正在初始化」，16k 文件 / 8.3 GB）由 PR #2 修复根因
@@ -176,6 +198,9 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-045 | 采集管线文件日志——`logs/app.log` 可开关（默认开）、轮/源/写库三级埋点、解析失败含堆栈、5 MB × 3 份轮转；设置页开关 + 「打开日志文件夹」入口 | P1 | 2026-11-01 |
+| I-046 | 源内进度上报——`IncrementalJsonlScanner` 按 500 文件/2 秒（取大者）节流回调进 `IngestionScanRegistry`，数据源表显示「正在处理 3,200/16,403」 | P2 | 2026-11-01 |
+| I-047 | 采集 gate 等待加超时——`WaitAsync(30 min, ct)`，挂死轮存在时等待方超时放弃本轮（不强杀持锁轮），后续刷新可重新进入 | P2 | 2026-11-01 |
 | D-027 | Overview 单日窗口趋势图切小时形态——今天/昨天不再单点死图（`HourlyCost` 形态 + 已发生边界淡点 + 会话开始归因可见） | P3 | 2026-10-30 |
 | I-043 | 采集真增量（message-grain 记录账本）——**作废（不做，留档）**：去重口径/迁移不可逆/失败回滚三条风险压在信任锚上，触发前提（记录数上万 + 频繁混轮）实测未到 | P2 | 2026-10-30（作废） |
 | B-019 | macOS Dock「显示所有窗口」崩溃——用户真机复验不再复现；仓库无独立修复提交、`.ips` 未取回，根因未取证 | P2 | 2026-10-30 |

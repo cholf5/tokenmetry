@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Jsonl;
 
 namespace Tokenmetry.Infrastructure.ClaudeCodeJsonl;
@@ -18,17 +19,20 @@ public class ClaudeCodeJsonlAdapter : IClaudeCodeJsonlAdapter
     private readonly ClaudeCodeLogLocator _locator;
     private readonly ClaudeCodeJsonlLineParser _lineParser;
     private readonly IncrementalJsonlScanner _scanner;
+    private readonly IngestionScanRegistry? _scanRegistry;
 
     public ClaudeCodeJsonlAdapter(
         string? configuredRoot = null,
         ClaudeCodeLogLocator? locator = null,
         ClaudeCodeJsonlLineParser? lineParser = null,
         ClaudeUsageRecordDeduper? deduper = null,
-        Func<string, TextReader>? readerFactory = null)
+        Func<string, TextReader>? readerFactory = null,
+        IngestionScanRegistry? scanRegistry = null)
     {
         _configuredRoot = configuredRoot;
         _locator = locator ?? new ClaudeCodeLogLocator();
         _lineParser = lineParser ?? new ClaudeCodeJsonlLineParser();
+        _scanRegistry = scanRegistry;
         _scanner = new IncrementalJsonlScanner(readerFactory, deduper);
     }
 
@@ -36,7 +40,7 @@ public class ClaudeCodeJsonlAdapter : IClaudeCodeJsonlAdapter
     {
         var roots = _locator.ResolveRoots(_configuredRoot);
         var files = ClaudeCodeLogLocator.EnumerateUsageFiles(roots);
-        var output = await _scanner.ScanAsync(files, ParseFileAsync, ct);
+        var output = await _scanner.ScanAsync(files, ParseFileAsync, ct, ReportProgress);
 
         return new ClaudeCodeScanResult
         {
@@ -45,6 +49,10 @@ public class ClaudeCodeJsonlAdapter : IClaudeCodeJsonlAdapter
             Diagnostics = output.Diagnostics,
         };
     }
+
+    /// <summary>I-046：源内进行中进度进注册表（AgentName 键与管道完成登记一致）。</summary>
+    private void ReportProgress(int processed, int discovered) =>
+        _scanRegistry?.ReportScanProgress(ClaudeCodeJsonlLineParser.AgentName, processed, discovered);
 
     private async Task<JsonlFileParseOutcome> ParseFileAsync(string path, TextReader reader, CancellationToken ct)
     {

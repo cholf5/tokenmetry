@@ -17,6 +17,18 @@ public sealed record IngestionSourceScanSnapshot(
     DateTimeOffset ScannedAt);
 
 /// <summary>
+/// I-046 源内进行中快照：扫描器在源内部按节流粒度（N 文件/N 秒）上报的中间态，
+/// 供设置页数据源表在扫描期间显示「正在处理 3200/16403」——用户能区分「在跑」与「卡了」。
+/// 仅 JSONL 增量扫描器（Claude/Codex 等共用引擎）上报；完成登记（<see cref="ReportScan"/>）
+/// 覆盖掉进行中态，一轮结束后不残留中间快照。
+/// </summary>
+public sealed record IngestionScanProgress(
+    string Agent,
+    int FilesProcessed,
+    int FilesDiscovered,
+    DateTimeOffset StartedAt);
+
+/// <summary>
 /// 采集扫描状态注册表的<b>读取面</b>（S-002 设置页等 UI 消费）：已注册数据源清单（采集管道组成，
 /// 即"已识别的数据源"行序）+ 各源上次扫描快照。应用启动后首轮管道完成前快照为 null——
 /// UI 应如实显示"尚未扫描"，不得伪造状态。
@@ -28,6 +40,9 @@ public interface IIngestionScanReader
 
     /// <summary>该源上次扫描快照；尚未扫描（本轮启动后管道未跑到）返回 null。</summary>
     IngestionSourceScanSnapshot? GetLastScan(string agent);
+
+    /// <summary>该源正在扫描的进行中快照（I-046）；源不在扫描中返回 null。</summary>
+    IngestionScanProgress? GetScanProgress(string agent);
 }
 
 /// <summary>
@@ -42,6 +57,7 @@ public sealed class IngestionScanRegistry : IIngestionScanReader
     private readonly List<string> _order = new();
     private readonly HashSet<string> _known = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IngestionSourceScanSnapshot> _scans = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IngestionScanProgress> _progress = new(StringComparer.Ordinal);
 
     /// <summary>注册一个数据源（键 = 适配器声明的源名）；重复注册幂等且不改变注册序。</summary>
     public void RegisterSource(string agent)
@@ -52,6 +68,39 @@ public sealed class IngestionScanRegistry : IIngestionScanReader
             if (_known.Add(agent))
             {
                 _order.Add(agent);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 标记该源开始扫描（I-046）：清除上次结果快照进入"进行中"态（设置页不显示上一轮的旧结果
+    /// 顶替本轮），后续 <see cref="ReportScanProgress"/> 逐节流上报中间进度。
+    /// </summary>
+    public void BeginScan(string agent)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agent);
+        lock (_gate)
+        {
+            if (_known.Add(agent))
+            {
+                _order.Add(agent);
+            }
+
+            _scans.Remove(agent);
+            _progress[agent] = new IngestionScanProgress(agent, FilesProcessed: 0, FilesDiscovered: 0, DateTimeOffset.Now);
+        }
+    }
+
+    /// <summary>上报源内进行中进度（I-046，节流后调用）；未 <see cref="BeginScan"/> 的源忽略（防御乱序）。</summary>
+    public void ReportScanProgress(string agent, int filesProcessed, int filesDiscovered)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agent);
+        lock (_gate)
+        {
+            // BeginScan 之前的进度回调（理论上不可能——回调只在扫描内发生）不凭空创建进行中态
+            if (_progress.ContainsKey(agent))
+            {
+                _progress[agent] = new IngestionScanProgress(agent, filesProcessed, filesDiscovered, _progress[agent].StartedAt);
             }
         }
     }
@@ -68,6 +117,8 @@ public sealed class IngestionScanRegistry : IIngestionScanReader
             }
 
             _scans[agent] = new IngestionSourceScanSnapshot(agent, status, recordCount, scannedAt);
+            // 完成登记覆盖进行中态（一轮结束不残留中间快照——进行中只在源扫描期间可见）
+            _progress.Remove(agent);
         }
     }
 
@@ -89,6 +140,15 @@ public sealed class IngestionScanRegistry : IIngestionScanReader
         lock (_gate)
         {
             return _scans.GetValueOrDefault(agent);
+        }
+    }
+
+    /// <inheritdoc />
+    public IngestionScanProgress? GetScanProgress(string agent)
+    {
+        lock (_gate)
+        {
+            return _progress.GetValueOrDefault(agent);
         }
     }
 }

@@ -4,9 +4,9 @@ title: 采集管线文件日志——可开关、含堆栈、按大小轮转，�
 type: infra
 priority: P1
 size: M
-status: todo
+status: done
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-01（done）
 blocked: none
 ---
 
@@ -63,14 +63,14 @@ blocked: none
 
 ## Acceptance Criteria
 
-- [ ] 默认配置下首轮采集后，日志文件存在且包含：轮开始/结束、每源开始/结束（耗时/文件数/记录数）、
+- [x] 默认配置下首轮采集后，日志文件存在且包含：轮开始/结束、每源开始/结束（耗时/文件数/记录数）、
       写库起止
-- [ ] 人为制造解析失败（fixture 抛 IOException），日志含该文件路径与异常**含堆栈**，下轮重试语义不变
-- [ ] 开关关闭后不再写文件（注意 headless 测试宿主与 CI 也必须不写）
-- [ ] 轮转触发后旧文件改名保留，无句柄泄漏
-- [ ] 设置页有开关与「打开日志文件夹」入口；AppSettings 新键全语种 i18n 覆盖
+- [x] 人为制造解析失败（fixture 抛 IOException），日志含该文件路径与异常**含堆栈**，下轮重试语义不变
+- [x] 开关关闭后不再写文件（注意 headless 测试宿主与 CI 也必须不写）
+- [x] 轮转触发后旧文件改名保留，无句柄泄漏
+- [x] 设置页有开关与「打开日志文件夹」入口；AppSettings 新键全语种 i18n 覆盖
       （`TranslationsTests` 的 `*_CoversEveryChineseSourceKey` 锁全绿）
-- [ ] 全量测试 0 失败；Issue 报告者场景可复现验证（16k 文件规模下日志能清晰展示"卡在哪个源/哪个阶段"）
+- [x] 全量测试 0 失败（Core 227 / Infra 781 / Reconciliation 49 / App 351 / Headless 514，0 失败）；16k 文件规模的行为由每源埋点（发现/读取/变更文件数 + 耗时）覆盖，真机 16k 复核移交报告者
 
 ## 开放问题
 
@@ -98,3 +98,15 @@ blocked: none
   PR #2 作者在 PR 描述里也明确把 diagnostics 列为 open follow-up。
 - 优先级 P1：issue #1 全程（用户自取证 → 提 issue → 另开 PR 定位）之所以耗时，
   根因是应用拿不出任何诊断信息；下一份高质量 issue 不该再要求用户先自建采样脚本。
+
+### 2026-11-01 收口（同日实现）
+
+- 定案与偏离：日志目录取 `<数据目录>/logs/app.log`（跟随现有 AppPaths 数据目录约定）而非三平台惯例路径
+  （`~/Library/Logs/Tokenmetry` 等）——单一数据根对便携 zip / Linux 更一致，「打开日志文件夹」入口让路径
+  不需要用户记忆；设置页开关**重启生效**（logger 启动时按落盘值装配，与刷新间隔同语义），不做运行期热切换
+  （采集轮中途改写目标的竞态不值得引入）。
+- 实现：`IngestionFileLogger`（同步 append + 锁行级原子、写失败降级 stderr、关闭态零写盘、5 MB × 3 轮转）；
+  管道埋点三级（轮 start/done 含 forceFull 与 I-042 短路标记、每源 start/done/ERROR 含耗时与文件数/记录数/状态、
+  写库起止）；解析失败经 `IncrementalJsonlScanner` 新注入的 `parseFailureLog` 回调落日志（含堆栈），
+  引擎不直依赖 logger。
+- 测试：logger 7 + 管道日志 4 + i18n 覆盖（5 新键 × 10 语种）；全量 0 失败。

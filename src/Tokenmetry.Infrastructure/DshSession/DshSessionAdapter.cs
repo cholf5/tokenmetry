@@ -22,16 +22,19 @@ public class DshSessionAdapter : IDshSessionAdapter
     private readonly DshLogLocator _locator;
     private readonly DshSessionLogParser _fileParser;
     private readonly IncrementalJsonlScanner _scanner;
+    private readonly IngestionScanRegistry? _scanRegistry;
 
     public DshSessionAdapter(
         string? configuredHome = null,
         DshLogLocator? locator = null,
         DshSessionLogParser? fileParser = null,
-        ClaudeUsageRecordDeduper? deduper = null)
+        ClaudeUsageRecordDeduper? deduper = null,
+        IngestionScanRegistry? scanRegistry = null)
     {
         _configuredHome = configuredHome;
         _locator = locator ?? new DshLogLocator();
         _fileParser = fileParser ?? new DshSessionLogParser();
+        _scanRegistry = scanRegistry;
         _scanner = new IncrementalJsonlScanner(OpenLogReader, deduper);
     }
 
@@ -76,7 +79,8 @@ public class DshSessionAdapter : IDshSessionAdapter
                         Interrupted: false);
                 }
             },
-            ct).ConfigureAwait(false);
+            ct,
+            ReportProgress).ConfigureAwait(false);
 
         return new JsonlScanResult
         {
@@ -111,4 +115,8 @@ public class DshSessionAdapter : IDshSessionAdapter
             throw;
         }
     }
+
+    /// <summary>I-046：源内进行中进度进注册表（DSHLogParser.AgentName 键与管道完成登记一致）。</summary>
+    private void ReportProgress(int processed, int discovered) =>
+        _scanRegistry?.ReportScanProgress(DshSessionLogParser.AgentName, processed, discovered);
 }

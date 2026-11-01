@@ -32,6 +32,45 @@ public class SettingsViewModelTests
         viewModel.SettingsFilePath.Should().Be(System.IO.Path.Combine(paths.AppDataDirectory, "settings.json"));
     }
 
+    // ---- I-045：采集文件日志开关 + 「打开日志文件夹」出口 ----
+
+    [Fact]
+    public void Constructor_SeedsFileLoggingEnabledFromSettings()
+    {
+        var settings = new AppSettings { FileLoggingEnabled = false };
+
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
+
+        viewModel.FileLoggingEnabled.Should().BeFalse("开关初始值来自 settings.json（默认开）");
+    }
+
+    [Fact]
+    public void FileLoggingToggle_PersistsImmediately()
+    {
+        var settings = new AppSettings { FileLoggingEnabled = true };
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store);
+
+        viewModel.FileLoggingEnabled = false;
+
+        settings.FileLoggingEnabled.Should().BeFalse("切换即写回设置");
+        store.SaveCalls.Should().BeGreaterThan(0, "全自动保存：改完即落盘");
+    }
+
+    [Fact]
+    public void OpenLogFolder_invokes_launcher_with_log_directory()
+    {
+        string? opened = null;
+        var paths = new AppPaths("C:\\Users\\tester\\AppData\\Local\\Tokenmetry");
+        var viewModel = CreateViewModel(new AppSettings(), paths, new FakeSettingsStore(),
+            openLogFolder: path => opened = path);
+
+        viewModel.OpenLogFolderCommand.Execute(null);
+
+        opened.Should().Be(paths.LogDirectory);
+        paths.LogDirectory.Should().Contain("logs");
+    }
+
     // ---- 本地路径区「打开目录」出口（S-007）：显示路径的用途就是去看/备份/排障，动作必须一步可达 ----
 
     [Fact]
@@ -442,7 +481,8 @@ public class SettingsViewModelTests
         IThemeService? themeService = null,
         FakeAutoStartManager? autoStartManager = null,
         Tokenmetry.App.Update.UpdateService? updateService = null,
-        Action<string>? openDataFolder = null)
+        Action<string>? openDataFolder = null,
+        Action<string>? openLogFolder = null)
     {
         return new SettingsViewModel(
             settings,
@@ -451,7 +491,8 @@ public class SettingsViewModelTests
             themeService ?? new FakeThemeService(),
             autoStartManager ?? new FakeAutoStartManager(),
             updateService,
-            openDataFolder);
+            openDataFolder,
+            openLogFolder);
     }
 
     private sealed class FakeThemeService : IThemeService

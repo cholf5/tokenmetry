@@ -1,5 +1,6 @@
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Jsonl;
 
 namespace Tokenmetry.Infrastructure.Grok;
@@ -21,15 +22,18 @@ public class GrokAdapter : IGrokAdapter
     private readonly GrokLogLocator _locator;
     private readonly GrokLogParser _parser;
     private readonly IncrementalJsonlScanner _scanner;
+    private readonly IngestionScanRegistry? _scanRegistry;
 
     public GrokAdapter(
         string? configuredDataDir = null,
         GrokLogLocator? locator = null,
-        GrokLogParser? parser = null)
+        GrokLogParser? parser = null,
+        IngestionScanRegistry? scanRegistry = null)
     {
         _configuredDataDir = configuredDataDir;
         _locator = locator ?? new GrokLogLocator();
         _parser = parser ?? new GrokLogParser();
+        _scanRegistry = scanRegistry;
         _scanner = new IncrementalJsonlScanner(dedupe: GlobalDedupe);
     }
 
@@ -37,7 +41,7 @@ public class GrokAdapter : IGrokAdapter
     {
         var sessions = _locator.CollectSessionFiles(_configuredDataDir);
         var files = sessions.Select(session => session.Updates).ToList();
-        var output = await _scanner.ScanAsync(files, _parser.ParseFileAsync, ct);
+        var output = await _scanner.ScanAsync(files, _parser.ParseFileAsync, ct, ReportProgress);
 
         // 蓝本 entries.sort_by_key(timestamp)：稳定排序，同刻保持文件/行序。
         var root = _locator.ResolveRoot(_configuredDataDir);
@@ -48,6 +52,10 @@ public class GrokAdapter : IGrokAdapter
             Diagnostics = output.Diagnostics,
         };
     }
+
+    /// <summary>I-046：源内进行中进度进注册表（GrokLogParser.AgentName 键与管道完成登记一致）。</summary>
+    private void ReportProgress(int processed, int discovered) =>
+        _scanRegistry?.ReportScanProgress(GrokLogParser.AgentName, processed, discovered);
 
     /// <summary>
     /// 跨文件全局去重（蓝本 loader entries.retain）：message.id（eventId）存在 → 键 "eventId|模型"

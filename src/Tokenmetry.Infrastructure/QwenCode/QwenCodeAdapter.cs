@@ -1,5 +1,6 @@
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Jsonl;
 
 namespace Tokenmetry.Infrastructure.QwenCode;
@@ -21,17 +22,20 @@ public class QwenCodeAdapter : IQwenCodeAdapter
     private readonly QwenLogLocator _locator;
     private readonly QwenLogParser _parser;
     private readonly IncrementalJsonlScanner _scanner;
+    private readonly IngestionScanRegistry? _scanRegistry;
 
     public QwenCodeAdapter(
         string? configuredDataDir = null,
         QwenLogLocator? locator = null,
         QwenLogParser? parser = null,
         QwenUsageRecordDeduper? deduper = null,
-        Func<string, TextReader>? readerFactory = null)
+        Func<string, TextReader>? readerFactory = null,
+        IngestionScanRegistry? scanRegistry = null)
     {
         _configuredDataDir = configuredDataDir;
         _locator = locator ?? new QwenLogLocator();
         _parser = parser ?? new QwenLogParser();
+        _scanRegistry = scanRegistry;
         _scanner = new IncrementalJsonlScanner(
             readerFactory,
             dedupe: (deduper ?? new QwenUsageRecordDeduper()).Dedupe);
@@ -41,7 +45,7 @@ public class QwenCodeAdapter : IQwenCodeAdapter
     {
         var roots = _locator.ResolveDataDirectories(_configuredDataDir);
         var files = _locator.CollectChatFiles(roots);
-        var output = await _scanner.ScanAsync(files, _parser.ParseFileAsync, ct);
+        var output = await _scanner.ScanAsync(files, _parser.ParseFileAsync, ct, ReportProgress);
 
         // 蓝本 entries.sort_by_key(timestamp)：稳定排序，同刻保持文件/行序。
         return new JsonlScanResult
@@ -51,4 +55,8 @@ public class QwenCodeAdapter : IQwenCodeAdapter
             Diagnostics = output.Diagnostics,
         };
     }
+
+    /// <summary>I-046：源内进行中进度进注册表（QwenLogParser.AgentName 键与管道完成登记一致）。</summary>
+    private void ReportProgress(int processed, int discovered) =>
+        _scanRegistry?.ReportScanProgress(QwenLogParser.AgentName, processed, discovered);
 }

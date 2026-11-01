@@ -99,6 +99,14 @@
                         <TextBlock Classes="setting-hint" TextWrapping="Wrap" Margin="24,0,0,0"
                                    Text="{Binding CheckAutoStartOnBootHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
+
+                    <!-- I-045：采集文件日志（默认开；日志目录入口在下方「本地路径」区） -->
+                    <StackPanel Spacing="4">
+                        <CheckBox Content="{Binding CheckFileLogging, Source={x:Static loc:Translations.Instance}}"
+                                  IsChecked="{Binding FileLoggingEnabled}"/>
+                        <TextBlock Classes="setting-hint" TextWrapping="Wrap" Margin="24,0,0,0"
+                                   Text="{Binding CheckFileLoggingHint, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
@@ -115,6 +123,11 @@
                         <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelSettingsFile, Source={x:Static loc:Translations.Instance}}"/>
                         <SelectableTextBlock Grid.Column="1" Classes="table-td" Text="{Binding SettingsFilePath}" TextWrapping="Wrap"/>
                     </Grid>
+                    <!-- I-045：采集日志路径（排障自取路径；SelecteableTextBlock 同上） -->
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelLogFile, Source={x:Static loc:Translations.Instance}}"/>
+                        <SelectableTextBlock Grid.Column="1" Classes="table-td" Text="{Binding LogDirectory}" TextWrapping="Wrap"/>
+                    </Grid>
                     <!-- 动作回到面板底部左对齐一行（同「关于」区的「检查更新」位置与样式）：标题行右侧挂
                          实心按钮会在宽面板上悬在右缘、与左侧键值行脱开；底部左对齐让面板级动作“读完之后
                          就在下面”，也与页内其它面板按钮同列。两个文件同目录，一个动作就够。
@@ -123,6 +136,10 @@
                         <Button Classes="app-btn"
                                 Content="{Binding SettingsOpenDataFolder, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding OpenDataFolderCommand}"/>
+                        <!-- I-045：报 issue 时有东西可贴（错误报告出口；卡内定案只做入口不做内置查看器） -->
+                        <Button Classes="app-btn"
+                                Content="{Binding SettingsOpenLogFolder, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding OpenLogFolderCommand}"/>
                     </StackPanel>
                 </StackPanel>
             </Border>

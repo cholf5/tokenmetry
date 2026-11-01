@@ -59,6 +59,14 @@ public class AppSettings
     public bool AutoStartOnBoot { get; set; }
 
     /// <summary>
+    /// 采集管线文件日志开关（I-045，默认开）：日志落在 <see cref="Tokenmetry.App.Services.AppPaths"/>
+    /// 同目录的 logs/（<c>app.log</c>，按大小轮转保留 3 份），内容只含路径/计数/耗时/异常（隐私红线）。
+    /// 消费者 = AppServices 装配（IngestionFileLogger 构造参数）；UI 出口 = 设置页开关。
+    /// 默认开：issue #1 的教训——应用拿不出任何诊断信息时，用户只能靠自建采样脚本自证。
+    /// </summary>
+    public bool FileLoggingEnabled { get; set; } = true;
+
+    /// <summary>
     /// 更新检查的上次时间戳（UTC，无 UI 出口——非用户偏好）：启动期静默周检（App 启动序列）按它节流，
     /// 手动「检查更新」不受限但同样刷新本时间戳（成功与失败都记——节流语义是「打过一次卡」，打不通的
     /// 网络每次启动都重试只会白费）。消费者 = UpdateService。
