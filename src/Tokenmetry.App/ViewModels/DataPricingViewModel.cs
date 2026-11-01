@@ -30,6 +30,8 @@ public sealed record CaliberItem(string Text, string Badge, string Note, bool Is
 /// （status-ok / status-partial / status-nodata / status-pending，颜色复用既有强调色令牌）。
 /// I-034 补：行首附该数据源的 Agent 品牌图标（只读、从 <see cref="Agent"/> 派生，不参与 record
 /// 相等性——同名数据源恒等）。
+/// I-046 补：进行中形态——该源正在扫描时显示「正在处理 x/y」（进度来自注册表进行中快照，
+/// 无中间信号的大目录扫描从“像假死”变成可读的“在跑”）；状态文案挂 status-pending 色系。
 /// </summary>
 public sealed record DataSourceRowViewModel(
     string Agent,
@@ -53,6 +55,18 @@ public sealed record DataSourceRowViewModel(
 
     public static DataSourceRowViewModel NotScannedYet(string agent) =>
         new(agent, Translations.Instance.StatusNotScanned, IsOk: false, IsPartial: false, IsNoData: false, IsError: false, IsPending: true, "—", "—");
+
+    /// <summary>I-046 进行中行：状态 = 「正在处理 x/y」（N0 千分位与全应用数值口径一致），
+    /// 最近扫描 = 扫描开始时刻（进行中无完成时刻可写，如实给起点），记录数 = "—"（本轮未落账）。</summary>
+    public static DataSourceRowViewModel InProgress(IngestionScanProgress progress) =>
+        new(
+            progress.Agent,
+            string.Format(CultureInfo.InvariantCulture, Translations.Instance.StatusInProgressFormat,
+                progress.FilesProcessed.ToString("N0", CultureInfo.InvariantCulture),
+                progress.FilesDiscovered.ToString("N0", CultureInfo.InvariantCulture)),
+            IsOk: false, IsPartial: false, IsNoData: false, IsError: false, IsPending: true,
+            progress.StartedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
+            "—");
 }
 
 /// <summary>
@@ -429,22 +443,28 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     private void RebuildSourceRows()
     {
         var rows = _scanReader.RegisteredSources
-            .Select((agent, index) => (Agent: agent, Index: index, Snapshot: _scanReader.GetLastScan(agent)))
-            .OrderBy(source => ConnectionTier(source.Snapshot))
+            .Select((agent, index) => (Agent: agent, Index: index,
+                Snapshot: _scanReader.GetLastScan(agent),
+                Progress: _scanReader.GetScanProgress(agent)))
+            // I-046：进行中源优先展示（正在跑的源是用户当下最关心的），组内按注册序；
+            // 其余行维持「已连接 → 错误 → 未检出 → 尚未扫描」的既有排序。
+            .OrderBy(source => source.Progress is not null ? -1 : ConnectionTier(source.Snapshot))
             .ThenByDescending(source => source.Snapshot?.RecordCount ?? 0)
             .ThenBy(source => source.Index)
-            .Select(source => source.Snapshot is { } snapshot
-                ? new DataSourceRowViewModel(
-                    source.Agent,
-                    DescribeStatus(snapshot.Status),
-                    IsOk: snapshot.Status == JsonlScanStatus.Ok,
-                    IsPartial: snapshot.Status == JsonlScanStatus.Partial,
-                    IsNoData: snapshot.Status == JsonlScanStatus.NoData,
-                    IsError: snapshot.Status == JsonlScanStatus.Error,
-                    IsPending: false,
-                    FormatLastScan(snapshot.ScannedAt),
-                    snapshot.RecordCount.ToString("N0", CultureInfo.InvariantCulture))
-                : DataSourceRowViewModel.NotScannedYet(source.Agent))
+            .Select(source => source.Progress is { } progress
+                ? DataSourceRowViewModel.InProgress(progress)
+                : source.Snapshot is { } snapshot
+                    ? new DataSourceRowViewModel(
+                        source.Agent,
+                        DescribeStatus(snapshot.Status),
+                        IsOk: snapshot.Status == JsonlScanStatus.Ok,
+                        IsPartial: snapshot.Status == JsonlScanStatus.Partial,
+                        IsNoData: snapshot.Status == JsonlScanStatus.NoData,
+                        IsError: snapshot.Status == JsonlScanStatus.Error,
+                        IsPending: false,
+                        FormatLastScan(snapshot.ScannedAt),
+                        snapshot.RecordCount.ToString("N0", CultureInfo.InvariantCulture))
+                    : DataSourceRowViewModel.NotScannedYet(source.Agent))
             .ToList();
 
         SourceRows.Clear();

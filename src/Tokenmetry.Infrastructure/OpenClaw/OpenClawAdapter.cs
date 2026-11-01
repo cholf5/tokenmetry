@@ -1,6 +1,7 @@
 using System.Globalization;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Jsonl;
 using Tokenmetry.Infrastructure.JsonSource;
 
@@ -31,16 +32,19 @@ public class OpenClawAdapter : IOpenClawAdapter
     private readonly OpenClawLogParser _parser;
     private readonly IncrementalJsonlScanner _scanner;
     private readonly FileStampMemo _sqliteMemo = new();
+    private readonly IngestionScanRegistry? _scanRegistry;
 
     public OpenClawAdapter(
         string? configuredDataDir = null,
         OpenClawLogLocator? locator = null,
         OpenClawLogParser? parser = null,
-        Func<string, TextReader>? readerFactory = null)
+        Func<string, TextReader>? readerFactory = null,
+        IngestionScanRegistry? scanRegistry = null)
     {
         _configuredDataDir = configuredDataDir;
         _locator = locator ?? new OpenClawLogLocator();
         _parser = parser ?? new OpenClawLogParser();
+        _scanRegistry = scanRegistry;
         _scanner = new IncrementalJsonlScanner(readerFactory, dedupe: ContentDedupe);
     }
 
@@ -116,7 +120,7 @@ public class OpenClawAdapter : IOpenClawAdapter
         }
 
         // JSONL 侧照常走共享扫描器（SQLite 记忆命中轮其零变更缓存亦零读取）。
-        var output = await _scanner.ScanAsync(files, _parser.ParseFileAsync, ct);
+        var output = await _scanner.ScanAsync(files, _parser.ParseFileAsync, ct, ReportProgress);
         diagnostics.FilesDiscovered += output.Diagnostics.FilesDiscovered;
         diagnostics.FilesRead += output.Diagnostics.FilesRead;
         diagnostics.LinesSkipped += output.Diagnostics.LinesSkipped;
@@ -222,6 +226,10 @@ public class OpenClawAdapter : IOpenClawAdapter
 
         return entries;
     }
+
+    /// <summary>I-046：源内进行中进度进注册表（OpenClawLogParser.AgentName 键与管道完成登记一致）。</summary>
+    private void ReportProgress(int processed, int discovered) =>
+        _scanRegistry?.ReportScanProgress(OpenClawLogParser.AgentName, processed, discovered);
 
     /// <summary>
     /// JSONL 内容键 first-wins（蓝本 loader seen.insert(entry_id)：migration_id + 成本；

@@ -160,6 +160,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SourceMetaIdle)] = "状态与记录数来自上次采集扫描 · 记录数为增量累计值",
         [nameof(SourceMetaScanning)] = "扫描中…（按源逐个执行，完成后统一刷新）",
         [nameof(SourceMetaScanFailed)] = "上次扫描未完成——下表为最近一次成功快照，可能非本轮数据",
+        [nameof(StatusInProgressFormat)] = "● 正在处理 {0}/{1}",
         [nameof(ScanIdle)] = "重新扫描（全部源）",
         [nameof(ScanRunning)] = "扫描中…",
         [nameof(StatusOk)] = "● 已连接",
@@ -222,6 +223,11 @@ public sealed partial class Translations : INotifyPropertyChanged
         // S-006：开机自启动开关（OS 注册 = IAutoStartManager；--autostart 启动静默常驻托盘）
         [nameof(CheckAutoStartOnBoot)] = "开机自启动（登录时随系统启动）",
         [nameof(CheckAutoStartOnBootHint)] = "登录系统时自动启动并常驻托盘，不弹主窗（从托盘图标或菜单唤回）；关闭后自下次登录起不再自动启动。",
+        // I-045：采集文件日志开关与日志入口
+        [nameof(CheckFileLogging)] = "记录采集日志（推荐开启）",
+        [nameof(CheckFileLoggingHint)] = "把采集进度、每源耗时与解析失败写入本地日志文件（只含路径/计数/耗时/异常，绝不含会话内容），遇到「卡住」「无数据」类问题可凭日志一次定位。关闭后不再写入任何日志文件。",
+        [nameof(LabelLogFile)] = "采集日志",
+        [nameof(SettingsOpenLogFolder)] = "打开日志文件夹",
         [nameof(LocalPathsTitle)] = "本地路径",
         [nameof(LabelCacheDb)] = "缓存数据库",
         [nameof(LabelSettingsFile)] = "设置文件",
@@ -605,6 +611,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SourceMetaIdle)] = "Status and record counts come from the last ingestion scan · counts are cumulative",
         [nameof(SourceMetaScanning)] = "Scanning… (source by source; everything refreshes when done)",
         [nameof(SourceMetaScanFailed)] = "Last scan did not finish — the table below is the most recent successful snapshot and may lag behind",
+        [nameof(StatusInProgressFormat)] = "● Processing {0}/{1}",
         [nameof(ScanIdle)] = "Rescan (all sources)",
         [nameof(ScanRunning)] = "Scanning…",
         [nameof(StatusOk)] = "● Connected",
@@ -669,6 +676,10 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(LabelCacheDb)] = "Cache database",
         [nameof(LabelSettingsFile)] = "Settings file",
         [nameof(SettingsOpenDataFolder)] = "Show in file manager",
+        [nameof(SettingsOpenLogFolder)] = "Open log folder",
+        [nameof(LabelLogFile)] = "Ingestion log",
+        [nameof(CheckFileLogging)] = "Write ingestion log (recommended)",
+        [nameof(CheckFileLoggingHint)] = "Write scan progress, per-source timings and parse failures to a local log file (paths / counts / timings / exceptions only — never session content), so stuck or no-data problems can be pinpointed from the log. Turn off to stop writing any log files.",
         [nameof(AboutTitle)] = "About",
         [nameof(LabelCurrentVersion)] = "Version",
         [nameof(LabelCopyright)] = "Copyright",
@@ -1202,6 +1213,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SourceMetaIdle => Get();
     public string SourceMetaScanning => Get();
     public string SourceMetaScanFailed => Get();
+    public string StatusInProgressFormat => Get();
     public string ScanIdle => Get();
     public string ScanRunning => Get();
     public string StatusOk => Get();
@@ -1262,6 +1274,10 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string CheckMinimizeToTrayOnCloseHint => Get();
     public string CheckAutoStartOnBoot => Get();
     public string CheckAutoStartOnBootHint => Get();
+    public string CheckFileLogging => Get();
+    public string CheckFileLoggingHint => Get();
+    public string LabelLogFile => Get();
+    public string SettingsOpenLogFolder => Get();
     public string LocalPathsTitle => Get();
     public string LabelCacheDb => Get();
     public string LabelSettingsFile => Get();

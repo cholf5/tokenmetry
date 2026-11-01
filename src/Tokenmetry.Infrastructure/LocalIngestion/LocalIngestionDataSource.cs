@@ -76,7 +76,21 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
     private readonly IUsageStore _store;
     private readonly TimeZoneInfo? _timeZone;
     private readonly IngestionScanRegistry? _scanRegistry;
-    private readonly SemaphoreSlim _ingestionGate = new(initialCount: 1, maxCount: 1);
+    private readonly IngestionFileLogger? _fileLog;
+    private SemaphoreSlim _ingestionGate = new(initialCount: 1, maxCount: 1);
+
+    /// <summary>
+    /// I-047 测试注入点（Infrastructure.Tests 经 InternalsVisibleTo）：挂死轮不可在单测里真实复现
+    /// 30 分钟等待，测试替换 gate 实例与等待超时；生产代码不触碰两属性。
+    /// </summary>
+    internal SemaphoreSlim IngestionGate
+    {
+        get => _ingestionGate;
+        set => _ingestionGate = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    /// <summary>I-047 测试注入点：等待超时时长（生产恒为 <see cref="GateWaitTimeout"/> = 30 分钟）。</summary>
+    internal TimeSpan GateWait { get; set; } = GateWaitTimeout;
 
     /// <summary>
     /// I-042 一次性强全量旗标（<see cref="IAggregationInvalidator"/>）：价格/别名热更新后下一轮
@@ -203,6 +217,15 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
     /// <inheritdoc />
     public bool PersistsFacts => true;
 
+    /// <summary>
+    /// I-047 采集 gate 等待超时（报告者建议 30 分钟量级）。取值依据：必须远大于最慢合法轮
+    /// （16k 文件首启解析 + 去重 + 落库，根因修复后实测独立基准在秒级～分钟级，留一个数量级余量），
+    /// 远小于「用户当天还会再看一眼」的尺度；也远大于报告者实测的 5 分钟刷新 tick 尺度，
+    /// 保证合法慢轮永不误伤。超时只放弃<b>等待</b>，绝不中断仍持有 gate 的那一轮
+    /// （增量扫描器单例非线程安全，强杀留中间态下一轮直接踩坏——卡内明确不做）。
+    /// </summary>
+    internal static readonly TimeSpan GateWaitTimeout = TimeSpan.FromMinutes(30);
+
     public LocalIngestionDataSource(
         IClaudeCodeJsonlAdapter claudeAdapter,
         ICodexJsonlAdapter codexAdapter,
@@ -228,7 +251,8 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         IUsageStore store,
         ModelsDevPricingClient? pricingClient = null,
         TimeZoneInfo? timeZone = null,
-        IngestionScanRegistry? scanRegistry = null)
+        IngestionScanRegistry? scanRegistry = null,
+        IngestionFileLogger? fileLogger = null)
     {
         _claudeAdapter = claudeAdapter ?? throw new ArgumentNullException(nameof(claudeAdapter));
         _codexAdapter = codexAdapter ?? throw new ArgumentNullException(nameof(codexAdapter));
@@ -255,6 +279,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         _pricingClient = pricingClient;
         _timeZone = timeZone;
         _scanRegistry = scanRegistry;
+        _fileLog = fileLogger;
         // S-002：管道组成即"已识别数据源"清单，构造时注册（含未扫描态——UI 显示"尚未扫描"）
         if (_scanRegistry is { } registry)
         {
@@ -277,7 +302,17 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
     /// </summary>
     private async Task<List<DailyUsageSummary>> GetDailyUsageCoreAsync(CancellationToken ct)
     {
-        await _ingestionGate.WaitAsync(ct);
+        // I-047：等待加超时——持锁轮挂死时后续轮次等待超时后放弃本轮，不再永久排队。
+        // ct 取消仍即时生效（WaitAsync 的 ct 与超时并存语义）；超时与取消都归入"本轮未执行"。
+        var waitStart = DateTimeOffset.Now;
+        var acquired = await _ingestionGate.WaitAsync(GateWait, ct);
+        if (!acquired)
+        {
+            _fileLog?.WriteLine($"gate wait timeout after {(DateTimeOffset.Now - waitStart).TotalSeconds:F1}s — 本轮放弃（持锁轮未返回；后续刷新可重新进入，不强杀持锁轮）");
+            Console.Error.WriteLine("[Tokenmetry] 采集 gate 等待超时，本轮放弃（后续刷新可重新进入）");
+            return new List<DailyUsageSummary>();
+        }
+
         try
         {
             // models.dev 定价后台刷新：到期才发请求、单飞、失败静默、绝不阻塞主刷新
@@ -287,6 +322,9 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
                 _ = Task.Run(() => pricingClient.RefreshIfDueAsync(ct), ct);
             }
 
+            var roundStart = DateTimeOffset.Now;
+            _fileLog?.WriteLine($"round start (forceFull={_forceFullNextRound})");
+
             // S-002：逐源扫描（顺序与拼接序 = BuildScanPipeline 清单），每源完成后向注册表登记
             // 真实快照（状态 / 累计记录数 / 完成时刻），供设置页数据源表读取。
             // A-6 逐源异常隔离：任一适配器抛出只跳过该源（登记 Error 快照供设置页如实显示），
@@ -295,6 +333,9 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             foreach (var (agent, scan) in BuildScanPipeline())
             {
                 JsonlScanResult result;
+                var sourceStart = DateTimeOffset.Now;
+                _fileLog?.WriteLine($"source [{agent}] start");
+                _scanRegistry?.BeginScan(agent);
                 try
                 {
                     result = await scan(ct);
@@ -305,11 +346,18 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
                 }
                 catch (Exception ex)
                 {
+                    var elapsed = (DateTimeOffset.Now - sourceStart).TotalMilliseconds;
                     Console.Error.WriteLine($"[Tokenmetry] 数据源 {agent} 扫描失败（本轮跳过，其余源不受影响）：{ex.Message}");
+                    _fileLog?.WriteLine($"source [{agent}] ERROR after {elapsed:F0} ms", ex);
                     _scanRegistry?.ReportScan(agent, JsonlScanStatus.Error, 0, DateTimeOffset.Now);
                     continue;
                 }
 
+                var sourceElapsed = (DateTimeOffset.Now - sourceStart).TotalMilliseconds;
+                _fileLog?.WriteLine(
+                    $"source [{agent}] done in {sourceElapsed:F0} ms — files discovered/read/changed: " +
+                    $"{result.Diagnostics.FilesDiscovered}/{result.Diagnostics.FilesRead}/{result.Diagnostics.FilesChanged?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "n/a"}, " +
+                    $"records: {result.Records.Count}, status: {result.Diagnostics.Status}");
                 scanResults.Add((agent, result));
                 _scanRegistry?.ReportScan(agent, result.Diagnostics.Status, result.Records.Count, DateTimeOffset.Now);
             }
@@ -322,6 +370,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             {
                 // 无记录（日志目录不存在 / 全空）时不动存储：保留既有数据（含旧 CLI 行），
                 // 避免空扫描把用户仅存的历史清掉。
+                _fileLog?.WriteLine($"round done in {(DateTimeOffset.Now - roundStart).TotalMilliseconds:F0} ms — no records, store untouched");
                 return new List<DailyUsageSummary>();
             }
 
@@ -333,10 +382,12 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
                 var cachedFacts = await _store.GetUsageFactsAsync(ct);
                 if (cachedFacts.Count > 0)
                 {
+                    _fileLog?.WriteLine($"round done in {(DateTimeOffset.Now - roundStart).TotalMilliseconds:F0} ms — I-042 unchanged shortcut, facts reused ({cachedFacts.Count} rows)");
                     return UsageFactsMapper.ToDailySummaries(cachedFacts);
                 }
             }
 
+            _fileLog?.WriteLine($"full pipeline: pricing {records.Count} records");
             _pricingEngine.ClearUnpricedModels();
             // 补价结果进侧表（按记录引用），不写回记录：适配器增量扫描会跨刷新复用同一批
             // UsageRecord 实例，写回 CostUsd 会让下次刷新被 LogCost 短路锁死旧价，
@@ -352,17 +403,21 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
 
             var usageFacts = UsageFactsMapper.ToUsageFacts(records, _timeZone, pricedCosts);
             var sessionFacts = UsageFactsMapper.ToSessionFacts(records, pricedCosts);
+            var upsertStart = DateTimeOffset.Now;
+            _fileLog?.WriteLine($"store upsert start — facts: {usageFacts.Count}, sessions: {sessionFacts.Count}");
             await _store.UpsertUsageFactsAsync(usageFacts, ct);
             await _store.UpsertSessionFactsAsync(sessionFacts, ct);
 
             // 数据源切换清理（I-002 转记）：本地采集是唯一权威源后，旧 CLI 源的分解粒度行
             // （day / agent / model / project grain）不应再影响读取；full 粒度行不受影响。
             await _store.DeleteDecompositionFactsAsync(ct);
+            _fileLog?.WriteLine($"store upsert done in {(DateTimeOffset.Now - upsertStart).TotalMilliseconds:F0} ms");
 
             var facts = await _store.GetUsageFactsAsync(ct);
             // 强全量旗标在全量管道成功完成后才清除：中途失败（落库抛错等）保留到下轮重试，
             // 不让失败轮吞掉价格/别名热更新的生效保证。
             _forceFullNextRound = false;
+            _fileLog?.WriteLine($"round done in {(DateTimeOffset.Now - roundStart).TotalMilliseconds:F0} ms — full pipeline, facts: {facts.Count} rows");
             return UsageFactsMapper.ToDailySummaries(facts);
         }
         finally

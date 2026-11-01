@@ -4,9 +4,9 @@ title: 源内进度上报——数据源表显示「正在处理 3200/16403」�
 type: infra
 priority: P2
 size: M
-status: todo
+status: done
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-01（done）
 blocked: none
 ---
 
@@ -52,13 +52,13 @@ blocked: none
 
 ## Acceptance Criteria
 
-- [ ] Claude/Codex 源扫描期间，`IngestionScanRegistry` 能读到按文件数递增的进行中快照
+- [x] Claude/Codex 源扫描期间，`IngestionScanRegistry` 能读到按文件数递增的进行中快照
       （fixture 用可暂停的 parseFile 委托断言中间值）
-- [ ] 节流正确：N 文件/N 秒双条件，快速小目录不产生回调风暴（用例锁回调次数上限）
-- [ ] 设置页数据源表扫描期间显示进行中文案，完成后回结果态（headless 断言语言无关）
-- [ ] 全部新文案进 Translations 且全语种覆盖测试全绿
-- [ ] 不改扫描语义：文件记账、去重、I-042 短路判定、诊断计数全部不变（既有测试零改动通过）
-- [ ] 全量测试 0 失败
+- [x] 节流正确：N 文件/N 秒双条件，快速小目录不产生回调风暴（用例锁回调次数上限）
+- [x] 设置页数据源表扫描期间显示进行中文案，完成后回结果态（headless 断言语言无关）
+- [x] 全部新文案进 Translations 且全语种覆盖测试全绿
+- [x] 不改扫描语义：文件记账、去重、I-042 短路判定、诊断计数全部不变（既有测试零改动通过，实测）
+- [x] 全量测试 0 失败
 
 ## 开放问题
 
@@ -82,3 +82,16 @@ blocked: none
 - 用户指示"为那三项建卡"（issue #1 报告者提出的三项改进，本卡 = 顺带改进 #1）。
 - 优先级 P2：#2 修掉根因后"假死"已消除，本卡价值回归到"大历史量首启/重扫期间的确定性反馈"，
   是体验改进而非缺陷修复；排在 I-045（诊断面空白）之后。
+
+### 2026-11-01 收口（同日实现）
+
+- 定案：节流 = 每 500 文件或 2 秒取大者（`ProgressEveryFiles`/`ProgressEverySeconds` 常量）；回调经
+  `ScanAsync` 可选参数注入（适配器层注册表透传，引擎不依赖 Core 服务类型之外的东西）。
+- 注册表：`BeginScan`（清上轮结果快照进入进行中态）/ `ReportScanProgress`（未 BeginScan 忽略，防御乱序）/
+  `GetScanProgress`（`IIngestionScanReader` 新成员，三处测试桩同步补齐）；`ReportScan` 覆盖进行中态
+  （一轮结束不残留中间快照）。
+- 受益源：Claude / Codex / DSH / Qwen / Kimi / Grok / OpenClaw 七个共用引擎的适配器（构造注入注册表）；
+  SQLite 账本类源不做（卡内定案）。
+- UI：数据源表进行中源置顶、状态列「● 正在处理 3,200/16,403」（N0 千分位）、记录数列 "—"（本轮未落账不伪造）；
+  完成后回既有结果态（行序分层不变）。文案键 `StatusInProgressFormat` 全语种覆盖。
+- 测试：进度节流 5 + 注册表进行中 5 + App 行为 1 + headless 渲染 1；既有扫描器/适配器测试零改动通过。

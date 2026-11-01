@@ -107,6 +107,9 @@ public partial class SettingsViewModel : ViewModelBase
     /// <summary>「打开数据目录」的系统出口（生产 = <see cref="ShellLauncher.OpenFolder"/>；测试注入记录器）。</summary>
     private readonly Action<string> _openDataFolder;
 
+    /// <summary>「打开日志文件夹」的系统出口（I-045；注入缝同上——测试断言目标路径；生产同一出口）。</summary>
+    private readonly Action<string> _openLogFolder;
+
     /// <summary>自动保存串行化 gate：文本框逐键触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
 
@@ -121,6 +124,11 @@ public partial class SettingsViewModel : ViewModelBase
     /// 注册内容带 --autostart 参数（启动静默常驻托盘）。</summary>
     [ObservableProperty]
     private bool _autoStartOnBoot;
+
+    /// <summary>采集文件日志开关（I-045，默认开）：消费面 = AppServices 装配的 IngestionFileLogger 单例。
+    /// 切换即落盘；运行中的采集轮不受影响，重启后按落盘值装配（与刷新间隔同语义）。</summary>
+    [ObservableProperty]
+    private bool _fileLoggingEnabled;
 
     /// <summary>刷新间隔的行内校验提示（非法输入时非空并显示；合法/初始为 null 隐藏）。</summary>
     [ObservableProperty]
@@ -147,7 +155,8 @@ public partial class SettingsViewModel : ViewModelBase
         IThemeService themeService,
         IAutoStartManager autoStartManager,
         UpdateService? updateService = null,
-        Action<string>? openDataFolderOverride = null)
+        Action<string>? openDataFolderOverride = null,
+        Action<string>? openLogFolderOverride = null)
     {
         _settings = settings;
         _store = store;
@@ -157,10 +166,13 @@ public partial class SettingsViewModel : ViewModelBase
         AppDataDirectory = paths.AppDataDirectory;
         CacheDbPath = paths.CacheDbPath;
         SettingsFilePath = paths.SettingsFilePath;
+        LogDirectory = paths.LogDirectory;
         _openDataFolder = openDataFolderOverride ?? ShellLauncher.OpenFolder;
+        _openLogFolder = openLogFolderOverride ?? _openDataFolder;
         _refreshMinutesText = settings.RefreshMinutes.ToString();
         _minimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
         _autoStartOnBoot = settings.AutoStartOnBoot;
+        _fileLoggingEnabled = settings.FileLoggingEnabled;
         _selectedTheme = ResolveThemeOption(settings.Theme);
         _selectedLanguage = ResolveLanguageOption(settings.Language);
         // 更新检查服务为 DI 单例（与托盘菜单共享状态）；测试直接构造时缺省自建（不发网络——
@@ -182,6 +194,9 @@ public partial class SettingsViewModel : ViewModelBase
 
     public string CacheDbPath { get; }
     public string SettingsFilePath { get; }
+
+    /// <summary>采集日志目录（I-045；「打开日志文件夹」目标；与数据目录同根的 logs/ 子目录）。</summary>
+    public string LogDirectory { get; }
 
     /// <summary>两个文件共同的所在目录（「本地路径」区打开按钮的目标；缓存库与设置文件同目录）。</summary>
     public string AppDataDirectory { get; }
@@ -262,6 +277,13 @@ public partial class SettingsViewModel : ViewModelBase
     /// </summary>
     [RelayCommand]
     private void OpenDataFolder() => _openDataFolder(AppDataDirectory);
+
+    /// <summary>
+    /// 「打开日志文件夹」（I-045）：用户报 issue 时的错误报告出口——日志里有可贴的 diagnós face。
+    /// 目标是日志目录（从未写过的关闭态可能尚不存在，文件管理器的行为可接受；ShellLauncher 内 catch 静默）。
+    /// </summary>
+    [RelayCommand]
+    private void OpenLogFolder() => _openLogFolder(LogDirectory);
 
     /// <summary>更新服务状态变化（任意入口触发）→ 重算关于区状态行。可能来自后台线程，故走 <see cref="UiPost"/>。</summary>
     private void OnUpdateServiceChanged() => UiPost(RefreshUpdateStatusFromState);
@@ -352,6 +374,13 @@ public partial class SettingsViewModel : ViewModelBase
     partial void OnMinimizeToTrayOnCloseChanged(bool value)
     {
         _settings.MinimizeToTrayOnClose = value;
+        PersistSettings();
+    }
+
+    /// <summary>采集文件日志开关（I-045）：勾选即存（logger 读取设置；关闭后不再新增写入，重启后按落盘值装配）。</summary>
+    partial void OnFileLoggingEnabledChanged(bool value)
+    {
+        _settings.FileLoggingEnabled = value;
         PersistSettings();
     }
 

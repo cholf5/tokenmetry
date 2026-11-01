@@ -91,6 +91,8 @@ public class SiteShotsTests
 
         public IngestionSourceScanSnapshot? GetLastScan(string agent) => _scans.GetValueOrDefault(agent);
 
+        public IngestionScanProgress? GetScanProgress(string agent) => null;
+
         public void Register(string agent, IngestionSourceScanSnapshot snapshot)
         {
             if (!Registered.Contains(agent))

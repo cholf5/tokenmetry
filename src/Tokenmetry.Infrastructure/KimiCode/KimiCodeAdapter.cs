@@ -1,5 +1,6 @@
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.Jsonl;
 
 namespace Tokenmetry.Infrastructure.KimiCode;
@@ -22,17 +23,20 @@ public class KimiCodeAdapter : IKimiCodeAdapter
     private readonly KimiLogLocator _locator;
     private readonly KimiLogParser _parser;
     private readonly IncrementalJsonlScanner _scanner;
+    private readonly IngestionScanRegistry? _scanRegistry;
 
     public KimiCodeAdapter(
         string? configuredDataDir = null,
         KimiLogLocator? locator = null,
         KimiLogParser? parser = null,
         KimiUsageRecordDeduper? deduper = null,
-        Func<string, TextReader>? readerFactory = null)
+        Func<string, TextReader>? readerFactory = null,
+        IngestionScanRegistry? scanRegistry = null)
     {
         _configuredDataDir = configuredDataDir;
         _locator = locator ?? new KimiLogLocator();
         _parser = parser ?? new KimiLogParser();
+        _scanRegistry = scanRegistry;
         _scanner = new IncrementalJsonlScanner(
             readerFactory,
             dedupe: (deduper ?? new KimiUsageRecordDeduper()).Dedupe);
@@ -42,7 +46,7 @@ public class KimiCodeAdapter : IKimiCodeAdapter
     {
         var roots = _locator.ResolveDataDirectories(_configuredDataDir);
         var files = _locator.CollectWireFiles(roots);
-        var output = await _scanner.ScanAsync(files, _parser.ParseFileAsync, ct);
+        var output = await _scanner.ScanAsync(files, _parser.ParseFileAsync, ct, ReportProgress);
 
         // 蓝本 entries.sort_by_key(timestamp)：稳定排序，同刻保持文件/行序。
         return new JsonlScanResult
@@ -52,4 +56,8 @@ public class KimiCodeAdapter : IKimiCodeAdapter
             Diagnostics = output.Diagnostics,
         };
     }
+
+    /// <summary>I-046：源内进行中进度进注册表（KimiLogParser.AgentName 键与管道完成登记一致）。</summary>
+    private void ReportProgress(int processed, int discovered) =>
+        _scanRegistry?.ReportScanProgress(KimiLogParser.AgentName, processed, discovered);
 }

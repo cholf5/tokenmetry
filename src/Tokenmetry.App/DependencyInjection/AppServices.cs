@@ -102,18 +102,27 @@ public static class AppServices
         services.AddSingleton<ModelAvatarResolver>();
         services.AddSingleton(sp => new PricingEngine(catalog: sp.GetRequiredService<ModelCatalog>()));
 
+        // I-045 采集管线文件日志（默认开，设置页可关）：App 单例，随管道埋点逐轮写 app.log。
+        // headless 测试宿主经 PathsOverride 落测试临时目录；开关关闭（或目录不可建）时零写盘。
+        var ingestionLogger = new IngestionFileLogger(paths.LogDirectory, settings.FileLoggingEnabled);
+        services.AddSingleton(ingestionLogger);
+
         // 本地采集适配器（I-005 接线）：单例——JSONL 适配器实例持有增量扫描状态（文件 mtime/大小记账 + 消息级
         // 去重），跨刷新只重解析变更文件；ZCode SQLite 适配器无扫描状态（账本单文件持续变化，每次全量重读）；
         // DSH 会话适配器（I-007）与 Copilot CLI 会话适配器（I-008）持有与 Claude/Codex 同一套增量记账状态
         // （变更的日志整文件重解析，差分/fold 状态只在单文件解析内存活）。
         // 并发进入由 LocalIngestionDataSource 的管道信号量串行化。
-        services.AddSingleton<ClaudeCodeJsonlAdapter>();
+        // I-046：扫描注册表同实例注入共用引擎的适配器（Claude/Codex/DSH/Qwen/Kimi/Grok/OpenClaw），
+        // 源内进度经适配器透传进注册表（其余源全量查询秒级完成，不做源内进度）。
+        services.AddSingleton<IngestionScanRegistry>();
+        services.AddSingleton<IIngestionScanReader>(sp => sp.GetRequiredService<IngestionScanRegistry>());
+        services.AddSingleton(sp => new ClaudeCodeJsonlAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<IClaudeCodeJsonlAdapter>(sp => sp.GetRequiredService<ClaudeCodeJsonlAdapter>());
-        services.AddSingleton<CodexJsonlAdapter>();
+        services.AddSingleton(sp => new CodexJsonlAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<ICodexJsonlAdapter>(sp => sp.GetRequiredService<CodexJsonlAdapter>());
         services.AddSingleton<ZCodeSqliteAdapter>();
         services.AddSingleton<IZCodeSqliteAdapter>(sp => sp.GetRequiredService<ZCodeSqliteAdapter>());
-        services.AddSingleton<DshSessionAdapter>();
+        services.AddSingleton<DshSessionAdapter>(sp => new DshSessionAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<IDshSessionAdapter>(sp => sp.GetRequiredService<DshSessionAdapter>());
         services.AddSingleton<CopilotSessionAdapter>();
         services.AddSingleton<ICopilotSessionAdapter>(sp => sp.GetRequiredService<CopilotSessionAdapter>());
@@ -131,9 +140,9 @@ public static class AppServices
         services.AddSingleton<IAmpAdapter>(sp => sp.GetRequiredService<AmpAdapter>());
         services.AddSingleton<DroidAdapter>();
         services.AddSingleton<IDroidAdapter>(sp => sp.GetRequiredService<DroidAdapter>());
-        services.AddSingleton<QwenCodeAdapter>();
+        services.AddSingleton(sp => new QwenCodeAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<IQwenCodeAdapter>(sp => sp.GetRequiredService<QwenCodeAdapter>());
-        services.AddSingleton<KimiCodeAdapter>();
+        services.AddSingleton(sp => new KimiCodeAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<IKimiCodeAdapter>(sp => sp.GetRequiredService<KimiCodeAdapter>());
         services.AddSingleton<CodebuffAdapter>();
         services.AddSingleton<ICodebuffAdapter>(sp => sp.GetRequiredService<CodebuffAdapter>());
@@ -145,19 +154,43 @@ public static class AppServices
         services.AddSingleton<CindyPiAdapter>(sp => new CindyPiAdapter(
             pricingEngine: sp.GetRequiredService<PricingEngine>()));
         services.AddSingleton<ICindyAdapter>(sp => sp.GetRequiredService<CindyPiAdapter>());
-        services.AddSingleton<GrokAdapter>();
+        services.AddSingleton(sp => new GrokAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<IGrokAdapter>(sp => sp.GetRequiredService<GrokAdapter>());
-        services.AddSingleton<OpenClawAdapter>();
+        services.AddSingleton(sp => new OpenClawAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<IOpenClawAdapter>(sp => sp.GetRequiredService<OpenClawAdapter>());
         services.AddSingleton<AntigravityAdapter>();
         services.AddSingleton<IAntigravityAdapter>(sp => sp.GetRequiredService<AntigravityAdapter>());
 
         // 数据源：默认本地采集（I-005，无 ccusage CLI、断网可出数）。
-        // S-002：采集扫描状态注册表（单例）随本地采集源装配——管道组合（19 个适配器）在此注册，
+        // S-002：采集扫描状态注册表（单例）随本地采集源装配——管道组合（20 个适配器）在此注册，
         // 每轮刷新逐源登记扫描快照，设置页数据源表读取（"已识别数据源"不手写清单）。
-        services.AddSingleton<IngestionScanRegistry>();
-        services.AddSingleton<IIngestionScanReader>(sp => sp.GetRequiredService<IngestionScanRegistry>());
-        services.AddSingleton<LocalIngestionDataSource>();
+        services.AddSingleton<LocalIngestionDataSource>(sp => new LocalIngestionDataSource(
+            sp.GetRequiredService<IClaudeCodeJsonlAdapter>(),
+            sp.GetRequiredService<ICodexJsonlAdapter>(),
+            sp.GetRequiredService<IZCodeSqliteAdapter>(),
+            sp.GetRequiredService<IDshSessionAdapter>(),
+            sp.GetRequiredService<ICopilotSessionAdapter>(),
+            sp.GetRequiredService<IOpenCodeSqliteAdapter>(),
+            sp.GetRequiredService<IGooseSqliteAdapter>(),
+            sp.GetRequiredService<IHermesSqliteAdapter>(),
+            sp.GetRequiredService<IKiloSqliteAdapter>(),
+            sp.GetRequiredService<IGeminiCliAdapter>(),
+            sp.GetRequiredService<IAmpAdapter>(),
+            sp.GetRequiredService<IDroidAdapter>(),
+            sp.GetRequiredService<IQwenCodeAdapter>(),
+            sp.GetRequiredService<IKimiCodeAdapter>(),
+            sp.GetRequiredService<ICodebuffAdapter>(),
+            sp.GetRequiredService<IPiAgentAdapter>(),
+            sp.GetRequiredService<ICindyAdapter>(),
+            sp.GetRequiredService<IGrokAdapter>(),
+            sp.GetRequiredService<IOpenClawAdapter>(),
+            sp.GetRequiredService<IAntigravityAdapter>(),
+            sp.GetRequiredService<PricingEngine>(),
+            sp.GetRequiredService<IUsageStore>(),
+            pricingClient,
+            timeZone: null,
+            sp.GetRequiredService<IngestionScanRegistry>(),
+            sp.GetRequiredService<IngestionFileLogger>()));
         services.AddSingleton<IUsageDataSource>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
         // I-042：价格/别名热更新后的强制全量通道（I-037 契约在无变化短路下的新编码）
         services.AddSingleton<IAggregationInvalidator>(sp => sp.GetRequiredService<LocalIngestionDataSource>());

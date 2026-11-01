@@ -83,10 +83,23 @@ public class DataPricingPageTests
     {
         public List<string> Registered { get; } = new();
         private readonly Dictionary<string, IngestionSourceScanSnapshot> _scans = new();
+        private readonly Dictionary<string, IngestionScanProgress> _progress = new();
 
         public IReadOnlyList<string> RegisteredSources => Registered;
 
         public IngestionSourceScanSnapshot? GetLastScan(string agent) => _scans.GetValueOrDefault(agent);
+
+        public IngestionScanProgress? GetScanProgress(string agent) => _progress.GetValueOrDefault(agent);
+
+        public void RegisterProgress(string agent, IngestionScanProgress progress)
+        {
+            if (!Registered.Contains(agent))
+            {
+                Registered.Add(agent);
+            }
+
+            _progress[agent] = progress;
+        }
 
         public void Register(string agent, IngestionSourceScanSnapshot snapshot)
         {
@@ -96,6 +109,8 @@ public class DataPricingPageTests
             }
 
             _scans[agent] = snapshot;
+            // 与真实注册表 ReportScan 同语义：完成登记覆盖进行中态
+            _progress.Remove(agent);
         }
     }
 
@@ -198,6 +213,43 @@ public class DataPricingPageTests
         // 仅有的 CheckBox 属于设置页的外观与通用区，不在本页）。
         var checkboxes = window.GetVisualDescendants().OfType<CheckBox>().ToList();
         Assert.Empty(checkboxes);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Source_table_renders_in_progress_row_with_processed_counts()
+    {
+        // I-046：进行中源显示「正在处理 x/y」（headless 渲染锁，断言语言无关走行 VM 文案），
+        // 完成后回结果态。进度数字来自注册表进行中快照（千分位）。
+        var reader = new StubScanReader();
+        reader.Registered.AddRange(new[] { "Claude Code", "Codex" });
+        reader.Register("Codex", new IngestionSourceScanSnapshot("Codex", JsonlScanStatus.Ok, 42, Now));
+        reader.RegisterProgress("Claude Code", new IngestionScanProgress("Claude Code", 3200, 16403, Now));
+
+        var vm = CreateViewModel(reader: reader);
+        var window = new Window { Width = 960, Height = 720, Content = new DataPricingView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(vm.SourceRows[0].Agent == "Claude Code", "进行中源置顶");
+        Assert.True(vm.SourceRows[0].IsPending);
+        Assert.Contains("3,200", vm.SourceRows[0].StatusText);
+        Assert.Contains("16,403", vm.SourceRows[0].StatusText);
+        Assert.Equal("—", vm.SourceRows[0].RecordCountText);
+
+        // 渲染面：状态列文本确实出现在可视树（不只是行 VM 数据面）
+        var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains(vm.SourceRows[0].StatusText, texts);
+
+        // 完成登记覆盖进行中态：回结果态（时序边界）
+        reader.Register("Claude Code", new IngestionSourceScanSnapshot("Claude Code", JsonlScanStatus.Ok, 7, Now));
+        vm.OnNavigatedTo();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(vm.SourceRows.First(r => r.Agent == "Claude Code").IsPending);
+        Assert.Equal("7", vm.SourceRows.First(r => r.Agent == "Claude Code").RecordCountText);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();

@@ -4,9 +4,9 @@ title: 采集 gate 等待加超时——一轮挂死不再让后续刷新永久�
 type: infra
 priority: P2
 size: S
-status: todo
+status: done
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-01（done）
 blocked: none
 ---
 
@@ -56,10 +56,10 @@ blocked: none
 
 - [ ] gate 被长期占住（fixture 用不释放的 `SemaphoreSlim`）时，等待方在超时后返回，
       状态按"本轮放弃"如实上报，**进程不崩、后续轮次可重新进入 gate**
-- [ ] gate 正常释放路径零变化：既有全量测试（含并发刷新用例）零改动通过
-- [ ] 超时事件有日志/诊断输出（I-045 已落地则写文件日志）
-- [ ] 取消令牌取消仍即时生效（`ct` 与超时并存语义正确）
-- [ ] 全量测试 0 失败
+- [x] gate 正常释放路径零变化：既有全量测试（含并发刷新用例）零改动通过（实测）
+- [x] 超时事件有日志/诊断输出（I-045 已落地：文件日志 + stderr 双通道，含已等时长）
+- [x] 取消令牌取消仍即时生效（`WaitAsync(TimeSpan, ct)` 并存语义，超时不 swallow OCE）
+- [x] 全量测试 0 失败
 
 ## 开放问题
 
@@ -89,3 +89,15 @@ blocked: none
 - 卡内最关键的技术约束已写死：**超时不强杀持锁轮**——`IncrementalJsonlScanner` 实例
   非线程安全且以单例接入 DI，强杀留下的中间态会让下一轮直接踩坏，
   这是把范围从"解决挂死"收窄到"解除排队封锁"的原因，报告者建议原文也是"允许下一轮重新进入"。
+
+### 2026-11-01 收口（同日实现）
+
+- 定案：`GateWaitTimeout` = 30 分钟（internal 常量，注释写取值依据；测试经 internal `GateWait` 属性缩短注入——
+  Infrastructure csproj 加 InternalsVisibleTo）。超时返回空列表（调用方 UI 不误显错误数据，同"无记录轮"语义），
+  文件日志 + stderr 双通道如实记录含已等时长。
+- **不做**的部分与卡内一致：不强杀持锁轮、不给排队人数设上限、不改 BackgroundRefreshService 合并语义。
+  放弃轮不清 `_forceFullNextRound`（旗标只在全量管道成功后清除，既有语义，结构上即满足）。
+- UI 呈现：放弃轮 = 空结果轮（dashboard 走既有 "no data" 路径如实显示），**不造第三种状态色**——
+  报告者场景（挂死轮被放弃后）顶栏显示橙灯"未检出本地数据"而非红灯"扫描失败"，与"本轮没拿到新数据"
+  的真实语义一致。
+- 测试：gate 超时 3（超时放弃 / 后续可重进 / 正常路径零变化）。

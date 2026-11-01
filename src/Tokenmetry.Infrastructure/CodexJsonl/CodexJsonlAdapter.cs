@@ -1,5 +1,6 @@
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Services;
 using Tokenmetry.Infrastructure.ClaudeCodeJsonl;
 using Tokenmetry.Infrastructure.Jsonl;
 
@@ -19,17 +20,20 @@ public class CodexJsonlAdapter : ICodexJsonlAdapter
     private readonly CodexLogLocator _locator;
     private readonly CodexJsonlFileParser _fileParser;
     private readonly IncrementalJsonlScanner _scanner;
+    private readonly IngestionScanRegistry? _scanRegistry;
 
     public CodexJsonlAdapter(
         string? configuredHome = null,
         CodexLogLocator? locator = null,
         CodexJsonlFileParser? fileParser = null,
         ClaudeUsageRecordDeduper? deduper = null,
-        Func<string, TextReader>? readerFactory = null)
+        Func<string, TextReader>? readerFactory = null,
+        IngestionScanRegistry? scanRegistry = null)
     {
         _configuredHome = configuredHome;
         _locator = locator ?? new CodexLogLocator();
         _fileParser = fileParser ?? new CodexJsonlFileParser();
+        _scanRegistry = scanRegistry;
         _scanner = new IncrementalJsonlScanner(readerFactory ?? OpenRolloutReader, deduper);
     }
 
@@ -85,7 +89,8 @@ public class CodexJsonlAdapter : ICodexJsonlAdapter
                         Interrupted: false);
                 }
             },
-            ct);
+            ct,
+            ReportProgress);
 
         return new JsonlScanResult
         {
@@ -94,4 +99,8 @@ public class CodexJsonlAdapter : ICodexJsonlAdapter
             Diagnostics = output.Diagnostics,
         };
     }
+
+    /// <summary>I-046：源内进行中进度进注册表（AgentName 键与管道完成登记一致）。</summary>
+    private void ReportProgress(int processed, int discovered) =>
+        _scanRegistry?.ReportScanProgress(CodexJsonlFileParser.AgentName, processed, discovered);
 }
