@@ -67,7 +67,26 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
+| I-045 | 采集管线文件日志——可开关、含堆栈、按大小轮转，让「卡住」与「慢跑」外部可区分 | P1 | M | none | none |
+| I-046 | 源内进度上报——数据源表显示「正在处理 3200/16403」，用户能区分「在跑」与「卡了」 | P2 | M | none | none |
+| I-047 | 采集 gate 等待加超时——一轮挂死不再让后续刷新永久排队失效 | P2 | S | none | 建议在 I-045 之后（超时事件落点复用文件日志，不硬依赖） |
 | I-044 | 上架 Homebrew cask——**前提已修正**：brew 不免疫 Gatekeeper，收益降为「放行一次后 `brew upgrade` 不再弹」 | P3 | M | none | none |
+
+> 2026-11-01：**I-045 / I-046 / I-047 建卡（issue #1 的三项改进，用户指示建卡）**。GitHub 首个 issue
+> （[macOS] 首启扫描 15–30 秒后彻底静止、界面永久停在「正在初始化」，16k 文件 / 8.3 GB）由 PR #2 修复根因
+> （`ClaudeUsageRecordDeduper` 每次替换重复记录时全量重建去重索引，O(替换次数 × n)；增量维护索引后
+> 独立基准 20k 对替换 19.6s → 20ms，全量 1890 测试通过，已 rebase 合入 94c4324）。报告者在 issue 里
+> 提的 1 项最小诉求 + 2 项顺带改进由用户指示立卡跟进：**I-045 文件日志**（`~/Library/Logs/Tokenmetry/`
+> 三平台惯例路径，轮/源/文件三级 + 解析失败含堆栈 + 写库起止，按大小轮转，设置页开关与「打开日志
+> 文件夹」入口；P1——报告者全程自建采样脚本自证的根因是应用拿不出任何诊断信息，macOS 沙箱内
+> `log show`/strip 后的 `sample`/`DOTNET_PerfMapEnabled` 全部失效，应用自 log 是唯一出路；隐私红线
+> 在卡内写死：只记路径/计数/耗时/异常，绝不记会话内容）；**I-046 源内进度上报**（`ReportScan` 现为
+> 每源完成一次性登记，源内按 N 文件/N 秒节流回调进 `IngestionScanRegistry` 进行中快照，设置页数据源表
+> 显示「正在处理 3200/16403」；共用 `IncrementalJsonlScanner` 的 Claude/Codex 一次受益，SQLite 账本类源
+> 不做；P2）；**I-047 gate 等待超时**（`_ingestionGate.WaitAsync(ct)` 现无超时，一轮挂死则定时/手动刷新
+> 经 `BackgroundRefreshService` 合并槽永久排队——报告者实测跨过 5 分钟 tick 后无任何新动作；卡内写死
+> 约束：超时只放弃等待**不强杀持锁轮**，单例适配器非线程安全，强杀留中间态下一轮直接踩坏；P2/S）。
+> 三卡同为 issue #1 关闭后的诊断面与防线后续，PR #2 作者在 PR 描述里也把 diagnostics 列为 open follow-up。
 
 > 2026-10-30（晚）：**I-044 建卡（上架 Homebrew cask）**。背景：macOS 26 的放行流程被评估为“对非技术用户地狱、
 > 对开发者认知成本为零”（右键「打开」已失效，只能进系统设置最下面点「仍要打开」再输开机密码）。
