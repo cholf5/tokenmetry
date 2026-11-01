@@ -28,8 +28,12 @@ public class ClaudeUsageRecordDeduper
             {
                 if (ShouldReplace(entry, deduped[index]))
                 {
+                    var replaced = deduped[index];
                     deduped[index] = entry;
-                    RebuildIndexes(deduped, exactIndex, messageIndex);
+                    // 只改被替换那一条的索引。全表重建是 O(n)，每次替换都做就变成
+                    // O(替换次数 × n)，历史量大时去重会把整轮采集卡住。
+                    RemoveFromIndexes(replaced, index, exactIndex, messageIndex);
+                    AddToIndexes(entry, index, exactIndex, messageIndex);
                 }
             }
             else
@@ -117,16 +121,29 @@ public class ClaudeUsageRecordDeduper
     private static bool HasFastSuffix(UsageRecord entry)
         => entry.Model is { } model && model.EndsWith("-fast", StringComparison.Ordinal);
 
-    private static void RebuildIndexes(
-        List<UsageRecord> entries,
+    private static void RemoveFromIndexes(
+        UsageRecord entry,
+        int index,
         Dictionary<DedupeKey, int> exactIndex,
         Dictionary<(string MessageId, string SessionId), List<int>> messageIndex)
     {
-        exactIndex.Clear();
-        messageIndex.Clear();
-        for (var index = 0; index < entries.Count; index++)
+        if (entry.MessageId is not { } messageId)
         {
-            AddToIndexes(entries[index], index, exactIndex, messageIndex);
+            return;
+        }
+
+        exactIndex.Remove(BuildExactKey(entry, messageId));
+
+        var sessionId = entry.SessionId ?? string.Empty;
+        if (!messageIndex.TryGetValue((messageId, sessionId), out var indexes))
+        {
+            return;
+        }
+
+        indexes.Remove(index);
+        if (indexes.Count == 0)
+        {
+            messageIndex.Remove((messageId, sessionId));
         }
     }
 
