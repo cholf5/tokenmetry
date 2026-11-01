@@ -69,6 +69,28 @@ public class ClaudeUsageRecordDeduperTests
     }
 
     [Fact]
+    public void Replacing_many_duplicates_finishes_in_linear_time()
+    {
+        // 每次替换若重建全表索引，历史量大时去重会把整轮采集卡住。
+        // 2 万对「先低后高」同键记录：增量更新应很快完成并保留较高 token 那条。
+        const int pairs = 20_000;
+        var records = new List<UsageRecord>(pairs * 2);
+        for (var i = 0; i < pairs; i++)
+        {
+            records.Add(Record($"msg-{i}", $"req-{i}", isSidechain: false, inputTokens: 1));
+            records.Add(Record($"msg-{i}", $"req-{i}", isSidechain: false, inputTokens: 2));
+        }
+
+        var started = DateTime.UtcNow;
+        var deduped = _deduper.Dedupe(records);
+        var elapsed = DateTime.UtcNow - started;
+
+        deduped.Should().HaveCount(pairs);
+        deduped.Should().OnlyContain(record => record.InputTokens == 2);
+        elapsed.Should().BeLessThan(TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
     public void Keeps_requestless_placeholder_ids_from_different_sessions_separate()
     {
         var deduped = new ClaudeUsageRecordDeduper().Dedupe([
