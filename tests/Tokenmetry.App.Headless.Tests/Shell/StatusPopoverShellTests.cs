@@ -29,6 +29,8 @@ namespace Tokenmetry.App.Headless.Tests.Shell;
 ///        （本文件只覆盖新增分派路径）；
 /// Esc 收起与失焦收起（接线在 StatusPopoverController，B-017；headless 直发按键验证 Esc 路径，
 /// 失焦守卫经 internal 处理器直接模拟 Win32"先失焦后 Clicked"时序）；
+/// mac 点击外部收起（MacPopoverOutsideClickMonitor，headless 未装真实监听经 HandleOutsideMouseDown
+/// 直发模拟）：收起、不上失焦守卫的锁、再次打开重新布防；
 /// PopoverPositioner 纯函数：TopRight / AboveCursor 锚定与工作区钳制；
 /// B-021 首显偏下回归锁：内容异步回填撑高窗口时按点击光标重锚，底缘不越过任务栏；
 /// B-022 启动预热回归锁：预热后首帧即最终高度，不再空态→回填撑高的闪动。
@@ -105,6 +107,60 @@ public class StatusPopoverShellTests : IDisposable
 
         controller.OnShellWindowDeactivated(controller, EventArgs.Empty); // 若误记账，下一行 Toggle 会被守卫吞掉
         controller.ToggleFromTrayClick();
+        Assert.True(controller.WindowForTest.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void Outside_mouse_down_hides_popover_and_consumes_monitor()
+    {
+        // mac 点击外部收起（菜单栏空白处无焦点变化，失焦通道收不到）：headless 未装真实全局监听，
+        // 经 HandleOutsideMouseDown 直发模拟系统回调。
+        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
+        controller.Show();
+        var popover = controller.WindowForTest!;
+        Assert.True(popover.IsVisible);
+        Assert.True(MacPopoverOutsideClickMonitor.IsArmed); // 可见期已布防
+
+        MacPopoverOutsideClickMonitor.HandleOutsideMouseDown();
+
+        Assert.False(popover.IsVisible);
+        Assert.False(controller.ViewModel.VisibleForTest);
+        Assert.False(MacPopoverOutsideClickMonitor.IsArmed); // 消费即拆：后续点击落空
+    }
+
+    [AvaloniaFact]
+    public void Outside_click_does_not_arm_focus_guard_then_tray_click_reopens()
+    {
+        // 点击外部不是失焦通道：不得给下一次托盘点击上 B-017 的 400ms 守卫锁——
+        // 弹层开着点走外部 → 紧接着点托盘应能直接再开（对照 Toggle_within_focus_loss_guard 用例）。
+        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
+        controller.Show();
+
+        MacPopoverOutsideClickMonitor.HandleOutsideMouseDown();
+        Assert.False(controller.WindowForTest!.IsVisible);
+
+        controller.ToggleFromTrayClick();
+        Assert.True(controller.WindowForTest.IsVisible);
+        Assert.True(MacPopoverOutsideClickMonitor.IsArmed); // 重新打开 → 重新布防
+    }
+
+    [AvaloniaFact]
+    public void Hide_is_idempotent_after_outside_click()
+    {
+        // mac 点击外部先收起、Deactivated 随后到达（双通道竞态）：可见性门控下后者是无害 no-op，
+        // VisibleForTest 不得被翻转回任何中间态，再开时布防状态一致。
+        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
+        controller.Show();
+
+        MacPopoverOutsideClickMonitor.HandleOutsideMouseDown();
+        controller.OnShellWindowDeactivated(controller, EventArgs.Empty); // 竞态次序无关紧要
+        controller.Hide();
+
+        Assert.False(controller.WindowForTest!.IsVisible);
+        Assert.False(controller.ViewModel.VisibleForTest);
+        Assert.False(MacPopoverOutsideClickMonitor.IsArmed);
+
+        controller.Show(); // 门控不影响后续正常开关
         Assert.True(controller.WindowForTest.IsVisible);
     }
 
