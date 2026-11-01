@@ -18,7 +18,10 @@ namespace Tokenmetry.App.Tray;
 /// 「弹层内点击 → 唤回主窗 + 既有导航」。壳层零业务逻辑零数据查询——数据全部在 D-015 内容层。
 /// <para>失焦收起接线在控制器（B-017 从窗口构造移入）：<see cref="StatusPopoverWindow"/> 的
 /// Deactivated → 控制器 Hide（补上 VM.OnHidden，与 Esc / 再点收起同语义）+ 失焦时刻记账，
-/// 供 <see cref="ToggleFromTrayClick"/> 识别"刚被本次托盘点击的失焦收掉"（Win32 先失焦后 Clicked 的时序）。</para>
+/// 供 <see cref="ToggleFromTrayClick"/> 识别"刚被本次托盘点击的失焦收掉"（Win32 先失焦后 Clicked 的时序）。
+/// macOS 另有第四通道「点击外部收起」（<see cref="MacPopoverOutsideClickMonitor"/>）：点菜单栏
+/// 空白处不产生焦点变化（事件归 WindowServer，无窗口变 key），失焦通道收不到——弹层可见期挂
+/// NSEvent 全局监听，本进程外的鼠标按下即收起，对齐 Windows「点外部必失焦关闭」与原生 popover 观感。</para></para>
 /// <para>线程约定：托盘 Clicked / 导航命令都在 UI 线程，无需 marshal。</para>
 /// <para>锚定（卡内台阶设计）：Windows 用 GetCursorPos（物理像素，与 Screen.Bounds 同空间）光标
 /// 上方；macOS 零 interop 主屏工作区右上近似——真机目检（TC-003）不可接受再按卡升级最小 interop；
@@ -163,11 +166,13 @@ public sealed class StatusPopoverController
         _window.Show();
         PositionWindow();
         _window.Activate();
+        MacPopoverOutsideClickMonitor.Arm(Hide); // mac 点击外部收起（Win32/其他平台惰性记账，见 interop）
     }
 
     /// <summary>弹窗失焦：外部抢走焦点（点任务栏 / 别的应用）→ 失焦收起 + 记账供 Toggle 守卫。
     /// 自身 Hide 引发的 Deactivated 到达时窗口已不可见，不算失焦收起（否则每次 Toggle 收起都给
-    /// 下一次点击上锁）。internal 供 headless 测试模拟 Win32"先失焦后 Clicked"时序。</summary>
+    /// 下一次点击上锁）；mac 点击外部通道先收起时同理——可见性门控吞掉双通道竞态，OnHidden 不重复。
+    /// internal 供 headless 测试模拟 Win32"先失焦后 Clicked"时序。</summary>
     internal void OnShellWindowDeactivated(object? sender, EventArgs e)
     {
         if (_window?.IsVisible != true)
@@ -181,10 +186,11 @@ public sealed class StatusPopoverController
 
     public void Hide()
     {
-        if (_window is { } window)
+        if (_window is { IsVisible: true } window)
         {
             window.Hide();
             ViewModel.OnHidden();
+            MacPopoverOutsideClickMonitor.Disarm();
         }
     }
 
