@@ -104,6 +104,32 @@ public class SharePosterViewTests
     }
 
     [AvaloniaFact]
+    public void Multi_day_header_carries_the_brand_not_the_app_page_title()
+    {
+        var model = ViewModel();
+        var view = new SharePosterView { DataContext = model };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        // 页头 = Logo + 字标（与单日托盘同源）；「总览」是应用内的页面名，海报上不存在这一页
+        var brand = view.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Classes.Contains("poster-brand"));
+        Assert.Equal("Tokenmetry", brand.Text);
+
+        // 右侧只剩日期范围；整张海报不再出现页标题「总览」
+        var texts = view.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.DoesNotContain(Tokenmetry.App.Localization.Translations.Instance.NavOverview, texts);
+        Assert.Contains(model.RangeText, texts);
+
+        // Logo 真的取到了图片资源（不是空芯片）
+        var logo = view.GetVisualDescendants().OfType<Border>()
+            .Single(b => b.Classes.Contains("poster-logo"));
+        Assert.Contains(logo.GetVisualDescendants().OfType<Image>(), i => i.Source is not null);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void Landscape_renders_1800_wide_with_two_rows_of_three_panels()
     {
         var view = new SharePosterView
