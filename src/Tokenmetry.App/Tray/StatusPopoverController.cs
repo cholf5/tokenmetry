@@ -21,7 +21,7 @@ namespace Tokenmetry.App.Tray;
 /// 供 <see cref="ToggleFromTrayClick"/> 识别"刚被本次托盘点击的失焦收掉"（Win32 先失焦后 Clicked 的时序）。
 /// macOS 另有第四通道「点击外部收起」（<see cref="MacPopoverOutsideClickMonitor"/>）：点菜单栏
 /// 空白处不产生焦点变化（事件归 WindowServer，无窗口变 key），失焦通道收不到——弹层可见期挂
-/// NSEvent 全局监听，本进程外的鼠标按下即收起，对齐 Windows「点外部必失焦关闭」与原生 popover 观感。</para></para>
+/// NSEvent 全局监听，本进程外的鼠标按下即收起，对齐 Windows「点外部必失焦关闭」与原生 popover 观感。</para>
 /// <para>线程约定：托盘 Clicked / 导航命令都在 UI 线程，无需 marshal。</para>
 /// <para>锚定（卡内台阶设计）：Windows 用 GetCursorPos（物理像素，与 Screen.Bounds 同空间）光标
 /// 上方；macOS 零 interop 主屏工作区右上近似——真机目检（TC-003）不可接受再按卡升级最小 interop；
