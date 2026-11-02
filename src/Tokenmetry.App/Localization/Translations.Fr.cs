@@ -474,7 +474,6 @@ public sealed partial class Translations
         [nameof(SharePosterMaskPartial)] = "Flouter après 4 caractères",
         [nameof(SharePosterMaskFull)] = "Tout flouter",
         [nameof(SharePosterMaskHint)] = "« Afficher » imprime les noms de projet tels quels — vérifiez avant de partager. Le ﬂou adoucit seulement le texte, il ne remplace jamais les caractères par des symboles.",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "Les affiches d'une seule journée sont uniquement en portrait : une journée tient sur une carte verticale, la mettre à l'horizontale imposerait de repenser le flux d'information.",
         [nameof(SharePosterCopy)] = "Copier dans le presse-papiers",
         [nameof(SharePosterCopied)] = "Copié dans le presse-papiers",
         [nameof(SharePosterCopyFailed)] = "Ce système ne copie pas les images — utilisez « Enregistrer dans un fichier »",
@@ -487,5 +486,8 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultLayout)] = "Mise en page par défaut",
         [nameof(SharePosterDefaultTheme)] = "Thème par défaut",
         [nameof(SharePosterDefaultMask)] = "Flou par défaut",
+        [nameof(SharePosterDayCountFormat)] = "{0} jours avec des données",
+        [nameof(SharePosterCopyFailedFormat)] = "Échec de la copie : {0}",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Une fenêtre d'un seul jour n'existe qu'en portrait : le paysage imposerait de repenser le flux d'information.",
     };
 }

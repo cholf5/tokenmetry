@@ -474,7 +474,6 @@ public sealed partial class Translations
         [nameof(SharePosterMaskPartial)] = "Nach 4 Zeichen weichzeichnen",
         [nameof(SharePosterMaskFull)] = "Vollständig weichzeichnen",
         [nameof(SharePosterMaskHint)] = "„Anzeigen“ druckt Projektnamen unverändert aufs Poster – vor dem Teilen prüfen. Weichzeichnen macht den Text nur unscharf und ersetzt keine Zeichen durch Platzhalter.",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "Poster für einen einzelnen Tag gibt es nur im Hochformat: Ein Tag ist eine hohe Karte, im Querformat müsste der Informationsfluss neu geordnet werden.",
         [nameof(SharePosterCopy)] = "In die Zwischenablage kopieren",
         [nameof(SharePosterCopied)] = "In die Zwischenablage kopiert",
         [nameof(SharePosterCopyFailed)] = "Dieses System kann keine Bilder kopieren – bitte „Als Datei speichern“ verwenden",
@@ -487,5 +486,8 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultLayout)] = "Standardlayout",
         [nameof(SharePosterDefaultTheme)] = "Standarddesign",
         [nameof(SharePosterDefaultMask)] = "Standard-Weichzeichnung",
+        [nameof(SharePosterDayCountFormat)] = "{0} Tage mit Daten",
+        [nameof(SharePosterCopyFailedFormat)] = "Kopieren fehlgeschlagen: {0}",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Ein Ein-Tages-Fenster gibt es nur im Hochformat: Querformat müsste den Informationsfluss neu ordnen.",
     };
 }

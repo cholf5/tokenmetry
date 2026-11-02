@@ -11,7 +11,7 @@ public sealed record SharePosterTotals(
     long SessionCount,
     decimal? CacheShare);
 
-/// <summary>海报排行表的一行：展示名 + token + 占比（占比分母为范围内总 token；分母为 0 时 null）。</summary>
+/// <summary>海报排行表的一行：展示名 + token + 占比（占比分母为该维度自身合计；分母为 0 时 null）。</summary>
 public sealed record SharePosterRanking(string Name, long Tokens, decimal? Share);
 
 /// <summary>
@@ -24,8 +24,7 @@ public sealed record SharePosterData(
     IReadOnlyList<DailyUsagePoint> Daily,
     IReadOnlyList<SharePosterRanking> Agents,
     IReadOnlyList<SharePosterRanking> Models,
-    IReadOnlyList<SharePosterRanking> Projects,
-    IReadOnlyList<SharePosterRanking> Types);
+    IReadOnlyList<SharePosterRanking> Projects);
 
 /// <summary>
 /// 把查询结果收成 <see cref="SharePosterData"/>。纯函数、无 I/O：口径与总览页逐位一致
@@ -36,54 +35,68 @@ public static class SharePosterSnapshot
     /// <summary>排行表海报上最多展示的行数。</summary>
     public const int TopN = 6;
 
-    /// <summary>Token 类型构成的三段固定顺序：输入 / 输出 / 缓存。</summary>
-    public static readonly string[] TypeNames = ["input", "output", "cache"];
-
+    /// <summary>
+    /// 把查询结果收成快照。
+    /// <para>
+    /// <paramref name="kpi"/> 非空时总量取总览页同一份 KPI 聚合（<see cref="UsageKpiResult"/>）——
+    /// 维度行会跳过空键、且按天只取 full 或本维度分解行，行合计不一定等于 KPI 总数；海报是给外部看的
+    /// 印刷品，"与应用里同一筛选的数字对不上"是设计列出的反目标第一条，所以总量必须以 KPI 为准。
+    /// 为 null（纯单测 / 只有维度行）时退回按维度行求和，口径与 P2 初版一致。
+    /// </para>
+    /// </summary>
     public static SharePosterData Build(
         SharePosterRequest request,
         IReadOnlyList<DailyUsagePoint> daily,
         IReadOnlyList<DimensionUsageRow> agents,
         IReadOnlyList<DimensionUsageRow> models,
         IReadOnlyList<DimensionUsageRow> projects,
-        long sessionCount)
+        long sessionCount,
+        UsageKpiResult? kpi = null)
     {
-        var totalTokens = agents.Sum(a => a.TotalTokens);
-        var input = agents.Sum(a => a.InputTokens);
-        var output = agents.Sum(a => a.OutputTokens);
-        var cacheRead = agents.Sum(a => a.CacheReadTokens);
+        // 有日序列时以日序列为准（它带 I/O/缓存细分，且与 KPI 同源聚合）；否则退回维度行求和。
+        var hasDaily = daily.Count > 0;
+        var input = hasDaily ? daily.Sum(d => d.InputTokens) : agents.Sum(a => a.InputTokens);
+        var output = hasDaily ? daily.Sum(d => d.OutputTokens) : agents.Sum(a => a.OutputTokens);
+        var cacheRead = hasDaily ? daily.Sum(d => d.CacheReadTokens) : agents.Sum(a => a.CacheReadTokens);
+        var totalTokens = hasDaily ? daily.Sum(d => d.TotalTokens) : agents.Sum(a => a.TotalTokens);
 
-        // 已知成本求和：任一行有已知值才有合计（null ≠ 0），任一行未知则整体标未知。
-        var known = agents.Any(a => a.Cost.KnownCostUsd is not null)
-            ? agents.Where(a => a.Cost.KnownCostUsd is not null).Sum(a => a.Cost.KnownCostUsd!.Value)
-            : (decimal?)null;
-        var cost = new AggregatedCost(known, agents.Any(a => a.Cost.HasUnknownCost));
-
-        var totals = new SharePosterTotals(
-            totalTokens, input, output, cacheRead, cost, sessionCount, Share(cacheRead, totalTokens));
+        SharePosterTotals totals;
+        if (kpi is { } k)
+        {
+            totals = new SharePosterTotals(
+                k.TotalTokens, input, output, k.CacheReadTokens, k.Cost, k.SessionCount, k.CacheReadShare);
+        }
+        else
+        {
+            // 已知成本求和：任一行有已知值才有合计（null ≠ 0），任一行未知则整体标未知。
+            var known = agents.Any(a => a.Cost.KnownCostUsd is not null)
+                ? agents.Where(a => a.Cost.KnownCostUsd is not null).Sum(a => a.Cost.KnownCostUsd!.Value)
+                : (decimal?)null;
+            var cost = new AggregatedCost(known, agents.Any(a => a.Cost.HasUnknownCost));
+            totals = new SharePosterTotals(
+                totalTokens, input, output, cacheRead, cost, sessionCount, Share(cacheRead, totalTokens));
+        }
 
         return new SharePosterData(
             request,
             totals,
             daily.ToArray(),
-            Rank(agents),
+            // Agent 排行不截断：环形图要「Top6 + 其他」，截断会让聚合项消失（行数上限只约束表格维度）
+            Rank(agents, takeTop: false),
             Rank(models),
-            Rank(projects),
-            [
-                new SharePosterRanking(TypeNames[0], input, Share(input, totalTokens)),
-                new SharePosterRanking(TypeNames[1], output, Share(output, totalTokens)),
-                new SharePosterRanking(TypeNames[2], cacheRead, Share(cacheRead, totalTokens)),
-            ]);
+            Rank(projects));
     }
 
     /// <summary>
     /// 排行：占比分母取<b>该维度自身</b>的合计，而非全范围总 token——与 I-029 的 TokenShare 口径一致
     /// （三个维度的合计互不相等：同一批用量会同时计入 Agent/模型/项目各一行）。
     /// </summary>
-    private static IReadOnlyList<SharePosterRanking> Rank(IReadOnlyList<DimensionUsageRow> rows)
+    private static IReadOnlyList<SharePosterRanking> Rank(
+        IReadOnlyList<DimensionUsageRow> rows, bool takeTop = true)
     {
         var denominator = rows.Sum(r => r.TotalTokens);
-        return rows.OrderByDescending(r => r.TotalTokens)
-            .Take(TopN)
+        var ordered = rows.OrderByDescending(r => r.TotalTokens);
+        return (takeTop ? ordered.Take(TopN) : ordered)
             .Select(r => new SharePosterRanking(
                 r.DisplayName ?? r.Key,
                 r.TotalTokens,

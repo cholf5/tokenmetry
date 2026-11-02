@@ -11,6 +11,7 @@ namespace Tokenmetry.App.ViewModels;
 public sealed class SharePosterDialogViewModel : ViewModelBase
 {
     private readonly Func<SharePosterRequest, SharePosterData> _snapshot;
+    private readonly Func<string, ModelAvatarVisual?>? _modelIcons;
     private readonly DateOnly _rangeStart;
     private readonly DateOnly _rangeEnd;
 
@@ -26,10 +27,12 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
 
     public SharePosterDialogViewModel(
         SharePosterRequest initial,
-        Func<SharePosterRequest, SharePosterData> snapshot)
+        Func<SharePosterRequest, SharePosterData> snapshot,
+        Func<string, ModelAvatarVisual?>? modelIconResolver = null)
     {
         ArgumentNullException.ThrowIfNull(initial);
         _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+        _modelIcons = modelIconResolver;
         _rangeStart = initial.RangeStart;
         _rangeEnd = initial.RangeEnd;
         _layout = initial.Layout;
@@ -147,7 +150,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     /// <summary>当前选项对应的请求（导出时用它生成文件名）。</summary>
     public SharePosterRequest CurrentRequest => new(_layout, _theme, _mask, _rangeStart, _rangeEnd);
 
-    private SharePosterViewModel Build() => new(_snapshot(CurrentRequest));
+    private SharePosterViewModel Build() => new(_snapshot(CurrentRequest), _modelIcons);
 
     private void Refresh()
     {

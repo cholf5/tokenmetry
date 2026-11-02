@@ -90,6 +90,14 @@ public partial class DonutChart : UserControl
     public static readonly StyledProperty<double> LegendFontSizeProperty =
         AvaloniaProperty.Register<DonutChart, double>(nameof(LegendFontSize), 11d);
 
+    /// <summary>环心主文字字号（原型 17px）。海报环形直径放大时不跟着放大就会缩成一句小字。</summary>
+    public static readonly StyledProperty<double> CenterTitleFontSizeProperty =
+        AvaloniaProperty.Register<DonutChart, double>(nameof(CenterTitleFontSize), 17d);
+
+    /// <summary>环心副文字字号（原型 11px）。同 <see cref="CenterTitleFontSizeProperty"/>。</summary>
+    public static readonly StyledProperty<double> CenterSubtitleFontSizeProperty =
+        AvaloniaProperty.Register<DonutChart, double>(nameof(CenterSubtitleFontSize), 11d);
+
     public DonutChart()
     {
         InitializeComponent();
@@ -112,6 +120,8 @@ public partial class DonutChart : UserControl
         RingThicknessProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.Rebuild());
         AnimateSweepProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.Rebuild());
         LegendFontSizeProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.ApplyLegendFontSize());
+        CenterTitleFontSizeProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.ApplyCenterFontSize());
+        CenterSubtitleFontSizeProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.ApplyCenterFontSize());
 
         // 主题变体变化影响空态环/中心文字颜色（DynamicResource 自动），弧段色为系列色（不翻转），
         // 但 Light/Dark 下 EmptyRing 画刷实例不同——这里无需手工重建，仅需尺寸类重建走属性回调。
@@ -214,7 +224,27 @@ public partial class DonutChart : UserControl
         set => SetValue(LegendFontSizeProperty, value);
     }
 
+    /// <summary>环心主文字字号（海报放大环径时同步放大；默认 17 = 原型）。</summary>
+    public double CenterTitleFontSize
+    {
+        get => GetValue(CenterTitleFontSizeProperty);
+        set => SetValue(CenterTitleFontSizeProperty, value);
+    }
+
+    /// <summary>环心副文字字号（默认 11 = 原型）。</summary>
+    public double CenterSubtitleFontSize
+    {
+        get => GetValue(CenterSubtitleFontSizeProperty);
+        set => SetValue(CenterSubtitleFontSizeProperty, value);
+    }
+
     private void ApplyLegendFontSize() => LegendList.FontSize = LegendFontSize;
+
+    private void ApplyCenterFontSize()
+    {
+        CenterTitleText.FontSize = CenterTitleFontSize;
+        CenterSubtitleText.FontSize = CenterSubtitleFontSize;
+    }
 
     private void OnSegmentsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => Rebuild();
 
@@ -276,6 +306,7 @@ public partial class DonutChart : UserControl
     public void Rebuild()
     {
         ApplyLegendFontSize();
+        ApplyCenterFontSize();
 
         var segments = (Segments ?? Array.Empty<object>())
             .OfType<DonutSegment>()

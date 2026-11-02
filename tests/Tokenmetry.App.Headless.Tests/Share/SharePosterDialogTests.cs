@@ -102,6 +102,29 @@ public class SharePosterDialogTests
     }
 
     [AvaloniaFact]
+    public void Switching_to_landscape_resizes_the_rendered_poster()
+    {
+        // 端到端绑定链：选项 → Preview 重建 → 海报视图 DataContext 变化 → 版面换宽度。
+        // P5 阶段这条链是断的（选横版仍出竖版），本用例锁住它。
+        var vm = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot);
+        var dialog = new SharePosterDialog { DataContext = vm };
+        dialog.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var poster = dialog.GetVisualDescendants().OfType<SharePosterView>().First();
+        Assert.Equal(SharePosterView.PortraitWidth, poster.PosterRootControl.Bounds.Width, 1);
+
+        vm.Layout = SharePosterLayout.Landscape;
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.Equal(SharePosterView.LandscapeWidth, poster.PosterRootControl.Bounds.Width, 1);
+
+        dialog.Close();
+    }
+
+    [AvaloniaFact]
     public void Dialog_hosts_and_renders_the_poster()
     {
         var dialog = new SharePosterDialog

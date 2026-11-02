@@ -405,21 +405,19 @@ public partial class TrendChart : UserControl
         plot.Add.VerticalLine(peak.At.X, 1f, color.WithAlpha(0.45f), LinePattern.Dashed);
         plot.Add.Marker(peak.At.X, peak.At.Y, MarkerShape.FilledCircle, 4.5f, color);
 
-        // 位置归一（0 = 最左/最低，1 = 最右/最高）：右缘靠右对齐、顶部改到点下方
+        // 峰值由自动缩放贴着绘图区顶部，标签一律放在点的下方；靠近右缘时改为右对齐，
+        // 否则长标签会顶出画布（设计 §8 的避让规则）。
         var xFraction = peak.Count <= 1 ? 0.5 : (double)peak.Index / (peak.Count - 1);
         var nearRight = xFraction > 0.7;
-        var nearTop = peak.At.Y > 0;   // 峰值必在绘图区顶部附近（轴上限贴着它）
 
         var text = plot.Add.Text(peak.Text, peak.At.X, peak.At.Y);
         text.LabelFontSize = (float)(10f * ChartFontScale);
         text.LabelFontColor = color;
         text.LabelBackgroundColor = ScottPlot.Colors.Transparent;
         text.LabelBold = true;
-        text.LabelAlignment = nearTop
-            ? (nearRight ? Alignment.UpperRight : Alignment.UpperLeft)
-            : (nearRight ? Alignment.LowerRight : Alignment.LowerLeft);
+        text.LabelAlignment = nearRight ? Alignment.UpperRight : Alignment.UpperLeft;
         text.LabelOffsetX = nearRight ? -6 : 6;
-        text.LabelOffsetY = nearTop ? 10 : -10;
+        text.LabelOffsetY = 10;
     }
 
     private static string DateLabel(string day) =>

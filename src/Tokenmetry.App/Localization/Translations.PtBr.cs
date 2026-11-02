@@ -474,7 +474,6 @@ public sealed partial class Translations
         [nameof(SharePosterMaskPartial)] = "Desfocar após 4 caracteres",
         [nameof(SharePosterMaskFull)] = "Desfocar tudo",
         [nameof(SharePosterMaskHint)] = "\"Mostrar\" imprime os nomes dos projetos como estão — confira antes de compartilhar. O desfoque apenas suaviza o texto, nunca troca caracteres por marcadores.",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "Pôsteres de um dia só existem em retrato: um dia é um cartão vertical e colocá-lo na horizontal exigiria outro fluxo de informação.",
         [nameof(SharePosterCopy)] = "Copiar para a área de transferência",
         [nameof(SharePosterCopied)] = "Copiado para a área de transferência",
         [nameof(SharePosterCopyFailed)] = "Este sistema não copia imagens — use \"Salvar em arquivo\"",
@@ -487,5 +486,8 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultLayout)] = "Layout padrão",
         [nameof(SharePosterDefaultTheme)] = "Tema padrão",
         [nameof(SharePosterDefaultMask)] = "Desfoque padrão",
+        [nameof(SharePosterDayCountFormat)] = "{0} dias com dados",
+        [nameof(SharePosterCopyFailedFormat)] = "Falha ao copiar: {0}",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Uma janela de um dia só oferece retrato: a horizontal exigiria outro fluxo de informação.",
     };
 }

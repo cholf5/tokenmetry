@@ -125,6 +125,7 @@ public class DesignTokenTests
         .. PaletteBrushes.Keys,
         "AppCardBackgroundBrush",
         "AppMiniFillBrush",
+        "AppPosterShadowColor",
         "AppFontFamily",
         .. SeriesColors.Select(s => s.Key),
         .. SeriesColors.Select(s => s.Key.Replace("Color", "Brush", StringComparison.Ordinal)),

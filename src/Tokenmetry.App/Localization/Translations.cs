@@ -503,7 +503,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMaskPartial)] = "局部雾化",
         [nameof(SharePosterMaskFull)] = "全部雾化",
         [nameof(SharePosterMaskHint)] = "「显示」会把项目名原样印在海报上，发出去之前请确认；雾化只是把文字虚化，不会替换成占位符。",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "单日只能出竖版：单日海报是一张竖卡片，横置需要重排信息流。",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "单日窗口只提供竖版：横置需要重排信息流。",
         [nameof(SharePosterCopy)] = "复制到剪贴板",
         [nameof(SharePosterCopied)] = "已复制到剪贴板",
         [nameof(SharePosterCopyFailed)] = "当前系统不支持复制图片，请改用「保存为文件」",
@@ -511,6 +511,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterSavedFormat)] = "已保存：{0}",
         [nameof(SharePosterSaveFailedFormat)] = "保存失败：{0}",
         [nameof(SharePosterOpenFailedFormat)] = "打不开分享海报：{0}",
+        [nameof(SharePosterDayCountFormat)] = "{0} 个有记录的天",
+        [nameof(SharePosterCopyFailedFormat)] = "复制失败：{0}",
         [nameof(SharePosterSettingsTitle)] = "分享海报",
         [nameof(SharePosterSettingsHint)] = "海报继承顶部栏的当前筛选；这里只决定打开生成对话框时的默认选项。",
         [nameof(SharePosterDefaultLayout)] = "默认版式",
@@ -969,7 +971,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMaskPartial)] = "Blur after 4 characters",
         [nameof(SharePosterMaskFull)] = "Blur entire name",
         [nameof(SharePosterMaskHint)] = "\"Show\" prints project names exactly as they are — check before you share. Blurring only softens the text; it never replaces characters with placeholders.",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "A single-day poster is portrait only: one day is a tall card, and turning it sideways would need a different information flow.",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "A single-day window only offers portrait: landscape would need a different information flow.",
         [nameof(SharePosterCopy)] = "Copy to clipboard",
         [nameof(SharePosterCopied)] = "Copied to clipboard",
         [nameof(SharePosterCopyFailed)] = "This system cannot copy images — use \"Save to file\" instead",
@@ -977,6 +979,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterSavedFormat)] = "Saved: {0}",
         [nameof(SharePosterSaveFailedFormat)] = "Save failed: {0}",
         [nameof(SharePosterOpenFailedFormat)] = "Could not open the share poster: {0}",
+        [nameof(SharePosterDayCountFormat)] = "{0} days with data",
+        [nameof(SharePosterCopyFailedFormat)] = "Copy failed: {0}",
         [nameof(SharePosterSettingsTitle)] = "Share poster",
         [nameof(SharePosterSettingsHint)] = "The poster inherits the current filters from the top bar; these options only set the defaults used when the dialog opens.",
         [nameof(SharePosterDefaultLayout)] = "Default layout",
@@ -1352,6 +1356,8 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterSavedFormat => Get();
     public string SharePosterSaveFailedFormat => Get();
     public string SharePosterOpenFailedFormat => Get();
+    public string SharePosterDayCountFormat => Get();
+    public string SharePosterCopyFailedFormat => Get();
     public string SharePosterSettingsTitle => Get();
     public string SharePosterSettingsHint => Get();
     public string SharePosterDefaultLayout => Get();

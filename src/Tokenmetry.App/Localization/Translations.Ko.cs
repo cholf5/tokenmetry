@@ -474,7 +474,6 @@ public sealed partial class Translations
         [nameof(SharePosterMaskPartial)] = "앞 4자 외 흐리게",
         [nameof(SharePosterMaskFull)] = "전체 흐리게",
         [nameof(SharePosterMaskHint)] = "'표시'를 선택하면 프로젝트 이름이 포스터에 그대로 인쇄됩니다. 공유 전에 확인하세요. 흐리게 처리는 글자를 부드럽게 할 뿐 자리표시자로 바꾸지 않습니다.",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "하루짜리 포스터는 세로만 지원합니다. 하루 포스터는 세로 카드라 가로로 돌리면 정보 흐름을 다시 짜야 합니다.",
         [nameof(SharePosterCopy)] = "클립보드에 복사",
         [nameof(SharePosterCopied)] = "클립보드에 복사했습니다",
         [nameof(SharePosterCopyFailed)] = "이 시스템은 이미지 복사를 지원하지 않습니다. '파일로 저장'을 사용하세요",
@@ -487,5 +486,8 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultLayout)] = "기본 레이아웃",
         [nameof(SharePosterDefaultTheme)] = "기본 테마",
         [nameof(SharePosterDefaultMask)] = "기본 흐림",
+        [nameof(SharePosterDayCountFormat)] = "기록이 있는 날 {0}일",
+        [nameof(SharePosterCopyFailedFormat)] = "복사 실패: {0}",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "하루 창은 세로만 제공합니다. 가로로 돌리려면 정보 흐름을 다시 짜야 합니다.",
     };
 }
