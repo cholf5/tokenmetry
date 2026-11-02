@@ -61,8 +61,11 @@ public sealed partial class Translations
         // ── 세션 페이지 ──
         [nameof(LabelModels)] = "모델",
         [nameof(LabelProjectDir)] = "프로젝트 / 디렉터리",
-        [nameof(ToastSessionPlannedFormat)] = "세션 {0}: 상세 보기는 계획 중",
-
+        [nameof(DetailClose)] = "닫기",
+        [nameof(DetailFirstActivity)] = "첫 활동",
+        [nameof(DetailCacheWrite)] = "캐시 쓰기",
+        [nameof(DetailCacheWrite5m)] = "이 중 5분 캐시",
+        [nameof(DetailCacheWrite1h)] = "이 중 1시간 캐시",
         // ── 전역 필터 옵션 ──
         [nameof(TimeRangeToday)] = "오늘",
         [nameof(TimeRangeYesterday)] = "어제",

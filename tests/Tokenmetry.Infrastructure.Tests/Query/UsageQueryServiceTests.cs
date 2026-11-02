@@ -614,6 +614,40 @@ public class UsageQueryServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Sessions_projection_carries_ephemeral_cache_creation_split()
+    {
+        // 会话详情弹层（下钻最简版）依赖列表行携带 5m/1h ephemeral 细分（SessionFact 已有，
+        // 此前 ToRow 投影丢弃）——round-trip 对账：其余源恒 0 语义不变。
+        await _store.UpsertSessionFactsAsync(
+        [
+            new SessionFact
+            {
+                SessionId = "split-1",
+                Agent = "Claude Code",
+                DominantModel = "claude-sonnet-4",
+                FirstSeenAt = new DateTimeOffset(2026, 3, 10, 9, 0, 0, TimeSpan.Zero),
+                LastSeenAt = new DateTimeOffset(2026, 3, 10, 9, 30, 0, TimeSpan.Zero),
+                InputTokens = 100,
+                OutputTokens = 50,
+                CacheCreationTokens = 700,
+                CacheCreationEphemeral5mTokens = 500,
+                CacheCreationEphemeral1hTokens = 200,
+                CacheReadTokens = 150,
+                TotalTokens = 1000,
+                CostUsd = 0.25m,
+            },
+        ]);
+
+        var row = (await _service.GetSessionsAsync(new SessionListQuery())).Rows
+            .Single(r => r.SessionId == "split-1");
+
+        row.CacheCreationTokens.Should().Be(700);
+        row.CacheCreationEphemeral5mTokens.Should().Be(500);
+        row.CacheCreationEphemeral1hTokens.Should().Be(200);
+        row.CacheReadTokens.Should().Be(150);
+    }
+
+    [Fact]
     public async Task Daily_series_caps_zero_fill_range_at_ten_years()
     {
         var from = new DateOnly(2000, 1, 1);

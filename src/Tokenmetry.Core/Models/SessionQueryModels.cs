@@ -75,6 +75,15 @@ public sealed class SessionListRow
 
     public long CacheCreationTokens { get; init; }
 
+    /// <summary>
+    /// 缓存写入的 5 分钟 ephemeral 细分（仅 Claude 系日志携带；其余源恒 0——0 即"无该细分"语义，
+    /// 详情视图只在该值 &gt; 0 时展示细分行）。恒 ≤ <see cref="CacheCreationTokens"/>。
+    /// </summary>
+    public long CacheCreationEphemeral5mTokens { get; init; }
+
+    /// <summary>缓存写入的 1 小时 ephemeral 细分，语义同 <see cref="CacheCreationEphemeral5mTokens"/>。</summary>
+    public long CacheCreationEphemeral1hTokens { get; init; }
+
     public long CacheReadTokens { get; init; }
 
     public long TotalTokens { get; init; }

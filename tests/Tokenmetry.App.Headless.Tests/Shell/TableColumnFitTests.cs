@@ -179,8 +179,7 @@ public class TableColumnFitTests
         var vm = new SessionsViewModel(
             ShellPages.For(PageId.Sessions),
             filters,
-            new StubQueryService { Sessions = WideSessions() },
-            new StubToast());
+            new StubQueryService { Sessions = WideSessions() });
         Dispatcher.UIThread.RunJobs();
 
         var window = ShowPage(new SessionsView { DataContext = vm }, DefaultPageWidth);
@@ -209,8 +208,7 @@ public class TableColumnFitTests
         var vm = new SessionsViewModel(
             ShellPages.For(PageId.Sessions),
             filters,
-            new StubQueryService { Sessions = WideSessions() },
-            new StubToast());
+            new StubQueryService { Sessions = WideSessions() });
         Dispatcher.UIThread.RunJobs();
 
         var window = ShowPage(new SessionsView { DataContext = vm }, MinPageWidth);

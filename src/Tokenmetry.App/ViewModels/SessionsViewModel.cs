@@ -90,6 +90,7 @@ public sealed class SessionRowViewModel
 {
     public SessionRowViewModel(SessionListRow row)
     {
+        Row = row;
         SessionId = row.SessionId;
         Agent = row.Agent;
         // facts 无标题字段（I-002/I-029，隐私红线不存会话内容）：主文本升级为项目展示名
@@ -108,6 +109,9 @@ public sealed class SessionRowViewModel
     }
 
     public string SessionId { get; }
+
+    /// <summary>来源行（会话详情弹层取数用：分项数值/5m/1h 细分等投影原值）。</summary>
+    internal SessionListRow Row { get; }
 
     public string Agent { get; }
 
@@ -152,8 +156,8 @@ public sealed class SessionRowViewModel
 /// 经 <see cref="CommitSearchForTests"/> 直调提交（任务卡允许"虚拟时间或直接调命令"）。
 /// 分页：原型无分页控件，用「加载更多」（I-029 Page/PageSize 契约，页大小 50）；
 /// 计数条 "显示 X / Y 条"（X=已加载，Y=过滤后总数）。
-/// 下钻定案：行点击 → toast 显示会话标识 + "详情视图规划中"（原型为 toast 占位；
-/// 不在本卡发明弹窗/详情页新功能面，正式下钻留待后续卡）。
+/// 下钻（2026-11-02 最简版定案）：行点击 → 页内弹层（<see cref="SessionDetailViewModel"/>），
+/// 数据全部取自列表行投影（不发新查询、不重读源文件）；替换原 D-008 的 toast 占位。
 /// </summary>
 public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
@@ -165,7 +169,6 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
 
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
-    private readonly IToastService _toast;
 
     /// <summary>加载序号：重置型加载自增；跨 await 序号不一致的响应/异常直接丢弃（同 OverviewViewModel）。</summary>
     private int _loadSequence;
@@ -196,20 +199,26 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
     [NotifyPropertyChangedFor(nameof(HasLoadError), nameof(ShowEmptyState), nameof(ShowCountLine))]
     private string? _loadError;
 
-    /// <summary>行点击（ListBox SelectedItem）：toast 占位下钻，选中态立即复位（见类型说明下钻定案）。</summary>
+    /// <summary>行点击（ListBox SelectedItem）：打开页内详情弹层，选中态立即复位（同一行可再次点击）。</summary>
     [ObservableProperty]
     private SessionRowViewModel? _selectedSession;
+
+    /// <summary>详情弹层可见性（遮罩 IsVisible；Esc / 遮罩点击 / 关闭按钮都走 <see cref="CloseDetailCommand"/>）。</summary>
+    [ObservableProperty]
+    private bool _isDetailOpen;
+
+    /// <summary>当前弹层的详情 VM（打开时新建快照；null = 关闭态，弹层内容不渲染）。</summary>
+    [ObservableProperty]
+    private SessionDetailViewModel? _detail;
 
     public SessionsViewModel(
         PageDescriptor page,
         FilterStateService filters,
-        IUsageQueryService query,
-        IToastService toast)
+        IUsageQueryService query)
     {
         Page = page;
         _filters = filters;
         _query = query;
-        _toast = toast;
 
         filters.PropertyChanged += OnFilterPropertyChanged;
         _ = LoadAsync();
@@ -245,6 +254,9 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
     {
         if (FilterStateService.AffectsQueries(e.PropertyName))
         {
+            // 详情弹层是打开时点的快照：顶栏筛选在遮罩外仍可操作（弹层只盖页面区），
+            // 筛选一变即关——弹层里留着旧筛选口径的数据是自相矛盾态。
+            IsDetailOpen = false;
             _ = LoadAsync();
         }
     }
@@ -274,11 +286,16 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
             return;
         }
 
-        // 下钻定案（D-008）：toast 显示会话标识 + 规划中提示，不做弹窗/详情页
-        _toast.Show(string.Format(Translations.Instance.ToastSessionPlannedFormat, value.SessionId));
+        // 下钻最简版：弹层 VM 打开时快照（语言/主题在弹层存续期内不热刷，见类型说明）
+        Detail = new SessionDetailViewModel(value);
+        IsDetailOpen = true;
         _selectedSession = null; // 直接回写字段避免 setter 递归；下次点击同一行仍触发
         OnPropertyChanged(nameof(SelectedSession));
     }
+
+    /// <summary>关闭详情弹层（关闭按钮 / Esc / 遮罩点击共用）。</summary>
+    [RelayCommand]
+    private void CloseDetail() => IsDetailOpen = false;
 
     /// <summary>搜索防抖：每次击键重启定时器（重启式 debounce），停顿 SearchDebounceMilliseconds 后重查。</summary>
     private void RestartSearchTimer()

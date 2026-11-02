@@ -78,10 +78,14 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(InitializingTitle)] = "正在初始化数据…",
         [nameof(InitializingSubtitle)] = "首次启动正在扫描本机各 Agent 的会话记录并解析计费，完成后自动显示，无需手动刷新",
 
-        // ── 会话页（SessionsView 表头 / 行点击 toast；右栏专属 key 已随 2026-10-18 右栏撤除删除）──
+        // ── 会话页（SessionsView 表头 / 详情弹层；右栏专属 key 已随 2026-10-18 右栏撤除删除）──
         [nameof(LabelModels)] = "模型",
         [nameof(LabelProjectDir)] = "项目 / 目录",
-        [nameof(ToastSessionPlannedFormat)] = "会话 {0}：详情视图规划中",
+        [nameof(DetailClose)] = "关闭",
+        [nameof(DetailFirstActivity)] = "首次活动",
+        [nameof(DetailCacheWrite)] = "缓存写入",
+        [nameof(DetailCacheWrite5m)] = "其中 5 分钟缓存",
+        [nameof(DetailCacheWrite1h)] = "其中 1 小时缓存",
 
         // ── 全局筛选选项（FilterStateService / RelativeRangeSpec）──
         // 滚动档文案由 TimeRangeRollingDays 格式键生成（最近 {0} 天），与旧 TimeRange7/30/90 固定键逐位相同（D-020）
@@ -590,7 +594,11 @@ public sealed partial class Translations : INotifyPropertyChanged
 
         [nameof(LabelModels)] = "Models",
         [nameof(LabelProjectDir)] = "Project / directory",
-        [nameof(ToastSessionPlannedFormat)] = "Session {0}: detail view is planned",
+        [nameof(DetailClose)] = "Close",
+        [nameof(DetailFirstActivity)] = "First activity",
+        [nameof(DetailCacheWrite)] = "Cache write",
+        [nameof(DetailCacheWrite5m)] = "of which 5-min cache",
+        [nameof(DetailCacheWrite1h)] = "of which 1-hour cache",
 
         [nameof(TimeRangeToday)] = "Today",
         [nameof(TimeRangeYesterday)] = "Yesterday",
@@ -1240,7 +1248,11 @@ public sealed partial class Translations : INotifyPropertyChanged
     // ── 会话页 ──
     public string LabelModels => Get();
     public string LabelProjectDir => Get();
-    public string ToastSessionPlannedFormat => Get();
+    public string DetailClose => Get();
+    public string DetailFirstActivity => Get();
+    public string DetailCacheWrite => Get();
+    public string DetailCacheWrite5m => Get();
+    public string DetailCacheWrite1h => Get();
 
     // ── 全局筛选选项 ──
     public string TimeRangeToday => Get();

@@ -61,8 +61,11 @@ public sealed partial class Translations
         // ── Page des sessions ──
         [nameof(LabelModels)] = "Modèles",
         [nameof(LabelProjectDir)] = "Projet / répertoire",
-        [nameof(ToastSessionPlannedFormat)] = "Session {0} : la vue détaillée est prévue",
-
+        [nameof(DetailClose)] = "Fermer",
+        [nameof(DetailFirstActivity)] = "Première activité",
+        [nameof(DetailCacheWrite)] = "Écriture du cache",
+        [nameof(DetailCacheWrite5m)] = "dont cache 5 min",
+        [nameof(DetailCacheWrite1h)] = "dont cache 1 h",
         // ── Options de filtre global ──
         [nameof(TimeRangeToday)] = "Aujourd'hui",
         [nameof(TimeRangeYesterday)] = "Hier",

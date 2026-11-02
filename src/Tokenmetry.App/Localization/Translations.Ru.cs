@@ -63,8 +63,11 @@ public sealed partial class Translations
         // ── Страница сессий ──
         [nameof(LabelModels)] = "Модели",
         [nameof(LabelProjectDir)] = "Проект / каталог",
-        [nameof(ToastSessionPlannedFormat)] = "Сессия {0}: просмотр деталей запланирован",
-
+        [nameof(DetailClose)] = "Закрыть",
+        [nameof(DetailFirstActivity)] = "Первая активность",
+        [nameof(DetailCacheWrite)] = "Запись в кэш",
+        [nameof(DetailCacheWrite5m)] = "в том числе кэш 5 мин",
+        [nameof(DetailCacheWrite1h)] = "в том числе кэш 1 ч",
         // ── Глобальные фильтры ──
         [nameof(TimeRangeToday)] = "Сегодня",
         [nameof(TimeRangeYesterday)] = "Вчера",
