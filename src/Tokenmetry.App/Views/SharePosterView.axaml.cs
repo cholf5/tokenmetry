@@ -23,6 +23,9 @@ public partial class SharePosterView : UserControl
     /// <summary>海报版面自身宽度（导出按 2× 光栅化）。</summary>
     public const double PosterWidth = 1080;
 
+    /// <summary>导出时要光栅化的节点（版面根，不含外面用来适配预览的缩放容器）。</summary>
+    public Control PosterRootControl => PosterRoot;
+
     private void ApplyRequestedTheme()
     {
         var theme = (DataContext as SharePosterViewModel)?.Data.Request.Theme ?? SharePosterTheme.FollowApp;
