@@ -1,0 +1,151 @@
+using Tokenmetry.Core.Models;
+
+namespace Tokenmetry.Core.Tests.Models;
+
+/// <summary>
+/// 分享海报的数据快照（P2）：把总览页/信息窗的查询结果收成一份不可变、可安全跨线程渲染的切片。
+/// 契约重点：未知成本保持未知（null ≠ 0）、日序列不补齐缺口、排行按 token 降序取前 N。
+/// </summary>
+public class SharePosterSnapshotTests
+{
+    private static DimensionUsageRow Row(
+        string key, long input, long output, long cache, decimal? cost, bool unknownCost = false) => new()
+    {
+        Key = key,
+        InputTokens = input,
+        OutputTokens = output,
+        CacheReadTokens = cache,
+        TotalTokens = input + output + cache,
+        Cost = new AggregatedCost(cost, unknownCost),
+    };
+
+    private static SharePosterRequest Request(DateOnly? start = null, DateOnly? end = null) =>
+        new(SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+            start ?? new DateOnly(2026, 1, 28),
+            end ?? new DateOnly(2026, 11, 2));
+
+    [Fact]
+    public void Single_day_range_sets_the_flag()
+    {
+        var day = new DateOnly(2026, 10, 17);
+
+        Assert.True(Request(day, day).IsSingleDay);
+        Assert.False(Request().IsSingleDay);
+    }
+
+    [Fact]
+    public void Totals_sum_the_agent_dimension_and_keep_unknown_cost_unknown()
+    {
+        var agents = new[]
+        {
+            Row("ZCode", 100, 10, 1_000, 2.5m),
+            Row("Codex", 50, 5, 500, null, unknownCost: true),
+        };
+
+        var data = SharePosterSnapshot.Build(Request(), [], agents, [], [], sessionCount: 7);
+
+        data.Totals.InputTokens.Should().Be(150);
+        data.Totals.OutputTokens.Should().Be(15);
+        data.Totals.CacheReadTokens.Should().Be(1_500);
+        data.Totals.TotalTokens.Should().Be(1_665);
+        data.Totals.SessionCount.Should().Be(7);
+
+        // 未知成本绝不折算为 0：已知部分仍是 2.5，未知标记必须透传
+        data.Totals.Cost.KnownCostUsd.Should().Be(2.5m);
+        data.Totals.Cost.HasUnknownCost.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Cache_share_is_null_when_there_is_no_token_base()
+    {
+        var data = SharePosterSnapshot.Build(Request(), [], [], [], [], sessionCount: 0);
+
+        data.Totals.TotalTokens.Should().Be(0);
+        data.Totals.CacheShare.Should().BeNull("分母为 0 时不伪造 0%");
+    }
+
+    [Fact]
+    public void Cache_share_is_cache_read_over_total()
+    {
+        var agents = new[] { Row("ZCode", 168_278, 38_021, 5_958_548, 0m) };
+
+        var data = SharePosterSnapshot.Build(Request(), [], agents, [], [], sessionCount: 1);
+
+        data.Totals.CacheShare.Should().BeApproximately(5_958_548m / 6_164_847m, 0.0001m);
+    }
+
+    [Fact]
+    public void Rankings_sort_descending_and_truncate_to_top_six()
+    {
+        var models = Enumerable.Range(1, 8)
+            .Select(i => Row($"m{i}", 0, 0, i * 100, null))
+            .ToArray();
+
+        var data = SharePosterSnapshot.Build(Request(), [], [], models, [], sessionCount: 0);
+
+        data.Models.Should().HaveCount(SharePosterSnapshot.TopN);
+        data.Models.Select(m => m.Name).Should().Equal("m8", "m7", "m6", "m5", "m4", "m3");
+    }
+
+    [Fact]
+    public void Ranking_share_uses_its_own_dimension_total_as_denominator()
+    {
+        var projects = new[] { Row("alpha", 0, 0, 750, null), Row("beta", 0, 0, 250, null) };
+
+        var data = SharePosterSnapshot.Build(Request(), [], [], [], projects, sessionCount: 0);
+
+        data.Projects.Should().HaveCount(2);
+        data.Projects[0].Share.Should().BeApproximately(0.75m, 0.0001m);
+        data.Projects[1].Share.Should().BeApproximately(0.25m, 0.0001m);
+    }
+
+    [Fact]
+    public void Project_rows_use_display_name_and_fall_back_to_key()
+    {
+        var projects = new[]
+        {
+            new DimensionUsageRow
+            {
+                Key = "/work/Zearth", DisplayName = "Zearth", TotalTokens = 10,
+                Cost = AggregatedCost.Empty,
+            },
+            new DimensionUsageRow
+            {
+                Key = "/work/sven-net", DisplayName = null, TotalTokens = 5,
+                Cost = AggregatedCost.Empty,
+            },
+        };
+
+        var data = SharePosterSnapshot.Build(Request(), [], [], [], projects, sessionCount: 0);
+
+        data.Projects.Select(p => p.Name).Should().Equal("Zearth", "/work/sven-net");
+    }
+
+    [Fact]
+    public void Daily_series_is_carried_over_verbatim_without_gap_filling()
+    {
+        var daily = new[]
+        {
+            new DailyUsagePoint { Day = "2026-02-07", TotalTokens = 238, HasData = true },
+            new DailyUsagePoint { Day = "2026-02-08", TotalTokens = 0, HasData = false },
+        };
+
+        var data = SharePosterSnapshot.Build(Request(), daily, [], [], [], sessionCount: 0);
+
+        data.Daily.Should().HaveCount(2);
+        data.Daily[1].HasData.Should().BeFalse("缺口按原样交给图表断开，不在快照层补 0");
+    }
+
+    [Fact]
+    public void Types_split_input_output_cache_with_shares_of_total()
+    {
+        var agents = new[] { Row("ZCode", 100, 100, 800, 0m) };
+
+        var data = SharePosterSnapshot.Build(Request(), [], agents, [], [], sessionCount: 0);
+
+        data.Types.Select(t => t.Name).Should().Equal("input", "output", "cache");
+        data.Types[0].Tokens.Should().Be(100);
+        data.Types[2].Tokens.Should().Be(800);
+        data.Types[2].Share.Should().BeApproximately(0.8m, 0.0001m);
+    }
+}
