@@ -1,0 +1,227 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Tokenmetry.App.ViewModels"
+             xmlns:c="using:Tokenmetry.App.Controls"
+             xmlns:loc="using:Tokenmetry.App.Localization"
+             mc:Ignorable="d"
+             x:Class="Tokenmetry.App.Views.SharePosterView"
+             x:DataType="vm:SharePosterViewModel">
+
+    <!--
+        分享海报版面（P3：竖版 / 夜间一份先跑通闭环）。
+        与总览页同源：同一批令牌、同一批图表控件、同一套信息结构，只有尺度不同。
+        尺度差异集中在 .poster-* 样式里，不散落到元素上；两处图表的关键差异是
+        TrendChart.ShowPeakAnnotation（静态图没有 hover）+ DonutChart.AnimateSweep=false
+        （离屏渲染没有 DispatcherTimer，扫入动画会让环形是空的）。
+    -->
+    <UserControl.Styles>
+        <Style Selector="TextBlock.poster-title">
+            <Setter Property="FontSize" Value="56"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-1.2"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.poster-subtitle">
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="Border.poster-kpi">
+            <Setter Property="MinHeight" Value="196"/>
+            <Setter Property="Padding" Value="24,22,22,20"/>
+            <Setter Property="CornerRadius" Value="16"/>
+        </Style>
+        <Style Selector="TextBlock.poster-kpi-value">
+            <Setter Property="FontSize" Value="46"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-1.4"/>
+        </Style>
+        <Style Selector="TextBlock.poster-kpi-cap">
+            <Setter Property="FontSize" Value="15"/>
+        </Style>
+        <Style Selector="Border.poster-panel">
+            <Setter Property="Padding" Value="22"/>
+            <Setter Property="CornerRadius" Value="16"/>
+        </Style>
+        <Style Selector="TextBlock.poster-panel-title">
+            <Setter Property="FontSize" Value="19"/>
+        </Style>
+        <Style Selector="Border.poster-row">
+            <Setter Property="Padding" Value="0,11"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ThemeVariantScope x:Name="ThemeScope">
+        <Border x:Name="PosterRoot"
+                Width="1080"
+                Padding="52,54,52,44"
+                Background="{DynamicResource AppBackgroundBrush}">
+            <StackPanel Spacing="14">
+
+                <!-- 页头 -->
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                    <StackPanel Spacing="9">
+                        <TextBlock Classes="poster-title" Text="{Binding NavOverview, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Classes="poster-subtitle" Text="TOKENMETRY"
+                               VerticalAlignment="Bottom" LetterSpacing="3"/>
+                </Grid>
+
+                <!-- 四张 KPI -->
+                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="14">
+                    <Border Grid.Column="0" Classes="kpi poster-kpi">
+                        <StackPanel>
+                            <TextBlock Classes="kpi-top poster-kpi-cap" Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Classes="kpi-value poster-kpi-value" Text="{Binding TotalTokensText}"/>
+                            <TextBlock Classes="kpi-foot" Text="{Binding KpiFootCacheOfInput, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Classes="kpi poster-kpi">
+                        <StackPanel>
+                            <TextBlock Classes="kpi-top poster-kpi-cap" Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Classes="kpi-value poster-kpi-value" Text="{Binding CostText}"/>
+                            <TextBlock Classes="kpi-foot" Text="{Binding KpiFootPriceEstimate, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Classes="kpi poster-kpi">
+                        <StackPanel>
+                            <TextBlock Classes="kpi-top poster-kpi-cap" Text="{Binding KpiSessions, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Classes="kpi-value poster-kpi-value" Text="{Binding SessionsText}"/>
+                            <TextBlock Classes="kpi-foot" Text="{Binding KpiFootAcrossAgents, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="3" Classes="kpi poster-kpi">
+                        <StackPanel>
+                            <TextBlock Classes="kpi-top poster-kpi-cap" Text="{Binding KpiCacheShare, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Classes="kpi-value poster-kpi-value" Text="{Binding CacheShareText}"/>
+                            <TextBlock Classes="kpi-foot" Text="{Binding KpiFootCacheOfInput, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- 趋势 + Agent 环形 -->
+                <Grid ColumnDefinitions="1.55*,0.85*" ColumnSpacing="14">
+                    <Border Grid.Column="0" Classes="panel poster-panel">
+                        <StackPanel Spacing="10">
+                            <TextBlock Classes="panel-title poster-panel-title"
+                                       Text="{Binding PanelTrend, Source={x:Static loc:Translations.Instance}}"/>
+                            <c:TrendChart x:Name="TrendChartControl"
+                                          Height="240"
+                                          Mode="DailyTokens"
+                                          DailyPoints="{Binding Daily}"
+                                          ChartFontScale="1.9"
+                                          ShowPeakAnnotation="True"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Classes="panel poster-panel">
+                        <StackPanel Spacing="13">
+                            <TextBlock Classes="panel-title poster-panel-title"
+                                       Text="{Binding PanelAgentDonut, Source={x:Static loc:Translations.Instance}}"/>
+                            <c:DonutChart Segments="{Binding AgentSegments}"
+                                          DonutSize="190"
+                                          RingThickness="17"
+                                          LegendFontSize="14"
+                                          AnimateSweep="False"
+                                          CenterTitle="{Binding TotalTokensText}"
+                                          CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- 模型 + 类型环形 -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                    <Border Grid.Column="0" Classes="panel poster-panel">
+                        <StackPanel Spacing="9">
+                            <TextBlock Classes="panel-title poster-panel-title"
+                                       Text="{Binding PanelModelDistribution, Source={x:Static loc:Translations.Instance}}"/>
+                            <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10" Margin="0,0,0,2">
+                                <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThModel, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding ModelRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SharePosterRow">
+                                        <Border Classes="poster-row" BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0">
+                                            <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10">
+                                                <StackPanel Grid.Column="0" Spacing="5">
+                                                    <TextBlock Classes="table-td" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                    <ProgressBar Classes="mini" Value="{Binding BarValue}" Height="5"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding TokensText}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding ShareText}" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasModels}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Classes="panel poster-panel">
+                        <StackPanel Spacing="13">
+                            <TextBlock Classes="panel-title poster-panel-title"
+                                       Text="{Binding PanelTypeDonut, Source={x:Static loc:Translations.Instance}}"/>
+                            <c:DonutChart Segments="{Binding TypeSegments}"
+                                          DonutSize="190"
+                                          RingThickness="17"
+                                          LegendFontSize="14"
+                                          AnimateSweep="False"
+                                          CenterTitle="{Binding CacheShareText}"
+                                          CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- 项目 + 成本趋势 -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                    <Border Grid.Column="0" Classes="panel poster-panel">
+                        <StackPanel Spacing="9">
+                            <TextBlock Classes="panel-title poster-panel-title"
+                                       Text="{Binding PanelProjectRanking, Source={x:Static loc:Translations.Instance}}"/>
+                            <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10" Margin="0,0,0,2">
+                                <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding ProjectRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SharePosterRow">
+                                        <Border Classes="poster-row" BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0">
+                                            <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10">
+                                                <StackPanel Grid.Column="0" Spacing="5">
+                                                    <TextBlock Classes="table-td" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                    <ProgressBar Classes="mini" Value="{Binding BarValue}" Height="5"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding TokensText}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding ShareText}" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasProjects}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Classes="panel poster-panel">
+                        <StackPanel Spacing="10">
+                            <TextBlock Classes="panel-title poster-panel-title"
+                                       Text="{Binding PanelCostTrend, Source={x:Static loc:Translations.Instance}}"/>
+                            <c:TrendChart x:Name="CostChartControl"
+                                          Height="240"
+                                          Mode="CostUsd"
+                                          DailyPoints="{Binding Daily}"
+                                          ChartFontScale="1.9"
+                                          ShowPeakAnnotation="True"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+            </StackPanel>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>
