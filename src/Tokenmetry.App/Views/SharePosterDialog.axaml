@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:Tokenmetry.App.ViewModels"
+        xmlns:v="using:Tokenmetry.App.Views"
+        xmlns:loc="using:Tokenmetry.App.Localization"
+        mc:Ignorable="d"
+        x:Class="Tokenmetry.App.Views.SharePosterDialog"
+        x:DataType="vm:SharePosterDialogViewModel"
+        Title="分享海报"
+        Width="1060" Height="920"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <!-- 选项 -->
+        <StackPanel Grid.Row="0" Spacing="12" Margin="0,0,0,16">
+            <TextBlock Classes="page-title" Text="{Binding NavOverview, Source={x:Static loc:Translations.Instance}}"/>
+            <Grid ColumnDefinitions="Auto,180,Auto,180,Auto,180" ColumnSpacing="10">
+                <TextBlock Grid.Column="0" Classes="setting-label" Text="版式" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding LayoutOptions}"
+                          SelectedItem="{Binding Layout}" IsEnabled="{Binding CanChooseLandscape}"/>
+                <TextBlock Grid.Column="2" Classes="setting-label" Text="主题" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="3" ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding Theme}"/>
+                <TextBlock Grid.Column="4" Classes="setting-label" Text="项目名" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="5" ItemsSource="{Binding MaskOptions}" SelectedItem="{Binding ProjectMask}"/>
+            </Grid>
+        </StackPanel>
+
+        <!-- 预览 -->
+        <Border Grid.Row="1" Classes="panel" Padding="8">
+            <ScrollViewer>
+                <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
+                    <v:SharePosterView x:Name="PreviewView" DataContext="{Binding Preview}"/>
+                </Viewbox>
+            </ScrollViewer>
+        </Border>
+
+        <!-- 导出 -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,16,0,0">
+            <TextBlock x:Name="StatusText" Grid.Column="0" Classes="setting-hint" VerticalAlignment="Center"/>
+            <Button x:Name="CopyButton" Grid.Column="1" Classes="app-btn primary"
+                    Content="复制到剪贴板" Click="OnCopyClick"/>
+            <Button x:Name="SaveButton" Grid.Column="2" Classes="app-btn"
+                    Content="保存为文件" Click="OnSaveClick"/>
+        </Grid>
+    </Grid>
+</Window>
