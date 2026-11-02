@@ -13,21 +13,35 @@ namespace Tokenmetry.App.Tray;
 /// <para>自家进程的事件（弹层卡片、托盘按钮、主窗）不进全局监听，与既有三通道零重叠；
 /// 监听回调先到时消费即拆（once），随后才到的 Deactivated 由控制器可见性门控吞掉，不重复
 /// OnHidden。右/中键一并收——Windows 失焦通道对任何点击抢焦点都收起，此处口径对齐。</para>
-/// <para>手法与 MacTrayInterop 同纪律：raw objc_msgSend、UI 主线程挂载/拆除、全 try/catch。
-/// handler 块用「全局块字面量手工构造」（isa=_NSConcreteGlobalBlock + 静态 invoke，零捕获
-/// 无 copy/dispose 助手），HGlobal 常驻布点，无 GC 生命周期耦合。headless 宿主
+/// <para>手法与 MacTrayInterop 同纪律：raw objc_msgSend、UI 主线程挂载/拆除；try/catch 只兜托管
+/// 异常——unrecognized selector 的 ObjC 异常跨托管帧捕不住、直接 terminate，所以接收者必须静态
+/// 正确：add/removeMonitor 都是 <b>NSEvent 类方法</b>（AppKit/NSEvent.h；NSApplication 不响应——
+/// 27a370f 首版误发 NSApplication 实例，点托盘 Show→Arm 即崩进程），挂载前 class_getClassMethod
+/// 探测，缺 API 静默回落三通道。handler 块用「全局块字面量手工构造」（零捕获、静态 invoke、无
+/// copy/dispose 助手），isa 经 dlsym 取 _NSConcreteGlobalBlock 符号地址——它是数据符号不是 ObjC
+/// 类，objc_getClass 恒 NULL（真机实测，同版炸点之二）；flags=BLOCK_IS_GLOBAL(1<<28)，与 clang
+/// 真块逐字节对照留证（真块实测 flags=0x50000000=IS_GLOBAL|HAS_SIGNATURE，签名位可省），AppKit
+/// 接受、[copy] 保指针、removeMonitor 干净。HGlobal 常驻布点，无 GC 生命周期耦合。headless 宿主
 /// （TOKENMETRY_HEADLESS=1）与非 macOS 平台只记账不安装。</para>
 /// </summary>
 internal static unsafe class MacPopoverOutsideClickMonitor
 {
     private const string LibObjC = "/usr/lib/libobjc.A.dylib";
+    private const string LibSystem = "/usr/lib/libSystem.B.dylib";
 
     // NSEventTypeLeftMouseDown=1 / RightMouseDown=3 / OtherMouseDown=25，掩码按类型号左移
     private const ulong MouseDownMask = (1UL << 1) | (1UL << 3) | (1UL << 25);
-    private const int BlockIsGlobal = 1 << 29; // Block_private.h BLOCK_IS_GLOBAL
+    // Block_private.h 的 BLOCK_IS_GLOBAL = 1<<28（真机 clang 真块实测 flags=0x50000000 =
+    // IS_GLOBAL|HAS_SIGNATURE，签名位可省）；1<<29 是 BLOCK_USE_STRET——27a370f 首版放错位
+    private const int BlockIsGlobal = 1 << 28;
+
+    // dlfcn.h RTLD_DEFAULT（macOS = -2）
+    private static readonly IntPtr RtldDefault = new IntPtr(-2);
 
     [DllImport(LibObjC)] private static extern IntPtr objc_getClass(string name);
     [DllImport(LibObjC)] private static extern IntPtr sel_registerName(string selector);
+    [DllImport(LibObjC)] private static extern IntPtr class_getClassMethod(IntPtr cls, IntPtr sel);
+    [DllImport(LibSystem)] private static extern IntPtr dlsym(IntPtr handle, string symbol);
 
     [DllImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static extern IntPtr MsgSend(IntPtr receiver, IntPtr selector);
@@ -56,7 +70,7 @@ internal static unsafe class MacPopoverOutsideClickMonitor
         public IntPtr Size;
     }
 
-    private static IntPtr _app, _monitor, _block, _descriptor;
+    private static IntPtr _monitor, _block, _descriptor;
     private static Action? _onOutsideClick;
     private static bool _armed;
 
@@ -82,7 +96,7 @@ internal static unsafe class MacPopoverOutsideClickMonitor
         {
             try
             {
-                MsgSend(_app, sel_registerName("removeMonitor:"), _monitor);
+                MsgSend(objc_getClass("NSEvent"), sel_registerName("removeMonitor:"), _monitor);
             }
             catch
             {
@@ -136,23 +150,23 @@ internal static unsafe class MacPopoverOutsideClickMonitor
                 BuildGlobalBlock();
             }
 
-            var app = MsgSend(objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
-            if (app == IntPtr.Zero)
+            // addGlobalMonitorForEventsMatchingMask:handler: / removeMonitor: 都是 NSEvent 的类方法
+            // （AppKit/NSEvent.h）——发给 NSApplication 实例是 27a370f 首版真机炸点：unrecognized
+            // selector 的 ObjC 异常跨托管帧无法被 try/catch、直接 terminate（点托盘 Show→Arm 即崩）。
+            // class_getClassMethod 探测（+respondsToSelector: 查的是实例方法，对类方法恒 NO）。
+            var nsevent = objc_getClass("NSEvent");
+            var addGlobalMonitor = sel_registerName("addGlobalMonitorForEventsMatchingMask:handler:");
+            if (class_getClassMethod(nsevent, addGlobalMonitor) == IntPtr.Zero)
             {
                 return false;
             }
 
-            var monitor = MsgSend(
-                app,
-                sel_registerName("addGlobalMonitorForEventsMatchingMask:handler:"),
-                MouseDownMask,
-                _block);
+            var monitor = MsgSend(nsevent, addGlobalMonitor, MouseDownMask, _block);
             if (monitor == IntPtr.Zero)
             {
                 return false;
             }
 
-            _app = app;
             _monitor = monitor;
             return true;
         }
@@ -173,7 +187,10 @@ internal static unsafe class MacPopoverOutsideClickMonitor
         var block = (BlockLiteral*)Marshal.AllocHGlobal(sizeof(BlockLiteral));
         *block = new BlockLiteral
         {
-            Isa = objc_getClass("_NSConcreteGlobalBlock"),
+            // _NSConcreteGlobalBlock 是数据符号不是 ObjC 类，objc_getClass 恒 NULL（真机实测）——
+            // isa 必须取符号地址本身（clang 真块 isa == dlsym 值，逐字节对照留证）；NULL isa 的块
+            // 一经 objc_retain 即段错误（地址 0x20，真机复现）。
+            Isa = dlsym(RtldDefault, "_NSConcreteGlobalBlock"),
             Flags = BlockIsGlobal,
             Invoke = (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, void>)&OutsideMouseDownImp,
             Descriptor = (IntPtr)descriptor,
