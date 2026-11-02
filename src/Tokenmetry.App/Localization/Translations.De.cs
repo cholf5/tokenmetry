@@ -96,8 +96,8 @@ public sealed partial class Translations
 
         // ── Tray ──
         [nameof(TrayTooltip)] = "Tokenmetry — Token-Kostenmonitor",
-        [nameof(TrayCostFormat)] = "Kosten heute: ${0:F2}",
-        [nameof(TrayCostNoData)] = "Kosten heute: — (noch keine Daten)",
+        [nameof(TrayTodaySummaryFormat)] = "Heute: {0} tok, Kosten {1}, Cache-Treffer {2}",
+        [nameof(TrayTodayNoData)] = "Heute: — (noch keine Daten)",
         [nameof(TrayOpenWindow)] = "Fenster öffnen",
         [nameof(TrayRefreshNow)] = "Jetzt aktualisieren",
         [nameof(TraySettings)] = "Einstellungen",

@@ -98,8 +98,8 @@ public sealed partial class Translations
 
         // ── Трей ──
         [nameof(TrayTooltip)] = "Tokenmetry — монитор затрат на токены",
-        [nameof(TrayCostFormat)] = "Расходы сегодня: ${0:F2}",
-        [nameof(TrayCostNoData)] = "Расходы сегодня: — (данных нет)",
+        [nameof(TrayTodaySummaryFormat)] = "Сегодня: {0} tok, расходы {1}, попадание в кэш {2}",
+        [nameof(TrayTodayNoData)] = "Сегодня: — (данных нет)",
         [nameof(TrayOpenWindow)] = "Открыть окно",
         [nameof(TrayRefreshNow)] = "Обновить сейчас",
         [nameof(TraySettings)] = "Настройки",

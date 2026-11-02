@@ -52,6 +52,10 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     private long _todayTokens;
 
+    /// <summary>今日缓存读取占比（0~1；无今日数据 / 零 token 为 null）。托盘 tooltip 摘要行消费。</summary>
+    [ObservableProperty]
+    private decimal? _todayCacheReadShare;
+
     [ObservableProperty]
     private string _latestDataDate = string.Empty;
 
@@ -140,6 +144,7 @@ public partial class DashboardViewModel : ViewModelBase
         WeekCostUsd = summary.WeekCostUsd;
         MonthCostUsd = summary.MonthCostUsd;
         TodayTokens = summary.TodayTokens;
+        TodayCacheReadShare = summary.TodayCacheReadShare;
         LatestDataDate = summary.LatestDataDate;
         LatestDayCostUsd = summary.LatestDayCostUsd;
         LatestDayTokens = summary.LatestDayTokens;

@@ -117,8 +117,8 @@ public sealed partial class Translations : INotifyPropertyChanged
 
         // ── 托盘（TrayService）──
         [nameof(TrayTooltip)] = "Tokenmetry — Token 成本监控",
-        [nameof(TrayCostFormat)] = "今日成本：${0:F2}",
-        [nameof(TrayCostNoData)] = "今日成本：—（尚无数据）",
+        [nameof(TrayTodaySummaryFormat)] = "今日: {0} tok, 成本 {1}, 缓存命中 {2}",
+        [nameof(TrayTodayNoData)] = "今日: —（尚无数据）",
         [nameof(TrayOpenWindow)] = "打开主窗",
         [nameof(TrayRefreshNow)] = "立即刷新",
         [nameof(TraySettings)] = "设置",
@@ -571,8 +571,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(AllProjects)] = "All projects",
 
         [nameof(TrayTooltip)] = "Tokenmetry — token cost monitor",
-        [nameof(TrayCostFormat)] = "Today: ${0:F2}",
-        [nameof(TrayCostNoData)] = "Today: — (no data yet)",
+        [nameof(TrayTodaySummaryFormat)] = "Today: {0} tok, cost {1}, cache hit {2}",
+        [nameof(TrayTodayNoData)] = "Today: — (no data yet)",
         [nameof(TrayOpenWindow)] = "Open window",
         [nameof(TrayRefreshNow)] = "Refresh now",
         [nameof(TraySettings)] = "Settings",
@@ -1172,8 +1172,8 @@ public sealed partial class Translations : INotifyPropertyChanged
 
     // ── 托盘 ──
     public string TrayTooltip => Get();
-    public string TrayCostFormat => Get();
-    public string TrayCostNoData => Get();
+    public string TrayTodaySummaryFormat => Get();
+    public string TrayTodayNoData => Get();
     public string TrayOpenWindow => Get();
     public string TrayRefreshNow => Get();
     public string TraySettings => Get();

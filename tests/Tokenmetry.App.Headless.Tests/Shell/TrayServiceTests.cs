@@ -1,14 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Tokenmetry.App.Controls;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Tray;
+using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
+using Tokenmetry.Core.Abstractions;
+using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Services;
 using Xunit;
 
 namespace Tokenmetry.App.Headless.Tests.Shell;
@@ -161,6 +167,139 @@ public class TrayServiceTests : IDisposable
         TrayService.WriteMacItemTitles(items); // 修复前：items[1].Title() → NullReferenceException
 
         Assert.Equal(new[] { 0, 2 }, invoked); // 非分隔线项全量重写（保安装序号），分隔线跳过
+    }
+
+    [AvaloniaFact]
+    public void Initialize_builds_today_summary_tooltip_from_dashboard()
+    {
+        // tooltip 两行：首行产品名（既有 TrayTooltip），次行今日摘要（tokens/成本/缓存命中）。
+        var dashboard = CreateDashboard(todayTokens: 255_000_000, todayCostUsd: 8.8m, cacheShare: 0.983m);
+        var tray = new TrayService(_window, dashboard, null, null);
+
+        tray.Initialize();
+
+        var tooltip = SingleRegisteredIcon()!.ToolTipText!;
+        Assert.Equal(Translations.Instance.TrayTooltip, tooltip.Split('\n')[0]);
+        var summary = tooltip.Split('\n')[1];
+        Assert.Contains("8.80", summary);
+        Assert.Contains("98.3%", summary);
+        Assert.Contains(TrendChart.FormatCompactTokens(255_000_000), summary);
+    }
+
+    [AvaloniaFact]
+    public void Initialize_falls_back_to_title_only_without_dashboard()
+    {
+        // 旧构造（headless/旧测试宿主）：无 dashboard 可读，tooltip 保持产品名单行
+        new TrayService(_window).Initialize();
+
+        Assert.DoesNotContain("\n", SingleRegisteredIcon()!.ToolTipText);
+    }
+
+    [AvaloniaFact]
+    public void Initialize_shows_no_data_line_when_dashboard_has_no_data()
+    {
+        // 有 dashboard 但无数据（新装/错误轮）：不冒充 0，显诚实的无数据行（TrayCostNoData 口径平移）
+        var dashboard = CreateDashboard(todayTokens: 0, todayCostUsd: 0m, cacheShare: null, hasData: false);
+        var tray = new TrayService(_window, dashboard, null, null);
+
+        tray.Initialize();
+
+        var lines = SingleRegisteredIcon()!.ToolTipText!.Split('\n');
+        Assert.Equal(2, lines.Length);
+        Assert.Equal(Translations.Instance.TrayTodayNoData, lines[1]);
+    }
+
+    [AvaloniaFact]
+    public async Task Dashboard_kpi_update_rewrites_today_summary_tooltip()
+    {
+        // 后台轮回写路径：PropertyChanged → UpdateToolTip，摘要行随 KPI 翻新（含新命中率）
+        var dashboard = CreateDashboard(todayTokens: 1_000, todayCostUsd: 0.1m, cacheShare: null);
+        var tray = new TrayService(_window, dashboard, null, null);
+        tray.Initialize();
+
+        dashboard.TodayTokens = 255_000_000;
+        dashboard.TodayCostUsd = 8.8m;
+        dashboard.TodayCacheReadShare = 0.983m;
+        Dispatcher.UIThread.RunJobs();
+
+        var summary = SingleRegisteredIcon()!.ToolTipText!.Split('\n')[1];
+        Assert.Contains("8.80", summary);
+        Assert.Contains("98.3%", summary);
+    }
+
+    [AvaloniaFact]
+    public async Task Dashboard_kpi_update_rewrites_tooltip_from_background_thread()
+    {
+        // 跨线程回归（既有 UpdateToolTip 语义）：后台线程触发的 PropertyChanged 同步回调不得抛
+        var dashboard = CreateDashboard(todayTokens: 0, todayCostUsd: 0m, cacheShare: null, hasData: false);
+        var tray = new TrayService(_window, dashboard, null, null);
+        tray.Initialize();
+
+        await Task.Run(() =>
+        {
+            dashboard.HasData = true;
+            dashboard.TodayTokens = 255_000_000;
+            dashboard.TodayCostUsd = 8.8m;
+            dashboard.TodayCacheReadShare = 0.983m;
+        });
+        Dispatcher.UIThread.RunJobs();
+
+        var summary = SingleRegisteredIcon()!.ToolTipText!.Split('\n')[1];
+        Assert.Contains("98.3%", summary);
+    }
+
+    private static DashboardViewModel CreateDashboard(long todayTokens, decimal todayCostUsd, decimal? cacheShare, bool hasData = true)
+    {
+        var rows = hasData
+            ? new List<DailyUsageSummary>
+            {
+                new()
+                {
+                    Date = "2026-11-02",
+                    TotalTokens = todayTokens,
+                    CacheReadTokens = todayTokens,
+                    TotalCostUsd = todayCostUsd
+                }
+            }
+            : new List<DailyUsageSummary>();
+        var dateService = new FixedTodayDateRangeService();
+        var dashboard = new DashboardViewModel(
+            new DashboardService(dateService),
+            new CacheService(new NoopUsageStore()),
+            new StaticUsageDataSource(rows),
+            new AnomalyDetector(),
+            dateService,
+            new AppSettings());
+        if (hasData)
+        {
+            // 模拟 UpdateFromDashboard 写入后的 KPI 快照（HasData 由刷新线回写）
+            dashboard.HasData = true;
+            dashboard.TodayTokens = todayTokens;
+            dashboard.TodayCostUsd = todayCostUsd;
+            dashboard.TodayCacheReadShare = cacheShare;
+        }
+
+        return dashboard;
+    }
+
+    private sealed class FixedTodayDateRangeService : DateRangeService
+    {
+        public override string Today() => "2026-11-02";
+    }
+
+    private sealed class StaticUsageDataSource(List<DailyUsageSummary> rows) : IUsageDataSource
+    {
+        public Task<List<DailyUsageSummary>> GetDailyUsageAsync(CancellationToken ct = default) => Task.FromResult(rows);
+    }
+
+    private sealed class NoopUsageStore : IUsageStore
+    {
+        public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) => Task.CompletedTask;
+        public Task ReplaceUsageFactsByDayAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<UsageFact>> GetUsageFactsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<UsageFact>>([]);
+        public Task UpsertSessionFactsAsync(IReadOnlyList<SessionFact> facts, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<SessionFact>> GetSessionFactsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<SessionFact>>([]);
+        public Task DeleteDecompositionFactsAsync(CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private static TrayIcon? SingleRegisteredIcon()

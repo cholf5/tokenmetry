@@ -163,6 +163,29 @@ public class DashboardViewModelTests
     }
 
     [Fact]
+    public async Task RefreshAsync_ExposesTodayCacheReadShare_FromSummary()
+    {
+        // 托盘 tooltip 摘要行的数据出口：BuildDashboard 的今日命中率透传为 VM 属性
+        var viewModel = CreateDashboardViewModel(
+            new AppSettings(),
+            new FixedDateRangeService("2026-06-19"),
+            new[]
+            {
+                new DailyUsageSummary
+                {
+                    Date = "2026-06-19",
+                    TotalTokens = 1000,
+                    CacheReadTokens = 983,
+                    TotalCostUsd = 8.8m
+                }
+            });
+
+        await viewModel.RefreshAsync();
+
+        viewModel.TodayCacheReadShare.Should().Be(0.983m);
+    }
+
+    [Fact]
     public async Task RefreshAsync_SavesCache_WhenDataSourceDoesNotPersistFacts()
     {
         var store = new FakeUsageStore();
