@@ -86,6 +86,10 @@ public partial class DonutChart : UserControl
     public static readonly StyledProperty<bool> AnimateSweepProperty =
         AvaloniaProperty.Register<DonutChart, bool>(nameof(AnimateSweep), true);
 
+    /// <summary>图例字号（原型 11px）。海报把同一控件放大到 1080 宽时需要成比例放大。</summary>
+    public static readonly StyledProperty<double> LegendFontSizeProperty =
+        AvaloniaProperty.Register<DonutChart, double>(nameof(LegendFontSize), 11d);
+
     public DonutChart()
     {
         InitializeComponent();
@@ -107,6 +111,7 @@ public partial class DonutChart : UserControl
         DonutSizeProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.Rebuild());
         RingThicknessProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.Rebuild());
         AnimateSweepProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.Rebuild());
+        LegendFontSizeProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.ApplyLegendFontSize());
 
         // 主题变体变化影响空态环/中心文字颜色（DynamicResource 自动），弧段色为系列色（不翻转），
         // 但 Light/Dark 下 EmptyRing 画刷实例不同——这里无需手工重建，仅需尺寸类重建走属性回调。
@@ -202,6 +207,15 @@ public partial class DonutChart : UserControl
         set => SetValue(AnimateSweepProperty, value);
     }
 
+    /// <summary>图例字号（像素）；图例内容继承该值，模板内不再写死 11。</summary>
+    public double LegendFontSize
+    {
+        get => GetValue(LegendFontSizeProperty);
+        set => SetValue(LegendFontSizeProperty, value);
+    }
+
+    private void ApplyLegendFontSize() => LegendList.FontSize = LegendFontSize;
+
     private void OnSegmentsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => Rebuild();
 
     // ── 扫入动画（motion design）──
@@ -261,6 +275,8 @@ public partial class DonutChart : UserControl
     /// <summary>重建弧段 + 图例 + 中心/空态可见性（数据/属性变化与首次挂树时调用）。</summary>
     public void Rebuild()
     {
+        ApplyLegendFontSize();
+
         var segments = (Segments ?? Array.Empty<object>())
             .OfType<DonutSegment>()
             .Where(s => s.Value >= 0)
