@@ -458,5 +458,34 @@ public sealed partial class Translations
 
         // ── Detecção de anomalias ──
         [nameof(AnomalyCostSpikeFormat)] = "O custo de hoje é {1:0.0}× a média de {0} dias",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "Pôster para compartilhar",
+        [nameof(SharePosterEntryTooltip)] = "Transforme os filtros atuais em um pôster compartilhável",
+        [nameof(SharePosterLayout)] = "Layout",
+        [nameof(SharePosterLayoutPortrait)] = "Retrato",
+        [nameof(SharePosterLayoutLandscape)] = "Paisagem",
+        [nameof(SharePosterTheme)] = "Tema",
+        [nameof(SharePosterThemeApp)] = "Seguir app",
+        [nameof(SharePosterThemeDark)] = "Escuro",
+        [nameof(SharePosterThemeLight)] = "Claro",
+        [nameof(SharePosterMask)] = "Nomes de projeto",
+        [nameof(SharePosterMaskOff)] = "Mostrar",
+        [nameof(SharePosterMaskPartial)] = "Desfocar após 4 caracteres",
+        [nameof(SharePosterMaskFull)] = "Desfocar tudo",
+        [nameof(SharePosterMaskHint)] = "\"Mostrar\" imprime os nomes dos projetos como estão — confira antes de compartilhar. O desfoque apenas suaviza o texto, nunca troca caracteres por marcadores.",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Pôsteres de um dia só existem em retrato: um dia é um cartão vertical e colocá-lo na horizontal exigiria outro fluxo de informação.",
+        [nameof(SharePosterCopy)] = "Copiar para a área de transferência",
+        [nameof(SharePosterCopied)] = "Copiado para a área de transferência",
+        [nameof(SharePosterCopyFailed)] = "Este sistema não copia imagens — use \"Salvar em arquivo\"",
+        [nameof(SharePosterSave)] = "Salvar em arquivo",
+        [nameof(SharePosterSavedFormat)] = "Salvo: {0}",
+        [nameof(SharePosterSaveFailedFormat)] = "Falha ao salvar: {0}",
+        [nameof(SharePosterOpenFailedFormat)] = "Não foi possível abrir o pôster: {0}",
+        [nameof(SharePosterSettingsTitle)] = "Configurações do pôster",
+        [nameof(SharePosterSettingsHint)] = "O pôster herda os filtros atuais da barra superior; aqui você define apenas os padrões ao abrir a janela.",
+        [nameof(SharePosterDefaultLayout)] = "Layout padrão",
+        [nameof(SharePosterDefaultTheme)] = "Tema padrão",
+        [nameof(SharePosterDefaultMask)] = "Desfoque padrão",
     };
 }

@@ -458,5 +458,34 @@ public sealed partial class Translations
 
         // ── 异常检测 ──
         [nameof(AnomalyCostSpikeFormat)] = "今日成本是過去 {0} 日均值的 {1:0.0} 倍",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "分享海報",
+        [nameof(SharePosterEntryTooltip)] = "把目前篩選變成一張可分享的海報",
+        [nameof(SharePosterLayout)] = "版式",
+        [nameof(SharePosterLayoutPortrait)] = "直式",
+        [nameof(SharePosterLayoutLandscape)] = "橫式",
+        [nameof(SharePosterTheme)] = "主題",
+        [nameof(SharePosterThemeApp)] = "跟隨應用程式",
+        [nameof(SharePosterThemeDark)] = "夜間",
+        [nameof(SharePosterThemeLight)] = "日間",
+        [nameof(SharePosterMask)] = "專案名稱",
+        [nameof(SharePosterMaskOff)] = "顯示",
+        [nameof(SharePosterMaskPartial)] = "前 4 個字元可見、其餘模糊",
+        [nameof(SharePosterMaskFull)] = "整名模糊",
+        [nameof(SharePosterMaskHint)] = "「顯示」會把專案名稱原樣印在海報上，分享前請先確認；模糊只是把文字虛化，不會替換成佔位符。",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "單日只能出直式：單日海報是一張直式卡片，橫置需要重排資訊流。",
+        [nameof(SharePosterCopy)] = "複製到剪貼簿",
+        [nameof(SharePosterCopied)] = "已複製到剪貼簿",
+        [nameof(SharePosterCopyFailed)] = "目前系統不支援複製圖片，請改用「儲存為檔案」",
+        [nameof(SharePosterSave)] = "儲存為檔案",
+        [nameof(SharePosterSavedFormat)] = "已儲存：{0}",
+        [nameof(SharePosterSaveFailedFormat)] = "儲存失敗：{0}",
+        [nameof(SharePosterOpenFailedFormat)] = "無法開啟分享海報：{0}",
+        [nameof(SharePosterSettingsTitle)] = "海報設定",
+        [nameof(SharePosterSettingsHint)] = "海報沿用頂部列目前的篩選；這裡只決定開啟產生對話框時的預設選項。",
+        [nameof(SharePosterDefaultLayout)] = "預設版式",
+        [nameof(SharePosterDefaultTheme)] = "預設主題",
+        [nameof(SharePosterDefaultMask)] = "預設模糊",
     };
 }

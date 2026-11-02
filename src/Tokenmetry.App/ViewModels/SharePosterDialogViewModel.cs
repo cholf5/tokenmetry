@@ -18,6 +18,12 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     private SharePosterTheme _theme;
     private SharePosterProjectMask _mask;
 
+    // ComboBox 的选中项必须是选项列表里的同一批实例（不是枚举值）；枚举属性仍是唯一真相，
+    // 两边在对方的 setter 里同步（测试与视图各用各的绑定面）。
+    private SharePosterOption _selectedLayout;
+    private SharePosterOption _selectedTheme;
+    private SharePosterOption _selectedMask;
+
     public SharePosterDialogViewModel(
         SharePosterRequest initial,
         Func<SharePosterRequest, SharePosterData> snapshot)
@@ -29,6 +35,15 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         _layout = initial.Layout;
         _theme = initial.Theme;
         _mask = initial.ProjectMask;
+        // 单日窗口只能竖版：起值就收口，不让对话框一进来就展示一个"选项与版面不一致"的预览
+        if (!CanChooseLandscape)
+        {
+            _layout = SharePosterLayout.Portrait;
+        }
+
+        _selectedLayout = SharePosterOptions.ForLayout(_layout);
+        _selectedTheme = SharePosterOptions.ForTheme(_theme);
+        _selectedMask = SharePosterOptions.ForMask(_mask);
 
         Preview = Build();
     }
@@ -39,14 +54,50 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     /// </summary>
     public bool CanChooseLandscape => _rangeStart != _rangeEnd;
 
-    public IReadOnlyList<SharePosterLayout> LayoutOptions { get; } =
-        [SharePosterLayout.Portrait, SharePosterLayout.Landscape];
+    /// <summary>单日窗口的说明行（版式被锁竖版时显示，告诉用户为什么而不是静默禁用）。</summary>
+    public bool ShowSingleDayNotice => !CanChooseLandscape;
 
-    public IReadOnlyList<SharePosterTheme> ThemeOptions { get; } =
-        [SharePosterTheme.FollowApp, SharePosterTheme.Dark, SharePosterTheme.Light];
+    public IReadOnlyList<SharePosterOption> LayoutOptions => SharePosterOptions.Layouts;
 
-    public IReadOnlyList<SharePosterProjectMask> MaskOptions { get; } =
-        [SharePosterProjectMask.Off, SharePosterProjectMask.Partial, SharePosterProjectMask.Full];
+    public IReadOnlyList<SharePosterOption> ThemeOptions => SharePosterOptions.Themes;
+
+    public IReadOnlyList<SharePosterOption> MaskOptions => SharePosterOptions.Masks;
+
+    public SharePosterOption SelectedLayout
+    {
+        get => _selectedLayout;
+        set
+        {
+            if (value is not null)
+            {
+                Layout = SharePosterOptions.ParseLayout(value.Value);
+            }
+        }
+    }
+
+    public SharePosterOption SelectedTheme
+    {
+        get => _selectedTheme;
+        set
+        {
+            if (value is not null)
+            {
+                Theme = SharePosterOptions.ParseTheme(value.Value);
+            }
+        }
+    }
+
+    public SharePosterOption SelectedMask
+    {
+        get => _selectedMask;
+        set
+        {
+            if (value is not null)
+            {
+                ProjectMask = SharePosterOptions.ParseMask(value.Value);
+            }
+        }
+    }
 
     public SharePosterViewModel Preview { get; private set; }
 
@@ -58,6 +109,8 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
             var next = !CanChooseLandscape ? SharePosterLayout.Portrait : value;
             if (SetProperty(ref _layout, next))
             {
+                _selectedLayout = SharePosterOptions.ForLayout(next);
+                OnPropertyChanged(nameof(SelectedLayout));
                 Refresh();
             }
         }
@@ -70,6 +123,8 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         {
             if (SetProperty(ref _theme, value))
             {
+                _selectedTheme = SharePosterOptions.ForTheme(value);
+                OnPropertyChanged(nameof(SelectedTheme));
                 Refresh();
             }
         }
@@ -82,6 +137,8 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         {
             if (SetProperty(ref _mask, value))
             {
+                _selectedMask = SharePosterOptions.ForMask(value);
+                OnPropertyChanged(nameof(SelectedMask));
                 Refresh();
             }
         }

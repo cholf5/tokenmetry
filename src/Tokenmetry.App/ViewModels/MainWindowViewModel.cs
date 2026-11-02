@@ -83,6 +83,12 @@ public partial class MainWindowViewModel : ViewModelBase
         ? string.Format(Translations.Instance.LastUpdatedFormat, at.LocalDateTime)
         : Translations.Instance.NotRefreshedYet;
 
+    /// <summary>
+    /// 页头「分享海报」请求（总览页 VM 经构造回调转发到此）。真正的窗口与 <c>ShowDialog</c> 在外壳层
+    /// （<c>MainWindow</c>）——页面 VM 拿不到 TopLevel，本 VM 也不该直接开窗。
+    /// </summary>
+    public event Action? SharePosterRequested;
+
     /// <summary>侧栏 9 项导航（顺序同 ShellPages 注册表）。</summary>
     public IReadOnlyList<NavigationItemViewModel> NavigationItems { get; } = NavigationItemViewModel.CreateDefaults();
 
@@ -206,7 +212,8 @@ public partial class MainWindowViewModel : ViewModelBase
         // D-006/D-007：总览为真实页（KPI + 趋势 + Agent 环形 + 模型/项目/构成/成本趋势），
         // 随全局筛选刷新；GoToPage 经构造回调注入（「查看详情 ↗」跳模型/项目页），
         // 页面 VM 不反向引用本类型（Action<PageId> 单向注入，见 D-007 Dev Log 选型）。
-        PageId.Overview => new OverviewViewModel(ShellPages.For(id), _filters, _usageQuery, _avatars, GoToPage),
+        PageId.Overview => new OverviewViewModel(
+            ShellPages.For(id), _filters, _usageQuery, _avatars, GoToPage, RequestSharePoster),
         // D-009/D-010/D-011：Agent / 模型 / 项目统计为真实页（随全局筛选刷新）。D-009 行点击经
         // OpenSessionsForAgent 跳会话页（全局单选 Agent 途径，见 AgentsViewModel 定案）；D-011 行点击
         // 经 OpenSessionsForProject 跳会话页（全局 Project 筛选途径——右栏撤除定案，见 ProjectsViewModel 定案）；
@@ -266,6 +273,69 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _filters.Project = option;
         GoToPage(PageId.Sessions);
+    }
+
+    /// <summary>
+    /// 分享海报请求 → 外壳（MainWindow 订阅本事件开对话框）。总览页页头按钮只走到这里，
+    /// 页面 VM 与外壳层之间保持单向依赖。
+    /// </summary>
+    private void RequestSharePoster() => SharePosterRequested?.Invoke();
+
+    /// <summary>
+    /// 按当前全局筛选备好海报数据与对话框 VM（查询失败弹 toast 并返回 null，不静默）。
+    /// 数据只查一次：三个选项（版式/主题/雾化）都不改变查询结果，只有版面与展示形态不同——
+    /// 对话框每次重绘复用同一份快照。
+    /// </summary>
+    public async Task<SharePosterDialogViewModel?> CreateSharePosterDialogAsync()
+    {
+        var filter = GlobalFilterMapper.Build(_filters);
+
+        OverviewPageSnapshot snapshot;
+        try
+        {
+            snapshot = await _usageQuery.GetOverviewSnapshotAsync(filter);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show(string.Format(Translations.Instance.SharePosterOpenFailedFormat, ex.Message));
+            return null;
+        }
+
+        var (start, end) = ResolvePosterRange(filter, snapshot.Daily, DateOnly.FromDateTime(DateTime.Today));
+        var initial = new SharePosterRequest(
+            Settings.DefaultSharePosterLayout,
+            Settings.DefaultSharePosterTheme,
+            Settings.DefaultSharePosterProjectMask,
+            start,
+            end);
+
+        return new SharePosterDialogViewModel(initial, request =>
+            SharePosterSnapshot.Build(
+                request,
+                snapshot.Daily,
+                snapshot.Agents,
+                snapshot.Models,
+                snapshot.Projects,
+                snapshot.Kpi.SessionCount));
+    }
+
+    /// <summary>
+    /// 海报时间范围（纯函数）：优先用筛选的双端；「全部时间」这类无界窗口退到日序列里首/末个
+    /// 有数据的日期（海报文件名与"单日与否"都需要一对具体日期，伪造今天会谎报范围）。
+    /// 两端都没有数据时回落今天（导出仍可用，只是范围如实为一天）。
+    /// </summary>
+    internal static (DateOnly Start, DateOnly End) ResolvePosterRange(
+        UsageQueryFilter filter, IReadOnlyList<DailyUsagePoint> daily, DateOnly today)
+    {
+        var dataDays = daily.Where(d => d.HasData).ToList();
+        var start = UsageQueryFilter.ParseDay(filter.FromDay)
+                    ?? (dataDays.Count > 0 ? UsageQueryFilter.ParseDay(dataDays[0].Day) : null)
+                    ?? today;
+        var end = UsageQueryFilter.ParseDay(filter.ToDay)
+                  ?? (dataDays.Count > 0 ? UsageQueryFilter.ParseDay(dataDays[^1].Day) : null)
+                  ?? today;
+
+        return end < start ? (end, start) : (start, end);
     }
 
     /// <summary>顶部栏设置入口：导航到设置页（应用偏好；数据源与计价在数据与计价页）。</summary>

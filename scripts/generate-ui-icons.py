@@ -50,6 +50,7 @@ UNPKG = f"https://unpkg.com/lucide-static@{LUCIDE_VERSION}/icons"
 #     取代原 ◇ 文本字形（墨迹太小、疑似山寨品牌标）；phi 的 Φ 文本字形不受影响。
 #   ArrowUp/ArrowDown —— 成本分析页输入/输出成本占比卡（原 ↓ / ↑ 文本字形，I-040 同源问题）。
 #   Close —— 顶栏时间范围弹层「我的预设」行删除按钮（D-020）。
+#   Share —— 总览页页头的分享海报入口（弱图标按钮，贴在页面标题右侧）。
 ICONS: list[tuple[str, str]] = [
     ("House", "house"),
     ("Table", "table"),
@@ -70,6 +71,7 @@ ICONS: list[tuple[str, str]] = [
     ("ArrowUp", "arrow-up"),
     ("ArrowDown", "arrow-down"),
     ("Close", "x"),
+    ("Share", "share-2"),
 ]
 
 SVG_NS = "{http://www.w3.org/2000/svg}"

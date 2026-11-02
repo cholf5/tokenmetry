@@ -458,5 +458,34 @@ public sealed partial class Translations
 
         // ── 異常検知 ──
         [nameof(AnomalyCostSpikeFormat)] = "今日のコストは過去 {0} 日平均の {1:0.0} 倍です",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "共有ポスター",
+        [nameof(SharePosterEntryTooltip)] = "現在のフィルターをそのまま共有できるポスターにする",
+        [nameof(SharePosterLayout)] = "レイアウト",
+        [nameof(SharePosterLayoutPortrait)] = "縦",
+        [nameof(SharePosterLayoutLandscape)] = "横",
+        [nameof(SharePosterTheme)] = "テーマ",
+        [nameof(SharePosterThemeApp)] = "アプリに合わせる",
+        [nameof(SharePosterThemeDark)] = "ダーク",
+        [nameof(SharePosterThemeLight)] = "ライト",
+        [nameof(SharePosterMask)] = "プロジェクト名",
+        [nameof(SharePosterMaskOff)] = "表示",
+        [nameof(SharePosterMaskPartial)] = "先頭 4 文字以外をぼかす",
+        [nameof(SharePosterMaskFull)] = "全体をぼかす",
+        [nameof(SharePosterMaskHint)] = "「表示」ではプロジェクト名がそのままポスターに印字されます。共有前にご確認ください。ぼかしは文字を柔らかくするだけで、プレースホルダーへの置換は行いません。",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "単日は縦のみです。1 日のポスターは縦長カードで、横向きにすると情報の流れを組み直す必要があります。",
+        [nameof(SharePosterCopy)] = "クリップボードにコピー",
+        [nameof(SharePosterCopied)] = "クリップボードにコピーしました",
+        [nameof(SharePosterCopyFailed)] = "このシステムは画像のコピーに対応していません。「ファイルに保存」をご利用ください",
+        [nameof(SharePosterSave)] = "ファイルに保存",
+        [nameof(SharePosterSavedFormat)] = "保存しました：{0}",
+        [nameof(SharePosterSaveFailedFormat)] = "保存に失敗しました：{0}",
+        [nameof(SharePosterOpenFailedFormat)] = "共有ポスターを開けませんでした：{0}",
+        [nameof(SharePosterSettingsTitle)] = "ポスター設定",
+        [nameof(SharePosterSettingsHint)] = "ポスターは上部バーの現在のフィルターを引き継ぎます。ここでは生成ダイアログを開いたときの既定値だけを決めます。",
+        [nameof(SharePosterDefaultLayout)] = "既定のレイアウト",
+        [nameof(SharePosterDefaultTheme)] = "既定のテーマ",
+        [nameof(SharePosterDefaultMask)] = "既定のぼかし",
     };
 }

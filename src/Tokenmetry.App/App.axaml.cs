@@ -87,6 +87,9 @@ public partial class App : Application
             // 是同一单例的同内容幂等重写，原子写语义不受影响）。
             mainWindow.FirstCloseChoiceCommitted += minimizeToTray =>
                 DependencyInjection.AppServices.Get<SettingsViewModel>().MinimizeToTrayOnClose = minimizeToTray;
+            // 分享海报入口（总览页页头按钮 → 外壳 VM 事件 → 本窗口开对话框）：页面 VM 拿不到 TopLevel，
+            // 窗口只在数据与 UI 都在的 MainWindow 这一层创建。
+            mainWindowViewModel.SharePosterRequested += () => _ = mainWindow.ShowSharePosterAsync();
             desktop.MainWindow = mainWindow;
 
             // D-018：macOS Dock 图标。裸可执行（无 .app bundle）下 Avalonia 不设 Dock 图标

@@ -487,6 +487,35 @@ public sealed partial class Translations : INotifyPropertyChanged
 
         // ── 异常检测（DashboardViewModel → AnomalyDetected 事件 → 弹层 KPI 徽标；toast 通道 Q-016 删除）──
         [nameof(AnomalyCostSpikeFormat)] = "今日成本是过去 {0} 日均值的 {1:0.0} 倍",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "分享海报",
+        [nameof(SharePosterEntryTooltip)] = "把当前筛选做成一张可分享的海报",
+        [nameof(SharePosterLayout)] = "版式",
+        [nameof(SharePosterLayoutPortrait)] = "竖版",
+        [nameof(SharePosterLayoutLandscape)] = "横版",
+        [nameof(SharePosterTheme)] = "主题",
+        [nameof(SharePosterThemeApp)] = "跟随应用",
+        [nameof(SharePosterThemeDark)] = "夜间",
+        [nameof(SharePosterThemeLight)] = "日间",
+        [nameof(SharePosterMask)] = "项目名",
+        [nameof(SharePosterMaskOff)] = "显示",
+        [nameof(SharePosterMaskPartial)] = "局部雾化",
+        [nameof(SharePosterMaskFull)] = "全部雾化",
+        [nameof(SharePosterMaskHint)] = "「显示」会把项目名原样印在海报上，发出去之前请确认；雾化只是把文字虚化，不会替换成占位符。",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "单日只能出竖版：单日海报是一张竖卡片，横置需要重排信息流。",
+        [nameof(SharePosterCopy)] = "复制到剪贴板",
+        [nameof(SharePosterCopied)] = "已复制到剪贴板",
+        [nameof(SharePosterCopyFailed)] = "当前系统不支持复制图片，请改用「保存为文件」",
+        [nameof(SharePosterSave)] = "保存为文件",
+        [nameof(SharePosterSavedFormat)] = "已保存：{0}",
+        [nameof(SharePosterSaveFailedFormat)] = "保存失败：{0}",
+        [nameof(SharePosterOpenFailedFormat)] = "打不开分享海报：{0}",
+        [nameof(SharePosterSettingsTitle)] = "分享海报",
+        [nameof(SharePosterSettingsHint)] = "海报继承顶部栏的当前筛选；这里只决定打开生成对话框时的默认选项。",
+        [nameof(SharePosterDefaultLayout)] = "默认版式",
+        [nameof(SharePosterDefaultTheme)] = "默认主题",
+        [nameof(SharePosterDefaultMask)] = "默认雾化",
     };
 
     private static readonly Dictionary<string, string> En = new()
@@ -924,6 +953,35 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ModelRemoveButton)] = "Remove override",
         [nameof(ModelDeleteButton)] = "Delete",
         [nameof(ToastRepricing)] = "Saved — re-pricing with the new prices…",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "Share poster",
+        [nameof(SharePosterEntryTooltip)] = "Turn the current filters into a shareable poster",
+        [nameof(SharePosterLayout)] = "Layout",
+        [nameof(SharePosterLayoutPortrait)] = "Portrait",
+        [nameof(SharePosterLayoutLandscape)] = "Landscape",
+        [nameof(SharePosterTheme)] = "Theme",
+        [nameof(SharePosterThemeApp)] = "Follow app",
+        [nameof(SharePosterThemeDark)] = "Dark",
+        [nameof(SharePosterThemeLight)] = "Light",
+        [nameof(SharePosterMask)] = "Project names",
+        [nameof(SharePosterMaskOff)] = "Show",
+        [nameof(SharePosterMaskPartial)] = "Blur after 4 characters",
+        [nameof(SharePosterMaskFull)] = "Blur entire name",
+        [nameof(SharePosterMaskHint)] = "\"Show\" prints project names exactly as they are — check before you share. Blurring only softens the text; it never replaces characters with placeholders.",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "A single-day poster is portrait only: one day is a tall card, and turning it sideways would need a different information flow.",
+        [nameof(SharePosterCopy)] = "Copy to clipboard",
+        [nameof(SharePosterCopied)] = "Copied to clipboard",
+        [nameof(SharePosterCopyFailed)] = "This system cannot copy images — use \"Save to file\" instead",
+        [nameof(SharePosterSave)] = "Save to file",
+        [nameof(SharePosterSavedFormat)] = "Saved: {0}",
+        [nameof(SharePosterSaveFailedFormat)] = "Save failed: {0}",
+        [nameof(SharePosterOpenFailedFormat)] = "Could not open the share poster: {0}",
+        [nameof(SharePosterSettingsTitle)] = "Share poster",
+        [nameof(SharePosterSettingsHint)] = "The poster inherits the current filters from the top bar; these options only set the defaults used when the dialog opens.",
+        [nameof(SharePosterDefaultLayout)] = "Default layout",
+        [nameof(SharePosterDefaultTheme)] = "Default theme",
+        [nameof(SharePosterDefaultMask)] = "Default project names",
     };
 
     // ── D-024 新语种字典：字典体在 partial 分文件（Translations.ZhHant.cs 等）——字段声明
@@ -1270,6 +1328,35 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string RefreshIntervalMustBeNumber => Get();
     public string RefreshIntervalOutOfRange => Get();
     public string RefreshHint => Get();
+
+    // ── 分享海报（入口 / 生成对话框 / 设置页）──
+    public string SharePosterTitle => Get();
+    public string SharePosterEntryTooltip => Get();
+    public string SharePosterLayout => Get();
+    public string SharePosterLayoutPortrait => Get();
+    public string SharePosterLayoutLandscape => Get();
+    public string SharePosterTheme => Get();
+    public string SharePosterThemeApp => Get();
+    public string SharePosterThemeDark => Get();
+    public string SharePosterThemeLight => Get();
+    public string SharePosterMask => Get();
+    public string SharePosterMaskOff => Get();
+    public string SharePosterMaskPartial => Get();
+    public string SharePosterMaskFull => Get();
+    public string SharePosterMaskHint => Get();
+    public string SharePosterSingleDayPortraitOnly => Get();
+    public string SharePosterCopy => Get();
+    public string SharePosterCopied => Get();
+    public string SharePosterCopyFailed => Get();
+    public string SharePosterSave => Get();
+    public string SharePosterSavedFormat => Get();
+    public string SharePosterSaveFailedFormat => Get();
+    public string SharePosterOpenFailedFormat => Get();
+    public string SharePosterSettingsTitle => Get();
+    public string SharePosterSettingsHint => Get();
+    public string SharePosterDefaultLayout => Get();
+    public string SharePosterDefaultTheme => Get();
+    public string SharePosterDefaultMask => Get();
     public string CheckMinimizeToTrayOnClose => Get();
     public string CheckMinimizeToTrayOnCloseHint => Get();
     public string CheckAutoStartOnBoot => Get();

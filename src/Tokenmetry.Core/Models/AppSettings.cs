@@ -95,6 +95,25 @@ public class AppSettings
     public List<RelativeRangePresetSetting> CustomTimePresets { get; set; } = new();
 
     /// <summary>
+    /// 分享海报的默认版式（设置页可选，打开生成对话框时的起值）："portrait"（竖版 1080 宽，默认）/
+    /// "landscape"（横版 1800 宽，单日窗口强制竖版）。存字符串而非枚举：与 Theme/Language 同风格，
+    /// 未知值在解析处如实回落默认，旧 settings.json 不受影响。
+    /// </summary>
+    public string SharePosterLayout { get; set; } = "portrait";
+
+    /// <summary>
+    /// 分享海报的默认主题："app"（跟随应用，默认）/ "dark" / "light"。海报主题独立于应用主题——
+    /// 应用在夜间也能导出一张日间海报，两套取值都来自同一批令牌（见 Styles/Tokens.axaml）。
+    /// </summary>
+    public string SharePosterTheme { get; set; } = "app";
+
+    /// <summary>
+    /// 分享海报的项目名雾化默认档："off"（原样显示，默认）/ "partial"（前 4 个字符可见，其余模糊）/
+    /// "full"（整名模糊）。雾化是文字模糊而不是占位符替换，保留"这里原本有字、大概多长"的形状。
+    /// </summary>
+    public string SharePosterProjectMask { get; set; } = "off";
+
+    /// <summary>
     /// <b>旧</b>用户价格覆盖规则（I-003 字段形状）：I-035 起用户配置统一走
     /// <see cref="ModelDefinitions"/>，本字段只读不写（装载时转换为模型目录条目，见
     /// <see cref="ModelDefinitionOverride.FromLegacy"/>）。保留是为了不丢老 settings.json 里已配的价，

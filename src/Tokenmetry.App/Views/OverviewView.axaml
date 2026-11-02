@@ -17,12 +17,50 @@
         「查看详情 ↗」经 VM 构造注入的导航回调（外壳 GoToPage）跳模型/项目页。
         Q-002：页面根补 ScrollViewer（同时间/成本/设置页模式）——最小窗口高度下底部面板不再被裁剪。
     -->
+    <UserControl.Styles>
+        <!-- 海报入口（设计 §3.9：常态 opacity .5，hover 提亮；分享是少数人的动作，按钮必须弱于内容本身） -->
+        <Style Selector="Button.share-poster-btn">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.share-poster-btn:pointerover">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button.share-poster-btn PathIcon.app-icon">
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="Button.share-poster-btn:pointerover PathIcon.app-icon">
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
     <ScrollViewer Classes="page-root">
         <StackPanel Spacing="13" Margin="0,0,0,4">
 
         <!-- 页头（原型 .pagehead；筛选下拉在顶部栏，不在此重复） -->
         <StackPanel Spacing="4">
-            <TextBlock Classes="page-title" Text="{Binding Page.Title}"/>
+            <Grid ColumnDefinitions="Auto,Auto" HorizontalAlignment="Left">
+                <TextBlock Grid.Column="0" Classes="page-title" Text="{Binding Page.Title}"/>
+                <!-- 分享海报入口：弱图标按钮（常态半透明、hover 提亮），贴着标题而不是飘到页宽右缘——
+                     设计 §3.9「页头标题右侧」。样式定义在本视图内：MainWindow 的 icon-btn 在
+                     Window.Styles 里，页面内取不到。 -->
+                <Button Grid.Column="1" x:Name="SharePosterButton" Classes="share-poster-btn"
+                        Command="{Binding OpenSharePosterCommand}"
+                        VerticalAlignment="Center" Margin="10,0,0,0"
+                        ToolTip.Tip="{Binding SharePosterEntryTooltip, Source={x:Static loc:Translations.Instance}}">
+                    <PathIcon Classes="app-icon" Data="{StaticResource AppIconShare}" Width="16" Height="16"/>
+                </Button>
+            </Grid>
             <TextBlock Classes="page-subtitle" Text="{Binding Page.Subtitle}"/>
         </StackPanel>
 

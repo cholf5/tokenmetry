@@ -458,5 +458,34 @@ public sealed partial class Translations
 
         // ── Detección de anomalías ──
         [nameof(AnomalyCostSpikeFormat)] = "El costo de hoy es {1:0.0}× el promedio de {0} días",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "Póster para compartir",
+        [nameof(SharePosterEntryTooltip)] = "Convierte los filtros actuales en un póster para compartir",
+        [nameof(SharePosterLayout)] = "Diseño",
+        [nameof(SharePosterLayoutPortrait)] = "Vertical",
+        [nameof(SharePosterLayoutLandscape)] = "Horizontal",
+        [nameof(SharePosterTheme)] = "Tema",
+        [nameof(SharePosterThemeApp)] = "Seguir la app",
+        [nameof(SharePosterThemeDark)] = "Oscuro",
+        [nameof(SharePosterThemeLight)] = "Claro",
+        [nameof(SharePosterMask)] = "Nombres de proyecto",
+        [nameof(SharePosterMaskOff)] = "Mostrar",
+        [nameof(SharePosterMaskPartial)] = "Difuminar tras 4 caracteres",
+        [nameof(SharePosterMaskFull)] = "Difuminar todo",
+        [nameof(SharePosterMaskHint)] = "«Mostrar» imprime los nombres de proyecto tal cual: confirma antes de compartir. El difuminado solo suaviza el texto, nunca sustituye caracteres por marcadores.",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Los pósteres de un solo día solo existen en vertical: un día es una tarjeta vertical y ponerla en horizontal obligaría a reorganizar la información.",
+        [nameof(SharePosterCopy)] = "Copiar al portapapeles",
+        [nameof(SharePosterCopied)] = "Copiado al portapapeles",
+        [nameof(SharePosterCopyFailed)] = "Este sistema no permite copiar imágenes; usa «Guardar en archivo»",
+        [nameof(SharePosterSave)] = "Guardar en archivo",
+        [nameof(SharePosterSavedFormat)] = "Guardado: {0}",
+        [nameof(SharePosterSaveFailedFormat)] = "Error al guardar: {0}",
+        [nameof(SharePosterOpenFailedFormat)] = "No se pudo abrir el póster: {0}",
+        [nameof(SharePosterSettingsTitle)] = "Ajustes del póster",
+        [nameof(SharePosterSettingsHint)] = "El póster hereda los filtros actuales de la barra superior; aquí solo se definen los valores predeterminados al abrir la ventana.",
+        [nameof(SharePosterDefaultLayout)] = "Diseño predeterminado",
+        [nameof(SharePosterDefaultTheme)] = "Tema predeterminado",
+        [nameof(SharePosterDefaultMask)] = "Difuminado predeterminado",
     };
 }

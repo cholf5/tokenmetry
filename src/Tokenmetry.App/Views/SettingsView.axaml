@@ -110,6 +110,54 @@
                 </StackPanel>
             </Border>
 
+            <!-- ═══ 分享海报（默认值；海报本身继承顶部栏筛选，这里只决定对话框的起值）═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="panel-title" Text="{Binding SharePosterSettingsTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                               Text="{Binding SharePosterSettingsHint, Source={x:Static loc:Translations.Instance}}"/>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Classes="setting-label"
+                                   Text="{Binding SharePosterDefaultLayout, Source={x:Static loc:Translations.Instance}}"/>
+                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding SharePosterLayoutOptions}"
+                                  SelectedItem="{Binding SharePosterLayoutOption}"
+                                  Width="300" HorizontalAlignment="Left" HorizontalContentAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SharePosterOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Classes="setting-label"
+                                   Text="{Binding SharePosterDefaultTheme, Source={x:Static loc:Translations.Instance}}"/>
+                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding SharePosterThemeOptions}"
+                                  SelectedItem="{Binding SharePosterThemeOption}"
+                                  Width="300" HorizontalAlignment="Left" HorizontalContentAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SharePosterOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Classes="setting-label"
+                                   Text="{Binding SharePosterDefaultMask, Source={x:Static loc:Translations.Instance}}"/>
+                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding SharePosterMaskOptions}"
+                                  SelectedItem="{Binding SharePosterMaskOption}"
+                                  Width="300" HorizontalAlignment="Left" HorizontalContentAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SharePosterOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                               Text="{Binding SharePosterMaskHint, Source={x:Static loc:Translations.Instance}}"/>
+                </StackPanel>
+            </Border>
+
             <!-- ═══ 本地路径（只读说明 + 底部一个「打开目录」出口）═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="8">

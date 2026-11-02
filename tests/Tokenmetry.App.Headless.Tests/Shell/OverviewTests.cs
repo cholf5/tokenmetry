@@ -205,6 +205,38 @@ public class OverviewTests
         new(ShellPages.For(PageId.Overview), filters ?? new FilterStateService(), stub);
 
     [AvaloniaFact]
+    public void Header_share_poster_button_is_weak_and_requests_the_shell()
+    {
+        // 设计 §3.9：入口弱于页面内容本身（常态 opacity .5），点击只发请求——
+        // 对话框需要 TopLevel，页面 VM 不自己开窗（回调由外壳注入）。
+        var requested = 0;
+        var vm = new OverviewViewModel(
+            ShellPages.For(PageId.Overview),
+            new FilterStateService(),
+            new StubQueryService(),
+            openSharePoster: () => requested++);
+        var view = new OverviewView { DataContext = vm };
+        var window = new Window
+        {
+            Width = 1200,
+            Height = 900,
+            Content = view,
+            RequestedThemeVariant = ThemeVariant.Dark,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var button = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SharePosterButton");
+        Assert.Equal(0.5, button.Opacity, 2);
+        Assert.Same(vm.OpenSharePosterCommand, button.Command);
+
+        button.Command!.Execute(null);
+        Assert.Equal(1, requested);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void Overview_page_loads_via_composite_snapshot_query()
     {
         // P0-2：总览页必须经复合快照入口一次装载（KPI/日序列/三维度）——五个分量方法的返回值

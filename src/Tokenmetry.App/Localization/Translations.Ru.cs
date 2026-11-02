@@ -460,5 +460,34 @@ public sealed partial class Translations
 
         // ── Обнаружение аномалий ──
         [nameof(AnomalyCostSpikeFormat)] = "Затраты сегодня — {1:0.0}× от среднего за {0} дн.",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "Постер для публикации",
+        [nameof(SharePosterEntryTooltip)] = "Превратить текущие фильтры в постер, которым можно поделиться",
+        [nameof(SharePosterLayout)] = "Макет",
+        [nameof(SharePosterLayoutPortrait)] = "Книжный",
+        [nameof(SharePosterLayoutLandscape)] = "Альбомный",
+        [nameof(SharePosterTheme)] = "Тема",
+        [nameof(SharePosterThemeApp)] = "Как в приложении",
+        [nameof(SharePosterThemeDark)] = "Тёмная",
+        [nameof(SharePosterThemeLight)] = "Светлая",
+        [nameof(SharePosterMask)] = "Названия проектов",
+        [nameof(SharePosterMaskOff)] = "Показывать",
+        [nameof(SharePosterMaskPartial)] = "Размыть после 4 символов",
+        [nameof(SharePosterMaskFull)] = "Размыть полностью",
+        [nameof(SharePosterMaskHint)] = "«Показывать» печатает названия проектов как есть — проверьте перед публикацией. Размытие лишь смягчает текст и не заменяет символы заглушками.",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Постер за один день бывает только книжным: это вертикальная карточка, а для альбомной ориентации пришлось бы перестроить поток информации.",
+        [nameof(SharePosterCopy)] = "Копировать в буфер обмена",
+        [nameof(SharePosterCopied)] = "Скопировано в буфер обмена",
+        [nameof(SharePosterCopyFailed)] = "Система не поддерживает копирование изображений — используйте «Сохранить в файл»",
+        [nameof(SharePosterSave)] = "Сохранить в файл",
+        [nameof(SharePosterSavedFormat)] = "Сохранено: {0}",
+        [nameof(SharePosterSaveFailedFormat)] = "Не удалось сохранить: {0}",
+        [nameof(SharePosterOpenFailedFormat)] = "Не удалось открыть постер: {0}",
+        [nameof(SharePosterSettingsTitle)] = "Настройки постера",
+        [nameof(SharePosterSettingsHint)] = "Постер наследует текущие фильтры верхней панели; здесь задаются только значения по умолчанию при открытии окна.",
+        [nameof(SharePosterDefaultLayout)] = "Макет по умолчанию",
+        [nameof(SharePosterDefaultTheme)] = "Тема по умолчанию",
+        [nameof(SharePosterDefaultMask)] = "Размытие по умолчанию",
     };
 }

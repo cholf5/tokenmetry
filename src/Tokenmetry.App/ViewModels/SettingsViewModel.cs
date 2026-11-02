@@ -148,6 +148,16 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private LanguageOption _selectedLanguage;
 
+    // ── 分享海报默认值（P5b/P7）：只决定生成对话框打开时的起值，海报本身继承顶部栏筛选 ──
+    [ObservableProperty]
+    private SharePosterOption _sharePosterLayoutOption;
+
+    [ObservableProperty]
+    private SharePosterOption _sharePosterThemeOption;
+
+    [ObservableProperty]
+    private SharePosterOption _sharePosterMaskOption;
+
     public SettingsViewModel(
         AppSettings settings,
         AppPaths paths,
@@ -175,6 +185,9 @@ public partial class SettingsViewModel : ViewModelBase
         _fileLoggingEnabled = settings.FileLoggingEnabled;
         _selectedTheme = ResolveThemeOption(settings.Theme);
         _selectedLanguage = ResolveLanguageOption(settings.Language);
+        _sharePosterLayoutOption = SharePosterOptions.ForLayout(ParseStoredLayout(settings));
+        _sharePosterThemeOption = SharePosterOptions.ForTheme(ParseStoredTheme(settings));
+        _sharePosterMaskOption = SharePosterOptions.ForMask(ParseStoredMask(settings));
         // 更新检查服务为 DI 单例（与托盘菜单共享状态）；测试直接构造时缺省自建（不发网络——
         // 检查只在命令触发时发生）。构造即同步一次已知状态：托盘里查过「发现新版本」，再打开
         // 设置页能直接看到结论而不是空白。
@@ -319,6 +332,74 @@ public partial class SettingsViewModel : ViewModelBase
         };
     }
 
+    // ── 分享海报（设置页三行 + 生成对话框的默认值）──
+
+    /// <summary>版式选项（竖版 / 横版）。</summary>
+    public IReadOnlyList<SharePosterOption> SharePosterLayoutOptions => SharePosterOptions.Layouts;
+
+    /// <summary>主题选项（跟随应用 / 夜间 / 日间）。</summary>
+    public IReadOnlyList<SharePosterOption> SharePosterThemeOptions => SharePosterOptions.Themes;
+
+    /// <summary>项目名雾化档（显示 / 局部 / 全部）。</summary>
+    public IReadOnlyList<SharePosterOption> SharePosterMaskOptions => SharePosterOptions.Masks;
+
+    /// <summary>生成对话框的默认版式（脏值回落竖版）。</summary>
+    public SharePosterLayout DefaultSharePosterLayout => ParseStoredLayout(_settings);
+
+    /// <summary>生成对话框的默认主题（脏值回落跟随应用）。</summary>
+    public SharePosterTheme DefaultSharePosterTheme => ParseStoredTheme(_settings);
+
+    /// <summary>生成对话框的默认雾化档（脏值回落显示）。</summary>
+    public SharePosterProjectMask DefaultSharePosterProjectMask => ParseStoredMask(_settings);
+
+    /// <summary>设置页改版式即存（下次打开生成对话框生效）。</summary>
+    partial void OnSharePosterLayoutOptionChanged(SharePosterOption value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        _settings.SharePosterLayout = value.Value;
+        OnPropertyChanged(nameof(DefaultSharePosterLayout));
+        PersistSettings();
+    }
+
+    /// <summary>设置页改默认主题即存（只影响此后打开的海报，不回溯已生成的海报）。</summary>
+    partial void OnSharePosterThemeOptionChanged(SharePosterOption value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        _settings.SharePosterTheme = value.Value;
+        OnPropertyChanged(nameof(DefaultSharePosterTheme));
+        PersistSettings();
+    }
+
+    /// <summary>设置页改默认雾化档即存。</summary>
+    partial void OnSharePosterMaskOptionChanged(SharePosterOption value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        _settings.SharePosterProjectMask = value.Value;
+        OnPropertyChanged(nameof(DefaultSharePosterProjectMask));
+        PersistSettings();
+    }
+
+    private static SharePosterLayout ParseStoredLayout(AppSettings settings) =>
+        SharePosterOptions.ParseLayout(settings.SharePosterLayout);
+
+    private static SharePosterTheme ParseStoredTheme(AppSettings settings) =>
+        SharePosterOptions.ParseTheme(settings.SharePosterTheme);
+
+    private static SharePosterProjectMask ParseStoredMask(AppSettings settings) =>
+        SharePosterOptions.ParseMask(settings.SharePosterProjectMask);
+
     /// <summary>页面描述符（标题与副标题，与导航项同源）。</summary>
     public PageDescriptor Page { get; } = ShellPages.For(PageId.Settings);
 
@@ -455,6 +536,8 @@ public partial class SettingsViewModel : ViewModelBase
         {
             option.RefreshLabel();
         }
+
+        SharePosterOptions.RefreshLabels();
     }
 
     private static ThemeOption ResolveThemeOption(string? preference)

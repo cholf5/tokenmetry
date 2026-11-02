@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 
@@ -32,9 +33,18 @@ public partial class SharePosterDialog : Window
             return;
         }
 
-        using var bitmap = SharePosterExporter.Render(PreviewView.PosterRootControl);
-        var ok = await SharePosterExporter.CopyToClipboardAsync(Clipboard, bitmap);
-        StatusText.Text = ok ? "已复制到剪贴板" : "当前系统不支持复制图片，请改用「保存为文件」";
+        var t = Translations.Instance;
+        try
+        {
+            using var bitmap = SharePosterExporter.Render(PreviewView.PosterRootControl);
+            var ok = await SharePosterExporter.CopyToClipboardAsync(Clipboard, bitmap);
+            StatusText.Text = ok ? t.SharePosterCopied : t.SharePosterCopyFailed;
+        }
+        catch (Exception ex)
+        {
+            // 渲染/剪贴板都可能抛（显卡或平台差异）：如实报错，不静默
+            StatusText.Text = string.Format(t.SharePosterSaveFailedFormat, ex.Message);
+        }
     }
 
     /// <summary>保存为 PNG；用户取消对话框时不提示。</summary>
@@ -45,8 +55,16 @@ public partial class SharePosterDialog : Window
             return;
         }
 
-        using var bitmap = SharePosterExporter.Render(PreviewView.PosterRootControl);
-        var path = await SharePosterExporter.SaveAsync(this, bitmap, ViewModel.CurrentRequest);
-        StatusText.Text = path is null ? string.Empty : "已保存：" + path;
+        var t = Translations.Instance;
+        try
+        {
+            using var bitmap = SharePosterExporter.Render(PreviewView.PosterRootControl);
+            var path = await SharePosterExporter.SaveAsync(this, bitmap, ViewModel.CurrentRequest);
+            StatusText.Text = path is null ? string.Empty : string.Format(t.SharePosterSavedFormat, path);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = string.Format(t.SharePosterSaveFailedFormat, ex.Message);
+        }
     }
 }

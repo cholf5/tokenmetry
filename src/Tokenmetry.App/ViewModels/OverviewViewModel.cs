@@ -165,6 +165,13 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     /// <summary>外壳导航回调（「查看详情 ↗」用）；null（测试/预览）时跳转命令 no-op。</summary>
     private readonly Action<PageId>? _navigateToPage;
 
+    /// <summary>
+    /// 外壳的「分享海报」入口回调（页头弱图标按钮）。对话框需要 TopLevel 与查询服务，
+    /// 页面 VM 两者都拿不到，因此只负责发请求（同 D-007 的导航回调约定：单向注入、不反向引用外壳）。
+    /// null（测试/预览）时命令 no-op。
+    /// </summary>
+    private readonly Action? _openSharePoster;
+
     /// <summary>加载序号：每次触发自增；跨 await 回来时序号不一致的响应直接丢弃。</summary>
     private int _loadSequence;
 
@@ -275,17 +282,23 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
         FilterStateService filters,
         IUsageQueryService query,
         ModelAvatarResolver? avatars = null,
-        Action<PageId>? navigateToPage = null)
+        Action<PageId>? navigateToPage = null,
+        Action? openSharePoster = null)
     {
         Page = page;
         _filters = filters;
         _query = query;
         _avatars = avatars;
         _navigateToPage = navigateToPage;
+        _openSharePoster = openSharePoster;
         // FilterStateService 保证通知在 UI 线程发出，这里直接触发重查即可。
         filters.PropertyChanged += OnFilterPropertyChanged;
         _ = LoadAsync();
     }
+
+    /// <summary>页头「分享海报」→ 外壳打开生成对话框（无外壳回调时 no-op）。</summary>
+    [RelayCommand]
+    private void OpenSharePoster() => _openSharePoster?.Invoke();
 
     /// <summary>「查看详情 ↗」→ 模型统计页（外壳经构造回调注入；无外壳时 no-op）。</summary>
     [RelayCommand]

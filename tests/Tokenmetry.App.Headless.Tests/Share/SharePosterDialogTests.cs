@@ -62,6 +62,33 @@ public class SharePosterDialogTests
     }
 
     [Fact]
+    public void Single_day_window_shows_the_portrait_only_notice()
+    {
+        var single = new SharePosterDialogViewModel(Request(singleDay: true), Snapshot);
+        var multi = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot);
+
+        Assert.True(single.ShowSingleDayNotice);
+        Assert.False(multi.ShowSingleDayNotice);
+    }
+
+    [Fact]
+    public void Options_are_localized_labels_not_enum_identifiers()
+    {
+        var vm = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot);
+
+        // ComboBox 的选中项是选项对象（不是枚举值）：标签来自 Translations，且每个值唯一
+        Assert.Equal(vm.SelectedTheme, SharePosterOptions.ForTheme(vm.Theme));
+        Assert.All(vm.LayoutOptions, o => Assert.False(string.IsNullOrWhiteSpace(o.Label)));
+        Assert.Equal(
+            vm.LayoutOptions.Count,
+            vm.LayoutOptions.Select(o => o.Label).Distinct().Count());
+
+        vm.SelectedLayout = SharePosterOptions.ForLayout(SharePosterLayout.Landscape);
+        Assert.Equal(SharePosterLayout.Landscape, vm.Layout);
+        Assert.Equal(SharePosterLayout.Landscape, vm.CurrentRequest.Layout);
+    }
+
+    [Fact]
     public void Changing_an_option_rebuilds_the_preview()
     {
         var vm = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot);
