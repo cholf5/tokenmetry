@@ -147,7 +147,15 @@
                                         <Border Classes="poster-row" BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0">
                                             <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10">
                                                 <StackPanel Grid.Column="0" Spacing="5">
-                                                    <TextBlock Classes="table-td" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Classes="table-td" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Classes="table-td" Text="{Binding MaskedName}"
+                                                                   IsVisible="{Binding HasMaskedName}">
+                                                            <TextBlock.Effect>
+                                                                <BlurEffect Radius="5.5"/>
+                                                            </TextBlock.Effect>
+                                                        </TextBlock>
+                                                    </StackPanel>
                                                     <ProgressBar Classes="mini" Value="{Binding BarValue}" Height="5"/>
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding TokensText}" VerticalAlignment="Center"/>
@@ -193,7 +201,15 @@
                                         <Border Classes="poster-row" BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0">
                                             <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10">
                                                 <StackPanel Grid.Column="0" Spacing="5">
-                                                    <TextBlock Classes="table-td" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Classes="table-td" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Classes="table-td" Text="{Binding MaskedName}"
+                                                                   IsVisible="{Binding HasMaskedName}">
+                                                            <TextBlock.Effect>
+                                                                <BlurEffect Radius="5.5"/>
+                                                            </TextBlock.Effect>
+                                                        </TextBlock>
+                                                    </StackPanel>
                                                     <ProgressBar Classes="mini" Value="{Binding BarValue}" Height="5"/>
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding TokensText}" VerticalAlignment="Center"/>
