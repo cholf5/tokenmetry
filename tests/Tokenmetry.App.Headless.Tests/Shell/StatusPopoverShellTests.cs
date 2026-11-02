@@ -30,7 +30,9 @@ namespace Tokenmetry.App.Headless.Tests.Shell;
 /// Esc 收起与失焦收起（接线在 StatusPopoverController，B-017；headless 直发按键验证 Esc 路径，
 /// 失焦守卫经 internal 处理器直接模拟 Win32"先失焦后 Clicked"时序）；
 /// mac 点击外部收起（MacPopoverOutsideClickMonitor，headless 未装真实监听经 HandleOutsideMouseDown
-/// 直发模拟）：收起、不上失焦守卫的锁、再次打开重新布防；
+/// 直发模拟系统回调）：收起、不上失焦守卫的锁、再次打开重新布防；
+/// 本进程内无窗口目标的点击（菜单栏空白处，经 HandleOwnProcessMouseDown(0) 直发）：收起，
+/// 而自家 UI 窗口上的点击（非 0 窗口指针：卡片 / 托盘状态项 / popup）一律放行不收起；
 /// PopoverPositioner 纯函数：TopRight / AboveCursor 锚定与工作区钳制；
 /// B-021 首显偏下回归锁：内容异步回填撑高窗口时按点击光标重锚，底缘不越过任务栏；
 /// B-022 启动预热回归锁：预热后首帧即最终高度，不再空态→回填撑高的闪动。
@@ -130,8 +132,8 @@ public class StatusPopoverShellTests : IDisposable
 
     [AvaloniaFact]
     public void Outside_click_does_not_arm_focus_guard_then_tray_click_reopens()
-    {
-        // 点击外部不是失焦通道：不得给下一次托盘点击上 B-017 的 400ms 守卫锁——
+    {        // 点击外部不是失焦通道：不得给下一次托盘点击上 B-017 的 400ms 守卫锁——
+        // 弹层开着点走外部 → 紧接着点托盘应能直接再开（对照 Toggle_within_focus_loss_guard 用例）。
         // 弹层开着点走外部 → 紧接着点托盘应能直接再开（对照 Toggle_within_focus_loss_guard 用例）。
         var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
         controller.Show();
@@ -142,6 +144,58 @@ public class StatusPopoverShellTests : IDisposable
         controller.ToggleFromTrayClick();
         Assert.True(controller.WindowForTest.IsVisible);
         Assert.True(MacPopoverOutsideClickMonitor.IsArmed); // 重新打开 → 重新布防
+    }
+
+    [AvaloniaFact]
+    public void Own_process_windowless_click_hides_popover()
+    {
+        // 菜单栏空白处（真机取证：event.window=nil、事件派给最前台 app 自己、全局监听收不到）：
+        // 本地监听通道只在无窗口目标时收起。headless 未装真实监听，经 HandleOwnProcessMouseDown
+        // 直发模拟（0 = [event window] 为 nil）。
+        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
+        controller.Show();
+        var popover = controller.WindowForTest!;
+        Assert.True(popover.IsVisible);
+        Assert.True(MacPopoverOutsideClickMonitor.IsArmed);
+
+        MacPopoverOutsideClickMonitor.HandleOwnProcessMouseDown(0);
+
+        Assert.False(popover.IsVisible);
+        Assert.False(controller.ViewModel.VisibleForTest);
+        Assert.False(MacPopoverOutsideClickMonitor.IsArmed);
+    }
+
+    [AvaloniaFact]
+    public void Own_process_click_on_app_windows_does_not_hide_popover()
+    {
+        // 本进程内但落在自家窗口上的点击一律放行（非 0 窗口指针）：弹层卡片是业务动作、
+        // 托盘状态项 NSStatusBarWindow 是 Toggle——本地通道在这里插手会把托盘的收起语义抢成
+        // “先收起再被 Clicked 重开”（B-017 同款病）。
+        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
+        controller.Show();
+        var popover = controller.WindowForTest!;
+
+        MacPopoverOutsideClickMonitor.HandleOwnProcessMouseDown(0x1); // 弹层自身 NSWindow
+        MacPopoverOutsideClickMonitor.HandleOwnProcessMouseDown(0x2); // 托盘状态项 NSStatusBarWindow
+
+        Assert.True(popover.IsVisible);
+        Assert.True(MacPopoverOutsideClickMonitor.IsArmed); // 弹层开着，监听仍布防
+        Assert.True(controller.ViewModel.VisibleForTest);
+    }
+
+    [AvaloniaFact]
+    public void Own_process_windowless_click_does_not_arm_focus_guard_then_tray_click_reopens()
+    {
+        // 菜单栏空白处同样不是失焦通道：不上 B-017 守卫锁，收起后立即点托盘能再开并重新布防。
+        var controller = new StatusPopoverController(_window, null, new StubQueryService(), null, null);
+        controller.Show();
+
+        MacPopoverOutsideClickMonitor.HandleOwnProcessMouseDown(0);
+        Assert.False(controller.WindowForTest!.IsVisible);
+
+        controller.ToggleFromTrayClick();
+        Assert.True(controller.WindowForTest.IsVisible);
+        Assert.True(MacPopoverOutsideClickMonitor.IsArmed);
     }
 
     [AvaloniaFact]
