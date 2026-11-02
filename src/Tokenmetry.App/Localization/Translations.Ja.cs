@@ -489,5 +489,8 @@ public sealed partial class Translations
         [nameof(SharePosterDayCountFormat)] = "記録のある日 {0} 日",
         [nameof(SharePosterCopyFailedFormat)] = "コピーに失敗しました：{0}",
         [nameof(SharePosterSingleDayPortraitOnly)] = "単日のウィンドウは縦のみです。横向きにするには情報の流れを組み直す必要があります。",
+        [nameof(SharePosterTrayAgents)] = "主要エージェント",
+        [nameof(SharePosterTrayModels)] = "モデル使用量",
+        [nameof(SharePosterTrayByTokens)] = "本日の Token 順",
     };
 }

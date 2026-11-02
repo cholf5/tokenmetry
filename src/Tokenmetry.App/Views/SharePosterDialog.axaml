@@ -12,42 +12,94 @@
         Width="1100" Height="920"
         WindowStartupLocation="CenterOwner">
 
+    <Window.Styles>
+        <!-- 分段选项（P5 定下的 filter-chip 视觉）：RadioButton 去掉圆点、改成胶囊按钮，
+             选中走 chip 令牌；ComboBox 在这样只有 2–3 个互斥短选项的场景里多一层弹层。 -->
+        <Style Selector="RadioButton.seg-chip">
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.seg-chip:checked">
+            <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppChipTextBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppChipTextBrush}"/>
+        </Style>
+        <Style Selector="RadioButton.seg-chip:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource AppChipTextBrush}"/>
+        </Style>
+        <Style Selector="RadioButton.seg-chip:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </Window.Styles>
+
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
         <!-- 选项 -->
         <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,16">
             <TextBlock Classes="page-title" Text="{Binding SharePosterTitle, Source={x:Static loc:Translations.Instance}}"/>
-            <Grid ColumnDefinitions="Auto,220,Auto,220,Auto,220" ColumnSpacing="10">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10">
                 <TextBlock Grid.Column="0" Classes="setting-label"
                            Text="{Binding SharePosterLayout, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ComboBox Grid.Column="1" ItemsSource="{Binding LayoutOptions}"
-                          SelectedItem="{Binding SelectedLayout}" IsEnabled="{Binding CanChooseLandscape}"
-                          HorizontalAlignment="Stretch">
-                    <ComboBox.ItemTemplate>
+                <ItemsControl Grid.Column="1" ItemsSource="{Binding LayoutOptions}"
+                              IsEnabled="{Binding CanChooseLandscape}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="6"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:SharePosterOption">
-                            <TextBlock Text="{Binding Label}"/>
+                            <RadioButton Classes="seg-chip" GroupName="poster-layout"
+                                         Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
                         </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-                <TextBlock Grid.Column="2" Classes="setting-label"
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Grid.Column="2" Classes="setting-label" Margin="18,0,0,0"
                            Text="{Binding SharePosterTheme, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ComboBox Grid.Column="3" ItemsSource="{Binding ThemeOptions}"
-                          SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Stretch">
-                    <ComboBox.ItemTemplate>
+                <ItemsControl Grid.Column="3" ItemsSource="{Binding ThemeOptions}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="6"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:SharePosterOption">
-                            <TextBlock Text="{Binding Label}"/>
+                            <RadioButton Classes="seg-chip" GroupName="poster-theme"
+                                         Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
                         </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-                <TextBlock Grid.Column="4" Classes="setting-label"
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Grid.Column="4" Classes="setting-label" Margin="18,0,0,0"
                            Text="{Binding SharePosterMask, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ComboBox Grid.Column="5" ItemsSource="{Binding MaskOptions}"
-                          SelectedItem="{Binding SelectedMask}" HorizontalAlignment="Stretch">
-                    <ComboBox.ItemTemplate>
+                <ItemsControl Grid.Column="5" ItemsSource="{Binding MaskOptions}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="6"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:SharePosterOption">
-                            <TextBlock Text="{Binding Label}"/>
+                            <RadioButton Classes="seg-chip" GroupName="poster-mask"
+                                         Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
                         </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </Grid>
             <!-- 单日窗口锁竖版：说明原因，不静默禁用 -->
             <TextBlock Classes="setting-hint" TextWrapping="Wrap"

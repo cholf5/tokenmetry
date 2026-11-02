@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Headless.XUnit;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -62,6 +63,27 @@ public class SharePosterDialogTests
     }
 
     [Fact]
+    public void Segmented_options_start_on_the_current_choice_and_drive_the_enum()
+    {
+        var vm = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot);
+
+        // 起值：每个分组恰好一项选中，且选中项与枚举一致
+        Assert.Single(vm.LayoutOptions, o => o.IsSelected);
+        Assert.Single(vm.ThemeOptions, o => o.IsSelected);
+        Assert.Single(vm.MaskOptions, o => o.IsSelected);
+        Assert.True(vm.LayoutOptions.Single(o => o.IsSelected).Value == "portrait");
+
+        // 分段控件勾选 = 把 IsSelected 置 true（RadioButton 双向绑定的写入面）
+        var light = vm.ThemeOptions.Single(o => o.Value == "light");
+        light.IsSelected = true;
+
+        Assert.Equal(SharePosterTheme.Light, vm.Theme);
+        Assert.Equal("light", vm.SelectedTheme.Value);
+        Assert.Single(vm.ThemeOptions, o => o.IsSelected);
+        Assert.Same(light, vm.ThemeOptions.Single(o => o.IsSelected));
+    }
+
+    [Fact]
     public void Single_day_window_shows_the_portrait_only_notice()
     {
         var single = new SharePosterDialogViewModel(Request(singleDay: true), Snapshot);
@@ -76,16 +98,18 @@ public class SharePosterDialogTests
     {
         var vm = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot);
 
-        // ComboBox 的选中项是选项对象（不是枚举值）：标签来自 Translations，且每个值唯一
-        Assert.Equal(vm.SelectedTheme, SharePosterOptions.ForTheme(vm.Theme));
+        // 分段控件的选项是带本地化 Label 的对象（不是枚举值）；对话框每次新建一批实例
+        Assert.Equal(SharePosterOptions.KeyOf(vm.Theme), vm.SelectedTheme.Value);
         Assert.All(vm.LayoutOptions, o => Assert.False(string.IsNullOrWhiteSpace(o.Label)));
         Assert.Equal(
             vm.LayoutOptions.Count,
             vm.LayoutOptions.Select(o => o.Label).Distinct().Count());
 
-        vm.SelectedLayout = SharePosterOptions.ForLayout(SharePosterLayout.Landscape);
+        var landscape = vm.LayoutOptions.Single(o => o.Value == "landscape");
+        vm.SelectedLayout = landscape;
         Assert.Equal(SharePosterLayout.Landscape, vm.Layout);
         Assert.Equal(SharePosterLayout.Landscape, vm.CurrentRequest.Layout);
+        Assert.Same(landscape, vm.SelectedLayout);
     }
 
     [Fact]
@@ -120,6 +144,32 @@ public class SharePosterDialogTests
         Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
 
         Assert.Equal(SharePosterView.LandscapeWidth, poster.PosterRootControl.Bounds.Width, 1);
+
+        dialog.Close();
+    }
+
+    [AvaloniaFact]
+    public async System.Threading.Tasks.Task Copy_keeps_the_bitmap_alive_for_later_paste()
+    {
+        var dialog = new SharePosterDialog
+        {
+            DataContext = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot),
+        };
+        dialog.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        await dialog.CopyAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        // 状态行如实报告成功；剪贴板里能读回同一张海报（不是已释放的空位图）
+        var status = dialog.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.Name == "StatusText");
+        Assert.Equal(Tokenmetry.App.Localization.Translations.Instance.SharePosterCopied, status.Text);
+
+        var pasted = await dialog.Clipboard!.TryGetBitmapAsync();
+        Assert.NotNull(pasted);
+        Assert.True(pasted!.PixelSize.Width > 1000, "海报 2× 导出应远宽于 1000px");
 
         dialog.Close();
     }

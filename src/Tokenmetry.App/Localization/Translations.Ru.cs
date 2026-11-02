@@ -491,5 +491,8 @@ public sealed partial class Translations
         [nameof(SharePosterDayCountFormat)] = "дней с данными: {0}",
         [nameof(SharePosterCopyFailedFormat)] = "Не удалось скопировать: {0}",
         [nameof(SharePosterSingleDayPortraitOnly)] = "Окно одного дня бывает только книжным: для альбомного пришлось бы перестроить поток информации.",
+        [nameof(SharePosterTrayAgents)] = "Основные агенты",
+        [nameof(SharePosterTrayModels)] = "Использование моделей",
+        [nameof(SharePosterTrayByTokens)] = "По токенам за сегодня",
     };
 }

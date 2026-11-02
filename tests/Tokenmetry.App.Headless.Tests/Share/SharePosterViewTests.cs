@@ -6,6 +6,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Headless.Tests.Controls;
@@ -53,10 +54,13 @@ public class SharePosterViewTests
         }).ToArray();
 
     private static SharePosterViewModel ViewModel(SharePosterLayout layout = SharePosterLayout.Portrait,
-        SharePosterTheme theme = SharePosterTheme.Dark)
+        SharePosterTheme theme = SharePosterTheme.Dark, bool singleDay = false)
     {
+        var day = new DateOnly(2026, 10, 17);
         var request = new SharePosterRequest(
-            layout, theme, SharePosterProjectMask.Off, new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2));
+            layout, theme, SharePosterProjectMask.Off,
+            singleDay ? day : new DateOnly(2026, 1, 28),
+            singleDay ? day : new DateOnly(2026, 11, 2));
 
         var daily = DailyWithCache();
 
@@ -249,6 +253,57 @@ public class SharePosterViewTests
         Assert.InRange(other / first, expectedOther / expectedFirst * 0.94, expectedOther / expectedFirst * 1.06);
     }
 
+    /// <summary>单日托盘 fixture：5 个 Agent / 4 个模型，验证 Top4 / Top3 截断与品牌标。</summary>
+    private static SharePosterViewModel TrayViewModel()
+    {
+        var day = new DateOnly(2026, 10, 17);
+        var request = new SharePosterRequest(
+            SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off, day, day);
+
+        var data = SharePosterSnapshot.Build(
+            request,
+            DailyWithCache(),
+            [
+                Row("ZCode", 5_000_000, 50m), Row("Codex", 4_000_000, 40m), Row("DSH", 3_000_000, 30m),
+                Row("Cindy", 2_000_000, 20m), Row("OpenCode", 1_000_000, 10m),
+            ],
+            [
+                Row("glm-5.3-flash", 4_000_000, 40m), Row("gpt-5.3-codex", 3_000_000, 30m),
+                Row("deepseek-flash", 2_000_000, 20m), Row("qwen3-max", 1_000_000, 10m),
+            ],
+            [Row("Zearth", 1_000_000, 10m)],
+            sessionCount: 20);
+
+        return new SharePosterViewModel(data);
+    }
+
+    [AvaloniaFact]
+    public void Single_day_window_renders_the_tray_base_instead_of_the_overview_grid()
+    {
+        var view = new SharePosterView { DataContext = TrayViewModel() };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var tray = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TrayRoot");
+        var overview = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PosterRoot");
+
+        // 单日 = 信息窗基底（设计 §3.1），总览栅格整体隐藏；导出取的是托盘根
+        Assert.True(tray.IsVisible);
+        Assert.False(overview.IsVisible);
+        Assert.Equal(SharePosterView.PortraitWidth, tray.Bounds.Width, 1);
+        Assert.Same(tray, view.PosterRootControl);
+
+        // 主要 Agent Top4、模型用量 Top3，各自带品牌标（Agent 走 AgentChip、模型走 ModelChip）
+        var chips = view.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("tray-chip"))
+            .ToList();
+        Assert.Equal(4, chips.Count(c => c.Classes.Contains("agent-chip")));
+        Assert.Equal(3, chips.Count(c => c.Classes.Contains("model-chip")));
+        Assert.Contains(chips, c => c.Classes.Contains("agent-zai"));
+
+        window.Close();
+    }
+
     [AvaloniaFact]
     public void Donuts_render_final_arcs_without_sweep_animation()
     {
@@ -267,6 +322,39 @@ public class SharePosterViewTests
             .Count(p => p.Data!.Bounds.Width > 1 && p.Data.Bounds.Height > 1);
         Assert.True(arcs >= 5, $"环形图应画出至少 5 段实弧，实测 {arcs}");
 
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Follow_app_theme_inherits_and_tracks_the_app_variant()
+    {
+        // FollowApp = 不钉主题（RequestedThemeVariant 为 null），应用切明暗时海报与投影跟着变
+        var view = new SharePosterView { DataContext = ViewModel(theme: SharePosterTheme.FollowApp) };
+        var window = new Window
+        {
+            Width = 1120,
+            Height = 1700,
+            Content = view,
+            RequestedThemeVariant = ThemeVariant.Dark,
+            Background = Brushes.Black,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var scope = view.GetVisualDescendants().OfType<ThemeVariantScope>().First();
+        Assert.Null(scope.RequestedThemeVariant);
+
+        static System.Collections.Generic.List<Border> Cards(SharePosterView v) => v
+            .GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("kpi") || b.Classes.Contains("poster-panel"))
+            .ToList();
+        Assert.All(Cards(view), c => Assert.Equal(0, c.BoxShadow.Count));
+
+        window.RequestedThemeVariant = ThemeVariant.Light;
+        Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.All(Cards(view), c => Assert.True(c.BoxShadow.Count > 0, "跟随日间后卡片应带投影"));
         window.Close();
     }
 

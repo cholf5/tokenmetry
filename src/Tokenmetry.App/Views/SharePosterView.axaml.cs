@@ -35,10 +35,21 @@ public partial class SharePosterView : UserControl
             ApplyRequestedTheme();
             ApplyLayout();
         };
+        // 跟随应用：对话框开着时切应用主题，海报与投影跟着变（静态海报本身不需要重绘）
+        ActualThemeVariantChanged += (_, _) =>
+        {
+            if (IsFollowingAppTheme)
+            {
+                ApplyPanelShadows(ActualThemeVariant);
+            }
+        };
     }
 
-    /// <summary>导出时要光栅化的节点（版面根，不含外面用来适配预览的缩放容器）。</summary>
-    public Control PosterRootControl => PosterRoot;
+    /// <summary>导出时要光栅化的节点（当前基底的根，不含外面用来适配预览的缩放容器）。</summary>
+    public Control PosterRootControl => IsSingleDay ? TrayRoot : PosterRoot;
+
+    /// <summary>单日窗口走托盘基底（固定 1080 竖版），多日走总览基底（1080 / 1800）。</summary>
+    public bool IsSingleDay => (DataContext as SharePosterViewModel)?.IsSingleDay ?? false;
 
     /// <summary>版式 → 画布宽度（纯函数，测试与导出共用）。</summary>
     public static double WidthFor(SharePosterLayout layout) =>
@@ -47,16 +58,36 @@ public partial class SharePosterView : UserControl
     private SharePosterLayout CurrentLayout =>
         (DataContext as SharePosterViewModel)?.Data.Request.Layout ?? SharePosterLayout.Portrait;
 
+    /// <summary>托盘构成条的三段宽度：按输入/输出/缓存 token 比例给星号（全 0 时等分）。</summary>
+    private void ApplyTrayTypeBar()
+    {
+        var types = (DataContext as SharePosterViewModel)?.TrayTypes;
+        var values = types is { Count: >= 3 }
+            ? types.Take(3).Select(t => t.Value).ToArray()
+            : [0d, 0d, 0d];
+        var total = values.Sum();
+        var widths = total > 0
+            ? values.Select(v => (v / total).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) + "*")
+            : ["*", "*", "*"];
+        TrayTypeBar.ColumnDefinitions = new ColumnDefinitions(string.Join(",", widths));
+    }
+
+    private bool IsFollowingAppTheme =>
+        ((DataContext as SharePosterViewModel)?.Data.Request.Theme ?? SharePosterTheme.FollowApp)
+        == SharePosterTheme.FollowApp;
+
     private void ApplyRequestedTheme()
     {
         var theme = (DataContext as SharePosterViewModel)?.Data.Request.Theme ?? SharePosterTheme.FollowApp;
-        var dark = theme switch
+        if (theme == SharePosterTheme.FollowApp)
         {
-            SharePosterTheme.Dark => true,
-            SharePosterTheme.Light => false,
-            _ => Application.Current?.ActualThemeVariant == ThemeVariant.Dark,
-        };
+            // 跟随应用 = 不钉主题，交给继承：应用切明暗时海报子树自己跟着换令牌
+            ThemeScope.RequestedThemeVariant = null;
+            ApplyPanelShadows(ActualThemeVariant);
+            return;
+        }
 
+        var dark = theme == SharePosterTheme.Dark;
         ThemeScope.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         ApplyPanelShadows(dark ? ThemeVariant.Dark : ThemeVariant.Light);
     }
@@ -88,7 +119,7 @@ public partial class SharePosterView : UserControl
 
     private IEnumerable<Border> CardSurfaces() =>
         KpiGrid.Children.OfType<Border>().Concat(
-            new[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel });
+            new Border[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel, TrayCard });
 
     /// <summary>
     /// 按版式重排栅格。两套版面的差别不只是换列宽：面板归属也换行（类型环形、成本趋势从第二排列
@@ -103,6 +134,16 @@ public partial class SharePosterView : UserControl
     /// </summary>
     private void ApplyLayout()
     {
+        if (IsSingleDay)
+        {
+            // 单日托盘基底是固定 1080 竖卡片：不受版式选项影响（对话框也禁用了横版）
+            TrayRoot.Width = PortraitWidth;
+            PosterRoot.Width = PortraitWidth;
+            PosterRoot.Classes.Remove("land");
+            ApplyTrayTypeBar();
+            return;
+        }
+
         var landscape = CurrentLayout == SharePosterLayout.Landscape;
         PosterRoot.Width = WidthFor(CurrentLayout);
 

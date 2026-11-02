@@ -489,5 +489,8 @@ public sealed partial class Translations
         [nameof(SharePosterDayCountFormat)] = "{0} Tage mit Daten",
         [nameof(SharePosterCopyFailedFormat)] = "Kopieren fehlgeschlagen: {0}",
         [nameof(SharePosterSingleDayPortraitOnly)] = "Ein Ein-Tages-Fenster gibt es nur im Hochformat: Querformat müsste den Informationsfluss neu ordnen.",
+        [nameof(SharePosterTrayAgents)] = "Wichtigste Agenten",
+        [nameof(SharePosterTrayModels)] = "Modellnutzung",
+        [nameof(SharePosterTrayByTokens)] = "Nach heutigen Tokens",
     };
 }

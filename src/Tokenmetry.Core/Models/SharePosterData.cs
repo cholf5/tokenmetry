@@ -11,8 +11,12 @@ public sealed record SharePosterTotals(
     long SessionCount,
     decimal? CacheShare);
 
-/// <summary>海报排行表的一行：展示名 + token + 占比（占比分母为该维度自身合计；分母为 0 时 null）。</summary>
-public sealed record SharePosterRanking(string Name, long Tokens, decimal? Share);
+/// <summary>
+/// 海报排行表的一行：展示名 + token + 占比（占比分母为该维度自身合计；分母为 0 时 null）+ 成本。
+/// 成本是单日托盘基底「主要 Agent / 模型用量」行的第二行文案所需（§3.1 的信息窗口径按成本排序展示）；
+/// 汇总表不用它。未知成本保持 <see cref="AggregatedCost"/> 四态，不折 0。
+/// </summary>
+public sealed record SharePosterRanking(string Name, long Tokens, decimal? Share, AggregatedCost? Cost = null);
 
 /// <summary>
 /// 海报渲染所需的全部数据，一次性收成不可变切片。页面 VM 导航即 Dispose，海报不得持有它——
@@ -100,7 +104,8 @@ public static class SharePosterSnapshot
             .Select(r => new SharePosterRanking(
                 r.DisplayName ?? r.Key,
                 r.TotalTokens,
-                Share(r.TotalTokens, denominator)))
+                Share(r.TotalTokens, denominator),
+                r.Cost))
             .ToArray();
     }
 

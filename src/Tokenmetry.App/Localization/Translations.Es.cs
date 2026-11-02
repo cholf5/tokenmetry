@@ -489,5 +489,8 @@ public sealed partial class Translations
         [nameof(SharePosterDayCountFormat)] = "{0} días con datos",
         [nameof(SharePosterCopyFailedFormat)] = "Error al copiar: {0}",
         [nameof(SharePosterSingleDayPortraitOnly)] = "Una ventana de un solo día solo ofrece vertical: la horizontal obligaría a reorganizar la información.",
+        [nameof(SharePosterTrayAgents)] = "Agentes principales",
+        [nameof(SharePosterTrayModels)] = "Uso de modelos",
+        [nameof(SharePosterTrayByTokens)] = "Por tokens de hoy",
     };
 }

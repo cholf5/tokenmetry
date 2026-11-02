@@ -29,6 +29,8 @@ public sealed class SharePosterViewModel
                 Translations.Instance.SharePosterDayCountFormat, data.Daily.Count(d => d.HasData));
 
         TotalTokensText = TrendChart.FormatCompactTokens(totals.TotalTokens);
+        // 托盘基底在紧凑值下面再给一行完整数字（信息窗的近距离阅读尺度，不怕长）
+        TotalTokensRawText = totals.TotalTokens.ToString("N0", CultureInfo.CurrentCulture);
         CacheShareText = Percent(totals.CacheShare);
         CostText = CostLabel(totals.Cost);
         SessionsText = totals.SessionCount.ToString("N0", CultureInfo.CurrentCulture);
@@ -37,6 +39,9 @@ public sealed class SharePosterViewModel
         // 类型构成走输入/输出/缓存（缓存 = 读取 + 写入）与固定三色令牌。
         AgentSegments = CreateAgentSegments(data.Agents);
         TypeSegments = OverviewViewModel.CreateTokenTypeSegments(data.Daily);
+        TrayAgentRows = BuildTrayRows(data.Agents, 4);
+        TrayModelRows = BuildTrayRows(data.Models, 3, modelIconResolver ?? ModelAvatarVisual.FromName);
+        TrayTypes = BuildTrayTypes(TypeSegments);
         // 模型行带品牌 logo（与总览页同一条链：ModelAvatarVisual → ModelChip 伪类 → 令牌画刷）；
         // 解析器来自模型目录（用户自定义头像也生效），未注入时回落内置名字推断。
         ModelRows = BuildRows(data.Models, modelIcons: modelIconResolver ?? ModelAvatarVisual.FromName);
@@ -45,12 +50,23 @@ public sealed class SharePosterViewModel
 
     public SharePosterData Data { get; }
 
+    /// <summary>单日窗口 = 托盘信息窗基底（设计 §3.1）；版式固定竖版。</summary>
+    public bool IsSingleDay => Data.Request.IsSingleDay;
+
+    /// <summary>单日海报页头的日期（带本地化星期：海报上写「周六」比 ISO 周几可读）。</summary>
+    public string SingleDayDateText =>
+        Data.Request.RangeStart.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
+        + " · " + Data.Request.RangeStart.ToString("ddd", CultureInfo.CurrentCulture);
+
     /// <summary>有记录的天数（不是范围天数——范围天数会夸大"活跃"）。</summary>
     public int DayCount => Data.Daily.Count(d => d.HasData);
 
     public string RangeText { get; }
 
     public string TotalTokensText { get; }
+
+    /// <summary>完整 token 数（千分位；单日托盘的三格 KPI 用）。</summary>
+    public string TotalTokensRawText { get; }
 
     public string CacheShareText { get; }
 
@@ -71,6 +87,22 @@ public sealed class SharePosterViewModel
     public bool HasModels => ModelRows.Count > 0;
 
     public bool HasProjects => ProjectRows.Count > 0;
+
+    /// <summary>单日托盘：主要 Agent 行（Top4，按 token 降序，含成本与品牌标）。</summary>
+    public IReadOnlyList<SharePosterTrayRow> TrayAgentRows { get; }
+
+    /// <summary>单日托盘：模型用量行（Top3，按 token 降序，含成本与品牌标）。</summary>
+    public IReadOnlyList<SharePosterTrayRow> TrayModelRows { get; }
+
+    /// <summary>单日托盘：构成三卡（输入/输出/缓存，值是 token、占比分母为三段之和）。</summary>
+    public IReadOnlyList<SharePosterTypeCard> TrayTypes { get; }
+
+    public bool HasTrayAgents => TrayAgentRows.Count > 0;
+
+    /// <summary>构成三段齐全（无数据时三张卡留空，不摆三个「0」冒充构成）。</summary>
+    public bool HasTrayTypes => TrayTypes.Count >= 3;
+
+    public bool HasTrayModels => TrayModelRows.Count > 0;
 
     /// <summary>模型行有品牌图标（模板用同一个 Bool 驱动芯片显隐）。</summary>
     public bool HasModelIcons => ModelRows.Any(r => r.HasIcon);
@@ -111,6 +143,50 @@ public sealed class SharePosterViewModel
         return segments;
     }
 
+    /// <summary>
+    /// 托盘基底的行（主要 Agent / 模型用量共用）：TopN、按 token 降序、条宽按本组最大值归一。
+    /// <paramref name="modelIcons"/> 为 null 时是 Agent 行（品牌标走 AgentVisualMap → AgentChip），
+    /// 非 null 时是模型行（头像走 ModelChip，用户自定义头像也生效）。
+    /// </summary>
+    private static IReadOnlyList<SharePosterTrayRow> BuildTrayRows(
+        IReadOnlyList<SharePosterRanking> rankings,
+        int take,
+        Func<string, ModelAvatarVisual?>? modelIcons = null)
+    {
+        var rows = rankings
+            .Where(r => r.Tokens > 0)
+            .OrderByDescending(r => r.Tokens)
+            .Take(take)
+            .ToList();
+        var max = rows.Count == 0 ? 0 : rows.Max(r => r.Tokens);
+
+        return rows.Select(r =>
+        {
+            var avatar = modelIcons?.Invoke(r.Name);
+            var agent = modelIcons is null ? AgentVisualMap.Resolve(r.Name) : null;
+            return new SharePosterTrayRow(
+                r.Name,
+                TrendChart.FormatCompactTokens(r.Tokens),
+                OverviewViewModel.FormatCost(r.Cost ?? AggregatedCost.Empty),
+                max == 0 ? 0 : (double)r.Tokens / max * 100,
+                agent?.LogoVendor,
+                agent?.Glyph.ToString() ?? string.Empty,
+                avatar);
+        }).ToArray();
+    }
+
+    /// <summary>三段构成 → 三张卡（值 + 占比）；占比分母取三段之和（与环形的分母一致）。</summary>
+    private static IReadOnlyList<SharePosterTypeCard> BuildTrayTypes(IEnumerable<DonutSegment> segments)
+    {
+        var list = segments.ToList();
+        var total = list.Sum(s => s.Value);
+        return list.Select(s => new SharePosterTypeCard(
+            s.Name,
+            s.Value,
+            TrendChart.FormatCompactTokens(s.Value),
+            Percent(total == 0 ? null : (decimal)(s.Value / total)))).ToArray();
+    }
+
     private static IReadOnlyList<SharePosterRow> BuildRows(
         IReadOnlyList<SharePosterRanking> rankings,
         SharePosterProjectMask mask = SharePosterProjectMask.Off,
@@ -143,6 +219,30 @@ public sealed class SharePosterViewModel
     }
 
 }
+
+/// <summary>单日托盘的行（主要 Agent / 模型用量）：名称、token、成本、条宽、品牌标。</summary>
+/// <param name="AgentVendor">Agent 品牌变体名（模型行为 null；驱动 AgentChip 伪类）。</param>
+/// <param name="AgentGlyph">Agent 字形兜底（无 lobe 标的 Agent）。</param>
+/// <param name="Avatar">模型头像视觉（Agent 行为 null）。</param>
+public sealed record SharePosterTrayRow(
+    string Name,
+    string TokensText,
+    string CostText,
+    double BarValue,
+    string? AgentVendor = null,
+    string AgentGlyph = "",
+    ModelAvatarVisual? Avatar = null)
+{
+    public bool IsAgent => AgentVendor is not null;
+
+    public bool HasModelIcon => Avatar is not null;
+
+    /// <summary>品牌槽是否显示（任一图标存在）。</summary>
+    public bool HasIcon => IsAgent || HasModelIcon;
+}
+
+/// <summary>单日托盘的构成卡（输入 / 输出 / 缓存）：值、紧凑文案与占比。</summary>
+public sealed record SharePosterTypeCard(string Label, double Value, string ValueText, string ShareText);
 
 /// <summary>
 /// 排行表一行（已格式化，条宽 0..100）。<para>

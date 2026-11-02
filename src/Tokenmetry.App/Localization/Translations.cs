@@ -518,6 +518,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterDefaultLayout)] = "默认版式",
         [nameof(SharePosterDefaultTheme)] = "默认主题",
         [nameof(SharePosterDefaultMask)] = "默认雾化",
+        [nameof(SharePosterTrayAgents)] = "主要 Agent",
+        [nameof(SharePosterTrayModels)] = "模型用量",
+        [nameof(SharePosterTrayByTokens)] = "按今日 Token",
     };
 
     private static readonly Dictionary<string, string> En = new()
@@ -986,6 +989,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterDefaultLayout)] = "Default layout",
         [nameof(SharePosterDefaultTheme)] = "Default theme",
         [nameof(SharePosterDefaultMask)] = "Default project names",
+        [nameof(SharePosterTrayAgents)] = "Top agents",
+        [nameof(SharePosterTrayModels)] = "Model usage",
+        [nameof(SharePosterTrayByTokens)] = "By today's tokens",
     };
 
     // ── D-024 新语种字典：字典体在 partial 分文件（Translations.ZhHant.cs 等）——字段声明
@@ -1356,6 +1362,9 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterSavedFormat => Get();
     public string SharePosterSaveFailedFormat => Get();
     public string SharePosterOpenFailedFormat => Get();
+    public string SharePosterTrayAgents => Get();
+    public string SharePosterTrayModels => Get();
+    public string SharePosterTrayByTokens => Get();
     public string SharePosterDayCountFormat => Get();
     public string SharePosterCopyFailedFormat => Get();
     public string SharePosterSettingsTitle => Get();
