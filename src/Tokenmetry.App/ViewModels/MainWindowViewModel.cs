@@ -231,7 +231,7 @@ public partial class MainWindowViewModel : ViewModelBase
         PageId.Projects => new ProjectsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForProject),
         // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；筛选全部来自
         // 顶栏全局四维（FilterStateService），页内只留搜索/排序（右栏撤除定案见类型说明）。
-        PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery, _toastService),
+        PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery),
         // D-012：时间分析为真实页（小时分布 + 活跃日历热力图 + 观察项表），随全局筛选刷新。
         PageId.Time => new TimeViewModel(ShellPages.For(id), _filters, _usageQuery),
         // D-013：成本分析为真实页（KPI 四卡 + 口径说明表）；待确认价格卡与定价引擎同一单例

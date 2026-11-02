@@ -61,8 +61,11 @@ public sealed partial class Translations
         // ── 会话页 ──
         [nameof(LabelModels)] = "模型",
         [nameof(LabelProjectDir)] = "專案 / 目錄",
-        [nameof(ToastSessionPlannedFormat)] = "工作階段 {0}：詳情檢視規劃中",
-
+        [nameof(DetailClose)] = "關閉",
+        [nameof(DetailFirstActivity)] = "首次活動",
+        [nameof(DetailCacheWrite)] = "快取寫入",
+        [nameof(DetailCacheWrite5m)] = "其中 5 分鐘快取",
+        [nameof(DetailCacheWrite1h)] = "其中 1 小時快取",
         // ── 全局筛选选项 ──
         [nameof(TimeRangeToday)] = "今日",
         [nameof(TimeRangeYesterday)] = "昨天",

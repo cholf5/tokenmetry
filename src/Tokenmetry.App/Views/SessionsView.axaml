@@ -17,6 +17,7 @@
         计数条（显示 X / Y 条）与「加载更多」（I-029 分页契约）。
         明细行观感对齐原型 .sessiontable + .table（table-th/td 令牌、行顶分隔线、Agent 软色底图标）。
         加载失败语义（审查修复轮）：错误面板出现时隐藏空态与计数条，已加载行保留不清。
+        行点击下钻（2026-11-02 最简版定案）：页内详情弹层（遮罩 + panel），替换原 toast 占位。
     -->
 
     <!-- Q-006：PageHost 外边距归零后本页自补（无页面级滚动面——列表滚动条贴卡内缘属有意设计）；
@@ -138,6 +139,113 @@
         <!-- 加载失败（诚实错误态；已加载行保留，筛选/搜索再变化自动重试） -->
         <Border Grid.Row="2" Classes="panel" Padding="13" Margin="22,0,22,30" IsVisible="{Binding HasLoadError}">
             <TextBlock Classes="page-subtitle" Text="{Binding LoadError}"/>
+        </Border>
+
+        <!-- 会话详情弹层（下钻最简版，2026-11-02）：遮罩点击 / Esc / 关闭按钮都可关，交互配方同
+             DataPricingView 模型编辑弹层；内容经 ContentControl 换 DataType 作用域（Detail 为 null
+             时 ContentControl 不渲染，无需逐绑定判空）。数据全部取自行点击时的列表投影（见
+             SessionDetailViewModel 类型说明：不发新查询、不重读源文件）。 -->
+        <Border x:Name="DetailOverlay"
+                Grid.RowSpan="3"
+                Focusable="True"
+                Background="{DynamicResource AppOverlayScrimBrush}"
+                IsVisible="{Binding IsDetailOpen}"
+                KeyboardNavigation.TabNavigation="Cycle"
+                Tapped="OnDetailScrimTapped"
+                KeyDown="OnDetailOverlayKeyDown">
+            <Border Classes="panel" MaxWidth="560" Padding="17" Margin="24"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+                <ContentControl Content="{Binding Detail}">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate x:DataType="vm:SessionDetailViewModel">
+                            <StackPanel Spacing="13">
+                                <!-- 头：项目名 + 可划选复制的会话标识；关闭按钮 Dock 右 -->
+                                <DockPanel LastChildFill="True">
+                                    <Button DockPanel.Dock="Right" Classes="link-btn" VerticalAlignment="Center"
+                                            Content="{Binding DetailClose, Source={x:Static loc:Translations.Instance}}"
+                                            Command="{Binding $parent[ContentControl].((vm:SessionsViewModel)DataContext).CloseDetailCommand}"/>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Classes="panel-title" Text="{Binding TitleText}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <SelectableTextBlock Classes="page-subtitle" Text="{Binding SessionId}"
+                                                             TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <!-- 元信息（标签列 Auto：十个语种标签长度差异大，对齐表头允许自然的列宽） -->
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" RowSpacing="6"
+                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Classes="page-subtitle" VerticalAlignment="Center"
+                                               Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
+                                    <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                        <Border Grid.Column="0" Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}">
+                                            <Panel>
+                                                <TextBlock Text="{Binding IconGlyph}"/>
+                                                <Image Classes="agent-logo"/>
+                                            </Panel>
+                                        </Border>
+                                        <TextBlock Grid.Column="1" Text="{Binding Agent}" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Classes="page-subtitle" VerticalAlignment="Center"
+                                               Text="{Binding LabelModels, Source={x:Static loc:Translations.Instance}}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ModelText}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Classes="page-subtitle" VerticalAlignment="Center"
+                                               Text="{Binding DetailFirstActivity, Source={x:Static loc:Translations.Instance}}"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FirstSeenText}"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Classes="page-subtitle" VerticalAlignment="Center"
+                                               Text="{Binding ThLastActivity, Source={x:Static loc:Translations.Instance}}"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastSeenText}"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Classes="page-subtitle" VerticalAlignment="Center"
+                                               Text="{Binding ThCost, Source={x:Static loc:Translations.Instance}}"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding CostText}"/>
+                                </Grid>
+
+                                <Rectangle Height="1" Fill="{DynamicResource AppLineBrush}"/>
+
+                                <!-- Token 构成：环图（三段占比，口径同总览页类型环）+ 分项精确值（N0 对账口径）；
+                                     5m/1h ephemeral 细分仅 Claude 系日志携带，0 不展示 -->
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="20">
+                                    <c:DonutChart Grid.Column="0" VerticalAlignment="Center"
+                                                  Segments="{Binding DonutSegments}"
+                                                  CenterTitle="{Binding DonutCenterTitle}"
+                                                  CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"
+                                                  DonutSize="120"/>
+                                    <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="10" RowSpacing="5"
+                                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Classes="page-subtitle"
+                                                   Text="{Binding TokenTypeInput, Source={x:Static loc:Translations.Instance}}"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Classes="table-num" Text="{Binding InputText}"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Classes="page-subtitle"
+                                                   Text="{Binding TokenTypeOutput, Source={x:Static loc:Translations.Instance}}"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Classes="table-num" Text="{Binding OutputText}"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Classes="page-subtitle"
+                                                   Text="{Binding DetailCacheWrite, Source={x:Static loc:Translations.Instance}}"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Classes="table-num" Text="{Binding CacheWriteText}"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Classes="page-subtitle" Margin="14,0,0,0"
+                                                   IsVisible="{Binding Has5mSplit}"
+                                                   Text="{Binding DetailCacheWrite5m, Source={x:Static loc:Translations.Instance}}"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Classes="table-num" IsVisible="{Binding Has5mSplit}"
+                                                   Text="{Binding Split5mText}"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Classes="page-subtitle" Margin="14,0,0,0"
+                                                   IsVisible="{Binding Has1hSplit}"
+                                                   Text="{Binding DetailCacheWrite1h, Source={x:Static loc:Translations.Instance}}"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Classes="table-num" IsVisible="{Binding Has1hSplit}"
+                                                   Text="{Binding Split1hText}"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Classes="page-subtitle"
+                                                   Text="{Binding ThCacheRead, Source={x:Static loc:Translations.Instance}}"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" Classes="table-num" Text="{Binding CacheReadText}"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Classes="page-subtitle"
+                                                   Text="{Binding ThTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="1" Classes="table-num" Text="{Binding TotalText}"/>
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </Border>
         </Border>
     </Grid>
 </UserControl>

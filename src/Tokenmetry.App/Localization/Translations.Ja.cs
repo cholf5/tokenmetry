@@ -61,8 +61,11 @@ public sealed partial class Translations
         // ── セッションページ ──
         [nameof(LabelModels)] = "モデル",
         [nameof(LabelProjectDir)] = "プロジェクト / ディレクトリ",
-        [nameof(ToastSessionPlannedFormat)] = "セッション {0}：詳細ビューは準備中",
-
+        [nameof(DetailClose)] = "閉じる",
+        [nameof(DetailFirstActivity)] = "最初のアクティビティ",
+        [nameof(DetailCacheWrite)] = "キャッシュ書き込み",
+        [nameof(DetailCacheWrite5m)] = "うち 5 分キャッシュ",
+        [nameof(DetailCacheWrite1h)] = "うち 1 時間キャッシュ",
         // ── グローバルフィルター ──
         [nameof(TimeRangeToday)] = "今日",
         [nameof(TimeRangeYesterday)] = "昨日",

@@ -9,11 +9,14 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Tokenmetry.App.DependencyInjection;
+using Tokenmetry.App.Controls;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
@@ -273,17 +276,15 @@ public class SessionsTests
     private sealed record TestHost(
         SessionsViewModel Vm,
         StubQueryService Stub,
-        StubToast Toast,
         FilterStateService Filters);
 
     private static TestHost CreateHost(StubQueryService? stub = null, FilterStateService? filters = null)
     {
         stub ??= new StubQueryService();
         filters ??= new FilterStateService();
-        var toast = new StubToast();
-        var vm = new SessionsViewModel(ShellPages.For(PageId.Sessions), filters, stub, toast);
+        var vm = new SessionsViewModel(ShellPages.For(PageId.Sessions), filters, stub);
         Dispatcher.UIThread.RunJobs(); // 页面首查完成
-        return new TestHost(vm, stub, toast, filters);
+        return new TestHost(vm, stub, filters);
     }
 
     /// <summary>页面查询记账（右栏撤除后全部 SessionQueries 均为页面查询）。</summary>
@@ -670,19 +671,122 @@ public class SessionsTests
         Assert.Equal(new[] { AgentOption.All }, filters.AgentOptions);
     }
 
-    // ── 13. 下钻 toast 占位（页面行）──
+    // ── 13. 行点击下钻：页内详情弹层（2026-11-02 最简版，替换原 toast 占位）──
 
     [AvaloniaFact]
-    public void Session_row_click_shows_planned_details_toast()
+    public void Session_row_click_opens_detail_overlay_and_close_resets_selection()
     {
         var stub = new StubQueryService { AllSessions = GenerateSessions(120) };
         var host = CreateHost(stub);
 
         host.Vm.SelectedSession = host.Vm.Rows[0];
-        var message = Assert.Single(host.Toast.Messages);
-        Assert.Contains(host.Vm.Rows[0].SessionId, message);
-        Assert.Contains("规划中", message);
+        Assert.True(host.Vm.IsDetailOpen);
+        Assert.NotNull(host.Vm.Detail);
+        Assert.Equal(host.Vm.Rows[0].SessionId, host.Vm.Detail!.SessionId);
         Assert.Null(host.Vm.SelectedSession); // 选中态复位，同一行可再次点击
+
+        host.Vm.CloseDetailCommand.Execute(null);
+        Assert.False(host.Vm.IsDetailOpen);
+
+        // 关闭后再点同一行：仍能重开（Detail 重建快照）
+        host.Vm.SelectedSession = host.Vm.Rows[0];
+        Assert.True(host.Vm.IsDetailOpen);
+        Assert.NotNull(host.Vm.Detail);
+    }
+
+    [AvaloniaFact]
+    public void Session_detail_breakdown_formats_buckets_and_ephemeral_split()
+    {
+        var row = new SessionRowViewModel(new SessionListRow
+        {
+            SessionId = "abc-123",
+            Agent = "Claude Code",
+            Project = "/work/alpha",
+            ProjectDisplayName = "alpha",
+            DominantModel = "claude-sonnet-4",
+            InputTokens = 1_234,
+            OutputTokens = 567,
+            CacheCreationTokens = 800,
+            CacheCreationEphemeral5mTokens = 500,
+            CacheCreationEphemeral1hTokens = 300,
+            CacheReadTokens = 100,
+            TotalTokens = 2_701,
+            CostUsd = 1.25m,
+        });
+
+        var detail = new SessionDetailViewModel(row);
+        Assert.Equal("1,234", detail.InputText);
+        Assert.Equal("567", detail.OutputText);
+        Assert.Equal("800", detail.CacheWriteText);
+        Assert.Equal("100", detail.CacheReadText);
+        Assert.Equal("2,701", detail.TotalText);
+        Assert.True(detail.Has5mSplit);
+        Assert.True(detail.Has1hSplit);
+        Assert.Equal("500", detail.Split5mText);
+        Assert.Equal("300", detail.Split1hText);
+        Assert.Equal("$1.25", detail.CostText);
+        // 环图三段（输入/输出/缓存相关）之和 = 总 token；缓存段 = 写 + 读
+        Assert.Equal(2_701, detail.DonutSegments.Sum(s => (long)s.Value));
+        Assert.Equal(900, detail.DonutSegments[2].Value);
+        // 环心走紧凑格式（与总览同源，FormatCompactTokens 的单位制口径由其自身测试固化）
+        Assert.Equal(TrendChart.FormatCompactTokens(2_701), detail.DonutCenterTitle);
+    }
+
+    [AvaloniaFact]
+    public void Session_detail_hides_ephemeral_split_when_absent_and_donut_when_all_zero()
+    {
+        // 非 Claude 系源（5m/1h 恒 0）→ 细分行隐藏；有量但缓存段为 0 时段保留（总览同口径：0.0% 如实显示）
+        var codexRow = new SessionRowViewModel(new SessionListRow
+        {
+            SessionId = "sid-1",
+            Agent = "Codex",
+            InputTokens = 100,
+            OutputTokens = 50,
+            TotalTokens = 160,
+        });
+
+        var detail = new SessionDetailViewModel(codexRow);
+        Assert.False(detail.Has5mSplit);
+        Assert.False(detail.Has1hSplit);
+        Assert.Equal(3, detail.DonutSegments.Count); // 缓存段 0 保留，不裁段
+
+        // 全零（facts 占位行）→ 环图空集（诚实空态，同总览 CreateTokenTypeSegments）
+        var emptyRow = new SessionRowViewModel(new SessionListRow
+        {
+            SessionId = "sid-2",
+            Agent = "Codex",
+            TotalTokens = 0,
+        });
+
+        Assert.Empty(new SessionDetailViewModel(emptyRow).DonutSegments);
+    }
+
+    [AvaloniaFact]
+    public void Session_detail_overlay_renders_and_closes_on_escape()
+    {
+        var stub = new StubQueryService { AllSessions = GenerateSessions(120) };
+        var host = CreateHost(stub);
+        var window = new Window { Width = 1180, Height = 860, Content = new SessionsView { DataContext = host.Vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var overlay = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "DetailOverlay");
+        Assert.False(overlay.IsVisible);
+
+        // 打开弹层 → 编译绑定全量求值 + 环图/遮罩真实渲染一轮
+        host.Vm.SelectedSession = host.Vm.Rows[0];
+        Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Assert.True(overlay.IsVisible);
+        Assert.NotNull(overlay.GetVisualDescendants().OfType<DonutChart>().FirstOrDefault());
+
+        // Esc 关闭（交互配方同模型编辑弹层）：从遮罩冒泡 RaiseEvent，命中遮罩 KeyDown 处理器
+        overlay.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(host.Vm.IsDetailOpen);
+        Assert.False(overlay.IsVisible);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 
     // ── 14. 相对时间格式 ──
@@ -713,7 +817,7 @@ public class SessionsTests
     {
         var query = AppServices.Get<IUsageQueryService>();
         var filters = new FilterStateService();
-        var vm = new SessionsViewModel(ShellPages.For(PageId.Sessions), filters, query, AppServices.Get<IToastService>());
+        var vm = new SessionsViewModel(ShellPages.For(PageId.Sessions), filters, query);
 
         // 同口径直查（默认筛选 = 最近 7 天 · 所有 Agent · 按 Token 降序 · 首页 50）
         var today = DateOnly.FromDateTime(DateTime.Today);

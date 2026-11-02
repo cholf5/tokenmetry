@@ -791,6 +791,8 @@ public class UsageQueryService : IUsageQueryService
         InputTokens = session.InputTokens,
         OutputTokens = session.OutputTokens,
         CacheCreationTokens = session.CacheCreationTokens,
+        CacheCreationEphemeral5mTokens = session.CacheCreationEphemeral5mTokens,
+        CacheCreationEphemeral1hTokens = session.CacheCreationEphemeral1hTokens,
         CacheReadTokens = session.CacheReadTokens,
         TotalTokens = session.TotalTokens,
         CostUsd = session.CostUsd,

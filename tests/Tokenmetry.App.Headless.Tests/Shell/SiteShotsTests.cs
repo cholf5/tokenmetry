@@ -511,7 +511,7 @@ public class SiteShotsTests
         {
             var vm = new SessionsViewModel(
                 ShellPages.For(PageId.Sessions), new FilterStateService(),
-                new StubQueryService { Sessions = SiteData.Sessions() }, new StubToast());
+                new StubQueryService { Sessions = SiteData.Sessions() });
             Dispatcher.UIThread.RunJobs();
             return new SessionsView { DataContext = vm };
         }, () => true);
