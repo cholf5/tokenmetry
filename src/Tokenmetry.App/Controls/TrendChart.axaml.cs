@@ -96,7 +96,10 @@ public partial class TrendChart : UserControl
 
     /// <summary>
     /// 是否在图上直接标出峰值（默认 false = 既有页面；应用内靠 hover 就读得到，海报是静态图读不到）。
-    /// 标注锚在绘图区左上角，不画引线——海报尺寸下引线会与尖峰柱交织，反而更难读。
+    /// 标注由三段组成：峰值点实心圆 + 从零轴到峰值的虚线 + 峰值的「日期 · 数值」文字（与设计 §3.5
+    /// 第 3 条一致）。文字用该图系列色，不用 ScottPlot 标注默认的黄色底——静态印刷品上黄底
+    /// 读起来像选中态，且与海报令牌体系无关（P1c 初版把标签画在左上角、不画引线，真机目检后推翻：
+    /// 读者无法把数字对应到哪根柱）。
     /// </summary>
     public static readonly StyledProperty<bool> ShowPeakAnnotationProperty =
         AvaloniaProperty.Register<TrendChart, bool>(nameof(ShowPeakAnnotation), false);
@@ -278,8 +281,7 @@ public partial class TrendChart : UserControl
             var annotation = BuildPeakAnnotation();
             if (annotation is not null)
             {
-                var text = plot.Add.Annotation(annotation.Value.Text, Alignment.UpperLeft);
-                text.LabelFontSize = (float)(11f * ChartFontScale);
+                DrawPeakAnnotation(plot, annotation.Value);
                 PeakAnnotationText = annotation.Value.Text;
             }
         }
@@ -327,7 +329,7 @@ public partial class TrendChart : UserControl
     /// 峰值标注文本：按当前形态取"最大那一点"的日期/小时与格式化数值。
     /// 日形态取 HasData 的最大 TotalTokens 或最大已知成本；小时形态取最大桶。
     /// </summary>
-    private (string Text, Coordinates At)? BuildPeakAnnotation()
+    private (string Text, Coordinates At, int Index, int Count)? BuildPeakAnnotation()
     {
         if (Mode is TrendChartMode.DailyTokens or TrendChartMode.CostUsd)
         {
@@ -339,31 +341,85 @@ public partial class TrendChart : UserControl
 
             if (Mode == TrendChartMode.DailyTokens)
             {
-                var peak = points.Where(p => p.HasData).OrderByDescending(p => p.TotalTokens).FirstOrDefault();
-                if (peak is null)
+                var peakIndex = -1;
+                for (var i = 0; i < points.Count; i++)
+                {
+                    if (points[i].HasData && (peakIndex < 0 || points[i].TotalTokens > points[peakIndex].TotalTokens))
+                    {
+                        peakIndex = i;
+                    }
+                }
+
+                if (peakIndex < 0)
                 {
                     return null;
                 }
 
-                var label = DateLabel(peak.Day) + " · " + FormatCompactTokens(peak.TotalTokens);
-                return (label, new Coordinates(0, 0));
+                var peak = points[peakIndex];
+                // 标注由 ScottPlot 自己画（不是 Avalonia 浮层）：它没有 CJK 字形，单位必须走 ASCII 阶梯
+                // （与轴刻度同口径），否则中文档位单位会成为豆腐块
+                var label = DateLabel(peak.Day) + " · " +
+                            FormatCompact(peak.TotalTokens, EnglishUnits, CultureInfo.InvariantCulture, tickPrecision: false);
+                return (label, new Coordinates(XOf(peak.Day), peak.TotalTokens), peakIndex, points.Count);
             }
 
-            var costPeak = points
-                .Where(p => p.HasData && p.Cost.KnownCostUsd is not null)
-                .OrderByDescending(p => p.Cost.KnownCostUsd!.Value)
-                .FirstOrDefault();
-            if (costPeak is null)
+            var costPeakIndex = -1;
+            for (var i = 0; i < points.Count; i++)
+            {
+                var cost = points[i].Cost.KnownCostUsd;
+                if (points[i].HasData && cost is not null
+                    && (costPeakIndex < 0 || cost.Value > points[costPeakIndex].Cost.KnownCostUsd!.Value))
+                {
+                    costPeakIndex = i;
+                }
+            }
+
+            if (costPeakIndex < 0)
             {
                 return null;
             }
 
+            var costPeak = points[costPeakIndex];
             var costLabel = DateLabel(costPeak.Day) + " · " +
-                            costPeak.Cost.KnownCostUsd!.Value.ToString("C2", CultureInfo.CurrentCulture);
-            return (costLabel, new Coordinates(0, 0));
+                            FormatCostUsd(costPeak.Cost.KnownCostUsd!.Value, hasUnknownCost: false)!;
+            return (costLabel,
+                new Coordinates(XOf(costPeak.Day), (double)costPeak.Cost.KnownCostUsd!.Value),
+                costPeakIndex,
+                points.Count);
         }
 
         return null;
+    }
+
+    /// <summary>日期字符串 → 折线用的 X 坐标（OADate，与各 Build* 的 xs 同源）。</summary>
+    private static double XOf(string day) => DateTime.Parse(day, CultureInfo.InvariantCulture).ToOADate();
+
+    /// <summary>
+    /// 画峰值标注：虚线（零轴 → 峰值）+ 峰值点 + 文字标签。文字贴峰值点旁边，靠近右缘/顶部时
+    /// 自动换到左下方，避免出画布（设计 §8 留给实现者的避让规则）。
+    /// </summary>
+    private void DrawPeakAnnotation(Plot plot, (string Text, Coordinates At, int Index, int Count) peak)
+    {
+        var color = TokenColor("AppAccentCyanBrush", new Color(87, 199, 232));
+
+        plot.Add.VerticalLine(peak.At.X, 1f, color.WithAlpha(0.45f), LinePattern.Dashed);
+        plot.Add.Marker(peak.At.X, peak.At.Y, MarkerShape.FilledCircle, 4.5f, color);
+
+        // 位置归一（0 = 最左/最低，1 = 最右/最高）：右缘靠右对齐、顶部改到点下方
+        var xFraction = peak.Count <= 1 ? 0.5 : (double)peak.Index / (peak.Count - 1);
+        var nearRight = xFraction > 0.7;
+        var nearTop = peak.At.Y > 0;   // 峰值必在绘图区顶部附近（轴上限贴着它）
+
+        var text = plot.Add.Text(peak.Text, peak.At.X, peak.At.Y);
+        text.LabelFontSize = (float)(10f * ChartFontScale);
+        text.LabelFontColor = color;
+        text.LabelBackgroundColor = ScottPlot.Colors.Transparent;
+        text.LabelBold = true;
+        text.LabelAlignment = nearTop
+            ? (nearRight ? Alignment.UpperRight : Alignment.UpperLeft)
+            : (nearRight ? Alignment.LowerRight : Alignment.LowerLeft);
+        text.LabelOffsetX = nearRight ? -6 : 6;
+        text.LabelOffsetY = nearTop ? 10 : -10;
     }
 
     private static string DateLabel(string day) =>

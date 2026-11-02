@@ -100,6 +100,10 @@
             <SolidColorBrush x:Key="AppPopoverCardBackgroundBrush" Color="#e6ffffff"/>
             <!-- D-016 弹窗外投影色（无边框透明窗的 Border BoxShadow 在壳层代码取用）：浅色侧更淡 -->
             <Color x:Key="AppPopoverShadowColor">#40000000</Color>
+            <!-- 分享海报卡片投影（设计 §3.5 第 6 条：浅底上卡片边界弱，不分层会糊）：
+                 0 1px 2px + 0 8px 24px 的 rgba(20,32,52,.06)。BoxShadow 无法只给颜色接
+                 DynamicResource，故海报视图在代码 Behind 按本令牌拼 BoxShadows。 -->
+            <Color x:Key="AppPosterShadowColor">#0f142034</Color>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
@@ -178,6 +182,8 @@
             <SolidColorBrush x:Key="AppPopoverCardBackgroundBrush" Color="#e6171c25"/>
             <!-- D-016 弹窗外投影色：暗色侧更重 -->
             <Color x:Key="AppPopoverShadowColor">#a6000000</Color>
+            <!-- 海报卡片投影：深色底上投影不可见（设计 §3.5 第 6 条只对日间要求），恒透明 -->
+            <Color x:Key="AppPosterShadowColor">#00000000</Color>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

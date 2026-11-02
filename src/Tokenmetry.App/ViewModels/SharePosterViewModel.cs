@@ -36,7 +36,8 @@ public sealed class SharePosterViewModel
 
         AgentSegments = BuildDonut(data.Agents);
         TypeSegments = BuildDonut(data.Types);
-        ModelRows = BuildRows(data.Models);
+        // 模型行带内置厂商 logo（与总览页同一条链：ModelAvatarVisual → ModelChip 伪类 → 令牌画刷）
+        ModelRows = BuildRows(data.Models, modelIcons: true);
         ProjectRows = BuildRows(data.Projects, data.Request.ProjectMask);
     }
 
@@ -89,7 +90,8 @@ public sealed class SharePosterViewModel
 
     private static IReadOnlyList<SharePosterRow> BuildRows(
         IReadOnlyList<SharePosterRanking> rankings,
-        SharePosterProjectMask mask = SharePosterProjectMask.Off)
+        SharePosterProjectMask mask = SharePosterProjectMask.Off,
+        bool modelIcons = false)
     {
         // 条宽按本维度最大值归一（与总览页 mini bar 一致：最大行满格）
         var max = rankings.Count == 0 ? 0 : rankings.Max(r => r.Tokens);
@@ -111,7 +113,8 @@ public sealed class SharePosterViewModel
                     Percent(r.Share),
                     max == 0 ? 0 : (double)r.Tokens / max * 100,
                     masked,
-                    masked.Length > 0);
+                    masked.Length > 0,
+                    modelIcons ? ModelAvatarVisual.FromName(r.Name) : null);
             })
             .ToArray();
     }
@@ -132,4 +135,9 @@ public sealed record SharePosterRow(
     string ShareText,
     double BarValue,
     string MaskedName = "",
-    bool HasMaskedName = false);
+    bool HasMaskedName = false,
+    ModelAvatarVisual? Avatar = null)
+{
+    /// <summary>行首是否用品牌芯片替代（模型行 true；项目行没有品牌标，保持纯文本）。</summary>
+    public bool HasIcon => Avatar is not null;
+}

@@ -14,7 +14,7 @@
         只有尺度不同。尺度差异集中在 .poster-* 样式里，不散落到元素上；横版在 .poster-root.land
         下整组覆盖（标题 48 / 面板 17 / 图表 250 / 环形 168）。
 
-        两套版面的差别不只是缩放：竖版三行两列（趋势 1.55 / Agent .85；模型 / 类型；项目 / 成本），
+        两套版面的差别不只是缩放：竖版三行两列（趋势 1.45 / Agent .95；模型 / 类型；项目 / 成本），
         横版两行三列（趋势 2.1 / Agent 1 / 类型 1；模型 1 / 项目 1 / 成本 1.2）——类型环形与成本趋势
         换行，所以栅格定义与面板落位由 code-behind 按 Layout 重排（面板本体只声明一次，不复制两遍）。
 
@@ -58,6 +58,23 @@
         </Style>
         <Style Selector="Border.poster-row">
             <Setter Property="Padding" Value="0,11"/>
+        </Style>
+        <!-- 模型行的品牌芯片：几何沿用 SharedStyles 的 model-chip 机制（伪类 + DynamicResource），
+             只把槽位从 16 放大到 20 与海报 16px 的表名同级；两层类选择器压过单层的 model-chip。 -->
+        <Style Selector="Border.model-chip.poster-model-chip">
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+        </Style>
+        <Style Selector="Border.model-chip.poster-model-chip Image.model-logo">
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+        </Style>
+        <Style Selector="Border.model-chip.poster-model-chip PathIcon.model-fallback">
+            <Setter Property="Width" Value="15"/>
+            <Setter Property="Height" Value="15"/>
+        </Style>
+        <Style Selector="Border.model-chip.poster-model-chip TextBlock">
+            <Setter Property="FontSize" Value="14"/>
         </Style>
         <Style Selector="c|TrendChart">
             <Setter Property="Height" Value="240"/>
@@ -108,8 +125,8 @@
                                VerticalAlignment="Bottom" LetterSpacing="3"/>
                 </Grid>
 
-                <!-- 四张 KPI -->
-                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="14">
+                <!-- 四张 KPI（阴影由 code-behind 按令牌给，见 ApplyPanelShadows） -->
+                <Grid x:Name="KpiGrid" ColumnDefinitions="*,*,*,*" ColumnSpacing="14">
                     <Border Grid.Column="0" Classes="kpi poster-kpi">
                         <StackPanel>
                             <TextBlock Classes="kpi-top poster-kpi-cap" Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
@@ -142,7 +159,7 @@
 
                 <!-- 六个面板：栅格与落位由 code-behind 按版式重排（此处是竖版落位） -->
                 <Grid x:Name="PanelGrid"
-                      ColumnDefinitions="1.55*,0.85*,0"
+                      ColumnDefinitions="1.45*,0.95*,0"
                       RowDefinitions="Auto,Auto,Auto"
                       ColumnSpacing="14" RowSpacing="14">
 
@@ -187,7 +204,23 @@
                                         <Border Classes="poster-row" BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0">
                                             <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10">
                                                 <StackPanel Grid.Column="0" Spacing="5">
-                                                    <StackPanel Orientation="Horizontal">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <!-- 模型行：内置厂商 logo（与总览页同一条 ModelChip 链；未知/无标厂商落
+                                                             Φ 字形或问号兜底，不伪造品牌色块） -->
+                                                        <Border Classes="model-chip poster-model-chip"
+                                                                c:ModelChip.Avatar="{Binding Avatar}"
+                                                                IsVisible="{Binding HasIcon}"
+                                                                ToolTip.Tip="{Binding Name}"
+                                                                VerticalAlignment="Center">
+                                                            <Panel>
+                                                                <TextBlock Text="{Binding Avatar.GlyphText}"/>
+                                                                <Image Classes="model-logo"/>
+                                                                <Image Classes="model-avatar"
+                                                                       Source="{Binding Avatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
+                                                                <PathIcon Classes="app-icon model-fallback"
+                                                                          Data="{StaticResource AppIconCircleHelp}"/>
+                                                            </Panel>
+                                                        </Border>
                                                         <TextBlock Classes="table-td" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Classes="table-td" Text="{Binding MaskedName}"
                                                                    IsVisible="{Binding HasMaskedName}">
