@@ -1380,4 +1380,49 @@ public class TrendChartTests
     {
         Assert.Equal(1.0, new TrendChart().ChartFontScale, 6);
     }
+
+    [AvaloniaFact]
+    public void Peak_annotation_marks_the_max_point_when_enabled()
+    {
+        var chart = new TrendChart
+        {
+            Mode = TrendChartMode.DailyTokens,
+            DailyPoints = ChartTestHelpers.DailyPoints30(),
+            ShowPeakAnnotation = true,
+        };
+        var window = new Window
+        {
+            Width = 640,
+            Height = 300,
+            Content = chart,
+            RequestedThemeVariant = ThemeVariant.Dark,
+        };
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        Assert.NotNull(chart.PeakAnnotationText);
+        Assert.Contains("·", chart.PeakAnnotationText!);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Peak_annotation_is_off_by_default()
+    {
+        // 既有页面靠 hover 读峰值，默认不得在图上多出一行字。
+        var chart = new TrendChart
+        {
+            Mode = TrendChartMode.DailyTokens,
+            DailyPoints = ChartTestHelpers.DailyPoints30(),
+        };
+        var window = new Window
+        {
+            Width = 640,
+            Height = 300,
+            Content = chart,
+            RequestedThemeVariant = ThemeVariant.Dark,
+        };
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        Assert.Null(chart.PeakAnnotationText);
+        window.Close();
+    }
 }
