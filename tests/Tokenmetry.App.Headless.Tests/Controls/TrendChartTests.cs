@@ -1352,4 +1352,32 @@ public class TrendChartTests
     [AvaloniaFact]
     public void FormatCostUsd_returns_null_when_no_known_cost() =>
         Assert.Null(TrendChart.FormatCostUsd(null, hasUnknownCost: true));
+
+    [AvaloniaFact]
+    public void Chart_font_scale_multiplies_tick_label_font_size()
+    {
+        var chart = new TrendChart
+        {
+            Mode = TrendChartMode.DailyTokens,
+            DailyPoints = ChartTestHelpers.DailyPoints30(),
+            ChartFontScale = 2.0,
+        };
+        var window = new Window
+        {
+            Width = 640,
+            Height = 300,
+            Content = chart,
+            RequestedThemeVariant = ThemeVariant.Dark,
+        };
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        Assert.Equal(20f, chart.Plot.Axes.Bottom.TickLabelStyle.FontSize, 3);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Chart_font_scale_defaults_to_one()
+    {
+        Assert.Equal(1.0, new TrendChart().ChartFontScale, 6);
+    }
 }

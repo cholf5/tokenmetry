@@ -51,13 +51,11 @@
                                 Background="{Binding Brush}"/>
                         <TextBlock Grid.Column="1"
                                    Text="{Binding Name}"
-                                   FontSize="11"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource AppTextBrush}"/>
                         <TextBlock Grid.Column="2"
                                    Text="{Binding PercentText}"
-                                   FontSize="11"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource AppTextBrush}"/>
                     </Grid>

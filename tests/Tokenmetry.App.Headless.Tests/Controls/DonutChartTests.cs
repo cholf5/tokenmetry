@@ -562,4 +562,29 @@ public class DonutChartTests
         // 既有页面依赖扫入动画，默认值必须是 true —— 海报是显式关闭的那一方。
         Assert.True(new DonutChart().AnimateSweep);
     }
+
+    [AvaloniaFact]
+    public void Legend_font_size_is_configurable_for_poster_scale()
+    {
+        var chart = new DonutChart
+        {
+            Segments = FiveSegments(),
+            DonutSize = 160,
+            LegendFontSize = 16,
+        };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var legend = ChartTestHelpers.FindTextBlock(chart, "Claude Code");
+        Assert.NotNull(legend);
+        Assert.Equal(16d, legend!.FontSize, 3);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Legend_font_size_defaults_to_11()
+    {
+        // 既有页面靠 11px 图例，默认值不得变。
+        Assert.Equal(11d, new DonutChart().LegendFontSize, 3);
+    }
 }

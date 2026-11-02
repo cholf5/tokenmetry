@@ -90,6 +90,10 @@ public partial class TrendChart : UserControl
     public static readonly StyledProperty<int?> HourlyCutoffHourProperty =
         AvaloniaProperty.Register<TrendChart, int?>(nameof(HourlyCutoffHour));
 
+    /// <summary>图表文字整体缩放（轴标签/图例基准字号乘数，默认 1.0 = 既有页面）。海报放大版面时用。</summary>
+    public static readonly StyledProperty<double> ChartFontScaleProperty =
+        AvaloniaProperty.Register<TrendChart, double>(nameof(ChartFontScale), 1.0);
+
     public TrendChartMode Mode
     {
         get => GetValue(ModeProperty);
@@ -117,6 +121,13 @@ public partial class TrendChart : UserControl
     {
         get => GetValue(HourlyCutoffHourProperty);
         set => SetValue(HourlyCutoffHourProperty, value);
+    }
+
+    /// <summary>图表文字整体缩放（1.0 = 既有页面的 10px 轴标签）。海报放大版面时成倍放大。</summary>
+    public double ChartFontScale
+    {
+        get => GetValue(ChartFontScaleProperty);
+        set => SetValue(ChartFontScaleProperty, value);
     }
 
     /// <summary>底层 ScottPlot Plot（测试用于断言重建后的样式）。</summary>
@@ -164,6 +175,7 @@ public partial class TrendChart : UserControl
         DailyPointsProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
         HourlyDistributionProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
         HourlyCutoffHourProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
+        ChartFontScaleProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
 
         // ScottPlot 不支持 Avalonia 动态资源：主题变体变化时整图重建（chrome 色重新现取令牌）。
         // 订阅控件自身事件（EffectiveThemeVariant 继承 App/Window 的设置，含 app.TrySetTheme 路径）。
@@ -303,7 +315,7 @@ public partial class TrendChart : UserControl
             panel.MajorTickStyle.Length = 0f;
             panel.MinorTickStyle.Length = 0f;
             panel.TickLabelStyle.ForeColor = text;
-            panel.TickLabelStyle.FontSize = 10f; // 原型 .chart text{font-size:10px}
+            panel.TickLabelStyle.FontSize = (float)(10f * ChartFontScale); // 原型 .chart text{font-size:10px}
         }
 
         plot.Axes.Margins(left: 0.02, right: 0.02, bottom: 0.03, top: 0.1);
