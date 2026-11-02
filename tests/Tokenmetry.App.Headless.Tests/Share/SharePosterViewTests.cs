@@ -116,6 +116,75 @@ public class SharePosterViewTests
     }
 
     [AvaloniaFact]
+    public void Peak_annotation_is_a_point_with_guide_and_transparent_label()
+    {
+        var view = new SharePosterView { DataContext = ViewModel() };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        foreach (var chart in view.GetVisualDescendants().OfType<TrendChart>())
+        {
+            var labels = chart.Plot.GetPlottables<ScottPlot.Plottables.Text>().ToList();
+            var label = Assert.Single(labels);
+            // 文字直接落在图上（海报没有 hover）：不能是 ScottPlot 标注默认的黄底高亮
+            Assert.Equal(ScottPlot.Colors.Transparent, label.LabelBackgroundColor);
+            // 峰值点 + 从零轴到峰值的虚线：读者要能把数字对应到哪一根柱
+            Assert.NotEmpty(chart.Plot.GetPlottables<ScottPlot.Plottables.Marker>());
+            Assert.NotEmpty(chart.Plot.GetPlottables<ScottPlot.Plottables.VerticalLine>());
+        }
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Light_poster_cards_get_the_light_shadow_dark_ones_get_none()
+    {
+        var light = new SharePosterView { DataContext = ViewModel(theme: SharePosterTheme.Light) };
+        var lightWindow = Host(light);
+        using var lightFrame = ChartTestHelpers.RenderFrame(lightWindow);
+        Assert.All(Cards(light), card => Assert.True(card.BoxShadow.Count > 0, "日间海报卡片应带极轻投影"));
+        lightWindow.Close();
+
+        var dark = new SharePosterView { DataContext = ViewModel(theme: SharePosterTheme.Dark) };
+        var darkWindow = Host(dark);
+        using var darkFrame = ChartTestHelpers.RenderFrame(darkWindow);
+        Assert.All(Cards(dark), card => Assert.Equal(0, card.BoxShadow.Count));
+        darkWindow.Close();
+
+        static System.Collections.Generic.List<Border> Cards(SharePosterView view) => view
+            .GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("kpi") || b.Classes.Contains("poster-panel"))
+            .ToList();
+    }
+
+    [AvaloniaFact]
+    public void Model_rows_carry_built_in_vendor_logos()
+    {
+        var view = new SharePosterView { DataContext = ViewModel() };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        // 模型行 = 品牌芯片 + 名称（与总览页同一条 ModelChip 链），项目行保持纯文本
+        var chips = view.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("poster-model-chip"))
+            .ToList();
+        Assert.Equal(2, chips.Count);   // fixture 两个模型行
+
+        // 厂商伪类由附加属性驱动：glm / openai 命中各自样式组
+        Assert.Contains(chips, c => c.Classes.Contains("model-glm"));
+        Assert.Contains(chips, c => c.Classes.Contains("model-openai"));
+
+        // logo 真的取到了 DrawingImage（不是空心芯片）：至少一个可见 Image 有 Source
+        var logos = chips
+            .SelectMany(c => c.GetVisualDescendants().OfType<Image>())
+            .Where(i => i.Classes.Contains("model-logo"))
+            .ToList();
+        Assert.Contains(logos, i => i.Source is not null);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void Donuts_render_final_arcs_without_sweep_animation()
     {
         var view = new SharePosterView { DataContext = ViewModel() };

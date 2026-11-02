@@ -1,5 +1,8 @@
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.Core.Models;
@@ -58,12 +61,42 @@ public partial class SharePosterView : UserControl
         };
 
         ThemeScope.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+        ApplyPanelShadows(dark ? ThemeVariant.Dark : ThemeVariant.Light);
     }
+
+    /// <summary>
+    /// 日间海报的卡片投影（设计 §3.5 第 6 条）：浅底上卡片与页面底几乎同色，不分层会糊成一片。
+    /// 夜间不给投影（深底上根本看不见，给了只是白白多一层像素）；透明度与偏移全在
+    /// <c>AppPosterShadowColor</c> 令牌里，此处只负责拼 BoxShadows——XAML 无法只对 BoxShadow 的
+    /// 颜色部分接 DynamicResource（同 D-016 弹窗壳层的既有做法）。
+    /// </summary>
+    private void ApplyPanelShadows(ThemeVariant variant)
+    {
+        var shadow = default(BoxShadows);
+        // 资源查找覆盖两种时机：DataContextChanged 发生在挂树前（控件自身的资源链还没接到 App），
+        // 这时回落到 Application 的资源宿主显式按变体取色。
+        var found = TryGetResource("AppPosterShadowColor", variant, out var resource)
+                    || (Application.Current?.TryGetResource("AppPosterShadowColor", variant, out resource) ?? false);
+        if (found && resource is Color color && color.A > 0)
+        {
+            var hex = $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
+            shadow = BoxShadows.Parse($"0 1 2 0 {hex}, 0 8 24 0 {hex}");
+        }
+
+        foreach (var panel in CardSurfaces())
+        {
+            panel.BoxShadow = shadow;
+        }
+    }
+
+    private IEnumerable<Border> CardSurfaces() =>
+        KpiGrid.Children.OfType<Border>().Concat(
+            new[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel });
 
     /// <summary>
     /// 按版式重排栅格：
     /// <list type="bullet">
-    /// <item>竖版（1080）：三行两列——趋势 1.55 / Agent .85；模型 / 类型；项目 / 成本。</item>
+    /// <item>竖版（1080）：三行两列——趋势 1.45 / Agent .95；模型 / 类型；项目 / 成本。</item>
     /// <item>横版（1800）：两行三列——趋势 2.1 / Agent 1 / 类型 1；模型 1 / 项目 1 / 成本 1.2。</item>
     /// </list>
     /// 两套版面的面板归属不同（类型环形、成本趋势换行），所以不是单纯换列宽。尺度差异（字号 /
@@ -86,7 +119,7 @@ public partial class SharePosterView : UserControl
         else
         {
             PosterRoot.Classes.Remove("land");
-            PanelGrid.ColumnDefinitions = new ColumnDefinitions("1.55*,0.85*,0");
+            PanelGrid.ColumnDefinitions = new ColumnDefinitions("1.45*,0.95*,0");
             PanelGrid.RowDefinitions = new RowDefinitions("Auto,Auto,Auto");
         }
 
