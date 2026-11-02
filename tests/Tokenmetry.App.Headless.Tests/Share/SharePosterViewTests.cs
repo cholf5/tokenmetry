@@ -33,13 +33,32 @@ public class SharePosterViewTests
         TokenShare = null,
     };
 
+    /// <summary>30 天 fixture + 缓存读取/写入（类型环形要三段都非零才画得出三色）。</summary>
+    private static System.Collections.Generic.IReadOnlyList<DailyUsagePoint> DailyWithCache() =>
+        ChartTestHelpers.DailyPoints30().Select(p =>
+        {
+            var cacheRead = p.HasData ? p.InputTokens * 4 : 0;
+            var cacheWrite = p.HasData ? p.InputTokens / 8 : 0;
+            return new DailyUsagePoint
+            {
+                Day = p.Day,
+                InputTokens = p.InputTokens,
+                OutputTokens = p.OutputTokens,
+                CacheReadTokens = cacheRead,
+                CacheCreationTokens = cacheWrite,
+                TotalTokens = p.TotalTokens + cacheRead + cacheWrite,
+                Cost = p.Cost,
+                HasData = p.HasData,
+            };
+        }).ToArray();
+
     private static SharePosterViewModel ViewModel(SharePosterLayout layout = SharePosterLayout.Portrait,
         SharePosterTheme theme = SharePosterTheme.Dark)
     {
         var request = new SharePosterRequest(
             layout, theme, SharePosterProjectMask.Off, new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2));
 
-        var daily = ChartTestHelpers.DailyPoints30();
+        var daily = DailyWithCache();
 
         var data = SharePosterSnapshot.Build(
             request,
@@ -93,19 +112,28 @@ public class SharePosterViewTests
         var root = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PosterRoot");
         Assert.Equal(SharePosterView.LandscapeWidth, root.Bounds.Width, 1);
 
-        // 横版不是竖版的缩放：两行三列，类型环形从第二行提到第一行、成本趋势并入第二行
-        var grid = view.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "PanelGrid");
-        Assert.Equal(3, grid.ColumnDefinitions.Count);
-        Assert.Equal(2, grid.RowDefinitions.Count);
+        // 横版不是竖版的缩放：两行三列，类型环形从第二行提到第一行、成本趋势并入第二行。
+        // 两种版式各带一套固定定义的容器，切换只移动面板 + 换可见性。
+        var top = Row(view, "LandscapeRow1");
+        var middle = Row(view, "LandscapeRow2");
+        Assert.Equal(3, top.ColumnDefinitions.Count);
+        Assert.Equal(3, middle.ColumnDefinitions.Count);
+        Assert.True(top.IsVisible);
+        Assert.True(middle.IsVisible);
+        Assert.False(Row(view, "PortraitRow1").IsVisible);
+        Assert.False(Row(view, "PortraitRow2").IsVisible);
+        Assert.False(Row(view, "PortraitRow3").IsVisible);
+
+        // 行内比例：趋势 2.1 / Agent 1 / 类型 1；模型 1 / 项目 1 / 成本 1.2（设计 §3.3）
+        AssertRoughRatio(top, expectedFirst: 2.1, otherIndex: 1, expectedOther: 1.0);
+        AssertRoughRatio(middle, expectedFirst: 1.0, otherIndex: 2, expectedOther: 1.2);
 
         var panels = view.GetVisualDescendants().OfType<Border>()
             .Where(b => b.Classes.Contains("poster-panel"))
             .ToList();
         Assert.Equal(6, panels.Count);
-        Assert.All(panels, p => Assert.True(Grid.GetRow(p) <= 1, "横版只应有前两行有面板"));
-        Assert.Equal(3, panels.Count(p => Grid.GetRow(p) == 0));
-        Assert.Equal(3, panels.Count(p => Grid.GetRow(p) == 1));
-        Assert.Equal(2, panels.Count(p => Grid.GetColumn(p) == 2));
+        Assert.Equal(3, top.Children.Count);
+        Assert.Equal(3, middle.Children.Count);
 
         // 图表仍按海报尺寸渲染（高度走横版样式组，不是竖版的 240）
         var charts = view.GetVisualDescendants().OfType<TrendChart>().ToList();
@@ -182,6 +210,43 @@ public class SharePosterViewTests
         Assert.Contains(logos, i => i.Source is not null);
 
         window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Switching_layout_back_and_forth_leaves_no_residue()
+    {
+        var view = new SharePosterView { DataContext = ViewModel(layout: SharePosterLayout.Landscape) };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+        Assert.Equal(SharePosterView.LandscapeWidth, view.PosterRootControl.Bounds.Width, 1);
+
+        view.DataContext = ViewModel(layout: SharePosterLayout.Portrait);
+        using var portraitFrame = ChartTestHelpers.RenderFrame(window);
+
+        Assert.Equal(SharePosterView.PortraitWidth, view.PosterRootControl.Bounds.Width, 1);
+        Assert.DoesNotContain("land", view.PosterRootControl.Classes);
+        Assert.True(Row(view, "PortraitRow1").IsVisible);
+        Assert.True(Row(view, "PortraitRow2").IsVisible);
+        Assert.True(Row(view, "PortraitRow3").IsVisible);
+        Assert.False(Row(view, "LandscapeRow1").IsVisible);
+        Assert.False(Row(view, "LandscapeRow2").IsVisible);
+        Assert.Equal(2, Row(view, "PortraitRow1").Children.Count);
+        Assert.Equal(2, Row(view, "PortraitRow2").Children.Count);
+        Assert.Equal(2, Row(view, "PortraitRow3").Children.Count);
+
+        window.Close();
+    }
+
+    private static Grid Row(SharePosterView view, string name) =>
+        (Grid)view.GetVisualDescendants().OfType<Grid>().First(g => g.Name == name);
+
+    /// <summary>断言同一行内两列的实际宽度比（布局完成后才有效）。</summary>
+    private static void AssertRoughRatio(Grid row, double expectedFirst, int otherIndex, double expectedOther)
+    {
+        var first = row.ColumnDefinitions[0].ActualWidth;
+        var other = row.ColumnDefinitions[otherIndex].ActualWidth;
+        Assert.True(first > 0 && other > 0, "行栅格应完成布局");
+        Assert.InRange(other / first, expectedOther / expectedFirst * 0.94, expectedOther / expectedFirst * 1.06);
     }
 
     [AvaloniaFact]

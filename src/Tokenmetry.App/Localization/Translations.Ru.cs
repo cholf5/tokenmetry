@@ -476,7 +476,6 @@ public sealed partial class Translations
         [nameof(SharePosterMaskPartial)] = "Размыть после 4 символов",
         [nameof(SharePosterMaskFull)] = "Размыть полностью",
         [nameof(SharePosterMaskHint)] = "«Показывать» печатает названия проектов как есть — проверьте перед публикацией. Размытие лишь смягчает текст и не заменяет символы заглушками.",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "Постер за один день бывает только книжным: это вертикальная карточка, а для альбомной ориентации пришлось бы перестроить поток информации.",
         [nameof(SharePosterCopy)] = "Копировать в буфер обмена",
         [nameof(SharePosterCopied)] = "Скопировано в буфер обмена",
         [nameof(SharePosterCopyFailed)] = "Система не поддерживает копирование изображений — используйте «Сохранить в файл»",
@@ -489,5 +488,8 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultLayout)] = "Макет по умолчанию",
         [nameof(SharePosterDefaultTheme)] = "Тема по умолчанию",
         [nameof(SharePosterDefaultMask)] = "Размытие по умолчанию",
+        [nameof(SharePosterDayCountFormat)] = "дней с данными: {0}",
+        [nameof(SharePosterCopyFailedFormat)] = "Не удалось скопировать: {0}",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Окно одного дня бывает только книжным: для альбомного пришлось бы перестроить поток информации.",
     };
 }

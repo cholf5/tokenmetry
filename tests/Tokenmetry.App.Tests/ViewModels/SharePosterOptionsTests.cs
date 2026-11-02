@@ -98,6 +98,25 @@ public class SharePosterOptionsTests
         end.Should().Be(today);
     }
 
+    [Fact]
+    public void Poster_range_does_not_fabricate_a_window_from_a_single_bound()
+    {
+        // 只选了起点（无终点）而库里数据全在起点之前：不能换序造出一个"用户没选过、中间也没数据"的区间，
+        // 收口成单日，让海报如实显示这个范围。
+        var filter = new UsageQueryFilter { FromDay = "2026-10-20" };
+
+        var (start, end) = MainWindowViewModel.ResolvePosterRange(filter, Daily(), new DateOnly(2026, 11, 2));
+
+        start.Should().Be(new DateOnly(2026, 10, 20));
+        end.Should().Be(start);
+
+        // 只选了终点：起点退到数据首日（数据早于终点，正常成窗口）
+        var toOnly = new UsageQueryFilter { ToDay = "2026-10-02" };
+        var (s2, e2) = MainWindowViewModel.ResolvePosterRange(toOnly, Daily(), new DateOnly(2026, 11, 2));
+        s2.Should().Be(new DateOnly(2026, 9, 20));
+        e2.Should().Be(new DateOnly(2026, 10, 2));
+    }
+
     /// <summary>三天：首尾有数据、中间补零（补零日不能当范围端点）。</summary>
     private static IReadOnlyList<DailyUsagePoint> Daily() =>
     [

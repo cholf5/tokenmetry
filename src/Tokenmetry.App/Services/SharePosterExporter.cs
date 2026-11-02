@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Tokenmetry.App.Localization;
 using Tokenmetry.Core.Models;
 
 namespace Tokenmetry.App.Services;
@@ -40,6 +41,8 @@ public static class SharePosterExporter
     {
         ArgumentNullException.ThrowIfNull(posterRoot);
 
+        // 明确先跑一次布局：Bounds 是 arrange 期状态，调用前是否已布局取决于谁触发了导出
+        posterRoot.UpdateLayout();
         var width = Math.Max(1, (int)Math.Round(posterRoot.Bounds.Width * scale));
         var height = Math.Max(1, (int)Math.Round(posterRoot.Bounds.Height * scale));
 
@@ -81,6 +84,7 @@ public static class SharePosterExporter
 
         var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
+            Title = Translations.Instance.SharePosterSave,
             SuggestedFileName = FileName(request),
             DefaultExtension = "png",
             FileTypeChoices =

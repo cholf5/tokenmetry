@@ -474,7 +474,6 @@ public sealed partial class Translations
         [nameof(SharePosterMaskPartial)] = "Difuminar tras 4 caracteres",
         [nameof(SharePosterMaskFull)] = "Difuminar todo",
         [nameof(SharePosterMaskHint)] = "«Mostrar» imprime los nombres de proyecto tal cual: confirma antes de compartir. El difuminado solo suaviza el texto, nunca sustituye caracteres por marcadores.",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "Los pósteres de un solo día solo existen en vertical: un día es una tarjeta vertical y ponerla en horizontal obligaría a reorganizar la información.",
         [nameof(SharePosterCopy)] = "Copiar al portapapeles",
         [nameof(SharePosterCopied)] = "Copiado al portapapeles",
         [nameof(SharePosterCopyFailed)] = "Este sistema no permite copiar imágenes; usa «Guardar en archivo»",
@@ -487,5 +486,8 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultLayout)] = "Diseño predeterminado",
         [nameof(SharePosterDefaultTheme)] = "Tema predeterminado",
         [nameof(SharePosterDefaultMask)] = "Difuminado predeterminado",
+        [nameof(SharePosterDayCountFormat)] = "{0} días con datos",
+        [nameof(SharePosterCopyFailedFormat)] = "Error al copiar: {0}",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Una ventana de un solo día solo ofrece vertical: la horizontal obligaría a reorganizar la información.",
     };
 }

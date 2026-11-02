@@ -137,15 +137,41 @@ public class SharePosterSnapshotTests
     }
 
     [Fact]
-    public void Types_split_input_output_cache_with_shares_of_total()
+    public void Kpi_aggregate_overrides_the_dimension_row_sums()
     {
-        var agents = new[] { Row("ZCode", 100, 100, 800, 0m) };
+        // 维度行会跳过空键、且按天只取 full 或本维度分解行——行合计可能小于 KPI。
+        // 海报是给外部看的印刷品，总量必须以总览页同一份 KPI 为准（设计反目标 #1）。
+        var agents = new[] { Row("ZCode", 100, 10, 1_000, 2.5m) };
+        var kpi = new UsageKpiResult
+        {
+            TotalTokens = 9_999,
+            CacheReadTokens = 8_888,
+            Cost = new AggregatedCost(4m, false),
+            SessionCount = 42,
+            CacheReadShare = 0.88m,
+        };
+
+        var data = SharePosterSnapshot.Build(Request(), [], agents, [], [], sessionCount: 7, kpi);
+
+        data.Totals.TotalTokens.Should().Be(9_999);
+        data.Totals.CacheReadTokens.Should().Be(8_888);
+        data.Totals.SessionCount.Should().Be(42);
+        data.Totals.Cost.KnownCostUsd.Should().Be(4m);
+        data.Totals.CacheShare.Should().Be(0.88m);
+    }
+
+    [Fact]
+    public void Agent_rankings_are_not_truncated_so_the_ring_can_aggregate_the_rest()
+    {
+        var agents = Enumerable.Range(1, 9)
+            .Select(i => Row($"a{i}", 0, 0, i * 10, null))
+            .ToArray();
 
         var data = SharePosterSnapshot.Build(Request(), [], agents, [], [], sessionCount: 0);
 
-        data.Types.Select(t => t.Name).Should().Equal("input", "output", "cache");
-        data.Types[0].Tokens.Should().Be(100);
-        data.Types[2].Tokens.Should().Be(800);
-        data.Types[2].Share.Should().BeApproximately(0.8m, 0.0001m);
+        // 表格维度取 TopN，Agent 维度留全量（环形自己算 Top6 + 其他）
+        data.Agents.Should().HaveCount(9);
+        data.Models.Should().BeEmpty();
+        data.Projects.Should().BeEmpty();
     }
 }

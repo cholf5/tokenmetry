@@ -474,7 +474,6 @@ public sealed partial class Translations
         [nameof(SharePosterMaskPartial)] = "先頭 4 文字以外をぼかす",
         [nameof(SharePosterMaskFull)] = "全体をぼかす",
         [nameof(SharePosterMaskHint)] = "「表示」ではプロジェクト名がそのままポスターに印字されます。共有前にご確認ください。ぼかしは文字を柔らかくするだけで、プレースホルダーへの置換は行いません。",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "単日は縦のみです。1 日のポスターは縦長カードで、横向きにすると情報の流れを組み直す必要があります。",
         [nameof(SharePosterCopy)] = "クリップボードにコピー",
         [nameof(SharePosterCopied)] = "クリップボードにコピーしました",
         [nameof(SharePosterCopyFailed)] = "このシステムは画像のコピーに対応していません。「ファイルに保存」をご利用ください",
@@ -487,5 +486,8 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultLayout)] = "既定のレイアウト",
         [nameof(SharePosterDefaultTheme)] = "既定のテーマ",
         [nameof(SharePosterDefaultMask)] = "既定のぼかし",
+        [nameof(SharePosterDayCountFormat)] = "記録のある日 {0} 日",
+        [nameof(SharePosterCopyFailedFormat)] = "コピーに失敗しました：{0}",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "単日のウィンドウは縦のみです。横向きにするには情報の流れを組み直す必要があります。",
     };
 }

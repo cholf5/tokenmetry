@@ -14,7 +14,7 @@
         只有尺度不同。尺度差异集中在 .poster-* 样式里，不散落到元素上；横版在 .poster-root.land
         下整组覆盖（标题 48 / 面板 17 / 图表 250 / 环形 168）。
 
-        两套版面的差别不只是缩放：竖版三行两列（趋势 1.45 / Agent .95；模型 / 类型；项目 / 成本），
+        两套版面的差别不只是缩放：竖版三行两列（趋势 1.45 / Agent .95；模型 / 类型 1:1；项目 / 成本 1:1），
         横版两行三列（趋势 2.1 / Agent 1 / 类型 1；模型 1 / 项目 1 / 成本 1.2）——类型环形与成本趋势
         换行，所以栅格定义与面板落位由 code-behind 按 Layout 重排（面板本体只声明一次，不复制两遍）。
 
@@ -83,6 +83,24 @@
             <Setter Property="DonutSize" Value="190"/>
             <Setter Property="RingThickness" Value="17"/>
             <Setter Property="LegendFontSize" Value="14"/>
+            <Setter Property="CenterTitleFontSize" Value="28"/>
+            <Setter Property="CenterSubtitleFontSize" Value="13"/>
+        </Style>
+        <!-- 排行表与脚注：应用内 11px 是近距离阅读的尺度，1080 宽的印刷品上会变成蚂蚁字（设计 §3.4） -->
+        <Style Selector="Border.poster-panel TextBlock.table-td">
+            <Setter Property="FontSize" Value="16"/>
+        </Style>
+        <Style Selector="Border.poster-panel TextBlock.table-num">
+            <Setter Property="FontSize" Value="16"/>
+        </Style>
+        <Style Selector="Border.poster-panel TextBlock.table-th">
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="TextBlock.kpi-foot">
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="Border.poster-panel TextBlock.table-empty">
+            <Setter Property="FontSize" Value="16"/>
         </Style>
 
         <!-- ── 横版：同一批面板的印刷尺寸（设计 §3.3 / §3.4）── -->
@@ -105,6 +123,8 @@
             <Setter Property="DonutSize" Value="168"/>
             <Setter Property="RingThickness" Value="15"/>
             <Setter Property="LegendFontSize" Value="13"/>
+            <Setter Property="CenterTitleFontSize" Value="25"/>
+            <Setter Property="CenterSubtitleFontSize" Value="12"/>
         </Style>
     </UserControl.Styles>
 
@@ -131,7 +151,8 @@
                         <StackPanel>
                             <TextBlock Classes="kpi-top poster-kpi-cap" Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
                             <TextBlock Classes="kpi-value poster-kpi-value" Text="{Binding TotalTokensText}"/>
-                            <TextBlock Classes="kpi-foot" Text="{Binding KpiFootCacheOfInput, Source={x:Static loc:Translations.Instance}}"/>
+                            <!-- 脚注不能说"缓存读取/输入相关"：那是第四张卡的口径，重复且挂错卡 -->
+                            <TextBlock Classes="kpi-foot" Text="{Binding KpiFootAcrossAgents, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
                     </Border>
                     <Border Grid.Column="1" Classes="kpi poster-kpi">
@@ -157,155 +178,178 @@
                     </Border>
                 </Grid>
 
-                <!-- 六个面板：栅格与落位由 code-behind 按版式重排（此处是竖版落位） -->
-                <Grid x:Name="PanelGrid"
-                      ColumnDefinitions="1.45*,0.95*,0"
-                      RowDefinitions="Auto,Auto,Auto"
-                      ColumnSpacing="14" RowSpacing="14">
+                <!-- 六个面板：每行一个栅格（横/竖版的行内比例不同，见 ApplyLayout），面板本体只声明一次 -->
+                <StackPanel x:Name="PanelGrid" Spacing="14">
 
-                    <!-- 趋势 -->
-                    <Border x:Name="TrendPanel" Grid.Row="0" Grid.Column="0" Classes="panel poster-panel">
-                        <StackPanel Spacing="10">
-                            <TextBlock Classes="panel-title poster-panel-title"
-                                       Text="{Binding PanelTrend, Source={x:Static loc:Translations.Instance}}"/>
-                            <c:TrendChart x:Name="TrendChartControl"
-                                          Mode="DailyTokens"
-                                          DailyPoints="{Binding Daily}"
-                                          ChartFontScale="1.9"
-                                          ShowPeakAnnotation="True"/>
-                        </StackPanel>
-                    </Border>
+                    <!-- 竖版三行（固定两列） -->
+                    <Grid x:Name="PortraitRow1" ColumnDefinitions="1.45*,0.95*" ColumnSpacing="14">
+                        <!-- 趋势 -->
+                        <Border x:Name="TrendPanel" Grid.Column="0" Classes="panel poster-panel">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="panel-title poster-panel-title"
+                                           Text="{Binding PanelTrend, Source={x:Static loc:Translations.Instance}}"/>
+                                <c:TrendChart x:Name="TrendChartControl"
+                                              Mode="DailyTokens"
+                                              DailyPoints="{Binding Daily}"
+                                              ChartFontScale="1.9"
+                                              ShowPeakAnnotation="True"/>
+                            </StackPanel>
+                        </Border>
 
-                    <!-- Agent 环形 -->
-                    <Border x:Name="AgentPanel" Grid.Row="0" Grid.Column="1" Classes="panel poster-panel">
-                        <StackPanel Spacing="13">
-                            <TextBlock Classes="panel-title poster-panel-title"
-                                       Text="{Binding PanelAgentDonut, Source={x:Static loc:Translations.Instance}}"/>
-                            <c:DonutChart Segments="{Binding AgentSegments}"
-                                          AnimateSweep="False"
-                                          CenterTitle="{Binding TotalTokensText}"
-                                          CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
-                        </StackPanel>
-                    </Border>
+                        <!-- Agent 环形 -->
+                        <Border x:Name="AgentPanel" Grid.Column="1" Classes="panel poster-panel">
+                            <StackPanel Spacing="13">
+                                <TextBlock Classes="panel-title poster-panel-title"
+                                           Text="{Binding PanelAgentDonut, Source={x:Static loc:Translations.Instance}}"/>
+                                <c:DonutChart Segments="{Binding AgentSegments}"
+                                              AnimateSweep="False"
+                                              CenterTitle="{Binding TotalTokensText}"
+                                              CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
 
-                    <!-- 模型分布 -->
-                    <Border x:Name="ModelPanel" Grid.Row="1" Grid.Column="0" Classes="panel poster-panel">
-                        <StackPanel Spacing="9">
-                            <TextBlock Classes="panel-title poster-panel-title"
-                                       Text="{Binding PanelModelDistribution, Source={x:Static loc:Translations.Instance}}"/>
-                            <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10" Margin="0,0,0,2">
-                                <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThModel, Source={x:Static loc:Translations.Instance}}"/>
-                                <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
-                                <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
-                            </Grid>
-                            <ItemsControl ItemsSource="{Binding ModelRows}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:SharePosterRow">
-                                        <Border Classes="poster-row" BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0">
-                                            <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10">
-                                                <StackPanel Grid.Column="0" Spacing="5">
-                                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <!-- 模型行：内置厂商 logo（与总览页同一条 ModelChip 链；未知/无标厂商落
-                                                             Φ 字形或问号兜底，不伪造品牌色块） -->
-                                                        <Border Classes="model-chip poster-model-chip"
-                                                                c:ModelChip.Avatar="{Binding Avatar}"
-                                                                IsVisible="{Binding HasIcon}"
-                                                                ToolTip.Tip="{Binding Name}"
-                                                                VerticalAlignment="Center">
-                                                            <Panel>
-                                                                <TextBlock Text="{Binding Avatar.GlyphText}"/>
-                                                                <Image Classes="model-logo"/>
-                                                                <Image Classes="model-avatar"
-                                                                       Source="{Binding Avatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
-                                                                <PathIcon Classes="app-icon model-fallback"
-                                                                          Data="{StaticResource AppIconCircleHelp}"/>
-                                                            </Panel>
-                                                        </Border>
-                                                        <TextBlock Classes="table-td" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Classes="table-td" Text="{Binding MaskedName}"
-                                                                   IsVisible="{Binding HasMaskedName}">
-                                                            <TextBlock.Effect>
-                                                                <BlurEffect Radius="5.5"/>
-                                                            </TextBlock.Effect>
-                                                        </TextBlock>
+                    <Grid x:Name="PortraitRow2" ColumnDefinitions="*,*" ColumnSpacing="14">
+                        <!-- 模型分布 -->
+                        <Border x:Name="ModelPanel" Grid.Column="0" Classes="panel poster-panel">
+                            <StackPanel Spacing="9">
+                                <TextBlock Classes="panel-title poster-panel-title"
+                                           Text="{Binding PanelModelDistribution, Source={x:Static loc:Translations.Instance}}"/>
+                                <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10" Margin="0,0,0,2">
+                                    <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThModel, Source={x:Static loc:Translations.Instance}}"/>
+                                    <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
+                                    <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding ModelRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SharePosterRow">
+                                            <Border Classes="poster-row" BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0">
+                                                <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10">
+                                                    <StackPanel Grid.Column="0" Spacing="5">
+                                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                            <!-- 模型行：内置厂商 logo（与总览页同一条 ModelChip 链；未知/无标厂商落
+                                                                 Φ 字形或问号兜底，不伪造品牌色块） -->
+                                                            <Border Grid.Column="0" Classes="model-chip poster-model-chip"
+                                                                    c:ModelChip.Avatar="{Binding Avatar}"
+                                                                    IsVisible="{Binding HasIcon}"
+                                                                    ToolTip.Tip="{Binding Name}"
+                                                                    VerticalAlignment="Center">
+                                                                <Panel>
+                                                                    <TextBlock Text="{Binding Avatar.GlyphText}"/>
+                                                                    <Image Classes="model-logo"/>
+                                                                    <Image Classes="model-avatar"
+                                                                           Source="{Binding Avatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
+                                                                    <PathIcon Classes="app-icon model-fallback"
+                                                                              Data="{StaticResource AppIconCircleHelp}"/>
+                                                                </Panel>
+                                                            </Border>
+                                                            <!-- 名字列必须是 * 约束的 Grid：横向 StackPanel 以无限宽测量子级，
+                                                                 TextTrimming 永远不生效，长名字会压到 Token/占比列上 -->
+                                                            <Grid Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Classes="table-td" Text="{Binding Name}"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           IsVisible="{Binding !HasMaskedName}"/>
+                                                                <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasMaskedName}">
+                                                                    <TextBlock Grid.Column="0" Classes="table-td" Text="{Binding Name}"/>
+                                                                    <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding MaskedName}"
+                                                                               TextTrimming="CharacterEllipsis">
+                                                                        <TextBlock.Effect>
+                                                                            <BlurEffect Radius="5.5"/>
+                                                                        </TextBlock.Effect>
+                                                                    </TextBlock>
+                                                                </Grid>
+                                                            </Grid>
+                                                        </Grid>
+                                                        <ProgressBar Classes="mini" Value="{Binding BarValue}" Height="5"/>
                                                     </StackPanel>
-                                                    <ProgressBar Classes="mini" Value="{Binding BarValue}" Height="5"/>
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding TokensText}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding ShareText}" VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasModels}"/>
-                        </StackPanel>
-                    </Border>
+                                                    <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding TokensText}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding ShareText}" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasModels}"/>
+                            </StackPanel>
+                        </Border>
 
-                    <!-- Token 类型构成 -->
-                    <Border x:Name="TypePanel" Grid.Row="1" Grid.Column="1" Classes="panel poster-panel">
-                        <StackPanel Spacing="13">
-                            <TextBlock Classes="panel-title poster-panel-title"
-                                       Text="{Binding PanelTypeDonut, Source={x:Static loc:Translations.Instance}}"/>
-                            <c:DonutChart Segments="{Binding TypeSegments}"
-                                          AnimateSweep="False"
-                                          CenterTitle="{Binding CacheShareText}"
-                                          CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
-                        </StackPanel>
-                    </Border>
+                        <!-- Token 类型构成 -->
+                        <Border x:Name="TypePanel" Grid.Column="1" Classes="panel poster-panel">
+                            <StackPanel Spacing="13">
+                                <TextBlock Classes="panel-title poster-panel-title"
+                                           Text="{Binding PanelTypeDonut, Source={x:Static loc:Translations.Instance}}"/>
+                                <c:DonutChart Segments="{Binding TypeSegments}"
+                                              AnimateSweep="False"
+                                              CenterTitle="{Binding CacheShareText}"
+                                              CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
 
-                    <!-- 项目排行 -->
-                    <Border x:Name="ProjectPanel" Grid.Row="2" Grid.Column="0" Classes="panel poster-panel">
-                        <StackPanel Spacing="9">
-                            <TextBlock Classes="panel-title poster-panel-title"
-                                       Text="{Binding PanelProjectRanking, Source={x:Static loc:Translations.Instance}}"/>
-                            <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10" Margin="0,0,0,2">
-                                <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}"/>
-                                <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
-                                <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
-                            </Grid>
-                            <ItemsControl ItemsSource="{Binding ProjectRows}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:SharePosterRow">
-                                        <Border Classes="poster-row" BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0">
-                                            <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10">
-                                                <StackPanel Grid.Column="0" Spacing="5">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Classes="table-td" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Classes="table-td" Text="{Binding MaskedName}"
-                                                                   IsVisible="{Binding HasMaskedName}">
-                                                            <TextBlock.Effect>
-                                                                <BlurEffect Radius="5.5"/>
-                                                            </TextBlock.Effect>
-                                                        </TextBlock>
+                    <Grid x:Name="PortraitRow3" ColumnDefinitions="*,*" ColumnSpacing="14">
+                        <!-- 项目排行 -->
+                        <Border x:Name="ProjectPanel" Grid.Column="0" Classes="panel poster-panel">
+                            <StackPanel Spacing="9">
+                                <TextBlock Classes="panel-title poster-panel-title"
+                                           Text="{Binding PanelProjectRanking, Source={x:Static loc:Translations.Instance}}"/>
+                                <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10" Margin="0,0,0,2">
+                                    <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}"/>
+                                    <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
+                                    <TextBlock Grid.Column="2" Classes="table-th" TextAlignment="Right" Text="{Binding ThShare, Source={x:Static loc:Translations.Instance}}"/>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding ProjectRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SharePosterRow">
+                                            <Border Classes="poster-row" BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0">
+                                                <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10">
+                                                    <StackPanel Grid.Column="0" Spacing="5">
+                                                        <Grid VerticalAlignment="Center">
+                                                            <TextBlock Classes="table-td" Text="{Binding Name}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       IsVisible="{Binding !HasMaskedName}"/>
+                                                            <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasMaskedName}">
+                                                                <TextBlock Grid.Column="0" Classes="table-td" Text="{Binding Name}"/>
+                                                                <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding MaskedName}"
+                                                                           TextTrimming="CharacterEllipsis">
+                                                                    <TextBlock.Effect>
+                                                                        <BlurEffect Radius="5.5"/>
+                                                                    </TextBlock.Effect>
+                                                                </TextBlock>
+                                                            </Grid>
+                                                        </Grid>
+                                                        <ProgressBar Classes="mini" Value="{Binding BarValue}" Height="5"/>
                                                     </StackPanel>
-                                                    <ProgressBar Classes="mini" Value="{Binding BarValue}" Height="5"/>
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding TokensText}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding ShareText}" VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasProjects}"/>
-                        </StackPanel>
-                    </Border>
+                                                    <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding TokensText}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Classes="table-num" Text="{Binding ShareText}" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasProjects}"/>
+                            </StackPanel>
+                        </Border>
 
-                    <!-- 成本趋势 -->
-                    <Border x:Name="CostPanel" Grid.Row="2" Grid.Column="1" Classes="panel poster-panel">
-                        <StackPanel Spacing="10">
-                            <TextBlock Classes="panel-title poster-panel-title"
-                                       Text="{Binding PanelCostTrend, Source={x:Static loc:Translations.Instance}}"/>
-                            <c:TrendChart x:Name="CostChartControl"
-                                          Mode="CostUsd"
-                                          DailyPoints="{Binding Daily}"
-                                          ChartFontScale="1.9"
-                                          ShowPeakAnnotation="True"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
+                        <!-- 成本趋势 -->
+                        <Border x:Name="CostPanel" Grid.Column="1" Classes="panel poster-panel">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="panel-title poster-panel-title"
+                                           Text="{Binding PanelCostTrend, Source={x:Static loc:Translations.Instance}}"/>
+                                <c:TrendChart x:Name="CostChartControl"
+                                              Mode="CostUsd"
+                                              DailyPoints="{Binding Daily}"
+                                              ChartFontScale="1.9"
+                                              ShowPeakAnnotation="True"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
 
+                    <!-- 横版两行（固定三列）：与上面共用同一批面板，切换版式时移动子级。
+                         Grid 的 ColumnDefinitions 数量在运行期变化会踩 Avalonia 的测量缓存
+                         （MeasureCellsGroup 索引越界），所以两种版式各带一套固定定义的容器。 -->
+                    <Grid x:Name="LandscapeRow1" ColumnDefinitions="2.1*,1*,1*" ColumnSpacing="14" IsVisible="False"/>
+                    <Grid x:Name="LandscapeRow2" ColumnDefinitions="*,*,1.2*" ColumnSpacing="14" IsVisible="False"/>
+                </StackPanel>
             </StackPanel>
         </Border>
     </ThemeVariantScope>

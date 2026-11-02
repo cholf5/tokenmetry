@@ -37,9 +37,6 @@ public partial class SharePosterView : UserControl
         };
     }
 
-    /// <summary>当前版式的画布宽度（导出按它光栅化）。</summary>
-    public double PosterWidth => WidthFor(CurrentLayout);
-
     /// <summary>导出时要光栅化的节点（版面根，不含外面用来适配预览的缩放容器）。</summary>
     public Control PosterRootControl => PosterRoot;
 
@@ -94,18 +91,28 @@ public partial class SharePosterView : UserControl
             new[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel });
 
     /// <summary>
-    /// 按版式重排栅格：
+    /// 按版式重排栅格。两套版面的差别不只是换列宽：面板归属也换行（类型环形、成本趋势从第二排列
+    /// 提到第一列/第二列），所以每行是一个独立 Grid，横版时把面板移到目标行里。
     /// <list type="bullet">
-    /// <item>竖版（1080）：三行两列——趋势 1.45 / Agent .95；模型 / 类型；项目 / 成本。</item>
-    /// <item>横版（1800）：两行三列——趋势 2.1 / Agent 1 / 类型 1；模型 1 / 项目 1 / 成本 1.2。</item>
+    /// <item>竖版（1080）：三行——趋势 1.45 / Agent 0.95；模型 / 类型 1:1；项目 / 成本 1:1。</item>
+    /// <item>横版（1800）：两行——趋势 2.1 / Agent 1 / 类型 1；模型 1 / 项目 1 / 成本 1.2（设计 §3.3）。</item>
     /// </list>
-    /// 两套版面的面板归属不同（类型环形、成本趋势换行），所以不是单纯换列宽。尺度差异（字号 /
-    /// 图表高度 / 环形直径）由 <c>poster-root.land</c> 的样式组承担，这里只管布局与画布宽度。
+    /// 竖版第一行偏离设计稿的 1.55/0.85 是有意的：190px 环形后面只剩 ~65px，图例被裁成「Z…」；
+    /// 1.45/0.95 下趋势区 581px 与基准稿的 577 基本一致。
+    /// 尺度差异（字号 / 图表高度 / 环形直径）由 <c>poster-root.land</c> 的样式组承担，这里只管布局。
     /// </summary>
     private void ApplyLayout()
     {
         var landscape = CurrentLayout == SharePosterLayout.Landscape;
         PosterRoot.Width = WidthFor(CurrentLayout);
+
+        // 先换容器可见性、再把面板搬进目标容器：两种版式各带一套固定列定义的容器，
+        // 运行期不动任何 ColumnDefinitions（Avalonia Grid 在定义数量变化时会踩测量缓存索引越界）。
+        PortraitRow1.IsVisible = !landscape;
+        PortraitRow2.IsVisible = !landscape;
+        PortraitRow3.IsVisible = !landscape;
+        LandscapeRow1.IsVisible = landscape;
+        LandscapeRow2.IsVisible = landscape;
 
         if (landscape)
         {
@@ -113,26 +120,39 @@ public partial class SharePosterView : UserControl
             {
                 PosterRoot.Classes.Add("land");
             }
-            PanelGrid.ColumnDefinitions = new ColumnDefinitions("2.1*,1*,1*");
-            PanelGrid.RowDefinitions = new RowDefinitions("Auto,Auto");
+
+            Place(TrendPanel, LandscapeRow1, 0);
+            Place(AgentPanel, LandscapeRow1, 1);
+            Place(TypePanel, LandscapeRow1, 2);
+            Place(ModelPanel, LandscapeRow2, 0);
+            Place(ProjectPanel, LandscapeRow2, 1);
+            Place(CostPanel, LandscapeRow2, 2);
         }
         else
         {
             PosterRoot.Classes.Remove("land");
-            PanelGrid.ColumnDefinitions = new ColumnDefinitions("1.45*,0.95*,0");
-            PanelGrid.RowDefinitions = new RowDefinitions("Auto,Auto,Auto");
+            Place(TrendPanel, PortraitRow1, 0);
+            Place(AgentPanel, PortraitRow1, 1);
+            Place(ModelPanel, PortraitRow2, 0);
+            Place(TypePanel, PortraitRow2, 1);
+            Place(ProjectPanel, PortraitRow3, 0);
+            Place(CostPanel, PortraitRow3, 1);
         }
 
-        Place(TrendPanel, 0, 0);
-        Place(AgentPanel, 0, 1);
-        Place(TypePanel, landscape ? 0 : 1, landscape ? 2 : 1);
-        Place(ModelPanel, 1, 0);
-        Place(ProjectPanel, landscape ? 1 : 2, landscape ? 1 : 0);
-        Place(CostPanel, landscape ? 1 : 2, landscape ? 2 : 1);
-
-        static void Place(Control panel, int row, int column)
+        static void Place(Control panel, Grid row, int column)
         {
-            Grid.SetRow(panel, row);
+            // 面板在两次版式间换行：先从旧行摘下再挂到目标行（图表随之重建，见控件 OnAttachedToVisualTree）
+            if (panel.Parent is Panel previous && !ReferenceEquals(previous, row))
+            {
+                previous.Children.Remove(panel);
+            }
+
+            if (!row.Children.Contains(panel))
+            {
+                row.Children.Add(panel);
+            }
+
+            Grid.SetRow(panel, 0);
             Grid.SetColumn(panel, column);
         }
     }

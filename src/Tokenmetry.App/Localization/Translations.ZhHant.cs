@@ -474,7 +474,6 @@ public sealed partial class Translations
         [nameof(SharePosterMaskPartial)] = "前 4 個字元可見、其餘模糊",
         [nameof(SharePosterMaskFull)] = "整名模糊",
         [nameof(SharePosterMaskHint)] = "「顯示」會把專案名稱原樣印在海報上，分享前請先確認；模糊只是把文字虛化，不會替換成佔位符。",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "單日只能出直式：單日海報是一張直式卡片，橫置需要重排資訊流。",
         [nameof(SharePosterCopy)] = "複製到剪貼簿",
         [nameof(SharePosterCopied)] = "已複製到剪貼簿",
         [nameof(SharePosterCopyFailed)] = "目前系統不支援複製圖片，請改用「儲存為檔案」",
@@ -487,5 +486,8 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultLayout)] = "預設版式",
         [nameof(SharePosterDefaultTheme)] = "預設主題",
         [nameof(SharePosterDefaultMask)] = "預設模糊",
+        [nameof(SharePosterDayCountFormat)] = "{0} 個有記錄的天",
+        [nameof(SharePosterCopyFailedFormat)] = "複製失敗：{0}",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "單日視窗只提供直式：橫置需要重排資訊流。",
     };
 }

@@ -35,6 +35,65 @@ public class SharePosterViewModelTests
         return new SharePosterViewModel(data);
     }
 
+    private static SharePosterRequest Request(SharePosterProjectMask mask = SharePosterProjectMask.Off) =>
+        new(SharePosterLayout.Portrait, SharePosterTheme.Dark, mask,
+            new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2));
+
+    [Fact]
+    public void Type_segments_include_cache_writes_and_use_the_app_labels()
+    {
+        // 缓存段 = 读取 + 写入（与总览页同一条 CreateTokenTypeSegments）；图例文案走 Translations，
+        // 不是 Core 里的英文键。三段之和 = 总 token。
+        var daily = new[]
+        {
+            new DailyUsagePoint
+            {
+                Day = "2026-10-17",
+                InputTokens = 100,
+                OutputTokens = 50,
+                CacheReadTokens = 800,
+                CacheCreationTokens = 50,
+                TotalTokens = 1_000,
+                HasData = true,
+            },
+        };
+        var data = SharePosterSnapshot.Build(Request(), daily, [], [], [], sessionCount: 1);
+        var vm = new SharePosterViewModel(data);
+
+        var segments = vm.TypeSegments.ToList();
+        Assert.Equal(
+            [
+                Tokenmetry.App.Localization.Translations.Instance.TokenTypeInput,
+                Tokenmetry.App.Localization.Translations.Instance.TokenTypeOutput,
+                Tokenmetry.App.Localization.Translations.Instance.TokenTypeCache,
+            ],
+            segments.Select(s => s.Name));
+        Assert.Equal(100, segments[0].Value);
+        Assert.Equal(50, segments[1].Value);
+        Assert.Equal(850, segments[2].Value);   // 800 读取 + 50 写入
+        Assert.Equal(1_000, segments.Sum(s => s.Value));
+    }
+
+    [Fact]
+    public void Agent_ring_is_top_six_plus_others_and_lets_the_control_pick_token_colors()
+    {
+        var agents = Enumerable.Range(1, 8)
+            .Select(i => new DimensionUsageRow
+            {
+                Key = $"agent{i}",
+                TotalTokens = (9 - i) * 1_000,
+                Cost = AggregatedCost.Empty,
+            })
+            .ToArray();
+        var data = SharePosterSnapshot.Build(Request(), [], agents, [], [], sessionCount: 0);
+        var vm = new SharePosterViewModel(data);
+
+        var segments = vm.AgentSegments.ToList();
+        Assert.Equal(7, segments.Count);   // Top6 + 其他
+        Assert.Equal(Tokenmetry.App.Localization.Translations.Instance.OthersSegment, segments[^1].Name);
+        Assert.All(segments, s => Assert.Null(s.Color));   // 段色交给 AppSeries 令牌
+    }
+
     [Fact]
     public void Mask_off_keeps_every_name_intact()
     {

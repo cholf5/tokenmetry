@@ -30,6 +30,9 @@ public partial class MainWindow : Window
     private readonly AppSettings? _settings;
     private readonly IAppSettingsStore? _settingsStore;
 
+    /// <summary>分享海报窗口的开窗闸（防连点排两个模态窗 + 两次全表查询）。</summary>
+    private bool _sharePosterOpening;
+
     /// <summary>用户在首关弹窗做出选择后广播（true = 缩到托盘 / false = 直接退出）。消费者 = App 启动
     /// 接线，把选择写回 SettingsViewModel 的关窗行为开关——该 VM 是 DI 单例、开关只在构造时从 settings
     /// 起值，弹窗直写单例会让设置页显示脱同步，经同一 VM 属性写入即同步（其自动保存为同内容的
@@ -164,27 +167,34 @@ public partial class MainWindow : Window
     /// </summary>
     internal async Task ShowSharePosterAsync()
     {
-        if (DataContext is not ViewModels.MainWindowViewModel viewModel)
+        if (_sharePosterOpening || DataContext is not ViewModels.MainWindowViewModel viewModel)
         {
             return;
         }
 
-        var dialogViewModel = await viewModel.CreateSharePosterDialogAsync();
-        if (dialogViewModel is null)
-        {
-            return;
-        }
-
-        var dialog = new SharePosterDialog { DataContext = dialogViewModel };
+        _sharePosterOpening = true;
+        SharePosterDialog? dialog = null;
         try
         {
+            var dialogViewModel = await viewModel.CreateSharePosterDialogAsync();
+            if (dialogViewModel is null)
+            {
+                return; // 查询失败：VM 已弹 toast
+            }
+
+            dialog = new SharePosterDialog { DataContext = dialogViewModel };
             await dialog.ShowDialog(this);
         }
         catch (Exception ex)
         {
-            // 窗口通道坏了不静默：诊断日志 + 不让模态窗口悬在半空
+            // 事件是 fire-and-forget（App 接线用 _ =），异常不能逃逸成未观测任务；
+            // 窗口通道坏了也不让模态窗口悬在半空。
             Console.Error.WriteLine($"[Tokenmetry] 分享海报窗口展示失败：{ex.Message}");
-            dialog.Close();
+            dialog?.Close();
+        }
+        finally
+        {
+            _sharePosterOpening = false;
         }
     }
 

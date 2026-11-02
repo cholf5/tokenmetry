@@ -1,8 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Avalonia.Media;
 using Tokenmetry.App.Controls;
+using Tokenmetry.App.Localization;
 using Tokenmetry.Core.Models;
 
 namespace Tokenmetry.App.ViewModels;
@@ -13,31 +14,32 @@ namespace Tokenmetry.App.ViewModels;
 /// </summary>
 public sealed class SharePosterViewModel
 {
-    private static readonly Color[] SeriesColors =
-    [
-        Color.Parse("#4c8dff"), Color.Parse("#12b886"), Color.Parse("#ffad4d"),
-        Color.Parse("#a779ff"), Color.Parse("#48bde3"), Color.Parse("#8394ae"),
-    ];
-
-    public SharePosterViewModel(SharePosterData data)
+    public SharePosterViewModel(SharePosterData data, Func<string, ModelAvatarVisual?>? modelIconResolver = null)
     {
         Data = data;
         var totals = data.Totals;
 
-        // 只带范围本身；"有记录的天数"要新 i18n 键，留给 P7 一次补齐（跨 10 语种）
-        RangeText = data.Request.RangeStart.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
+        var range = data.Request.RangeStart.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
                     + " — " +
                     data.Request.RangeEnd.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
+        // 多日窗口补「N 个有记录的天」：范围天数会夸大活跃度（大段没开工具的日子也在范围里）
+        RangeText = data.Request.IsSingleDay
+            ? range
+            : range + " · " + string.Format(
+                Translations.Instance.SharePosterDayCountFormat, data.Daily.Count(d => d.HasData));
 
         TotalTokensText = TrendChart.FormatCompactTokens(totals.TotalTokens);
         CacheShareText = Percent(totals.CacheShare);
         CostText = CostLabel(totals.Cost);
         SessionsText = totals.SessionCount.ToString("N0", CultureInfo.CurrentCulture);
 
-        AgentSegments = BuildDonut(data.Agents);
-        TypeSegments = BuildDonut(data.Types);
-        // 模型行带内置厂商 logo（与总览页同一条链：ModelAvatarVisual → ModelChip 伪类 → 令牌画刷）
-        ModelRows = BuildRows(data.Models, modelIcons: true);
+        // 环形与总览页同源（同一个映射函数）：Agent 走 Top6 + 其他、段色走 AppSeries 令牌；
+        // 类型构成走输入/输出/缓存（缓存 = 读取 + 写入）与固定三色令牌。
+        AgentSegments = CreateAgentSegments(data.Agents);
+        TypeSegments = OverviewViewModel.CreateTokenTypeSegments(data.Daily);
+        // 模型行带品牌 logo（与总览页同一条链：ModelAvatarVisual → ModelChip 伪类 → 令牌画刷）；
+        // 解析器来自模型目录（用户自定义头像也生效），未注入时回落内置名字推断。
+        ModelRows = BuildRows(data.Models, modelIcons: modelIconResolver ?? ModelAvatarVisual.FromName);
         ProjectRows = BuildRows(data.Projects, data.Request.ProjectMask);
     }
 
@@ -70,6 +72,9 @@ public sealed class SharePosterViewModel
 
     public bool HasProjects => ProjectRows.Count > 0;
 
+    /// <summary>模型行有品牌图标（模板用同一个 Bool 驱动芯片显隐）。</summary>
+    public bool HasModelIcons => ModelRows.Any(r => r.HasIcon);
+
     /// <summary>成本四态文案（未知成本不折 0，与总览页同口径）：null → "—"，未知 → 结尾 "+"。</summary>
     private static string CostLabel(AggregatedCost cost)
     {
@@ -88,10 +93,28 @@ public sealed class SharePosterViewModel
     /// <summary>局部雾化保留的可见字符数（够认出来源，不够读出项目名）。</summary>
     public const int MaskVisibleChars = 4;
 
+    /// <summary>
+    /// Agent 环形段：Top6 + 「其他」聚合（同 <see cref="OverviewViewModel.CreateAgentSegments"/> 的口径），
+    /// 但输入是海报快照的排行切片。段色不显式给——交给 <see cref="DonutChart"/> 走 AppSeries 令牌，
+    /// 与应用内环形同色同序。
+    /// </summary>
+    internal static IReadOnlyList<DonutSegment> CreateAgentSegments(IReadOnlyList<SharePosterRanking> agents)
+    {
+        var withTokens = agents.Where(a => a.Tokens > 0).OrderByDescending(a => a.Tokens).ToList();
+        var segments = withTokens.Take(6).Select(a => new DonutSegment(a.Name, a.Tokens)).ToList();
+        var rest = withTokens.Skip(6).ToList();
+        if (rest.Count > 0)
+        {
+            segments.Add(new DonutSegment(Translations.Instance.OthersSegment, rest.Sum(a => a.Tokens)));
+        }
+
+        return segments;
+    }
+
     private static IReadOnlyList<SharePosterRow> BuildRows(
         IReadOnlyList<SharePosterRanking> rankings,
         SharePosterProjectMask mask = SharePosterProjectMask.Off,
-        bool modelIcons = false)
+        Func<string, ModelAvatarVisual?>? modelIcons = null)
     {
         // 条宽按本维度最大值归一（与总览页 mini bar 一致：最大行满格）
         var max = rankings.Count == 0 ? 0 : rankings.Max(r => r.Tokens);
@@ -114,13 +137,11 @@ public sealed class SharePosterViewModel
                     max == 0 ? 0 : (double)r.Tokens / max * 100,
                     masked,
                     masked.Length > 0,
-                    modelIcons ? ModelAvatarVisual.FromName(r.Name) : null);
+                    modelIcons?.Invoke(r.Name));
             })
             .ToArray();
     }
 
-    private static IEnumerable<DonutSegment> BuildDonut(IReadOnlyList<SharePosterRanking> rankings) =>
-        rankings.Select((r, i) => new DonutSegment(r.Name, r.Tokens, SeriesColors[i % SeriesColors.Length]));
 }
 
 /// <summary>

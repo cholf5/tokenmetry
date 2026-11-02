@@ -309,14 +309,19 @@ public partial class MainWindowViewModel : ViewModelBase
             start,
             end);
 
-        return new SharePosterDialogViewModel(initial, request =>
-            SharePosterSnapshot.Build(
+        // 总量取同一份 KPI 聚合（维度行合计可能与 KPI 不等：空键 / 分解粒度行会被跳过）；
+        // 模型图标走目录解析器（用户自定义头像也生效）。
+        return new SharePosterDialogViewModel(
+            initial,
+            request => SharePosterSnapshot.Build(
                 request,
                 snapshot.Daily,
                 snapshot.Agents,
                 snapshot.Models,
                 snapshot.Projects,
-                snapshot.Kpi.SessionCount));
+                snapshot.Kpi.SessionCount,
+                snapshot.Kpi),
+            _avatars is null ? null : _avatars.Resolve);
     }
 
     /// <summary>
@@ -328,14 +333,33 @@ public partial class MainWindowViewModel : ViewModelBase
         UsageQueryFilter filter, IReadOnlyList<DailyUsagePoint> daily, DateOnly today)
     {
         var dataDays = daily.Where(d => d.HasData).ToList();
-        var start = UsageQueryFilter.ParseDay(filter.FromDay)
-                    ?? (dataDays.Count > 0 ? UsageQueryFilter.ParseDay(dataDays[0].Day) : null)
-                    ?? today;
-        var end = UsageQueryFilter.ParseDay(filter.ToDay)
-                  ?? (dataDays.Count > 0 ? UsageQueryFilter.ParseDay(dataDays[^1].Day) : null)
-                  ?? today;
+        var startBound = UsageQueryFilter.ParseDay(filter.FromDay);
+        var endBound = UsageQueryFilter.ParseDay(filter.ToDay);
+        var dataStart = dataDays.Count > 0 ? UsageQueryFilter.ParseDay(dataDays[0].Day) : null;
+        var dataEnd = dataDays.Count > 0 ? UsageQueryFilter.ParseDay(dataDays[^1].Day) : null;
 
-        return end < start ? (end, start) : (start, end);
+        var start = startBound ?? dataStart ?? today;
+        var end = endBound ?? dataEnd ?? today;
+
+        // 只有单边有界时不交换端点（交换会造出一个用户没选过、中间也没有数据的区间）：
+        // 数据落在边界之外就收口成单日，让海报如实显示"这个范围内没有用量"。
+        if (end < start)
+        {
+            if (endBound is null)
+            {
+                end = start;
+            }
+            else if (startBound is null)
+            {
+                start = end;
+            }
+            else
+            {
+                (start, end) = (end, start); // 双端都显式给出（映射层已做过一次换序，这里是防御）
+            }
+        }
+
+        return (start, end);
     }
 
     /// <summary>顶部栏设置入口：导航到设置页（应用偏好；数据源与计价在数据与计价页）。</summary>
