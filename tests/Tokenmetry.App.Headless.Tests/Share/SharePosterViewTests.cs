@@ -361,6 +361,40 @@ public class SharePosterViewTests
         window.Close();
     }
 
+    /// <summary>
+    /// 托盘头部的日期与多日页头同一条规矩：跟着字标左起排，不贴卡片右边——
+    /// 卡内没有任何右锚点，日期挂在右上就跟下面的三格、构成条左边界都对不上。
+    /// </summary>
+    [AvaloniaFact]
+    public void Tray_header_date_sits_under_the_brand_not_at_the_right_edge()
+    {
+        var view = new SharePosterView { DataContext = TrayViewModel() };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var tray = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TrayRoot");
+        var brand = view.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Classes.Contains("tray-brand"));
+        var date = view.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Classes.Contains("tray-date"));
+        var logo = view.GetVisualDescendants().OfType<Border>()
+            .Single(b => b.Classes.Contains("tray-logo"));
+
+        var brandOrigin = brand.TranslatePoint(default, tray)!.Value;
+        var dateOrigin = date.TranslatePoint(default, tray)!.Value;
+        var logoRight = logo.TranslatePoint(default, tray)!.Value.X + logo.Bounds.Width;
+
+        // 字标与日期共用左边界，且都在 Logo 右侧
+        Assert.Equal(brandOrigin.X, dateOrigin.X, 0.5);
+        Assert.True(brandOrigin.X > logoRight, "字标应该在 Logo 右侧，不压在图上");
+        // 日期在字标下方（品牌领印两行），而不是同排右靠
+        Assert.True(dateOrigin.Y > brandOrigin.Y);
+        Assert.True(dateOrigin.X < tray.Bounds.Width / 2, "日期应该在左侧阅读线上，不靠右边");
+        Assert.True(date.TextAlignment is TextAlignment.Left or TextAlignment.Start, "日期左起排");
+
+        window.Close();
+    }
+
     [AvaloniaFact]
     public void Donuts_render_final_arcs_without_sweep_animation()
     {
