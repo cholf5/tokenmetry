@@ -20,7 +20,8 @@ public partial class SharePosterDialog : Window
     /// <summary>
     /// 剪贴板位图必须活到粘贴那一刻：<c>Clipboard.SetBitmapAsync</c> 在 Windows/X11 上是延迟提供
     /// （真正的 HGLOBAL/字节在别的应用粘贴时才取），方法返回就 Dispose 会得到「提示已复制、粘贴为空」。
-    /// 下一次复制替换、窗口关闭统一释放。
+    /// 因此<b>不在关窗时释放</b>——用户可能复制后关掉窗口再粘贴。只在下次复制替换时释放上一张，
+    /// 同时最多多占一张 2× 海报的内存（约 16MB，设计风险表里可接受）。
     /// </summary>
     private Bitmap? _clipboardBitmap;
 
@@ -38,12 +39,7 @@ public partial class SharePosterDialog : Window
         };
     }
 
-    protected override void OnClosed(EventArgs e)
-    {
-        _clipboardBitmap?.Dispose();
-        _clipboardBitmap = null;
-        base.OnClosed(e);
-    }
+
 
     private SharePosterDialogViewModel? ViewModel => DataContext as SharePosterDialogViewModel;
 
