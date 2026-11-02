@@ -85,7 +85,7 @@
             <!-- 字母：1 字符（显示面积约束，用户拍板） -->
             <StackPanel IsVisible="{Binding AvatarPicker.IsModeLetter}" Spacing="8">
                 <TextBox Width="120" MaxLength="1" HorizontalAlignment="Left"
-                         Watermark="{Binding AvatarLetterWatermark, Source={x:Static loc:Translations.Instance}}"
+                         PlaceholderText="{Binding AvatarLetterWatermark, Source={x:Static loc:Translations.Instance}}"
                          Text="{Binding AvatarPicker.Letter, Mode=TwoWay}"/>
                 <TextBlock Classes="page-subtitle" TextWrapping="Wrap" MaxWidth="500" HorizontalAlignment="Left"
                            Text="{Binding AvatarModeLetterHint, Source={x:Static loc:Translations.Instance}}"/>
