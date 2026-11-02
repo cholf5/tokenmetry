@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
+using Tokenmetry.App.Update;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
@@ -106,6 +107,10 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>数据与计价页 VM（数据源表 / 口径 / 模型目录 / 别名映射），DI 单例同上。</summary>
     public DataPricingViewModel DataPricing { get; }
 
+    /// <summary>顶部更新横幅（发现新版本 / 下载进度 / 重启生效 / 更新收尾提示）。
+    /// 与设置页「关于」区、托盘菜单共享同一个 <see cref="UpdateService"/> 单例。</summary>
+    public UpdateBannerViewModel UpdateBanner { get; }
+
     public MainWindowViewModel(
         FilterStateService filters,
         SettingsViewModel settings,
@@ -116,7 +121,8 @@ public partial class MainWindowViewModel : ViewModelBase
         PricingEngine pricingEngine,
         ModelAvatarResolver? avatars = null,
         BackgroundRefreshService? refreshService = null,
-        TimeRangePresetService? timePresets = null)
+        TimeRangePresetService? timePresets = null,
+        UpdateService? updateService = null)
     {
         _filters = filters;
         Settings = settings;
@@ -131,6 +137,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _refreshService = refreshService;
         // D-020：时间范围选择器 VM 面共享同一 FilterStateService；预设服务可选（同上诚实降级）。
         TimePicker = new TimeRangePickerViewModel(filters, timePresets);
+        // 更新横幅与设置页共用同一 UpdateService（设置页持有 DI 单例；测试可直接注入）。
+        UpdateBanner = new UpdateBannerViewModel(updateService ?? settings.UpdateService);
 
         SelectedNavigation = NavigationItems[0];
         CurrentPage = CreatePage(PageId.Overview);

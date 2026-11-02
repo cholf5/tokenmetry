@@ -118,8 +118,10 @@ all three platforms on every tag:
 | macOS Intel | `Tokenmetry-0.3.2-osx-x64.zip` | 24.6 MB | `.app`, Native AOT |
 | Linux x64 | `Tokenmetry-0.3.2-linux-x64.zip` | 66.4 MB | Single-file binary |
 
-Installed Windows copies upgrade themselves ("Check for updates" downloads, installs and
-restarts); portable copies and macOS/Linux update by extracting over the old version.
+Every form updates in place: a new version shows a banner in the main window, "Update now" downloads
+with a progress bar and a SHA-256 check, and "Restart and update" swaps the files and reopens the app
+(silent install for the Windows installer, atomic replace for the portable/macOS/Linux builds).
+If the target folder is read-only the app falls back to downloading the package and revealing it.
 
 **macOS needs one Gatekeeper allowance on first launch** (the app is unsigned, and on macOS 26 the
 old right-click → Open trick no longer works). Either allow it in System Settings → Privacy &
@@ -171,7 +173,9 @@ Stated plainly rather than hidden
   undercount. This is the top priority after release.
 - Changing the system timezone (or crossing a DST boundary) can double-count some days.
 - One corrupt timestamp can knock out the Kimi or DSH source until the offending file is moved.
-- Only installed Windows copies update silently; portable and macOS/Linux copies update by hand.
+- In-app updates require the release to ship `<asset>.sha256` sidecars: without a checksum the app
+refuses to replace its own files (the download mirrors are third-party; not updating beats running
+an unverifiable binary).
 
 ## How it's built
 

@@ -228,11 +228,20 @@
                                 Content="{Binding SettingsDownloadUpdate, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding DownloadUpdateCommand}"
                                 IsVisible="{Binding IsUpdateAvailable}"/>
+                        <!-- 下载校验完成后的最后一步：重启即生效（与主窗横幅同一个状态、同一个命令出口） -->
+                        <Button Classes="app-btn primary"
+                                Content="{Binding ActionRestartNow, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding RestartUpdateCommand}"
+                                IsVisible="{Binding IsUpdateReadyToRestart}"/>
                         <Button Classes="app-btn"
                                 Content="{Binding SettingsOpenReleasePage, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding OpenReleasePageCommand}"
                                 IsVisible="{Binding IsUpdateAvailable}"/>
                     </StackPanel>
+                    <!-- 下载进度：设置页自己发起的下载也要看得见百分比（横幅可能已被「稍后」收起） -->
+                    <ProgressBar Minimum="0" Maximum="100" Height="4"
+                                 Value="{Binding UpdateDownloadPercent}"
+                                 IsVisible="{Binding IsUpdateProgressVisible}"/>
                     <TextBlock Classes="setting-hint" TextWrapping="Wrap"
                                Text="{Binding UpdateStatusText}"
                                IsVisible="{Binding UpdateStatusText, Converter={x:Static ObjectConverters.IsNotNull}}"/>

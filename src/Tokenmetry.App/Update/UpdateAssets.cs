@@ -108,4 +108,8 @@ public static class UpdateAssets
     /// <summary>本次升级要下的资产名：Windows 已安装副本 → 安装器；其余（含 Windows 便携版）→ zip。</summary>
     internal static string PickAssetName(string latestTag, bool windowsInstalledCopy) =>
         windowsInstalledCopy ? InstallerAssetFileName(latestTag) : ZipAssetFileName(latestTag);
+
+    /// <summary>某个资产的 SHA-256 校验文件（同名 + <c>.sha256</c>，CI 用 <c>sha256sum</c> 生成）。
+    /// 自更新形态下校验和不是「加强项」而是前提：镜像前缀是第三方，能换掉包就等于能换掉用户的程序。</summary>
+    public static string ChecksumAssetFileName(string assetName) => assetName + ".sha256";
 }

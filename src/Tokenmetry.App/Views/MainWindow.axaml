@@ -190,6 +190,37 @@
             <Setter Property="MaxWidth" Value="330"/>
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
         </Style>
+        <!-- 更新横幅（B-0xx）：底色/描边走令牌，语义色只做左侧 3px 色条——是提示不是弹窗，
+             所以不抢焦点、不覆盖内容，用户可以直接忽略。 -->
+        <Style Selector="Border.update-banner">
+            <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+        <Style Selector="Border.update-stripe">
+            <Setter Property="Background" Value="{DynamicResource AppAccentBlueBrush}"/>
+        </Style>
+        <Style Selector="Border.update-stripe.success">
+            <Setter Property="Background" Value="{DynamicResource AppAccentGreenBrush}"/>
+        </Style>
+        <Style Selector="Border.update-stripe.warning">
+            <Setter Property="Background" Value="{DynamicResource AppAccentOrangeBrush}"/>
+        </Style>
+        <Style Selector="Border.update-stripe.danger">
+            <Setter Property="Background" Value="{DynamicResource AppAccentRedBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.update-banner-title">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.update-banner-detail">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
     </Window.Styles>
 
     <!-- D-003 页面路由：CurrentPage（页面 VM）→ 视图。Q-002：旧视图（Dashboard/Reports/
@@ -228,9 +259,48 @@
         </DataTemplate>
     </Window.DataTemplates>
 
-    <Grid RowDefinitions="52,*">
-        <!-- ═══ 顶部栏（.topbar：52px，底边 1px 描边）═══ -->
-        <Border Grid.Row="0"
+    <Grid RowDefinitions="Auto,52,*">
+        <!-- ═══ 更新横幅（发现新版本 / 下载进度 / 重启生效 / 更新收尾）═══
+             放在顶栏之上、内容之外：它属于「应用本身」的状态，不随页面导航消失。
+             IsVisible 由 UpdateBannerViewModel 按 UpdateService 状态机算，视图不做判断。 -->
+        <Border Grid.Row="0" x:Name="UpdateBanner"
+                Classes="update-banner"
+                IsVisible="{Binding UpdateBanner.IsVisible}">
+            <Grid ColumnDefinitions="3,*">
+                <Border Grid.Column="0" Classes="update-stripe"
+                        Classes.success="{Binding UpdateBanner.IsToneSuccess}"
+                        Classes.warning="{Binding UpdateBanner.IsToneWarning}"
+                        Classes.danger="{Binding UpdateBanner.IsToneDanger}"/>
+                <Grid Grid.Column="1" ColumnDefinitions="*,Auto" Margin="16,10,18,10">
+                    <StackPanel Grid.Column="0" Spacing="6" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Classes="update-banner-title" Text="{Binding UpdateBanner.Title}"/>
+                            <TextBlock Classes="update-banner-detail" MaxWidth="620"
+                                       Text="{Binding UpdateBanner.Detail}"
+                                       IsVisible="{Binding UpdateBanner.HasDetail}"/>
+                        </StackPanel>
+                        <ProgressBar Minimum="0" Maximum="100" Height="4"
+                                     Value="{Binding UpdateBanner.Progress}"
+                                     IsVisible="{Binding UpdateBanner.IsProgressVisible}"
+                                     IsIndeterminate="{Binding UpdateBanner.IsProgressIndeterminate}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                VerticalAlignment="Center" Margin="16,0,0,0">
+                        <Button Classes="app-btn primary"
+                                Content="{Binding UpdateBanner.PrimaryLabel}"
+                                Command="{Binding UpdateBanner.PrimaryCommand}"
+                                IsVisible="{Binding UpdateBanner.IsPrimaryVisible}"/>
+                        <Button Classes="app-btn"
+                                Content="{Binding UpdateBanner.SecondaryLabel}"
+                                Command="{Binding UpdateBanner.SecondaryCommand}"
+                                IsVisible="{Binding UpdateBanner.IsSecondaryVisible}"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- 顶部栏（.topbar：52px，底边 1px 描边） -->
+        <Border Grid.Row="1"
                 x:Name="TopBar"
                 Background="{DynamicResource AppTopbarBackgroundBrush}"
                 BorderBrush="{DynamicResource AppLineBrush}"
@@ -339,7 +409,7 @@
         </Border>
 
         <!-- ═══ 两栏（.shell：184 / *；原 276 右栏已撤除，空间归还主内容）═══ -->
-        <Grid Grid.Row="1" ColumnDefinitions="184,*">
+        <Grid Grid.Row="2" ColumnDefinitions="184,*">
 
             <!-- 左侧导航（.sidebar） -->
             <Border Grid.Column="0"
@@ -405,7 +475,7 @@
              IsInitializingData 仅由启动路径维护：库内完全无数据（首次使用）→ 启动首轮采集
              扫描期间挂起，轮次结束（成败均然）摘除——no data / error 的诚实终态由顶栏状态灯
              呈现，遮罩不掩盖结果。测试按 x:Name 定位。 -->
-        <Panel Grid.Row="0" Grid.RowSpan="2" x:Name="InitializingOverlay"
+        <Panel Grid.Row="0" Grid.RowSpan="3" x:Name="InitializingOverlay"
                ZIndex="100"
                IsVisible="{Binding IsInitializingData}">
             <Border Background="{DynamicResource AppOverlayScrimBrush}"/>

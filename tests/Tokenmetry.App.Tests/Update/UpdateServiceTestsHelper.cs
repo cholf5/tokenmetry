@@ -53,6 +53,27 @@ internal static class UpdateServiceTestsHelper
         return (service, store);
     }
 
+    /// <summary>
+    /// 资产 + 校验和的双响应假 handler：<c>*.sha256</c> 回纯文本校验和，其余回载荷。
+    /// 自更新路径现在强制校验 SHA-256——没有校验文件的「下载成功」在新契约里是失败。
+    /// </summary>
+    public static FakeUpdateHttpHandler AssetAndChecksum(byte[] payload, string? checksumOverride = null)
+    {
+        var hex = checksumOverride ?? Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(payload));
+        return new FakeUpdateHttpHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.EndsWith(".sha256", StringComparison.Ordinal))
+            {
+                var name = System.IO.Path.GetFileName(path);
+                return FakeUpdateHttpHandler.Bytes(
+                    System.Text.Encoding.UTF8.GetBytes($"{hex}  {name[..^7]}\n"));
+            }
+
+            return FakeUpdateHttpHandler.Bytes(payload);
+        });
+    }
+
     private static HttpResponseMessage Redirect(string tag) =>
         FakeUpdateHttpHandler.Redirect($"/cholf5/tokenmetry/releases/tag/{tag}");
 
