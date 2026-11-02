@@ -94,6 +94,13 @@ public partial class TrendChart : UserControl
     public static readonly StyledProperty<double> ChartFontScaleProperty =
         AvaloniaProperty.Register<TrendChart, double>(nameof(ChartFontScale), 1.0);
 
+    /// <summary>
+    /// 是否在图上直接标出峰值（默认 false = 既有页面；应用内靠 hover 就读得到，海报是静态图读不到）。
+    /// 标注锚在绘图区左上角，不画引线——海报尺寸下引线会与尖峰柱交织，反而更难读。
+    /// </summary>
+    public static readonly StyledProperty<bool> ShowPeakAnnotationProperty =
+        AvaloniaProperty.Register<TrendChart, bool>(nameof(ShowPeakAnnotation), false);
+
     public TrendChartMode Mode
     {
         get => GetValue(ModeProperty);
@@ -129,6 +136,16 @@ public partial class TrendChart : UserControl
         get => GetValue(ChartFontScaleProperty);
         set => SetValue(ChartFontScaleProperty, value);
     }
+
+    /// <summary>是否直接标出峰值（海报用；见 ShowPeakAnnotationProperty）。</summary>
+    public bool ShowPeakAnnotation
+    {
+        get => GetValue(ShowPeakAnnotationProperty);
+        set => SetValue(ShowPeakAnnotationProperty, value);
+    }
+
+    /// <summary>当前峰值标注文本（无标注时 null；测试与海报导出共用）。</summary>
+    public string? PeakAnnotationText { get; private set; }
 
     /// <summary>底层 ScottPlot Plot（测试用于断言重建后的样式）。</summary>
     public Plot Plot => PlotControl.Plot;
@@ -176,6 +193,7 @@ public partial class TrendChart : UserControl
         HourlyDistributionProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
         HourlyCutoffHourProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
         ChartFontScaleProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
+        ShowPeakAnnotationProperty.Changed.AddClassHandler<TrendChart>((c, _) => c.RebuildPlot());
 
         // ScottPlot 不支持 Avalonia 动态资源：主题变体变化时整图重建（chrome 色重新现取令牌）。
         // 订阅控件自身事件（EffectiveThemeVariant 继承 App/Window 的设置，含 app.TrySetTheme 路径）。
@@ -253,6 +271,19 @@ public partial class TrendChart : UserControl
 
         ApplyChartChrome(plot);
 
+        // 静态图缺 hover：海报直接把峰值写进图上（ShowPeakAnnotation 默认 false，既有页面不变）
+        PeakAnnotationText = null;
+        if (ShowPeakAnnotation && !IsEffectivelyEmpty(DailyPoints))
+        {
+            var annotation = BuildPeakAnnotation();
+            if (annotation is not null)
+            {
+                var text = plot.Add.Annotation(annotation.Value.Text, Alignment.UpperLeft);
+                text.LabelFontSize = (float)(11f * ChartFontScale);
+                PeakAnnotationText = annotation.Value.Text;
+            }
+        }
+
         // 共享 hover 视觉：crosshair 准星画在图内（ScottPlot plottable），tooltip 走 Avalonia
         // 浮层（HoverTip，见 ShowHoverAt / TickTipInterpolation），此处随重建一并归位
         _crosshair = plot.Add.Crosshair(0, 0);
@@ -292,6 +323,54 @@ public partial class TrendChart : UserControl
     /// I-032 Web 观感：只有水平主网格（纵向网格关）、无边框、无刻度须；底部留极小边距——面积填充
     /// 与零值线段贴近下缘，同时让 y 轴「0」刻度与首个月份标签错开不重叠。
     /// </summary>
+    /// <summary>
+    /// 峰值标注文本：按当前形态取"最大那一点"的日期/小时与格式化数值。
+    /// 日形态取 HasData 的最大 TotalTokens 或最大已知成本；小时形态取最大桶。
+    /// </summary>
+    private (string Text, Coordinates At)? BuildPeakAnnotation()
+    {
+        if (Mode is TrendChartMode.DailyTokens or TrendChartMode.CostUsd)
+        {
+            var points = DailyPoints;
+            if (points is null || points.Count == 0)
+            {
+                return null;
+            }
+
+            if (Mode == TrendChartMode.DailyTokens)
+            {
+                var peak = points.Where(p => p.HasData).OrderByDescending(p => p.TotalTokens).FirstOrDefault();
+                if (peak is null)
+                {
+                    return null;
+                }
+
+                var label = DateLabel(peak.Day) + " · " + FormatCompactTokens(peak.TotalTokens);
+                return (label, new Coordinates(0, 0));
+            }
+
+            var costPeak = points
+                .Where(p => p.HasData && p.Cost.KnownCostUsd is not null)
+                .OrderByDescending(p => p.Cost.KnownCostUsd!.Value)
+                .FirstOrDefault();
+            if (costPeak is null)
+            {
+                return null;
+            }
+
+            var costLabel = DateLabel(costPeak.Day) + " · " +
+                            costPeak.Cost.KnownCostUsd!.Value.ToString("C2", CultureInfo.CurrentCulture);
+            return (costLabel, new Coordinates(0, 0));
+        }
+
+        return null;
+    }
+
+    private static string DateLabel(string day) =>
+        DateTime.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)
+            ? dt.ToString("MM.dd", CultureInfo.InvariantCulture)
+            : day;
+
     private void ApplyChartChrome(Plot plot)
     {
         // 透明背景：让 Avalonia 侧的卡片渐变（AppCardBackgroundBrush）透出来
