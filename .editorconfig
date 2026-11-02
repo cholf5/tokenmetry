@@ -1,0 +1,12 @@
+root = true
+
+[*]
+# Avalonia XAML 编译器诊断定级。AVLN5001 = XAML 用了过时/实验性 API。
+# 为什么不靠 TreatWarningsAsErrors:Avalonia.Build.Tasks 直接调 IBuildEngine
+# 的 LogWarningEvent 原始事件 API,绕过了 TaskLoggingHelper 里
+# TreatWarningsAsErrors → error 的升级逻辑,所以该属性对 AVLN 警告无效
+# (Avalonia 源码注释声称"MSBuild 会做其余的事",与实际行为不符)。
+# 唯一生效通道就是这里:XamlCompilerDiagnosticsFilter 只认
+# `avalonia_xaml_diagnostic.<code>.severity`,不认 dotnet_diagnostic 前缀;
+# 可选值 error / warning / default / none。
+avalonia_xaml_diagnostic.AVLN5001.severity = error
