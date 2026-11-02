@@ -529,17 +529,19 @@
             <Border x:Name="TrayCard" Classes="panel tray-card">
                 <StackPanel>
 
-                    <!-- 头部：品牌 + 日期 -->
+                    <!-- 头部：品牌领印（Logo 在左，字标 + 日期在右两行共用一个左边界），
+                         与多日页头同一排版理由：右对齐的日期在卡内没有第二个右锚点，
+                         跟下方三格、构成条的左边界全都对不上。 -->
                     <Border Classes="tray-header" Height="96">
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="15">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
                             <Border Grid.Column="0" Classes="tray-logo" VerticalAlignment="Center">
                                 <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"
                                        Width="38" Height="38"/>
                             </Border>
-                            <TextBlock Grid.Column="1" Classes="tray-brand" Text="Tokenmetry"
-                                       VerticalAlignment="Center" Margin="9,0,0,0"/>
-                            <TextBlock Grid.Column="3" Classes="tray-date" Text="{Binding SingleDayDateText}"
-                                       VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
+                                <TextBlock Classes="tray-brand" Text="Tokenmetry"/>
+                                <TextBlock Classes="tray-date" Text="{Binding SingleDayDateText}"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
