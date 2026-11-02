@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
@@ -19,7 +18,8 @@ namespace Tokenmetry.App.Tray;
 
 /// <summary>
 /// A-0 托盘常驻（v0.5 规格 docs/plans/2026-10-11-opinionated-usage-stats-pivot.md §5）：
-/// 图标常驻，tooltip 展示今日成本；菜单 = 打开主窗 / 立即刷新 / 设置 / 检查更新 / 退出。
+/// 图标常驻，tooltip 两行 = 产品名 + 今日摘要（tokens/成本/缓存命中，TrayTooltipBuilder）；
+/// 菜单 = 打开主窗 / 立即刷新 / 设置 / 检查更新 / 退出。
 /// <para><b>双轨（D-016 升级台阶，用户拍板"点图标直接弹层"后实施）</b>：macOS 生产路径经
 /// <see cref="MacTrayInterop"/> 自管 NSStatusItem——左键 Toggle 弹层、右键弹原生菜单（Avalonia 的
 /// TrayIcon.Clicked 在 macOS 从不 raise，官方文档 + trayicon.mm 留证）；安装失败自动回落 Avalonia
@@ -70,8 +70,8 @@ public class TrayService
     public void Initialize()
     {
         // 托盘为应用级常驻：订阅语言切换信号重译菜单（NativeMenuItem.Header / NSMenuItem.title
-        // 都不支持绑定，只能命令式改写；tooltip 成本串由 UpdateToolTip/BuildCostText 实时取串，仅
-        // Avalonia 路径真实显示）。
+        // 都不支持绑定，只能命令式改写；tooltip 全文由 UpdateToolTip/BuildTooltipText 实时重建，
+        // 两条托盘路径（interop / Avalonia）同源。
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
 
         if (!TryInstallMacInteropTray())
@@ -79,11 +79,11 @@ public class TrayService
             InstallAvaloniaTrayIcon();
         }
 
-        // 今日成本联动：KPI 更新（含首轮刷新）即回写 tooltip（Avalonia 路径的成本出口）
+        // 今日摘要联动：KPI 更新（含首轮刷新）即回写 tooltip（两条托盘路径共用的出口）
         if (_dashboard != null)
         {
             _dashboard.PropertyChanged += OnDashboardPropertyChanged;
-            UpdateToolTip(BuildCostText(_dashboard.TodayCostUsd, _dashboard.HasData));
+            UpdateToolTip(BuildTooltipText());
         }
 
         // I-039 更新检查联动：设置页 / 启动静默周检查完，托盘「检查更新」项标题就地翻状态。
@@ -162,7 +162,7 @@ public class TrayService
         _trayIcon = new TrayIcon
         {
             IsVisible = true,
-            ToolTipText = BuildTooltip(),
+            ToolTipText = BuildTooltipText(),
             Icon = CreateIcon(),
             Menu = new NativeMenu
             {
@@ -203,7 +203,21 @@ public class TrayService
         return memory.ToArray();
     }
 
-    private string BuildTooltip() => Translations.Instance.TrayTooltip;
+    /// <summary>tooltip 全文（两条托盘路径同源）：首行产品名（TrayTooltip），次行今日摘要
+    /// （tokens/成本/缓存命中，TrayTooltipBuilder）；无 dashboard 的降级构造只有产品名单行。</summary>
+    private string BuildTooltipText()
+    {
+        if (_dashboard is null)
+        {
+            return Translations.Instance.TrayTooltip;
+        }
+
+        return string.Join("\n", TrayTooltipBuilder.BuildLines(
+            _dashboard.HasData,
+            _dashboard.TodayTokens,
+            _dashboard.TodayCostUsd,
+            _dashboard.TodayCacheReadShare));
+    }
 
     /// <summary>语言切换重译：就地更新各菜单项标题 + tooltip（tooltip 按当前数据态取成本串，仅
     /// Avalonia 路径真实显示）。
@@ -220,7 +234,7 @@ public class TrayService
         {
             RunOnUIThread(() =>
             {
-                MacTrayInterop.SetTooltip(BuildTooltip());
+                MacTrayInterop.SetTooltip(BuildTooltipText());
                 if (_macItems is { } items)
                 {
                     WriteMacItemTitles(items);
@@ -261,11 +275,7 @@ public class TrayService
 
         if (_dashboard != null)
         {
-            UpdateToolTip(BuildCostText(_dashboard.TodayCostUsd, _dashboard.HasData));
-        }
-        else
-        {
-            UpdateToolTip(BuildTooltip());
+            UpdateToolTip(BuildTooltipText());
         }
     }
 
@@ -283,9 +293,10 @@ public class TrayService
 
         if (_macInterop)
         {
-            // Cocoa 调用必须主线程（上面已保证；此分支保留原兜底语义，UI 线程上 RunOnUIThread 就地执行）。
-            // interop 路径 tooltip 恒为产品名（成本串只喂 Avalonia 路径的 ToolTipText）。
-            RunOnUIThread(() => MacTrayInterop.SetTooltip(BuildTooltip()));
+            // Cocoa 调用必须主线程（上面已保证）：interop 路径同样吃全文 tooltip——
+            // 旧实现在此强制回产品名（成本串只喂 Avalonia 路径），macOS 真机 hover
+            // 永远无摘要；两行摘要文案随本调用透传到 NSStatusItem。
+            MacTrayInterop.SetTooltip(tooltip);
             return;
         }
 
@@ -370,17 +381,14 @@ public class TrayService
 
     private void OnDashboardPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(DashboardViewModel.TodayCostUsd) or nameof(DashboardViewModel.HasData))
+        if (e.PropertyName is nameof(DashboardViewModel.TodayCostUsd)
+            or nameof(DashboardViewModel.TodayTokens)
+            or nameof(DashboardViewModel.TodayCacheReadShare)
+            or nameof(DashboardViewModel.HasData))
         {
-            UpdateToolTip(BuildCostText(_dashboard!.TodayCostUsd, _dashboard.HasData));
+            UpdateToolTip(BuildTooltipText());
         }
     }
-
-    /// <summary>今日成本文案（tooltip；调用方保证不变量已检查）。</summary>
-    private static string BuildCostText(decimal todayCostUsd, bool hasData)
-        => hasData
-            ? string.Format(Translations.Instance.TrayCostFormat, todayCostUsd.ToString("F2", CultureInfo.InvariantCulture))
-            : Translations.Instance.TrayCostNoData;
 
     /// <summary>interop 菜单按安装序号全量重写标题（语言切换重译的循环形态）。
     /// 分隔线必须跳过：其 Title 恒为 null（BuildMacTrayItems 以 null! 占位，无标题可写），

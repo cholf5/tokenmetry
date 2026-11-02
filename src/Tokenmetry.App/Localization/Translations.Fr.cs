@@ -96,8 +96,8 @@ public sealed partial class Translations
 
         // ── Zone de notification (tray) ──
         [nameof(TrayTooltip)] = "Tokenmetry — suivi des coûts de tokens",
-        [nameof(TrayCostFormat)] = "Coût du jour : ${0:F2}",
-        [nameof(TrayCostNoData)] = "Coût du jour : — (pas encore de données)",
+        [nameof(TrayTodaySummaryFormat)] = "Aujourd’hui : {0} tok, coût {1}, accès au cache {2}",
+        [nameof(TrayTodayNoData)] = "Aujourd’hui : — (pas encore de données)",
         [nameof(TrayOpenWindow)] = "Ouvrir la fenêtre",
         [nameof(TrayRefreshNow)] = "Actualiser maintenant",
         [nameof(TraySettings)] = "Paramètres",

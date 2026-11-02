@@ -96,8 +96,8 @@ public sealed partial class Translations
 
         // ── Bandeja ──
         [nameof(TrayTooltip)] = "Tokenmetry — monitor de custo de tokens",
-        [nameof(TrayCostFormat)] = "Custo hoje: ${0:F2}",
-        [nameof(TrayCostNoData)] = "Custo hoje: — (sem dados)",
+        [nameof(TrayTodaySummaryFormat)] = "Hoje: {0} tok, custo {1}, acerto de cache {2}",
+        [nameof(TrayTodayNoData)] = "Hoje: — (sem dados)",
         [nameof(TrayOpenWindow)] = "Abrir janela",
         [nameof(TrayRefreshNow)] = "Atualizar agora",
         [nameof(TraySettings)] = "Configurações",

@@ -52,6 +52,37 @@ public class DashboardServiceTests
     }
 
     [Fact]
+    public void Today_cache_read_share_is_cache_read_over_total_tokens()
+    {
+        // 口径同 UsageQueryService 的 CacheReadShare（缓存读 / 总 token，4 位舍入的 0~1 份额）。
+        var rows = new List<DailyUsageSummary>
+        {
+            new() { Date = "2026-01-10", TotalTokens = 1000, CacheReadTokens = 983 }
+        };
+
+        var dashboard = _service.BuildDashboard(rows);
+
+        dashboard.TodayCacheReadShare.Should().Be(0.983m);
+    }
+
+    [Fact]
+    public void Today_cache_read_share_is_null_without_today_row_or_zero_tokens()
+    {
+        var noTodayRow = _service.BuildDashboard(new List<DailyUsageSummary>
+        {
+            new() { Date = "2026-01-09", TotalTokens = 500, CacheReadTokens = 500 }
+        });
+
+        var zeroTokens = _service.BuildDashboard(new List<DailyUsageSummary>
+        {
+            new() { Date = "2026-01-10", TotalTokens = 0, CacheReadTokens = 0 }
+        });
+
+        noTodayRow.TodayCacheReadShare.Should().BeNull();
+        zeroTokens.TodayCacheReadShare.Should().BeNull();
+    }
+
+    [Fact]
     public void Historical_data_sets_latest_day_and_all_time_totals()
     {
         var rows = new List<DailyUsageSummary>

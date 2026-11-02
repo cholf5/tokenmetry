@@ -96,8 +96,8 @@ public sealed partial class Translations
 
         // ── トレイ ──
         [nameof(TrayTooltip)] = "Tokenmetry — Token コスト監視",
-        [nameof(TrayCostFormat)] = "今日のコスト：${0:F2}",
-        [nameof(TrayCostNoData)] = "今日のコスト：—（データなし）",
+        [nameof(TrayTodaySummaryFormat)] = "今日: {0} tok, コスト {1}, キャッシュヒット {2}",
+        [nameof(TrayTodayNoData)] = "今日: —（データなし）",
         [nameof(TrayOpenWindow)] = "メインウィンドウを開く",
         [nameof(TrayRefreshNow)] = "今すぐ更新",
         [nameof(TraySettings)] = "設定",

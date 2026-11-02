@@ -27,6 +27,9 @@ public class DashboardService
         {
             TodayCostUsd = todayRow?.TotalCostUsd ?? 0,
             TodayTokens = todayRow?.TotalTokens ?? 0,
+            TodayCacheReadShare = todayRow is { TotalTokens: > 0 }
+                ? Math.Round((decimal)todayRow.CacheReadTokens / todayRow.TotalTokens, 4)
+                : null,
             WeekCostUsd = rows.Where(r => last7Days.Contains(r.Date)).Sum(r => r.TotalCostUsd),
             MonthCostUsd = rows.Where(r => r.Date.StartsWith(monthPrefix)).Sum(r => r.TotalCostUsd),
             LatestDataDate = latestRow?.Date ?? string.Empty,
