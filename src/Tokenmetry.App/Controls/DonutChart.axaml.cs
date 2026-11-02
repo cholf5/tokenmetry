@@ -79,6 +79,13 @@ public partial class DonutChart : UserControl
     public static readonly StyledProperty<double> RingThicknessProperty =
         AvaloniaProperty.Register<DonutChart, double>(nameof(RingThickness), 13d);
 
+    /// <summary>
+    /// 是否播放扫入动画（默认 true = 既有页面行为）。海报导出走离屏渲染，DispatcherTimer 不跑，
+    /// 扫入起点弧长恒为 0 会导出空环——海报显式设为 false 直接取终态几何。
+    /// </summary>
+    public static readonly StyledProperty<bool> AnimateSweepProperty =
+        AvaloniaProperty.Register<DonutChart, bool>(nameof(AnimateSweep), true);
+
     public DonutChart()
     {
         InitializeComponent();
@@ -99,6 +106,7 @@ public partial class DonutChart : UserControl
         CenterSubtitleProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.Rebuild());
         DonutSizeProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.Rebuild());
         RingThicknessProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.Rebuild());
+        AnimateSweepProperty.Changed.AddClassHandler<DonutChart>((c, _) => c.Rebuild());
 
         // 主题变体变化影响空态环/中心文字颜色（DynamicResource 自动），弧段色为系列色（不翻转），
         // 但 Light/Dark 下 EmptyRing 画刷实例不同——这里无需手工重建，仅需尺寸类重建走属性回调。
@@ -185,6 +193,13 @@ public partial class DonutChart : UserControl
     {
         get => GetValue(RingThicknessProperty);
         set => SetValue(RingThicknessProperty, value);
+    }
+
+    /// <summary>是否播放扫入动画；海报离屏渲染须置 false（见 AnimateSweepProperty）。</summary>
+    public bool AnimateSweep
+    {
+        get => GetValue(AnimateSweepProperty);
+        set => SetValue(AnimateSweepProperty, value);
     }
 
     private void OnSegmentsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => Rebuild();
@@ -288,7 +303,7 @@ public partial class DonutChart : UserControl
 
         // 扫入签名（motion design）：段值序列未变（语言切换重译等）不重播动画
         var signature = string.Join("|", segments.Select(s => s.Value.ToString("R", CultureInfo.InvariantCulture)));
-        var animate = signature != _lastSweepSignature;
+        var animate = AnimateSweep && signature != _lastSweepSignature;
         _lastSweepSignature = signature;
 
         var sweepPaths = new List<(Avalonia.Controls.Shapes.Path Path, double Start, double Final)>();

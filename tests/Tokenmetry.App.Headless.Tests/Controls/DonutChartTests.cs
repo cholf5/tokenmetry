@@ -527,4 +527,39 @@ public class DonutChartTests
         window.Close();
         Dispatcher.UIThread.RunJobs();
     }
+
+    // ── I-0xx 海报导出：禁用扫入动画 ──
+
+    /// <summary>
+    /// 海报导出走离屏渲染，DispatcherTimer 不跑 —— 扫入动画的起点弧长恒为 0，
+    /// 导出的环形图会是空的。AnimateSweep=false 必须让弧段直接取终态几何。
+    /// </summary>
+    [AvaloniaFact]
+    public void Animate_sweep_off_renders_final_arcs_immediately()
+    {
+        var chart = new DonutChart
+        {
+            Segments = FiveSegments(),
+            DonutSize = 160,
+            AnimateSweep = false,
+        };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var drawn = chart.GetVisualDescendants()
+            .OfType<Avalonia.Controls.Shapes.Path>()
+            .Where(p => p.Data is not null)
+            .Select(p => p.Data!.Bounds)
+            .Count(b => b.Width > 1 && b.Height > 1);
+
+        Assert.Equal(5, drawn);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Animate_sweep_defaults_to_true()
+    {
+        // 既有页面依赖扫入动画，默认值必须是 true —— 海报是显式关闭的那一方。
+        Assert.True(new DonutChart().AnimateSweep);
+    }
 }
