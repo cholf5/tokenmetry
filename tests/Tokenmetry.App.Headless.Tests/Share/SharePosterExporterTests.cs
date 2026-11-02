@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -37,6 +38,65 @@ public class SharePosterExporterTests
     {
         var request = Request(new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2));
         Assert.Equal("tokenmetry-20260128-20261102.png", SharePosterExporter.FileName(request));
+    }
+
+    [AvaloniaFact]
+    public async System.Threading.Tasks.Task Clipboard_round_trip_returns_the_same_bitmap()
+    {
+        // 位图生命周期回归锁：剪贴板在 Windows/X11 上是延迟提供，调用返回即 Dispose 会让粘贴为空。
+        // headless 剪贴板读回路径能抓到「贴出去的是空位图」这类错误。
+        var window = new Window { Width = 64, Height = 64 };
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var clipboard = window.Clipboard;
+        Assert.NotNull(clipboard);
+
+        using var source = new Avalonia.Media.Imaging.RenderTargetBitmap(
+            new PixelSize(32, 16), new Vector(96, 96));
+        var ok = await SharePosterExporter.CopyToClipboardAsync(clipboard, source);
+
+        Assert.True(ok, "headless 剪贴板应支持位图");
+        var pasted = await clipboard!.TryGetBitmapAsync();
+        Assert.NotNull(pasted);
+        Assert.Equal(32, pasted!.PixelSize.Width);
+        Assert.Equal(16, pasted.PixelSize.Height);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Single_day_poster_exports_at_the_tray_size()
+    {
+        // 托盘卡片按内容高度排（竖直方向不铺满宿主），导出尺寸必须等于托盘根的实际版面
+        var day = new DateOnly(2026, 10, 17);
+        var data = SharePosterSnapshot.Build(
+            Request(day, day),
+            ChartTestHelpers.DailyPoints30(),
+            [new DimensionUsageRow { Key = "ZCode", TotalTokens = 1_000_000, Cost = new AggregatedCost(1m, false) }],
+            [new DimensionUsageRow { Key = "glm-5.3-flash", TotalTokens = 1_000_000, Cost = new AggregatedCost(1m, false) }],
+            [new DimensionUsageRow { Key = "Zearth", TotalTokens = 1_000_000, Cost = new AggregatedCost(1m, false) }],
+            sessionCount: 12);
+
+        var view = new SharePosterView { DataContext = new SharePosterViewModel(data) };
+        var window = new Window
+        {
+            Width = 1120,
+            Height = 1700,
+            Content = view,
+            RequestedThemeVariant = ThemeVariant.Dark,
+            Background = Brushes.Black,
+        };
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var root = (Border)view.PosterRootControl;
+        Assert.True(root.Name == "TrayRoot", "单日导出应对托盘根光栅化");
+        Assert.True(root.Bounds.Height < 1200, $"托盘卡片应按内容高度排版，实测 {root.Bounds.Height}");
+        using var bitmap = SharePosterExporter.Render(root);
+        Assert.Equal((int)Math.Round(root.Bounds.Width * 2), bitmap.PixelSize.Width);
+        Assert.Equal((int)Math.Round(root.Bounds.Height * 2), bitmap.PixelSize.Height);
+
+        window.Close();
     }
 
     [AvaloniaFact]

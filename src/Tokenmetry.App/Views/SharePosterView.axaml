@@ -126,12 +126,151 @@
             <Setter Property="CenterTitleFontSize" Value="25"/>
             <Setter Property="CenterSubtitleFontSize" Value="12"/>
         </Style>
+
+        <!-- ── 单日托盘基底（设计 §3.1：状态栏信息窗的印刷版；固定 1080 竖版，不提供横置）── -->
+        <Style Selector="Border.tray-root">
+            <Setter Property="Padding" Value="44"/>
+        </Style>
+        <Style Selector="Border.tray-card">
+            <Setter Property="CornerRadius" Value="26"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="ClipToBounds" Value="True"/>
+        </Style>
+        <Style Selector="Border.tray-header">
+            <Setter Property="Padding" Value="32,0"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+        <Style Selector="Border.tray-logo">
+            <Setter Property="Width" Value="52"/>
+            <Setter Property="Height" Value="52"/>
+            <Setter Property="CornerRadius" Value="13"/>
+            <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-brand">
+            <Setter Property="FontSize" Value="26"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-0.3"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-date">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="LetterSpacing" Value="0.8"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-k">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-v">
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="FontSize" Value="42"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-1"/>
+            <Setter Property="Margin" Value="0,8,0,7"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-s">
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="Border.tray-segbar">
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Background" Value="{DynamicResource AppMiniTrackBrush}"/>
+            <Setter Property="ClipToBounds" Value="True"/>
+        </Style>
+        <Style Selector="Border.tray-seg-first">
+            <Setter Property="CornerRadius" Value="9,0,0,9"/>
+        </Style>
+        <Style Selector="Border.tray-seg-last">
+            <Setter Property="CornerRadius" Value="0,9,9,0"/>
+        </Style>
+        <Style Selector="Border.tray-segcard">
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="TextBlock.tray-card-h">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-card-v">
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="FontSize" Value="26"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="-0.4"/>
+            <Setter Property="Margin" Value="0,10,0,6"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-card-s">
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="Border.tray-divider">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Margin" Value="0,28,0,20"/>
+            <Setter Property="Background" Value="{DynamicResource AppLineBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-section">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-section-meta">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="Border.tray-row">
+            <Setter Property="Padding" Value="12,0"/>
+        </Style>
+        <Style Selector="TextBlock.tray-name">
+            <Setter Property="FontSize" Value="19"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-num">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.tray-sub">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Margin" Value="0,3,0,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <!-- 托盘 48px 品牌槽（信息窗的近距离尺度；伪类/令牌机制仍走 SharedStyles 的 agent-chip / model-chip） -->
+        <Style Selector="Border.tray-chip">
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.tray-chip Image.agent-logo, Border.tray-chip Image.model-logo">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+        </Style>
+        <Style Selector="Border.tray-chip PathIcon.model-fallback">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+        </Style>
+        <Style Selector="Border.tray-chip TextBlock">
+            <Setter Property="FontSize" Value="20"/>
+        </Style>
     </UserControl.Styles>
 
     <ThemeVariantScope x:Name="ThemeScope">
+      <Panel>
         <!-- 宽度由 code-behind 按版式给（竖版 1080 / 横版 1800），导出按它 2× 光栅化 -->
         <Border x:Name="PosterRoot"
                 Classes="poster-root"
+                IsVisible="{Binding !IsSingleDay}"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Left"
                 Background="{DynamicResource AppBackgroundBrush}">
             <StackPanel Spacing="14">
 
@@ -352,5 +491,179 @@
                 </StackPanel>
             </StackPanel>
         </Border>
+
+        <!-- ══ 单日托盘基底（设计 §3.1：状态栏信息窗的印刷版）══
+             头部 + 三格 KPI + 构成条 + 构成三卡 + 主要 Agent + 模型用量。
+             刻意不画信息窗的「记录中」状态点与「单日峰值」徽标：静态海报上的运行状态是假的，
+             峰值也不一定当天就是峰值——版式沿用，声称的事实只留数据里有的。 -->
+        <Border x:Name="TrayRoot"
+                Width="1080"
+                Classes="poster-root tray-root"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Left"
+                Background="{DynamicResource AppBackgroundBrush}"
+                IsVisible="{Binding IsSingleDay}">
+            <Border x:Name="TrayCard" Classes="panel tray-card">
+                <StackPanel>
+
+                    <!-- 头部：品牌 + 日期 -->
+                    <Border Classes="tray-header" Height="96">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="15">
+                            <Border Grid.Column="0" Classes="tray-logo" VerticalAlignment="Center">
+                                <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"
+                                       Width="38" Height="38"/>
+                            </Border>
+                            <TextBlock Grid.Column="1" Classes="tray-brand" Text="Tokenmetry"
+                                       VerticalAlignment="Center" Margin="9,0,0,0"/>
+                            <TextBlock Grid.Column="3" Classes="tray-date" Text="{Binding SingleDayDateText}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Margin="32">
+
+                        <!-- 三格 KPI -->
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="22">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Classes="tray-k" Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Classes="tray-v table-num" Text="{Binding TotalTokensText}"/>
+                                <TextBlock Classes="tray-s table-num" Text="{Binding TotalTokensRawText}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Classes="tray-k" Text="{Binding KpiEstimatedCost, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Classes="tray-v table-num" Text="{Binding CostText}"/>
+                                <TextBlock Classes="tray-s" Text="{Binding KpiFootPriceEstimate, Source={x:Static loc:Translations.Instance}}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Classes="tray-k" Text="{Binding KpiCacheShare, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Classes="tray-v table-num" Text="{Binding CacheShareText}"/>
+                                <TextBlock Classes="tray-s" Text="{Binding KpiFootCacheOfInput, Source={x:Static loc:Translations.Instance}}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- 构成条（列宽由 code-behind 按三段 token 比例给） -->
+                        <Border Classes="tray-segbar" Margin="0,30,0,16">
+                            <Grid x:Name="TrayTypeBar" ColumnDefinitions="*,*,*">
+                                <Border Grid.Column="0" Classes="tray-seg-first"
+                                        Background="{DynamicResource AppTokenTypeInputBrush}"/>
+                                <Border Grid.Column="1"
+                                        Background="{DynamicResource AppTokenTypeOutputBrush}"/>
+                                <Border Grid.Column="2" Classes="tray-seg-last"
+                                        Background="{DynamicResource AppTokenTypeCacheBrush}"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- 构成三卡（三段之和的分母，与环形同口径） -->
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12" IsVisible="{Binding HasTrayTypes}">
+                            <Border Grid.Column="0" Classes="tray-segcard">
+                                <StackPanel>
+                                    <TextBlock Classes="tray-card-h" Text="{Binding TrayTypes[0].Label}"/>
+                                    <TextBlock Classes="tray-card-v table-num" Text="{Binding TrayTypes[0].ValueText}"/>
+                                    <TextBlock Classes="tray-card-s table-num" Text="{Binding TrayTypes[0].ShareText}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Classes="tray-segcard">
+                                <StackPanel>
+                                    <TextBlock Classes="tray-card-h" Text="{Binding TrayTypes[1].Label}"/>
+                                    <TextBlock Classes="tray-card-v table-num" Text="{Binding TrayTypes[1].ValueText}"/>
+                                    <TextBlock Classes="tray-card-s table-num" Text="{Binding TrayTypes[1].ShareText}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Classes="tray-segcard">
+                                <StackPanel>
+                                    <TextBlock Classes="tray-card-h" Text="{Binding TrayTypes[2].Label}"/>
+                                    <TextBlock Classes="tray-card-v table-num" Text="{Binding TrayTypes[2].ValueText}"/>
+                                    <TextBlock Classes="tray-card-s table-num" Text="{Binding TrayTypes[2].ShareText}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Classes="tray-divider"/>
+
+                        <!-- 主要 Agent（Top4） -->
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                            <TextBlock Classes="tray-section"
+                                       Text="{Binding SharePosterTrayAgents, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Grid.Column="1" Classes="tray-section-meta"
+                                       Text="{Binding SharePosterTrayByTokens, Source={x:Static loc:Translations.Instance}}"/>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding TrayAgentRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SharePosterTrayRow">
+                                    <Border Classes="tray-row">
+                                        <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="16">
+                                            <Border Grid.Column="0" Classes="agent-chip agent-chip-lg tray-chip"
+                                                    c:AgentChip.Logo="{Binding AgentVendor}"
+                                                    IsVisible="{Binding IsAgent}"
+                                                    VerticalAlignment="Center">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding AgentGlyph}"/>
+                                                    <Image Classes="agent-logo"/>
+                                                </Panel>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
+                                                <TextBlock Classes="tray-name" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                <ProgressBar Classes="mini" Height="5" Value="{Binding BarValue}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                <TextBlock Classes="tray-num table-num" Text="{Binding TokensText}" HorizontalAlignment="Right"/>
+                                                <TextBlock Classes="tray-sub table-num" Text="{Binding CostText}" HorizontalAlignment="Right"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
+                                   IsVisible="{Binding !HasTrayAgents}"/>
+
+                        <Border Classes="tray-divider"/>
+
+                        <!-- 模型用量（Top3） -->
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                            <TextBlock Classes="tray-section"
+                                       Text="{Binding SharePosterTrayModels, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Grid.Column="1" Classes="tray-section-meta"
+                                       Text="{Binding SharePosterTrayByTokens, Source={x:Static loc:Translations.Instance}}"/>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding TrayModelRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SharePosterTrayRow">
+                                    <Border Classes="tray-row">
+                                        <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="16">
+                                            <Border Grid.Column="0" Classes="model-chip model-chip-lg tray-chip"
+                                                    c:ModelChip.Avatar="{Binding Avatar}"
+                                                    IsVisible="{Binding HasModelIcon}"
+                                                    VerticalAlignment="Center">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Avatar.GlyphText}"/>
+                                                    <Image Classes="model-logo"/>
+                                                    <Image Classes="model-avatar"
+                                                           Source="{Binding Avatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
+                                                    <PathIcon Classes="app-icon model-fallback"
+                                                              Data="{StaticResource AppIconCircleHelp}"/>
+                                                </Panel>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
+                                                <TextBlock Classes="tray-name" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                <ProgressBar Classes="mini" Height="5" Value="{Binding BarValue}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                <TextBlock Classes="tray-num table-num" Text="{Binding TokensText}" HorizontalAlignment="Right"/>
+                                                <TextBlock Classes="tray-sub table-num" Text="{Binding CostText}" HorizontalAlignment="Right"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}"
+                                   IsVisible="{Binding !HasTrayModels}"/>
+
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+      </Panel>
     </ThemeVariantScope>
 </UserControl>

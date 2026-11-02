@@ -489,5 +489,8 @@ public sealed partial class Translations
         [nameof(SharePosterDayCountFormat)] = "{0} 個有記錄的天",
         [nameof(SharePosterCopyFailedFormat)] = "複製失敗：{0}",
         [nameof(SharePosterSingleDayPortraitOnly)] = "單日視窗只提供直式：橫置需要重排資訊流。",
+        [nameof(SharePosterTrayAgents)] = "主要 Agent",
+        [nameof(SharePosterTrayModels)] = "模型用量",
+        [nameof(SharePosterTrayByTokens)] = "按今日 Token",
     };
 }

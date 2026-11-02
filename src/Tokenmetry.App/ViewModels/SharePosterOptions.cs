@@ -29,6 +29,18 @@ public sealed class SharePosterOption : ObservableObject
     /// <summary>当前语言下的显示文案（每次取都读最新字典）。</summary>
     public string Label => _label();
 
+    private bool _isSelected;
+
+    /// <summary>
+    /// 生成对话框的分段控件选中态（RadioButton 双向绑定）。只有对话框自己创建的选项实例会用到；
+    /// 设置页共享的静态实例从不读写它——否则设置页与对话框会互相改选中态。
+    /// </summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
+
     public void RefreshLabel() => OnPropertyChanged(nameof(Label));
 }
 
@@ -55,6 +67,29 @@ public static class SharePosterOptions
 
     /// <summary>项目名雾化：显示（默认）/ 局部 / 全部。</summary>
     public static IReadOnlyList<SharePosterOption> Masks { get; } =
+    [
+        new("off", () => Translations.Instance.SharePosterMaskOff),
+        new("partial", () => Translations.Instance.SharePosterMaskPartial),
+        new("full", () => Translations.Instance.SharePosterMaskFull),
+    ];
+
+    /// <summary>生成对话框专用：每次打开新建一批实例（带独立 IsSelected，不与设置页共享选中态）。</summary>
+    public static IReadOnlyList<SharePosterOption> CreateLayouts() =>
+    [
+        new("portrait", () => Translations.Instance.SharePosterLayoutPortrait),
+        new("landscape", () => Translations.Instance.SharePosterLayoutLandscape),
+    ];
+
+    /// <summary>生成对话框专用（理由同 <see cref="CreateLayouts"/>）。</summary>
+    public static IReadOnlyList<SharePosterOption> CreateThemes() =>
+    [
+        new("app", () => Translations.Instance.SharePosterThemeApp),
+        new("dark", () => Translations.Instance.SharePosterThemeDark),
+        new("light", () => Translations.Instance.SharePosterThemeLight),
+    ];
+
+    /// <summary>生成对话框专用（理由同 <see cref="CreateLayouts"/>）。</summary>
+    public static IReadOnlyList<SharePosterOption> CreateMasks() =>
     [
         new("off", () => Translations.Instance.SharePosterMaskOff),
         new("partial", () => Translations.Instance.SharePosterMaskPartial),

@@ -489,5 +489,8 @@ public sealed partial class Translations
         [nameof(SharePosterDayCountFormat)] = "기록이 있는 날 {0}일",
         [nameof(SharePosterCopyFailedFormat)] = "복사 실패: {0}",
         [nameof(SharePosterSingleDayPortraitOnly)] = "하루 창은 세로만 제공합니다. 가로로 돌리려면 정보 흐름을 다시 짜야 합니다.",
+        [nameof(SharePosterTrayAgents)] = "주요 에이전트",
+        [nameof(SharePosterTrayModels)] = "모델 사용량",
+        [nameof(SharePosterTrayByTokens)] = "오늘 Token 기준",
     };
 }

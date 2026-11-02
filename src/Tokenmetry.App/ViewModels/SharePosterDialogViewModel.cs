@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Tokenmetry.Core.Models;
 
 namespace Tokenmetry.App.ViewModels;
@@ -44,9 +45,17 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
             _layout = SharePosterLayout.Portrait;
         }
 
-        _selectedLayout = SharePosterOptions.ForLayout(_layout);
-        _selectedTheme = SharePosterOptions.ForTheme(_theme);
-        _selectedMask = SharePosterOptions.ForMask(_mask);
+        // 对话框自带一批选项实例（带独立 IsSelected，分段控件的 RadioButton 直接双向绑定它）
+        LayoutOptions = SharePosterOptions.CreateLayouts();
+        ThemeOptions = SharePosterOptions.CreateThemes();
+        MaskOptions = SharePosterOptions.CreateMasks();
+        _selectedLayout = LayoutOptions.First(o => o.Value == SharePosterOptions.KeyOf(_layout));
+        _selectedTheme = ThemeOptions.First(o => o.Value == SharePosterOptions.KeyOf(_theme));
+        _selectedMask = MaskOptions.First(o => o.Value == SharePosterOptions.KeyOf(_mask));
+        WireSelection(LayoutOptions, o => Layout = SharePosterOptions.ParseLayout(o.Value));
+        WireSelection(ThemeOptions, o => Theme = SharePosterOptions.ParseTheme(o.Value));
+        WireSelection(MaskOptions, o => ProjectMask = SharePosterOptions.ParseMask(o.Value));
+        SyncSelection();
 
         Preview = Build();
     }
@@ -60,11 +69,45 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     /// <summary>单日窗口的说明行（版式被锁竖版时显示，告诉用户为什么而不是静默禁用）。</summary>
     public bool ShowSingleDayNotice => !CanChooseLandscape;
 
-    public IReadOnlyList<SharePosterOption> LayoutOptions => SharePosterOptions.Layouts;
+    public IReadOnlyList<SharePosterOption> LayoutOptions { get; }
 
-    public IReadOnlyList<SharePosterOption> ThemeOptions => SharePosterOptions.Themes;
+    public IReadOnlyList<SharePosterOption> ThemeOptions { get; }
 
-    public IReadOnlyList<SharePosterOption> MaskOptions => SharePosterOptions.Masks;
+    public IReadOnlyList<SharePosterOption> MaskOptions { get; }
+
+    /// <summary>分段控件：某一项被选中（RadioButton 勾上）时回写对应枚举。</summary>
+    private static void WireSelection(IReadOnlyList<SharePosterOption> options, Action<SharePosterOption> onSelected)
+    {
+        foreach (var option in options)
+        {
+            option.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(SharePosterOption.IsSelected) && option.IsSelected)
+                {
+                    onSelected(option);
+                }
+            };
+        }
+    }
+
+    /// <summary>枚举 → 分段控件选中态（选项被程序化改动时同步，如单日强制竖版）。</summary>
+    private void SyncSelection()
+    {
+        foreach (var option in LayoutOptions)
+        {
+            option.IsSelected = option.Value == SharePosterOptions.KeyOf(_layout);
+        }
+
+        foreach (var option in ThemeOptions)
+        {
+            option.IsSelected = option.Value == SharePosterOptions.KeyOf(_theme);
+        }
+
+        foreach (var option in MaskOptions)
+        {
+            option.IsSelected = option.Value == SharePosterOptions.KeyOf(_mask);
+        }
+    }
 
     public SharePosterOption SelectedLayout
     {
@@ -112,8 +155,9 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
             var next = !CanChooseLandscape ? SharePosterLayout.Portrait : value;
             if (SetProperty(ref _layout, next))
             {
-                _selectedLayout = SharePosterOptions.ForLayout(next);
+                _selectedLayout = LayoutOptions.First(o => o.Value == SharePosterOptions.KeyOf(next));
                 OnPropertyChanged(nameof(SelectedLayout));
+                SyncSelection();
                 Refresh();
             }
         }
@@ -126,8 +170,9 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         {
             if (SetProperty(ref _theme, value))
             {
-                _selectedTheme = SharePosterOptions.ForTheme(value);
+                _selectedTheme = ThemeOptions.First(o => o.Value == SharePosterOptions.KeyOf(value));
                 OnPropertyChanged(nameof(SelectedTheme));
+                SyncSelection();
                 Refresh();
             }
         }
@@ -140,8 +185,9 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         {
             if (SetProperty(ref _mask, value))
             {
-                _selectedMask = SharePosterOptions.ForMask(value);
+                _selectedMask = MaskOptions.First(o => o.Value == SharePosterOptions.KeyOf(value));
                 OnPropertyChanged(nameof(SelectedMask));
+                SyncSelection();
                 Refresh();
             }
         }

@@ -67,6 +67,18 @@ public static class SharePosterExporter
         try
         {
             await clipboard.SetBitmapAsync(bitmap);
+
+            // X11/Wayland 的剪贴板内容是「本进程持有」的：flush 才会交给剪贴板管理器，
+            // 否则进程退出/窗口关闭后粘贴为空。失败不影响已经设置成功的内容。
+            try
+            {
+                await clipboard.FlushAsync();
+            }
+            catch (Exception)
+            {
+                // 部分平台未实现 flush：忽略，不把「已复制」误报成失败
+            }
+
             return true;
         }
         catch (Exception)
