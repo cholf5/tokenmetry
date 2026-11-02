@@ -32,6 +32,58 @@ public class SettingsViewModelTests
         viewModel.SettingsFilePath.Should().Be(System.IO.Path.Combine(paths.AppDataDirectory, "settings.json"));
     }
 
+    // ---- 分享海报默认值（P5b/P7）：只决定生成对话框的起值，改完即落盘 ----
+
+    [Fact]
+    public void SharePosterDefaults_SeedFromSettingsAndFallBackOnDirtyValues()
+    {
+        var settings = new AppSettings
+        {
+            SharePosterLayout = "landscape",
+            SharePosterTheme = "light",
+            SharePosterProjectMask = "full",
+        };
+
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
+
+        viewModel.SharePosterLayoutOption.Value.Should().Be("landscape");
+        viewModel.SharePosterThemeOption.Value.Should().Be("light");
+        viewModel.SharePosterMaskOption.Value.Should().Be("full");
+        viewModel.DefaultSharePosterLayout.Should().Be(SharePosterLayout.Landscape);
+        viewModel.DefaultSharePosterTheme.Should().Be(SharePosterTheme.Light);
+        viewModel.DefaultSharePosterProjectMask.Should().Be(SharePosterProjectMask.Full);
+
+        // 手改 settings.json 的脏值：如实回落默认（不半渲染、不抛）
+        var dirty = new AppSettings
+        {
+            SharePosterLayout = "diagonal",
+            SharePosterTheme = "sepia",
+            SharePosterProjectMask = "mosaic",
+        };
+        var fallback = CreateViewModel(dirty, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
+
+        fallback.DefaultSharePosterLayout.Should().Be(SharePosterLayout.Portrait);
+        fallback.DefaultSharePosterTheme.Should().Be(SharePosterTheme.FollowApp);
+        fallback.DefaultSharePosterProjectMask.Should().Be(SharePosterProjectMask.Off);
+    }
+
+    [Fact]
+    public void SharePosterDefaults_PersistImmediately()
+    {
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store);
+
+        viewModel.SharePosterLayoutOption = SharePosterOptions.ForLayout(SharePosterLayout.Landscape);
+        viewModel.SharePosterThemeOption = SharePosterOptions.ForTheme(SharePosterTheme.Dark);
+        viewModel.SharePosterMaskOption = SharePosterOptions.ForMask(SharePosterProjectMask.Partial);
+
+        settings.SharePosterLayout.Should().Be("landscape");
+        settings.SharePosterTheme.Should().Be("dark");
+        settings.SharePosterProjectMask.Should().Be("partial");
+        store.SaveCalls.Should().BeGreaterThanOrEqualTo(3, "全自动保存：三项各自改完即落盘");
+    }
+
     // ---- I-045：采集文件日志开关 + 「打开日志文件夹」出口 ----
 
     [Fact]

@@ -8,23 +8,51 @@
         mc:Ignorable="d"
         x:Class="Tokenmetry.App.Views.SharePosterDialog"
         x:DataType="vm:SharePosterDialogViewModel"
-        Title="分享海报"
-        Width="1060" Height="920"
+        Title="{Binding SharePosterTitle, Source={x:Static loc:Translations.Instance}}"
+        Width="1100" Height="920"
         WindowStartupLocation="CenterOwner">
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
         <!-- 选项 -->
-        <StackPanel Grid.Row="0" Spacing="12" Margin="0,0,0,16">
-            <TextBlock Classes="page-title" Text="{Binding NavOverview, Source={x:Static loc:Translations.Instance}}"/>
-            <Grid ColumnDefinitions="Auto,180,Auto,180,Auto,180" ColumnSpacing="10">
-                <TextBlock Grid.Column="0" Classes="setting-label" Text="版式" VerticalAlignment="Center"/>
+        <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,16">
+            <TextBlock Classes="page-title" Text="{Binding SharePosterTitle, Source={x:Static loc:Translations.Instance}}"/>
+            <Grid ColumnDefinitions="Auto,220,Auto,220,Auto,220" ColumnSpacing="10">
+                <TextBlock Grid.Column="0" Classes="setting-label"
+                           Text="{Binding SharePosterLayout, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
                 <ComboBox Grid.Column="1" ItemsSource="{Binding LayoutOptions}"
-                          SelectedItem="{Binding Layout}" IsEnabled="{Binding CanChooseLandscape}"/>
-                <TextBlock Grid.Column="2" Classes="setting-label" Text="主题" VerticalAlignment="Center"/>
-                <ComboBox Grid.Column="3" ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding Theme}"/>
-                <TextBlock Grid.Column="4" Classes="setting-label" Text="项目名" VerticalAlignment="Center"/>
-                <ComboBox Grid.Column="5" ItemsSource="{Binding MaskOptions}" SelectedItem="{Binding ProjectMask}"/>
+                          SelectedItem="{Binding SelectedLayout}" IsEnabled="{Binding CanChooseLandscape}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SharePosterOption">
+                            <TextBlock Text="{Binding Label}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Grid.Column="2" Classes="setting-label"
+                           Text="{Binding SharePosterTheme, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="3" ItemsSource="{Binding ThemeOptions}"
+                          SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SharePosterOption">
+                            <TextBlock Text="{Binding Label}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Grid.Column="4" Classes="setting-label"
+                           Text="{Binding SharePosterMask, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="5" ItemsSource="{Binding MaskOptions}"
+                          SelectedItem="{Binding SelectedMask}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SharePosterOption">
+                            <TextBlock Text="{Binding Label}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
             </Grid>
+            <!-- 单日窗口锁竖版：说明原因，不静默禁用 -->
+            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                       Text="{Binding SharePosterSingleDayPortraitOnly, Source={x:Static loc:Translations.Instance}}"
+                       IsVisible="{Binding ShowSingleDayNotice}"/>
         </StackPanel>
 
         <!-- 预览 -->
@@ -40,9 +68,9 @@
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,16,0,0">
             <TextBlock x:Name="StatusText" Grid.Column="0" Classes="setting-hint" VerticalAlignment="Center"/>
             <Button x:Name="CopyButton" Grid.Column="1" Classes="app-btn primary"
-                    Content="复制到剪贴板" Click="OnCopyClick"/>
+                    Content="{Binding SharePosterCopy, Source={x:Static loc:Translations.Instance}}" Click="OnCopyClick"/>
             <Button x:Name="SaveButton" Grid.Column="2" Classes="app-btn"
-                    Content="保存为文件" Click="OnSaveClick"/>
+                    Content="{Binding SharePosterSave, Source={x:Static loc:Translations.Instance}}" Click="OnSaveClick"/>
         </Grid>
     </Grid>
 </Window>

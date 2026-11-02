@@ -157,6 +157,37 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
+    /// <summary>
+    /// 分享海报（P5b）：按当前筛选备数据，再开独立模态窗口。总览页页头按钮只发请求
+    /// （<see cref="ViewModels.MainWindowViewModel.SharePosterRequested"/>），窗口与 TopLevel 在这一层。
+    /// 数据查询失败时 VM 已弹 toast 并返回 null，这里不重复报错。
+    /// </summary>
+    internal async Task ShowSharePosterAsync()
+    {
+        if (DataContext is not ViewModels.MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        var dialogViewModel = await viewModel.CreateSharePosterDialogAsync();
+        if (dialogViewModel is null)
+        {
+            return;
+        }
+
+        var dialog = new SharePosterDialog { DataContext = dialogViewModel };
+        try
+        {
+            await dialog.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            // 窗口通道坏了不静默：诊断日志 + 不让模态窗口悬在半空
+            Console.Error.WriteLine($"[Tokenmetry] 分享海报窗口展示失败：{ex.Message}");
+            dialog.Close();
+        }
+    }
+
     private void HandleUserClose()
     {
         switch (ResolveUserCloseAction(_settings))

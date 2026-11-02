@@ -55,6 +55,7 @@ public class IconResourceTests
         ["arrow-up"] = "AppIconArrowUp",
         ["arrow-down"] = "AppIconArrowDown",
         ["x"] = "AppIconClose",
+        ["share"] = "AppIconShare",
     };
 
     [AvaloniaFact]

@@ -458,5 +458,34 @@ public sealed partial class Translations
 
         // ── 이상 감지 ──
         [nameof(AnomalyCostSpikeFormat)] = "오늘 비용은 지난 {0}일 평균의 {1:0.0}배입니다",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "공유 포스터",
+        [nameof(SharePosterEntryTooltip)] = "현재 필터를 그대로 공유 가능한 포스터로 만듭니다",
+        [nameof(SharePosterLayout)] = "레이아웃",
+        [nameof(SharePosterLayoutPortrait)] = "세로",
+        [nameof(SharePosterLayoutLandscape)] = "가로",
+        [nameof(SharePosterTheme)] = "테마",
+        [nameof(SharePosterThemeApp)] = "앱 따라가기",
+        [nameof(SharePosterThemeDark)] = "다크",
+        [nameof(SharePosterThemeLight)] = "라이트",
+        [nameof(SharePosterMask)] = "프로젝트 이름",
+        [nameof(SharePosterMaskOff)] = "표시",
+        [nameof(SharePosterMaskPartial)] = "앞 4자 외 흐리게",
+        [nameof(SharePosterMaskFull)] = "전체 흐리게",
+        [nameof(SharePosterMaskHint)] = "'표시'를 선택하면 프로젝트 이름이 포스터에 그대로 인쇄됩니다. 공유 전에 확인하세요. 흐리게 처리는 글자를 부드럽게 할 뿐 자리표시자로 바꾸지 않습니다.",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "하루짜리 포스터는 세로만 지원합니다. 하루 포스터는 세로 카드라 가로로 돌리면 정보 흐름을 다시 짜야 합니다.",
+        [nameof(SharePosterCopy)] = "클립보드에 복사",
+        [nameof(SharePosterCopied)] = "클립보드에 복사했습니다",
+        [nameof(SharePosterCopyFailed)] = "이 시스템은 이미지 복사를 지원하지 않습니다. '파일로 저장'을 사용하세요",
+        [nameof(SharePosterSave)] = "파일로 저장",
+        [nameof(SharePosterSavedFormat)] = "저장했습니다: {0}",
+        [nameof(SharePosterSaveFailedFormat)] = "저장 실패: {0}",
+        [nameof(SharePosterOpenFailedFormat)] = "공유 포스터를 열 수 없습니다: {0}",
+        [nameof(SharePosterSettingsTitle)] = "포스터 설정",
+        [nameof(SharePosterSettingsHint)] = "포스터는 상단 바의 현재 필터를 그대로 따릅니다. 여기서는 생성 대화상자를 열 때의 기본값만 정합니다.",
+        [nameof(SharePosterDefaultLayout)] = "기본 레이아웃",
+        [nameof(SharePosterDefaultTheme)] = "기본 테마",
+        [nameof(SharePosterDefaultMask)] = "기본 흐림",
     };
 }

@@ -458,5 +458,34 @@ public sealed partial class Translations
 
         // ── Détection d'anomalies ──
         [nameof(AnomalyCostSpikeFormat)] = "Le coût du jour vaut {1:0.0}× la moyenne sur {0} jours",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "Affiche à partager",
+        [nameof(SharePosterEntryTooltip)] = "Transformer les filtres actuels en affiche partageable",
+        [nameof(SharePosterLayout)] = "Mise en page",
+        [nameof(SharePosterLayoutPortrait)] = "Portrait",
+        [nameof(SharePosterLayoutLandscape)] = "Paysage",
+        [nameof(SharePosterTheme)] = "Thème",
+        [nameof(SharePosterThemeApp)] = "Suivre l'application",
+        [nameof(SharePosterThemeDark)] = "Sombre",
+        [nameof(SharePosterThemeLight)] = "Clair",
+        [nameof(SharePosterMask)] = "Noms de projet",
+        [nameof(SharePosterMaskOff)] = "Afficher",
+        [nameof(SharePosterMaskPartial)] = "Flouter après 4 caractères",
+        [nameof(SharePosterMaskFull)] = "Tout flouter",
+        [nameof(SharePosterMaskHint)] = "« Afficher » imprime les noms de projet tels quels — vérifiez avant de partager. Le ﬂou adoucit seulement le texte, il ne remplace jamais les caractères par des symboles.",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Les affiches d'une seule journée sont uniquement en portrait : une journée tient sur une carte verticale, la mettre à l'horizontale imposerait de repenser le flux d'information.",
+        [nameof(SharePosterCopy)] = "Copier dans le presse-papiers",
+        [nameof(SharePosterCopied)] = "Copié dans le presse-papiers",
+        [nameof(SharePosterCopyFailed)] = "Ce système ne copie pas les images — utilisez « Enregistrer dans un fichier »",
+        [nameof(SharePosterSave)] = "Enregistrer dans un fichier",
+        [nameof(SharePosterSavedFormat)] = "Enregistré : {0}",
+        [nameof(SharePosterSaveFailedFormat)] = "Échec de l'enregistrement : {0}",
+        [nameof(SharePosterOpenFailedFormat)] = "Impossible d'ouvrir l'affiche : {0}",
+        [nameof(SharePosterSettingsTitle)] = "Réglages de l'affiche",
+        [nameof(SharePosterSettingsHint)] = "L'affiche reprend les filtres actuels de la barre supérieure ; ces options ne définissent que les valeurs par défaut à l'ouverture de la fenêtre.",
+        [nameof(SharePosterDefaultLayout)] = "Mise en page par défaut",
+        [nameof(SharePosterDefaultTheme)] = "Thème par défaut",
+        [nameof(SharePosterDefaultMask)] = "Flou par défaut",
     };
 }

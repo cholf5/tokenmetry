@@ -458,5 +458,34 @@ public sealed partial class Translations
 
         // ── Anomalieerkennung ──
         [nameof(AnomalyCostSpikeFormat)] = "Die heutigen Kosten sind {1:0.0}× des {0}-Tage-Durchschnitts",
+
+        // ── Share poster ──
+        [nameof(SharePosterTitle)] = "Poster zum Teilen",
+        [nameof(SharePosterEntryTooltip)] = "Aktuelle Filter in ein teilbares Poster verwandeln",
+        [nameof(SharePosterLayout)] = "Layout",
+        [nameof(SharePosterLayoutPortrait)] = "Hochformat",
+        [nameof(SharePosterLayoutLandscape)] = "Querformat",
+        [nameof(SharePosterTheme)] = "Design",
+        [nameof(SharePosterThemeApp)] = "App folgen",
+        [nameof(SharePosterThemeDark)] = "Dunkel",
+        [nameof(SharePosterThemeLight)] = "Hell",
+        [nameof(SharePosterMask)] = "Projektnamen",
+        [nameof(SharePosterMaskOff)] = "Anzeigen",
+        [nameof(SharePosterMaskPartial)] = "Nach 4 Zeichen weichzeichnen",
+        [nameof(SharePosterMaskFull)] = "Vollständig weichzeichnen",
+        [nameof(SharePosterMaskHint)] = "„Anzeigen“ druckt Projektnamen unverändert aufs Poster – vor dem Teilen prüfen. Weichzeichnen macht den Text nur unscharf und ersetzt keine Zeichen durch Platzhalter.",
+        [nameof(SharePosterSingleDayPortraitOnly)] = "Poster für einen einzelnen Tag gibt es nur im Hochformat: Ein Tag ist eine hohe Karte, im Querformat müsste der Informationsfluss neu geordnet werden.",
+        [nameof(SharePosterCopy)] = "In die Zwischenablage kopieren",
+        [nameof(SharePosterCopied)] = "In die Zwischenablage kopiert",
+        [nameof(SharePosterCopyFailed)] = "Dieses System kann keine Bilder kopieren – bitte „Als Datei speichern“ verwenden",
+        [nameof(SharePosterSave)] = "Als Datei speichern",
+        [nameof(SharePosterSavedFormat)] = "Gespeichert: {0}",
+        [nameof(SharePosterSaveFailedFormat)] = "Speichern fehlgeschlagen: {0}",
+        [nameof(SharePosterOpenFailedFormat)] = "Poster konnte nicht geöffnet werden: {0}",
+        [nameof(SharePosterSettingsTitle)] = "Poster-Einstellungen",
+        [nameof(SharePosterSettingsHint)] = "Das Poster übernimmt die aktuellen Filter der oberen Leiste; hier werden nur die Standardwerte beim Öffnen des Dialogs festgelegt.",
+        [nameof(SharePosterDefaultLayout)] = "Standardlayout",
+        [nameof(SharePosterDefaultTheme)] = "Standarddesign",
+        [nameof(SharePosterDefaultMask)] = "Standard-Weichzeichnung",
     };
 }
