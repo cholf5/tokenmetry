@@ -138,10 +138,26 @@ dotnet build Tokenmetry.sln                          # 0 error
   对话框标题/选项/按钮/状态行全部走 `Translations`。
 - **3.5 评审**：已完成（fresh-context reviewer 子代理），阻塞 3 项 + 重要 6 项已修。
 
-### 剩余缺口（未做，记录在案）
+### 剩余缺口（第一轮结束时）
 
-1. **单日托盘信息窗基底**（设计 §3.1）：单日仍出总览基底，趋势图只有 1 个点。独立版面，需单独立项。
-2. **Agent 品牌标**：见上（等单日基底或专门的 Agent 行）。
-3. **剪贴板真机验证**：headless 无剪贴板；`SetBitmapAsync` 在 Windows/macOS/Linux 的行为需人工验一次。
-4. **对话框选项视觉**：仍是 ComboBox，P5 定的 filter-chip 分段控件未做。
-5. **FollowApp 实时跟随**：对话框打开期间切应用主题，海报不跟（重开即最新）。
+1. ~~**单日托盘信息窗基底**~~ → 已补（见下节）。
+2. ~~**Agent 品牌标**~~ → 随托盘 Agent 行落地。
+3. ~~**剪贴板真机验证**~~ → 已补 FlushAsync 与 headless 往返用例；真机目检仍建议做一次。
+4. ~~**对话框选项视觉**~~ → 已改分段胶囊。
+5. ~~**FollowApp 实时跟随**~~ → 已改为继承主题。
+
+## 8. 缺口收口（同日第二轮，commit `e839f5f`）
+
+- **单日托盘基底**：`SharePosterView` 分两个基底，单日渲染「头部 + 三格 KPI + 构成条 +
+  构成三卡 + 主要 Agent Top4 + 模型用量 Top3」的竖卡片（1080 宽、按内容高度，导出不再铺满宿主）。
+  刻意不画信息窗的「记录中」状态点与「单日峰值」徽标（静态图上的运行状态是假的）。
+- **Agent 品牌标**：托盘 Agent 行走 `AgentVisualMap → AgentChip` 伪类链（48px 品牌槽），
+  用户自定义模型头像经 `ModelAvatarResolver` 生效。
+- **剪贴板**：`FlushAsync`（X11/Wayland 不 flush 会在窗口退出后粘贴为空）+ headless 往返用例。
+  交给人工的只剩「真实三平台复制→粘贴」一次目检。
+- **分段选项**：ComboBox → RadioButton 胶囊（对话框私有一批选项实例，双绑 `IsSelected`），
+  单日时版式组整组禁用并保留说明行。
+- **FollowApp**：`RequestedThemeVariant = null` 继承应用主题，应用切明暗时海报与投影跟着变。
+- i18n：新增 3 键 × 10 语种。最终 2006 个用例全绿（Headless 560）。
+
+唯一遗留：真实 Windows / macOS / Linux 的剪贴板粘贴目检（无法在本机自动化）。
