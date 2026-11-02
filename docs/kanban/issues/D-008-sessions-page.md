@@ -6,7 +6,7 @@ priority: P1
 size: M
 status: done
 created: 2026-10-12
-updated: 2026-10-13
+updated: 2026-11-03
 blocked: none
 ---
 
@@ -18,7 +18,7 @@ blocked: none
 
 - 设计基准：原型 `#page-sessions` 与右栏 `.sessions-panel`。
 - 吸收 v0.4 原规划的「Reports Session tab」；Monthly 维度不进本卡（记入 Parking Lot）。
-- 会话点击行为：原型是 toast 占位；正式版打开会话详情（下钻弹窗或详情页，实现时定案记录）。
+- 会话点击行为：原型是 toast 占位；正式下钻于 2026-11-03 以最简版弹层落地（见 Dev Log 2026-11-03），toast 占位随之删除。
 
 ## Acceptance Criteria
 
@@ -80,6 +80,15 @@ Result: 自动化部分通过（SessionsTests，见 Verification）；"帧率无
 - **观察到既有无关 flake（记录，非本卡引入）**：全量 `dotnet test` 间歇出现 `CopilotSessionAdapterTests` 用例失败（本卡期间实锤 `Discovers_session_state_files_without_nested_session_files`：`FilesDiscovered` 期望 1 实得 2）。根因高概率为 **`CopilotOtelMergeTests` 以 `Environment.SetEnvironmentVariable` 改进程级 `COPILOT_OTEL_FILE_EXPORTER_PATH`，与并行运行的 `CopilotSessionAdapterTests` 竞态**——locator 对该环境变量"指向既有文件即纳入发现"，跨测试类进程环境无隔离。Infrastructure.Tests 不引用本卡改动的 App 工程，与 D-008 无关；证据已追加到 B-004 Dev Log（该卡已建在追同一 flaky 家族）。
 - 遗留风险：①子集合并模式在超大子集下客户端持有全量行（内存与万行级渲染压力，虚拟化已覆盖但真机帧率未测）；②Agent/模型/项目选项清单服务层缓存整个应用生命周期，后台刷新后新 Agent 要下次启动才进下拉（取舍已文档化）；③最近会话/明细行标题位用 SessionId，等标题数据源引入（契约已预留 `SessionListQuery.SearchTerm` 扩展点）后可替换。
 
+### 2026-11-03（下钻收口）
+
+替换 2026-10-13 的 toast 占位定案：行点击下钻以**最简版弹层**落地（commit 225a5a5，本卡已 done，补记于此）。2026-11-02 头脑风暴定案与调查结论：
+
+- **能力边界（调查：20 个源适配器全是请求级粒度、SessionId+时间戳+模型+分项齐全，聚合只发生在 facts 层）**：会话内模型分布需新 session×model 侧表或重读源文件（存量会话不回填）；轮次/调用次数需新解析 user 行（部分源源头有计数被映射层丢弃）；上下文内容构成为 ZCode/Codex 数据源死路、Claude 系解析会话内容撞隐私红线（SQLite 不存 prompt/代码/会话内容）。三类全部砍掉，弹层只回答"这个会话为什么这么贵"。
+- **数据链路零迁移**：比原设想的"按 id 查详情接口"还省一步——`SessionListRow` 直接补上 CacheCreationEphemeral5m/1hTokens 投影（此前 ToRow 把 SessionFact 已有的字段丢了），列表行自带弹层全部数据；详情 VM 打开时快照（语言/主题不热刷）。不往 SQLite 写任何新数据。
+- **弹层**：遮罩 + panel（配方同模型编辑弹层，关闭按钮/Esc/点遮罩三关闭）；四分项 N0 精确值（对账口径同明细表数字列）+ 5m/1h ephemeral 细分行（仅 Claude 系，0 不展示）+ 构成环图（三段口径与总览类型环同源同色，段 0 保留、全零空环）；会话标识 SelectableTextBlock 划选复制。防矛盾态：弹层盖不住顶栏，全局筛选一变即关弹层。Esc 需弹层打开即聚焦遮罩（焦点在 ListBox 上时按键不冒泡过遮罩）。
+- **验证**：build 0 警告；全量 2,046 通过 / 0 失败（新增投影 round-trip、弹层开关/选中复位/分项格式/环图口径/5m/1h 隐藏与空态/渲染 + Esc 用例；两个测试先抓出本人错误预期后修正——环心紧凑格式阈值、缓存段 0 保留口径与总览定案一致）。ToastSessionPlannedFormat 十语种删除，新增 5 个 key 十语种全覆盖。
+
 ## Bugs
 
 | ID | Severity | Description | Status | Resolution |
@@ -88,7 +97,7 @@ Result: 自动化部分通过（SessionsTests，见 Verification）；"帧率无
 ## Verification
 
 - Related files: `src/Tokenmetry.App/Views/SessionsView.axaml(.cs)`、`ViewModels/SessionsViewModel.cs`、`ViewModels/SessionsPanelViewModel.cs`、`ViewModels/AgentVisualMap.cs`、`Controls/AgentChip.cs`、`Services/AgentCatalogService.cs`、`Services/GlobalFilterMapper.cs`、`Services/FilterStateService.cs`、`Styles/SharedStyles.axaml`（chip-* 四变体）、`ViewModels/MainWindowViewModel.cs`、`Views/MainWindow.axaml`、`DependencyInjection/AppServices.cs`、`tests/Tokenmetry.App.Headless.Tests/Shell/SessionsTests.cs`
-- How to run/verify: `dotnet test tests/Tokenmetry.App.Headless.Tests`；截图留档 `TOKENMETRY_SESSIONS_PREVIEW_DIR=docs/design dotnet test --filter Sessions_page_renders_light_and_dark`；真机 `dotnet run --project src/Tokenmetry.App` 目检（含明暗切换、最小窗口、行点击 toast）
+- How to run/verify: `dotnet test tests/Tokenmetry.App.Headless.Tests`；截图留档 `TOKENMETRY_SESSIONS_PREVIEW_DIR=docs/design dotnet test --filter Sessions_page_renders_light_and_dark`；真机 `dotnet run --project src/Tokenmetry.App` 目检（含明暗切换、最小窗口、行点击详情弹层）
 - Results: 2026-10-13（实现 + 审查修复轮）— headless 134/134 通过（基线 109 + D-008 新增 25，0 失败 0 警告）；全量 `dotnet test Tokenmetry.sln` 962 通过 / 0 失败（Core 99 / Infra 637 / App 43 / Reconciliation 49 / Headless 134，0 警告）。明暗截图 docs/design/sessions-light.png、sessions-dark.png（P1 修复后重生成，含右栏真实数据，芯片/字形两套主题均正确）。TC-001 自动化部分通过；真机滚动流畅性留人工目检。
 
 **独立审查轮（2026-10-13，PM 派独立审查 agent）**：结论"有问题需修复"——1×P1 + 3×P2；核心逻辑全部核实为真（真子集合并排序与 I-029 服务端逐分支一致、AgentCatalogService 双检无死锁、防抖 dispose 全路径、虚拟化断言非虚拟化必红、契约零绕过、B-004 根因证据行号逐一对上且机制成立、3 次全量无 flake 佐证"与本卡无关"）。修复（由原开发 agent 完成，PM 验收）：
@@ -98,3 +107,5 @@ Result: 自动化部分通过（SessionsTests，见 Verification）；"帧率无
 4. **P2 目录拉取失败补 stderr 诊断**。
 5. Nit：防抖常量恒真断言改 InRange(100,1000) 区间护栏。
 PM 验收：build 0 警告 + 全量 962 通过 / 22 跳过 / 0 失败，明暗截图亲核。
+
+2026-11-03（下钻收口，commit 225a5a5）：build 0 error 0 warning；全量 2,046 通过 / 0 失败（Core 239 / Infra 782 / App 412 / Reconciliation 49 / Headless 564）。
