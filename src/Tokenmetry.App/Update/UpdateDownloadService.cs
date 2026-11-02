@@ -129,6 +129,78 @@ public sealed class UpdateDownloadService
         File.Move(partPath, targetPath, overwrite: true);
     }
 
+    /// <summary>
+    /// 下载 + 校验的一体入口（自更新唯一使用的路径）：先取 <c>&lt;资产名&gt;.sha256</c>，再下资产，
+    /// 校验不过就删掉落地文件并抛异常——攻击载荷不该留在「下载」文件夹里等人手滑双击。
+    /// 校验文件同样走镜像回退（它就是几十字节的文本）。
+    /// </summary>
+    public async Task<string> DownloadVerifiedAsync(string latestTag, string assetName,
+        IProgress<double>? progress = null, CancellationToken ct = default)
+    {
+        var expected = UpdateChecksum.TryParse(await DownloadTextAsync(latestTag, UpdateAssets.ChecksumAssetFileName(assetName), ct), out var hex)
+            ? hex
+            : throw new InvalidDataException($"no usable sha256 published for {assetName}");
+
+        var path = await DownloadAsync(latestTag, assetName, progress, ct);
+        try
+        {
+            UpdateChecksum.Verify(path, expected, assetName);
+        }
+        catch
+        {
+            TryDelete(path);
+            throw;
+        }
+
+        progress?.Report(100);
+        return path;
+    }
+
+    /// <summary>取一个小文本资产（校验和文件）：镜像依次尝试，响应体上限 4KB（再大就不是校验和）。</summary>
+    private async Task<string> DownloadTextAsync(string latestTag, string assetName, CancellationToken ct)
+    {
+        var failures = new List<string>();
+        foreach (var url in UpdateAssets.MirrorUrls(UpdateAssets.AssetDownloadUrl(latestTag, assetName)))
+        {
+            try
+            {
+                using var client = CreateClient();
+                using var response = await client.GetAsync(url, ct);
+                response.EnsureSuccessStatusCode();
+                var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+                if (bytes.Length is 0 or > 4096)
+                {
+                    throw new InvalidDataException($"unexpected checksum payload ({bytes.Length} bytes)");
+                }
+
+                return System.Text.Encoding.UTF8.GetString(bytes);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException
+                                          or OperationCanceledException)
+            {
+                failures.Add($"{new Uri(url).Host}: {ex.Message}");
+            }
+        }
+
+        throw new InvalidOperationException(string.Join("；", failures));
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 删除校验失败的更新包失败（{path}）：{ex.Message}");
+        }
+    }
+
     /// <summary>按资产类型校验载荷头：zip → ZIP 本地文件头魔数（PK\x03\x04），安装器 exe → PE 头（MZ）。
     /// 两者都是二进制魔数，镜像回的 HTML 错误页（'&lt;!DO' / '&lt;htm'）一律不匹配，空文件同样拒。</summary>
     private static void EnsurePayloadLooksRight(string partPath, string assetName)

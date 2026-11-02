@@ -142,6 +142,17 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isUpdateAvailable;
 
+    /// <summary>更新包已下载并校验完成、等重启生效：显示「重启并更新」按钮。</summary>
+    [ObservableProperty]
+    private bool _isUpdateReadyToRestart;
+
+    /// <summary>下载/校验进行中：亮出进度条（百分比由 <see cref="UpdateDownloadPercent"/> 驱动）。</summary>
+    [ObservableProperty]
+    private bool _isUpdateProgressVisible;
+
+    [ObservableProperty]
+    private double _updateDownloadPercent;
+
     [ObservableProperty]
     private ThemeOption _selectedTheme;
 
@@ -230,6 +241,9 @@ public partial class SettingsViewModel : ViewModelBase
     /// 视图据此二选一绑哪条 hint（<c>IsVisible</c> + 取反）。</summary>
     public bool IsInstalledCopy => _updateService.CanSilentUpgrade;
 
+    /// <summary>更新服务（DI 单例）：外壳的更新横幅与托盘菜单共享同一实例。</summary>
+    internal UpdateService UpdateService => _updateService;
+
     /// <summary>检查更新：结果整体切换状态行（发现新版本时同时亮出下载/打开 Release 页按钮）。
     /// 与托盘「检查更新」走同一 UpdateService 单例——任一处查完，另一处的标题/状态行同步反映。</summary>
     [RelayCommand]
@@ -249,32 +263,55 @@ public partial class SettingsViewModel : ViewModelBase
         RefreshUpdateStatusFromState();
     }
 
-    /// <summary>下载新版本并将其交到手上：Windows 已安装副本走安装器静默升级（下载 → 拉起 → 本进程退出，
-    /// 安装完自动重启）；其余情形（便携版 / macOS / Linux）落「下载」文件夹并在文件管理器中显示。
-    /// 进度经 <see cref="Progress{T}"/> 回传（生产在 UI 线程构造，回调自动回 UI 线程；无同步上下文
-    /// 的测试环境则内联，无绑定无碍）。</summary>
+    /// <summary>下载新版本并准备好重启：下载 → SHA-256 校验 → 解包到目标同目录暂存区，然后等用户点
+    /// 「重启并更新」（<see cref="RestartUpdateCommand"/>）。进度经 <see cref="Progress{T}"/> 回传
+    /// （生产在 UI 线程构造，回调自动回 UI 线程；无同步上下文的测试环境则内联）。</summary>
     [RelayCommand]
     private async Task DownloadUpdateAsync()
     {
+        IsUpdateProgressVisible = true;
+        UpdateDownloadPercent = 0;
         UpdateStatusText = Translations.Instance.UpdateDownloading;
         var progress = new Progress<double>(p =>
-            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloadingPercent, (int)p));
+        {
+            UpdateDownloadPercent = p;
+            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloadingPercent, (int)p);
+        });
         try
         {
-            var result = await _updateService.DownloadAndInstallAsync(progress);
-            if (result.InstallStarted)
-            {
-                // 安装器已在跑：状态行给个交代，宿主随后 Shutdown（App 订阅 InstallStarted）。
-                UpdateStatusText = Translations.Instance.UpdateInstalling;
-                return;
-            }
+            await _updateService.DownloadAsync(progress);
+            RefreshUpdateStatusFromState();
+        }
+        catch (UpdateStageUnavailableException ex)
+        {
+            // 目录不可写：包已下载并已打开所在位置，状态行如实说清楚（别让用户以为更新没下成）。
+            RefreshUpdateStatusFromState();
+            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloaded, ex.ArchivePath);
+        }
+        catch (Exception ex)
+        {
+            RefreshUpdateStatusFromState();
+            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloadFailed, ex.Message);
+        }
+        finally
+        {
+            IsUpdateProgressVisible = false;
+        }
+    }
 
-            _updateService.RevealDownloaded(result.Path);
-            UpdateStatusText = string.Format(Translations.Instance.UpdateDownloaded, result.Path);
+    /// <summary>重启并应用已下载的更新：替换文件（安装器 / 原子替换）后本进程退出，新版本自动拉起。</summary>
+    [RelayCommand]
+    private void RestartUpdate()
+    {
+        try
+        {
+            UpdateStatusText = Translations.Instance.UpdateInstalling;
+            _updateService.RestartAndApply();
         }
         catch (Exception ex)
         {
             UpdateStatusText = string.Format(Translations.Instance.UpdateDownloadFailed, ex.Message);
+            RefreshUpdateStatusFromState();
         }
     }
 
@@ -320,6 +357,7 @@ public partial class SettingsViewModel : ViewModelBase
     private void RefreshUpdateStatusFromState()
     {
         IsUpdateAvailable = _updateService.State == UpdateState.Available;
+        IsUpdateReadyToRestart = _updateService.State == UpdateState.ReadyToRestart;
         UpdateStatusText = _updateService.State switch
         {
             UpdateState.Available => string.Format(
@@ -328,6 +366,9 @@ public partial class SettingsViewModel : ViewModelBase
                 Translations.Instance.UpdateUpToDate, _updateService.CurrentVersion),
             UpdateState.Failed => string.Format(
                 Translations.Instance.UpdateCheckFailed, _updateService.LastResult?.Error),
+            UpdateState.Downloading => Translations.Instance.UpdateDownloading,
+            UpdateState.ReadyToRestart => Translations.Instance.BannerReadyTitle,
+            UpdateState.Restarting => Translations.Instance.UpdateInstalling,
             _ => null,
         };
     }

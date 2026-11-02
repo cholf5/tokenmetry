@@ -67,11 +67,15 @@ public static class AppServices
         services.AddSingleton<IAppSettingsStore>(settingsStore);
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<IToastService, ToastService>();
-        // I-039 更新检查（设置页与托盘菜单共享同一状态；网络只在实际检查/下载时发生）
+        // I-039 更新（设置页 / 托盘 / 主窗横幅共享同一状态；网络只在实际检查/下载时发生）。
+        // 更新日志记录「有一次更新正在生效」，重启后的新版本靠它判断成功与否并弹「已更新到 vX」；
+        // 与 settings.json 同目录，不进缓存库（隐私红线只提聚合事实；这里只是版本号与备份路径）。
         services.AddSingleton(sp => new UpdateService(
             new UpdateChecker(),
             sp.GetRequiredService<AppSettings>(),
-            sp.GetRequiredService<IAppSettingsStore>()));
+            sp.GetRequiredService<IAppSettingsStore>(),
+            journal: new UpdateJournal(Path.Combine(
+                sp.GetRequiredService<AppPaths>().AppDataDirectory, "update-state.json"))));
         // S-006 开机自启动注册（设置页开关的 OS 出口；headless 测试宿主禁止真实调用，见管理器注释）
         services.AddSingleton<IAutoStartManager, AutoStartManager>();
         // D-003 全局筛选状态（时间范围 + Agent）：单例，顶部栏写入、各页 VM 订阅

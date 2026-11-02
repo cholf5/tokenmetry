@@ -495,18 +495,18 @@ public class SettingsViewModelTests
         viewModel.UpdateStatusText.Should().Contain("0.7.8");
     }
 
-    // 已安装副本点「下载更新」：拉起安装器、状态行改成「正在安装」——绝不能再走「在文件管理器里
-    // 显示一个用户不会去点的文件」那条旧路（否则安装器已跑、旧实例不退出，两边抢文件锁）。
+    // 已安装副本点「下载更新」= 只下载 + 校验 + 备好安装器，不动手；真正拉起安装器的是「重启并更新」。
+    // 这条拆开是有意的：下载几十 MB 和「现在就把应用关掉重装」不是一件事，混在一个按钮里
+    // 用户没有任何反悔余地（旧实现点下载就等于提交重启）。
     [Fact]
-    public async Task DownloadUpdate_on_an_installed_copy_reports_installing_instead_of_revealing()
+    public async Task DownloadUpdate_stages_the_installer_and_restart_command_starts_it()
     {
         var installerStarted = false;
         var service = Tokenmetry.App.Tests.Update.UpdateServiceTestsHelper.CreateService(
             latestTag: "v0.3.1",
             currentVersion: "v0.3.0",
             downloader: new UpdateDownloadService(
-                new Tokenmetry.App.Tests.Update.FakeUpdateHttpHandler(_ =>
-                    Tokenmetry.App.Tests.Update.FakeUpdateHttpHandler.Bytes([0x4D, 0x5A, 1, 2, 3])),
+                Tokenmetry.App.Tests.Update.UpdateServiceTestsHelper.AssetAndChecksum([0x4D, 0x5A, 1, 2, 3]),
                 downloadDirectory: System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"tokenmetry-vm-install-{Guid.NewGuid():N}"),
                 revealOverride: _ => throw new InvalidOperationException("installed copy must not reveal the installer")),
             installer: new UpdateInstaller((_, _) =>
@@ -520,9 +520,15 @@ public class SettingsViewModelTests
         await service.CheckNowAsync();
         await viewModel.DownloadUpdateCommand.ExecuteAsync(null);
 
+        installerStarted.Should().BeFalse();
+        viewModel.IsUpdateReadyToRestart.Should().BeTrue();
+        viewModel.UpdateStatusText.Should().Be(Translations.Instance.BannerReadyTitle);
+        viewModel.IsInstalledCopy.Should().BeTrue();
+
+        viewModel.RestartUpdateCommand.Execute(null);
+
         installerStarted.Should().BeTrue();
         viewModel.UpdateStatusText.Should().Be(Translations.Instance.UpdateInstalling);
-        viewModel.IsInstalledCopy.Should().BeTrue();
     }
 
     // ---- helpers ----

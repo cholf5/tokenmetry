@@ -161,12 +161,30 @@ public partial class App : Application
             // A-0：真正退出（托盘「退出」/ OS 会话结束）经生命周期正常收尾——Exit 在两种
             // shutdown 路径都会触发，此处停掉后台刷新定时器（替代此前 Environment.Exit 的跳过）。
             desktop.Exit += (_, _) => refreshService.Stop();
-            // 静默升级（Windows 安装副本，见 UpdateService.DownloadAndInstallAsync）：安装器一拉起，本进程
-            // 必须立刻走正常生命周期退出——否则旧实例握着 Tokenmetry.exe / tokenmetry.db，安装器要么报
+            // 自更新交接：文件已替换（安装器拉起 / 便携形态原子替换完成）→ 本进程必须立刻走正常生命周期退出。
+            // 旧实例握着 Tokenmetry.exe / tokenmetry.db，晚一步就是新实例抢不到互斥量、或安装器报
             // "文件正在使用"，要么装出半截。UIThread.Post + desktop.Shutdown：下载命令在 UI 线程的
             // 续体里发这个事件，直接 Shutdown 会在命令管道中途拆掉 UI。
-            updateService.InstallStarted += () =>
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => desktop.Shutdown());
+            updateService.RestartRequested +=
+                () => Avalonia.Threading.Dispatcher.UIThread.Post(() => desktop.Shutdown());
+            // 发现新版本 → 把主窗叫回来（同一版本只叫一次）：托盘常驻时主窗往往是隐藏的，
+            // 更新横幅放在一个看不见的窗里等于没有提醒。检查可能来自后台周检线程，故 marshal 到 UI。
+            var promptedUpdateVersion = (string?)null;
+            updateService.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (updateService.State != Update.UpdateState.Available
+                    || updateService.LastResult?.LatestVersion is not { } tag
+                    || tag == promptedUpdateVersion)
+                {
+                    return;
+                }
+
+                promptedUpdateVersion = tag;
+                if (!mainWindow.IsVisible)
+                {
+                    trayService.ShowWindow();
+                }
+            });
             // 启动数据初始化：进程打开立即触发一轮采集刷新（定时器首跑要等一个完整间隔），
             // 顶栏即时切到"正在扫描"反馈；探测到库内完全无数据（首次使用）时挂全窗口
             // "正在初始化"遮罩，本轮结束自动摘除（成败均然）——首启不再是一片空白等用户

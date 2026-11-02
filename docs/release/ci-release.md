@@ -12,7 +12,8 @@ scripts/release.sh 0.3.0          # bump csproj <Version> → commit → tag v0.
        ├─ macos:  scripts/package.sh --rids "osx-arm64"/"osx-x64" → AOT 散开 + .app bundle → zip
        ├─ windows: 单文件 publish → zip；另出一份 AOT 散开 → ISCC 安装器（随后静默装/卸冒烟）
        ├─ linux:  scripts/package.sh --rids linux-x64 → 单文件 → zip（xvfb 启动冒烟）
-       └─ release: gh release create v0.3.0（说明取 docs/release/notes/v0.3.0.md，缺文件回落 --generate-notes）+ 上传五个资产
+       └─ release: 为五个资产各生成 <资产名>.sha256 → gh release create v0.3.0
+                   （说明取 docs/release/notes/v0.3.0.md，缺文件回落 --generate-notes）+ 上传五个资产与五份校验和
 ```
 
 ## 资产清单（五个）
@@ -23,6 +24,7 @@ scripts/release.sh 0.3.0          # bump csproj <Version> → commit → tag v0.
 | `Tokenmetry-{版本}-win-x64.zip` | Windows 便携版（免安装） |
 | `Tokenmetry-{版本}-osx-arm64.zip` / `-osx-x64.zip` | macOS（.app bundle） |
 | `Tokenmetry-{版本}-linux-x64.zip` | Linux 单文件 |
+| `{上面任一资产}.sha256`（五份） | **强制**：应用内自更新在替换文件前校验；缺它就不更新 |
 
 ## 发版说明（Release notes）
 
@@ -128,25 +130,43 @@ git push origin :refs/tags/v0.3.0 && git tag -d v0.3.0   # 删 tag
 
 ## 应用内更新机制（给后来者）
 
+一句话：**能做的不是「热更」，是「一键重启式更新」**——Native AOT 把代码编译成原生机器码，
+进程里没有可替换的程序集，任何方案都必须重启进程。用户看到的是：发现新版本 → 点一下 →
+进度条 → 重启生效 → 「已更新到 vX」。
+
 - **检查**：请求 `https://github.com/cholf5/tokenmetry/releases/latest`，**不跟随 302**——
   `Location` 头末段就是 tag。刻意不用 api.github.com：未认证 60 次/小时/IP，共享代理出口易 403。
   本地版本解析不出（开发构建）按 0.0.0 处理，任何 Release 都算新。
-- **入口**：托盘菜单「检查更新」（发现新版本后标题翻成「发现新版本 vX.Y.Z」，点击直达 Release 页）
-  与设置页「关于」区（状态行 + 下载/开页按钮）；两者共享 UpdateService 单例，任一处检查另一处同步。
-  启动 30 秒后有一次静默周检（`AppSettings.LastUpdateCheckUtc` ≥7 天才发请求，成败都记——
-  打不通的网络每次启动重试只是白费），只翻菜单标题，不弹窗。
-- **下载**：按当前平台 RID 挑资产（macOS 分 arm64/x64 按进程架构；Windows/Linux 单资产），GitHub
-  直链 + 三个 CN 加速镜像前缀依次尝试，`.part` 中转防半截包，进度百分比进设置页状态行；完成后在
-  文件管理器中显示（explorer `/select` / Finder `open -R` / `xdg-open` 目录）。
-  完整性：`Content-Length` 收满 + 载荷头魔数（zip → `PK\x03\x04`，Windows 安装器 → PE `MZ`）。
-- **升级方式分两类**（`UpdateAssets.IsInstalledCopy`：进程可执行文件是否就在
-  `%LOCALAPPDATA%\Programs\Tokenmetry`）：
-  - **Windows 安装副本** → 下 `…-win-x64-setup.exe`，以
-    `/SILENT /CLOSEAPPLICATIONS /NORESTART /SUPPRESSMSGBOXES` 拉起，发 `InstallStarted` 让旧实例
-    立即正常退出（释放文件锁），安装器原地升级后按 `[Run]` 把新版本拉起来。全程不弹向导、不要求
-    管理员（按用户安装）。
-  - **便携版 / macOS / Linux** → 下 zip，在文件管理器里显示，用户解压替换。
-    便携版**永不**被静默转成安装版（那等于替用户改了安装形态）。
-- **不做自更新替文件**：替文件的是安装器（它懂文件锁重试与回滚），应用自己连连文件都不能碰；
-  便携版与 macOS/Linux 依旧无自更新（应用无签名，运行中替换自身单文件 exe / .app 是跨平台雷区）。
-  若未来上签名证书或 AppImage，可再评估。
+- **提醒**（三处共享同一个 `UpdateService` 单例，任一处触发其余同步）：
+  1. **主窗顶部横幅**（`UpdateBannerViewModel`）：发现新版本时自动把隐藏的主窗叫回来（同一版本只叫
+     一次），给「立即更新 / 稍后」；下载中就地显示百分比进度条；就绪后变「立即重启并更新」。
+     托盘常驻应用不能只靠一条托盘菜单标题——那个位置没人看。
+  2. **设置页「关于」区**：状态行 + 下载/重启按钮 + 进度条（与横幅同源同命令）。
+  3. **托盘菜单**：「检查更新」在发现新版本后标题翻成「发现新版本 vX.Y.Z」。
+  启动 30 秒后仍有一次静默周检（`AppSettings.LastUpdateCheckUtc` ≥7 天才发请求，成败都记），
+  结果同样进横幅。
+- **下载与校验**：按当前平台 RID 挑资产（macOS 分 arm64/x64；Windows/Linux 单资产），GitHub 直链
+  + 三个 CN 加速镜像依次尝试，`.part` 中转防半截包，进度百分比进横幅与设置页。完整性三层：
+  `Content-Length` 收满 → 载荷头魔数（zip = `PK\x03\x04`，安装器 = PE `MZ`）→ **SHA-256 对账**。
+  最后一个不是加强项而是前提：镜像前缀是第三方，没有校验的自更新等于把执行权交给它们；
+  校验文件缺失或对不上就拒绝更新，并删掉已下载的包（不留在下载文件夹里等人手滑双击）。
+- **落地方式**（`UpdateApplyMode`）：
+  - **Windows 安装副本** → 下 `…-win-x64-setup.exe`，用户点「立即重启并更新」后以
+    `/SILENT /CLOSEAPPLICATIONS /NORESTART /SUPPRESSMSGBOXES` 拉起，发 `RestartRequested`
+    让旧实例立刻正常退出（释放文件锁），安装器原地升级后按 `[Run]` 把新版本拉起来。
+  - **便携版 / macOS / Linux** → `UpdateStager` 做「同卷两次 rename」：先把新载荷解包到目标同目录的
+    `.tokenmetry-update-{tag}/`（慢，但不碰旧文件），再把旧目标 rename 成 `.old`、把新载荷 rename
+    到目标路径（两次元数据操作，微秒级窗口），任何一步失败都回滚。**刻意不写接力脚本**：Windows
+    批处理的编码（中文用户名/路径）与「等进程退出」轮询、macOS 的 shebang/xattr，每一项都能静默
+    炸掉升级；rename 方案更短、跨平台一致、而且可测（`UpdateStagerTests` 在临时目录里跑真文件）。
+  - **目标目录不可写**（`/Applications` 只读、企业策略）→ 退回下载包 + 在文件管理器里显示，
+    由用户手动替换（`UpdateStageUnavailableException` → 状态行说明已下载的位置）。
+- **重启交接**：新进程带 `--wait-for-exit <pid>` 启动，`Program.Main` 先等旧进程真的退出再抢单实例
+  互斥量（`UpdateRelaunchHandshake`）。不等就会被单实例守卫当成第二实例，发个激活请求就自杀——
+  用户看到「更新完应用不见了」。
+- **成功判定 / 回滚兜底**：替换前把 `{pendingVersion, backupPath, targetPath}` 写进
+  `%LOCALAPPDATA%\Tokenmetry\update-state.json`（`UpdateJournal`）。重启后版本号对上 = 成功 →
+  清日志、删 `.old`、横幅弹「已更新到 vX」；对不上 = 替换没生效 → 横幅提示「上次更新未生效」并给出
+  备份路径（按钮直达所在目录），旧版本仍在跑。启动时顺手清掉残留的 `.tokenmetry-update-*` 暂存区。
+- **不做**：进程内热更（AOT 无 JIT）、无签名条件下的 macOS 静默公证流程、遥测式灰度。
+
