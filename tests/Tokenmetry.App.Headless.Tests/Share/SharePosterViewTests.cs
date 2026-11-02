@@ -129,6 +129,37 @@ public class SharePosterViewTests
         window.Close();
     }
 
+    /// <summary>
+    /// 页头只有一个阅读起点：字标与日期范围共用一个左边界（Logo 右侧），且不右对齐——
+    /// 海报上没有第二个从右边起排的元素，日期挂在右上角就没有参照系。
+    /// </summary>
+    [AvaloniaFact]
+    public void Header_date_range_shares_the_wordmark_left_edge()
+    {
+        var view = new SharePosterView { DataContext = ViewModel() };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var root = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PosterRoot");
+        var brand = view.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Classes.Contains("poster-brand"));
+        var range = view.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Classes.Contains("poster-subtitle"));
+        var logo = view.GetVisualDescendants().OfType<Border>()
+            .Single(b => b.Classes.Contains("poster-logo"));
+
+        var brandX = brand.TranslatePoint(default, root)!.Value.X;
+        var rangeX = range.TranslatePoint(default, root)!.Value.X;
+        var logoRight = logo.TranslatePoint(default, root)!.Value.X + logo.Bounds.Width;
+
+        Assert.Equal(brandX, rangeX, 0.5);
+        Assert.True(brandX > logoRight, "字标应该在 Logo 右侧，不压在图上");
+        // 左起排：右对齐的日期会贴回右上角，那正是要去掉的那个效果
+        Assert.True(range.TextAlignment is TextAlignment.Left or TextAlignment.Start, "日期范围左起排，不贴右上角");
+
+        window.Close();
+    }
+
     [AvaloniaFact]
     public void Landscape_renders_1800_wide_with_two_rows_of_three_panels()
     {
