@@ -10,13 +10,22 @@
              x:DataType="vm:SharePosterViewModel">
 
     <!--
-        分享海报版面（P3：竖版 / 夜间一份先跑通闭环）。
-        与总览页同源：同一批令牌、同一批图表控件、同一套信息结构，只有尺度不同。
-        尺度差异集中在 .poster-* 样式里，不散落到元素上；两处图表的关键差异是
-        TrendChart.ShowPeakAnnotation（静态图没有 hover）+ DonutChart.AnimateSweep=false
-        （离屏渲染没有 DispatcherTimer，扫入动画会让环形是空的）。
+        分享海报版面（总览页基底）。与总览页同源：同一批令牌、同一批图表控件、同一套信息结构，
+        只有尺度不同。尺度差异集中在 .poster-* 样式里，不散落到元素上；横版在 .poster-root.land
+        下整组覆盖（标题 48 / 面板 17 / 图表 250 / 环形 168）。
+
+        两套版面的差别不只是缩放：竖版三行两列（趋势 1.55 / Agent .85；模型 / 类型；项目 / 成本），
+        横版两行三列（趋势 2.1 / Agent 1 / 类型 1；模型 1 / 项目 1 / 成本 1.2）——类型环形与成本趋势
+        换行，所以栅格定义与面板落位由 code-behind 按 Layout 重排（面板本体只声明一次，不复制两遍）。
+
+        两处图表的关键差异：TrendChart.ShowPeakAnnotation（静态图没有 hover）+
+        DonutChart.AnimateSweep=false（离屏渲染没有 DispatcherTimer，扫入动画会让环形是空的）。
     -->
     <UserControl.Styles>
+        <!-- ── 竖版基线 ── -->
+        <Style Selector="Border.poster-root">
+            <Setter Property="Padding" Value="52,54,52,44"/>
+        </Style>
         <Style Selector="TextBlock.poster-title">
             <Setter Property="FontSize" Value="56"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -50,12 +59,42 @@
         <Style Selector="Border.poster-row">
             <Setter Property="Padding" Value="0,11"/>
         </Style>
+        <Style Selector="c|TrendChart">
+            <Setter Property="Height" Value="240"/>
+        </Style>
+        <Style Selector="c|DonutChart">
+            <Setter Property="DonutSize" Value="190"/>
+            <Setter Property="RingThickness" Value="17"/>
+            <Setter Property="LegendFontSize" Value="14"/>
+        </Style>
+
+        <!-- ── 横版：同一批面板的印刷尺寸（设计 §3.3 / §3.4）── -->
+        <Style Selector="Border.poster-root.land">
+            <Setter Property="Padding" Value="52,46,52,42"/>
+        </Style>
+        <Style Selector="Border.poster-root.land TextBlock.poster-title">
+            <Setter Property="FontSize" Value="48"/>
+        </Style>
+        <Style Selector="Border.poster-root.land Border.poster-panel">
+            <Setter Property="Padding" Value="18"/>
+        </Style>
+        <Style Selector="Border.poster-root.land TextBlock.poster-panel-title">
+            <Setter Property="FontSize" Value="17"/>
+        </Style>
+        <Style Selector="Border.poster-root.land c|TrendChart">
+            <Setter Property="Height" Value="250"/>
+        </Style>
+        <Style Selector="Border.poster-root.land c|DonutChart">
+            <Setter Property="DonutSize" Value="168"/>
+            <Setter Property="RingThickness" Value="15"/>
+            <Setter Property="LegendFontSize" Value="13"/>
+        </Style>
     </UserControl.Styles>
 
     <ThemeVariantScope x:Name="ThemeScope">
+        <!-- 宽度由 code-behind 按版式给（竖版 1080 / 横版 1800），导出按它 2× 光栅化 -->
         <Border x:Name="PosterRoot"
-                Width="1080"
-                Padding="52,54,52,44"
+                Classes="poster-root"
                 Background="{DynamicResource AppBackgroundBrush}">
             <StackPanel Spacing="14">
 
@@ -101,38 +140,39 @@
                     </Border>
                 </Grid>
 
-                <!-- 趋势 + Agent 环形 -->
-                <Grid ColumnDefinitions="1.55*,0.85*" ColumnSpacing="14">
-                    <Border Grid.Column="0" Classes="panel poster-panel">
+                <!-- 六个面板：栅格与落位由 code-behind 按版式重排（此处是竖版落位） -->
+                <Grid x:Name="PanelGrid"
+                      ColumnDefinitions="1.55*,0.85*,0"
+                      RowDefinitions="Auto,Auto,Auto"
+                      ColumnSpacing="14" RowSpacing="14">
+
+                    <!-- 趋势 -->
+                    <Border x:Name="TrendPanel" Grid.Row="0" Grid.Column="0" Classes="panel poster-panel">
                         <StackPanel Spacing="10">
                             <TextBlock Classes="panel-title poster-panel-title"
                                        Text="{Binding PanelTrend, Source={x:Static loc:Translations.Instance}}"/>
                             <c:TrendChart x:Name="TrendChartControl"
-                                          Height="240"
                                           Mode="DailyTokens"
                                           DailyPoints="{Binding Daily}"
                                           ChartFontScale="1.9"
                                           ShowPeakAnnotation="True"/>
                         </StackPanel>
                     </Border>
-                    <Border Grid.Column="1" Classes="panel poster-panel">
+
+                    <!-- Agent 环形 -->
+                    <Border x:Name="AgentPanel" Grid.Row="0" Grid.Column="1" Classes="panel poster-panel">
                         <StackPanel Spacing="13">
                             <TextBlock Classes="panel-title poster-panel-title"
                                        Text="{Binding PanelAgentDonut, Source={x:Static loc:Translations.Instance}}"/>
                             <c:DonutChart Segments="{Binding AgentSegments}"
-                                          DonutSize="190"
-                                          RingThickness="17"
-                                          LegendFontSize="14"
                                           AnimateSweep="False"
                                           CenterTitle="{Binding TotalTokensText}"
                                           CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
                     </Border>
-                </Grid>
 
-                <!-- 模型 + 类型环形 -->
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
-                    <Border Grid.Column="0" Classes="panel poster-panel">
+                    <!-- 模型分布 -->
+                    <Border x:Name="ModelPanel" Grid.Row="1" Grid.Column="0" Classes="panel poster-panel">
                         <StackPanel Spacing="9">
                             <TextBlock Classes="panel-title poster-panel-title"
                                        Text="{Binding PanelModelDistribution, Source={x:Static loc:Translations.Instance}}"/>
@@ -169,24 +209,20 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Column="1" Classes="panel poster-panel">
+                    <!-- Token 类型构成 -->
+                    <Border x:Name="TypePanel" Grid.Row="1" Grid.Column="1" Classes="panel poster-panel">
                         <StackPanel Spacing="13">
                             <TextBlock Classes="panel-title poster-panel-title"
                                        Text="{Binding PanelTypeDonut, Source={x:Static loc:Translations.Instance}}"/>
                             <c:DonutChart Segments="{Binding TypeSegments}"
-                                          DonutSize="190"
-                                          RingThickness="17"
-                                          LegendFontSize="14"
                                           AnimateSweep="False"
                                           CenterTitle="{Binding CacheShareText}"
                                           CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
                     </Border>
-                </Grid>
 
-                <!-- 项目 + 成本趋势 -->
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
-                    <Border Grid.Column="0" Classes="panel poster-panel">
+                    <!-- 项目排行 -->
+                    <Border x:Name="ProjectPanel" Grid.Row="2" Grid.Column="0" Classes="panel poster-panel">
                         <StackPanel Spacing="9">
                             <TextBlock Classes="panel-title poster-panel-title"
                                        Text="{Binding PanelProjectRanking, Source={x:Static loc:Translations.Instance}}"/>
@@ -223,12 +259,12 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Column="1" Classes="panel poster-panel">
+                    <!-- 成本趋势 -->
+                    <Border x:Name="CostPanel" Grid.Row="2" Grid.Column="1" Classes="panel poster-panel">
                         <StackPanel Spacing="10">
                             <TextBlock Classes="panel-title poster-panel-title"
                                        Text="{Binding PanelCostTrend, Source={x:Static loc:Translations.Instance}}"/>
                             <c:TrendChart x:Name="CostChartControl"
-                                          Height="240"
                                           Mode="CostUsd"
                                           DailyPoints="{Binding Daily}"
                                           ChartFontScale="1.9"

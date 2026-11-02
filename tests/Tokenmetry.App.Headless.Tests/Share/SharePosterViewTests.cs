@@ -70,12 +70,47 @@ public class SharePosterViewTests
 
         // UserControl 被窗口拉伸，真正的版面宽度在 PosterRoot 上（导出按它光栅化）
         var root = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PosterRoot");
-        Assert.Equal(SharePosterView.PosterWidth, root.Bounds.Width, 1);
+        Assert.Equal(SharePosterView.PortraitWidth, root.Bounds.Width, 1);
 
         var charts = view.GetVisualDescendants().OfType<TrendChart>().ToList();
         Assert.Equal(2, charts.Count);
         // 海报没有 hover：两张图都必须自带峰值标注
         Assert.All(charts, c => Assert.False(string.IsNullOrEmpty(c.PeakAnnotationText)));
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Landscape_renders_1800_wide_with_two_rows_of_three_panels()
+    {
+        var view = new SharePosterView
+        {
+            DataContext = ViewModel(layout: SharePosterLayout.Landscape),
+        };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var root = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PosterRoot");
+        Assert.Equal(SharePosterView.LandscapeWidth, root.Bounds.Width, 1);
+
+        // 横版不是竖版的缩放：两行三列，类型环形从第二行提到第一行、成本趋势并入第二行
+        var grid = view.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "PanelGrid");
+        Assert.Equal(3, grid.ColumnDefinitions.Count);
+        Assert.Equal(2, grid.RowDefinitions.Count);
+
+        var panels = view.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("poster-panel"))
+            .ToList();
+        Assert.Equal(6, panels.Count);
+        Assert.All(panels, p => Assert.True(Grid.GetRow(p) <= 1, "横版只应有前两行有面板"));
+        Assert.Equal(3, panels.Count(p => Grid.GetRow(p) == 0));
+        Assert.Equal(3, panels.Count(p => Grid.GetRow(p) == 1));
+        Assert.Equal(2, panels.Count(p => Grid.GetColumn(p) == 2));
+
+        // 图表仍按海报尺寸渲染（高度走横版样式组，不是竖版的 240）
+        var charts = view.GetVisualDescendants().OfType<TrendChart>().ToList();
+        Assert.All(charts, c => Assert.Equal(250, c.Bounds.Height, 0));
+        Assert.All(view.GetVisualDescendants().OfType<DonutChart>(), d => Assert.Equal(168, d.DonutSize, 0));
 
         window.Close();
     }
