@@ -26,15 +26,26 @@
         <Style Selector="Border.poster-root">
             <Setter Property="Padding" Value="52,54,52,44"/>
         </Style>
-        <Style Selector="TextBlock.poster-title">
-            <Setter Property="FontSize" Value="56"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="LetterSpacing" Value="-1.2"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
-        </Style>
         <Style Selector="TextBlock.poster-subtitle">
             <Setter Property="FontSize" Value="17"/>
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <!-- 页头品牌：托盘头部（tray-logo / tray-brand）的印刷尺度版本，同比例放大到海报的页头高度 -->
+        <Style Selector="Border.poster-logo">
+            <Setter Property="Width" Value="68"/>
+            <Setter Property="Height" Value="68"/>
+            <Setter Property="CornerRadius" Value="17"/>
+            <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}"/>
+        </Style>
+        <Style Selector="Border.poster-logo Image">
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
+        </Style>
+        <Style Selector="TextBlock.poster-brand">
+            <Setter Property="FontSize" Value="40"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-0.6"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
         <Style Selector="Border.poster-kpi">
             <Setter Property="MinHeight" Value="196"/>
@@ -107,8 +118,17 @@
         <Style Selector="Border.poster-root.land">
             <Setter Property="Padding" Value="52,46,52,42"/>
         </Style>
-        <Style Selector="Border.poster-root.land TextBlock.poster-title">
-            <Setter Property="FontSize" Value="48"/>
+        <Style Selector="Border.poster-root.land Border.poster-logo">
+            <Setter Property="Width" Value="58"/>
+            <Setter Property="Height" Value="58"/>
+            <Setter Property="CornerRadius" Value="15"/>
+        </Style>
+        <Style Selector="Border.poster-root.land Border.poster-logo Image">
+            <Setter Property="Width" Value="41"/>
+            <Setter Property="Height" Value="41"/>
+        </Style>
+        <Style Selector="Border.poster-root.land TextBlock.poster-brand">
+            <Setter Property="FontSize" Value="34"/>
         </Style>
         <Style Selector="Border.poster-root.land Border.poster-panel">
             <Setter Property="Padding" Value="18"/>
@@ -274,14 +294,16 @@
                 Background="{DynamicResource AppBackgroundBrush}">
             <StackPanel Spacing="14">
 
-                <!-- 页头 -->
-                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-                    <StackPanel Spacing="9">
-                        <TextBlock Classes="poster-title" Text="{Binding NavOverview, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
-                    </StackPanel>
-                    <TextBlock Grid.Column="1" Classes="poster-subtitle" Text="TOKENMETRY"
-                               VerticalAlignment="Bottom" LetterSpacing="3"/>
+                <!-- 页头：品牌（Logo + 字标）+ 右侧日期范围。多日海报是一页独立的印刷品，
+                     不写「总览」——那是应用内的页面名，海报上不存在这一页；品牌标识与单日托盘同源。 -->
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="14" Margin="0,0,0,12">
+                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Center">
+                        <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
+                    </Border>
+                    <TextBlock Grid.Column="1" Classes="poster-brand" Text="Tokenmetry"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="3" Classes="poster-subtitle" Text="{Binding RangeText}"
+                               VerticalAlignment="Center"/>
                 </Grid>
 
                 <!-- 四张 KPI（阴影由 code-behind 按令牌给，见 ApplyPanelShadows） -->
