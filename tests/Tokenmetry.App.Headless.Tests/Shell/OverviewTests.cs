@@ -521,6 +521,42 @@ public class OverviewTests
         Dispatcher.UIThread.RunJobs();
     }
 
+    [AvaloniaFact]
+    public void Switching_from_multi_day_to_today_keeps_trend_charts_on_numeric_hours()
+    {
+        // issue #3 的真实路径：应用默认多日档先渲染日序列（bottom 轴被换成日期轴），用户再点「今日」。
+        // 只断言「初始就是今日」不够——那样轴从未被日期形态污染过，回归会漏网。
+        var filters = new FilterStateService();
+        var vm = CreateVm(new StubQueryService
+        {
+            Kpi = FixtureKpi,
+            Daily = ChartTestHelpers.DailyPoints30(),
+            Agents = FixtureAgents,
+            Hourly = FixtureHourly,
+        }, filters);
+
+        var window = CreateOverviewWindow(vm, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        var charts = window.GetVisualDescendants().OfType<TrendChart>().ToList();
+        Assert.Equal(2, charts.Count);
+        Assert.All(charts, c => Assert.IsType<ScottPlot.TickGenerators.DateTimeAutomatic>(
+            c.Plot.Axes.Bottom.TickGenerator));
+
+        filters.TimeRange = TimeRangeOption.Today;
+        Dispatcher.UIThread.RunJobs();
+        ChartTestHelpers.RenderFrame(window);
+
+        // 两张图都切到小时形态，底部轴必须是数字轴（日期轴上 0..23 会被当成 OADate → 1899/1900 刻度）
+        Assert.All(charts, c => Assert.IsType<ScottPlot.TickGenerators.NumericAutomatic>(
+            c.Plot.Axes.Bottom.TickGenerator));
+        Assert.Contains(charts, c => c.Mode == TrendChartMode.HourlyTokens);
+        Assert.Contains(charts, c => c.Mode == TrendChartMode.HourlyCost);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     // ── 筛选 → 查询参数映射 + 重查触发 ──
 
     [AvaloniaFact]
