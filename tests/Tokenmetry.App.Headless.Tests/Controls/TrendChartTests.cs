@@ -151,6 +151,66 @@ public class TrendChartTests
         Assert.Equal(expected, TrendChart.RealHourCount(24, cutoffHour));
 
     [AvaloniaFact]
+    public void Daily_to_hourly_switch_restores_numeric_bottom_axis()
+    {
+        // issue #3：总览页默认多日窗口先画日序列（DateTimeTicksBottom 换掉 bottom 轴实例），
+        // 用户再点「今日」时同一 TrendChart 实例切小时形态——若 bottom 仍是日期轴，0..23 会被
+        // 当成 OADate 渲染成 1899-12-31 / 1900-01-03 这类刻度。两种形态必须在同一实例上来回切
+        // 仍各自拿到正确的轴（小时 = 数字轴 + 整数刻度）。
+        var chart = new TrendChart
+        {
+            Mode = TrendChartMode.DailyTokens,
+            DailyPoints = ChartTestHelpers.DailyPoints30(),
+        };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+        Assert.IsType<ScottPlot.TickGenerators.DateTimeAutomatic>(chart.Plot.Axes.Bottom.TickGenerator);
+
+        chart.Mode = TrendChartMode.HourlyTokens;
+        chart.HourlyDistribution = HourlyFixture();
+        Dispatcher.UIThread.RunJobs();
+        ChartTestHelpers.RenderFrame(window);
+
+        var hourlyTicks = Assert.IsType<ScottPlot.TickGenerators.NumericAutomatic>(
+            chart.Plot.Axes.Bottom.TickGenerator);
+        Assert.Equal("12", hourlyTicks.LabelFormatter(12));
+
+        // 反向切回日形态：日期轴照旧（不因上面的复位而丢）
+        chart.Mode = TrendChartMode.DailyTokens;
+        Dispatcher.UIThread.RunJobs();
+        ChartTestHelpers.RenderFrame(window);
+        Assert.IsType<ScottPlot.TickGenerators.DateTimeAutomatic>(chart.Plot.Axes.Bottom.TickGenerator);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Hourly_cost_after_daily_also_restores_numeric_bottom_axis()
+    {
+        // 成本趋势同一条换轴路径（issue #3 的另一张图），单测两条形态各自守住
+        var chart = new TrendChart
+        {
+            Mode = TrendChartMode.CostUsd,
+            DailyPoints = ChartTestHelpers.DailyPoints30(),
+        };
+        var window = CreateWindow(chart, ThemeVariant.Dark);
+        ChartTestHelpers.RenderFrame(window);
+
+        chart.Mode = TrendChartMode.HourlyCost;
+        chart.HourlyDistribution = HourlyFixture();
+        Dispatcher.UIThread.RunJobs();
+        ChartTestHelpers.RenderFrame(window);
+
+        var ticks = Assert.IsType<ScottPlot.TickGenerators.NumericAutomatic>(
+            chart.Plot.Axes.Bottom.TickGenerator);
+        Assert.Equal("12", ticks.LabelFormatter(12));
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void Hourly_cutoff_keeps_not_yet_reached_hours_off_the_line()
     {
         var chart = new TrendChart

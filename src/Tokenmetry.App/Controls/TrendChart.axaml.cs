@@ -252,7 +252,8 @@ public partial class TrendChart : UserControl
         _hoverCoords = Array.Empty<Coordinates>();
         _hoverLabels = Array.Empty<string>();
 
-        // 先布数据（DateTimeTicksBottom 会替换 bottom 轴实例），再统一上 chrome，
+        // 先布数据（日形态的 DateTimeTicksBottom / 小时形态的 NumericTicksBottom 都会替换 bottom 轴
+        // 实例，见 issue #3），再统一上 chrome，
         // 保证轴/网格/文字样式作用在最终轴实例上。
         switch (Mode)
         {
@@ -777,6 +778,11 @@ public partial class TrendChart : UserControl
     /// </summary>
     private void BuildHourlyLine(Plot plot)
     {
+        // issue #3：同一实例从日形态切过来时 bottom 轴还是 DateTimeTicksBottom 装的日期轴，
+        // 0..23 的小时会被当成 OADate 画成 1899/1900 年刻度（默认多日窗口 → 点「今日」的真实路径）。
+        // 小时形态必须先把轴复位成数字轴，下面的整数刻度格式器才生效。
+        plot.Axes.NumericTicksBottom();
+
         var hours = HourlyDistribution?.Hours ?? Array.Empty<HourlyUsageBucket>();
         if (hours.Count == 0)
         {
@@ -829,6 +835,9 @@ public partial class TrendChart : UserControl
     /// </summary>
     private void BuildHourlyCost(Plot plot)
     {
+        // 同 BuildHourlyLine：小时成本图也必须把可能残留的日期轴复位成数字轴（issue #3）
+        plot.Axes.NumericTicksBottom();
+
         var hours = HourlyDistribution?.Hours ?? Array.Empty<HourlyUsageBucket>();
         if (hours.Count == 0)
         {
