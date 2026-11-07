@@ -53,10 +53,25 @@
         <!-- 选项 -->
         <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,16">
             <TextBlock Classes="page-title" Text="{Binding SharePosterTitle, Source={x:Static loc:Translations.Instance}}"/>
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10">
                 <TextBlock Grid.Column="0" Classes="setting-label"
+                           Text="{Binding SharePosterStyle, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                <ItemsControl Grid.Column="1" ItemsSource="{Binding StyleOptions}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="6"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SharePosterOption">
+                            <RadioButton Classes="seg-chip" GroupName="poster-style"
+                                         Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Grid.Column="2" Classes="setting-label" Margin="18,0,0,0"
                            Text="{Binding SharePosterLayout, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ItemsControl Grid.Column="1" ItemsSource="{Binding LayoutOptions}"
+                <ItemsControl Grid.Column="3" ItemsSource="{Binding LayoutOptions}"
                               IsEnabled="{Binding CanChooseLandscape}" VerticalAlignment="Center">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -70,9 +85,9 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Grid.Column="2" Classes="setting-label" Margin="18,0,0,0"
+                <TextBlock Grid.Column="4" Classes="setting-label" Margin="18,0,0,0"
                            Text="{Binding SharePosterTheme, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ItemsControl Grid.Column="3" ItemsSource="{Binding ThemeOptions}" VerticalAlignment="Center">
+                <ItemsControl Grid.Column="5" ItemsSource="{Binding ThemeOptions}" VerticalAlignment="Center">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" Spacing="6"/>
@@ -85,9 +100,9 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Grid.Column="4" Classes="setting-label" Margin="18,0,0,0"
+                <TextBlock Grid.Column="6" Classes="setting-label" Margin="18,0,0,0"
                            Text="{Binding SharePosterMask, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ItemsControl Grid.Column="5" ItemsSource="{Binding MaskOptions}" VerticalAlignment="Center">
+                <ItemsControl Grid.Column="7" ItemsSource="{Binding MaskOptions}" VerticalAlignment="Center">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" Spacing="6"/>
@@ -101,10 +116,10 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </Grid>
-            <!-- 单日窗口锁竖版：说明原因，不静默禁用 -->
+            <!-- 信息卡样式锁竖版：说明原因，不静默禁用 -->
             <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                       Text="{Binding SharePosterSingleDayPortraitOnly, Source={x:Static loc:Translations.Instance}}"
-                       IsVisible="{Binding ShowSingleDayNotice}"/>
+                       Text="{Binding SharePosterTrayPortraitOnly, Source={x:Static loc:Translations.Instance}}"
+                       IsVisible="{Binding ShowTrayPortraitNotice}"/>
         </StackPanel>
 
         <!-- 预览 -->

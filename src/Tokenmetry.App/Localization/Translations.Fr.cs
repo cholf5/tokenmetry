@@ -482,6 +482,9 @@ public sealed partial class Translations
         // ── Share poster ──
         [nameof(SharePosterTitle)] = "Affiche à partager",
         [nameof(SharePosterEntryTooltip)] = "Transformer les filtres actuels en affiche partageable",
+        [nameof(SharePosterStyle)] = "Style",
+        [nameof(SharePosterStyleTray)] = "Carte d'infos",
+        [nameof(SharePosterStyleOverview)] = "Vue d'ensemble",
         [nameof(SharePosterLayout)] = "Mise en page",
         [nameof(SharePosterLayoutPortrait)] = "Portrait",
         [nameof(SharePosterLayoutLandscape)] = "Paysage",
@@ -508,9 +511,9 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultMask)] = "Flou par défaut",
         [nameof(SharePosterDayCountFormat)] = "{0} jours avec des données",
         [nameof(SharePosterCopyFailedFormat)] = "Échec de la copie : {0}",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "Une fenêtre d'un seul jour n'existe qu'en portrait : le paysage imposerait de repenser le flux d'information.",
+        [nameof(SharePosterTrayPortraitOnly)] = "Le style de carte d'infos n'existe qu'en portrait : le paysage imposerait de repenser le flux d'information.",
         [nameof(SharePosterTrayAgents)] = "Agents principaux",
         [nameof(SharePosterTrayModels)] = "Usage des modèles",
-        [nameof(SharePosterTrayByTokens)] = "Par tokens du jour",
+        [nameof(SharePosterTrayByTokens)] = "Par tokens",
     };
 }

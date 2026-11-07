@@ -23,8 +23,9 @@ namespace Tokenmetry.App.Headless.Tests.Share;
 /// </summary>
 public class SharePosterExporterTests
 {
-    private static SharePosterRequest Request(DateOnly start, DateOnly end) =>
-        new(SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off, start, end);
+    private static SharePosterRequest Request(DateOnly start, DateOnly end, SharePosterStyle? style = null) =>
+        new(SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off, start, end,
+            style ?? (start == end ? SharePosterStyle.Tray : SharePosterStyle.Overview));
 
     [Fact]
     public void File_name_for_a_single_day_has_one_date()

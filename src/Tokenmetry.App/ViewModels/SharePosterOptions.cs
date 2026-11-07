@@ -45,8 +45,10 @@ public sealed class SharePosterOption : ObservableObject
 }
 
 /// <summary>
-/// 海报三组选项的单一出处（设置页与生成对话框共用同一批实例）：值 ↔ 枚举的双向映射也在这里，
-/// 避免两处各写一套解析。未知/脏值一律如实回落默认（同 AppSettings.Theme 的处理）。
+/// 海报选项的单一出处：设置页三组默认档（版式/主题/雾化）与生成对话框共用同一批实例，
+/// 值 ↔ 枚举的双向映射也在这里，避免两处各写一套解析。样式（信息卡/总览）不进设置页，
+/// 只有 <see cref="CreateStyles"/> 一条入口（对话框每次打开新建实例）。未知/脏值一律如实回落
+/// 默认（同 AppSettings.Theme 的处理）。
 /// </summary>
 public static class SharePosterOptions
 {
@@ -71,6 +73,16 @@ public static class SharePosterOptions
         new("off", () => Translations.Instance.SharePosterMaskOff),
         new("partial", () => Translations.Instance.SharePosterMaskPartial),
         new("full", () => Translations.Instance.SharePosterMaskFull),
+    ];
+
+    /// <summary>
+    /// 样式（信息卡 / 总览）：只有对话框用（设置页不存样式默认档——缺省跟随打开时的范围，
+    /// 用户在对话框里改）。与版式是两个维度：信息卡固定竖版，总览竖/横皆可。
+    /// </summary>
+    public static IReadOnlyList<SharePosterOption> CreateStyles() =>
+    [
+        new("tray", () => Translations.Instance.SharePosterStyleTray),
+        new("overview", () => Translations.Instance.SharePosterStyleOverview),
     ];
 
     /// <summary>生成对话框专用：每次打开新建一批实例（带独立 IsSelected，不与设置页共享选中态）。</summary>
@@ -122,6 +134,9 @@ public static class SharePosterOptions
         _ => SharePosterProjectMask.Off,
     };
 
+    public static SharePosterStyle ParseStyle(string? value) =>
+        Normalize(value) == "overview" ? SharePosterStyle.Overview : SharePosterStyle.Tray;
+
     public static string KeyOf(SharePosterLayout layout) =>
         layout == SharePosterLayout.Landscape ? "landscape" : "portrait";
 
@@ -138,6 +153,9 @@ public static class SharePosterOptions
         SharePosterProjectMask.Full => "full",
         _ => "off",
     };
+
+    public static string KeyOf(SharePosterStyle style) =>
+        style == SharePosterStyle.Overview ? "overview" : "tray";
 
     /// <summary>枚举 → 选项实例（ComboBox 的 SelectedItem 必须是同一批实例）。</summary>
     public static SharePosterOption ForLayout(SharePosterLayout layout) =>

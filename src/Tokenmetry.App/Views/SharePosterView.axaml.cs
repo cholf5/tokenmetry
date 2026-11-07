@@ -46,10 +46,10 @@ public partial class SharePosterView : UserControl
     }
 
     /// <summary>导出时要光栅化的节点（当前基底的根，不含外面用来适配预览的缩放容器）。</summary>
-    public Control PosterRootControl => IsSingleDay ? TrayRoot : PosterRoot;
+    public Control PosterRootControl => IsTrayStyle ? TrayRoot : PosterRoot;
 
-    /// <summary>单日窗口走托盘基底（固定 1080 竖版），多日走总览基底（1080 / 1800）。</summary>
-    public bool IsSingleDay => (DataContext as SharePosterViewModel)?.IsSingleDay ?? false;
+    /// <summary>信息卡样式走托盘基底（固定 1080 竖版），总览样式走总览基底（1080 / 1800）——只看样式，与范围无关。</summary>
+    public bool IsTrayStyle => (DataContext as SharePosterViewModel)?.IsTrayStyle ?? false;
 
     /// <summary>版式 → 画布宽度（纯函数，测试与导出共用）。</summary>
     public static double WidthFor(SharePosterLayout layout) =>
@@ -134,9 +134,9 @@ public partial class SharePosterView : UserControl
     /// </summary>
     private void ApplyLayout()
     {
-        if (IsSingleDay)
+        if (IsTrayStyle)
         {
-            // 单日托盘基底是固定 1080 竖卡片：不受版式选项影响（对话框也禁用了横版）
+            // 托盘基底是固定 1080 竖卡片：不受版式选项影响（对话框在信息卡样式下也禁了横版）
             TrayRoot.Width = PortraitWidth;
             PosterRoot.Width = PortraitWidth;
             PosterRoot.Classes.Remove("land");

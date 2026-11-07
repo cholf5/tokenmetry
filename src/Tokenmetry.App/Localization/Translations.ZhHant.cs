@@ -482,6 +482,9 @@ public sealed partial class Translations
         // ── Share poster ──
         [nameof(SharePosterTitle)] = "分享海報",
         [nameof(SharePosterEntryTooltip)] = "把目前篩選變成一張可分享的海報",
+        [nameof(SharePosterStyle)] = "樣式",
+        [nameof(SharePosterStyleTray)] = "資訊卡",
+        [nameof(SharePosterStyleOverview)] = "總覽",
         [nameof(SharePosterLayout)] = "版式",
         [nameof(SharePosterLayoutPortrait)] = "直式",
         [nameof(SharePosterLayoutLandscape)] = "橫式",
@@ -508,9 +511,9 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultMask)] = "預設模糊",
         [nameof(SharePosterDayCountFormat)] = "{0} 個有記錄的天",
         [nameof(SharePosterCopyFailedFormat)] = "複製失敗：{0}",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "單日視窗只提供直式：橫置需要重排資訊流。",
+        [nameof(SharePosterTrayPortraitOnly)] = "資訊卡樣式固定直式：橫置需要重排資訊流。",
         [nameof(SharePosterTrayAgents)] = "主要 Agent",
         [nameof(SharePosterTrayModels)] = "模型用量",
-        [nameof(SharePosterTrayByTokens)] = "按今日 Token",
+        [nameof(SharePosterTrayByTokens)] = "按 Token",
     };
 }

@@ -8,6 +8,8 @@ namespace Tokenmetry.Core.Tests.Models;
 /// </summary>
 public class SharePosterSnapshotTests
 {
+    private static readonly DateOnly SingleDay = new(2026, 10, 17);
+
     private static DimensionUsageRow Row(
         string key, long input, long output, long cache, decimal? cost, bool unknownCost = false) => new()
     {
@@ -22,7 +24,8 @@ public class SharePosterSnapshotTests
     private static SharePosterRequest Request(DateOnly? start = null, DateOnly? end = null) =>
         new(SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off,
             start ?? new DateOnly(2026, 1, 28),
-            end ?? new DateOnly(2026, 11, 2));
+            end ?? new DateOnly(2026, 11, 2),
+            SharePosterStyle.Overview);
 
     [Fact]
     public void Single_day_range_sets_the_flag()
@@ -173,5 +176,32 @@ public class SharePosterSnapshotTests
         data.Agents.Should().HaveCount(9);
         data.Models.Should().BeEmpty();
         data.Projects.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Hourly_distribution_and_cutoff_are_carried_over_verbatim()
+    {
+        // 小时形态的数据随快照走（总览样式的单日海报切小时形态用）；快照不加工、不补桶。
+        var hourly = new HourlyDistributionResult
+        {
+            Hours = [new HourlyUsageBucket { Hour = 9, TotalTokens = 123, SessionCount = 2 }],
+            UnknownSessionCount = 1,
+            UnknownTotalTokens = 10,
+        };
+
+        var data = SharePosterSnapshot.Build(Request(SingleDay, SingleDay), [], [], [], [], sessionCount: 0,
+            hourly: hourly, hourlyCutoffHour: 14);
+
+        data.Hourly.Should().BeSameAs(hourly);
+        data.HourlyCutoffHour.Should().Be(14);
+    }
+
+    [Fact]
+    public void Hourly_data_defaults_to_null_for_multi_day_windows()
+    {
+        var data = SharePosterSnapshot.Build(Request(), [], [], [], [], sessionCount: 0);
+
+        data.Hourly.Should().BeNull();
+        data.HourlyCutoffHour.Should().BeNull();
     }
 }

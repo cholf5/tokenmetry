@@ -275,9 +275,10 @@ public partial class TrendChart : UserControl
 
         ApplyChartChrome(plot);
 
-        // 静态图缺 hover：海报直接把峰值写进图上（ShowPeakAnnotation 默认 false，既有页面不变）
+        // 静态图缺 hover：海报直接把峰值写进图上（ShowPeakAnnotation 默认 false，既有页面不变）。
+        // 空数据由 BuildPeakAnnotation 自己返回 null，这里不用按形态预判。
         PeakAnnotationText = null;
-        if (ShowPeakAnnotation && !IsEffectivelyEmpty(DailyPoints))
+        if (ShowPeakAnnotation)
         {
             var annotation = BuildPeakAnnotation();
             if (annotation is not null)
@@ -328,10 +329,15 @@ public partial class TrendChart : UserControl
     /// </summary>
     /// <summary>
     /// 峰值标注文本：按当前形态取"最大那一点"的日期/小时与格式化数值。
-    /// 日形态取 HasData 的最大 TotalTokens 或最大已知成本；小时形态取最大桶。
+    /// 日形态取 HasData 的最大 TotalTokens 或最大已知成本；小时形态取已发生小时里的最大桶。
     /// </summary>
     private (string Text, Coordinates At, int Index, int Count)? BuildPeakAnnotation()
     {
+        if (Mode is TrendChartMode.HourlyTokens or TrendChartMode.HourlyCost)
+        {
+            return BuildHourlyPeakAnnotation();
+        }
+
         if (Mode is TrendChartMode.DailyTokens or TrendChartMode.CostUsd)
         {
             var points = DailyPoints;
@@ -390,6 +396,69 @@ public partial class TrendChart : UserControl
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 小时形态的峰值标注（海报的单日总览基底）：只在「已发生」小时里找峰——尚未到达的小时不是
+    /// 候选，粗粒度会话本来就不在图上。token 全零 / 成本全未知或为零时不标注（0 峰是伪信息）。
+    /// 标签小时写 HH:00（同 tooltip 头），数值同日形态走 ASCII 阶梯单位。
+    /// </summary>
+    private (string Text, Coordinates At, int Index, int Count)? BuildHourlyPeakAnnotation()
+    {
+        var hours = HourlyDistribution?.Hours;
+        if (hours is null || hours.Count == 0)
+        {
+            return null;
+        }
+
+        var realCount = RealHourCount(hours.Count, HourlyCutoffHour);
+        if (Mode == TrendChartMode.HourlyTokens)
+        {
+            var peakIndex = -1;
+            for (var i = 0; i < realCount; i++)
+            {
+                if (hours[i].TotalTokens > 0 && (peakIndex < 0 || hours[i].TotalTokens > hours[peakIndex].TotalTokens))
+                {
+                    peakIndex = i;
+                }
+            }
+
+            if (peakIndex < 0)
+            {
+                return null;
+            }
+
+            var peak = hours[peakIndex];
+            return (
+                $"{peak.Hour:00}:00 · " +
+                FormatCompact(peak.TotalTokens, EnglishUnits, CultureInfo.InvariantCulture, tickPrecision: false),
+                new Coordinates(peak.Hour, peak.TotalTokens),
+                peakIndex,
+                hours.Count);
+        }
+
+        var costPeakIndex = -1;
+        for (var i = 0; i < realCount; i++)
+        {
+            var cost = hours[i].Cost.KnownCostUsd;
+            if (cost is { } value && value > 0
+                && (costPeakIndex < 0 || value > hours[costPeakIndex].Cost.KnownCostUsd!.Value))
+            {
+                costPeakIndex = i;
+            }
+        }
+
+        if (costPeakIndex < 0)
+        {
+            return null;
+        }
+
+        var costPeak = hours[costPeakIndex];
+        return (
+            $"{costPeak.Hour:00}:00 · " + FormatCostUsd(costPeak.Cost.KnownCostUsd!.Value, hasUnknownCost: false)!,
+            new Coordinates(costPeak.Hour, (double)costPeak.Cost.KnownCostUsd!.Value),
+            costPeakIndex,
+            hours.Count);
     }
 
     /// <summary>日期字符串 → 折线用的 X 坐标（OADate，与各 Build* 的 xs 同源）。</summary>

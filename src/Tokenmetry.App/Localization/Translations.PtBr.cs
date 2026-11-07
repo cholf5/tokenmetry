@@ -482,6 +482,9 @@ public sealed partial class Translations
         // ── Share poster ──
         [nameof(SharePosterTitle)] = "Pôster para compartilhar",
         [nameof(SharePosterEntryTooltip)] = "Transforme os filtros atuais em um pôster compartilhável",
+        [nameof(SharePosterStyle)] = "Estilo",
+        [nameof(SharePosterStyleTray)] = "Cartão informativo",
+        [nameof(SharePosterStyleOverview)] = "Visão geral",
         [nameof(SharePosterLayout)] = "Layout",
         [nameof(SharePosterLayoutPortrait)] = "Retrato",
         [nameof(SharePosterLayoutLandscape)] = "Paisagem",
@@ -508,9 +511,9 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultMask)] = "Desfoque padrão",
         [nameof(SharePosterDayCountFormat)] = "{0} dias com dados",
         [nameof(SharePosterCopyFailedFormat)] = "Falha ao copiar: {0}",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "Uma janela de um dia só oferece retrato: a horizontal exigiria outro fluxo de informação.",
+        [nameof(SharePosterTrayPortraitOnly)] = "O estilo de cartão informativo só existe em retrato: a horizontal exigiria outro fluxo de informação.",
         [nameof(SharePosterTrayAgents)] = "Principais agentes",
         [nameof(SharePosterTrayModels)] = "Uso de modelos",
-        [nameof(SharePosterTrayByTokens)] = "Por tokens de hoje",
+        [nameof(SharePosterTrayByTokens)] = "Por tokens",
     };
 }

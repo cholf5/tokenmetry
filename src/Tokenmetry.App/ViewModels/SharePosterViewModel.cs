@@ -22,9 +22,10 @@ public sealed class SharePosterViewModel
         var range = data.Request.RangeStart.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
                     + " — " +
                     data.Request.RangeEnd.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
-        // 多日窗口补「N 个有记录的天」：范围天数会夸大活跃度（大段没开工具的日子也在范围里）
+        // 总览基底页头的日期行：单日范围写「日期 · 周几」（两端同一天没有信息量）；
+        // 多日补「N 个有记录的天」——范围天数会夸大活跃度（大段没开工具的日子也在范围里）
         RangeText = data.Request.IsSingleDay
-            ? range
+            ? SingleDayDateText
             : range + " · " + string.Format(
                 Translations.Instance.SharePosterDayCountFormat, data.Daily.Count(d => d.HasData));
 
@@ -50,7 +51,13 @@ public sealed class SharePosterViewModel
 
     public SharePosterData Data { get; }
 
-    /// <summary>单日窗口 = 托盘信息窗基底（设计 §3.1）；版式固定竖版。</summary>
+    /// <summary>
+    /// 信息卡样式 = 托盘基底（设计 §3.1，固定竖版）；总览样式走总览页基底。只看样式，与范围无关——
+    /// 样式与时间范围解耦后，多日范围也能出信息卡、单日范围也能出总览。
+    /// </summary>
+    public bool IsTrayStyle => Data.Request.Style == SharePosterStyle.Tray;
+
+    /// <summary>是否单日窗口（决定趋势图形态与日期文案，与样式无关）。</summary>
     public bool IsSingleDay => Data.Request.IsSingleDay;
 
     /// <summary>单日海报页头的日期（带本地化星期：海报上写「周六」比 ISO 周几可读）。</summary>
@@ -58,10 +65,36 @@ public sealed class SharePosterViewModel
         Data.Request.RangeStart.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
         + " · " + Data.Request.RangeStart.ToString("ddd", CultureInfo.CurrentCulture);
 
+    /// <summary>范围两端的「yyyy.MM.dd — yyyy.MM.dd」（信息卡多日头部的日期行用）。</summary>
+    private string RangeDaysText =>
+        Data.Request.RangeStart.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
+        + " — " +
+        Data.Request.RangeEnd.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
+
+    /// <summary>信息卡头部的日期行：单日写「日期 · 周几」，多日写范围。</summary>
+    public string TrayDateText => IsSingleDay ? SingleDayDateText : RangeDaysText;
+
     /// <summary>有记录的天数（不是范围天数——范围天数会夸大"活跃"）。</summary>
     public int DayCount => Data.Daily.Count(d => d.HasData);
 
     public string RangeText { get; }
+
+    /// <summary>Token 趋势形态（D-027 同源）：单日范围且小时分布可用 → 小时折线，其余 → 日序列。</summary>
+    public TrendChartMode TokenTrendMode =>
+        Data.Request.IsSingleDay && Data.Hourly is not null
+            ? TrendChartMode.HourlyTokens
+            : TrendChartMode.DailyTokens;
+
+    /// <summary>成本趋势形态（D-027 同源）：单日范围且小时分布可用 → 小时成本折线，其余 → 日成本折线。</summary>
+    public TrendChartMode CostTrendMode =>
+        Data.Request.IsSingleDay && Data.Hourly is not null
+            ? TrendChartMode.HourlyCost
+            : TrendChartMode.CostUsd;
+
+    /// <summary>小时形态数据源与「已发生」边界（非单日范围 / 查询失败为 null，两张图回日序列形态）。</summary>
+    public HourlyDistributionResult? Hourly => Data.Hourly;
+
+    public int? HourlyCutoffHour => Data.HourlyCutoffHour;
 
     public string TotalTokensText { get; }
 

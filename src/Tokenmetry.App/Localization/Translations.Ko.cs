@@ -482,6 +482,9 @@ public sealed partial class Translations
         // ── Share poster ──
         [nameof(SharePosterTitle)] = "공유 포스터",
         [nameof(SharePosterEntryTooltip)] = "현재 필터를 그대로 공유 가능한 포스터로 만듭니다",
+        [nameof(SharePosterStyle)] = "스타일",
+        [nameof(SharePosterStyleTray)] = "정보 카드",
+        [nameof(SharePosterStyleOverview)] = "개요",
         [nameof(SharePosterLayout)] = "레이아웃",
         [nameof(SharePosterLayoutPortrait)] = "세로",
         [nameof(SharePosterLayoutLandscape)] = "가로",
@@ -508,9 +511,9 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultMask)] = "기본 흐림",
         [nameof(SharePosterDayCountFormat)] = "기록이 있는 날 {0}일",
         [nameof(SharePosterCopyFailedFormat)] = "복사 실패: {0}",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "하루 창은 세로만 제공합니다. 가로로 돌리려면 정보 흐름을 다시 짜야 합니다.",
+        [nameof(SharePosterTrayPortraitOnly)] = "정보 카드 스타일은 세로만 제공합니다. 가로로 돌리려면 정보 흐름을 다시 짜야 합니다.",
         [nameof(SharePosterTrayAgents)] = "주요 에이전트",
         [nameof(SharePosterTrayModels)] = "모델 사용량",
-        [nameof(SharePosterTrayByTokens)] = "오늘 Token 기준",
+        [nameof(SharePosterTrayByTokens)] = "Token 기준",
     };
 }
