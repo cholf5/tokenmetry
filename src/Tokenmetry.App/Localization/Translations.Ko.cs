@@ -528,7 +528,6 @@ public sealed partial class Translations
         [nameof(SharePosterTrayAgents)] = "주요 에이전트",
         [nameof(SharePosterTrayModels)] = "모델 사용량",
         [nameof(SharePosterTrayByTokens)] = "Token 기준",
-        [nameof(SharePosterDataScope)] = "데이터 범위(변경 사항은 메인 창 필터에 동기화됩니다)",
         [nameof(SharePosterUpdating)] = "업데이트 중…",
         [nameof(SharePosterUpdateFailedFormat)] = "데이터 새로 고침 실패: {0}",
         [nameof(SharePosterStyleOptions)] = "포스터 옵션",

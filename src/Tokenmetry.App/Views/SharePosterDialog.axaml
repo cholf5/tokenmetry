@@ -52,19 +52,12 @@
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <!-- 窗口标题栏已示「分享海报」，正文不重复放大标题，把纵向空间让给预览区 -->
         <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,16">
-            <TextBlock Classes="page-title" Text="{Binding SharePosterTitle, Source={x:Static loc:Translations.Instance}}"/>
-
             <!-- 数据范围（P6）：与主窗口顶栏共享同一 FilterStateService——这里改 = 改全局，
                  关窗后保留（海报永远印「当前筛选下的这个视图」，同一口径）；时间范围复用 D-020
                  选择器（档位/预设/自定义日期都在弹层里）。重查期间旧预览保留显示（更新中提示）。-->
             <StackPanel Spacing="8">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="setting-label" TextWrapping="Wrap"
-                               Text="{Binding SharePosterDataScope, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Grid.Column="1" Classes="setting-hint" IsVisible="{Binding IsUpdating}"
-                               Text="{Binding SharePosterUpdating, Source={x:Static loc:Translations.Instance}}"/>
-                </Grid>
                 <WrapPanel>
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,22,4">
                         <TextBlock Classes="setting-label" VerticalAlignment="Center"
@@ -110,6 +103,10 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                     </StackPanel>
+                    <!-- 「更新中」瞬态提示挂在筛选行尾，不独占一行 -->
+                    <TextBlock Classes="setting-hint" VerticalAlignment="Center" Margin="0,0,0,4"
+                               IsVisible="{Binding IsUpdating}"
+                               Text="{Binding SharePosterUpdating, Source={x:Static loc:Translations.Instance}}"/>
                 </WrapPanel>
                 <!-- 重查失败就地显示（连续改筛选会连续失败，toast 会轰炸）；旧预览保留可导出 -->
                 <TextBlock Classes="setting-hint" TextWrapping="Wrap" IsVisible="{Binding HasReloadError}"
