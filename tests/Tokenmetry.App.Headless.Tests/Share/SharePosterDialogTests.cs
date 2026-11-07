@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
@@ -238,6 +239,55 @@ public class SharePosterDialogTests
         Assert.Equal("light", vm.SelectedTheme.Value);
         Assert.Single(vm.ThemeOptions, o => o.IsSelected);
         Assert.Same(light, vm.ThemeOptions.Single(o => o.IsSelected));
+    }
+
+    [Fact]
+    public void Choice_changes_report_to_the_persistence_hook_once_construction_stays_silent()
+    {
+        // 选项即存：对话框里任一选项实际变化都回报持有方（真实路径回写 settings.json），
+        // 构造期只赋起值不回报——起值越界被收口（真实路径：设置默认横版 + 信息卡锁竖版）也不算"用户选过"
+        var reports = new List<(SharePosterStyle Style, SharePosterLayout Layout, SharePosterTheme Theme, SharePosterProjectMask Mask)>();
+        var vm = new SharePosterDialogViewModel(
+            Request(singleDay: false, SharePosterStyle.Overview),
+            Snapshot,
+            onChoiceChanged: (style, layout, theme, mask) => reports.Add((style, layout, theme, mask)));
+
+        Assert.Empty(reports);
+
+        vm.Theme = SharePosterTheme.Light;
+
+        Assert.Single(reports);
+        Assert.Equal(
+            (SharePosterStyle.Overview, SharePosterLayout.Portrait, SharePosterTheme.Light, SharePosterProjectMask.Off),
+            reports[0]);
+
+        // 样式切换连带版式收口（总览横版 → 信息卡锁竖版）：回报的最终组合 = 收口后的当前请求
+        vm.Layout = SharePosterLayout.Landscape;
+        vm.Style = SharePosterStyle.Tray;
+
+        var last = reports[^1];
+        Assert.True(reports.Count > 2, "样式与版式各报一次（幂等冗余可接受），收口后至少再多两条");
+        Assert.Equal(SharePosterStyle.Tray, last.Style);
+        Assert.Equal(SharePosterLayout.Portrait, last.Layout);
+        Assert.Equal(vm.CurrentRequest.Style, last.Style);
+        Assert.Equal(vm.CurrentRequest.Layout, last.Layout);
+        Assert.Equal(vm.CurrentRequest.Theme, last.Theme);
+        Assert.Equal(vm.CurrentRequest.ProjectMask, last.Mask);
+    }
+
+    [Fact]
+    public void Constructor_does_not_report_choices_even_when_the_start_needs_collapsing()
+    {
+        // 起值越界（里程碑 × 横版）在构造期收口：从未有"用户选择"发生，不得触发回写
+        var reports = new List<SharePosterStyle>();
+        _ = new SharePosterDialogViewModel(
+            new SharePosterRequest(
+                SharePosterLayout.Landscape, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+                new DateOnly(2026, 10, 17), new DateOnly(2026, 11, 2), SharePosterStyle.Milestone),
+            Snapshot,
+            onChoiceChanged: (style, _, _, _) => reports.Add(style));
+
+        Assert.Empty(reports);
     }
 
     [Fact]

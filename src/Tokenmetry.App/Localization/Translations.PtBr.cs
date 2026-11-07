@@ -512,7 +512,7 @@ public sealed partial class Translations
         [nameof(SharePosterSaveFailedFormat)] = "Falha ao salvar: {0}",
         [nameof(SharePosterOpenFailedFormat)] = "Não foi possível abrir o pôster: {0}",
         [nameof(SharePosterSettingsTitle)] = "Configurações do pôster",
-        [nameof(SharePosterSettingsHint)] = "O pôster herda os filtros atuais da barra superior; aqui você define apenas os padrões ao abrir a janela.",
+        [nameof(SharePosterSettingsHint)] = "O pôster herda os filtros atuais da barra superior; aqui você define os padrões com que a janela abre — as escolhas feitas nela são lembradas como os próximos padrões.",
         [nameof(SharePosterDefaultLayout)] = "Layout padrão",
         [nameof(SharePosterDefaultTheme)] = "Tema padrão",
         [nameof(SharePosterDefaultMask)] = "Desfoque padrão",

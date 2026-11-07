@@ -512,7 +512,7 @@ public sealed partial class Translations
         [nameof(SharePosterSaveFailedFormat)] = "저장 실패: {0}",
         [nameof(SharePosterOpenFailedFormat)] = "공유 포스터를 열 수 없습니다: {0}",
         [nameof(SharePosterSettingsTitle)] = "포스터 설정",
-        [nameof(SharePosterSettingsHint)] = "포스터는 상단 바의 현재 필터를 그대로 따릅니다. 여기서는 생성 대화상자를 열 때의 기본값만 정합니다.",
+        [nameof(SharePosterSettingsHint)] = "포스터는 상단 바의 현재 필터를 그대로 따릅니다. 여기서 생성 대화상자의 기본값을 정하며, 대화상자에서 선택한 항목은 다음 기본값으로 기억됩니다.",
         [nameof(SharePosterDefaultLayout)] = "기본 레이아웃",
         [nameof(SharePosterDefaultTheme)] = "기본 테마",
         [nameof(SharePosterDefaultMask)] = "기본 흐림",

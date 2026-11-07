@@ -512,7 +512,7 @@ public sealed partial class Translations
         [nameof(SharePosterSaveFailedFormat)] = "Échec de l'enregistrement : {0}",
         [nameof(SharePosterOpenFailedFormat)] = "Impossible d'ouvrir l'affiche : {0}",
         [nameof(SharePosterSettingsTitle)] = "Réglages de l'affiche",
-        [nameof(SharePosterSettingsHint)] = "L'affiche reprend les filtres actuels de la barre supérieure ; ces options ne définissent que les valeurs par défaut à l'ouverture de la fenêtre.",
+        [nameof(SharePosterSettingsHint)] = "L'affiche reprend les filtres actuels de la barre supérieure ; ces options définissent les valeurs par défaut à l'ouverture de la fenêtre — les choix faits dans la fenêtre sont mémorisés comme valeurs par défaut pour la prochaine fois.",
         [nameof(SharePosterDefaultLayout)] = "Mise en page par défaut",
         [nameof(SharePosterDefaultTheme)] = "Thème par défaut",
         [nameof(SharePosterDefaultMask)] = "Flou par défaut",

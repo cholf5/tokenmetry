@@ -179,6 +179,21 @@ public static class SharePosterOptions
         _ => SharePosterStyle.Tray,
     };
 
+    /// <summary>
+    /// settings.json 的样式记忆 → 枚举：空/未知值返回 null（= 从未在对话框选过样式或脏值），
+    /// 由调用方如实回落"跟随范围"的起值——与 <see cref="ParseStyle"/>（分段控件键解析，未知即
+    /// 信息卡）不同，这里不能把"没选过"谎报成某个具体样式。
+    /// </summary>
+    public static SharePosterStyle? ParseStyleOrNull(string? value) => Normalize(value) switch
+    {
+        "tray" => SharePosterStyle.Tray,
+        "overview" => SharePosterStyle.Overview,
+        "heatmap" => SharePosterStyle.Heatmap,
+        "rhythm" => SharePosterStyle.Rhythm,
+        "milestone" => SharePosterStyle.Milestone,
+        _ => null,
+    };
+
     public static string KeyOf(SharePosterLayout layout) =>
         layout == SharePosterLayout.Landscape ? "landscape" : "portrait";
 

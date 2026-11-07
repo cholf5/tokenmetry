@@ -8,11 +8,14 @@ namespace Tokenmetry.App.ViewModels;
 /// <summary>
 /// 生成对话框的展示模型（P5）：持有五个选项，任一变化即重建预览快照。
 /// 快照由注入的工厂产出——对话框不直接查库，避免和总览页各写一套口径。
+/// 选项即存：四个选项任一实际变化都回调 <c>onChoiceChanged</c>（真实路径回写 settings.json，
+/// 下次打开接着上次的选择）；构造期只赋起值，不触发回调。
 /// </summary>
 public sealed class SharePosterDialogViewModel : ViewModelBase
 {
     private readonly Func<SharePosterRequest, SharePosterData> _snapshot;
     private readonly Func<string, ModelAvatarVisual?>? _modelIcons;
+    private readonly Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask>? _onChoiceChanged;
     private readonly DateOnly _rangeStart;
     private readonly DateOnly _rangeEnd;
 
@@ -31,11 +34,13 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     public SharePosterDialogViewModel(
         SharePosterRequest initial,
         Func<SharePosterRequest, SharePosterData> snapshot,
-        Func<string, ModelAvatarVisual?>? modelIconResolver = null)
+        Func<string, ModelAvatarVisual?>? modelIconResolver = null,
+        Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask>? onChoiceChanged = null)
     {
         ArgumentNullException.ThrowIfNull(initial);
         _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
         _modelIcons = modelIconResolver;
+        _onChoiceChanged = onChoiceChanged;
         _rangeStart = initial.RangeStart;
         _rangeEnd = initial.RangeEnd;
         _style = initial.Style;
@@ -197,6 +202,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
                 OnPropertyChanged(nameof(ShowLayoutNotice));
                 SyncSelection();
                 Refresh();
+                NotifyChoiceChanged();
             }
         }
     }
@@ -213,6 +219,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
                 OnPropertyChanged(nameof(SelectedLayout));
                 SyncSelection();
                 Refresh();
+                NotifyChoiceChanged();
             }
         }
     }
@@ -228,6 +235,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
                 OnPropertyChanged(nameof(SelectedTheme));
                 SyncSelection();
                 Refresh();
+                NotifyChoiceChanged();
             }
         }
     }
@@ -243,6 +251,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
                 OnPropertyChanged(nameof(SelectedMask));
                 SyncSelection();
                 Refresh();
+                NotifyChoiceChanged();
             }
         }
     }
@@ -252,6 +261,11 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         new(_layout, _theme, _mask, _rangeStart, _rangeEnd, _style);
 
     private SharePosterViewModel Build() => new(_snapshot(CurrentRequest), _modelIcons);
+
+    /// <summary>四个选项任一实际变化后通知持有方（真实路径回写 settings.json——上次使用即下次默认）。
+    /// 每组各报一次（样式切换连带版式收口时报两条）是可接受的幂等冗余；收口不改值时不报。</summary>
+    private void NotifyChoiceChanged() =>
+        _onChoiceChanged?.Invoke(_style, _layout, _theme, _mask);
 
     private void Refresh()
     {

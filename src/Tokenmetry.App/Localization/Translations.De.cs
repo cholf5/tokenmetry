@@ -512,7 +512,7 @@ public sealed partial class Translations
         [nameof(SharePosterSaveFailedFormat)] = "Speichern fehlgeschlagen: {0}",
         [nameof(SharePosterOpenFailedFormat)] = "Poster konnte nicht geöffnet werden: {0}",
         [nameof(SharePosterSettingsTitle)] = "Poster-Einstellungen",
-        [nameof(SharePosterSettingsHint)] = "Das Poster übernimmt die aktuellen Filter der oberen Leiste; hier werden nur die Standardwerte beim Öffnen des Dialogs festgelegt.",
+        [nameof(SharePosterSettingsHint)] = "Das Poster übernimmt die aktuellen Filter der oberen Leiste; hier werden die Standardwerte beim Öffnen des Dialogs festgelegt – im Dialog getroffene Auswahlen werden als Standard für das nächste Mal gemerkt.",
         [nameof(SharePosterDefaultLayout)] = "Standardlayout",
         [nameof(SharePosterDefaultTheme)] = "Standarddesign",
         [nameof(SharePosterDefaultMask)] = "Standard-Weichzeichnung",
