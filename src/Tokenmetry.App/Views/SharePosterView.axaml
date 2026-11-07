@@ -310,6 +310,39 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
+
+        <!-- ── 里程碑样式基底（设计 §3.1 修订 2026-11-07 第五样式；仅竖版 1080，能力表锁定）──
+             张力只来自字号层级与留白：120 英雄 / 44 叙事 / 32 模型名，标签全部弱化灰。 -->
+        <Style Selector="TextBlock.milestone-label">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-hero">
+            <Setter Property="FontSize" Value="120"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-3"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-hero-raw">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-value">
+            <Setter Property="FontSize" Value="44"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-1"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-model">
+            <Setter Property="FontSize" Value="32"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="-0.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="Border.milestone-divider">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource AppLineBrush}"/>
+        </Style>
         <Style Selector="TextBlock.heat-month-label">
             <Setter Property="FontSize" Value="15"/>
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
@@ -893,6 +926,73 @@
                                    Text="{Binding RhythmPeakText}"/>
                     </StackPanel>
                 </Border>
+            </StackPanel>
+        </Border>
+        <!-- ══ 里程碑样式（设计 §3.1 修订 2026-11-07：第五样式）══
+             Wrapped 式大数字叙事：只靠字号层级与留白做张力（§3.5 的"不加装饰、不加图形母题"在此
+             是硬边界），全部数字取自快照已有数据，零图表。仅竖版（能力表登记），固定 1080。 -->
+        <Border x:Name="MilestoneRoot"
+                Classes="poster-root milestone-root"
+                IsVisible="{Binding IsMilestoneStyle}"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Left"
+                Background="{DynamicResource AppBackgroundBrush}">
+            <StackPanel Spacing="14">
+
+                <!-- 页头：与总览基底竖版同构（默认 portrait 尺度组） -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" Margin="0,0,0,20">
+                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Center">
+                        <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Center">
+                        <TextBlock Classes="poster-brand" Text="Tokenmetry"/>
+                        <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 英雄数字：总 Token（紧凑值 + 完整数字两行，与托盘基底同一词汇） -->
+                <StackPanel Spacing="8" Margin="0,16,0,8">
+                    <TextBlock Classes="milestone-label"
+                               Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="milestone-hero" Text="{Binding TotalTokensText}"/>
+                    <TextBlock Classes="milestone-hero-raw" Text="{Binding TotalTokensRawText}"/>
+                </StackPanel>
+
+                <Border Classes="milestone-divider"/>
+
+                <!-- 叙事四格：最猛的一天 / 最长连续 / 活跃天数 / 会话数（2 × 2，全左起排） -->
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="14" Margin="0,10,0,0">
+                    <StackPanel Grid.Column="0" Grid.Row="0" Spacing="6">
+                        <TextBlock Classes="milestone-label"
+                                   Text="{Binding KpiPeakDay, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="milestone-value" Text="{Binding MilestonePeakText}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Grid.Row="0" Spacing="6">
+                        <TextBlock Classes="milestone-label"
+                                   Text="{Binding SharePosterMilestoneStreak, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="milestone-value" Text="{Binding MilestoneStreakText}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="0" Grid.Row="1" Spacing="6" Margin="0,26,0,0">
+                        <TextBlock Classes="milestone-label"
+                                   Text="{Binding SharePosterHeatActiveDays, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="milestone-value" Text="{Binding HeatActiveDaysText}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Grid.Row="1" Spacing="6" Margin="0,26,0,0">
+                        <TextBlock Classes="milestone-label"
+                                   Text="{Binding KpiSessions, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="milestone-value" Text="{Binding SessionsText}"/>
+                    </StackPanel>
+                </Grid>
+
+                <Border Classes="milestone-divider" Margin="0,14"/>
+
+                <!-- Top 模型：排行首行（名字 + token），雾化档不作用于模型名 -->
+                <StackPanel Spacing="6">
+                    <TextBlock Classes="milestone-label"
+                               Text="{Binding SharePosterMilestoneTopModel, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="milestone-model" Text="{Binding MilestoneTopModelName}"/>
+                    <TextBlock Classes="milestone-hero-raw" Text="{Binding MilestoneTopModelTokens}"/>
+                </StackPanel>
             </StackPanel>
         </Border>
       </Panel>

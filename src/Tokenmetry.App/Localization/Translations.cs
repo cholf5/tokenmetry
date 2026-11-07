@@ -518,6 +518,11 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterStyleOverview)] = "总览",
         [nameof(SharePosterStyleHeatmap)] = "打卡热力图",
         [nameof(SharePosterStyleRhythm)] = "时段节律",
+        [nameof(SharePosterStyleMilestone)] = "里程碑",
+        [nameof(SharePosterMilestonePortraitOnly)] = "里程碑样式固定竖版：叙事版式为竖幅社交场景设计。",
+        [nameof(SharePosterMilestoneStreak)] = "最长连续",
+        [nameof(SharePosterMilestoneStreakFormat)] = "{0} 天",
+        [nameof(SharePosterMilestoneTopModel)] = "最常用模型",
         [nameof(SharePosterLayout)] = "版式",
         [nameof(SharePosterLayoutPortrait)] = "竖版",
         [nameof(SharePosterLayoutLandscape)] = "横版",
@@ -1021,6 +1026,11 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterStyleOverview)] = "Overview",
         [nameof(SharePosterStyleHeatmap)] = "Activity heatmap",
         [nameof(SharePosterStyleRhythm)] = "Usage rhythm",
+        [nameof(SharePosterStyleMilestone)] = "Milestones",
+        [nameof(SharePosterMilestonePortraitOnly)] = "The milestones style is portrait only: the narrative layout is designed for portrait social formats.",
+        [nameof(SharePosterMilestoneStreak)] = "Longest streak",
+        [nameof(SharePosterMilestoneStreakFormat)] = "{0} days",
+        [nameof(SharePosterMilestoneTopModel)] = "Top model",
         [nameof(SharePosterLayout)] = "Layout",
         [nameof(SharePosterLayoutPortrait)] = "Portrait",
         [nameof(SharePosterLayoutLandscape)] = "Landscape",
@@ -1416,6 +1426,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterStyleOverview => Get();
     public string SharePosterStyleHeatmap => Get();
     public string SharePosterStyleRhythm => Get();
+    public string SharePosterStyleMilestone => Get();
     public string SharePosterLayout => Get();
     public string SharePosterLayoutPortrait => Get();
     public string SharePosterLayoutLandscape => Get();
@@ -1432,6 +1443,10 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterHeatmapLandscapeOnly => Get();
     public string SharePosterRhythmLandscapeOnly => Get();
     public string SharePosterRhythmPeakFormat => Get();
+    public string SharePosterMilestonePortraitOnly => Get();
+    public string SharePosterMilestoneStreak => Get();
+    public string SharePosterMilestoneStreakFormat => Get();
+    public string SharePosterMilestoneTopModel => Get();
     public string SharePosterHeatLess => Get();
     public string SharePosterHeatMore => Get();
     public string SharePosterHeatActiveDays => Get();

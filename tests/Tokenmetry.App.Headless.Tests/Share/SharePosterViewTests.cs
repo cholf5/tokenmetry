@@ -217,6 +217,32 @@ public class SharePosterViewTests
     }
 
     [AvaloniaFact]
+    public void Milestone_style_renders_the_narrative_base_with_hero_numbers()
+    {
+        var vm = ViewModel(layout: SharePosterLayout.Landscape, style: SharePosterStyle.Milestone);
+        var view = new SharePosterView { DataContext = vm };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        // 导出根切到叙事基底、固定 1080 竖版（起值横版被能力表收口后仍以竖版排）
+        Assert.True(view.IsMilestoneStyle);
+        Assert.Same(
+            view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "MilestoneRoot"),
+            view.PosterRootControl);
+        Assert.Equal(SharePosterView.PortraitWidth, view.PosterRootControl.Bounds.Width, 1);
+
+        // 纯排版：英雄数字 + 叙事值在版面上；基底子树内零图表、零卡片投影
+        // （圈定当前基底——隐藏的总览基底挂在同一棵视觉树上，其图表不算数）
+        Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.TotalTokensText);
+        Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.MilestonePeakText);
+        Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.MilestoneTopModelName);
+        Assert.DoesNotContain(view.PosterRootControl.GetVisualDescendants().OfType<TrendChart>(), _ => true);
+        Assert.DoesNotContain(view.PosterRootControl.GetVisualDescendants().OfType<Border>(), b => b.Effect is not null);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void Multi_day_header_carries_the_brand_not_the_app_page_title()
     {
         var model = ViewModel();

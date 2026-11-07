@@ -56,6 +56,9 @@ public class SharePosterDialogTests
         Assert.Equal(
             [SharePosterLayout.Landscape],
             SharePosterOptions.SupportedLayouts(SharePosterStyle.Rhythm));
+        Assert.Equal(
+            [SharePosterLayout.Portrait],
+            SharePosterOptions.SupportedLayouts(SharePosterStyle.Milestone));
     }
 
     [Fact]
@@ -73,6 +76,31 @@ public class SharePosterDialogTests
 
         Assert.Equal(SharePosterLayout.Landscape, vm.Layout);
         Assert.Equal(SharePosterLayout.Landscape, vm.CurrentRequest.Layout);
+    }
+
+    [Fact]
+    public void Milestone_style_locks_portrait_and_collapses_a_landscape_start()
+    {
+        var vm = new SharePosterDialogViewModel(Request(singleDay: false, SharePosterStyle.Milestone), Snapshot);
+        Assert.False(vm.CanChooseLayout);
+        Assert.True(vm.ShowLayoutNotice);
+        Assert.Equal(
+            Tokenmetry.App.Localization.Translations.Instance.SharePosterMilestonePortraitOnly,
+            vm.LayoutNoticeText);
+
+        // 横版写入被收口回竖版（与信息卡锁竖版同一机制）
+        vm.Layout = SharePosterLayout.Landscape;
+
+        Assert.Equal(SharePosterLayout.Portrait, vm.Layout);
+        Assert.Equal(SharePosterLayout.Portrait, vm.CurrentRequest.Layout);
+
+        // 起值越界（里程碑 × 横版）同样收口
+        var landscapeStart = new SharePosterDialogViewModel(
+            new SharePosterRequest(
+                SharePosterLayout.Landscape, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+                new DateOnly(2026, 10, 17), new DateOnly(2026, 11, 2), SharePosterStyle.Milestone),
+            Snapshot);
+        Assert.Equal(SharePosterLayout.Portrait, landscapeStart.CurrentRequest.Layout);
     }
 
     [Fact]
@@ -112,9 +140,9 @@ public class SharePosterDialogTests
     {
         var vm = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot);
 
-        Assert.Equal(4, vm.StyleOptions.Count);
+        Assert.Equal(5, vm.StyleOptions.Count);
         Assert.Equal(
-            ["tray", "overview", "heatmap", "rhythm"],
+            ["tray", "overview", "heatmap", "rhythm", "milestone"],
             vm.StyleOptions.Select(o => o.Value).ToArray());
         Assert.All(vm.StyleOptions, o => Assert.False(string.IsNullOrWhiteSpace(o.Label)));
     }
