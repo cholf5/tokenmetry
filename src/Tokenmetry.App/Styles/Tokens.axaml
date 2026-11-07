@@ -102,7 +102,8 @@
             <Color x:Key="AppPopoverShadowColor">#40000000</Color>
             <!-- 分享海报卡片投影（设计 §3.5 第 6 条：浅底上卡片边界弱，不分层会糊）：
                  rgba(20,32,52,.06)。Effect 无法只给颜色接 DynamicResource，故海报视图在代码
-                 Behind 按本令牌拼 DropShadowEffect（BoxShadow 在 RTB 导出路径下会损坏内容，勿改回）。 -->
+                 Behind 按本令牌拼 DropShadowEffect（BoxShadow 在 RTB >96DPI 路径下按 DPI² 放大
+                 错位内容，上游 AvaloniaUI/Avalonia#20693 截至 12.1.5 未修，勿改回）。 -->
             <Color x:Key="AppPosterShadowColor">#0f142034</Color>
             <!-- 分享海报打卡热力图色阶（§3.1 修订 2026-11-07 第三样式）：空档 + 四档深浅，
                  向强调绿收敛（打卡语义）。色阶随明暗翻转（编码的是对页面底的对比，不是数据系列身份，

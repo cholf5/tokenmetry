@@ -126,10 +126,12 @@ public partial class SharePosterView : UserControl
     /// <c>AppPosterShadowColor</c> 令牌里，此处负责拼出 <see cref="DropShadowEffect"/>——XAML 无法
     /// 只对效果的颜色部分接 DynamicResource。
     /// <para>
-    /// 用 Effect 而不是 <c>Border.BoxShadow</c> 是硬约束：BoxShadow 在 <c>RenderTargetBitmap.Render</c>
-    /// 的立即渲染路径下会把「泄漏的缩放变换」带给其后绘制的兄弟内容（首个带影卡片之后整张海报
-    /// 被放大错位，见导出回归测试），Avalonia 12.1.4 实测如此；Effect 两条渲染路径（合成器预览、
-    /// RTB 导出）都正确。投影形态取双影中较大的一层（偏移并入模糊），浓度取令牌 alpha。
+    /// 用 Effect 而不是 <c>Border.BoxShadow</c> 是硬约束（上游 issue AvaloniaUI/Avalonia#20693，
+    /// 截至 12.1.5 未修、无待合并 PR）：BoxShadow 的绘制在 Skia 立即路径走 DrawRectangle →
+    /// RestoreCanvas()，DPI≠96 的 RenderTargetBitmap 上会把 DPI 缩放二次乘进其后第一次
+    /// PushTransform——首个带影卡片之后整张海报按 DPI 平方放大错位，真机（Android/Skia）同样
+    /// 复现，v0.4.0 的日间导出即中招（回归锁见导出测试）；Effect 不走该路径，预览与导出都正确。
+    /// 升级 Avalonia 后若要换回 BoxShadow，先确认 #20693 已关闭。
     /// </para>
     /// </summary>
     private void ApplyPanelShadows(ThemeVariant variant)
