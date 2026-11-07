@@ -177,7 +177,7 @@ public class SharePosterViewTests
     public void Narrow_heat_range_narrows_the_canvas_and_places_stats_beside_the_grid()
     {
         // 单日窗口（用户实拍的最差情形：周六一天 → 周一对齐后 1 列、6 格范围外）：
-        // 画布收窄（1 周 = 576）——不再满 1800 留大段空白；脚注三格搬进卡片与日历并排
+        // 画布收窄（1 周 = 560 下限）——不再满 1800 留大段空白；脚注三格搬进卡片与日历并排
         // （海报不再窄而长），底部横排收起
         var day = new DateOnly(2026, 11, 7); // 周六
         var request = new SharePosterRequest(
@@ -212,7 +212,7 @@ public class SharePosterViewTests
         Assert.True(view.GetVisualDescendants().OfType<StackPanel>().First(s => s.Name == "HeatStatsCol").IsVisible);
         Assert.False(view.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "HeatStatsRow").IsVisible);
         var card = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "HeatCard");
-        Assert.Equal(view.PosterRootControl.Bounds.Width - 104, card.Bounds.Width, 1);
+        Assert.Equal(view.PosterRootControl.Bounds.Width - 2 * SharePosterRequest.DefaultMargin, card.Bounds.Width, 1);
 
         // 范围外格子是可见空槽（不是透明）：单日窗口 7 格里 6 格留槽、1 格有数据
         var grid = view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.UniformGrid>()
@@ -256,12 +256,14 @@ public class SharePosterViewTests
         var window = HostWide(view);
         using var frame = ChartTestHelpers.RenderFrame(window);
 
-        // 导出根切到节律基底、固定 1800 横版
+        // 导出根切到节律基底、画布随 7×24 网格与页边距收（不再钉 1800）
         Assert.True(view.IsRhythmStyle);
         Assert.Same(
             view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "RhythmRoot"),
             view.PosterRootControl);
-        Assert.Equal(SharePosterView.LandscapeWidth, view.PosterRootControl.Bounds.Width, 1);
+        Assert.Equal(SharePosterHeatmap.WeekdayGutter + 24 * SharePosterView.RhythmColumnWidth
+                     + SharePosterHeatmap.CanvasChromeFor(SharePosterRequest.DefaultMargin),
+                     view.PosterRootControl.Bounds.Width, 1);
 
         // 168 格全量生成；fixture 最近 30 天含真实数据 → 有深档与峰值描边
         var grid = view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.UniformGrid>()

@@ -187,6 +187,17 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
+                <!-- 页边距（修订七第二刀后开成参数）：滑杆 0–80、4px 吸附——40 被评过大、20 被评过窄，
+                     干脆交给用户；拖动即重排预览（选项即存，下次打开接着上次的值） -->
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
+                    <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                               Text="{Binding SharePosterMargin, Source={x:Static loc:Translations.Instance}}"/>
+                    <Slider Minimum="0" Maximum="80" TickFrequency="4" IsSnapToTickEnabled="True"
+                            Width="160" VerticalAlignment="Center"
+                            Value="{Binding Margin}"/>
+                    <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                               Text="{Binding MarginText}"/>
+                </StackPanel>
             </WrapPanel>
             <!-- 样式锁版式：说明原因，不静默禁用 -->
             <TextBlock x:Name="LayoutNotice" Classes="setting-hint" TextWrapping="Wrap"

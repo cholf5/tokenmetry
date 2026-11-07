@@ -309,7 +309,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return null;
         }
 
-        // 四个选项的起值 = 上次在对话框里的选择（选项即存，见 Settings.ApplySharePosterLastUsed）；
+        // 五个选项的起值 = 上次在对话框里的选择（选项即存，见 Settings.ApplySharePosterLastUsed）；
         // 样式从未选过（新用户/旧 settings.json）才跟随范围，与解耦前的首启观感一致。
         // 模型图标走目录解析器（用户自定义头像也生效）；选项即存回写设置页单例（落盘由它统一走）。
         return new SharePosterDialogViewModel(
@@ -318,11 +318,12 @@ public partial class MainWindowViewModel : ViewModelBase
             Settings.DefaultSharePosterLayout,
             Settings.DefaultSharePosterTheme,
             Settings.DefaultSharePosterProjectMask,
+            Settings.DefaultSharePosterMargin,
             _filters,
             TimePicker,
             ct => LoadPosterBundleAsync(ct),
             _avatars is null ? null : _avatars.Resolve,
-            (style, layout, theme, mask) => Settings.ApplySharePosterLastUsed(style, layout, theme, mask));
+            (style, layout, theme, mask, margin) => Settings.ApplySharePosterLastUsed(style, layout, theme, mask, margin));
     }
 
     /// <summary>

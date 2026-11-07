@@ -533,5 +533,6 @@ public sealed partial class Translations
         [nameof(SharePosterUpdating)] = "更新中…",
         [nameof(SharePosterUpdateFailedFormat)] = "データの更新に失敗しました：{0}",
         [nameof(SharePosterStyleOptions)] = "ポスターの設定",
+        [nameof(SharePosterMargin)] = "余白",
     };
 }

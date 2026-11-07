@@ -533,5 +533,6 @@ public sealed partial class Translations
         [nameof(SharePosterUpdating)] = "Atualizando…",
         [nameof(SharePosterUpdateFailedFormat)] = "Falha ao atualizar os dados: {0}",
         [nameof(SharePosterStyleOptions)] = "Opções do pôster",
+        [nameof(SharePosterMargin)] = "Margem do pôster",
     };
 }

@@ -115,6 +115,10 @@ public partial class SharePosterView : UserControl
     private SharePosterLayout CurrentLayout =>
         (DataContext as SharePosterViewModel)?.Data.Request.Layout ?? SharePosterLayout.Portrait;
 
+    /// <summary>请求页边距（收口后）：五种基底上下左右统一取这一值，XAML 里的 Padding 只是设计期缺省。</summary>
+    private double RequestMargin =>
+        (DataContext as SharePosterViewModel)?.Data.Request.SafeMargin ?? SharePosterRequest.DefaultMargin;
+
     /// <summary>托盘构成条的三段宽度：按输入/输出/缓存 token 比例给星号（全 0 时等分）。</summary>
     private void ApplyTrayTypeBar()
     {
@@ -203,6 +207,14 @@ public partial class SharePosterView : UserControl
     /// </summary>
     private void ApplyLayout()
     {
+        // 页边距是请求参数（对话框滑杆可调）：五种基底上下左右统一，XAML 样式值只作设计期缺省
+        var margin = new Thickness(RequestMargin);
+        PosterRoot.Padding = margin;
+        TrayRoot.Padding = margin;
+        HeatRoot.Padding = margin;
+        RhythmRoot.Padding = margin;
+        MilestoneRoot.Padding = margin;
+
         if (IsTrayStyle)
         {
             // 托盘基底是固定 1080 竖版：不受版式选项影响（对话框在信息卡样式下也禁了横版）
@@ -215,11 +227,10 @@ public partial class SharePosterView : UserControl
 
         if (IsHeatmapStyle)
         {
-            // 热力基底横版（能力表只登记横版，版式选项对它无效），画布宽随窗口周数收放：
-            // 窄/中范围脚注三格搬进卡片与日历并排（海报不再窄而长），长范围回到底部横排；
-            // 满 52 周精确回到 1800 现状（纯函数见 SharePosterHeatmap）
+            // 热力基底横版（能力表只登记横版，版式选项对它无效），画布宽随窗口周数与页边距收放：
+            // 窄/中范围脚注三格搬进卡片与日历并排（海报不再窄而长），长范围回到底部横排
             var weeks = (DataContext as SharePosterViewModel)?.Heat.Weeks ?? SharePosterHeatmap.MaxWeeks;
-            HeatRoot.Width = SharePosterHeatmap.CanvasWidthFor(weeks);
+            HeatRoot.Width = SharePosterHeatmap.CanvasWidthFor(weeks, RequestMargin);
             var beside = SharePosterHeatmap.UseBesideStats(weeks);
             HeatStatsCol.IsVisible = beside;
             HeatStatsRow.IsVisible = !beside;
@@ -229,8 +240,11 @@ public partial class SharePosterView : UserControl
 
         if (IsRhythmStyle)
         {
-            // 节律基底同样是固定 1800 横版
-            RhythmRoot.Width = LandscapeWidth;
+            // 节律基底横版：画布随 7×24 网格与页边距收（与热力基底同一 chrome 口径），
+            // 不钉满宽——钉满会让卡片右侧多出一段空带
+            RhythmRoot.Width = SharePosterHeatmap.WeekdayGutter
+                               + 24 * RhythmColumnWidth
+                               + SharePosterHeatmap.CanvasChromeFor(RequestMargin);
             ApplyRhythmGrid();
             return;
         }

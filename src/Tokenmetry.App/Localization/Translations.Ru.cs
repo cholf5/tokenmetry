@@ -535,5 +535,6 @@ public sealed partial class Translations
         [nameof(SharePosterUpdating)] = "Обновление…",
         [nameof(SharePosterUpdateFailedFormat)] = "Не удалось обновить данные: {0}",
         [nameof(SharePosterStyleOptions)] = "Параметры постера",
+        [nameof(SharePosterMargin)] = "Поля постера",
     };
 }

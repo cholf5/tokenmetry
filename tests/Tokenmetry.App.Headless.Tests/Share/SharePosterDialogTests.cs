@@ -45,7 +45,7 @@ public class SharePosterDialogTests
     /// </summary>
     private static SharePosterDialogViewModel NewVm(
         SharePosterRequest request,
-        Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask>? onChoiceChanged = null,
+        Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask, double>? onChoiceChanged = null,
         FilterStateService? filters = null,
         Func<CancellationToken, Task<SharePosterDataBundle>>? reload = null,
         Action<Func<Task>>? reloadScheduler = null)
@@ -53,7 +53,7 @@ public class SharePosterDialogTests
         var filterState = filters ?? new FilterStateService();
         var bundle = Bundle(request);
         return new SharePosterDialogViewModel(
-            bundle, request.Style, request.Layout, request.Theme, request.ProjectMask,
+            bundle, request.Style, request.Layout, request.Theme, request.ProjectMask, request.Margin,
             filterState,
             new TimeRangePickerViewModel(filterState, null),
             reload ?? (_ => Task.FromResult(bundle)),
@@ -276,7 +276,7 @@ public class SharePosterDialogTests
         var reports = new List<(SharePosterStyle Style, SharePosterLayout Layout, SharePosterTheme Theme, SharePosterProjectMask Mask)>();
         var vm = NewVm(
             Request(singleDay: false, SharePosterStyle.Overview),
-            onChoiceChanged: (style, layout, theme, mask) => reports.Add((style, layout, theme, mask)));
+            onChoiceChanged: (style, layout, theme, mask, _) => reports.Add((style, layout, theme, mask)));
 
         Assert.Empty(reports);
 
@@ -310,9 +310,32 @@ public class SharePosterDialogTests
             new SharePosterRequest(
                 SharePosterLayout.Landscape, SharePosterTheme.Dark, SharePosterProjectMask.Off,
                 new DateOnly(2026, 10, 17), new DateOnly(2026, 11, 2), SharePosterStyle.Milestone),
-            onChoiceChanged: (style, _, _, _) => reports.Add(style));
+            onChoiceChanged: (style, _, _, _, _) => reports.Add(style));
 
         Assert.Empty(reports);
+    }
+
+    [Fact]
+    public void Margin_updates_the_request_reports_and_clamps()
+    {
+        // 页边距是第五个选项：写入即进当前请求（重排不重查）、回报持有方持久化；
+        // 越界值收口到 [0, 80]，与滑杆范围一致
+        var reports = new List<double>();
+        var vm = NewVm(
+            Request(singleDay: false, SharePosterStyle.Overview),
+            onChoiceChanged: (_, _, _, _, margin) => reports.Add(margin));
+
+        vm.Margin = 40;
+
+        Assert.Equal(40, vm.CurrentRequest.Margin);
+        Assert.Equal("40 px", vm.MarginText);
+        Assert.Single(reports);
+        Assert.Equal(40, reports[0]);
+
+        vm.Margin = 500;
+
+        Assert.Equal(SharePosterRequest.MaxMargin, vm.CurrentRequest.Margin);
+        Assert.Equal(2, reports.Count);
     }
 
     [Fact]

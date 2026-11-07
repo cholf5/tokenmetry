@@ -23,8 +23,10 @@
     -->
     <UserControl.Styles>
         <!-- ── 竖版基线 ── -->
+        <!-- 页边距是请求参数（对话框滑杆可调，五种基底上下左右同值）：这里的 Padding 只是设计期
+             缺省，运行时 ApplyLayout 按 Request.Margin 覆盖 -->
         <Style Selector="Border.poster-root">
-            <Setter Property="Padding" Value="52,54,52,44"/>
+            <Setter Property="Padding" Value="28"/>
         </Style>
         <Style Selector="TextBlock.poster-subtitle">
             <Setter Property="FontSize" Value="17"/>
@@ -48,8 +50,9 @@
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
         <Style Selector="Border.poster-kpi">
-            <Setter Property="MinHeight" Value="196"/>
-            <Setter Property="Padding" Value="24,22,22,20"/>
+            <!-- 高度随内容走（四卡同栅格行自动等高）：MinHeight 只是兜底，不再给内容垫死空间 -->
+            <Setter Property="MinHeight" Value="148"/>
+            <Setter Property="Padding" Value="20,16,18,14"/>
             <Setter Property="CornerRadius" Value="16"/>
         </Style>
         <Style Selector="TextBlock.poster-kpi-value">
@@ -61,14 +64,14 @@
             <Setter Property="FontSize" Value="15"/>
         </Style>
         <Style Selector="Border.poster-panel">
-            <Setter Property="Padding" Value="22"/>
+            <Setter Property="Padding" Value="18"/>
             <Setter Property="CornerRadius" Value="16"/>
         </Style>
         <Style Selector="TextBlock.poster-panel-title">
             <Setter Property="FontSize" Value="19"/>
         </Style>
         <Style Selector="Border.poster-row">
-            <Setter Property="Padding" Value="0,11"/>
+            <Setter Property="Padding" Value="0,9"/>
         </Style>
         <!-- 模型行的品牌芯片：几何沿用 SharedStyles 的 model-chip 机制（伪类 + DynamicResource），
              只把槽位从 16 放大到 20 与海报 16px 的表名同级；两层类选择器压过单层的 model-chip。 -->
@@ -87,8 +90,10 @@
         <Style Selector="Border.model-chip.poster-model-chip TextBlock">
             <Setter Property="FontSize" Value="14"/>
         </Style>
+        <!-- MinHeight 而非 Height：同行的表格面板（TopN=6）更高时，趋势/成本图随行高拉伸
+             把死空间变成图表面积；数据少时保底 240，不会塌缩 -->
         <Style Selector="c|TrendChart">
-            <Setter Property="Height" Value="240"/>
+            <Setter Property="MinHeight" Value="240"/>
         </Style>
         <Style Selector="c|DonutChart">
             <Setter Property="DonutSize" Value="190"/>
@@ -116,7 +121,7 @@
 
         <!-- ── 横版：同一批面板的印刷尺寸（设计 §3.3 / §3.4）── -->
         <Style Selector="Border.poster-root.land">
-            <Setter Property="Padding" Value="52,46,52,42"/>
+            <Setter Property="Padding" Value="28"/>
         </Style>
         <Style Selector="Border.poster-root.land Border.poster-logo">
             <Setter Property="Width" Value="58"/>
@@ -137,7 +142,7 @@
             <Setter Property="FontSize" Value="17"/>
         </Style>
         <Style Selector="Border.poster-root.land c|TrendChart">
-            <Setter Property="Height" Value="250"/>
+            <Setter Property="MinHeight" Value="250"/>
         </Style>
         <Style Selector="Border.poster-root.land c|DonutChart">
             <Setter Property="DonutSize" Value="168"/>
@@ -149,10 +154,12 @@
 
         <!-- ── 信息卡样式（托盘基底，设计 §3.1：状态栏信息窗的印刷版；固定 1080 竖版，不提供横置）── -->
         <Style Selector="Border.tray-root">
-            <Setter Property="Padding" Value="44"/>
+            <Setter Property="Padding" Value="28"/>
         </Style>
         <Style Selector="Border.tray-header">
-            <Setter Property="Padding" Value="32,0"/>
+            <!-- 内容内缩只由 tray-root 一层承担；头部高度随内容（此前定高 96 会把 52 的 logo
+                 居中出 ~22px 上垫，视觉顶边距比左右宽一截——「上面空出一大截」的来源） -->
+            <Setter Property="Padding" Value="0,0,0,10"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
         </Style>
@@ -279,7 +286,7 @@
 
         <!-- ── 宽横版基底尺寸组（打卡热力图 / 时段节律共用：固定 1800 横版，能力表锁定）── -->
         <Style Selector="Border.heat-root">
-            <Setter Property="Padding" Value="52,46,52,44"/>
+            <Setter Property="Padding" Value="28"/>
         </Style>
         <Style Selector="Border.heat-root Border.poster-logo">
             <Setter Property="Width" Value="58"/>
@@ -463,40 +470,41 @@
 
                     <!-- 竖版三行（固定两列） -->
                     <Grid x:Name="PortraitRow1" ColumnDefinitions="1.45*,0.95*" ColumnSpacing="14">
-                        <!-- 趋势 -->
+                        <!-- 趋势：标题行 Auto、图表 *——同行的表格更高时图表随行高拉伸（MinHeight 保底） -->
                         <Border x:Name="TrendPanel" Grid.Column="0" Classes="panel poster-panel">
-                            <StackPanel Spacing="10">
-                                <TextBlock Classes="panel-title poster-panel-title"
+                            <Grid RowDefinitions="Auto,*" RowSpacing="10">
+                                <TextBlock Grid.Row="0" Classes="panel-title poster-panel-title"
                                            Text="{Binding PanelTrend, Source={x:Static loc:Translations.Instance}}"/>
-                                <c:TrendChart x:Name="TrendChartControl"
+                                <c:TrendChart Grid.Row="1" x:Name="TrendChartControl"
                                               Mode="{Binding TokenTrendMode}"
                                               DailyPoints="{Binding Daily}"
                                               HourlyDistribution="{Binding Hourly}"
                                               HourlyCutoffHour="{Binding HourlyCutoffHour}"
                                               ChartFontScale="1.9"
                                               ShowPeakAnnotation="True"/>
-                            </StackPanel>
+                            </Grid>
                         </Border>
 
-                        <!-- Agent 环形 -->
+                        <!-- Agent 环形：环形在 * 行内垂直居中，行高富余分摊上下而不是堆在卡底 -->
                         <Border x:Name="AgentPanel" Grid.Column="1" Classes="panel poster-panel">
-                            <StackPanel Spacing="13">
-                                <TextBlock Classes="panel-title poster-panel-title"
+                            <Grid RowDefinitions="Auto,*" RowSpacing="13">
+                                <TextBlock Grid.Row="0" Classes="panel-title poster-panel-title"
                                            Text="{Binding PanelAgentDonut, Source={x:Static loc:Translations.Instance}}"/>
-                                <c:DonutChart Segments="{Binding AgentSegments}"
+                                <c:DonutChart Grid.Row="1" Segments="{Binding AgentSegments}"
                                               AnimateSweep="False"
                                               CenterTitle="{Binding TotalTokensText}"
                                               CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
-                            </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
 
                     <Grid x:Name="PortraitRow2" ColumnDefinitions="*,*" ColumnSpacing="14">
-                        <!-- 模型分布 -->
+                        <!-- 模型分布：表头 + 行居中在标题下方的剩余空间里（行数少时不至于卡底一大片空） -->
                         <Border x:Name="ModelPanel" Grid.Column="0" Classes="panel poster-panel">
-                            <StackPanel Spacing="9">
-                                <TextBlock Classes="panel-title poster-panel-title"
+                            <Grid RowDefinitions="Auto,*" RowSpacing="9">
+                                <TextBlock Grid.Row="0" Classes="panel-title poster-panel-title"
                                            Text="{Binding PanelModelDistribution, Source={x:Static loc:Translations.Instance}}"/>
+                                <StackPanel Grid.Row="1" Spacing="9" VerticalAlignment="Center">
                                 <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10" Margin="0,0,0,2">
                                     <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding ThModel, Source={x:Static loc:Translations.Instance}}"/>
                                     <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
@@ -552,28 +560,30 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                                 <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasModels}"/>
-                            </StackPanel>
+                                </StackPanel>
+                            </Grid>
                         </Border>
 
                         <!-- Token 类型构成 -->
                         <Border x:Name="TypePanel" Grid.Column="1" Classes="panel poster-panel">
-                            <StackPanel Spacing="13">
-                                <TextBlock Classes="panel-title poster-panel-title"
+                            <Grid RowDefinitions="Auto,*" RowSpacing="13">
+                                <TextBlock Grid.Row="0" Classes="panel-title poster-panel-title"
                                            Text="{Binding PanelTypeDonut, Source={x:Static loc:Translations.Instance}}"/>
-                                <c:DonutChart Segments="{Binding TypeSegments}"
+                                <c:DonutChart Grid.Row="1" Segments="{Binding TypeSegments}"
                                               AnimateSweep="False"
                                               CenterTitle="{Binding CacheShareText}"
                                               CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"/>
-                            </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
 
                     <Grid x:Name="PortraitRow3" ColumnDefinitions="*,*" ColumnSpacing="14">
-                        <!-- 项目排行 -->
+                        <!-- 项目排行：与模型分布同一居中策略 -->
                         <Border x:Name="ProjectPanel" Grid.Column="0" Classes="panel poster-panel">
-                            <StackPanel Spacing="9">
-                                <TextBlock Classes="panel-title poster-panel-title"
+                            <Grid RowDefinitions="Auto,*" RowSpacing="9">
+                                <TextBlock Grid.Row="0" Classes="panel-title poster-panel-title"
                                            Text="{Binding PanelProjectRanking, Source={x:Static loc:Translations.Instance}}"/>
+                                <StackPanel Grid.Row="1" Spacing="9" VerticalAlignment="Center">
                                 <Grid ColumnDefinitions="*,92,62" ColumnSpacing="10" Margin="0,0,0,2">
                                     <TextBlock Grid.Column="0" Classes="table-th" Text="{Binding LabelProjectDir, Source={x:Static loc:Translations.Instance}}"/>
                                     <TextBlock Grid.Column="1" Classes="table-th" TextAlignment="Right" Text="{Binding ThTokenCount, Source={x:Static loc:Translations.Instance}}"/>
@@ -609,22 +619,23 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                                 <TextBlock Classes="table-empty" Text="{Binding NoData, Source={x:Static loc:Translations.Instance}}" IsVisible="{Binding !HasProjects}"/>
-                            </StackPanel>
+                                </StackPanel>
+                            </Grid>
                         </Border>
 
                         <!-- 成本趋势 -->
                         <Border x:Name="CostPanel" Grid.Column="1" Classes="panel poster-panel">
-                            <StackPanel Spacing="10">
-                                <TextBlock Classes="panel-title poster-panel-title"
+                            <Grid RowDefinitions="Auto,*" RowSpacing="10">
+                                <TextBlock Grid.Row="0" Classes="panel-title poster-panel-title"
                                            Text="{Binding PanelCostTrend, Source={x:Static loc:Translations.Instance}}"/>
-                                <c:TrendChart x:Name="CostChartControl"
+                                <c:TrendChart Grid.Row="1" x:Name="CostChartControl"
                                               Mode="{Binding CostTrendMode}"
                                               DailyPoints="{Binding Daily}"
                                               HourlyDistribution="{Binding Hourly}"
                                               HourlyCutoffHour="{Binding HourlyCutoffHour}"
                                               ChartFontScale="1.9"
                                               ShowPeakAnnotation="True"/>
-                            </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
 
@@ -652,8 +663,9 @@
 
                 <!-- 头部：品牌领印（Logo 在左，字标 + 日期在右两行共用一个左边界），
                      与多日页头同一排版理由：右对齐的日期在版内没有第二个右锚点，
-                     跟下方三格、构成条的左边界全都对不上。 -->
-                <Border Classes="tray-header" Height="96">
+                     跟下方三格、构成条的左边界全都对不上。高度随内容（不定高）：
+                     顶边距就是页边距本身，不再被定高居中垫出一截。 -->
+                <Border Classes="tray-header">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
                         <Border Grid.Column="0" Classes="tray-logo" VerticalAlignment="Center">
                             <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"
@@ -666,7 +678,7 @@
                     </Grid>
                 </Border>
 
-                <StackPanel Margin="32">
+                <StackPanel>
 
                     <!-- 三格 KPI -->
                     <Grid ColumnDefinitions="*,*,*" ColumnSpacing="22">

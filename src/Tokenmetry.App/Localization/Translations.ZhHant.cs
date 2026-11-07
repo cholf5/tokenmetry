@@ -533,5 +533,6 @@ public sealed partial class Translations
         [nameof(SharePosterUpdating)] = "更新中…",
         [nameof(SharePosterUpdateFailedFormat)] = "資料重新整理失敗：{0}",
         [nameof(SharePosterStyleOptions)] = "海報選項",
+        [nameof(SharePosterMargin)] = "頁邊距",
     };
 }

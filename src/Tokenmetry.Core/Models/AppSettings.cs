@@ -125,6 +125,13 @@ public class AppSettings
     public string SharePosterStyle { get; set; } = "";
 
     /// <summary>
+    /// 分享海报的页边距记忆（对话框选项即存，唯一写入方是生成对话框——设置页没有编辑入口）：
+    /// 海报四周留白的逻辑像素数（上下左右同值，0–80），下次打开接着上次拖的值；旧 settings.json
+    /// 无此字段 = 默认 28。越界值在应用处按 <see cref="SharePosterRequest.SafeMargin"/> 收口。
+    /// </summary>
+    public double SharePosterMargin { get; set; } = SharePosterRequest.DefaultMargin;
+
+    /// <summary>
     /// <b>旧</b>用户价格覆盖规则（I-003 字段形状）：I-035 起用户配置统一走
     /// <see cref="ModelDefinitions"/>，本字段只读不写（装载时转换为模型目录条目，见
     /// <see cref="ModelDefinitionOverride.FromLegacy"/>）。保留是为了不丢老 settings.json 里已配的价，

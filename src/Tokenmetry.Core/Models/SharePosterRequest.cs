@@ -56,19 +56,31 @@ public enum SharePosterStyle
 }
 
 /// <summary>
-/// 一次海报生成的输入：样式/版式/主题/雾化档 + 时间范围。筛选维度本身已体现在传给
+/// 一次海报生成的输入：样式/版式/主题/雾化档 + 时间范围 + 页边距。筛选维度本身已体现在传给
 /// <see cref="SharePosterSnapshot.Build"/> 的查询结果里，不在此重复。
 /// </summary>
 /// <param name="RangeStart">范围首日（含）。</param>
 /// <param name="RangeEnd">范围末日（含）。</param>
+/// <param name="Margin">海报四周页边距（逻辑像素，上下左右同值；生成对话框滑杆可调）。</param>
 public sealed record SharePosterRequest(
     SharePosterLayout Layout,
     SharePosterTheme Theme,
     SharePosterProjectMask ProjectMask,
     DateOnly RangeStart,
     DateOnly RangeEnd,
-    SharePosterStyle Style)
+    SharePosterStyle Style,
+    double Margin = SharePosterRequest.DefaultMargin)
 {
+    /// <summary>页边距默认值：40 过大、20 过窄的两轮反馈取中；反正对话框滑杆可调，不必迁就默认。</summary>
+    public const double DefaultMargin = 28;
+
+    /// <summary>页边距允许范围（与生成对话框的滑杆一致）。</summary>
+    public const double MinMargin = 0;
+    public const double MaxMargin = 80;
+
+    /// <summary>收口后的页边距（旧 settings.json / 手工改出的越界值在应用处兜底）。</summary>
+    public double SafeMargin => Math.Clamp(Margin, MinMargin, MaxMargin);
+
     /// <summary>是否单日窗口（决定趋势图切不切小时形态、范围文案怎么写；与样式无关）。</summary>
     public bool IsSingleDay => RangeStart == RangeEnd;
 }
