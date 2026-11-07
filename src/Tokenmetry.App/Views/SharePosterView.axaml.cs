@@ -159,7 +159,7 @@ public partial class SharePosterView : UserControl
 
     private IEnumerable<Border> CardSurfaces() =>
         KpiGrid.Children.OfType<Border>().Concat(
-            new Border[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel, TrayCard, HeatCard, RhythmCard });
+            new Border[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel, HeatCard, RhythmCard });
 
     /// <summary>
     /// 按版式重排栅格。两套版面的差别不只是换列宽：面板归属也换行（类型环形、成本趋势从第二排列
@@ -176,7 +176,7 @@ public partial class SharePosterView : UserControl
     {
         if (IsTrayStyle)
         {
-            // 托盘基底是固定 1080 竖卡片：不受版式选项影响（对话框在信息卡样式下也禁了横版）
+            // 托盘基底是固定 1080 竖版：不受版式选项影响（对话框在信息卡样式下也禁了横版）
             TrayRoot.Width = PortraitWidth;
             PosterRoot.Width = PortraitWidth;
             PosterRoot.Classes.Remove("land");
