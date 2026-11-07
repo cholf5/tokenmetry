@@ -71,8 +71,8 @@
                 </ItemsControl>
                 <TextBlock Grid.Column="2" Classes="setting-label" Margin="18,0,0,0"
                            Text="{Binding SharePosterLayout, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ItemsControl Grid.Column="3" ItemsSource="{Binding LayoutOptions}"
-                              IsEnabled="{Binding CanChooseLandscape}" VerticalAlignment="Center">
+                <ItemsControl x:Name="LayoutOptionsHost" Grid.Column="3" ItemsSource="{Binding LayoutOptions}"
+                              IsEnabled="{Binding CanChooseLayout}" VerticalAlignment="Center">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" Spacing="6"/>
@@ -116,10 +116,10 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </Grid>
-            <!-- 信息卡样式锁竖版：说明原因，不静默禁用 -->
-            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                       Text="{Binding SharePosterTrayPortraitOnly, Source={x:Static loc:Translations.Instance}}"
-                       IsVisible="{Binding ShowTrayPortraitNotice}"/>
+            <!-- 样式锁版式：说明原因，不静默禁用（文案随样式走，见 LayoutNoticeOf） -->
+            <TextBlock x:Name="LayoutNotice" Classes="setting-hint" TextWrapping="Wrap"
+                       Text="{Binding LayoutNoticeText}"
+                       IsVisible="{Binding ShowLayoutNotice}"/>
         </StackPanel>
 
         <!-- 预览 -->

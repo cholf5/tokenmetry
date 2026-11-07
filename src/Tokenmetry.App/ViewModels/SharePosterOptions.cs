@@ -108,6 +108,31 @@ public static class SharePosterOptions
         new("full", () => Translations.Instance.SharePosterMaskFull),
     ];
 
+    /// <summary>
+    /// 每样式声明自己支持的版式（能力表，顺序即收口优先级）：对话框按它启用/禁用版式组、
+    /// 把非法组合收口到首个受支持版式——新样式在此登记一行即可，对话框不再叠样式特判。
+    /// <para>
+    /// 信息卡只支持竖版：它本质是一张 438px 竖卡片，横置要重排信息流，已超出"不偏离框架"
+    /// 的界线（设计文档 §3.1）；总览竖/横皆可——与时间范围无关。
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<SharePosterLayout> SupportedLayouts(SharePosterStyle style) => style switch
+    {
+        SharePosterStyle.Overview => [SharePosterLayout.Portrait, SharePosterLayout.Landscape],
+        SharePosterStyle.Tray => [SharePosterLayout.Portrait],
+        _ => [SharePosterLayout.Portrait],
+    };
+
+    /// <summary>
+    /// 样式只支持一种版式时的说明文案（告诉用户为什么，而不是静默禁用）；支持多种版式的
+    /// 样式为 null（无说明行）。与 <see cref="SupportedLayouts"/> 一同登记。
+    /// </summary>
+    public static string? LayoutNoticeOf(SharePosterStyle style) => style switch
+    {
+        SharePosterStyle.Tray => Translations.Instance.SharePosterTrayPortraitOnly,
+        _ => null,
+    };
+
     /// <summary>语言切换后重译全部标签（持有方 = 设置页单例；对话框是短命对象，构造即取当前语言）。</summary>
     public static void RefreshLabels()
     {
