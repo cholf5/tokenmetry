@@ -50,6 +50,9 @@ public enum SharePosterStyle
 
     /// <summary>时段节律：星期 × 小时热力矩阵（什么时候在用 AI），粗精度用量计入 unknown 小注（仅横版）。</summary>
     Rhythm,
+
+    /// <summary>里程碑：Wrapped 式大数字叙事（总量 / 最猛一天 / 最长连续 / Top 模型），零图表（仅竖版）。</summary>
+    Milestone,
 }
 
 /// <summary>

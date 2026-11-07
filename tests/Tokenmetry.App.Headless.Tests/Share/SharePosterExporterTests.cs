@@ -194,7 +194,7 @@ public class SharePosterExporterTests
         // 缩放变换」带给其后绘制的兄弟内容——首个带影卡片之后整张海报被放大错位（v0.4.0 的日间
         // 导出即中招，只因既有导出测试全部钉在 Dark、投影令牌透明而未被发现）。投影改走
         // DropShadowEffect 后，带影导出必须与无影参考基本一致（差异只允许落在卡片边缘的投影晕圈）。
-        foreach (var style in new[] { SharePosterStyle.Tray, SharePosterStyle.Overview, SharePosterStyle.Heatmap })
+        foreach (var style in new[] { SharePosterStyle.Tray, SharePosterStyle.Overview, SharePosterStyle.Heatmap, SharePosterStyle.Rhythm, SharePosterStyle.Milestone })
         {
             var data = SharePosterSnapshot.Build(
                 Request(new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2), style),

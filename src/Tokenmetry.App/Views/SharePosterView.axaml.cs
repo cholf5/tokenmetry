@@ -63,6 +63,7 @@ public partial class SharePosterView : UserControl
             SharePosterStyle.Tray => TrayRoot,
             SharePosterStyle.Heatmap => HeatRoot,
             SharePosterStyle.Rhythm => RhythmRoot,
+            SharePosterStyle.Milestone => MilestoneRoot,
             _ => PosterRoot,
         };
 
@@ -74,6 +75,9 @@ public partial class SharePosterView : UserControl
 
     /// <summary>时段节律样式走节律基底（固定 1800 横版，能力表锁定）。</summary>
     public bool IsRhythmStyle => (DataContext as SharePosterViewModel)?.IsRhythmStyle ?? false;
+
+    /// <summary>里程碑样式走叙事基底（固定 1080 竖版，能力表锁定）。</summary>
+    public bool IsMilestoneStyle => (DataContext as SharePosterViewModel)?.IsMilestoneStyle ?? false;
 
     /// <summary>版式 → 画布宽度（纯函数，测试与导出共用）。</summary>
     public static double WidthFor(SharePosterLayout layout) =>
@@ -191,6 +195,13 @@ public partial class SharePosterView : UserControl
             // 节律基底同样是固定 1800 横版
             RhythmRoot.Width = LandscapeWidth;
             ApplyRhythmGrid();
+            return;
+        }
+
+        if (IsMilestoneStyle)
+        {
+            // 叙事基底是固定 1080 竖版：纯排版，无栅格要重排、无卡片要投影
+            MilestoneRoot.Width = PortraitWidth;
             return;
         }
 

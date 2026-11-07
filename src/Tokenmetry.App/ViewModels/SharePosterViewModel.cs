@@ -71,6 +71,29 @@ public sealed class SharePosterViewModel
         {
             RhythmPeakText = "—";
         }
+        // 里程碑（样式 C）：全部取自快照已有数据，零新查询——峰值扫完整范围（不受热力图 52 周开窗
+        // 限制），最长连续从补零日序列里数 HasData 连段，Top 模型直接取模型排行首行（已格式化）。
+        var milestonePeaks = data.Daily.Where(d => d.TotalTokens > 0).OrderByDescending(d => d.TotalTokens).ToArray();
+        MilestonePeakText = milestonePeaks.Length > 0
+            ? DateOnly.ParseExact(milestonePeaks[0].Day, "yyyy-MM-dd", CultureInfo.InvariantCulture)
+                  .ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
+              + " · " + TrendChart.FormatCompactTokens(milestonePeaks[0].TotalTokens)
+            : "—";
+        var streak = 0;
+        var run = 0;
+        foreach (var day in data.Daily)
+        {
+            run = day.HasData ? run + 1 : 0;
+            streak = Math.Max(streak, run);
+        }
+
+        MilestoneStreakText = string.Format(
+            CultureInfo.CurrentCulture,
+            Translations.Instance.SharePosterMilestoneStreakFormat,
+            streak.ToString("N0", CultureInfo.CurrentCulture));
+        var topModel = data.Models.Count > 0 ? data.Models[0] : null;
+        MilestoneTopModelName = topModel?.Name ?? "—";
+        MilestoneTopModelTokens = topModel is null ? "—" : TrendChart.FormatCompactTokens(topModel.Tokens);
         // 模型行带品牌 logo（与总览页同一条链：ModelAvatarVisual → ModelChip 伪类 → 令牌画刷）；
         // 解析器来自模型目录（用户自定义头像也生效），未注入时回落内置名字推断。
         ModelRows = BuildRows(data.Models, modelIcons: modelIconResolver ?? ModelAvatarVisual.FromName);
@@ -121,6 +144,21 @@ public sealed class SharePosterViewModel
 
     /// <summary>是否显示节律 unknown 小注。</summary>
     public bool ShowRhythmUnknownNote => RhythmUnknownNote is not null;
+
+    /// <summary>里程碑样式 = 叙事基底（Wrapped 式大数字，仅竖版）。</summary>
+    public bool IsMilestoneStyle => Data.Request.Style == SharePosterStyle.Milestone;
+
+    /// <summary>里程碑：全范围最猛的一天「日期 · 紧凑值」；无数据为「—」。</summary>
+    public string MilestonePeakText { get; }
+
+    /// <summary>里程碑：最长连续使用天数（日序列 HasData 连段的最大长度）。</summary>
+    public string MilestoneStreakText { get; }
+
+    /// <summary>里程碑：Top 模型名与 token（模型排行首行，已格式化）；无数据为「—」。</summary>
+    public string MilestoneTopModelName { get; }
+
+    /// <summary>里程碑：Top 模型的 token 文案。</summary>
+    public string MilestoneTopModelTokens { get; }
 
     /// <summary>是否单日窗口（决定趋势图形态与日期文案，与样式无关）。</summary>
     public bool IsSingleDay => Data.Request.IsSingleDay;

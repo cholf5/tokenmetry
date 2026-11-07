@@ -85,6 +85,7 @@ public static class SharePosterOptions
         new("overview", () => Translations.Instance.SharePosterStyleOverview),
         new("heatmap", () => Translations.Instance.SharePosterStyleHeatmap),
         new("rhythm", () => Translations.Instance.SharePosterStyleRhythm),
+        new("milestone", () => Translations.Instance.SharePosterStyleMilestone),
     ];
 
     /// <summary>生成对话框专用：每次打开新建一批实例（带独立 IsSelected，不与设置页共享选中态）。</summary>
@@ -115,8 +116,9 @@ public static class SharePosterOptions
     /// 把非法组合收口到首个受支持版式——新样式在此登记一行即可，对话框不再叠样式特判。
     /// <para>
     /// 信息卡只支持竖版：它本质是一张 438px 竖卡片，横置要重排信息流，已超出"不偏离框架"
-    /// 的界线（设计文档 §3.1）；总览竖/横皆可——与时间范围无关；打卡热力图只支持横版：
-    /// 52 列格子天然宽扁，1080 竖版下格子会缩到不可读。
+    /// 的界线（设计文档 §3.1）；总览竖/横皆可——与时间范围无关；打卡热力图/时段节律只支持横版：
+    /// 宽矩阵天然宽扁，1080 竖版下格子会缩到不可读；里程碑只支持竖版：Wrapped 式叙事版式
+    /// 按竖幅社交场景设计。
     /// </para>
     /// </summary>
     public static IReadOnlyList<SharePosterLayout> SupportedLayouts(SharePosterStyle style) => style switch
@@ -124,6 +126,7 @@ public static class SharePosterOptions
         SharePosterStyle.Overview => [SharePosterLayout.Portrait, SharePosterLayout.Landscape],
         SharePosterStyle.Heatmap => [SharePosterLayout.Landscape],
         SharePosterStyle.Rhythm => [SharePosterLayout.Landscape],
+        SharePosterStyle.Milestone => [SharePosterLayout.Portrait],
         SharePosterStyle.Tray => [SharePosterLayout.Portrait],
         _ => [SharePosterLayout.Portrait],
     };
@@ -137,6 +140,7 @@ public static class SharePosterOptions
         SharePosterStyle.Tray => Translations.Instance.SharePosterTrayPortraitOnly,
         SharePosterStyle.Heatmap => Translations.Instance.SharePosterHeatmapLandscapeOnly,
         SharePosterStyle.Rhythm => Translations.Instance.SharePosterRhythmLandscapeOnly,
+        SharePosterStyle.Milestone => Translations.Instance.SharePosterMilestonePortraitOnly,
         _ => null,
     };
 
@@ -171,6 +175,7 @@ public static class SharePosterOptions
         "overview" => SharePosterStyle.Overview,
         "heatmap" => SharePosterStyle.Heatmap,
         "rhythm" => SharePosterStyle.Rhythm,
+        "milestone" => SharePosterStyle.Milestone,
         _ => SharePosterStyle.Tray,
     };
 
@@ -196,6 +201,7 @@ public static class SharePosterOptions
         SharePosterStyle.Overview => "overview",
         SharePosterStyle.Heatmap => "heatmap",
         SharePosterStyle.Rhythm => "rhythm",
+        SharePosterStyle.Milestone => "milestone",
         _ => "tray",
     };
 
