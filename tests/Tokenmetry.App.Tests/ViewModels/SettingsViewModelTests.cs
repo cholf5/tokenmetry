@@ -42,6 +42,7 @@ public class SettingsViewModelTests
             SharePosterLayout = "landscape",
             SharePosterTheme = "light",
             SharePosterProjectMask = "full",
+            SharePosterStyle = "heatmap",
         };
 
         var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
@@ -52,6 +53,7 @@ public class SettingsViewModelTests
         viewModel.DefaultSharePosterLayout.Should().Be(SharePosterLayout.Landscape);
         viewModel.DefaultSharePosterTheme.Should().Be(SharePosterTheme.Light);
         viewModel.DefaultSharePosterProjectMask.Should().Be(SharePosterProjectMask.Full);
+        viewModel.DefaultSharePosterStyle.Should().Be(SharePosterStyle.Heatmap);
 
         // 手改 settings.json 的脏值：如实回落默认（不半渲染、不抛）
         var dirty = new AppSettings
@@ -59,12 +61,15 @@ public class SettingsViewModelTests
             SharePosterLayout = "diagonal",
             SharePosterTheme = "sepia",
             SharePosterProjectMask = "mosaic",
+            SharePosterStyle = "slideshow",
         };
         var fallback = CreateViewModel(dirty, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
 
         fallback.DefaultSharePosterLayout.Should().Be(SharePosterLayout.Portrait);
         fallback.DefaultSharePosterTheme.Should().Be(SharePosterTheme.FollowApp);
         fallback.DefaultSharePosterProjectMask.Should().Be(SharePosterProjectMask.Off);
+        // 样式记忆脏值回落 null（= 从未选过，打开时跟随范围），不谎报成某个具体样式
+        fallback.DefaultSharePosterStyle.Should().BeNull();
     }
 
     [Fact]
@@ -82,6 +87,32 @@ public class SettingsViewModelTests
         settings.SharePosterTheme.Should().Be("dark");
         settings.SharePosterProjectMask.Should().Be("partial");
         store.SaveCalls.Should().BeGreaterThanOrEqualTo(3, "全自动保存：三项各自改完即落盘");
+    }
+
+    [Fact]
+    public void ApplySharePosterLastUsed_WritesStyleMemorySyncsCombosAndPersists()
+    {
+        // 对话框选项即存的回写入口：样式记忆 + 三组默认档一起落到 settings.json，
+        // 设置页 ComboBox 的选中实例同步（否则页面停留在旧选择，与磁盘不一致）
+        var settings = new AppSettings();
+        var store = new FakeSettingsStore();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store);
+
+        viewModel.ApplySharePosterLastUsed(
+            SharePosterStyle.Rhythm,
+            SharePosterLayout.Landscape,
+            SharePosterTheme.Dark,
+            SharePosterProjectMask.Partial);
+
+        settings.SharePosterStyle.Should().Be("rhythm");
+        viewModel.DefaultSharePosterStyle.Should().Be(SharePosterStyle.Rhythm);
+        settings.SharePosterLayout.Should().Be("landscape");
+        settings.SharePosterTheme.Should().Be("dark");
+        settings.SharePosterProjectMask.Should().Be("partial");
+        viewModel.SharePosterLayoutOption.Value.Should().Be("landscape");
+        viewModel.SharePosterThemeOption.Value.Should().Be("dark");
+        viewModel.SharePosterMaskOption.Value.Should().Be("partial");
+        store.SaveCalls.Should().BeGreaterThanOrEqualTo(1, "对话框选项即存：回写后落盘");
     }
 
     // ---- I-045：采集文件日志开关 + 「打开日志文件夹」出口 ----

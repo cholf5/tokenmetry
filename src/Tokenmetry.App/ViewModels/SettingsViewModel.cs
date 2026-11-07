@@ -441,6 +441,32 @@ public partial class SettingsViewModel : ViewModelBase
     private static SharePosterProjectMask ParseStoredMask(AppSettings settings) =>
         SharePosterOptions.ParseMask(settings.SharePosterProjectMask);
 
+    /// <summary>
+    /// 生成对话框的默认样式：上次在对话框里选过的样式（选项即存，见 <see cref="ApplySharePosterLastUsed"/>）；
+    /// null = 从未选过（新用户/旧 settings.json），打开时跟随范围（单日 → 信息卡、多日 → 总览）。
+    /// 样式不进设置页（没有编辑入口），本属性只读。
+    /// </summary>
+    public SharePosterStyle? DefaultSharePosterStyle =>
+        SharePosterOptions.ParseStyleOrNull(_settings.SharePosterStyle);
+
+    /// <summary>
+    /// 生成对话框的选项即存（对话框里改样式/版式/主题/雾化都回写默认档——上次使用即下次默认，
+    /// 设置页的三组 ComboBox 与之同步）。版式/主题/雾化走既有 setter：顺带发通知、幂等时短路；
+    /// 样式设置页无编辑入口，单独写字段。最后统一落盘一次。
+    /// </summary>
+    public void ApplySharePosterLastUsed(
+        SharePosterStyle style,
+        SharePosterLayout layout,
+        SharePosterTheme theme,
+        SharePosterProjectMask mask)
+    {
+        _settings.SharePosterStyle = SharePosterOptions.KeyOf(style);
+        SharePosterLayoutOption = SharePosterOptions.ForLayout(layout);
+        SharePosterThemeOption = SharePosterOptions.ForTheme(theme);
+        SharePosterMaskOption = SharePosterOptions.ForMask(mask);
+        PersistSettings();
+    }
+
     /// <summary>页面描述符（标题与副标题，与导航项同源）。</summary>
     public PageDescriptor Page { get; } = ShellPages.For(PageId.Settings);
 

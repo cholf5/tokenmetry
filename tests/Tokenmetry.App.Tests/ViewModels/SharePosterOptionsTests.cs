@@ -63,6 +63,33 @@ public class SharePosterOptionsTests
     public void Mask_keys_parse_with_off_fallback(string? value, SharePosterProjectMask expected) =>
         SharePosterOptions.ParseMask(value).Should().Be(expected);
 
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", null)]
+    [InlineData("slideshow", null)]
+    [InlineData("tray", SharePosterStyle.Tray)]
+    [InlineData("overview", SharePosterStyle.Overview)]
+    [InlineData("heatmap", SharePosterStyle.Heatmap)]
+    [InlineData("rhythm", SharePosterStyle.Rhythm)]
+    [InlineData("milestone", SharePosterStyle.Milestone)]
+    public void Style_memory_parses_to_null_when_never_chosen(string? value, SharePosterStyle? expected) =>
+        SharePosterOptions.ParseStyleOrNull(value).Should().Be(expected);
+
+    [Fact]
+    public void Initial_poster_style_prefers_last_used_and_falls_back_to_the_range()
+    {
+        // 上次在对话框里选过的样式直接接着用（选项即存）；从未选过才跟随范围（单日 → 信息卡、多日 → 总览）
+        var multiDay = new DateOnly(2026, 10, 17);
+        var singleDay = new DateOnly(2026, 11, 2);
+
+        MainWindowViewModel.ResolveInitialPosterStyle(SharePosterStyle.Milestone, multiDay, singleDay)
+            .Should().Be(SharePosterStyle.Milestone);
+        MainWindowViewModel.ResolveInitialPosterStyle(null, singleDay, singleDay)
+            .Should().Be(SharePosterStyle.Tray);
+        MainWindowViewModel.ResolveInitialPosterStyle(null, multiDay, singleDay)
+            .Should().Be(SharePosterStyle.Overview);
+    }
+
     [Fact]
     public void Poster_range_prefers_the_filter_bounds()
     {

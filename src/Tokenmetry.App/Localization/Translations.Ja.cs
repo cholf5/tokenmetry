@@ -512,7 +512,7 @@ public sealed partial class Translations
         [nameof(SharePosterSaveFailedFormat)] = "保存に失敗しました：{0}",
         [nameof(SharePosterOpenFailedFormat)] = "共有ポスターを開けませんでした：{0}",
         [nameof(SharePosterSettingsTitle)] = "ポスター設定",
-        [nameof(SharePosterSettingsHint)] = "ポスターは上部バーの現在のフィルターを引き継ぎます。ここでは生成ダイアログを開いたときの既定値だけを決めます。",
+        [nameof(SharePosterSettingsHint)] = "ポスターは上部バーの現在のフィルターを引き継ぎます。ここで生成ダイアログの既定値を決め、ダイアログでの選択は次回の既定値として記憶されます。",
         [nameof(SharePosterDefaultLayout)] = "既定のレイアウト",
         [nameof(SharePosterDefaultTheme)] = "既定のテーマ",
         [nameof(SharePosterDefaultMask)] = "既定のぼかし",

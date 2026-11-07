@@ -512,7 +512,7 @@ public sealed partial class Translations
         [nameof(SharePosterSaveFailedFormat)] = "儲存失敗：{0}",
         [nameof(SharePosterOpenFailedFormat)] = "無法開啟分享海報：{0}",
         [nameof(SharePosterSettingsTitle)] = "海報設定",
-        [nameof(SharePosterSettingsHint)] = "海報沿用頂部列目前的篩選；這裡只決定開啟產生對話框時的預設選項。",
+        [nameof(SharePosterSettingsHint)] = "海報沿用頂部列目前的篩選；這裡決定產生對話框的預設選項，對話框裡的選擇會記為下次的預設。",
         [nameof(SharePosterDefaultLayout)] = "預設版式",
         [nameof(SharePosterDefaultTheme)] = "預設主題",
         [nameof(SharePosterDefaultMask)] = "預設模糊",

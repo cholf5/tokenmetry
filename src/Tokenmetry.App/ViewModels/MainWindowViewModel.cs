@@ -310,14 +310,15 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         var (start, end) = ResolvePosterRange(filter, snapshot.Daily, DateOnly.FromDateTime(DateTime.Today));
-        // 样式缺省跟随范围（单日 → 信息卡，多日 → 总览）：打开时的观感与解耦前一致，对话框里可改。
+        // 四个选项的起值 = 上次在对话框里的选择（选项即存，见 Settings.ApplySharePosterLastUsed）；
+        // 样式从未选过（新用户/旧 settings.json）才跟随范围，与解耦前的首启观感一致。
         var initial = new SharePosterRequest(
             Settings.DefaultSharePosterLayout,
             Settings.DefaultSharePosterTheme,
             Settings.DefaultSharePosterProjectMask,
             start,
             end,
-            start == end ? SharePosterStyle.Tray : SharePosterStyle.Overview);
+            ResolveInitialPosterStyle(Settings.DefaultSharePosterStyle, start, end));
 
         // 单日范围补一次小时分布（与总览页 D-027 同源）：总览样式的单日海报把趋势图切到小时形态。
         // 查询范围收口到解析出的那一天——「全部时间」这类无界筛选落到单日时，也只查那天的 0..23 桶，
@@ -332,7 +333,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var weeklyRhythm = await LoadWeeklyRhythmForPosterAsync(filter);
 
         // 总量取同一份 KPI 聚合（维度行合计可能与 KPI 不等：空键 / 分解粒度行会被跳过）；
-        // 模型图标走目录解析器（用户自定义头像也生效）。
+        // 模型图标走目录解析器（用户自定义头像也生效）；选项即存回写设置页单例（落盘由它统一走）。
         return new SharePosterDialogViewModel(
             initial,
             request => SharePosterSnapshot.Build(
@@ -346,7 +347,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 hourly,
                 hourlyCutoff,
                 weeklyRhythm),
-            _avatars is null ? null : _avatars.Resolve);
+            _avatars is null ? null : _avatars.Resolve,
+            (style, layout, theme, mask) => Settings.ApplySharePosterLastUsed(style, layout, theme, mask));
     }
 
     /// <summary>海报用的星期 × 小时节律矩阵：维度筛选照搬全局筛选，时间范围即当前筛选窗口。</summary>
@@ -388,6 +390,14 @@ public partial class MainWindowViewModel : ViewModelBase
             return null;
         }
     }
+
+    /// <summary>
+    /// 对话框样式的起值（纯函数）：上次在对话框里选过的样式直接接着用（选项即存）；null =
+    /// 从未选过（新用户/旧 settings.json）才跟随范围——单日 → 信息卡，多日 → 总览。
+    /// </summary>
+    internal static SharePosterStyle ResolveInitialPosterStyle(
+        SharePosterStyle? lastUsed, DateOnly start, DateOnly end) =>
+        lastUsed ?? (start == end ? SharePosterStyle.Tray : SharePosterStyle.Overview);
 
     /// <summary>
     /// 海报时间范围（纯函数）：优先用筛选的双端；「全部时间」这类无界窗口退到日序列里首/末个

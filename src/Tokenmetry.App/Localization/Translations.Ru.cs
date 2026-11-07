@@ -514,7 +514,7 @@ public sealed partial class Translations
         [nameof(SharePosterSaveFailedFormat)] = "Не удалось сохранить: {0}",
         [nameof(SharePosterOpenFailedFormat)] = "Не удалось открыть постер: {0}",
         [nameof(SharePosterSettingsTitle)] = "Настройки постера",
-        [nameof(SharePosterSettingsHint)] = "Постер наследует текущие фильтры верхней панели; здесь задаются только значения по умолчанию при открытии окна.",
+        [nameof(SharePosterSettingsHint)] = "Постер наследует текущие фильтры верхней панели; здесь задаются значения по умолчанию при открытии окна — выбор в окне запоминается как значения по умолчанию на следующий раз.",
         [nameof(SharePosterDefaultLayout)] = "Макет по умолчанию",
         [nameof(SharePosterDefaultTheme)] = "Тема по умолчанию",
         [nameof(SharePosterDefaultMask)] = "Размытие по умолчанию",
