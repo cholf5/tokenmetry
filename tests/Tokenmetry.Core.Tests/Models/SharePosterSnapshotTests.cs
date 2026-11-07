@@ -204,4 +204,28 @@ public class SharePosterSnapshotTests
         data.Hourly.Should().BeNull();
         data.HourlyCutoffHour.Should().BeNull();
     }
+
+    [Fact]
+    public void Weekly_rhythm_is_carried_over_verbatim()
+    {
+        // 时段节律矩阵随快照走（样式与范围解耦后任何范围都可能切到它）；快照不加工、不补格。
+        var rhythm = new WeeklyRhythmResult
+        {
+            Cells = [new WeeklyRhythmCell { Weekday = 1, Hour = 9, SessionCount = 2, TotalTokens = 123 }],
+            UnknownSessionCount = 1,
+            UnknownTotalTokens = 10,
+        };
+
+        var data = SharePosterSnapshot.Build(Request(), [], [], [], [], sessionCount: 0, weeklyRhythm: rhythm);
+
+        data.WeeklyRhythm.Should().BeSameAs(rhythm);
+    }
+
+    [Fact]
+    public void Weekly_rhythm_defaults_to_null()
+    {
+        var data = SharePosterSnapshot.Build(Request(), [], [], [], [], sessionCount: 0);
+
+        data.WeeklyRhythm.Should().BeNull();
+    }
 }

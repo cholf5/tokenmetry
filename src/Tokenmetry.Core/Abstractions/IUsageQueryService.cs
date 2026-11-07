@@ -70,6 +70,14 @@ public interface IUsageQueryService
     /// 都判为无精度，与查询时区无关地覆盖日期级来源）。</summary>
     Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default);
 
+    /// <summary>星期 × 小时节律矩阵（I-029 同源）：归桶与 unknown 口径同 <see cref="GetHourlyDistributionAsync"/>，
+    /// 把本地小时换成 (本地星期, 本地小时) 二维桶；168 格全量返回（含空格）。分享海报时段节律样式用。
+    /// 缺省实现返回空矩阵（仅供测试桩兜底，语义与无数据一致）；真实存储实现应覆写。</summary>
+    Task<WeeklyRhythmResult> GetWeeklyRhythmAsync(UsageQueryFilter filter, CancellationToken ct = default)
+    {
+        return Task.FromResult(new WeeklyRhythmResult());
+    }
+
     /// <summary>
     /// 总览页复合快照（P0-2 性能收敛）：一次调用返回 KPI（含上一周期环比）+ 日序列 + Agent / 模型 /
     /// 项目三维聚合。各分量语义与逐方法调用逐位一致；范围校验一致（非法范围抛

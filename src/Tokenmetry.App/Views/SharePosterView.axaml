@@ -282,7 +282,7 @@
             <Setter Property="FontSize" Value="20"/>
         </Style>
 
-        <!-- ── 打卡热力图样式基底（设计 §3.1 修订 2026-11-07 第三样式；仅横版 1800，能力表锁定）── -->
+        <!-- ── 宽横版基底尺寸组（打卡热力图 / 时段节律共用：固定 1800 横版，能力表锁定）── -->
         <Style Selector="Border.heat-root">
             <Setter Property="Padding" Value="52,46,52,44"/>
         </Style>
@@ -300,6 +300,15 @@
         </Style>
         <Style Selector="Border.heat-root Border.poster-panel">
             <Setter Property="Padding" Value="18"/>
+        </Style>
+        <Style Selector="TextBlock.rhythm-meta">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.rhythm-peak">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
         <Style Selector="TextBlock.heat-month-label">
             <Setter Property="FontSize" Value="15"/>
@@ -831,6 +840,59 @@
                         <TextBlock Classes="heat-stat-value" Text="{Binding TotalTokensText}"/>
                     </StackPanel>
                 </Grid>
+            </StackPanel>
+        </Border>
+        <!-- ══ 时段节律样式（设计 §3.1 修订 2026-11-07：第四样式）══
+             星期 × 小时热力矩阵（什么时候在用 AI）：Core 查询（I-029 同源归桶）随快照走，格子由
+             code-behind 按 VM 的 Rhythm 生成（ApplyRhythmGrid），色阶/峰值描边/图例与热力基底共用，
+             粗精度用量以 unknown 小注如实注记（复用时间页同一份口径实现）。仅横版（能力表登记）。 -->
+        <Border x:Name="RhythmRoot"
+                Classes="poster-root heat-root"
+                IsVisible="{Binding IsRhythmStyle}"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Left"
+                Background="{DynamicResource AppBackgroundBrush}">
+            <StackPanel Spacing="16">
+
+                <!-- 页头：与两个横版基底同构 -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" Margin="0,0,0,10">
+                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Center">
+                        <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Center">
+                        <TextBlock Classes="poster-brand" Text="Tokenmetry"/>
+                        <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 节律卡：星期列 + 7 × 24 格子 + 小时刻度 + 图例，全左起排 -->
+                <Border x:Name="RhythmCard" Classes="panel poster-panel">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="44,Auto" ColumnSpacing="8" HorizontalAlignment="Left">
+                            <StackPanel x:Name="RhythmWeekdayCol" Grid.Column="0" VerticalAlignment="Top"/>
+                            <UniformGrid x:Name="RhythmGrid" Grid.Column="1" Rows="7"/>
+                        </Grid>
+                        <Grid x:Name="RhythmHourRow" Margin="52,0,0,0" HorizontalAlignment="Left"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="52,2,0,0">
+                            <TextBlock Classes="heat-legend-text"
+                                       Text="{Binding SharePosterHeatLess, Source={x:Static loc:Translations.Instance}}"/>
+                            <Border Classes="heat-chip heat-0"/>
+                            <Border Classes="heat-chip heat-1"/>
+                            <Border Classes="heat-chip heat-2"/>
+                            <Border Classes="heat-chip heat-3"/>
+                            <Border Classes="heat-chip heat-4"/>
+                            <TextBlock Classes="heat-legend-text"
+                                       Text="{Binding SharePosterHeatMore, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                        <!-- unknown 归因小注：仅有粗精度会话时出现（与时间页同一份文案口径） -->
+                        <TextBlock Classes="rhythm-meta" TextWrapping="Wrap" Margin="52,0,0,0"
+                                   Text="{Binding RhythmUnknownNote}"
+                                   IsVisible="{Binding ShowRhythmUnknownNote}"/>
+                        <!-- 峰值标注（§3.5）：矩阵最大格描边 + 此处给「周X HH:00 · 紧凑值」 -->
+                        <TextBlock Classes="rhythm-peak" Margin="52,0,0,0"
+                                   Text="{Binding RhythmPeakText}"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
       </Panel>

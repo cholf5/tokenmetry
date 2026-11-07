@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Localization;
+using Tokenmetry.App.Services;
 using Tokenmetry.Core.Models;
 
 namespace Tokenmetry.App.ViewModels;
@@ -50,6 +51,26 @@ public sealed class SharePosterViewModel
             ? TrendChart.FormatCompactTokens(Heat.PeakTokens) + " · "
               + peak.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
             : "—";
+        // 时段节律（样式 B）：Core 的星期 × 小时矩阵（I-029 同源）→ 海报格子；查询失败为 null 时
+        // 如实空场。峰值文案「周X HH:00 · 紧凑值」，unknown 归因小注复用时间页的同一份口径实现。
+        Rhythm = SharePosterRhythm.Build(data.WeeklyRhythm);
+        RhythmUnknownNote = HourlyAttribution.BuildUnknownNote(
+            data.WeeklyRhythm?.UnknownSessionCount ?? 0,
+            data.WeeklyRhythm?.Cells.Sum(c => c.SessionCount) ?? 0,
+            data.WeeklyRhythm?.UnknownTotalTokens ?? 0);
+        if (Rhythm.PeakWeekday is { } peakWeekday && Rhythm.PeakHour is { } peakHour)
+        {
+            RhythmPeakText = string.Format(
+                CultureInfo.CurrentCulture,
+                Translations.Instance.SharePosterRhythmPeakFormat,
+                SharePosterHeatmap.WeekdayNames()[peakWeekday],
+                peakHour.ToString("00", CultureInfo.InvariantCulture) + ":00",
+                TrendChart.FormatCompactTokens(Rhythm.PeakTokens));
+        }
+        else
+        {
+            RhythmPeakText = "—";
+        }
         // 模型行带品牌 logo（与总览页同一条链：ModelAvatarVisual → ModelChip 伪类 → 令牌画刷）；
         // 解析器来自模型目录（用户自定义头像也生效），未注入时回落内置名字推断。
         ModelRows = BuildRows(data.Models, modelIcons: modelIconResolver ?? ModelAvatarVisual.FromName);
@@ -68,6 +89,9 @@ public sealed class SharePosterViewModel
     /// <summary>打卡热力图样式 = 热力基底（GitHub 贡献图式，仅横版）。</summary>
     public bool IsHeatmapStyle => Data.Request.Style == SharePosterStyle.Heatmap;
 
+    /// <summary>时段节律样式 = 节律基底（星期 × 小时矩阵，仅横版）。</summary>
+    public bool IsRhythmStyle => Data.Request.Style == SharePosterStyle.Rhythm;
+
     /// <summary>总览样式 = 总览页基底（版式竖/横皆可）。</summary>
     public bool IsOverviewStyle => Data.Request.Style == SharePosterStyle.Overview;
 
@@ -82,6 +106,21 @@ public sealed class SharePosterViewModel
 
     /// <summary>热力图脚注：单日峰值「紧凑值 · 日期」；全空窗口为「—」。</summary>
     public string HeatPeakText { get; }
+
+    /// <summary>
+    /// 时段节律（样式 B）的 7 × 24 格子与峰值（Core 查询失败/无数据 → 全零格、无峰值）。
+    /// 其他样式也算好备用——代价只是 168 格的纯计算。
+    /// </summary>
+    public SharePosterRhythmGrid Rhythm { get; }
+
+    /// <summary>节律峰值文案「周X HH:00 · 紧凑值」（PeakFormat 占位符在语言字典里）；全空矩阵为「—」。</summary>
+    public string RhythmPeakText { get; }
+
+    /// <summary>unknown 归因小注（与时间页同一份口径实现）；无粗精度会话时为 null（不显示）。</summary>
+    public string? RhythmUnknownNote { get; }
+
+    /// <summary>是否显示节律 unknown 小注。</summary>
+    public bool ShowRhythmUnknownNote => RhythmUnknownNote is not null;
 
     /// <summary>是否单日窗口（决定趋势图形态与日期文案，与样式无关）。</summary>
     public bool IsSingleDay => Data.Request.IsSingleDay;

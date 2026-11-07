@@ -109,23 +109,34 @@ public static class SharePosterHeatmap
             startMonday,
             cells,
             BuildMonthLabels(rangeStart, rangeEnd, startMonday, weeks),
-            BuildWeekdayLabels(),
+            WeekdayLabels(),
             peakDay,
             peakTokens);
     }
 
-    /// <summary>星期行标签：周一起，只标一/三/五（同 GitHub 的密度），文案取当前语言的星期缩写。</summary>
-    private static IReadOnlyList<string?> BuildWeekdayLabels()
+    /// <summary>
+    /// 星期行标签：周一起 7 行，只标一/三/五（同 GitHub 的密度），文案取当前语言的星期缩写。
+    /// 时段节律（样式 B）的星期列共用同一份（海报的星期口径全仓唯一出处）。
+    /// </summary>
+    public static IReadOnlyList<string?> WeekdayLabels()
     {
-        var names = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames;
+        var names = WeekdayNames();
         var labels = new string?[7];
         for (var weekday = 0; weekday < 7; weekday += 2)
         {
-            // 周一起第 weekday 行 → DayNames 的周日始索引 (1 + weekday) % 7
-            labels[weekday] = names[((int)DayOfWeek.Monday + weekday) % 7];
+            labels[weekday] = names[weekday];
         }
 
         return labels;
+    }
+
+    /// <summary>周一起的完整星期缩写名（0 = 周一 .. 6 = 周日，当前语言）——峰值文案等需要全名的地方用。</summary>
+    public static IReadOnlyList<string> WeekdayNames()
+    {
+        var names = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames;
+        return Enumerable.Range(0, 7)
+            .Select(i => names[((int)DayOfWeek.Monday + i) % 7])
+            .ToArray();
     }
 
     /// <summary>色阶档位：非零值按「窗口内严格小于它的活跃值个数」定秩（同值同档），秩均分到 1..4。</summary>

@@ -84,6 +84,7 @@ public static class SharePosterOptions
         new("tray", () => Translations.Instance.SharePosterStyleTray),
         new("overview", () => Translations.Instance.SharePosterStyleOverview),
         new("heatmap", () => Translations.Instance.SharePosterStyleHeatmap),
+        new("rhythm", () => Translations.Instance.SharePosterStyleRhythm),
     ];
 
     /// <summary>生成对话框专用：每次打开新建一批实例（带独立 IsSelected，不与设置页共享选中态）。</summary>
@@ -122,6 +123,7 @@ public static class SharePosterOptions
     {
         SharePosterStyle.Overview => [SharePosterLayout.Portrait, SharePosterLayout.Landscape],
         SharePosterStyle.Heatmap => [SharePosterLayout.Landscape],
+        SharePosterStyle.Rhythm => [SharePosterLayout.Landscape],
         SharePosterStyle.Tray => [SharePosterLayout.Portrait],
         _ => [SharePosterLayout.Portrait],
     };
@@ -134,6 +136,7 @@ public static class SharePosterOptions
     {
         SharePosterStyle.Tray => Translations.Instance.SharePosterTrayPortraitOnly,
         SharePosterStyle.Heatmap => Translations.Instance.SharePosterHeatmapLandscapeOnly,
+        SharePosterStyle.Rhythm => Translations.Instance.SharePosterRhythmLandscapeOnly,
         _ => null,
     };
 
@@ -167,6 +170,7 @@ public static class SharePosterOptions
     {
         "overview" => SharePosterStyle.Overview,
         "heatmap" => SharePosterStyle.Heatmap,
+        "rhythm" => SharePosterStyle.Rhythm,
         _ => SharePosterStyle.Tray,
     };
 
@@ -191,6 +195,7 @@ public static class SharePosterOptions
     {
         SharePosterStyle.Overview => "overview",
         SharePosterStyle.Heatmap => "heatmap",
+        SharePosterStyle.Rhythm => "rhythm",
         _ => "tray",
     };
 

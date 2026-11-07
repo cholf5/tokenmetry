@@ -758,6 +758,52 @@ public class UsageQueryServiceTests : IAsyncLifetime
         }
     }
 
+    // ---- I-029 同源: 星期 × 小时节律矩阵（分享海报时段节律样式） ----
+
+    [Fact]
+    public async Task Weekly_rhythm_buckets_by_local_weekday_and_hour_with_unknown()
+    {
+        var result = await _service.GetWeeklyRhythmAsync(new UsageQueryFilter());
+
+        result.Cells.Should().HaveCount(7 * 24, "168 格全量返回，空格由服务补零");
+        result.Cells.Select(c => c.Weekday).Should().OnlyContain(w => w >= 0 && w < 7);
+        result.TimeZoneId.Should().Be(TimeZoneInfo.Utc.Id);
+
+        // fixture 全为 UTC 时区：2026-03-08/15 周日、03-10 周二、03-11 周三、03-14 周六
+        Cell(result, weekday: 6, hour: 9).TotalTokens.Should().Be(900, "s9 03-15(周日) 09:00");
+        Cell(result, weekday: 6, hour: 10).TotalTokens.Should().Be(150, "s0 03-08(周日) 10:00");
+        Cell(result, weekday: 1, hour: 9).TotalTokens.Should().Be(3600, "s1 03-10(周二) 09:15 → 09 点桶");
+        Cell(result, weekday: 2, hour: 8).TotalTokens.Should().Be(1750, "s4 03-11(周三) 08:00");
+        Cell(result, weekday: 5, hour: 21).TotalTokens.Should().Be(30, "s6 03-14(周六) 21:00");
+
+        // 无分钟级精度：s7 纪元 + s8 日锚定 00:00 —— 计 unknown，不入格
+        result.UnknownSessionCount.Should().Be(2);
+        result.UnknownTotalTokens.Should().Be(1200);
+        Cell(result, weekday: 1, hour: 0).TotalTokens.Should().Be(0, "s8 的日锚定 00:00 不入 00 点格");
+
+        result.Cells.Sum(c => c.SessionCount).Should().Be(8);
+        result.Cells.Sum(c => c.TotalTokens).Should().Be(9780);
+        (result.Cells.Sum(c => c.SessionCount) + result.UnknownSessionCount).Should().Be(10, "每个会话要么入格、要么计入 unknown，无静默丢失");
+
+        static WeeklyRhythmCell Cell(WeeklyRhythmResult result, int weekday, int hour) =>
+            result.Cells.Single(c => c.Weekday == weekday && c.Hour == hour);
+    }
+
+    [Fact]
+    public async Task Weekly_rhythm_respects_agent_filter_and_excludes_filtered_unknowns()
+    {
+        var result = await _service.GetWeeklyRhythmAsync(new UsageQueryFilter { Agent = "Claude Code" });
+
+        result.UnknownSessionCount.Should().Be(0, "s7/s8 均非 Claude Code，被 Agent 过滤后不进入 unknown 统计");
+        Cell(result, weekday: 1, hour: 9).TotalTokens.Should().Be(3600, "s1");
+        Cell(result, weekday: 5, hour: 21).TotalTokens.Should().Be(30, "s6");
+        Cell(result, weekday: 2, hour: 8).TotalTokens.Should().Be(1750, "s4");
+        result.Cells.Where(c => c.TotalTokens > 0).Should().HaveCount(5, "s1/s2/s4/s6/s9 入格");
+
+        static WeeklyRhythmCell Cell(WeeklyRhythmResult result, int weekday, int hour) =>
+            result.Cells.Single(c => c.Weekday == weekday && c.Hour == hour);
+    }
+
     // ---- 全局 Model / Project 过滤（右栏撤除定案：顶栏四维筛选的查询契约）----
 
     [Fact]

@@ -47,6 +47,9 @@ public enum SharePosterStyle
 
     /// <summary>打卡热力图：周为列/星期为行的按天格子，token 量映射色阶深浅，空日如实留白（仅横版）。</summary>
     Heatmap,
+
+    /// <summary>时段节律：星期 × 小时热力矩阵（什么时候在用 AI），粗精度用量计入 unknown 小注（仅横版）。</summary>
+    Rhythm,
 }
 
 /// <summary>

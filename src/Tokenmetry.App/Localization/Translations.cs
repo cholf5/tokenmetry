@@ -517,6 +517,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterStyleTray)] = "信息卡",
         [nameof(SharePosterStyleOverview)] = "总览",
         [nameof(SharePosterStyleHeatmap)] = "打卡热力图",
+        [nameof(SharePosterStyleRhythm)] = "时段节律",
         [nameof(SharePosterLayout)] = "版式",
         [nameof(SharePosterLayoutPortrait)] = "竖版",
         [nameof(SharePosterLayoutLandscape)] = "横版",
@@ -531,6 +532,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMaskHint)] = "「显示」会把项目名原样印在海报上，发出去之前请确认；雾化只是把文字虚化，不会替换成占位符。",
         [nameof(SharePosterTrayPortraitOnly)] = "信息卡样式固定竖版：横置需要重排信息流。",
         [nameof(SharePosterHeatmapLandscapeOnly)] = "打卡热力图样式固定横版：周列格子在竖版下会缩到不可读。",
+        [nameof(SharePosterRhythmLandscapeOnly)] = "时段节律样式固定横版：24 小时列在竖版下会挤到不可读。",
+        [nameof(SharePosterRhythmPeakFormat)] = "高峰：{0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "少",
         [nameof(SharePosterHeatMore)] = "多",
         [nameof(SharePosterHeatActiveDays)] = "活跃天数",
@@ -1017,6 +1020,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterStyleTray)] = "Info card",
         [nameof(SharePosterStyleOverview)] = "Overview",
         [nameof(SharePosterStyleHeatmap)] = "Activity heatmap",
+        [nameof(SharePosterStyleRhythm)] = "Usage rhythm",
         [nameof(SharePosterLayout)] = "Layout",
         [nameof(SharePosterLayoutPortrait)] = "Portrait",
         [nameof(SharePosterLayoutLandscape)] = "Landscape",
@@ -1031,6 +1035,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMaskHint)] = "\"Show\" prints project names exactly as they are — check before you share. Blurring only softens the text; it never replaces characters with placeholders.",
         [nameof(SharePosterTrayPortraitOnly)] = "The info-card style is portrait only: landscape would need a different information flow.",
         [nameof(SharePosterHeatmapLandscapeOnly)] = "The activity-heatmap style is landscape only: week columns would shrink below readability in portrait.",
+        [nameof(SharePosterRhythmLandscapeOnly)] = "The usage-rhythm style is landscape only: 24 hour columns would be too cramped in portrait.",
+        [nameof(SharePosterRhythmPeakFormat)] = "Peak: {0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "Less",
         [nameof(SharePosterHeatMore)] = "More",
         [nameof(SharePosterHeatActiveDays)] = "Active days",
@@ -1409,6 +1415,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterStyleTray => Get();
     public string SharePosterStyleOverview => Get();
     public string SharePosterStyleHeatmap => Get();
+    public string SharePosterStyleRhythm => Get();
     public string SharePosterLayout => Get();
     public string SharePosterLayoutPortrait => Get();
     public string SharePosterLayoutLandscape => Get();
@@ -1423,6 +1430,8 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterMaskHint => Get();
     public string SharePosterTrayPortraitOnly => Get();
     public string SharePosterHeatmapLandscapeOnly => Get();
+    public string SharePosterRhythmLandscapeOnly => Get();
+    public string SharePosterRhythmPeakFormat => Get();
     public string SharePosterHeatLess => Get();
     public string SharePosterHeatMore => Get();
     public string SharePosterHeatActiveDays => Get();
