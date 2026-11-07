@@ -516,6 +516,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterStyle)] = "样式",
         [nameof(SharePosterStyleTray)] = "信息卡",
         [nameof(SharePosterStyleOverview)] = "总览",
+        [nameof(SharePosterStyleHeatmap)] = "打卡热力图",
         [nameof(SharePosterLayout)] = "版式",
         [nameof(SharePosterLayoutPortrait)] = "竖版",
         [nameof(SharePosterLayoutLandscape)] = "横版",
@@ -529,6 +530,10 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMaskFull)] = "全部雾化",
         [nameof(SharePosterMaskHint)] = "「显示」会把项目名原样印在海报上，发出去之前请确认；雾化只是把文字虚化，不会替换成占位符。",
         [nameof(SharePosterTrayPortraitOnly)] = "信息卡样式固定竖版：横置需要重排信息流。",
+        [nameof(SharePosterHeatmapLandscapeOnly)] = "打卡热力图样式固定横版：周列格子在竖版下会缩到不可读。",
+        [nameof(SharePosterHeatLess)] = "少",
+        [nameof(SharePosterHeatMore)] = "多",
+        [nameof(SharePosterHeatActiveDays)] = "活跃天数",
         [nameof(SharePosterCopy)] = "复制到剪贴板",
         [nameof(SharePosterCopied)] = "已复制到剪贴板",
         [nameof(SharePosterCopyFailed)] = "当前系统不支持复制图片，请改用「保存为文件」",
@@ -1011,6 +1016,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterStyle)] = "Style",
         [nameof(SharePosterStyleTray)] = "Info card",
         [nameof(SharePosterStyleOverview)] = "Overview",
+        [nameof(SharePosterStyleHeatmap)] = "Activity heatmap",
         [nameof(SharePosterLayout)] = "Layout",
         [nameof(SharePosterLayoutPortrait)] = "Portrait",
         [nameof(SharePosterLayoutLandscape)] = "Landscape",
@@ -1024,6 +1030,10 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMaskFull)] = "Blur entire name",
         [nameof(SharePosterMaskHint)] = "\"Show\" prints project names exactly as they are — check before you share. Blurring only softens the text; it never replaces characters with placeholders.",
         [nameof(SharePosterTrayPortraitOnly)] = "The info-card style is portrait only: landscape would need a different information flow.",
+        [nameof(SharePosterHeatmapLandscapeOnly)] = "The activity-heatmap style is landscape only: week columns would shrink below readability in portrait.",
+        [nameof(SharePosterHeatLess)] = "Less",
+        [nameof(SharePosterHeatMore)] = "More",
+        [nameof(SharePosterHeatActiveDays)] = "Active days",
         [nameof(SharePosterCopy)] = "Copy to clipboard",
         [nameof(SharePosterCopied)] = "Copied to clipboard",
         [nameof(SharePosterCopyFailed)] = "This system cannot copy images — use \"Save to file\" instead",
@@ -1398,6 +1408,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterStyle => Get();
     public string SharePosterStyleTray => Get();
     public string SharePosterStyleOverview => Get();
+    public string SharePosterStyleHeatmap => Get();
     public string SharePosterLayout => Get();
     public string SharePosterLayoutPortrait => Get();
     public string SharePosterLayoutLandscape => Get();
@@ -1411,6 +1422,10 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterMaskFull => Get();
     public string SharePosterMaskHint => Get();
     public string SharePosterTrayPortraitOnly => Get();
+    public string SharePosterHeatmapLandscapeOnly => Get();
+    public string SharePosterHeatLess => Get();
+    public string SharePosterHeatMore => Get();
+    public string SharePosterHeatActiveDays => Get();
     public string SharePosterCopy => Get();
     public string SharePosterCopied => Get();
     public string SharePosterCopyFailed => Get();

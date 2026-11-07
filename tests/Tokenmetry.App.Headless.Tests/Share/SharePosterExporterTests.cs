@@ -140,4 +140,109 @@ public class SharePosterExporterTests
 
         window.Close();
     }
+
+    [AvaloniaFact]
+    public void Heatmap_poster_exports_at_landscape_size()
+    {
+        // 打卡热力图（样式 A）固定 1800 横版：能力表只登记横版，导出按热力根 2× 光栅化
+        var data = SharePosterSnapshot.Build(
+            new SharePosterRequest(
+                SharePosterLayout.Landscape, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+                new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2), SharePosterStyle.Heatmap),
+            ChartTestHelpers.DailyPoints30(),
+            [new DimensionUsageRow { Key = "ZCode", TotalTokens = 1_000_000, Cost = new AggregatedCost(1m, false) }],
+            [new DimensionUsageRow { Key = "glm-5.3-flash", TotalTokens = 1_000_000, Cost = new AggregatedCost(1m, false) }],
+            [new DimensionUsageRow { Key = "Zearth", TotalTokens = 1_000_000, Cost = new AggregatedCost(1m, false) }],
+            sessionCount: 12);
+
+        var view = new SharePosterView { DataContext = new SharePosterViewModel(data) };
+        var window = new Window
+        {
+            Width = 1900,
+            Height = 1000,
+            Content = view,
+            RequestedThemeVariant = ThemeVariant.Dark,
+            Background = Brushes.Black,
+        };
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var root = (Border)view.PosterRootControl;
+        Assert.True(root.Name == "HeatRoot", "热力图应对热力根光栅化");
+        using var bitmap = SharePosterExporter.Render(root);
+
+        Assert.Equal((int)Math.Round(root.Bounds.Width * 2), bitmap.PixelSize.Width);
+        Assert.Equal((int)Math.Round(root.Bounds.Height * 2), bitmap.PixelSize.Height);
+        Assert.Equal(SharePosterView.LandscapeWidth * 2, bitmap.PixelSize.Width);
+
+        // 色阶格子真的画出来了：抽样应见到多个不同颜色
+        var pixels = ChartTestHelpers.GetPixelBytes(bitmap);
+        var distinct = new System.Collections.Generic.HashSet<int>();
+        for (var i = 0; i + 3 < pixels.Length; i += 4 * 97)
+        {
+            distinct.Add((pixels[i] << 24) | (pixels[i + 1] << 16) | (pixels[i + 2] << 8) | pixels[i + 3]);
+        }
+
+        Assert.True(distinct.Count > 50, $"热力图导出应含格子与文字，实测不同颜色仅 {distinct.Count} 种");
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Light_poster_export_matches_its_shadowless_reference()
+    {
+        // 回归锁：Border.BoxShadow 在 RenderTargetBitmap.Render 的立即渲染路径下，会把「泄漏的
+        // 缩放变换」带给其后绘制的兄弟内容——首个带影卡片之后整张海报被放大错位（v0.4.0 的日间
+        // 导出即中招，只因既有导出测试全部钉在 Dark、投影令牌透明而未被发现）。投影改走
+        // DropShadowEffect 后，带影导出必须与无影参考基本一致（差异只允许落在卡片边缘的投影晕圈）。
+        foreach (var style in new[] { SharePosterStyle.Tray, SharePosterStyle.Overview, SharePosterStyle.Heatmap })
+        {
+            var data = SharePosterSnapshot.Build(
+                Request(new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2), style),
+                ChartTestHelpers.DailyPoints30(),
+                [new DimensionUsageRow { Key = "ZCode", TotalTokens = 1_000_000, Cost = new AggregatedCost(1m, false) }],
+                [new DimensionUsageRow { Key = "glm-5.3-flash", TotalTokens = 1_000_000, Cost = new AggregatedCost(1m, false) }],
+                [new DimensionUsageRow { Key = "Zearth", TotalTokens = 1_000_000, Cost = new AggregatedCost(1m, false) }],
+                sessionCount: 12);
+
+            var view = new SharePosterView { DataContext = new SharePosterViewModel(data) };
+            var window = new Window
+            {
+                Width = 1900,
+                Height = 1400,
+                Content = view,
+                RequestedThemeVariant = ThemeVariant.Light,
+                Background = Brushes.Black,
+            };
+            using var frame = ChartTestHelpers.RenderFrame(window);
+
+            var root = (Border)view.PosterRootControl;
+            using var withShadow = SharePosterExporter.Render(root);
+            foreach (var border in view.GetVisualDescendants().OfType<Border>()
+                         .Where(b => b.Effect is not null).ToArray())
+            {
+                border.Effect = null;
+            }
+
+            using var withoutShadow = SharePosterExporter.Render(root);
+
+            Assert.Equal(withoutShadow.PixelSize, withShadow.PixelSize);
+            var a = ChartTestHelpers.GetPixelBytes(withShadow);
+            var b = ChartTestHelpers.GetPixelBytes(withoutShadow);
+            var differing = 0;
+            for (var i = 0; i + 3 < a.Length; i += 4)
+            {
+                if (Math.Abs(a[i] - b[i]) > 8 || Math.Abs(a[i + 1] - b[i + 1]) > 8 || Math.Abs(a[i + 2] - b[i + 2]) > 8)
+                {
+                    differing++;
+                }
+            }
+
+            var ratio = differing / (double)(a.Length / 4);
+            Assert.True(
+                ratio < 0.2,
+                $"[{style}] 日间带影导出与无影参考差异 {ratio:P1}——投影渲染再次破坏了内容布局");
+
+            window.Close();
+        }
+    }
 }

@@ -76,13 +76,14 @@ public static class SharePosterOptions
     ];
 
     /// <summary>
-    /// 样式（信息卡 / 总览）：只有对话框用（设置页不存样式默认档——缺省跟随打开时的范围，
-    /// 用户在对话框里改）。与版式是两个维度：信息卡固定竖版，总览竖/横皆可。
+    /// 样式（信息卡 / 总览 / 打卡热力图）：只有对话框用（设置页不存样式默认档——缺省跟随打开时的
+    /// 范围，用户在对话框里改）。与版式是两个维度：各样式支持的版式见 <see cref="SupportedLayouts"/>。
     /// </summary>
     public static IReadOnlyList<SharePosterOption> CreateStyles() =>
     [
         new("tray", () => Translations.Instance.SharePosterStyleTray),
         new("overview", () => Translations.Instance.SharePosterStyleOverview),
+        new("heatmap", () => Translations.Instance.SharePosterStyleHeatmap),
     ];
 
     /// <summary>生成对话框专用：每次打开新建一批实例（带独立 IsSelected，不与设置页共享选中态）。</summary>
@@ -113,12 +114,14 @@ public static class SharePosterOptions
     /// 把非法组合收口到首个受支持版式——新样式在此登记一行即可，对话框不再叠样式特判。
     /// <para>
     /// 信息卡只支持竖版：它本质是一张 438px 竖卡片，横置要重排信息流，已超出"不偏离框架"
-    /// 的界线（设计文档 §3.1）；总览竖/横皆可——与时间范围无关。
+    /// 的界线（设计文档 §3.1）；总览竖/横皆可——与时间范围无关；打卡热力图只支持横版：
+    /// 52 列格子天然宽扁，1080 竖版下格子会缩到不可读。
     /// </para>
     /// </summary>
     public static IReadOnlyList<SharePosterLayout> SupportedLayouts(SharePosterStyle style) => style switch
     {
         SharePosterStyle.Overview => [SharePosterLayout.Portrait, SharePosterLayout.Landscape],
+        SharePosterStyle.Heatmap => [SharePosterLayout.Landscape],
         SharePosterStyle.Tray => [SharePosterLayout.Portrait],
         _ => [SharePosterLayout.Portrait],
     };
@@ -130,6 +133,7 @@ public static class SharePosterOptions
     public static string? LayoutNoticeOf(SharePosterStyle style) => style switch
     {
         SharePosterStyle.Tray => Translations.Instance.SharePosterTrayPortraitOnly,
+        SharePosterStyle.Heatmap => Translations.Instance.SharePosterHeatmapLandscapeOnly,
         _ => null,
     };
 
@@ -159,8 +163,12 @@ public static class SharePosterOptions
         _ => SharePosterProjectMask.Off,
     };
 
-    public static SharePosterStyle ParseStyle(string? value) =>
-        Normalize(value) == "overview" ? SharePosterStyle.Overview : SharePosterStyle.Tray;
+    public static SharePosterStyle ParseStyle(string? value) => Normalize(value) switch
+    {
+        "overview" => SharePosterStyle.Overview,
+        "heatmap" => SharePosterStyle.Heatmap,
+        _ => SharePosterStyle.Tray,
+    };
 
     public static string KeyOf(SharePosterLayout layout) =>
         layout == SharePosterLayout.Landscape ? "landscape" : "portrait";
@@ -179,8 +187,12 @@ public static class SharePosterOptions
         _ => "off",
     };
 
-    public static string KeyOf(SharePosterStyle style) =>
-        style == SharePosterStyle.Overview ? "overview" : "tray";
+    public static string KeyOf(SharePosterStyle style) => style switch
+    {
+        SharePosterStyle.Overview => "overview",
+        SharePosterStyle.Heatmap => "heatmap",
+        _ => "tray",
+    };
 
     /// <summary>枚举 → 选项实例（ComboBox 的 SelectedItem 必须是同一批实例）。</summary>
     public static SharePosterOption ForLayout(SharePosterLayout layout) =>
