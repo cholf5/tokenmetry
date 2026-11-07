@@ -50,73 +50,82 @@
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-        <!-- 选项 -->
+        <!-- 选项：四组「标签 + 芯片」在 WrapPanel 里自动换行——样式组扩到 5 个芯片后，
+             定宽窗口装不下单行八列（德/法语长标签尤甚），分组换行让任何语言都不裁切。 -->
         <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,16">
             <TextBlock Classes="page-title" Text="{Binding SharePosterTitle, Source={x:Static loc:Translations.Instance}}"/>
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10">
-                <TextBlock Grid.Column="0" Classes="setting-label"
-                           Text="{Binding SharePosterStyle, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ItemsControl Grid.Column="1" ItemsSource="{Binding StyleOptions}" VerticalAlignment="Center">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="6"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:SharePosterOption">
-                            <RadioButton Classes="seg-chip" GroupName="poster-style"
-                                         Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock Grid.Column="2" Classes="setting-label" Margin="18,0,0,0"
-                           Text="{Binding SharePosterLayout, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ItemsControl x:Name="LayoutOptionsHost" Grid.Column="3" ItemsSource="{Binding LayoutOptions}"
-                              IsEnabled="{Binding CanChooseLayout}" VerticalAlignment="Center">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="6"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:SharePosterOption">
-                            <RadioButton Classes="seg-chip" GroupName="poster-layout"
-                                         Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock Grid.Column="4" Classes="setting-label" Margin="18,0,0,0"
-                           Text="{Binding SharePosterTheme, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ItemsControl Grid.Column="5" ItemsSource="{Binding ThemeOptions}" VerticalAlignment="Center">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="6"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:SharePosterOption">
-                            <RadioButton Classes="seg-chip" GroupName="poster-theme"
-                                         Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock Grid.Column="6" Classes="setting-label" Margin="18,0,0,0"
-                           Text="{Binding SharePosterMask, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
-                <ItemsControl Grid.Column="7" ItemsSource="{Binding MaskOptions}" VerticalAlignment="Center">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="6"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:SharePosterOption">
-                            <RadioButton Classes="seg-chip" GroupName="poster-mask"
-                                         Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Grid>
-            <!-- 样式锁版式：说明原因，不静默禁用（文案随样式走，见 LayoutNoticeOf） -->
+            <WrapPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,26,8">
+                    <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                               Text="{Binding SharePosterStyle, Source={x:Static loc:Translations.Instance}}"/>
+                    <ItemsControl ItemsSource="{Binding StyleOptions}" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SharePosterOption">
+                                <RadioButton Classes="seg-chip" GroupName="poster-style"
+                                             Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,26,8">
+                    <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                               Text="{Binding SharePosterLayout, Source={x:Static loc:Translations.Instance}}"/>
+                    <ItemsControl x:Name="LayoutOptionsHost" ItemsSource="{Binding LayoutOptions}"
+                                  IsEnabled="{Binding CanChooseLayout}" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SharePosterOption">
+                                <RadioButton Classes="seg-chip" GroupName="poster-layout"
+                                             Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,26,8">
+                    <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                               Text="{Binding SharePosterTheme, Source={x:Static loc:Translations.Instance}}"/>
+                    <ItemsControl ItemsSource="{Binding ThemeOptions}" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SharePosterOption">
+                                <RadioButton Classes="seg-chip" GroupName="poster-theme"
+                                             Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
+                    <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                               Text="{Binding SharePosterMask, Source={x:Static loc:Translations.Instance}}"/>
+                    <ItemsControl ItemsSource="{Binding MaskOptions}" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SharePosterOption">
+                                <RadioButton Classes="seg-chip" GroupName="poster-mask"
+                                             Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </WrapPanel>
+            <!-- 样式锁版式：说明原因，不静默禁用 -->
             <TextBlock x:Name="LayoutNotice" Classes="setting-hint" TextWrapping="Wrap"
                        Text="{Binding LayoutNoticeText}"
                        IsVisible="{Binding ShowLayoutNotice}"/>
