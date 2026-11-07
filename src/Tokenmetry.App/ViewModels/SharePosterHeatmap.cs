@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Tokenmetry.App.Controls;
+using Tokenmetry.App.Localization;
+using Tokenmetry.App.Views;
 using Tokenmetry.Core.Models;
 
 namespace Tokenmetry.App.ViewModels;
@@ -65,11 +68,13 @@ public static class SharePosterHeatmap
 
         var cells = new List<PosterHeatCell>(weeks * 7);
         var nonZero = new List<long>();
-        for (var week = 0; week < weeks; week++)
+        for (var weekday = 0; weekday < 7; weekday++)
         {
-            for (var weekday = 0; weekday < 7; weekday++)
+            for (var week = 0; week < weeks; week++)
             {
-                // 顺序与 UniformGrid(Columns=weeks) 的行主序一致：先星期行、后周列
+                // 格子按星期行主序（先星期后周列），与 UniformGrid(Columns=weeks) 的行主序填充一致：
+                // child i → (row = i / weeks, col = i % weeks)。修订六修正：此前按周优先生成，
+                // 跨 ≥ 2 周时日子蛇形串位——星期行标签对不上真实日期、峰值描边落到错误的行。
                 var day = startMonday.AddDays(week * 7 + weekday);
                 if (day < rangeStart || day > rangeEnd)
                 {
@@ -89,8 +94,9 @@ public static class SharePosterHeatmap
 
         var sorted = nonZero.Order().ToArray();
         var peakTokens = sorted.Length > 0 ? sorted[^1] : 0;
+        // 并列峰值取最早日期（与节律矩阵「取最早的 (星期, 小时)」同一口径；与格子顺序无关）
         var peakDay = peakTokens > 0
-            ? cells.Where(c => !c.IsBlank && c.Tokens == peakTokens).Select(c => c.Day).First()
+            ? cells.Where(c => !c.IsBlank && c.Tokens == peakTokens).Select(c => c.Day).Min()
             : default(DateOnly?);
 
         for (var i = 0; i < cells.Count; i++)
@@ -166,6 +172,81 @@ public static class SharePosterHeatmap
 
         var fraction = (double)rank / (sortedNonZero.Count - 1);
         return Math.Clamp(1 + (int)(4 * fraction), 1, 4);
+    }
+
+    // ── 窄范围画布收口（修订 2026-11-07）：画布宽度随窗口周数收窄，格子按余量放大；
+    // 修订六：窄/中范围脚注三格搬进卡片与日历并排——此前竖排脚注垫在下面，海报变成
+    // 「窄而长」的纸条，且范围外透明格让格阵结构不可见、看着只有一片空白 ──
+
+    /// <summary>少周数时格子放大的封顶（约为基准 <see cref="SharePosterView.HeatCellSize"/> 的 2 倍；再大 7 行就把海报撑成窄长条）。</summary>
+    public const int MaxCellSize = 56;
+
+    /// <summary>画布宽度下限：页头（logo + 字标 + 日期行）仍要摆得下的最窄海报。</summary>
+    public const int MinCanvasWidth = 560;
+
+    /// <summary>并排档脚注列的宽度预算（峰值文案「紧凑值 · 日期」在并排档用小一号的 24px 值）与列间距。</summary>
+    public const int BesideStatsColumnWidth = 300;
+    public const int BesideStatsColumnSpacing = 24;
+
+    /// <summary>脚注与网格并排的最大周数：再长网格自己就占满 1800，脚注回到底部横排。
+    /// 由 52 + 周数×31（最小列宽）+ 140 + 300 + 24 ≤ 1800 解出。</summary>
+    public const int MaxBesideWeeks = 41;
+
+    /// <summary>格子之外的画布占用：根内边距 104 + 卡内边距 36。</summary>
+    private const int CanvasChrome = 140;
+
+    /// <summary>星期标签列 + 列间距（网格的固定左槽）。</summary>
+    private const int WeekdayGutter = 52;
+
+    private const int HeatGap = 4;
+
+    /// <summary>并排档的周列预算 / 底部横排档的周列预算（1800 减去各自脚注占用的余量）。</summary>
+    private const int BesideColumnBudget =
+        1800 - CanvasChrome - WeekdayGutter - BesideStatsColumnWidth - BesideStatsColumnSpacing;
+    private const int BelowColumnBudget = 1800 - CanvasChrome - WeekdayGutter;
+
+    /// <summary>脚注三格是否搬进卡片与网格并排（窄/中范围；长范围网格占满 1800，脚注留在底部横排）。</summary>
+    public static bool UseBesideStats(int weeks) => weeks <= MaxBesideWeeks;
+
+    /// <summary>
+    /// 每列槽宽（格 + 间隙）：按所在档位的预算收放——并排档封顶 60（格 56），长范围档在 52 周
+    /// 收窄到基准 31（格 27，现状）。月份标签行与格子共用同一列宽，标签才对得上列。
+    /// </summary>
+    public static int ColumnWidthFor(int weeks)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(weeks);
+        var budget = UseBesideStats(weeks) ? BesideColumnBudget : BelowColumnBudget;
+        return Math.Clamp(budget / weeks, SharePosterView.HeatCellSize + HeatGap, MaxCellSize + HeatGap);
+    }
+
+    /// <summary>
+    /// 热力海报画布宽：网格 + 固定占用，并排档再加脚注列，夹在 <see cref="MinCanvasWidth"/> 与
+    /// 1800 之间——窄范围宽度跟着内容走、高度被并排脚注压住，不再又窄又长；满 52 周精确回到现状。
+    /// </summary>
+    public static double CanvasWidthFor(int weeks)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(weeks);
+        var grid = WeekdayGutter + weeks * ColumnWidthFor(weeks);
+        var beside = UseBesideStats(weeks) ? BesideStatsColumnWidth + BesideStatsColumnSpacing : 0;
+        return Math.Clamp(grid + CanvasChrome + beside, MinCanvasWidth, SharePosterView.LandscapeWidth);
+    }
+
+    /// <summary>
+    /// 格子悬停提示（预览活视图；导出 PNG 是静态位图不受影响）。文案口径与时间页
+    /// <see cref="Controls.Heatmap"/> 的格子 tooltip 一致：日期 · 紧凑值 + 单位，无用量日为
+    /// 「日期 · 无数据」；范围外留白格不给 tooltip（null → 视图不挂）。
+    /// </summary>
+    public static string? CellTooltip(PosterHeatCell cell)
+    {
+        if (cell.IsBlank)
+        {
+            return null;
+        }
+
+        var label = cell.Day.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
+        return cell.Tokens > 0
+            ? label + " · " + TrendChart.FormatCompactTokens(cell.Tokens) + " " + Translations.Instance.ChartTipTokenUnit
+            : string.Format(CultureInfo.CurrentCulture, Translations.Instance.HeatmapNoDataTooltip, label);
     }
 
     /// <summary>月份标签：标在「包含当月 1 号」的那一列（且 1 号在范围内），横跨到下一个标签列。</summary>

@@ -524,6 +524,8 @@ public sealed partial class Translations
         [nameof(SharePosterRhythmPeakFormat)] = "피크: {0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "적음",
         [nameof(SharePosterHeatMore)] = "많음",
+        [nameof(SharePosterHeatCaption)] = "각 칸은 하루를 나타내며, 색이 진할수록 그날의 Token 사용량이 많습니다. 가장 옅은 빈 칸은 기간 밖입니다.",
+        [nameof(SharePosterRhythmCaption)] = "각 칸은 요일별 시간대를 나타내며, 색이 진할수록 해당 시간대의 Token 사용량이 많습니다.",
         [nameof(SharePosterHeatActiveDays)] = "활동 일수",
         [nameof(SharePosterTrayAgents)] = "주요 에이전트",
         [nameof(SharePosterTrayModels)] = "모델 사용량",

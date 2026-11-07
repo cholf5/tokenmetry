@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Tokenmetry.App.Controls;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.ViewModels;
+using Tokenmetry.App.Views;
 using Tokenmetry.Core.Models;
 using Xunit;
 
@@ -124,6 +127,107 @@ public class SharePosterHeatmapTests
         // 越过更高秩的阈值才升档
         Assert.Equal(1, SharePosterHeatmap.LevelFor(100, [100, 200, 300, 400]));
         Assert.Equal(4, SharePosterHeatmap.LevelFor(400, [100, 200, 300, 400]));
+    }
+
+    [Fact]
+    public void Column_width_and_canvas_width_follow_the_week_count()
+    {
+        // 满 52 周：底部横排档预算 1608/52 收窄到基准列宽 31、画布 1800——与既有固定横版完全一致
+        Assert.Equal(SharePosterView.HeatCellSize + 4, SharePosterHeatmap.ColumnWidthFor(52));
+        Assert.Equal(SharePosterView.LandscapeWidth, SharePosterHeatmap.CanvasWidthFor(52));
+
+        // 列宽随周数收放：各档内单调不增（并排档/底部档预算不同，档位边界 41/42 处允许抬升）
+        for (var weeks = 1; weeks <= 52; weeks++)
+        {
+            var column = SharePosterHeatmap.ColumnWidthFor(weeks);
+            Assert.InRange(column, SharePosterView.HeatCellSize + 4, SharePosterHeatmap.MaxCellSize + 4);
+            var neighbor = weeks < 52 ? SharePosterHeatmap.ColumnWidthFor(weeks + 1) : column;
+            if (weeks != SharePosterHeatmap.MaxBesideWeeks)
+            {
+                Assert.True(column >= neighbor, $"列宽应在 {weeks} 周处不增");
+            }
+
+            var canvas = SharePosterHeatmap.CanvasWidthFor(weeks);
+            Assert.InRange(canvas, SharePosterHeatmap.MinCanvasWidth, SharePosterView.LandscapeWidth);
+        }
+
+        // 极窄范围：并排档画布 = 网格 + 占用 + 脚注列，1 周 576——不再满 1800 留大段空白
+        Assert.Equal(52 + SharePosterHeatmap.MaxCellSize + 4
+                     + 140 + SharePosterHeatmap.BesideStatsColumnWidth + SharePosterHeatmap.BesideStatsColumnSpacing,
+                     SharePosterHeatmap.CanvasWidthFor(1));
+        Assert.Equal(52 + 4 * (SharePosterHeatmap.MaxCellSize + 4)
+                     + 140 + SharePosterHeatmap.BesideStatsColumnWidth + SharePosterHeatmap.BesideStatsColumnSpacing,
+                     SharePosterHeatmap.CanvasWidthFor(4));
+    }
+
+    [Fact]
+    public void Beside_stats_follow_the_week_count()
+    {
+        // 窄/中范围脚注并排进卡片；长范围（网格自己占满 1800）回到底部横排
+        for (var weeks = 1; weeks <= 52; weeks++)
+        {
+            Assert.Equal(weeks <= SharePosterHeatmap.MaxBesideWeeks, SharePosterHeatmap.UseBesideStats(weeks));
+        }
+
+        Assert.True(SharePosterHeatmap.UseBesideStats(5));
+        Assert.False(SharePosterHeatmap.UseBesideStats(42));
+    }
+
+    [Fact]
+    public void Cell_tooltip_describes_the_day_or_the_no_data_state()
+    {
+        var grid = SharePosterHeatmap.Build(
+            new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 7),
+            Daily(new DateOnly(2026, 1, 5), 3, (0, 1_200_000)));
+
+        // 活动日：日期 · 紧凑值 + 单位（与时间页热力图同一文案口径）
+        var active = grid.Cells.Single(c => c.Day == new DateOnly(2026, 1, 5));
+        Assert.Equal(
+            "2026.01.05 · " + TrendChart.FormatCompactTokens(1_200_000) + " " + Translations.Instance.ChartTipTokenUnit,
+            SharePosterHeatmap.CellTooltip(active));
+
+        // 范围内无用量日：如实「无数据」，不冒充 0
+        var empty = grid.Cells.Single(c => c.Day == new DateOnly(2026, 1, 6));
+        Assert.Equal(
+            string.Format(CultureInfo.CurrentCulture, Translations.Instance.HeatmapNoDataTooltip, "2026.01.06"),
+            SharePosterHeatmap.CellTooltip(empty));
+
+        // 范围外留白格：不给 tooltip
+        Assert.Null(SharePosterHeatmap.CellTooltip(grid.Cells.First(c => c.IsBlank)));
+    }
+
+    [Fact]
+    public void Cells_are_weekday_major_so_days_land_on_their_weekday_row()
+    {
+        // 修订六回归锁：UniformGrid(Columns=weeks) 按行主序填充（child i → row i/weeks），
+        // 格子必须按星期行主序生成——跨 ≥ 2 周时日子才落在自己的星期行上（此前按周优先，
+        // 日子蛇形串位：星期行标签对不上真实日期、峰值描边落到错误的行）
+        var grid = SharePosterHeatmap.Build(
+            new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 25), Daily(new DateOnly(2026, 1, 5), 21));
+
+        Assert.Equal(3, grid.Weeks);
+        for (var weekday = 0; weekday < 7; weekday++)
+        {
+            for (var week = 0; week < grid.Weeks; week++)
+            {
+                Assert.Equal(
+                    new DateOnly(2026, 1, 5).AddDays(week * 7 + weekday),
+                    grid.Cells[weekday * grid.Weeks + week].Day);
+            }
+        }
+    }
+
+    [Fact]
+    public void Tied_peaks_take_the_earliest_date()
+    {
+        // 并列峰值取最早日期（与格子顺序无关）：1/5(一) 与 1/8(四) 同为峰值 → 取 1/5
+        var grid = SharePosterHeatmap.Build(
+            new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 11),
+            Daily(new DateOnly(2026, 1, 5), 7, (0, 900), (3, 900)));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), grid.PeakDay);
+        Assert.True(grid.Cells.Single(c => c.Day == new DateOnly(2026, 1, 5)).IsPeak);
+        Assert.False(grid.Cells.Single(c => c.Day == new DateOnly(2026, 1, 8)).IsPeak);
     }
 
     [Fact]

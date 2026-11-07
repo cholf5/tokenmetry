@@ -524,6 +524,8 @@ public sealed partial class Translations
         [nameof(SharePosterRhythmPeakFormat)] = "Höhepunkt: {0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "Weniger",
         [nameof(SharePosterHeatMore)] = "Mehr",
+        [nameof(SharePosterHeatCaption)] = "Jede Zelle ist ein Tag; dunkler bedeutet mehr Tokens an diesem Tag. Die blassen leeren Zellen liegen außerhalb des Zeitraums.",
+        [nameof(SharePosterRhythmCaption)] = "Jede Zelle ist eine Stunde der Woche; dunkler bedeutet mehr Tokens in dieser Stunde.",
         [nameof(SharePosterHeatActiveDays)] = "Aktive Tage",
         [nameof(SharePosterTrayAgents)] = "Wichtigste Agenten",
         [nameof(SharePosterTrayModels)] = "Modellnutzung",

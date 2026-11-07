@@ -524,6 +524,8 @@ public sealed partial class Translations
         [nameof(SharePosterRhythmPeakFormat)] = "高峰：{0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "少",
         [nameof(SharePosterHeatMore)] = "多",
+        [nameof(SharePosterHeatCaption)] = "每格是一天，顏色越深表示當天 Token 用量越多；更淺的空格在時間範圍外",
+        [nameof(SharePosterRhythmCaption)] = "每格是星期幾的某個小時，顏色越深表示該時段 Token 用量越多",
         [nameof(SharePosterHeatActiveDays)] = "活躍天數",
         [nameof(SharePosterTrayAgents)] = "主要 Agent",
         [nameof(SharePosterTrayModels)] = "模型用量",

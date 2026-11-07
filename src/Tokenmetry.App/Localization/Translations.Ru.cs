@@ -526,6 +526,8 @@ public sealed partial class Translations
         [nameof(SharePosterRhythmPeakFormat)] = "Пик: {0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "Меньше",
         [nameof(SharePosterHeatMore)] = "Больше",
+        [nameof(SharePosterHeatCaption)] = "Каждая ячейка — день; чем темнее, тем больше токенов израсходовано за день. Самые бледные пустые ячейки — вне периода.",
+        [nameof(SharePosterRhythmCaption)] = "Каждая ячейка — час недели; чем темнее, тем больше токенов израсходовано в этот час.",
         [nameof(SharePosterHeatActiveDays)] = "Активных дней",
         [nameof(SharePosterTrayAgents)] = "Основные агенты",
         [nameof(SharePosterTrayModels)] = "Использование моделей",

@@ -524,6 +524,8 @@ public sealed partial class Translations
         [nameof(SharePosterRhythmPeakFormat)] = "ピーク：{0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "少ない",
         [nameof(SharePosterHeatMore)] = "多い",
+        [nameof(SharePosterHeatCaption)] = "各マスは 1 日を表し、色が濃いほどその日の Token 使用量が多くなります。最も薄い空マスは期間外です。",
+        [nameof(SharePosterRhythmCaption)] = "各マスは曜日ごとの時間帯を表し、色が濃いほどその時間帯の Token 使用量が多くなります。",
         [nameof(SharePosterHeatActiveDays)] = "アクティブ日数",
         [nameof(SharePosterTrayAgents)] = "主要エージェント",
         [nameof(SharePosterTrayModels)] = "モデル使用量",

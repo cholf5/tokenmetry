@@ -524,6 +524,8 @@ public sealed partial class Translations
         [nameof(SharePosterRhythmPeakFormat)] = "Pico: {0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "Menos",
         [nameof(SharePosterHeatMore)] = "Mais",
+        [nameof(SharePosterHeatCaption)] = "Cada célula é um dia; mais escuro significa mais tokens usados naquele dia. As células vazias mais claras estão fora do período.",
+        [nameof(SharePosterRhythmCaption)] = "Cada célula é uma hora da semana; mais escuro significa mais tokens usados naquela hora.",
         [nameof(SharePosterHeatActiveDays)] = "Dias ativos",
         [nameof(SharePosterTrayAgents)] = "Principais agentes",
         [nameof(SharePosterTrayModels)] = "Uso de modelos",
