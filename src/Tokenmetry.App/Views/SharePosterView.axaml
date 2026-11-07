@@ -281,6 +281,79 @@
         <Style Selector="Border.tray-chip TextBlock">
             <Setter Property="FontSize" Value="20"/>
         </Style>
+
+        <!-- ── 打卡热力图样式基底（设计 §3.1 修订 2026-11-07 第三样式；仅横版 1800，能力表锁定）── -->
+        <Style Selector="Border.heat-root">
+            <Setter Property="Padding" Value="52,46,52,44"/>
+        </Style>
+        <Style Selector="Border.heat-root Border.poster-logo">
+            <Setter Property="Width" Value="58"/>
+            <Setter Property="Height" Value="58"/>
+            <Setter Property="CornerRadius" Value="15"/>
+        </Style>
+        <Style Selector="Border.heat-root Border.poster-logo Image">
+            <Setter Property="Width" Value="41"/>
+            <Setter Property="Height" Value="41"/>
+        </Style>
+        <Style Selector="Border.heat-root TextBlock.poster-brand">
+            <Setter Property="FontSize" Value="34"/>
+        </Style>
+        <Style Selector="Border.heat-root Border.poster-panel">
+            <Setter Property="Padding" Value="18"/>
+        </Style>
+        <Style Selector="TextBlock.heat-month-label">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.heat-weekday-label">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.heat-legend-text">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.heat-stat-label">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.heat-stat-value">
+            <Setter Property="FontSize" Value="34"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-0.8"/>
+        </Style>
+        <Style Selector="Border.heat-chip">
+            <Setter Property="Width" Value="15"/>
+            <Setter Property="Height" Value="15"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <!-- 色阶：范围外留白 + 空档 + 四档深浅，全部走 AppPosterHeat* 令牌（ThemeDictionaries 随明暗翻转）；
+             格子/图例芯片共用同一组类，视图内不出现任何色值 -->
+        <Style Selector="Border.heat-blank">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.heat-0">
+            <Setter Property="Background" Value="{DynamicResource AppPosterHeat0Brush}"/>
+        </Style>
+        <Style Selector="Border.heat-1">
+            <Setter Property="Background" Value="{DynamicResource AppPosterHeat1Brush}"/>
+        </Style>
+        <Style Selector="Border.heat-2">
+            <Setter Property="Background" Value="{DynamicResource AppPosterHeat2Brush}"/>
+        </Style>
+        <Style Selector="Border.heat-3">
+            <Setter Property="Background" Value="{DynamicResource AppPosterHeat3Brush}"/>
+        </Style>
+        <Style Selector="Border.heat-4">
+            <Setter Property="Background" Value="{DynamicResource AppPosterHeat4Brush}"/>
+        </Style>
+        <!-- 峰值格描边（§3.5「峰值直接标注」的热力版）：中性最强对比色，压在任何深浅格上都可见 -->
+        <Style Selector="Border.heat-peak">
+            <Setter Property="BorderBrush" Value="{DynamicResource AppTextBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
     </UserControl.Styles>
 
     <ThemeVariantScope x:Name="ThemeScope">
@@ -288,7 +361,7 @@
         <!-- 宽度由 code-behind 按样式/版式给（托盘与竖版 1080 / 横版 1800），导出按它 2× 光栅化 -->
         <Border x:Name="PosterRoot"
                 Classes="poster-root"
-                IsVisible="{Binding !IsTrayStyle}"
+                IsVisible="{Binding IsOverviewStyle}"
                 VerticalAlignment="Top"
                 HorizontalAlignment="Left"
                 Background="{DynamicResource AppBackgroundBrush}">
@@ -692,6 +765,73 @@
                     </StackPanel>
                 </StackPanel>
             </Border>
+        </Border>
+        <!-- ══ 打卡热力图样式（设计 §3.1 修订 2026-11-07：第三样式）══
+             GitHub 贡献图式按天格子：周为列（周一起）、星期为行，token 量映射色阶深浅，
+             范围外与无用量格子如实留白/空档（"缺失日断开不补 0"的热力版）。仅横版（能力表登记）：
+             52 列格子天然宽扁，竖版下会缩到不可读。格子与标签由 code-behind 按 VM 的 Heat 生成
+             （ApplyHeatGrid），峰值格同时描边 + 脚注给日期数值。 -->
+        <Border x:Name="HeatRoot"
+                Classes="poster-root heat-root"
+                IsVisible="{Binding IsHeatmapStyle}"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Left"
+                Background="{DynamicResource AppBackgroundBrush}">
+            <StackPanel Spacing="16">
+
+                <!-- 页头：与总览基底同一套结构（logo 在左，字标 + 日期在右同一个左边界上） -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" Margin="0,0,0,10">
+                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Center">
+                        <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Center">
+                        <TextBlock Classes="poster-brand" Text="Tokenmetry"/>
+                        <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 热力卡：月份标签行 + 星期列 + 按天格子 + 色阶图例，全部左起排（海报没有右起排元素） -->
+                <Border x:Name="HeatCard" Classes="panel poster-panel">
+                    <StackPanel Spacing="8">
+                        <Grid x:Name="HeatMonthRow" Margin="52,0,0,0" HorizontalAlignment="Left"/>
+                        <Grid ColumnDefinitions="44,Auto" ColumnSpacing="8" HorizontalAlignment="Left">
+                            <StackPanel x:Name="HeatWeekdayCol" Grid.Column="0" VerticalAlignment="Top"/>
+                            <UniformGrid x:Name="HeatGrid" Grid.Column="1" Rows="7"/>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="52,2,0,0">
+                            <TextBlock Classes="heat-legend-text"
+                                       Text="{Binding SharePosterHeatLess, Source={x:Static loc:Translations.Instance}}"/>
+                            <Border Classes="heat-chip heat-0"/>
+                            <Border Classes="heat-chip heat-1"/>
+                            <Border Classes="heat-chip heat-2"/>
+                            <Border Classes="heat-chip heat-3"/>
+                            <Border Classes="heat-chip heat-4"/>
+                            <TextBlock Classes="heat-legend-text"
+                                       Text="{Binding SharePosterHeatMore, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 脚注三格：活跃天数 / 单日峰值 / 总 Token——热力图回答「哪些天在用、空窗在哪」，
+                     总量给分享场景兜底（与前两种基底同一词汇，复用 KpiTotalTokens 的文案） -->
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="14" Margin="4,0,4,0">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Classes="heat-stat-label"
+                                   Text="{Binding SharePosterHeatActiveDays, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="heat-stat-value" Text="{Binding HeatActiveDaysText}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Classes="heat-stat-label"
+                                   Text="{Binding KpiPeakDay, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="heat-stat-value" Text="{Binding HeatPeakText}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="4">
+                        <TextBlock Classes="heat-stat-label"
+                                   Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Classes="heat-stat-value" Text="{Binding TotalTokensText}"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
         </Border>
       </Panel>
     </ThemeVariantScope>

@@ -50,6 +50,55 @@ public class SharePosterDialogTests
         Assert.Equal(
             [SharePosterLayout.Portrait, SharePosterLayout.Landscape],
             SharePosterOptions.SupportedLayouts(SharePosterStyle.Overview));
+        Assert.Equal(
+            [SharePosterLayout.Landscape],
+            SharePosterOptions.SupportedLayouts(SharePosterStyle.Heatmap));
+    }
+
+    [Fact]
+    public void Heatmap_style_locks_landscape_and_shows_its_own_notice()
+    {
+        var vm = new SharePosterDialogViewModel(Request(singleDay: false, SharePosterStyle.Heatmap), Snapshot);
+        Assert.False(vm.CanChooseLayout);
+        Assert.True(vm.ShowLayoutNotice);
+        Assert.Equal(
+            Tokenmetry.App.Localization.Translations.Instance.SharePosterHeatmapLandscapeOnly,
+            vm.LayoutNoticeText);
+
+        // 竖版写入被收口回横版（与信息卡锁竖版同一机制，方向相反）
+        vm.Layout = SharePosterLayout.Portrait;
+
+        Assert.Equal(SharePosterLayout.Landscape, vm.Layout);
+        Assert.Equal(SharePosterLayout.Landscape, vm.CurrentRequest.Layout);
+    }
+
+    [Fact]
+    public void Heatmap_style_collapses_a_portrait_start_to_landscape()
+    {
+        var request = new SharePosterRequest(
+            SharePosterLayout.Portrait,
+            SharePosterTheme.Dark,
+            SharePosterProjectMask.Off,
+            new DateOnly(2026, 10, 17),
+            new DateOnly(2026, 11, 2),
+            SharePosterStyle.Heatmap);
+        var vm = new SharePosterDialogViewModel(request, Snapshot);
+
+        Assert.Equal(SharePosterLayout.Landscape, vm.Layout);
+        Assert.Equal(SharePosterLayout.Landscape, vm.CurrentRequest.Layout);
+        Assert.Equal("landscape", vm.SelectedLayout.Value);
+    }
+
+    [Fact]
+    public void Style_chips_cover_the_three_registered_styles()
+    {
+        var vm = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot);
+
+        Assert.Equal(3, vm.StyleOptions.Count);
+        Assert.Equal(
+            ["tray", "overview", "heatmap"],
+            vm.StyleOptions.Select(o => o.Value).ToArray());
+        Assert.All(vm.StyleOptions, o => Assert.False(string.IsNullOrWhiteSpace(o.Label)));
     }
 
     [Fact]

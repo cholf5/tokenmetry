@@ -27,6 +27,11 @@ public partial class SharePosterView : UserControl
     /// <summary>横版画布宽度（设计 §3.3：1800 宽，导出 3600）。</summary>
     public const double LandscapeWidth = 1800;
 
+    /// <summary>热力格子边长 / 间隙（格距 4 = Margin 2×2）/ 列槽宽（格 + 间隙，月份标签行按它对列）。</summary>
+    public const int HeatCellSize = 27;
+    public const int HeatCellGap = 4;
+    public const int HeatColumnWidth = 31;
+
     public SharePosterView()
     {
         InitializeComponent();
@@ -46,10 +51,19 @@ public partial class SharePosterView : UserControl
     }
 
     /// <summary>导出时要光栅化的节点（当前基底的根，不含外面用来适配预览的缩放容器）。</summary>
-    public Control PosterRootControl => IsTrayStyle ? TrayRoot : PosterRoot;
+    public Control PosterRootControl =>
+        (DataContext as SharePosterViewModel)?.Data.Request.Style switch
+        {
+            SharePosterStyle.Tray => TrayRoot,
+            SharePosterStyle.Heatmap => HeatRoot,
+            _ => PosterRoot,
+        };
 
     /// <summary>信息卡样式走托盘基底（固定 1080 竖版），总览样式走总览基底（1080 / 1800）——只看样式，与范围无关。</summary>
     public bool IsTrayStyle => (DataContext as SharePosterViewModel)?.IsTrayStyle ?? false;
+
+    /// <summary>打卡热力图样式走热力基底（固定 1800 横版，能力表锁定）。</summary>
+    public bool IsHeatmapStyle => (DataContext as SharePosterViewModel)?.IsHeatmapStyle ?? false;
 
     /// <summary>版式 → 画布宽度（纯函数，测试与导出共用）。</summary>
     public static double WidthFor(SharePosterLayout layout) =>
@@ -94,32 +108,42 @@ public partial class SharePosterView : UserControl
 
     /// <summary>
     /// 日间海报的卡片投影（设计 §3.5 第 6 条）：浅底上卡片与页面底几乎同色，不分层会糊成一片。
-    /// 夜间不给投影（深底上根本看不见，给了只是白白多一层像素）；透明度与偏移全在
-    /// <c>AppPosterShadowColor</c> 令牌里，此处只负责拼 BoxShadows——XAML 无法只对 BoxShadow 的
-    /// 颜色部分接 DynamicResource（同 D-016 弹窗壳层的既有做法）。
+    /// 夜间不给投影（深底上根本看不见，给了只是白白多一层像素）。投影颜色与浓度全在
+    /// <c>AppPosterShadowColor</c> 令牌里，此处负责拼出 <see cref="DropShadowEffect"/>——XAML 无法
+    /// 只对效果的颜色部分接 DynamicResource。
+    /// <para>
+    /// 用 Effect 而不是 <c>Border.BoxShadow</c> 是硬约束：BoxShadow 在 <c>RenderTargetBitmap.Render</c>
+    /// 的立即渲染路径下会把「泄漏的缩放变换」带给其后绘制的兄弟内容（首个带影卡片之后整张海报
+    /// 被放大错位，见导出回归测试），Avalonia 12.1.4 实测如此；Effect 两条渲染路径（合成器预览、
+    /// RTB 导出）都正确。投影形态取双影中较大的一层（偏移并入模糊），浓度取令牌 alpha。
+    /// </para>
     /// </summary>
     private void ApplyPanelShadows(ThemeVariant variant)
     {
-        var shadow = default(BoxShadows);
         // 资源查找覆盖两种时机：DataContextChanged 发生在挂树前（控件自身的资源链还没接到 App），
         // 这时回落到 Application 的资源宿主显式按变体取色。
         var found = TryGetResource("AppPosterShadowColor", variant, out var resource)
                     || (Application.Current?.TryGetResource("AppPosterShadowColor", variant, out resource) ?? false);
+        DropShadowEffect? effect = null;
         if (found && resource is Color color && color.A > 0)
         {
-            var hex = $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
-            shadow = BoxShadows.Parse($"0 1 2 0 {hex}, 0 8 24 0 {hex}");
+            effect = new DropShadowEffect
+            {
+                Color = Color.FromRgb(color.R, color.G, color.B),
+                Opacity = color.A / 255d,
+                BlurRadius = 20,
+            };
         }
 
         foreach (var panel in CardSurfaces())
         {
-            panel.BoxShadow = shadow;
+            panel.Effect = effect;
         }
     }
 
     private IEnumerable<Border> CardSurfaces() =>
         KpiGrid.Children.OfType<Border>().Concat(
-            new Border[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel, TrayCard });
+            new Border[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel, TrayCard, HeatCard });
 
     /// <summary>
     /// 按版式重排栅格。两套版面的差别不只是换列宽：面板归属也换行（类型环形、成本趋势从第二排列
@@ -141,6 +165,14 @@ public partial class SharePosterView : UserControl
             PosterRoot.Width = PortraitWidth;
             PosterRoot.Classes.Remove("land");
             ApplyTrayTypeBar();
+            return;
+        }
+
+        if (IsHeatmapStyle)
+        {
+            // 热力基底是固定 1800 横版：能力表只登记了横版，版式选项对它同样无效
+            HeatRoot.Width = LandscapeWidth;
+            ApplyHeatGrid();
             return;
         }
 
@@ -195,6 +227,83 @@ public partial class SharePosterView : UserControl
 
             Grid.SetRow(panel, 0);
             Grid.SetColumn(panel, column);
+        }
+    }
+
+    /// <summary>
+    /// 热力图的月份标签行、星期标签列与按天格子：格子是数据形状（最多 52×7 = 364 个），
+    /// 在 XAML 里逐个声明没有意义，按 VM 算好的 <see cref="SharePosterViewModel.Heat"/> 生成——
+    /// 颜色一律走 Classes（heat-0..4）接 ThemeDictionaries 令牌，代码里不出现色值。
+    /// 列槽宽固定为 CellSlot，月份标签行与格子共用同一列划分，标签才能对上列。
+    /// </summary>
+    private void ApplyHeatGrid()
+    {
+        if (DataContext is not SharePosterViewModel vm)
+        {
+            return;
+        }
+
+        var heat = vm.Heat;
+
+        // 月份标签：每列一个定宽槽，标签跨到下一个标签列（左对齐，海报没有右起排元素）
+        var slots = string.Join(",", Enumerable.Repeat(HeatColumnWidth, heat.Weeks));
+        HeatMonthRow.ColumnDefinitions = new ColumnDefinitions(slots);
+        HeatMonthRow.Children.Clear();
+        foreach (var label in heat.MonthLabels)
+        {
+            var text = new TextBlock
+            {
+                Classes = { "heat-month-label" },
+                Text = label.Text,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom,
+            };
+            Grid.SetColumn(text, label.StartCol);
+            if (label.Span > 1)
+            {
+                Grid.SetColumnSpan(text, label.Span);
+            }
+
+            HeatMonthRow.Children.Add(text);
+        }
+
+        // 星期标签列：周一起 7 行，只标一/三/五（同 GitHub 的密度），空行也占位对齐
+        HeatWeekdayCol.Children.Clear();
+        for (var weekday = 0; weekday < 7; weekday++)
+        {
+            HeatWeekdayCol.Children.Add(new Border
+            {
+                Height = HeatCellSize + HeatCellGap,
+                Child = new TextBlock
+                {
+                    Classes = { "heat-weekday-label" },
+                    Text = heat.WeekdayLabels[weekday] ?? string.Empty,
+                    TextAlignment = TextAlignment.Right,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                },
+            });
+        }
+
+        // 按天格子：行主序（先星期后周列）与 BuildCells 的顺序一致
+        HeatGrid.Columns = heat.Weeks;
+        HeatGrid.Children.Clear();
+        foreach (var cell in heat.Cells)
+        {
+            var border = new Border
+            {
+                Width = HeatCellSize,
+                Height = HeatCellSize,
+                Margin = new Thickness(HeatCellGap / 2d),
+                CornerRadius = new CornerRadius(4),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            };
+            border.Classes.Add(cell.IsBlank ? "heat-blank" : $"heat-{cell.Level}");
+            if (cell.IsPeak)
+            {
+                border.Classes.Add("heat-peak");
+            }
+
+            HeatGrid.Children.Add(border);
         }
     }
 }

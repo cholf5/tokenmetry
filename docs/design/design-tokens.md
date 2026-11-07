@@ -75,6 +75,20 @@
 
 超出 7 个系列时回到 `AppAccent*Brush`（蓝/青/紫/绿/橙/红，随明暗取协调值）或与设计确认后再扩 `AppSeries7+`。
 
+## 3b. 分享海报打卡热力图色阶（5 档，随明暗翻转）
+
+样式 A（打卡热力图）的按天格子与图例芯片共用：空档 0 + 四档深浅，向强调绿收敛（打卡语义），最深层 = `AppAccentGreenBrush` 同值。色阶随明暗翻转——它编码的是对页面底的对比（表层），不是数据系列身份，与 §3 系列色「不翻转」的分工相反。
+
+| 键（Light / Dark 同名） | Light | Dark |
+|---|---|---|
+| AppPosterHeat0Brush | `#e4e9f1` | `#232b37` |
+| AppPosterHeat1Brush | `#c9e9db` | `#1e4d3c` |
+| AppPosterHeat2Brush | `#93d3b8` | `#1f8060` |
+| AppPosterHeat3Brush | `#47b28e` | `#2aad85` |
+| AppPosterHeat4Brush | `#0e9e77` | `#38d6a4` |
+
+用法：格子由视图 code-behind 生成 `Border`，只挂 `heat-0..4` / `heat-blank` 类，色值全部走 `SharePosterView.axaml` 的样式组接本令牌，视图内不出现硬编码色值。
+
 ## 4. 共享样式类（SharedStyles.axaml）
 
 类名对齐原型 CSS 类，视图用 `Classes="..."` 引用，一律 DynamicResource 取令牌，**视图内禁止再写硬编码色值**：

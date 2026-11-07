@@ -43,6 +43,13 @@ public sealed class SharePosterViewModel
         TrayAgentRows = BuildTrayRows(data.Agents, 4);
         TrayModelRows = BuildTrayRows(data.Models, 3, modelIconResolver ?? ModelAvatarVisual.FromName);
         TrayTypes = BuildTrayTypes(TypeSegments);
+        // 打卡热力图（样式 A）：窗口/格子/色阶是纯函数，构造时算好（视图 code-behind 只负责摆格子）
+        Heat = SharePosterHeatmap.Build(data.Request.RangeStart, data.Request.RangeEnd, data.Daily);
+        HeatActiveDaysText = DayCount.ToString("N0", CultureInfo.CurrentCulture);
+        HeatPeakText = Heat.PeakDay is { } peak
+            ? TrendChart.FormatCompactTokens(Heat.PeakTokens) + " · "
+              + peak.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
+            : "—";
         // 模型行带品牌 logo（与总览页同一条链：ModelAvatarVisual → ModelChip 伪类 → 令牌画刷）；
         // 解析器来自模型目录（用户自定义头像也生效），未注入时回落内置名字推断。
         ModelRows = BuildRows(data.Models, modelIcons: modelIconResolver ?? ModelAvatarVisual.FromName);
@@ -52,10 +59,29 @@ public sealed class SharePosterViewModel
     public SharePosterData Data { get; }
 
     /// <summary>
-    /// 信息卡样式 = 托盘基底（设计 §3.1，固定竖版）；总览样式走总览页基底。只看样式，与范围无关——
-    /// 样式与时间范围解耦后，多日范围也能出信息卡、单日范围也能出总览。
+    /// 信息卡样式 = 托盘基底（设计 §3.1，固定竖版）；总览样式走总览页基底；打卡热力图样式走
+    /// 热力基底（仅横版）。只看样式，与范围无关——样式与时间范围解耦后，多日范围也能出信息卡、
+    /// 单日范围也能出总览。
     /// </summary>
     public bool IsTrayStyle => Data.Request.Style == SharePosterStyle.Tray;
+
+    /// <summary>打卡热力图样式 = 热力基底（GitHub 贡献图式，仅横版）。</summary>
+    public bool IsHeatmapStyle => Data.Request.Style == SharePosterStyle.Heatmap;
+
+    /// <summary>总览样式 = 总览页基底（版式竖/横皆可）。</summary>
+    public bool IsOverviewStyle => Data.Request.Style == SharePosterStyle.Overview;
+
+    /// <summary>
+    /// 打卡热力图的窗口与格子（周为列/星期为行，最多 52 周；纯计算见 <see cref="SharePosterHeatmap"/>）。
+    /// 其他样式也算好备用——代价只是窗口天数的纯计算，换样式时无需重跑。
+    /// </summary>
+    public SharePosterHeatGrid Heat { get; }
+
+    /// <summary>热力图脚注：窗口内活跃天数（有记录的天，同 RangeText 的口径）。</summary>
+    public string HeatActiveDaysText { get; }
+
+    /// <summary>热力图脚注：单日峰值「紧凑值 · 日期」；全空窗口为「—」。</summary>
+    public string HeatPeakText { get; }
 
     /// <summary>是否单日窗口（决定趋势图形态与日期文案，与样式无关）。</summary>
     public bool IsSingleDay => Data.Request.IsSingleDay;

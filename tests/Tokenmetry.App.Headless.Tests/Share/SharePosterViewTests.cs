@@ -102,6 +102,15 @@ public class SharePosterViewTests
         Background = Brushes.Black,
     };
 
+    private static Window HostWide(SharePosterView view) => new()
+    {
+        Width = 1900,
+        Height = 1000,
+        Content = view,
+        RequestedThemeVariant = ThemeVariant.Dark,
+        Background = Brushes.Black,
+    };
+
     [AvaloniaFact]
     public void Poster_renders_at_poster_width_with_both_charts_annotated()
     {
@@ -122,6 +131,37 @@ public class SharePosterViewTests
     }
 
     [AvaloniaFact]
+    public void Heatmap_style_renders_the_heat_base_with_generated_cells()
+    {
+        var vm = ViewModel(layout: SharePosterLayout.Landscape, style: SharePosterStyle.Heatmap);
+        var view = new SharePosterView { DataContext = vm };
+        var window = HostWide(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        // 导出根切到热力基底、固定 1800 横版（与范围无关）
+        Assert.True(view.IsHeatmapStyle);
+        Assert.Same(
+            view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "HeatRoot"),
+            view.PosterRootControl);
+        Assert.Equal(SharePosterView.LandscapeWidth, view.PosterRootControl.Bounds.Width, 1);
+
+        // 格子 = 窗口列数 × 7 行，fixture 是最近 30 天 → 有深档也有峰值描边
+        var grid = view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.UniformGrid>()
+            .First(u => u.Name == "HeatGrid");
+        Assert.Equal(vm.Heat.Weeks, grid.Columns);
+        Assert.Equal(vm.Heat.Cells.Count, grid.Children.Count);
+        Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-peak"));
+        Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-4"));
+        Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-0"));
+
+        // 色阶图例（5 个芯片）+ 峰值/活跃天数脚注都真的在版面上
+        Assert.Equal(5, view.GetVisualDescendants().OfType<Border>().Count(b => b.Classes.Contains("heat-chip")));
+        Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.HeatPeakText);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void Multi_day_header_carries_the_brand_not_the_app_page_title()
     {
         var model = ViewModel();
@@ -129,18 +169,20 @@ public class SharePosterViewTests
         var window = Host(view);
         using var frame = ChartTestHelpers.RenderFrame(window);
 
-        // 页头 = Logo + 字标（与单日托盘同源）；「总览」是应用内的页面名，海报上不存在这一页
-        var brand = view.GetVisualDescendants().OfType<TextBlock>()
+        // 页头 = Logo + 字标（与单日托盘同源）；「总览」是应用内的页面名，海报上不存在这一页。
+        // 断言圈定当前基底（热力基底也有同款页头，整棵视觉树里会各有一份）
+        var baseRoot = view.PosterRootControl;
+        var brand = baseRoot.GetVisualDescendants().OfType<TextBlock>()
             .Single(t => t.Classes.Contains("poster-brand"));
         Assert.Equal("Tokenmetry", brand.Text);
 
         // 右侧只剩日期范围；整张海报不再出现页标题「总览」
-        var texts = view.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        var texts = baseRoot.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
         Assert.DoesNotContain(Tokenmetry.App.Localization.Translations.Instance.NavOverview, texts);
         Assert.Contains(model.RangeText, texts);
 
         // Logo 真的取到了图片资源（不是空芯片）
-        var logo = view.GetVisualDescendants().OfType<Border>()
+        var logo = baseRoot.GetVisualDescendants().OfType<Border>()
             .Single(b => b.Classes.Contains("poster-logo"));
         Assert.Contains(logo.GetVisualDescendants().OfType<Image>(), i => i.Source is not null);
 
@@ -159,11 +201,13 @@ public class SharePosterViewTests
         using var frame = ChartTestHelpers.RenderFrame(window);
 
         var root = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PosterRoot");
-        var brand = view.GetVisualDescendants().OfType<TextBlock>()
+        // 断言圈定总览基底：热力基底也有一套同款页头（隐藏但挂在树上）
+        var baseRoot = view.PosterRootControl;
+        var brand = baseRoot.GetVisualDescendants().OfType<TextBlock>()
             .Single(t => t.Classes.Contains("poster-brand"));
-        var range = view.GetVisualDescendants().OfType<TextBlock>()
+        var range = baseRoot.GetVisualDescendants().OfType<TextBlock>()
             .Single(t => t.Classes.Contains("poster-subtitle"));
-        var logo = view.GetVisualDescendants().OfType<Border>()
+        var logo = baseRoot.GetVisualDescendants().OfType<Border>()
             .Single(b => b.Classes.Contains("poster-logo"));
 
         var brandX = brand.TranslatePoint(default, root)!.Value.X;
@@ -207,7 +251,7 @@ public class SharePosterViewTests
         AssertRoughRatio(top, expectedFirst: 2.1, otherIndex: 1, expectedOther: 1.0);
         AssertRoughRatio(middle, expectedFirst: 1.0, otherIndex: 2, expectedOther: 1.2);
 
-        var panels = view.GetVisualDescendants().OfType<Border>()
+        var panels = view.PosterRootControl.GetVisualDescendants().OfType<Border>()
             .Where(b => b.Classes.Contains("poster-panel"))
             .ToList();
         Assert.Equal(6, panels.Count);
@@ -249,13 +293,14 @@ public class SharePosterViewTests
         var light = new SharePosterView { DataContext = ViewModel(theme: SharePosterTheme.Light) };
         var lightWindow = Host(light);
         using var lightFrame = ChartTestHelpers.RenderFrame(lightWindow);
-        Assert.All(Cards(light), card => Assert.True(card.BoxShadow.Count > 0, "日间海报卡片应带极轻投影"));
+        Assert.All(Cards(light), card => Assert.True(
+            card.Effect is DropShadowEffect { Opacity: > 0 }, "日间海报卡片应带极轻投影"));
         lightWindow.Close();
 
         var dark = new SharePosterView { DataContext = ViewModel(theme: SharePosterTheme.Dark) };
         var darkWindow = Host(dark);
         using var darkFrame = ChartTestHelpers.RenderFrame(darkWindow);
-        Assert.All(Cards(dark), card => Assert.Equal(0, card.BoxShadow.Count));
+        Assert.All(Cards(dark), card => Assert.Null(card.Effect));
         darkWindow.Close();
 
         static System.Collections.Generic.List<Border> Cards(SharePosterView view) => view
@@ -508,13 +553,14 @@ public class SharePosterViewTests
             .GetVisualDescendants().OfType<Border>()
             .Where(b => b.Classes.Contains("kpi") || b.Classes.Contains("poster-panel"))
             .ToList();
-        Assert.All(Cards(view), c => Assert.Equal(0, c.BoxShadow.Count));
+        Assert.All(Cards(view), c => Assert.Null(c.Effect));
 
         window.RequestedThemeVariant = ThemeVariant.Light;
         Dispatcher.UIThread.RunJobs();
         Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
 
-        Assert.All(Cards(view), c => Assert.True(c.BoxShadow.Count > 0, "跟随日间后卡片应带投影"));
+        Assert.All(Cards(view), c => Assert.True(
+            c.Effect is DropShadowEffect { Opacity: > 0 }, "跟随日间后卡片应带投影"));
         window.Close();
     }
 
