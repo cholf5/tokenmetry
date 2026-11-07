@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -290,18 +291,17 @@ public partial class MainWindowViewModel : ViewModelBase
     private void RequestSharePoster() => SharePosterRequested?.Invoke();
 
     /// <summary>
-    /// 按当前全局筛选备好海报数据与对话框 VM（查询失败弹 toast 并返回 null，不静默）。
-    /// 数据只查一次：四个选项（样式/版式/主题/雾化）都不改变查询结果，只有版面与展示形态不同——
-    /// 对话框每次重绘复用同一份快照。
+    /// 按当前全局筛选备好海报数据与对话框 VM（开窗首轮查询失败弹 toast 并返回 null，不静默）。
+    /// 对话框 VM 与本外壳共享同一 <see cref="FilterStateService"/>（同一实例即双向同步）：对话框里
+    /// 改筛选 = 改全局，防抖后经 <see cref="LoadPosterBundleAsync"/> 重查重建预览，关窗后保留改动。
+    /// 四个选项（样式/版式/主题/雾化）不改变查询结果，只有版面与展示形态不同——重绘不重查。
     /// </summary>
     public async Task<SharePosterDialogViewModel?> CreateSharePosterDialogAsync()
     {
-        var filter = GlobalFilterMapper.Build(_filters);
-
-        OverviewPageSnapshot snapshot;
+        SharePosterDataBundle bundle;
         try
         {
-            snapshot = await _usageQuery.GetOverviewSnapshotAsync(filter);
+            bundle = await LoadPosterBundleAsync(CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -309,50 +309,58 @@ public partial class MainWindowViewModel : ViewModelBase
             return null;
         }
 
-        var (start, end) = ResolvePosterRange(filter, snapshot.Daily, DateOnly.FromDateTime(DateTime.Today));
         // 四个选项的起值 = 上次在对话框里的选择（选项即存，见 Settings.ApplySharePosterLastUsed）；
         // 样式从未选过（新用户/旧 settings.json）才跟随范围，与解耦前的首启观感一致。
-        var initial = new SharePosterRequest(
+        // 模型图标走目录解析器（用户自定义头像也生效）；选项即存回写设置页单例（落盘由它统一走）。
+        return new SharePosterDialogViewModel(
+            bundle,
+            ResolveInitialPosterStyle(Settings.DefaultSharePosterStyle, bundle.RangeStart, bundle.RangeEnd),
             Settings.DefaultSharePosterLayout,
             Settings.DefaultSharePosterTheme,
             Settings.DefaultSharePosterProjectMask,
-            start,
-            end,
-            ResolveInitialPosterStyle(Settings.DefaultSharePosterStyle, start, end));
-
-        // 单日范围补一次小时分布（与总览页 D-027 同源）：总览样式的单日海报把趋势图切到小时形态。
-        // 查询范围收口到解析出的那一天——「全部时间」这类无界筛选落到单日时，也只查那天的 0..23 桶，
-        // 不把多天混进同一组小时桶。失败不挡对话框：小时数据缺位时趋势图回落日序列形态。
-        var hourly = start == end ? await LoadHourlyForPosterAsync(filter, start) : null;
-        var hourlyCutoff = hourly is null
-            ? null
-            : OverviewViewModel.ResolveHourlyCutoffHour(UsageQueryFilter.FormatDay(end), DateTimeOffset.Now);
-
-        // 时段节律样式需要星期 × 小时矩阵（样式与范围解耦：任何范围都可能切到它，恒补查，范围照搬
-        // 全局筛选）。失败不挡对话框：矩阵如实空场（同小时分布的回落哲学）。
-        var weeklyRhythm = await LoadWeeklyRhythmForPosterAsync(filter);
-
-        // 总量取同一份 KPI 聚合（维度行合计可能与 KPI 不等：空键 / 分解粒度行会被跳过）；
-        // 模型图标走目录解析器（用户自定义头像也生效）；选项即存回写设置页单例（落盘由它统一走）。
-        return new SharePosterDialogViewModel(
-            initial,
-            request => SharePosterSnapshot.Build(
-                request,
-                snapshot.Daily,
-                snapshot.Agents,
-                snapshot.Models,
-                snapshot.Projects,
-                snapshot.Kpi.SessionCount,
-                snapshot.Kpi,
-                hourly,
-                hourlyCutoff,
-                weeklyRhythm),
+            _filters,
+            TimePicker,
+            ct => LoadPosterBundleAsync(ct),
             _avatars is null ? null : _avatars.Resolve,
             (style, layout, theme, mask) => Settings.ApplySharePosterLastUsed(style, layout, theme, mask));
     }
 
+    /// <summary>
+    /// 备齐一轮海报数据（抛异常语义，调用方决定失败怎么呈现）。单日范围补一次小时分布
+    /// （与总览页 D-027 同源）：总览样式的单日海报把趋势图切到小时形态，查询范围收口到解析出的
+    /// 那一天——「全部时间」这类无界筛选落到单日时，也只查那天的 0..23 桶，不把多天混进同一组
+    /// 小时桶。失败不挡整轮：小时数据缺位时趋势图回落日序列形态。时段节律矩阵恒查（样式与范围
+    /// 解耦：任何范围都可能切到它），失败同样不挡整轮、矩阵如实空场。
+    /// </summary>
+    private async Task<SharePosterDataBundle> LoadPosterBundleAsync(CancellationToken ct)
+    {
+        var filter = GlobalFilterMapper.Build(_filters);
+        var snapshot = await _usageQuery.GetOverviewSnapshotAsync(filter, ct);
+
+        var (start, end) = ResolvePosterRange(filter, snapshot.Daily, DateOnly.FromDateTime(DateTime.Today));
+        var hourly = start == end ? await LoadHourlyForPosterAsync(filter, start, ct) : null;
+        var hourlyCutoff = hourly is null
+            ? null
+            : OverviewViewModel.ResolveHourlyCutoffHour(UsageQueryFilter.FormatDay(end), DateTimeOffset.Now);
+        var weeklyRhythm = await LoadWeeklyRhythmForPosterAsync(filter, ct);
+
+        // 总量取同一份 KPI 聚合（维度行合计可能与 KPI 不等：空键 / 分解粒度行会被跳过）。
+        return new SharePosterDataBundle(
+            start,
+            end,
+            snapshot.Daily,
+            snapshot.Agents,
+            snapshot.Models,
+            snapshot.Projects,
+            snapshot.Kpi.SessionCount,
+            snapshot.Kpi,
+            hourly,
+            hourlyCutoff,
+            weeklyRhythm);
+    }
+
     /// <summary>海报用的星期 × 小时节律矩阵：维度筛选照搬全局筛选，时间范围即当前筛选窗口。</summary>
-    private async Task<WeeklyRhythmResult?> LoadWeeklyRhythmForPosterAsync(UsageQueryFilter filter)
+    private async Task<WeeklyRhythmResult?> LoadWeeklyRhythmForPosterAsync(UsageQueryFilter filter, CancellationToken ct)
     {
         try
         {
@@ -363,7 +371,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 Agent = filter.Agent,
                 Model = filter.Model,
                 Project = filter.Project,
-            });
+            }, ct);
         }
         catch (Exception)
         {
@@ -372,7 +380,8 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>海报用的单日小时分布：维度筛选照搬全局筛选，时间范围钉死到那一天。</summary>
-    private async Task<HourlyDistributionResult?> LoadHourlyForPosterAsync(UsageQueryFilter filter, DateOnly day)
+    private async Task<HourlyDistributionResult?> LoadHourlyForPosterAsync(
+        UsageQueryFilter filter, DateOnly day, CancellationToken ct)
     {
         try
         {
@@ -383,7 +392,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 Agent = filter.Agent,
                 Model = filter.Model,
                 Project = filter.Project,
-            });
+            }, ct);
         }
         catch (Exception)
         {

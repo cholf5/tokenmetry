@@ -36,6 +36,7 @@ dotnet run --project src/Tokenmetry.App
 - **预览是活视图，导出与预览缩放无关**：对话框窗口本身是渲染宿主（海报子树挂在里面才拿得到样式与图表初始化）；导出 = `SharePosterExporter.Render(PosterRootControl)` 对海报根按 2× 光栅化，要求节点已挂树、已布局。海报根画布宽固定（竖版 1080 / 横版 1800，常量在 `SharePosterView`）；预览层的任何缩放变换都套在视图**之外**，不会污染导出。
 - **投影只能用 `DropShadowEffect`，不能用 `Border.BoxShadow`**：Avalonia #20693（RenderTargetBitmap 上 DPI≠96 时 BoxShadow 把 DPI 平方乘进其后首个变换，v0.4.0 日间导出真机中招）未修前不许换回，细则见 `SharePosterView.ApplyPanelShadows` 注释。
 - **AvaPlot 输入已禁**（`TrendChart` 构造里 `UserInputProcessor.Disable()` + `HandleMouseWheelEvent = false`，后者是放行冒泡）：滚轮/双击会照常冒泡到宿主，页面/预览层可以放心挂手势。
+- **对话框内数据范围行与主窗口共享 `FilterStateService`**（同一实例即双向同步，关窗保留改动；海报永远印「当前筛选下的这个视图」）：筛选变更 300ms 防抖后经 `MainWindowViewModel.LoadPosterBundleAsync` 重查一轮 `SharePosterDataBundle`，按代取消 + 过代丢弃，旧预览 stale-while-revalidate；海报选项（样式/版式/主题/雾化）只重排不重查。对话框 VM 关窗必须 `Detach()`（窗口 `Closed` 已接线），否则整棵 VM 沿筛选订阅钉死在进程里。
 - 版式合法性唯一出处是能力表 `SharePosterOptions.SupportedLayouts`（样式锁版式：托盘/里程碑锁竖版，热力/节律锁横版，越界起值收口）；换版式 = `SharePosterView.ApplyLayout` 重排栅格，**运行期不要动 ColumnDefinitions**（Avalonia Grid 定义数量变化会踩测量缓存索引越界）。
 
 ## i18n 纪律

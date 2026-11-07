@@ -528,5 +528,9 @@ public sealed partial class Translations
         [nameof(SharePosterTrayAgents)] = "主要エージェント",
         [nameof(SharePosterTrayModels)] = "モデル使用量",
         [nameof(SharePosterTrayByTokens)] = "Token 順",
+        [nameof(SharePosterDataScope)] = "データ範囲（変更はメインウィンドウのフィルターに同期されます）",
+        [nameof(SharePosterUpdating)] = "更新中…",
+        [nameof(SharePosterUpdateFailedFormat)] = "データの更新に失敗しました：{0}",
+        [nameof(SharePosterStyleOptions)] = "ポスターの設定",
     };
 }
