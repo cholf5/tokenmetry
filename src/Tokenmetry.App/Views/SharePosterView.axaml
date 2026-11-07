@@ -421,12 +421,16 @@
 
                 <!-- 页头：图标在左，字标 + 日期范围在右同一个左边界上（两行共用一个起排点）。
                      日期不右对齐：海报上没有任何元素从右边起排，孤零零一条挂在右上角就没了参照系。
-                     同一排版理由也适用于不写页标题「总览」——那是应用内的页面名。 -->
+                     同一排版理由也适用于不写页标题「总览」——那是应用内的页面名。
+                     页头整体挂内容区顶边（两个子级一律 Top）：页边距是画布到内容区的距离，
+                     文字栈（字标行 + 日期行 + 行距）比 logo 高，居中会把 logo 顶下来一截——
+                     五种基底的字号组各不相同，这一截还各不一样（margin=0 时量得 2/7/8px），
+                     顶边距就不再等于左右边距。 -->
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" Margin="0,0,0,12">
-                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Center">
+                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Top">
                         <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
                     </Border>
-                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Top">
                         <TextBlock Classes="poster-brand" Text="Tokenmetry"/>
                         <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
                     </StackPanel>
@@ -664,14 +668,15 @@
                 <!-- 头部：品牌领印（Logo 在左，字标 + 日期在右两行共用一个左边界），
                      与多日页头同一排版理由：右对齐的日期在版内没有第二个右锚点，
                      跟下方三格、构成条的左边界全都对不上。高度随内容（不定高）：
-                     顶边距就是页边距本身，不再被定高居中垫出一截。 -->
+                     顶边距就是页边距本身，不再被定高居中垫出一截；logo 与文字栈一律
+                     顶齐内容区顶边（Top）——居中会被更高的文字栈把 logo 顶下来。 -->
                 <Border Classes="tray-header">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
-                        <Border Grid.Column="0" Classes="tray-logo" VerticalAlignment="Center">
+                        <Border Grid.Column="0" Classes="tray-logo" VerticalAlignment="Top">
                             <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"
                                    Width="38" Height="38"/>
                         </Border>
-                        <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Top">
                             <TextBlock Classes="tray-brand" Text="Tokenmetry"/>
                             <TextBlock Classes="tray-date" Text="{Binding TrayDateText}"/>
                         </StackPanel>
@@ -835,12 +840,12 @@
                 Background="{DynamicResource AppBackgroundBrush}">
             <StackPanel Spacing="16">
 
-                <!-- 页头：与总览基底同一套结构（logo 在左，字标 + 日期在右同一个左边界上） -->
+                <!-- 页头：与总览基底同一套结构（logo 在左，字标 + 日期在右同一个左边界上，整体顶齐内容区） -->
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" Margin="0,0,0,10">
-                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Center">
+                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Top">
                         <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
                     </Border>
-                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Top">
                         <TextBlock Classes="poster-brand" Text="Tokenmetry"/>
                         <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
                     </StackPanel>
@@ -937,12 +942,12 @@
                 Background="{DynamicResource AppBackgroundBrush}">
             <StackPanel Spacing="16">
 
-                <!-- 页头：与两个横版基底同构 -->
+                <!-- 页头：与两个横版基底同构（logo 与文字栈一律顶齐内容区顶边） -->
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" Margin="0,0,0,10">
-                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Center">
+                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Top">
                         <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
                     </Border>
-                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Top">
                         <TextBlock Classes="poster-brand" Text="Tokenmetry"/>
                         <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
                     </StackPanel>
@@ -996,12 +1001,12 @@
                 Background="{DynamicResource AppBackgroundBrush}">
             <StackPanel Spacing="14">
 
-                <!-- 页头：与总览基底竖版同构（默认 portrait 尺度组） -->
+                <!-- 页头：与总览基底竖版同构（默认 portrait 尺度组，logo 与文字栈顶齐内容区顶边） -->
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" Margin="0,0,0,20">
-                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Center">
+                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Top">
                         <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
                     </Border>
-                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Top">
                         <TextBlock Classes="poster-brand" Text="Tokenmetry"/>
                         <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
                     </StackPanel>

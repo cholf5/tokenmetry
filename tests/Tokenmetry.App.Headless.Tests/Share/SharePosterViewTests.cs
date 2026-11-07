@@ -56,14 +56,15 @@ public class SharePosterViewTests
 
     private static SharePosterViewModel ViewModel(SharePosterLayout layout = SharePosterLayout.Portrait,
         SharePosterTheme theme = SharePosterTheme.Dark, bool singleDay = false,
-        SharePosterStyle? style = null, HourlyDistributionResult? hourly = null)
+        SharePosterStyle? style = null, HourlyDistributionResult? hourly = null, double margin = 28)
     {
         var day = new DateOnly(2026, 10, 17);
         var request = new SharePosterRequest(
             layout, theme, SharePosterProjectMask.Off,
             singleDay ? day : new DateOnly(2026, 1, 28),
             singleDay ? day : new DateOnly(2026, 11, 2),
-            style ?? (singleDay ? SharePosterStyle.Tray : SharePosterStyle.Overview));
+            style ?? (singleDay ? SharePosterStyle.Tray : SharePosterStyle.Overview),
+            Margin: margin);
 
         var daily = DailyWithCache();
 
@@ -528,12 +529,12 @@ public class SharePosterViewTests
     }
 
     /// <summary>信息卡托盘 fixture：5 个 Agent / 4 个模型，验证 Top4 / Top3 截断与品牌标。</summary>
-    private static SharePosterViewModel TrayViewModel(bool singleDay = true)
+    private static SharePosterViewModel TrayViewModel(bool singleDay = true, double margin = 28)
     {
         var day = new DateOnly(2026, 10, 17);
         var request = new SharePosterRequest(
             SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off, day,
-            singleDay ? day : new DateOnly(2026, 11, 2), SharePosterStyle.Tray);
+            singleDay ? day : new DateOnly(2026, 11, 2), SharePosterStyle.Tray, Margin: margin);
 
         var data = SharePosterSnapshot.Build(
             request,
@@ -722,12 +723,81 @@ public class SharePosterViewTests
     public void Light_theme_request_switches_the_subtree_not_the_app()
     {
         var view = new SharePosterView { DataContext = ViewModel(theme: SharePosterTheme.Light) };
-        var window = Host(view);   // 应用侧仍是 Dark
+        var window = Host(view);
         using var frame = ChartTestHelpers.RenderFrame(window);
 
         var scope = view.GetVisualDescendants().OfType<ThemeVariantScope>().First();
         Assert.Equal(ThemeVariant.Light, scope.RequestedThemeVariant);
 
         window.Close();
+    }
+
+    /// <summary>
+    /// 页边距是画布到内容区的距离：margin=0 时页头 logo 必须贴住顶边（与左边同规）。
+    /// 此前页头两子级垂直居中，文字栈比 logo 高，居中把 logo 顶下来一截，五种基底字号组
+    /// 不同、这一截各不一样（量得 2/7/8px）——「顶边距与左右不一致且五样式互不相同」。
+    /// 修法是页头整体挂内容区顶边（Top），这里把五种基底一起锁住。
+    /// </summary>
+    [AvaloniaFact]
+    public void Zero_margin_puts_every_base_header_logo_flush_with_the_top_edge()
+    {
+        void AssertFlush(SharePosterView view, Window window, double expectedTop)
+        {
+            using var frame = ChartTestHelpers.RenderFrame(window);
+            var root = (Border)view.PosterRootControl;
+            var logo = root.GetVisualDescendants().OfType<Border>()
+                .First(b => b.Classes.Contains("poster-logo") || b.Classes.Contains("tray-logo"));
+            var brand = root.GetVisualDescendants().OfType<TextBlock>()
+                .First(t => t.Classes.Contains("poster-brand") || t.Classes.Contains("tray-brand"));
+
+            Assert.Equal(expectedTop, root.Padding.Top, 0.5);
+            Assert.Equal(expectedTop, logo.TranslatePoint(default, root)!.Value.Y, 0.5);
+            Assert.Equal(expectedTop, brand.TranslatePoint(default, root)!.Value.Y, 0.5);
+            window.Close();
+        }
+
+        // 五种基底在 margin=0 下逐个量：logo 顶边与字标行顶边都必须是 0
+        var tray = new SharePosterView { DataContext = TrayViewModel(margin: 0) };
+        AssertFlush(tray, Host(tray), 0);
+
+        var portrait = new SharePosterView { DataContext = ViewModel(margin: 0) };
+        AssertFlush(portrait, Host(portrait), 0);
+
+        var landscape = new SharePosterView { DataContext = ViewModel(margin: 0, layout: SharePosterLayout.Landscape) };
+        AssertFlush(landscape, HostWide(landscape), 0);
+
+        var heat = new SharePosterView
+        {
+            DataContext = ViewModel(margin: 0, layout: SharePosterLayout.Landscape, style: SharePosterStyle.Heatmap),
+        };
+        AssertFlush(heat, HostWide(heat), 0);
+
+        var rhythmRequest = new SharePosterRequest(
+            SharePosterLayout.Landscape, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+            new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2), SharePosterStyle.Rhythm, Margin: 0);
+        var rhythmData = SharePosterSnapshot.Build(
+            rhythmRequest, ChartTestHelpers.DailyPoints30(), [Row("ZCode", 4_535_388_126, 200m)],
+            [Row("glm-5.3-flash", 2_383_429_663, 80m)], [Row("Zearth", 784_282_344, 10m)],
+            sessionCount: 764,
+            weeklyRhythm: new WeeklyRhythmResult
+            {
+                Cells = Enumerable.Range(0, 7).SelectMany(w => Enumerable.Range(0, 24).Select(h => new WeeklyRhythmCell
+                {
+                    Weekday = w,
+                    Hour = h,
+                    TotalTokens = h is >= 8 and <= 20 && (w * 24 + h) % 3 != 0
+                        ? (w * 24 + h) % 7 * 120_000L + 50_000L
+                        : 0,
+                })).ToList(),
+            });
+        var rhythm = new SharePosterView { DataContext = new SharePosterViewModel(rhythmData) };
+        AssertFlush(rhythm, HostWide(rhythm), 0);
+
+        var milestone = new SharePosterView { DataContext = ViewModel(margin: 0, style: SharePosterStyle.Milestone) };
+        AssertFlush(milestone, Host(milestone), 0);
+
+        // 非零页边距同一条规矩：logo 挂内容区顶边，顶边距恰等于页边距本身
+        var padded = new SharePosterView { DataContext = ViewModel(margin: 40) };
+        AssertFlush(padded, Host(padded), 40);
     }
 }
