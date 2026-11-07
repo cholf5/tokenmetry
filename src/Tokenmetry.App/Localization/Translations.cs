@@ -541,6 +541,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterRhythmPeakFormat)] = "高峰：{0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "少",
         [nameof(SharePosterHeatMore)] = "多",
+        [nameof(SharePosterHeatCaption)] = "每格是一天，颜色越深表示当天 Token 用量越多；更浅的空格在时间范围外",
+        [nameof(SharePosterRhythmCaption)] = "每格是星期几的某个小时，颜色越深表示该时段 Token 用量越多",
         [nameof(SharePosterHeatActiveDays)] = "活跃天数",
         [nameof(SharePosterCopy)] = "复制到剪贴板",
         [nameof(SharePosterCopied)] = "已复制到剪贴板",
@@ -1052,6 +1054,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterRhythmPeakFormat)] = "Peak: {0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "Less",
         [nameof(SharePosterHeatMore)] = "More",
+        [nameof(SharePosterHeatCaption)] = "Each cell is a day; darker means more tokens used that day. The palest empty cells are outside the range.",
+        [nameof(SharePosterRhythmCaption)] = "Each cell is an hour of the week; darker means more tokens used in that hour.",
         [nameof(SharePosterHeatActiveDays)] = "Active days",
         [nameof(SharePosterCopy)] = "Copy to clipboard",
         [nameof(SharePosterCopied)] = "Copied to clipboard",
@@ -1455,6 +1459,8 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterMilestoneTopModel => Get();
     public string SharePosterHeatLess => Get();
     public string SharePosterHeatMore => Get();
+    public string SharePosterHeatCaption => Get();
+    public string SharePosterRhythmCaption => Get();
     public string SharePosterHeatActiveDays => Get();
     public string SharePosterCopy => Get();
     public string SharePosterCopied => Get();

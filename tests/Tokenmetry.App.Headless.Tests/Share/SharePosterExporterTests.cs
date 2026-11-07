@@ -144,7 +144,7 @@ public class SharePosterExporterTests
     [AvaloniaFact]
     public void Heatmap_poster_exports_at_landscape_size()
     {
-        // 打卡热力图（样式 A）固定 1800 横版：能力表只登记横版，导出按热力根 2× 光栅化
+        // 打卡热力图（样式 A）横版（能力表只登记横版），画布宽随窗口周数收放，导出按热力根 2× 光栅化
         var data = SharePosterSnapshot.Build(
             new SharePosterRequest(
                 SharePosterLayout.Landscape, SharePosterTheme.Dark, SharePosterProjectMask.Off,
@@ -172,7 +172,9 @@ public class SharePosterExporterTests
 
         Assert.Equal((int)Math.Round(root.Bounds.Width * 2), bitmap.PixelSize.Width);
         Assert.Equal((int)Math.Round(root.Bounds.Height * 2), bitmap.PixelSize.Height);
-        Assert.Equal(SharePosterView.LandscapeWidth * 2, bitmap.PixelSize.Width);
+        Assert.Equal(
+            (int)SharePosterHeatmap.CanvasWidthFor(((SharePosterViewModel)view.DataContext!).Heat.Weeks) * 2,
+            bitmap.PixelSize.Width);
 
         // 色阶格子真的画出来了：抽样应见到多个不同颜色
         var pixels = ChartTestHelpers.GetPixelBytes(bitmap);

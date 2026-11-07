@@ -107,7 +107,10 @@
             <Color x:Key="AppPosterShadowColor">#0f142034</Color>
             <!-- 分享海报打卡热力图色阶（§3.1 修订 2026-11-07 第三样式）：空档 + 四档深浅，
                  向强调绿收敛（打卡语义）。色阶随明暗翻转（编码的是对页面底的对比，不是数据系列身份，
-                 与 AppSeries0-6「不翻转」的分工相反）；最深层 = AppAccentGreenBrush 同值。 -->
+                 与 AppSeries0-6「不翻转」的分工相反）；最深层 = AppAccentGreenBrush 同值。
+                 Blank = 范围外日子的可见空槽（比空档 heat-0 更浅一档：画的是日历结构不是用量），
+                 修订六：从完全透明改为可见——透明让窄范围海报的格阵结构不可见，只见大片空白。 -->
+            <SolidColorBrush x:Key="AppPosterHeatBlankBrush" Color="#f0f3f8"/>
             <SolidColorBrush x:Key="AppPosterHeat0Brush" Color="#e4e9f1"/>
             <SolidColorBrush x:Key="AppPosterHeat1Brush" Color="#c9e9db"/>
             <SolidColorBrush x:Key="AppPosterHeat2Brush" Color="#93d3b8"/>
@@ -194,6 +197,7 @@
             <!-- 海报卡片投影：深色底上投影不可见（设计 §3.5 第 6 条只对日间要求），恒透明 -->
             <Color x:Key="AppPosterShadowColor">#00000000</Color>
             <!-- 分享海报打卡热力图色阶（同 Light 侧说明）：暗底上从近面板的空档起步，向强调绿收敛 -->
+            <SolidColorBrush x:Key="AppPosterHeatBlankBrush" Color="#1d242f"/>
             <SolidColorBrush x:Key="AppPosterHeat0Brush" Color="#232b37"/>
             <SolidColorBrush x:Key="AppPosterHeat1Brush" Color="#1e4d3c"/>
             <SolidColorBrush x:Key="AppPosterHeat2Brush" Color="#1f8060"/>

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using Tokenmetry.App.Controls;
+using Tokenmetry.App.Localization;
 using Tokenmetry.Core.Models;
 
 namespace Tokenmetry.App.ViewModels;
@@ -67,5 +70,18 @@ public static class SharePosterRhythm
         }
 
         return new SharePosterRhythmGrid(cells, peakWeekday, peakHour, peakTokens);
+    }
+
+    /// <summary>
+    /// 格子悬停提示（预览活视图；导出 PNG 是静态位图不受影响）。文案口径与打卡热力图/时间页
+    /// 的格子 tooltip 一致：「周X HH:00 · 紧凑值 + 单位」，无用量为「周X HH:00 · 无数据」。
+    /// </summary>
+    public static string CellTooltip(PosterRhythmCell cell)
+    {
+        var label = SharePosterHeatmap.WeekdayNames()[cell.Weekday] + " "
+                    + cell.Hour.ToString("00", CultureInfo.InvariantCulture) + ":00";
+        return cell.Tokens > 0
+            ? label + " · " + TrendChart.FormatCompactTokens(cell.Tokens) + " " + Translations.Instance.ChartTipTokenUnit
+            : string.Format(CultureInfo.CurrentCulture, Translations.Instance.HeatmapNoDataTooltip, label);
     }
 }

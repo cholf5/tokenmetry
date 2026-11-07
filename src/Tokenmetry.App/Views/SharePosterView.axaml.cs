@@ -1,10 +1,13 @@
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Tokenmetry.App.Controls;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.Core.Models;
 
@@ -28,10 +31,9 @@ public partial class SharePosterView : UserControl
     /// <summary>横版画布宽度（设计 §3.3：1800 宽，导出 3600）。</summary>
     public const double LandscapeWidth = 1800;
 
-    /// <summary>热力格子边长 / 间隙（格距 4 = Margin 2×2）/ 列槽宽（格 + 间隙，月份标签行按它对列）。</summary>
+    /// <summary>热力格子基准边长 / 间隙（格距 4 = Margin 2×2；满 52 周的尺度，列宽随周数收放，见 SharePosterHeatmap.ColumnWidthFor）。</summary>
     public const int HeatCellSize = 27;
     public const int HeatCellGap = 4;
-    public const int HeatColumnWidth = 31;
 
     /// <summary>节律格子边长 / 间隙 / 列槽宽（24 列在 1800 横版下的尺度和月份标签行对列规则同热力基底）。</summary>
     public const int RhythmCellSize = 60;
@@ -54,6 +56,33 @@ public partial class SharePosterView : UserControl
                 ApplyPanelShadows(ActualThemeVariant);
             }
         };
+    }
+
+    /// <summary>挂树订阅语言切换（重译代码生成的格子文案）；脱树对称退订，见 OnTranslationsPropertyChanged。</summary>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
+    }
+
+    /// <summary>
+    /// 语言切换重译：热力/节律网格是代码生成的（tooltip 与月份/星期标签在 build 时固化字符串），
+    /// 不重跑就停在旧语言；XAML 直绑 Translations 的文案由绑定自动刷新。
+    /// 与 Controls.Heatmap 的重译订阅同一模式（B-007）。
+    /// </summary>
+    private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Translations.CurrentLanguage))
+        {
+            ApplyHeatGrid();
+            ApplyRhythmGrid();
+        }
     }
 
     /// <summary>导出时要光栅化的节点（当前基底的根，不含外面用来适配预览的缩放容器）。</summary>
@@ -186,8 +215,14 @@ public partial class SharePosterView : UserControl
 
         if (IsHeatmapStyle)
         {
-            // 热力基底是固定 1800 横版：能力表只登记了横版，版式选项对它同样无效
-            HeatRoot.Width = LandscapeWidth;
+            // 热力基底横版（能力表只登记横版，版式选项对它无效），画布宽随窗口周数收放：
+            // 窄/中范围脚注三格搬进卡片与日历并排（海报不再窄而长），长范围回到底部横排；
+            // 满 52 周精确回到 1800 现状（纯函数见 SharePosterHeatmap）
+            var weeks = (DataContext as SharePosterViewModel)?.Heat.Weeks ?? SharePosterHeatmap.MaxWeeks;
+            HeatRoot.Width = SharePosterHeatmap.CanvasWidthFor(weeks);
+            var beside = SharePosterHeatmap.UseBesideStats(weeks);
+            HeatStatsCol.IsVisible = beside;
+            HeatStatsRow.IsVisible = !beside;
             ApplyHeatGrid();
             return;
         }
@@ -265,7 +300,8 @@ public partial class SharePosterView : UserControl
     /// 热力图的月份标签行、星期标签列与按天格子：格子是数据形状（最多 52×7 = 364 个），
     /// 在 XAML 里逐个声明没有意义，按 VM 算好的 <see cref="SharePosterViewModel.Heat"/> 生成——
     /// 颜色一律走 Classes（heat-0..4）接 ThemeDictionaries 令牌，代码里不出现色值。
-    /// 列槽宽固定为 CellSlot，月份标签行与格子共用同一列划分，标签才能对上列。
+    /// 列槽宽随窗口周数收放（<see cref="SharePosterHeatmap.ColumnWidthFor"/>），月份标签行与格子
+    /// 共用同一列划分，标签才能对上列。格子悬停挂 tooltip（预览活视图；导出位图不含浮层）。
     /// </summary>
     private void ApplyHeatGrid()
     {
@@ -275,9 +311,11 @@ public partial class SharePosterView : UserControl
         }
 
         var heat = vm.Heat;
+        var columnWidth = SharePosterHeatmap.ColumnWidthFor(heat.Weeks);
+        var cellSize = columnWidth - HeatCellGap;
 
         // 月份标签：每列一个定宽槽，标签跨到下一个标签列（左对齐，海报没有右起排元素）
-        var slots = string.Join(",", Enumerable.Repeat(HeatColumnWidth, heat.Weeks));
+        var slots = string.Join(",", Enumerable.Repeat(columnWidth, heat.Weeks));
         HeatMonthRow.ColumnDefinitions = new ColumnDefinitions(slots);
         HeatMonthRow.Children.Clear();
         foreach (var label in heat.MonthLabels)
@@ -303,7 +341,7 @@ public partial class SharePosterView : UserControl
         {
             HeatWeekdayCol.Children.Add(new Border
             {
-                Height = HeatCellSize + HeatCellGap,
+                Height = cellSize + HeatCellGap,
                 Child = new TextBlock
                 {
                     Classes = { "heat-weekday-label" },
@@ -321,8 +359,8 @@ public partial class SharePosterView : UserControl
         {
             var border = new Border
             {
-                Width = HeatCellSize,
-                Height = HeatCellSize,
+                Width = cellSize,
+                Height = cellSize,
                 Margin = new Thickness(HeatCellGap / 2d),
                 CornerRadius = new CornerRadius(4),
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
@@ -334,6 +372,13 @@ public partial class SharePosterView : UserControl
                 border.Classes.Add("heat-peak");
             }
 
+            // 范围外留白格不给 tooltip（CellTooltip 返回 null）；统一 chart-tip 装饰与时间页同款
+            var tip = SharePosterHeatmap.CellTooltip(cell);
+            if (tip is not null)
+            {
+                ChartTooltips.Set(border, tip);
+            }
+
             HeatGrid.Children.Add(border);
         }
     }
@@ -342,7 +387,8 @@ public partial class SharePosterView : UserControl
     /// 节律矩阵的星期列、小时标签行与 7 × 24 格子：数据形状由 VM 算好的
     /// <see cref="SharePosterViewModel.Rhythm"/> 给出（纯计算在 <see cref="SharePosterRhythm"/>），
     /// 颜色同样走 heat-0..4 类接 ThemeDictionaries 令牌，峰值格复用 heat-peak 描边。
-    /// 列槽宽固定为 <see cref="RhythmColumnWidth"/>，小时标签行与格子共用同一列划分。
+    /// 列槽宽固定为 <see cref="RhythmColumnWidth"/>，小时标签行与格子共用同一列划分；
+    /// 格子悬停挂 tooltip（预览活视图；导出位图不含浮层）。
     /// </summary>
     private void ApplyRhythmGrid()
     {
@@ -405,6 +451,7 @@ public partial class SharePosterView : UserControl
                 border.Classes.Add("heat-peak");
             }
 
+            ChartTooltips.Set(border, SharePosterRhythm.CellTooltip(cell));
             RhythmGrid.Children.Add(border);
         }
     }

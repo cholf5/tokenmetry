@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Headless.Tests.Controls;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
 using Tokenmetry.Core.Models;
@@ -138,12 +139,12 @@ public class SharePosterViewTests
         var window = HostWide(view);
         using var frame = ChartTestHelpers.RenderFrame(window);
 
-        // 导出根切到热力基底、固定 1800 横版（与范围无关）
+        // 导出根切到热力基底：画布宽随窗口周数收放（fixture ~41 周 → 上限内、不满 1800）
         Assert.True(view.IsHeatmapStyle);
         Assert.Same(
             view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "HeatRoot"),
             view.PosterRootControl);
-        Assert.Equal(SharePosterView.LandscapeWidth, view.PosterRootControl.Bounds.Width, 1);
+        Assert.Equal(SharePosterHeatmap.CanvasWidthFor(vm.Heat.Weeks), view.PosterRootControl.Bounds.Width, 1);
 
         // 格子 = 窗口列数 × 7 行，fixture 是最近 30 天 → 有深档也有峰值描边
         var grid = view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.UniformGrid>()
@@ -154,10 +155,72 @@ public class SharePosterViewTests
         Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-4"));
         Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-0"));
 
+        // 卡片有标题与说明行（语言无关：文案与 Translations 同源）
+        var texts = view.GetVisualDescendants().OfType<TextBlock>().ToList();
+        Assert.Contains(texts, t => t.Text == Translations.Instance.PanelActivityCalendar);
+        Assert.Contains(texts, t => t.Text == Translations.Instance.SharePosterHeatCaption);
+
+        // 格子挂了 tooltip：有数据的格子有值，留白格不挂（fixture 范围对齐周一 → 首列有留白）
+        var cells = grid.Children.OfType<Border>().ToList();
+        Assert.Contains(cells, b => ToolTip.GetTip(b) is not null);
+        Assert.All(cells.Where(b => b.Classes.Contains("heat-blank")), b => Assert.Null(ToolTip.GetTip(b)));
+
         // 色阶图例（5 个芯片，圈定当前基底——节律基底也有同款图例）+ 峰值/活跃天数脚注都真的在版面上
         Assert.Equal(5, view.PosterRootControl.GetVisualDescendants().OfType<Border>()
             .Count(b => b.Classes.Contains("heat-chip")));
         Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.HeatPeakText);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Narrow_heat_range_narrows_the_canvas_and_places_stats_beside_the_grid()
+    {
+        // 单日窗口（用户实拍的最差情形：周六一天 → 周一对齐后 1 列、6 格范围外）：
+        // 画布收窄（1 周 = 576）——不再满 1800 留大段空白；脚注三格搬进卡片与日历并排
+        // （海报不再窄而长），底部横排收起
+        var day = new DateOnly(2026, 11, 7); // 周六
+        var request = new SharePosterRequest(
+            SharePosterLayout.Landscape, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+            day, day, SharePosterStyle.Heatmap);
+        var daily = new[]
+        {
+            new DailyUsagePoint
+            {
+                Day = day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                TotalTokens = 900_000,
+                HasData = true,
+            },
+        };
+        var data = SharePosterSnapshot.Build(request, daily, [], [], [], sessionCount: 2);
+        var vm = new SharePosterViewModel(data);
+        var view = new SharePosterView { DataContext = vm };
+        var window = new Window
+        {
+            Width = 1200,
+            Height = 1500,
+            Content = view,
+            RequestedThemeVariant = ThemeVariant.Dark,
+            Background = Brushes.Black,
+        };
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        Assert.Equal(1, vm.Heat.Weeks);
+        Assert.Equal(SharePosterHeatmap.CanvasWidthFor(1), view.PosterRootControl.Bounds.Width, 1);
+
+        // 并排脚注在卡内可见、底部横排收起；卡片铺满画布内宽（右缘余量落在卡内当留白）
+        Assert.True(view.GetVisualDescendants().OfType<StackPanel>().First(s => s.Name == "HeatStatsCol").IsVisible);
+        Assert.False(view.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "HeatStatsRow").IsVisible);
+        var card = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "HeatCard");
+        Assert.Equal(view.PosterRootControl.Bounds.Width - 104, card.Bounds.Width, 1);
+
+        // 范围外格子是可见空槽（不是透明）：单日窗口 7 格里 6 格留槽、1 格有数据
+        var grid = view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.UniformGrid>()
+            .First(u => u.Name == "HeatGrid");
+        Assert.Equal(6, grid.Children.OfType<Border>().Count(b => b.Classes.Contains("heat-blank")));
+        Assert.All(
+            grid.Children.OfType<Border>().Where(b => b.Classes.Contains("heat-blank")),
+            b => Assert.NotEqual(0d, b.Bounds.Width));
 
         window.Close();
     }
@@ -207,6 +270,14 @@ public class SharePosterViewTests
         Assert.Equal(vm.Rhythm.Cells.Count, grid.Children.Count);
         Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-peak"));
         Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-4"));
+
+        // 卡片有标题与说明行；168 格全量挂 tooltip（空档格也如实给「无数据」）
+        var texts = view.GetVisualDescendants().OfType<TextBlock>().ToList();
+        Assert.Contains(texts, t => t.Text == Translations.Instance.SharePosterStyleRhythm);
+        Assert.Contains(texts, t => t.Text == Translations.Instance.SharePosterRhythmCaption);
+        Assert.Equal(
+            vm.Rhythm.Cells.Count,
+            grid.Children.OfType<Border>().Count(b => ToolTip.GetTip(b) is not null));
 
         // 小时刻度行与峰值文案在版面上
         var hourRow = view.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "RhythmHourRow");

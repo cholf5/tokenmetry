@@ -524,6 +524,8 @@ public sealed partial class Translations
         [nameof(SharePosterRhythmPeakFormat)] = "Pic : {0} {1} · {2}",
         [nameof(SharePosterHeatLess)] = "Moins",
         [nameof(SharePosterHeatMore)] = "Plus",
+        [nameof(SharePosterHeatCaption)] = "Chaque case est un jour ; plus c'est foncé, plus il y a de tokens ce jour-là. Les cases vides les plus pâles sont hors de la période.",
+        [nameof(SharePosterRhythmCaption)] = "Chaque case est une heure de la semaine ; plus c'est foncé, plus il y a de tokens dans cette heure.",
         [nameof(SharePosterHeatActiveDays)] = "Jours actifs",
         [nameof(SharePosterTrayAgents)] = "Agents principaux",
         [nameof(SharePosterTrayModels)] = "Usage des modèles",

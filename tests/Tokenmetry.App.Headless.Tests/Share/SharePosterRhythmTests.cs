@@ -1,5 +1,8 @@
 using System;
+using System.Globalization;
 using System.Linq;
+using Tokenmetry.App.Controls;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.Core.Models;
 using Xunit;
@@ -75,6 +78,27 @@ public class SharePosterRhythmTests
 
         Assert.All(grid.Cells, c => Assert.Equal(0, c.Tokens));
         Assert.Null(grid.PeakWeekday);
+    }
+
+    [Fact]
+    public void Cell_tooltip_describes_the_weekday_hour_or_the_no_data_state()
+    {
+        var grid = SharePosterRhythm.Build(Rhythm((3, 14, 1_200_000)));
+
+        // 活动格：「周X HH:00 · 紧凑值 + 单位」，与打卡热力图/时间页同一文案口径
+        var active = grid.Cells.Single(c => c.Weekday == 3 && c.Hour == 14);
+        Assert.Equal(
+            SharePosterHeatmap.WeekdayNames()[3] + " 14:00 · "
+            + TrendChart.FormatCompactTokens(1_200_000) + " " + Translations.Instance.ChartTipTokenUnit,
+            SharePosterRhythm.CellTooltip(active));
+
+        // 空档格：如实「无数据」（168 格全量挂 tooltip，空场不冒充 0）
+        var empty = grid.Cells.Single(c => c.Weekday == 0 && c.Hour == 0);
+        Assert.Equal(
+            string.Format(
+                CultureInfo.CurrentCulture, Translations.Instance.HeatmapNoDataTooltip,
+                SharePosterHeatmap.WeekdayNames()[0] + " 00:00"),
+            SharePosterRhythm.CellTooltip(empty));
     }
 
     [Fact]
