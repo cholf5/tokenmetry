@@ -528,7 +528,6 @@ public sealed partial class Translations
         [nameof(SharePosterTrayAgents)] = "Principais agentes",
         [nameof(SharePosterTrayModels)] = "Uso de modelos",
         [nameof(SharePosterTrayByTokens)] = "Por tokens",
-        [nameof(SharePosterDataScope)] = "Intervalo de dados (as alterações são sincronizadas com os filtros da janela principal)",
         [nameof(SharePosterUpdating)] = "Atualizando…",
         [nameof(SharePosterUpdateFailedFormat)] = "Falha ao atualizar os dados: {0}",
         [nameof(SharePosterStyleOptions)] = "Opções do pôster",

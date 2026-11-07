@@ -530,7 +530,6 @@ public sealed partial class Translations
         [nameof(SharePosterTrayAgents)] = "Основные агенты",
         [nameof(SharePosterTrayModels)] = "Использование моделей",
         [nameof(SharePosterTrayByTokens)] = "По токенам",
-        [nameof(SharePosterDataScope)] = "Диапазон данных (изменения синхронизируются с фильтрами главного окна)",
         [nameof(SharePosterUpdating)] = "Обновление…",
         [nameof(SharePosterUpdateFailedFormat)] = "Не удалось обновить данные: {0}",
         [nameof(SharePosterStyleOptions)] = "Параметры постера",
