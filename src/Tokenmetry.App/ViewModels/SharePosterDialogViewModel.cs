@@ -42,11 +42,9 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         _layout = initial.Layout;
         _theme = initial.Theme;
         _mask = initial.ProjectMask;
-        // 信息卡样式只能竖版：起值就收口，不让对话框一进来就展示一个"选项与版面不一致"的预览
-        if (!CanChooseLandscape)
-        {
-            _layout = SharePosterLayout.Portrait;
-        }
+        // 起值版式不在当前样式能力表内就收口（真实路径：单日范围缺省信息卡 + 设置默认横版），
+        // 不让对话框一进来就展示一个"选项与版面不一致"的预览
+        _layout = CoerceLayout(_style, _layout);
 
         // 对话框自带一批选项实例（带独立 IsSelected，分段控件的 RadioButton 直接双向绑定它）
         StyleOptions = SharePosterOptions.CreateStyles();
@@ -66,14 +64,21 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         Preview = Build();
     }
 
-    /// <summary>
-    /// 信息卡样式固定竖版：它本质是一张 438px 竖卡片，横置要重排信息流，
-    /// 已超出"不偏离框架"的界线（设计文档 §3.1）。总览样式竖/横皆可——与时间范围无关。
-    /// </summary>
-    public bool CanChooseLandscape => Style == SharePosterStyle.Overview;
+    /// <summary>当前样式是否提供多种版式（决定版式分段组启用与否；能力表见 <see cref="SharePosterOptions.SupportedLayouts"/>）。</summary>
+    public bool CanChooseLayout => SharePosterOptions.SupportedLayouts(Style).Count > 1;
 
-    /// <summary>信息卡样式锁竖版时的说明行（告诉用户为什么，而不是静默禁用）。</summary>
-    public bool ShowTrayPortraitNotice => !CanChooseLandscape;
+    /// <summary>样式锁版式时的说明行文案；支持多种版式的样式为 null（无说明行）。</summary>
+    public string? LayoutNoticeText => SharePosterOptions.LayoutNoticeOf(Style);
+
+    /// <summary>是否显示版式说明行（告诉用户为什么，而不是静默禁用）。</summary>
+    public bool ShowLayoutNotice => LayoutNoticeText is not null;
+
+    /// <summary>版式收口：不在当前样式能力表内 → 首个受支持版式。</summary>
+    private static SharePosterLayout CoerceLayout(SharePosterStyle style, SharePosterLayout layout)
+    {
+        var supported = SharePosterOptions.SupportedLayouts(style);
+        return supported.Contains(layout) ? layout : supported[0];
+    }
 
     public IReadOnlyList<SharePosterOption> StyleOptions { get; }
 
@@ -173,8 +178,8 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     public SharePosterViewModel Preview { get; private set; }
 
     /// <summary>
-    /// 海报样式（信息卡 / 总览）：与时间范围解耦的纯选项。切到信息卡时把版式收回竖版——
-    /// 两者的合法组合只有"信息卡 × 竖版"，收口在样式侧做，版式选项保持无状态。
+    /// 海报样式（信息卡 / 总览……）：与时间范围解耦的纯选项。切换时按新样式的能力表收口版式——
+    /// 合法组合的收口在样式侧做，版式选项保持无状态。
     /// </summary>
     public SharePosterStyle Style
     {
@@ -183,13 +188,13 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         {
             if (SetProperty(ref _style, value))
             {
-                if (!CanChooseLandscape && _layout != SharePosterLayout.Portrait)
-                {
-                    Layout = SharePosterLayout.Portrait;
-                }
+                Layout = CoerceLayout(value, _layout);
 
                 _selectedStyle = StyleOptions.First(o => o.Value == SharePosterOptions.KeyOf(value));
                 OnPropertyChanged(nameof(SelectedStyle));
+                OnPropertyChanged(nameof(CanChooseLayout));
+                OnPropertyChanged(nameof(LayoutNoticeText));
+                OnPropertyChanged(nameof(ShowLayoutNotice));
                 SyncSelection();
                 Refresh();
             }
@@ -201,7 +206,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         get => _layout;
         set
         {
-            var next = !CanChooseLandscape ? SharePosterLayout.Portrait : value;
+            var next = CoerceLayout(_style, value);
             if (SetProperty(ref _layout, next))
             {
                 _selectedLayout = LayoutOptions.First(o => o.Value == SharePosterOptions.KeyOf(next));

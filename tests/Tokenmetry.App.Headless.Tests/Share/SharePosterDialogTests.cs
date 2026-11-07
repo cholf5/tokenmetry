@@ -41,10 +41,22 @@ public class SharePosterDialogTests
         style ?? (singleDay ? SharePosterStyle.Tray : SharePosterStyle.Overview));
 
     [Fact]
+    public void Supported_layouts_are_declared_per_style()
+    {
+        // 能力表 = 版式合法性的唯一出处：每样式登记一次，对话框按它启用/禁用版式组并收口非法组合
+        Assert.Equal(
+            [SharePosterLayout.Portrait],
+            SharePosterOptions.SupportedLayouts(SharePosterStyle.Tray));
+        Assert.Equal(
+            [SharePosterLayout.Portrait, SharePosterLayout.Landscape],
+            SharePosterOptions.SupportedLayouts(SharePosterStyle.Overview));
+    }
+
+    [Fact]
     public void Tray_style_refuses_landscape_even_for_multi_day_ranges()
     {
         var vm = new SharePosterDialogViewModel(Request(singleDay: false, SharePosterStyle.Tray), Snapshot);
-        Assert.False(vm.CanChooseLandscape);
+        Assert.False(vm.CanChooseLayout);
 
         vm.Layout = SharePosterLayout.Landscape;
 
@@ -56,11 +68,30 @@ public class SharePosterDialogTests
     public void Overview_style_allows_landscape_even_for_single_day_ranges()
     {
         var vm = new SharePosterDialogViewModel(Request(singleDay: true, SharePosterStyle.Overview), Snapshot);
-        Assert.True(vm.CanChooseLandscape);
+        Assert.True(vm.CanChooseLayout);
 
         vm.Layout = SharePosterLayout.Landscape;
 
         Assert.Equal(SharePosterLayout.Landscape, vm.CurrentRequest.Layout);
+    }
+
+    [Fact]
+    public void Initial_layout_outside_the_style_capability_is_collapsed()
+    {
+        // 真实路径：单日范围缺省信息卡 + 设置默认横版 → 起值就收口到能力表里首个受支持版式，
+        // 不让对话框一进来就展示"选项与版面不一致"的预览
+        var request = new SharePosterRequest(
+            SharePosterLayout.Landscape,
+            SharePosterTheme.Dark,
+            SharePosterProjectMask.Off,
+            new DateOnly(2026, 10, 17),
+            new DateOnly(2026, 10, 17),
+            SharePosterStyle.Tray);
+        var vm = new SharePosterDialogViewModel(request, Snapshot);
+
+        Assert.Equal(SharePosterLayout.Portrait, vm.Layout);
+        Assert.Equal(SharePosterLayout.Portrait, vm.CurrentRequest.Layout);
+        Assert.Equal("portrait", vm.SelectedLayout.Value);
     }
 
     [Fact]
@@ -73,7 +104,6 @@ public class SharePosterDialogTests
         vm.Style = SharePosterStyle.Tray;
 
         Assert.Equal(SharePosterLayout.Portrait, vm.CurrentRequest.Layout);
-        Assert.False(vm.CanChooseLandscape);
         // 分段控件同步：信息卡样式选中、版式只剩竖版勾着
         Assert.Equal("tray", vm.SelectedStyle.Value);
         Assert.True(vm.LayoutOptions.Single(o => o.IsSelected).Value == "portrait");
@@ -116,13 +146,45 @@ public class SharePosterDialogTests
     }
 
     [Fact]
-    public void Tray_style_shows_the_portrait_only_notice()
+    public void Layout_notice_follows_the_style_capability()
     {
         var tray = new SharePosterDialogViewModel(Request(singleDay: true, SharePosterStyle.Tray), Snapshot);
         var overview = new SharePosterDialogViewModel(Request(singleDay: true, SharePosterStyle.Overview), Snapshot);
 
-        Assert.True(tray.ShowTrayPortraitNotice);
-        Assert.False(overview.ShowTrayPortraitNotice);
+        // 信息卡锁竖版：说明行出现，文案来自信息卡专属 key（语言无关：两边同一出处）
+        Assert.True(tray.ShowLayoutNotice);
+        Assert.Equal(
+            Tokenmetry.App.Localization.Translations.Instance.SharePosterTrayPortraitOnly,
+            tray.LayoutNoticeText);
+        Assert.False(overview.ShowLayoutNotice);
+        Assert.Null(overview.LayoutNoticeText);
+    }
+
+    [AvaloniaFact]
+    public void Dialog_layout_group_and_notice_follow_the_style_capability()
+    {
+        // 端到端绑定链：样式 → 能力表 → 版式组启用/禁用 + 说明行显隐
+        var vm = new SharePosterDialogViewModel(Request(singleDay: false, SharePosterStyle.Tray), Snapshot);
+        var dialog = new SharePosterDialog { DataContext = vm };
+        dialog.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var layoutHost = dialog.GetVisualDescendants().OfType<ItemsControl>()
+            .First(c => c.Name == "LayoutOptionsHost");
+        var notice = dialog.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.Name == "LayoutNotice");
+        Assert.False(layoutHost.IsEnabled);
+        Assert.True(notice.IsVisible);
+
+        vm.Style = SharePosterStyle.Overview;
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.True(layoutHost.IsEnabled);
+        Assert.False(notice.IsVisible);
+
+        dialog.Close();
     }
 
     [Fact]
