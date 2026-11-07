@@ -24,6 +24,7 @@ public sealed record SharePosterRanking(string Name, long Tokens, decimal? Share
 /// </summary>
 /// <param name="Hourly">小时分布（单日范围才有值）：总览样式的单日海报把趋势图切到小时形态（同总览页 D-027），数据在此随快照走。</param>
 /// <param name="HourlyCutoffHour">小时形态「已发生」边界（快照打开时刻定死：今天 → 当前小时，历史日 → null）；null 视为 24 小时全已发生。</param>
+/// <param name="WeeklyRhythm">星期 × 小时节律矩阵（时段节律样式用；查询失败为 null，矩阵如实空场，不挡对话框）。</param>
 public sealed record SharePosterData(
     SharePosterRequest Request,
     SharePosterTotals Totals,
@@ -32,7 +33,8 @@ public sealed record SharePosterData(
     IReadOnlyList<SharePosterRanking> Models,
     IReadOnlyList<SharePosterRanking> Projects,
     HourlyDistributionResult? Hourly = null,
-    int? HourlyCutoffHour = null);
+    int? HourlyCutoffHour = null,
+    WeeklyRhythmResult? WeeklyRhythm = null);
 
 /// <summary>
 /// 把查询结果收成 <see cref="SharePosterData"/>。纯函数、无 I/O：口径与总览页逐位一致
@@ -61,7 +63,8 @@ public static class SharePosterSnapshot
         long sessionCount,
         UsageKpiResult? kpi = null,
         HourlyDistributionResult? hourly = null,
-        int? hourlyCutoffHour = null)
+        int? hourlyCutoffHour = null,
+        WeeklyRhythmResult? weeklyRhythm = null)
     {
         // 有日序列时以日序列为准（它带 I/O/缓存细分，且与 KPI 同源聚合）；否则退回维度行求和。
         var hasDaily = daily.Count > 0;
@@ -96,7 +99,8 @@ public static class SharePosterSnapshot
             Rank(models),
             Rank(projects),
             hourly,
-            hourlyCutoffHour);
+            hourlyCutoffHour,
+            weeklyRhythm);
     }
 
     /// <summary>

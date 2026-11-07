@@ -53,6 +53,9 @@ public class SharePosterDialogTests
         Assert.Equal(
             [SharePosterLayout.Landscape],
             SharePosterOptions.SupportedLayouts(SharePosterStyle.Heatmap));
+        Assert.Equal(
+            [SharePosterLayout.Landscape],
+            SharePosterOptions.SupportedLayouts(SharePosterStyle.Rhythm));
     }
 
     [Fact]
@@ -69,6 +72,21 @@ public class SharePosterDialogTests
         vm.Layout = SharePosterLayout.Portrait;
 
         Assert.Equal(SharePosterLayout.Landscape, vm.Layout);
+        Assert.Equal(SharePosterLayout.Landscape, vm.CurrentRequest.Layout);
+    }
+
+    [Fact]
+    public void Rhythm_style_locks_landscape_and_shows_its_own_notice()
+    {
+        var vm = new SharePosterDialogViewModel(Request(singleDay: false, SharePosterStyle.Rhythm), Snapshot);
+        Assert.False(vm.CanChooseLayout);
+        Assert.True(vm.ShowLayoutNotice);
+        Assert.Equal(
+            Tokenmetry.App.Localization.Translations.Instance.SharePosterRhythmLandscapeOnly,
+            vm.LayoutNoticeText);
+
+        vm.Layout = SharePosterLayout.Portrait;
+
         Assert.Equal(SharePosterLayout.Landscape, vm.CurrentRequest.Layout);
     }
 
@@ -90,13 +108,13 @@ public class SharePosterDialogTests
     }
 
     [Fact]
-    public void Style_chips_cover_the_three_registered_styles()
+    public void Style_chips_cover_the_registered_styles()
     {
         var vm = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot);
 
-        Assert.Equal(3, vm.StyleOptions.Count);
+        Assert.Equal(4, vm.StyleOptions.Count);
         Assert.Equal(
-            ["tray", "overview", "heatmap"],
+            ["tray", "overview", "heatmap", "rhythm"],
             vm.StyleOptions.Select(o => o.Value).ToArray());
         Assert.All(vm.StyleOptions, o => Assert.False(string.IsNullOrWhiteSpace(o.Label)));
     }

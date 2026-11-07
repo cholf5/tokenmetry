@@ -191,6 +191,10 @@ public class UsageQueryService : IUsageQueryService
         Task.Run(() => GetHourlyDistributionCoreAsync(filter, ct));
 
     /// <inheritdoc />
+    public Task<WeeklyRhythmResult> GetWeeklyRhythmAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+        Task.Run(() => GetWeeklyRhythmCoreAsync(filter, ct));
+
+    /// <inheritdoc />
     public Task<OverviewPageSnapshot> GetOverviewSnapshotAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
         Task.Run(() => GetOverviewSnapshotCoreAsync(filter, ct));
 
@@ -278,6 +282,48 @@ public class UsageQueryService : IUsageQueryService
         return new HourlyDistributionResult
         {
             Hours = buckets.Select(bucket => bucket.ToBucket()).ToList(),
+            UnknownSessionCount = unknownSessionCount,
+            UnknownTotalTokens = unknownTotalTokens,
+            TimeZoneId = _timeZone.Id,
+        };
+    }
+
+    private async Task<WeeklyRhythmResult> GetWeeklyRhythmCoreAsync(UsageQueryFilter filter, CancellationToken ct)
+    {
+        ValidateRange(filter);
+        var sessions = await GetScopedSessionsAsync(filter, ct);
+
+        var sessionCounts = new long[7 * 24];
+        var totalTokens = new long[7 * 24];
+        long unknownSessionCount = 0;
+        long unknownTotalTokens = 0;
+        foreach (var session in sessions)
+        {
+            if (!HasMinuteLevelTimestamp(session.FirstSeenAt, _timeZone))
+            {
+                unknownSessionCount++;
+                unknownTotalTokens += session.TotalTokens;
+                continue;
+            }
+
+            var local = TimeZoneInfo.ConvertTime(session.FirstSeenAt, _timeZone);
+            // 星期一 = 0（展示口径与打卡热力图的周一起一致；周日 DayOfWeek=0 环回到行 6）
+            var index = (((int)local.DayOfWeek + 6) % 7) * 24 + local.Hour;
+            sessionCounts[index]++;
+            totalTokens[index] += session.TotalTokens;
+        }
+
+        return new WeeklyRhythmResult
+        {
+            Cells = Enumerable.Range(0, 7)
+                .SelectMany(weekday => Enumerable.Range(0, 24).Select(hour => new WeeklyRhythmCell
+                {
+                    Weekday = weekday,
+                    Hour = hour,
+                    SessionCount = sessionCounts[weekday * 24 + hour],
+                    TotalTokens = totalTokens[weekday * 24 + hour],
+                }))
+                .ToList(),
             UnknownSessionCount = unknownSessionCount,
             UnknownTotalTokens = unknownTotalTokens,
             TimeZoneId = _timeZone.Id,

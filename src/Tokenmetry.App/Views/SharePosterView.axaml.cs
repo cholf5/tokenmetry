@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -32,6 +33,11 @@ public partial class SharePosterView : UserControl
     public const int HeatCellGap = 4;
     public const int HeatColumnWidth = 31;
 
+    /// <summary>节律格子边长 / 间隙 / 列槽宽（24 列在 1800 横版下的尺度和月份标签行对列规则同热力基底）。</summary>
+    public const int RhythmCellSize = 60;
+    public const int RhythmCellGap = 6;
+    public const int RhythmColumnWidth = 66;
+
     public SharePosterView()
     {
         InitializeComponent();
@@ -56,6 +62,7 @@ public partial class SharePosterView : UserControl
         {
             SharePosterStyle.Tray => TrayRoot,
             SharePosterStyle.Heatmap => HeatRoot,
+            SharePosterStyle.Rhythm => RhythmRoot,
             _ => PosterRoot,
         };
 
@@ -64,6 +71,9 @@ public partial class SharePosterView : UserControl
 
     /// <summary>打卡热力图样式走热力基底（固定 1800 横版，能力表锁定）。</summary>
     public bool IsHeatmapStyle => (DataContext as SharePosterViewModel)?.IsHeatmapStyle ?? false;
+
+    /// <summary>时段节律样式走节律基底（固定 1800 横版，能力表锁定）。</summary>
+    public bool IsRhythmStyle => (DataContext as SharePosterViewModel)?.IsRhythmStyle ?? false;
 
     /// <summary>版式 → 画布宽度（纯函数，测试与导出共用）。</summary>
     public static double WidthFor(SharePosterLayout layout) =>
@@ -143,7 +153,7 @@ public partial class SharePosterView : UserControl
 
     private IEnumerable<Border> CardSurfaces() =>
         KpiGrid.Children.OfType<Border>().Concat(
-            new Border[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel, TrayCard, HeatCard });
+            new Border[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel, TrayCard, HeatCard, RhythmCard });
 
     /// <summary>
     /// 按版式重排栅格。两套版面的差别不只是换列宽：面板归属也换行（类型环形、成本趋势从第二排列
@@ -173,6 +183,14 @@ public partial class SharePosterView : UserControl
             // 热力基底是固定 1800 横版：能力表只登记了横版，版式选项对它同样无效
             HeatRoot.Width = LandscapeWidth;
             ApplyHeatGrid();
+            return;
+        }
+
+        if (IsRhythmStyle)
+        {
+            // 节律基底同样是固定 1800 横版
+            RhythmRoot.Width = LandscapeWidth;
+            ApplyRhythmGrid();
             return;
         }
 
@@ -304,6 +322,77 @@ public partial class SharePosterView : UserControl
             }
 
             HeatGrid.Children.Add(border);
+        }
+    }
+
+    /// <summary>
+    /// 节律矩阵的星期列、小时标签行与 7 × 24 格子：数据形状由 VM 算好的
+    /// <see cref="SharePosterViewModel.Rhythm"/> 给出（纯计算在 <see cref="SharePosterRhythm"/>），
+    /// 颜色同样走 heat-0..4 类接 ThemeDictionaries 令牌，峰值格复用 heat-peak 描边。
+    /// 列槽宽固定为 <see cref="RhythmColumnWidth"/>，小时标签行与格子共用同一列划分。
+    /// </summary>
+    private void ApplyRhythmGrid()
+    {
+        if (DataContext is not SharePosterViewModel vm)
+        {
+            return;
+        }
+
+        var rhythm = vm.Rhythm;
+
+        // 星期列：周一起 7 行，只标一/三/五（与打卡热力图同密度），空行占位对齐
+        RhythmWeekdayCol.Children.Clear();
+        for (var weekday = 0; weekday < 7; weekday++)
+        {
+            RhythmWeekdayCol.Children.Add(new Border
+            {
+                Height = RhythmCellSize + RhythmCellGap,
+                Child = new TextBlock
+                {
+                    Classes = { "heat-weekday-label" },
+                    Text = SharePosterHeatmap.WeekdayLabels()[weekday] ?? string.Empty,
+                    TextAlignment = TextAlignment.Right,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                },
+            });
+        }
+
+        // 小时标签行：每两小时一个刻度（0..22），列槽与格子一一对应
+        var slots = string.Join(",", Enumerable.Repeat(RhythmColumnWidth, 24));
+        RhythmHourRow.ColumnDefinitions = new ColumnDefinitions(slots);
+        RhythmHourRow.Children.Clear();
+        foreach (var hour in Enumerable.Range(0, 24).Where(h => h % 2 == 0))
+        {
+            RhythmHourRow.Children.Add(new TextBlock
+            {
+                Classes = { "heat-weekday-label" },
+                Text = hour.ToString("00", CultureInfo.InvariantCulture),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            });
+            Grid.SetColumn(RhythmHourRow.Children[^1], hour);
+        }
+
+        // 格子：行主序（先星期后小时）与 Build 的顺序一致
+        RhythmGrid.Columns = 24;
+        RhythmGrid.Children.Clear();
+        foreach (var cell in rhythm.Cells)
+        {
+            var border = new Border
+            {
+                Width = RhythmCellSize,
+                Height = RhythmCellSize,
+                Margin = new Thickness(RhythmCellGap / 2d),
+                CornerRadius = new CornerRadius(6),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            };
+            border.Classes.Add($"heat-{cell.Level}");
+            if (cell.IsPeak)
+            {
+                border.Classes.Add("heat-peak");
+            }
+
+            RhythmGrid.Children.Add(border);
         }
     }
 }

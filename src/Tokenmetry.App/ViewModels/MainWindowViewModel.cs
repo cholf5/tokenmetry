@@ -327,6 +327,10 @@ public partial class MainWindowViewModel : ViewModelBase
             ? null
             : OverviewViewModel.ResolveHourlyCutoffHour(UsageQueryFilter.FormatDay(end), DateTimeOffset.Now);
 
+        // 时段节律样式需要星期 × 小时矩阵（样式与范围解耦：任何范围都可能切到它，恒补查，范围照搬
+        // 全局筛选）。失败不挡对话框：矩阵如实空场（同小时分布的回落哲学）。
+        var weeklyRhythm = await LoadWeeklyRhythmForPosterAsync(filter);
+
         // 总量取同一份 KPI 聚合（维度行合计可能与 KPI 不等：空键 / 分解粒度行会被跳过）；
         // 模型图标走目录解析器（用户自定义头像也生效）。
         return new SharePosterDialogViewModel(
@@ -340,8 +344,29 @@ public partial class MainWindowViewModel : ViewModelBase
                 snapshot.Kpi.SessionCount,
                 snapshot.Kpi,
                 hourly,
-                hourlyCutoff),
+                hourlyCutoff,
+                weeklyRhythm),
             _avatars is null ? null : _avatars.Resolve);
+    }
+
+    /// <summary>海报用的星期 × 小时节律矩阵：维度筛选照搬全局筛选，时间范围即当前筛选窗口。</summary>
+    private async Task<WeeklyRhythmResult?> LoadWeeklyRhythmForPosterAsync(UsageQueryFilter filter)
+    {
+        try
+        {
+            return await _usageQuery.GetWeeklyRhythmAsync(new UsageQueryFilter
+            {
+                FromDay = filter.FromDay,
+                ToDay = filter.ToDay,
+                Agent = filter.Agent,
+                Model = filter.Model,
+                Project = filter.Project,
+            });
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     /// <summary>海报用的单日小时分布：维度筛选照搬全局筛选，时间范围钉死到那一天。</summary>

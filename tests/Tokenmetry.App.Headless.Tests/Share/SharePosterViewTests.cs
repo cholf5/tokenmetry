@@ -154,9 +154,64 @@ public class SharePosterViewTests
         Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-4"));
         Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-0"));
 
-        // 色阶图例（5 个芯片）+ 峰值/活跃天数脚注都真的在版面上
-        Assert.Equal(5, view.GetVisualDescendants().OfType<Border>().Count(b => b.Classes.Contains("heat-chip")));
+        // 色阶图例（5 个芯片，圈定当前基底——节律基底也有同款图例）+ 峰值/活跃天数脚注都真的在版面上
+        Assert.Equal(5, view.PosterRootControl.GetVisualDescendants().OfType<Border>()
+            .Count(b => b.Classes.Contains("heat-chip")));
         Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.HeatPeakText);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Rhythm_style_renders_the_rhythm_base_with_the_7x24_matrix()
+    {
+        // 节律矩阵不走日序列：给一份确定性的星期 × 小时矩阵（有深档也有峰值）
+        var rhythm = new WeeklyRhythmResult
+        {
+            Cells = Enumerable.Range(0, 7)
+                .SelectMany(w => Enumerable.Range(0, 24).Select(h => new WeeklyRhythmCell
+                {
+                    Weekday = w,
+                    Hour = h,
+                    TotalTokens = h is >= 8 and <= 20 && (w * 24 + h) % 3 != 0
+                        ? (w * 24 + h) % 7 * 120_000L + 50_000L
+                        : 0,
+                }))
+                .ToList(),
+        };
+        var request = new SharePosterRequest(
+            SharePosterLayout.Landscape, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+            new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2), SharePosterStyle.Rhythm);
+        var data = SharePosterSnapshot.Build(
+            request, ChartTestHelpers.DailyPoints30(),
+            [Row("ZCode", 4_535_388_126, 200m)],
+            [Row("glm-5.3-flash", 2_383_429_663, 80m)],
+            [Row("Zearth", 784_282_344, 10m)],
+            sessionCount: 764, weeklyRhythm: rhythm);
+        var vm = new SharePosterViewModel(data);
+        var view = new SharePosterView { DataContext = vm };
+        var window = HostWide(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        // 导出根切到节律基底、固定 1800 横版
+        Assert.True(view.IsRhythmStyle);
+        Assert.Same(
+            view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "RhythmRoot"),
+            view.PosterRootControl);
+        Assert.Equal(SharePosterView.LandscapeWidth, view.PosterRootControl.Bounds.Width, 1);
+
+        // 168 格全量生成；fixture 最近 30 天含真实数据 → 有深档与峰值描边
+        var grid = view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.UniformGrid>()
+            .First(u => u.Name == "RhythmGrid");
+        Assert.Equal(24, grid.Columns);
+        Assert.Equal(vm.Rhythm.Cells.Count, grid.Children.Count);
+        Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-peak"));
+        Assert.Contains(grid.Children.OfType<Border>(), b => b.Classes.Contains("heat-4"));
+
+        // 小时刻度行与峰值文案在版面上
+        var hourRow = view.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "RhythmHourRow");
+        Assert.Equal(24, hourRow.ColumnDefinitions.Count);
+        Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.RhythmPeakText);
 
         window.Close();
     }
