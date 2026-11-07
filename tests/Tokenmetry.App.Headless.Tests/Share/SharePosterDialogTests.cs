@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Headless.XUnit;
 using Avalonia.Styling;
@@ -456,6 +459,112 @@ public class SharePosterDialogTests
         var poster = dialog.GetVisualDescendants().OfType<SharePosterView>().FirstOrDefault();
         Assert.NotNull(poster);
         Assert.True(poster!.PosterRootControl.Bounds.Width > 0, "海报版面应完成布局（导出才能光栅化）");
+
+        dialog.Close();
+    }
+
+    [AvaloniaFact]
+    public void Preview_fits_the_pane_by_default_without_distortion()
+    {
+        // 默认态 = 整体缩放到预览区全貌（旧实现 100% + 滚动条，长竖版必然只见局部）
+        var dialog = new SharePosterDialog
+        {
+            DataContext = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot),
+        };
+        dialog.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var scroll = dialog.GetVisualDescendants().OfType<ScrollViewer>()
+            .First(s => s.Name == "PreviewScroll");
+        var host = dialog.GetVisualDescendants().OfType<LayoutTransformControl>().Single();
+        var poster = dialog.GetVisualDescendants().OfType<SharePosterView>().First();
+
+        // 全貌：内容不超出视口（1px 容差吸收 fit 微内缩前的浮点毛刺）
+        Assert.True(scroll.Extent.Width <= scroll.Viewport.Width + 1, "横向不应溢出预览区");
+        Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 1, "纵向不应溢出预览区");
+
+        // 等比：渲染宽高比与海报自然比例一致——少了 Grid 垫层，ContentPresenter 会把
+        // 比视口小的内容拉伸铺满，这里就是变形现场（2 位小数足以暴露铺满级变形）
+        var naturalRatio = poster.Bounds.Width / poster.Bounds.Height;
+        var renderedRatio = host.Bounds.Width / host.Bounds.Height;
+        Assert.Equal(naturalRatio, renderedRatio, 2);
+
+        // 居中：四周留白对称。LTC 内部按设备像素取整，fit 的亚像素余量（FitInset ~0.1%）会
+        // 整块落到单边，表现为 ±1px 的留白不对称——肉眼不可见，容差放到 1.5px
+        var position = host.TranslatePoint(default, scroll) ?? default;
+        var horizontalBias = position.X - (scroll.Bounds.Width - host.Bounds.Width - position.X);
+        var verticalBias = position.Y - (scroll.Bounds.Height - host.Bounds.Height - position.Y);
+        Assert.True(Math.Abs(horizontalBias) < 1.5, $"水平应居中，偏差 {horizontalBias:0.##}px");
+        Assert.True(Math.Abs(verticalBias) < 1.5, $"垂直应居中，偏差 {verticalBias:0.##}px");
+
+        dialog.Close();
+    }
+
+    [AvaloniaFact]
+    public void Preview_zooms_with_ctrl_wheel_and_resets_on_double_tap()
+    {
+        var dialog = new SharePosterDialog
+        {
+            DataContext = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot),
+        };
+        dialog.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var scroll = dialog.GetVisualDescendants().OfType<ScrollViewer>()
+            .First(s => s.Name == "PreviewScroll");
+        var host = dialog.GetVisualDescendants().OfType<LayoutTransformControl>().Single();
+        var fitWidth = host.Bounds.Width;
+        var anchor = scroll.TranslatePoint(
+            new Point(scroll.Bounds.Width / 2, scroll.Bounds.Height / 2), dialog) ?? default;
+
+        // Ctrl+滚轮一齿 = 1.1×：放大超过 fit，绑定轴开始溢出（滚动接管平移）
+        dialog.MouseWheel(anchor, new Vector(0, 1), RawInputModifiers.Control);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.True(host.Bounds.Width > fitWidth * 1.05, "Ctrl+滚轮应放大预览");
+        Assert.True(scroll.Extent.Height > scroll.Viewport.Height + 1, "放大后纵向应可滚动");
+
+        // 双击复位回 fit
+        dialog.MouseDown(anchor, MouseButton.Left);
+        dialog.MouseUp(anchor, MouseButton.Left);
+        dialog.MouseDown(anchor, MouseButton.Left);
+        dialog.MouseUp(anchor, MouseButton.Left);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.True(Math.Abs(host.Bounds.Width - fitWidth) < fitWidth * 0.01, "双击应复位回 fit");
+        Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 1, "复位后不应再溢出");
+
+        dialog.Close();
+    }
+
+    [AvaloniaFact]
+    public void Preview_keeps_fit_when_wheeling_without_modifiers()
+    {
+        // 不带 Ctrl/⌘ 的滚轮保留原生滚动语义，不劫持成缩放
+        var dialog = new SharePosterDialog
+        {
+            DataContext = new SharePosterDialogViewModel(Request(singleDay: false), Snapshot),
+        };
+        dialog.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var scroll = dialog.GetVisualDescendants().OfType<ScrollViewer>()
+            .First(s => s.Name == "PreviewScroll");
+        var host = dialog.GetVisualDescendants().OfType<LayoutTransformControl>().Single();
+        var anchor = scroll.TranslatePoint(
+            new Point(scroll.Bounds.Width / 2, scroll.Bounds.Height / 2), dialog) ?? default;
+
+        dialog.MouseWheel(anchor, new Vector(0, 3), RawInputModifiers.None);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.Equal(host.Bounds.Width, dialog.GetVisualDescendants().OfType<LayoutTransformControl>()
+            .Single().Bounds.Width, 1);
 
         dialog.Close();
     }

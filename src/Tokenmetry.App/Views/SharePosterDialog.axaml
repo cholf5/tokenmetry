@@ -131,12 +131,18 @@
                        IsVisible="{Binding ShowLayoutNotice}"/>
         </StackPanel>
 
-        <!-- 预览 -->
+        <!-- 预览：默认整体缩放到预览区全貌（fit 由代码后置算），Ctrl/⌘+滚轮放大、双击复位。
+             缩放本体是 LayoutTransformControl——预览是活视图不是位图，任何倍率都矢量重排不糊。
+             Grid 垫层承担居中：ScrollViewer 的 ContentPresenter 会把比视口小的内容拉伸铺满，
+             少这一层海报会被撑变形；Grid 内居中让缩放节点永远按自己想要的尺寸排布。 -->
         <Border Grid.Row="1" Classes="panel" Padding="8">
-            <ScrollViewer>
-                <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
-                    <v:SharePosterView x:Name="PreviewView" DataContext="{Binding Preview}"/>
-                </Viewbox>
+            <ScrollViewer x:Name="PreviewScroll"
+                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <Grid>
+                    <LayoutTransformControl x:Name="PreviewHost" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <v:SharePosterView x:Name="PreviewView" DataContext="{Binding Preview}"/>
+                    </LayoutTransformControl>
+                </Grid>
             </ScrollViewer>
         </Border>
 
