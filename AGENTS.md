@@ -1,6 +1,6 @@
 # AGENTS.md — Tokenmetry
 
-本地优先、托盘常驻的 AI 编程 token/成本监控桌面应用（Avalonia）。产品定位 **Opinionated Usage Stats**：固定信息架构（总览/Agent/模型/项目/会话/时间/成本分析/数据与计价/设置），不做面板平台、插件、布局自定义——立场与理由见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`（改动产品方向前必读）。
+本地优先、托盘常驻的 AI 编程 token/成本监控桌面应用（Avalonia）。产品定位 **Opinionated Usage Stats**：固定信息架构（总览/Agent/模型/项目/会话/时间/成本分析/数据与计价/设置），不做面板平台、插件、布局自定义——立场与理由见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`（改动产品方向前必读）。注意 `docs/plans/` 整个目录在 .gitignore 里：设计与计划文档是**本地文档**，不入库、新 clone 没有，改动也不会出现在 git status。
 
 ## 常用命令
 
@@ -29,13 +29,29 @@ dotnet run --project src/Tokenmetry.App
 
 任何成本数字必须能与 `npx ccusage@20.0.29` 输出对账一致（tokens 精确、cost ≤0.5%）。改解析、计价、聚合口径前**必读** `docs/reconciliation/2026-10-11-reconciliation.md`（口径逐项对齐表：costUSD 优先级、UTC 分桶、`-fast` 剥价、消息去重、cumulative 守卫等）。Reconciliation.Tests 只解析提交进仓库的 golden JSON，不现场调用 CLI。
 
+## 分享海报（SharePoster）子系统
+
+组成：Core `Models/SharePoster*.cs`（请求/快照模型，快照构建 `SharePosterSnapshot` 也在这里）+ App 侧 `Views/SharePosterDialog`（独立窗口，代码建窗）、`Views/SharePosterView`（海报本体）、`ViewModels/SharePoster*`、`Services/SharePosterExporter`；设计与取舍见 `docs/plans/2026-11-02-share-poster-design.md`。改预览/导出前需要知道的硬事实：
+
+- **预览是活视图，导出与预览缩放无关**：对话框窗口本身是渲染宿主（海报子树挂在里面才拿得到样式与图表初始化）；导出 = `SharePosterExporter.Render(PosterRootControl)` 对海报根按 2× 光栅化，要求节点已挂树、已布局。海报根画布宽固定（竖版 1080 / 横版 1800，常量在 `SharePosterView`）；预览层的任何缩放变换都套在视图**之外**，不会污染导出。
+- **投影只能用 `DropShadowEffect`，不能用 `Border.BoxShadow`**：Avalonia #20693（RenderTargetBitmap 上 DPI≠96 时 BoxShadow 把 DPI 平方乘进其后首个变换，v0.4.0 日间导出真机中招）未修前不许换回，细则见 `SharePosterView.ApplyPanelShadows` 注释。
+- **AvaPlot 输入已禁**（`TrendChart` 构造里 `UserInputProcessor.Disable()` + `HandleMouseWheelEvent = false`，后者是放行冒泡）：滚轮/双击会照常冒泡到宿主，页面/预览层可以放心挂手势。
+- 版式合法性唯一出处是能力表 `SharePosterOptions.SupportedLayouts`（样式锁版式：托盘/里程碑锁竖版，热力/节律锁横版，越界起值收口）；换版式 = `SharePosterView.ApplyLayout` 重排栅格，**运行期不要动 ColumnDefinitions**（Avalonia Grid 定义数量变化会踩测量缓存索引越界）。
+
 ## i18n 纪律
 
-全部界面文案唯一出处：`src/Tokenmetry.App/Localization/Translations.cs`。简体中文字典为源（key = `nameof(属性)`，漏 key 显示属性名自暴露），其余语种字典只放译文，字典体在 partial 分文件（`Translations.ZhHant.cs` / `.Ja.cs` / `.Ko.cs` / `.PtBr.cs` / `.Ru.cs` / `.Es.cs` / `.De.cs` / `.Fr.cs`；字典**字段声明**留在主文件、置于 `Instance` 之前——跨文件静态初始化顺序陷阱）。支持语种（D-024/D-025）：`zh` / `zh-hant` / `en` / `ja` / `ko` / `pt-br` / `ru` / `es` / `de` / `fr` + `system`（AppSettings.Language 统一小写存码；`Resolve` 时 zh 系按书写系统分简繁，pt 系统一落 pt-BR，es/de/fr 不分地区变体；未知值回落 system）。回退链：新语种缺项 → 英文 → 简体，zh-Hant 缺项 → 简体——链只是漏译安全网，**所有语种必须全量覆盖**（`TranslationsTests` 的 `*_CoversEveryChineseSourceKey` 与占位符不变式测试固化，新增 zh key 必须同步补全部语种译文）；语言名选项自名不翻译（各语种同值）。明确不做 hi/bn/ar/id。XAML 用 `{Binding 属性, Source={x:Static loc:Translations.Instance}}`。`Tokenmetry.App.Tests` 固定 zh-Hans 文化（`TestCulture.cs`），测试断言必须语言无关（不要断言具体中文/英文串）。
+全部界面文案唯一出处：`src/Tokenmetry.App/Localization/Translations.cs`。简体中文字典为源（key = `nameof(属性)`，漏 key 显示属性名自暴露），其余语种字典只放译文，字典体在 partial 分文件（`Translations.ZhHant.cs` / `.Ja.cs` / `.Ko.cs` / `.PtBr.cs` / `.Ru.cs` / `.Es.cs` / `.De.cs` / `.Fr.cs`；字典**字段声明**留在主文件、置于 `Instance` 之前——跨文件静态初始化顺序陷阱）。支持语种（D-024/D-025）：`zh` / `zh-hant` / `en` / `ja` / `ko` / `pt-br` / `ru` / `es` / `de` / `fr` + `system`（AppSettings.Language 统一小写存码；`Resolve` 时 zh 系按书写系统分简繁，pt 系统一落 pt-BR，es/de/fr 不分地区变体；未知值回落 system）。回退链：新语种缺项 → 英文 → 简体，zh-Hant 缺项 → 简体——链只是漏译安全网，**所有语种必须全量覆盖**（`TranslationsTests` 的 `*_CoversEveryChineseSourceKey` 与占位符不变式测试固化，新增 zh key 必须同步补全部语种译文）；语言名选项自名不翻译（各语种同值）。明确不做 hi/bn/ar/id。XAML 用 `{Binding 属性, Source={x:Static loc:Translations.Instance}}`。`Tokenmetry.App.Tests` 与 `Tokenmetry.App.Headless.Tests` 各自固定 zh-Hans 文化（各自的 `TestCulture.cs`），测试断言必须语言无关（不要断言具体中文/英文串；要断言文案就引用 `Translations.Instance` 的属性，两边出处一致即语言无关）。
 
 ## 设计令牌（改 UI 前读 `docs/design/design-tokens.md`）
 
 令牌在 `Styles/Tokens.axaml` + 共享样式 `Styles/SharedStyles.axaml`。规则：新增资源键只能用 `App*` 前缀且不得与 Semi.Avalonia 撞名（有 headless 测试固化）；视图内**禁止硬编码色值**，一律 `Classes="..."` + DynamicResource；随明暗翻转的进 ThemeDictionaries，图表系列色（AppSeries0–6）不翻转。
+
+## Headless UI 测试（`tests/Tokenmetry.App.Headless.Tests`，改 UI 后补测试）
+
+- 用例标 `[AvaloniaFact]`（Avalonia.Headless.XUnit）；布局收口仪式：`Show() → Dispatcher.UIThread.RunJobs() → AvaloniaHeadlessPlatform.ForceRenderTimerTick()`。
+- 输入模拟走真实输入管线：`HeadlessWindowExtensions`（`MouseWheel` / `MouseDown` / `MouseUp` / `MouseClick` 等，点位相对窗口、带 `RawInputModifiers`，修饰键会正确映射到事件的 `KeyModifiers`）。没有 DoubleClick helper，双击 = 同点位两组 MouseDown/Up。
+- 整个程序集禁并行（`AssemblySettings.cs`——Translations 是进程级单例，并行切语言会互踩）；语言无关断言纪律见 i18n 一节，两套 UI 测试套件同款。
+- Avalonia 12 的两个布局坑（写几何断言会撞上）：`LayoutTransformControl` 内部按设备像素取整，居中差 ±1px 属正常，容差别卡死在 1px；ScrollViewer 的 ContentPresenter 会把比视口小的内容拉伸铺满，要居中得在 ScrollViewer 和内容之间垫一层 Grid。
 
 ## 命名史陷阱（勿"顺手改"）
 
