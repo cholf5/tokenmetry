@@ -291,7 +291,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>
     /// 按当前全局筛选备好海报数据与对话框 VM（查询失败弹 toast 并返回 null，不静默）。
-    /// 数据只查一次：三个选项（版式/主题/雾化）都不改变查询结果，只有版面与展示形态不同——
+    /// 数据只查一次：四个选项（样式/版式/主题/雾化）都不改变查询结果，只有版面与展示形态不同——
     /// 对话框每次重绘复用同一份快照。
     /// </summary>
     public async Task<SharePosterDialogViewModel?> CreateSharePosterDialogAsync()
@@ -310,12 +310,22 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         var (start, end) = ResolvePosterRange(filter, snapshot.Daily, DateOnly.FromDateTime(DateTime.Today));
+        // 样式缺省跟随范围（单日 → 信息卡，多日 → 总览）：打开时的观感与解耦前一致，对话框里可改。
         var initial = new SharePosterRequest(
             Settings.DefaultSharePosterLayout,
             Settings.DefaultSharePosterTheme,
             Settings.DefaultSharePosterProjectMask,
             start,
-            end);
+            end,
+            start == end ? SharePosterStyle.Tray : SharePosterStyle.Overview);
+
+        // 单日范围补一次小时分布（与总览页 D-027 同源）：总览样式的单日海报把趋势图切到小时形态。
+        // 查询范围收口到解析出的那一天——「全部时间」这类无界筛选落到单日时，也只查那天的 0..23 桶，
+        // 不把多天混进同一组小时桶。失败不挡对话框：小时数据缺位时趋势图回落日序列形态。
+        var hourly = start == end ? await LoadHourlyForPosterAsync(filter, start) : null;
+        var hourlyCutoff = hourly is null
+            ? null
+            : OverviewViewModel.ResolveHourlyCutoffHour(UsageQueryFilter.FormatDay(end), DateTimeOffset.Now);
 
         // 总量取同一份 KPI 聚合（维度行合计可能与 KPI 不等：空键 / 分解粒度行会被跳过）；
         // 模型图标走目录解析器（用户自定义头像也生效）。
@@ -328,8 +338,30 @@ public partial class MainWindowViewModel : ViewModelBase
                 snapshot.Models,
                 snapshot.Projects,
                 snapshot.Kpi.SessionCount,
-                snapshot.Kpi),
+                snapshot.Kpi,
+                hourly,
+                hourlyCutoff),
             _avatars is null ? null : _avatars.Resolve);
+    }
+
+    /// <summary>海报用的单日小时分布：维度筛选照搬全局筛选，时间范围钉死到那一天。</summary>
+    private async Task<HourlyDistributionResult?> LoadHourlyForPosterAsync(UsageQueryFilter filter, DateOnly day)
+    {
+        try
+        {
+            return await _usageQuery.GetHourlyDistributionAsync(new UsageQueryFilter
+            {
+                FromDay = UsageQueryFilter.FormatDay(day),
+                ToDay = UsageQueryFilter.FormatDay(day),
+                Agent = filter.Agent,
+                Model = filter.Model,
+                Project = filter.Project,
+            });
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     /// <summary>

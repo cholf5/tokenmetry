@@ -513,6 +513,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         // ── Share poster ──
         [nameof(SharePosterTitle)] = "分享海报",
         [nameof(SharePosterEntryTooltip)] = "把当前筛选做成一张可分享的海报",
+        [nameof(SharePosterStyle)] = "样式",
+        [nameof(SharePosterStyleTray)] = "信息卡",
+        [nameof(SharePosterStyleOverview)] = "总览",
         [nameof(SharePosterLayout)] = "版式",
         [nameof(SharePosterLayoutPortrait)] = "竖版",
         [nameof(SharePosterLayoutLandscape)] = "横版",
@@ -525,7 +528,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMaskPartial)] = "局部雾化",
         [nameof(SharePosterMaskFull)] = "全部雾化",
         [nameof(SharePosterMaskHint)] = "「显示」会把项目名原样印在海报上，发出去之前请确认；雾化只是把文字虚化，不会替换成占位符。",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "单日窗口只提供竖版：横置需要重排信息流。",
+        [nameof(SharePosterTrayPortraitOnly)] = "信息卡样式固定竖版：横置需要重排信息流。",
         [nameof(SharePosterCopy)] = "复制到剪贴板",
         [nameof(SharePosterCopied)] = "已复制到剪贴板",
         [nameof(SharePosterCopyFailed)] = "当前系统不支持复制图片，请改用「保存为文件」",
@@ -542,7 +545,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterDefaultMask)] = "默认雾化",
         [nameof(SharePosterTrayAgents)] = "主要 Agent",
         [nameof(SharePosterTrayModels)] = "模型用量",
-        [nameof(SharePosterTrayByTokens)] = "按今日 Token",
+        [nameof(SharePosterTrayByTokens)] = "按 Token",
     };
 
     private static readonly Dictionary<string, string> En = new()
@@ -1005,6 +1008,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         // ── Share poster ──
         [nameof(SharePosterTitle)] = "Share poster",
         [nameof(SharePosterEntryTooltip)] = "Turn the current filters into a shareable poster",
+        [nameof(SharePosterStyle)] = "Style",
+        [nameof(SharePosterStyleTray)] = "Info card",
+        [nameof(SharePosterStyleOverview)] = "Overview",
         [nameof(SharePosterLayout)] = "Layout",
         [nameof(SharePosterLayoutPortrait)] = "Portrait",
         [nameof(SharePosterLayoutLandscape)] = "Landscape",
@@ -1017,7 +1023,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMaskPartial)] = "Blur after 4 characters",
         [nameof(SharePosterMaskFull)] = "Blur entire name",
         [nameof(SharePosterMaskHint)] = "\"Show\" prints project names exactly as they are — check before you share. Blurring only softens the text; it never replaces characters with placeholders.",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "A single-day window only offers portrait: landscape would need a different information flow.",
+        [nameof(SharePosterTrayPortraitOnly)] = "The info-card style is portrait only: landscape would need a different information flow.",
         [nameof(SharePosterCopy)] = "Copy to clipboard",
         [nameof(SharePosterCopied)] = "Copied to clipboard",
         [nameof(SharePosterCopyFailed)] = "This system cannot copy images — use \"Save to file\" instead",
@@ -1034,7 +1040,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterDefaultMask)] = "Default project names",
         [nameof(SharePosterTrayAgents)] = "Top agents",
         [nameof(SharePosterTrayModels)] = "Model usage",
-        [nameof(SharePosterTrayByTokens)] = "By today's tokens",
+        [nameof(SharePosterTrayByTokens)] = "By tokens",
     };
 
     // ── D-024 新语种字典：字典体在 partial 分文件（Translations.ZhHant.cs 等）——字段声明
@@ -1389,6 +1395,9 @@ public sealed partial class Translations : INotifyPropertyChanged
     // ── 分享海报（入口 / 生成对话框 / 设置页）──
     public string SharePosterTitle => Get();
     public string SharePosterEntryTooltip => Get();
+    public string SharePosterStyle => Get();
+    public string SharePosterStyleTray => Get();
+    public string SharePosterStyleOverview => Get();
     public string SharePosterLayout => Get();
     public string SharePosterLayoutPortrait => Get();
     public string SharePosterLayoutLandscape => Get();
@@ -1401,7 +1410,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterMaskPartial => Get();
     public string SharePosterMaskFull => Get();
     public string SharePosterMaskHint => Get();
-    public string SharePosterSingleDayPortraitOnly => Get();
+    public string SharePosterTrayPortraitOnly => Get();
     public string SharePosterCopy => Get();
     public string SharePosterCopied => Get();
     public string SharePosterCopyFailed => Get();

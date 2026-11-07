@@ -482,6 +482,9 @@ public sealed partial class Translations
         // ── Share poster ──
         [nameof(SharePosterTitle)] = "共有ポスター",
         [nameof(SharePosterEntryTooltip)] = "現在のフィルターをそのまま共有できるポスターにする",
+        [nameof(SharePosterStyle)] = "スタイル",
+        [nameof(SharePosterStyleTray)] = "情報カード",
+        [nameof(SharePosterStyleOverview)] = "概要",
         [nameof(SharePosterLayout)] = "レイアウト",
         [nameof(SharePosterLayoutPortrait)] = "縦",
         [nameof(SharePosterLayoutLandscape)] = "横",
@@ -508,9 +511,9 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultMask)] = "既定のぼかし",
         [nameof(SharePosterDayCountFormat)] = "記録のある日 {0} 日",
         [nameof(SharePosterCopyFailedFormat)] = "コピーに失敗しました：{0}",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "単日のウィンドウは縦のみです。横向きにするには情報の流れを組み直す必要があります。",
+        [nameof(SharePosterTrayPortraitOnly)] = "情報カードスタイルは縦のみです。横向きにするには情報の流れを組み直す必要があります。",
         [nameof(SharePosterTrayAgents)] = "主要エージェント",
         [nameof(SharePosterTrayModels)] = "モデル使用量",
-        [nameof(SharePosterTrayByTokens)] = "本日の Token 順",
+        [nameof(SharePosterTrayByTokens)] = "Token 順",
     };
 }

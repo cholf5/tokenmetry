@@ -147,7 +147,7 @@
             <Setter Property="CenterSubtitleFontSize" Value="12"/>
         </Style>
 
-        <!-- ── 单日托盘基底（设计 §3.1：状态栏信息窗的印刷版；固定 1080 竖版，不提供横置）── -->
+        <!-- ── 信息卡样式（托盘基底，设计 §3.1：状态栏信息窗的印刷版；固定 1080 竖版，不提供横置）── -->
         <Style Selector="Border.tray-root">
             <Setter Property="Padding" Value="44"/>
         </Style>
@@ -285,10 +285,10 @@
 
     <ThemeVariantScope x:Name="ThemeScope">
       <Panel>
-        <!-- 宽度由 code-behind 按版式给（竖版 1080 / 横版 1800），导出按它 2× 光栅化 -->
+        <!-- 宽度由 code-behind 按样式/版式给（托盘与竖版 1080 / 横版 1800），导出按它 2× 光栅化 -->
         <Border x:Name="PosterRoot"
                 Classes="poster-root"
-                IsVisible="{Binding !IsSingleDay}"
+                IsVisible="{Binding !IsTrayStyle}"
                 VerticalAlignment="Top"
                 HorizontalAlignment="Left"
                 Background="{DynamicResource AppBackgroundBrush}">
@@ -351,8 +351,10 @@
                                 <TextBlock Classes="panel-title poster-panel-title"
                                            Text="{Binding PanelTrend, Source={x:Static loc:Translations.Instance}}"/>
                                 <c:TrendChart x:Name="TrendChartControl"
-                                              Mode="DailyTokens"
+                                              Mode="{Binding TokenTrendMode}"
                                               DailyPoints="{Binding Daily}"
+                                              HourlyDistribution="{Binding Hourly}"
+                                              HourlyCutoffHour="{Binding HourlyCutoffHour}"
                                               ChartFontScale="1.9"
                                               ShowPeakAnnotation="True"/>
                             </StackPanel>
@@ -498,8 +500,10 @@
                                 <TextBlock Classes="panel-title poster-panel-title"
                                            Text="{Binding PanelCostTrend, Source={x:Static loc:Translations.Instance}}"/>
                                 <c:TrendChart x:Name="CostChartControl"
-                                              Mode="CostUsd"
+                                              Mode="{Binding CostTrendMode}"
                                               DailyPoints="{Binding Daily}"
+                                              HourlyDistribution="{Binding Hourly}"
+                                              HourlyCutoffHour="{Binding HourlyCutoffHour}"
                                               ChartFontScale="1.9"
                                               ShowPeakAnnotation="True"/>
                             </StackPanel>
@@ -515,7 +519,7 @@
             </StackPanel>
         </Border>
 
-        <!-- ══ 单日托盘基底（设计 §3.1：状态栏信息窗的印刷版）══
+        <!-- ══ 信息卡样式（托盘基底，设计 §3.1：状态栏信息窗的印刷版）══
              头部 + 三格 KPI + 构成条 + 构成三卡 + 主要 Agent + 模型用量。
              刻意不画信息窗的「记录中」状态点与「单日峰值」徽标：静态海报上的运行状态是假的，
              峰值也不一定当天就是峰值——版式沿用，声称的事实只留数据里有的。 -->
@@ -525,7 +529,7 @@
                 VerticalAlignment="Top"
                 HorizontalAlignment="Left"
                 Background="{DynamicResource AppBackgroundBrush}"
-                IsVisible="{Binding IsSingleDay}">
+                IsVisible="{Binding IsTrayStyle}">
             <Border x:Name="TrayCard" Classes="panel tray-card">
                 <StackPanel>
 
@@ -540,7 +544,7 @@
                             </Border>
                             <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
                                 <TextBlock Classes="tray-brand" Text="Tokenmetry"/>
-                                <TextBlock Classes="tray-date" Text="{Binding SingleDayDateText}"/>
+                                <TextBlock Classes="tray-date" Text="{Binding TrayDateText}"/>
                             </StackPanel>
                         </Grid>
                     </Border>

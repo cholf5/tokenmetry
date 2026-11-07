@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Tokenmetry.App.Controls;
 using Tokenmetry.App.Headless.Tests.Controls;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.Core.Models;
@@ -29,7 +30,7 @@ public class SharePosterViewModelTests
         var data = SharePosterSnapshot.Build(
             new SharePosterRequest(
                 SharePosterLayout.Portrait, SharePosterTheme.Dark, mask,
-                new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2)),
+                new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2), SharePosterStyle.Overview),
             ChartTestHelpers.DailyPoints30(), [], [], rows, sessionCount: 0);
 
         return new SharePosterViewModel(data);
@@ -37,7 +38,7 @@ public class SharePosterViewModelTests
 
     private static SharePosterRequest Request(SharePosterProjectMask mask = SharePosterProjectMask.Off) =>
         new(SharePosterLayout.Portrait, SharePosterTheme.Dark, mask,
-            new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2));
+            new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2), SharePosterStyle.Overview);
 
     [Fact]
     public void Type_segments_include_cache_writes_and_use_the_app_labels()
@@ -134,5 +135,64 @@ public class SharePosterViewModelTests
 
         // 字符本身没有丢：模糊段拼起来就是原名（宽度由此保持一致）
         Assert.Contains("Zearth", vm.ProjectRows.Select(r => r.MaskedName));
+    }
+
+    [Fact]
+    public void Trend_modes_switch_to_hourly_only_for_single_day_windows_with_hourly_data()
+    {
+        // 总览基底的形态选择（D-027 同源）：单日范围 + 小时分布 → 小时折线；
+        // 小时数据缺位（查询失败回落）或多日范围 → 日序列，不画空小时图。
+        var hourly = new HourlyDistributionResult
+        {
+            Hours = [new HourlyUsageBucket { Hour = 9, TotalTokens = 5, SessionCount = 1 }],
+        };
+        var day = new DateOnly(2026, 10, 17);
+        SharePosterRequest Req(bool singleDay) => new(
+            SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+            day, singleDay ? day : day.AddDays(3), SharePosterStyle.Overview);
+
+        var hourlySingle = new SharePosterViewModel(SharePosterSnapshot.Build(
+            Req(singleDay: true), ChartTestHelpers.DailyPoints30(), [], [], [], sessionCount: 0,
+            hourly: hourly, hourlyCutoffHour: 12));
+        Assert.Equal(TrendChartMode.HourlyTokens, hourlySingle.TokenTrendMode);
+        Assert.Equal(TrendChartMode.HourlyCost, hourlySingle.CostTrendMode);
+
+        var fallback = new SharePosterViewModel(SharePosterSnapshot.Build(
+            Req(singleDay: true), ChartTestHelpers.DailyPoints30(), [], [], [], sessionCount: 0));
+        Assert.Equal(TrendChartMode.DailyTokens, fallback.TokenTrendMode);
+        Assert.Equal(TrendChartMode.CostUsd, fallback.CostTrendMode);
+
+        var multi = new SharePosterViewModel(SharePosterSnapshot.Build(
+            Req(singleDay: false), ChartTestHelpers.DailyPoints30(), [], [], [], sessionCount: 0,
+            hourly: hourly));
+        Assert.Equal(TrendChartMode.DailyTokens, multi.TokenTrendMode);
+        Assert.Equal(TrendChartMode.CostUsd, multi.CostTrendMode);
+    }
+
+    [Fact]
+    public void Style_decides_the_base_and_range_decides_the_date_lines()
+    {
+        // 样式与范围解耦：多日范围也能是信息卡（IsTrayStyle），单日范围也能是总览；
+        // 日期行跟着范围走——总览基底单日写「日期 · 周几」（不再有 start — end 同日的怪话），
+        // 信息卡多日写范围。
+        var day = new DateOnly(2026, 10, 17);
+        var trayMulti = new SharePosterViewModel(SharePosterSnapshot.Build(
+            new SharePosterRequest(SharePosterLayout.Portrait, SharePosterTheme.Dark,
+                SharePosterProjectMask.Off, day, day.AddDays(3), SharePosterStyle.Tray),
+            ChartTestHelpers.DailyPoints30(), [], [], [], sessionCount: 0));
+        Assert.True(trayMulti.IsTrayStyle);
+        Assert.False(trayMulti.IsSingleDay);
+        Assert.Contains("—", trayMulti.TrayDateText);
+        Assert.Contains("2026.10.17", trayMulti.TrayDateText);
+        Assert.Contains("2026.10.20", trayMulti.TrayDateText);
+
+        var overviewSingle = new SharePosterViewModel(SharePosterSnapshot.Build(
+            new SharePosterRequest(SharePosterLayout.Portrait, SharePosterTheme.Dark,
+                SharePosterProjectMask.Off, day, day, SharePosterStyle.Overview),
+            ChartTestHelpers.DailyPoints30(), [], [], [], sessionCount: 0));
+        Assert.False(overviewSingle.IsTrayStyle);
+        Assert.True(overviewSingle.IsSingleDay);
+        Assert.Equal(overviewSingle.SingleDayDateText, overviewSingle.RangeText);
+        Assert.Equal(overviewSingle.SingleDayDateText, overviewSingle.TrayDateText);
     }
 }

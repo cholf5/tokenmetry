@@ -32,7 +32,21 @@ public enum SharePosterProjectMask
 }
 
 /// <summary>
-/// 一次海报生成的输入：版式/主题/雾化档 + 时间范围。筛选维度本身已体现在传给
+/// 海报样式（两种基底，与时间范围解耦）：信息卡 = 状态栏信息窗的印刷版，固定竖版；
+/// 总览 = 总览页的印刷版，竖/横皆可。范围只决定数据窗口，不再决定用哪张基底——
+/// 生成对话框里的样式选项是唯一出处（打开时缺省跟随范围，用户可改）。
+/// </summary>
+public enum SharePosterStyle
+{
+    /// <summary>信息卡：头部 + 三格 KPI + 构成条 + 构成三卡 + Agent 行 + 模型行，无趋势图。</summary>
+    Tray,
+
+    /// <summary>总览：页头 + 四张 KPI + 趋势/Agent 环形 + 模型/类型环形 + 项目/成本。</summary>
+    Overview,
+}
+
+/// <summary>
+/// 一次海报生成的输入：样式/版式/主题/雾化档 + 时间范围。筛选维度本身已体现在传给
 /// <see cref="SharePosterSnapshot.Build"/> 的查询结果里，不在此重复。
 /// </summary>
 /// <param name="RangeStart">范围首日（含）。</param>
@@ -42,8 +56,9 @@ public sealed record SharePosterRequest(
     SharePosterTheme Theme,
     SharePosterProjectMask ProjectMask,
     DateOnly RangeStart,
-    DateOnly RangeEnd)
+    DateOnly RangeEnd,
+    SharePosterStyle Style)
 {
-    /// <summary>是否单日窗口（决定走信息窗基底还是总览页基底）。</summary>
+    /// <summary>是否单日窗口（决定趋势图切不切小时形态、范围文案怎么写；与样式无关）。</summary>
     public bool IsSingleDay => RangeStart == RangeEnd;
 }

@@ -22,13 +22,17 @@ public sealed record SharePosterRanking(string Name, long Tokens, decimal? Share
 /// 海报渲染所需的全部数据，一次性收成不可变切片。页面 VM 导航即 Dispose，海报不得持有它——
 /// 快照是唯一允许跨到渲染上下文的数据形态。
 /// </summary>
+/// <param name="Hourly">小时分布（单日范围才有值）：总览样式的单日海报把趋势图切到小时形态（同总览页 D-027），数据在此随快照走。</param>
+/// <param name="HourlyCutoffHour">小时形态「已发生」边界（快照打开时刻定死：今天 → 当前小时，历史日 → null）；null 视为 24 小时全已发生。</param>
 public sealed record SharePosterData(
     SharePosterRequest Request,
     SharePosterTotals Totals,
     IReadOnlyList<DailyUsagePoint> Daily,
     IReadOnlyList<SharePosterRanking> Agents,
     IReadOnlyList<SharePosterRanking> Models,
-    IReadOnlyList<SharePosterRanking> Projects);
+    IReadOnlyList<SharePosterRanking> Projects,
+    HourlyDistributionResult? Hourly = null,
+    int? HourlyCutoffHour = null);
 
 /// <summary>
 /// 把查询结果收成 <see cref="SharePosterData"/>。纯函数、无 I/O：口径与总览页逐位一致
@@ -55,7 +59,9 @@ public static class SharePosterSnapshot
         IReadOnlyList<DimensionUsageRow> models,
         IReadOnlyList<DimensionUsageRow> projects,
         long sessionCount,
-        UsageKpiResult? kpi = null)
+        UsageKpiResult? kpi = null,
+        HourlyDistributionResult? hourly = null,
+        int? hourlyCutoffHour = null)
     {
         // 有日序列时以日序列为准（它带 I/O/缓存细分，且与 KPI 同源聚合）；否则退回维度行求和。
         var hasDaily = daily.Count > 0;
@@ -88,7 +94,9 @@ public static class SharePosterSnapshot
             // Agent 排行不截断：环形图要「Top6 + 其他」，截断会让聚合项消失（行数上限只约束表格维度）
             Rank(agents, takeTop: false),
             Rank(models),
-            Rank(projects));
+            Rank(projects),
+            hourly,
+            hourlyCutoffHour);
     }
 
     /// <summary>

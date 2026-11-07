@@ -54,13 +54,15 @@ public class SharePosterViewTests
         }).ToArray();
 
     private static SharePosterViewModel ViewModel(SharePosterLayout layout = SharePosterLayout.Portrait,
-        SharePosterTheme theme = SharePosterTheme.Dark, bool singleDay = false)
+        SharePosterTheme theme = SharePosterTheme.Dark, bool singleDay = false,
+        SharePosterStyle? style = null, HourlyDistributionResult? hourly = null)
     {
         var day = new DateOnly(2026, 10, 17);
         var request = new SharePosterRequest(
             layout, theme, SharePosterProjectMask.Off,
             singleDay ? day : new DateOnly(2026, 1, 28),
-            singleDay ? day : new DateOnly(2026, 11, 2));
+            singleDay ? day : new DateOnly(2026, 11, 2),
+            style ?? (singleDay ? SharePosterStyle.Tray : SharePosterStyle.Overview));
 
         var daily = DailyWithCache();
 
@@ -70,10 +72,26 @@ public class SharePosterViewTests
             [Row("ZCode", 4_535_388_126, 200m), Row("Codex", 366_647_795, null)],
             [Row("glm-5.3-flash", 2_383_429_663, 80m), Row("gpt-5.3-codex", 345_048_948, 90m)],
             [Row("Zearth", 784_282_344, 10m), Row("sven-net", 518_709_985, 5m)],
-            sessionCount: 764);
+            sessionCount: 764,
+            hourly: hourly,
+            hourlyCutoffHour: hourly is null ? null : 12);
 
         return new SharePosterViewModel(data);
     }
+
+    /// <summary>24 个小时桶的 fixture：token 与已知成本峰值都钉在 9 点（总览基底单日窗口的小时形态用）。</summary>
+    private static HourlyDistributionResult Hourly() => new()
+    {
+        Hours = Enumerable.Range(0, 24)
+            .Select(h => new HourlyUsageBucket
+            {
+                Hour = h,
+                TotalTokens = h == 9 ? 900 : h % 3,
+                SessionCount = h % 2,
+                Cost = new AggregatedCost(h == 9 ? 0.9m : 0.01m * h, false),
+            })
+            .ToArray(),
+    };
 
     private static Window Host(SharePosterView view) => new()
     {
@@ -310,12 +328,13 @@ public class SharePosterViewTests
         Assert.InRange(other / first, expectedOther / expectedFirst * 0.94, expectedOther / expectedFirst * 1.06);
     }
 
-    /// <summary>单日托盘 fixture：5 个 Agent / 4 个模型，验证 Top4 / Top3 截断与品牌标。</summary>
-    private static SharePosterViewModel TrayViewModel()
+    /// <summary>信息卡托盘 fixture：5 个 Agent / 4 个模型，验证 Top4 / Top3 截断与品牌标。</summary>
+    private static SharePosterViewModel TrayViewModel(bool singleDay = true)
     {
         var day = new DateOnly(2026, 10, 17);
         var request = new SharePosterRequest(
-            SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off, day, day);
+            SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off, day,
+            singleDay ? day : new DateOnly(2026, 11, 2), SharePosterStyle.Tray);
 
         var data = SharePosterSnapshot.Build(
             request,
@@ -335,7 +354,7 @@ public class SharePosterViewTests
     }
 
     [AvaloniaFact]
-    public void Single_day_window_renders_the_tray_base_instead_of_the_overview_grid()
+    public void Tray_style_renders_the_tray_base_instead_of_the_overview_grid()
     {
         var view = new SharePosterView { DataContext = TrayViewModel() };
         var window = Host(view);
@@ -344,7 +363,7 @@ public class SharePosterViewTests
         var tray = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TrayRoot");
         var overview = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PosterRoot");
 
-        // 单日 = 信息窗基底（设计 §3.1），总览栅格整体隐藏；导出取的是托盘根
+        // 信息卡样式 = 托盘基底（设计 §3.1），总览栅格整体隐藏；导出取的是托盘根
         Assert.True(tray.IsVisible);
         Assert.False(overview.IsVisible);
         Assert.Equal(SharePosterView.PortraitWidth, tray.Bounds.Width, 1);
@@ -357,6 +376,56 @@ public class SharePosterViewTests
         Assert.Equal(4, chips.Count(c => c.Classes.Contains("agent-chip")));
         Assert.Equal(3, chips.Count(c => c.Classes.Contains("model-chip")));
         Assert.Contains(chips, c => c.Classes.Contains("agent-zai"));
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Tray_style_renders_a_range_header_for_multi_day_windows()
+    {
+        // 样式与范围解耦后的新组合：多日范围 × 信息卡。版式选项被无视（托盘固定 1080 竖版），
+        // 头部日期行写范围而不是单日「日期 · 周几」。
+        var model = ViewModel(layout: SharePosterLayout.Landscape, style: SharePosterStyle.Tray);
+        var view = new SharePosterView { DataContext = model };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var tray = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TrayRoot");
+        Assert.True(view.IsTrayStyle);
+        Assert.True(tray.IsVisible);
+        Assert.Equal(SharePosterView.PortraitWidth, tray.Bounds.Width, 1);
+        Assert.Same(tray, view.PosterRootControl);
+
+        var date = view.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Classes.Contains("tray-date"));
+        Assert.Equal(model.TrayDateText, date.Text);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Overview_style_renders_the_grid_for_a_single_day_range_with_hourly_charts()
+    {
+        // 样式与范围解耦后的新组合：单日范围 × 总览基底。总览栅格照常渲染，
+        // 两张趋势图切小时形态（D-027 同源），且静态图的小时峰值仍有标注。
+        var view = new SharePosterView
+        {
+            DataContext = ViewModel(singleDay: true, style: SharePosterStyle.Overview, hourly: Hourly()),
+        };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var overview = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PosterRoot");
+        Assert.True(overview.IsVisible);
+        Assert.False(view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TrayRoot").IsVisible);
+        Assert.Equal(SharePosterView.PortraitWidth, overview.Bounds.Width, 1);
+        Assert.Same(overview, view.PosterRootControl);
+
+        var charts = view.GetVisualDescendants().OfType<TrendChart>().ToList();
+        Assert.Equal(2, charts.Count);
+        Assert.Contains(charts, c => c.Mode == TrendChartMode.HourlyTokens);
+        Assert.Contains(charts, c => c.Mode == TrendChartMode.HourlyCost);
+        Assert.All(charts, c => Assert.False(string.IsNullOrEmpty(c.PeakAnnotationText)));
 
         window.Close();
     }

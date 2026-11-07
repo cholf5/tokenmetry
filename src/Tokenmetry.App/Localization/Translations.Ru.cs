@@ -484,6 +484,9 @@ public sealed partial class Translations
         // ── Share poster ──
         [nameof(SharePosterTitle)] = "Постер для публикации",
         [nameof(SharePosterEntryTooltip)] = "Превратить текущие фильтры в постер, которым можно поделиться",
+        [nameof(SharePosterStyle)] = "Стиль",
+        [nameof(SharePosterStyleTray)] = "Инфокарточка",
+        [nameof(SharePosterStyleOverview)] = "Обзор",
         [nameof(SharePosterLayout)] = "Макет",
         [nameof(SharePosterLayoutPortrait)] = "Книжный",
         [nameof(SharePosterLayoutLandscape)] = "Альбомный",
@@ -510,9 +513,9 @@ public sealed partial class Translations
         [nameof(SharePosterDefaultMask)] = "Размытие по умолчанию",
         [nameof(SharePosterDayCountFormat)] = "дней с данными: {0}",
         [nameof(SharePosterCopyFailedFormat)] = "Не удалось скопировать: {0}",
-        [nameof(SharePosterSingleDayPortraitOnly)] = "Окно одного дня бывает только книжным: для альбомного пришлось бы перестроить поток информации.",
+        [nameof(SharePosterTrayPortraitOnly)] = "Стиль инфокарточки бывает только книжным: для альбомного пришлось бы перестроить поток информации.",
         [nameof(SharePosterTrayAgents)] = "Основные агенты",
         [nameof(SharePosterTrayModels)] = "Использование моделей",
-        [nameof(SharePosterTrayByTokens)] = "По токенам за сегодня",
+        [nameof(SharePosterTrayByTokens)] = "По токенам",
     };
 }
