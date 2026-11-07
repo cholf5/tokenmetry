@@ -188,22 +188,26 @@ public static class SharePosterHeatmap
     public const int BesideStatsColumnWidth = 300;
     public const int BesideStatsColumnSpacing = 24;
 
-    /// <summary>脚注与网格并排的最大周数：再长网格自己就占满 1800，脚注回到底部横排。
-    /// 由 52 + 周数×31（最小列宽）+ 140 + 300 + 24 ≤ 1800 解出。</summary>
+    /// <summary>脚注与网格并排的最大周数：再长网格自己就占满画布，脚注回到底部横排（档位边界，非预算推导值）。</summary>
     public const int MaxBesideWeeks = 41;
 
-    /// <summary>格子之外的画布占用：根内边距 104 + 卡内边距 36。</summary>
-    private const int CanvasChrome = 140;
+    /// <summary>卡片自身的内边距占用（poster-panel 18×2；页边距之外的固定 chrome）。</summary>
+    public const int CardChrome = 36;
 
-    /// <summary>星期标签列 + 列间距（网格的固定左槽）。</summary>
-    private const int WeekdayGutter = 52;
+    /// <summary>格子之外的画布占用：页边距 ×2 + 卡内边距。节律基底的画布宽也用它（同一 heat-root 基底）。</summary>
+    public static double CanvasChromeFor(double margin) =>
+        2 * Math.Clamp(margin, SharePosterRequest.MinMargin, SharePosterRequest.MaxMargin) + CardChrome;
+
+    /// <summary>星期标签列 + 列间距（网格的固定左槽；节律基底同宽）。</summary>
+    public const int WeekdayGutter = 52;
 
     private const int HeatGap = 4;
 
-    /// <summary>并排档的周列预算 / 底部横排档的周列预算（1800 减去各自脚注占用的余量）。</summary>
-    private const int BesideColumnBudget =
-        1800 - CanvasChrome - WeekdayGutter - BesideStatsColumnWidth - BesideStatsColumnSpacing;
-    private const int BelowColumnBudget = 1800 - CanvasChrome - WeekdayGutter;
+    /// <summary>并排档 / 底部横排档的周列预算（1800 减去各自脚注与 chrome 占用的余量）。</summary>
+    private static int BesideColumnBudget(double margin) =>
+        (int)(1800 - CanvasChromeFor(margin) - WeekdayGutter - BesideStatsColumnWidth - BesideStatsColumnSpacing);
+    private static int BelowColumnBudget(double margin) =>
+        (int)(1800 - CanvasChromeFor(margin) - WeekdayGutter);
 
     /// <summary>脚注三格是否搬进卡片与网格并排（窄/中范围；长范围网格占满 1800，脚注留在底部横排）。</summary>
     public static bool UseBesideStats(int weeks) => weeks <= MaxBesideWeeks;
@@ -212,23 +216,23 @@ public static class SharePosterHeatmap
     /// 每列槽宽（格 + 间隙）：按所在档位的预算收放——并排档封顶 60（格 56），长范围档在 52 周
     /// 收窄到基准 31（格 27，现状）。月份标签行与格子共用同一列宽，标签才对得上列。
     /// </summary>
-    public static int ColumnWidthFor(int weeks)
+    public static int ColumnWidthFor(int weeks, double margin = SharePosterRequest.DefaultMargin)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(weeks);
-        var budget = UseBesideStats(weeks) ? BesideColumnBudget : BelowColumnBudget;
+        var budget = UseBesideStats(weeks) ? BesideColumnBudget(margin) : BelowColumnBudget(margin);
         return Math.Clamp(budget / weeks, SharePosterView.HeatCellSize + HeatGap, MaxCellSize + HeatGap);
     }
 
     /// <summary>
     /// 热力海报画布宽：网格 + 固定占用，并排档再加脚注列，夹在 <see cref="MinCanvasWidth"/> 与
-    /// 1800 之间——窄范围宽度跟着内容走、高度被并排脚注压住，不再又窄又长；满 52 周精确回到现状。
+    /// 1800 之间——宽度跟着内容与页边距走（边距越大画布越宽），高度被并排脚注压住。
     /// </summary>
-    public static double CanvasWidthFor(int weeks)
+    public static double CanvasWidthFor(int weeks, double margin = SharePosterRequest.DefaultMargin)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(weeks);
-        var grid = WeekdayGutter + weeks * ColumnWidthFor(weeks);
+        var grid = WeekdayGutter + weeks * ColumnWidthFor(weeks, margin);
         var beside = UseBesideStats(weeks) ? BesideStatsColumnWidth + BesideStatsColumnSpacing : 0;
-        return Math.Clamp(grid + CanvasChrome + beside, MinCanvasWidth, SharePosterView.LandscapeWidth);
+        return Math.Clamp(grid + CanvasChromeFor(margin) + beside, MinCanvasWidth, SharePosterView.LandscapeWidth);
     }
 
     /// <summary>

@@ -564,6 +564,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterUpdating)] = "更新中…",
         [nameof(SharePosterUpdateFailedFormat)] = "数据刷新失败：{0}",
         [nameof(SharePosterStyleOptions)] = "海报选项",
+        [nameof(SharePosterMargin)] = "页边距",
     };
 
     private static readonly Dictionary<string, string> En = new()
@@ -1077,6 +1078,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterUpdating)] = "Updating…",
         [nameof(SharePosterUpdateFailedFormat)] = "Data refresh failed: {0}",
         [nameof(SharePosterStyleOptions)] = "Poster options",
+        [nameof(SharePosterMargin)] = "Page margin",
     };
 
     // ── D-024 新语种字典：字典体在 partial 分文件（Translations.ZhHant.cs 等）——字段声明
@@ -1445,6 +1447,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterThemeDark => Get();
     public string SharePosterThemeLight => Get();
     public string SharePosterMask => Get();
+    public string SharePosterMargin => Get();
     public string SharePosterMaskOff => Get();
     public string SharePosterMaskPartial => Get();
     public string SharePosterMaskFull => Get();

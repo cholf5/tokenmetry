@@ -92,7 +92,7 @@ public class SettingsViewModelTests
     [Fact]
     public void ApplySharePosterLastUsed_WritesStyleMemorySyncsCombosAndPersists()
     {
-        // 对话框选项即存的回写入口：样式记忆 + 三组默认档一起落到 settings.json，
+        // 对话框选项即存的回写入口：样式记忆 + 页边距 + 三组默认档一起落到 settings.json，
         // 设置页 ComboBox 的选中实例同步（否则页面停留在旧选择，与磁盘不一致）
         var settings = new AppSettings();
         var store = new FakeSettingsStore();
@@ -102,10 +102,13 @@ public class SettingsViewModelTests
             SharePosterStyle.Rhythm,
             SharePosterLayout.Landscape,
             SharePosterTheme.Dark,
-            SharePosterProjectMask.Partial);
+            SharePosterProjectMask.Partial,
+            margin: 36);
 
         settings.SharePosterStyle.Should().Be("rhythm");
         viewModel.DefaultSharePosterStyle.Should().Be(SharePosterStyle.Rhythm);
+        settings.SharePosterMargin.Should().Be(36);
+        viewModel.DefaultSharePosterMargin.Should().Be(36);
         settings.SharePosterLayout.Should().Be("landscape");
         settings.SharePosterTheme.Should().Be("dark");
         settings.SharePosterProjectMask.Should().Be("partial");

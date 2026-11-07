@@ -533,5 +533,6 @@ public sealed partial class Translations
         [nameof(SharePosterUpdating)] = "업데이트 중…",
         [nameof(SharePosterUpdateFailedFormat)] = "데이터 새로 고침 실패: {0}",
         [nameof(SharePosterStyleOptions)] = "포스터 옵션",
+        [nameof(SharePosterMargin)] = "여백",
     };
 }

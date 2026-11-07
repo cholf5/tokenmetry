@@ -12,12 +12,12 @@ using Tokenmetry.Core.Models;
 namespace Tokenmetry.App.ViewModels;
 
 /// <summary>
-/// 生成对话框的展示模型（P5 + 数据范围筛选）：持有四个海报选项（样式/版式/主题/雾化，任一变化
-/// 同步重排预览），并订阅与主窗口共享的 <see cref="FilterStateService"/>——对话框里改筛选 = 改全局
+/// 生成对话框的展示模型（P5 + 数据范围筛选）：持有五个海报选项（样式/版式/主题/雾化/页边距，
+/// 任一变化同步重排预览），并订阅与主窗口共享的 <see cref="FilterStateService"/>——对话框里改筛选 = 改全局
 /// （同一实例即双向同步，关窗后保留），防抖后经注入的 reload 委托按当前筛选重查一轮
 /// <see cref="SharePosterDataBundle"/>，数据到达前旧预览保留显示（stale-while-revalidate）。
 /// 范围不是选项：来自当前 Bundle（开窗首轮由外壳按当时筛选解析，之后随每轮重查更新）。
-/// 选项即存：四个选项任一实际变化都回调 <c>onChoiceChanged</c>（真实路径回写 settings.json，
+/// 选项即存：任一选项实际变化都回调 <c>onChoiceChanged</c>（真实路径回写 settings.json，
 /// 下次打开接着上次的选择）；构造期只赋起值，不触发回调。
 /// </summary>
 public sealed class SharePosterDialogViewModel : ViewModelBase
@@ -30,7 +30,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     private readonly Func<CancellationToken, Task<SharePosterDataBundle>>? _reload;
     private readonly Action<Func<Task>> _reloadScheduler;
     private readonly Func<string, ModelAvatarVisual?>? _modelIcons;
-    private readonly Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask>? _onChoiceChanged;
+    private readonly Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask, double>? _onChoiceChanged;
 
     /// <summary>当前数据轮（范围 + 快照输入的唯一真相）；重查成功后整轮替换。</summary>
     private SharePosterDataBundle _data;
@@ -39,6 +39,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     private SharePosterLayout _layout;
     private SharePosterTheme _theme;
     private SharePosterProjectMask _mask;
+    private double _margin;
 
     // —— 筛选重查编排：防抖 + 按代取消 + 过代丢弃 ——
 
@@ -64,11 +65,12 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         SharePosterLayout initialLayout,
         SharePosterTheme initialTheme,
         SharePosterProjectMask initialMask,
+        double initialMargin = SharePosterRequest.DefaultMargin,
         FilterStateService? filters = null,
         TimeRangePickerViewModel? timePicker = null,
         Func<CancellationToken, Task<SharePosterDataBundle>>? reload = null,
         Func<string, ModelAvatarVisual?>? modelIconResolver = null,
-        Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask>? onChoiceChanged = null,
+        Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask, double>? onChoiceChanged = null,
         Action<Func<Task>>? reloadScheduler = null)
     {
         ArgumentNullException.ThrowIfNull(initialData);
@@ -77,6 +79,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         _layout = initialLayout;
         _theme = initialTheme;
         _mask = initialMask;
+        _margin = Math.Clamp(initialMargin, SharePosterRequest.MinMargin, SharePosterRequest.MaxMargin);
         // 起值版式不在当前样式能力表内就收口（真实路径：单日范围缺省信息卡 + 设置默认横版），
         // 不让对话框一进来就展示一个"选项与版面不一致"的预览
         _layout = CoerceLayout(_style, _layout);
@@ -353,16 +356,39 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 页边距（上下左右同值的逻辑像素）：与样式/主题同级的纯版面选项——重排不重查。
+    /// 滑杆拖动会连续触发 setter，每次都整棵重建预览（预览是活视图，几十毫秒级），
+    /// 故滑杆按 4px 吸附限频；收口到请求允许范围。
+    /// </summary>
+    public double Margin
+    {
+        get => _margin;
+        set
+        {
+            var next = Math.Clamp(value, SharePosterRequest.MinMargin, SharePosterRequest.MaxMargin);
+            if (SetProperty(ref _margin, next))
+            {
+                OnPropertyChanged(nameof(MarginText));
+                Refresh();
+                NotifyChoiceChanged();
+            }
+        }
+    }
+
+    /// <summary>页边距的数值展示（"28 px"，语言无关）。</summary>
+    public string MarginText => $"{_margin:0} px";
+
     /// <summary>当前选项 + 当前数据轮的范围对应的请求（导出时用它生成文件名）。</summary>
     public SharePosterRequest CurrentRequest =>
-        new(_layout, _theme, _mask, _data.RangeStart, _data.RangeEnd, _style);
+        new(_layout, _theme, _mask, _data.RangeStart, _data.RangeEnd, _style, _margin);
 
     private SharePosterViewModel Build() => new(_data.Compose(CurrentRequest), _modelIcons);
 
-    /// <summary>四个选项任一实际变化后通知持有方（真实路径回写 settings.json——上次使用即下次默认）。
+    /// <summary>选项任一实际变化后通知持有方（真实路径回写 settings.json——上次使用即下次默认）。
     /// 每组各报一次（样式切换连带版式收口时报两条）是可接受的幂等冗余；收口不改值时不报。</summary>
     private void NotifyChoiceChanged() =>
-        _onChoiceChanged?.Invoke(_style, _layout, _theme, _mask);
+        _onChoiceChanged?.Invoke(_style, _layout, _theme, _mask, _margin);
 
     private void Refresh()
     {

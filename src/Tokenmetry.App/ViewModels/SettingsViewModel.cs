@@ -449,18 +449,24 @@ public partial class SettingsViewModel : ViewModelBase
     public SharePosterStyle? DefaultSharePosterStyle =>
         SharePosterOptions.ParseStyleOrNull(_settings.SharePosterStyle);
 
+    /// <summary>生成对话框的默认页边距（上次拖的值，选项即存；越界值收口，设置页无编辑入口）。</summary>
+    public double DefaultSharePosterMargin =>
+        Math.Clamp(_settings.SharePosterMargin, SharePosterRequest.MinMargin, SharePosterRequest.MaxMargin);
+
     /// <summary>
-    /// 生成对话框的选项即存（对话框里改样式/版式/主题/雾化都回写默认档——上次使用即下次默认，
+    /// 生成对话框的选项即存（对话框里改样式/版式/主题/雾化/页边距都回写默认档——上次使用即下次默认，
     /// 设置页的三组 ComboBox 与之同步）。版式/主题/雾化走既有 setter：顺带发通知、幂等时短路；
-    /// 样式设置页无编辑入口，单独写字段。最后统一落盘一次。
+    /// 样式/页边距设置页无编辑入口，单独写字段。最后统一落盘一次。
     /// </summary>
     public void ApplySharePosterLastUsed(
         SharePosterStyle style,
         SharePosterLayout layout,
         SharePosterTheme theme,
-        SharePosterProjectMask mask)
+        SharePosterProjectMask mask,
+        double margin)
     {
         _settings.SharePosterStyle = SharePosterOptions.KeyOf(style);
+        _settings.SharePosterMargin = Math.Clamp(margin, SharePosterRequest.MinMargin, SharePosterRequest.MaxMargin);
         SharePosterLayoutOption = SharePosterOptions.ForLayout(layout);
         SharePosterThemeOption = SharePosterOptions.ForTheme(theme);
         SharePosterMaskOption = SharePosterOptions.ForMask(mask);
