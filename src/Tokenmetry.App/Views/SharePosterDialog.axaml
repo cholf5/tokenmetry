@@ -4,12 +4,14 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:Tokenmetry.App.ViewModels"
         xmlns:v="using:Tokenmetry.App.Views"
+        xmlns:c="using:Tokenmetry.App.Controls"
+        xmlns:svc="using:Tokenmetry.App.Services"
         xmlns:loc="using:Tokenmetry.App.Localization"
         mc:Ignorable="d"
         x:Class="Tokenmetry.App.Views.SharePosterDialog"
         x:DataType="vm:SharePosterDialogViewModel"
         Title="{Binding SharePosterTitle, Source={x:Static loc:Translations.Instance}}"
-        Width="1100" Height="920"
+        Width="1100" Height="960"
         WindowStartupLocation="CenterOwner">
 
     <Window.Styles>
@@ -50,10 +52,74 @@
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-        <!-- 选项：四组「标签 + 芯片」在 WrapPanel 里自动换行——样式组扩到 5 个芯片后，
-             定宽窗口装不下单行八列（德/法语长标签尤甚），分组换行让任何语言都不裁切。 -->
         <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,16">
             <TextBlock Classes="page-title" Text="{Binding SharePosterTitle, Source={x:Static loc:Translations.Instance}}"/>
+
+            <!-- 数据范围（P6）：与主窗口顶栏共享同一 FilterStateService——这里改 = 改全局，
+                 关窗后保留（海报永远印「当前筛选下的这个视图」，同一口径）；时间范围复用 D-020
+                 选择器（档位/预设/自定义日期都在弹层里）。重查期间旧预览保留显示（更新中提示）。-->
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="setting-label" TextWrapping="Wrap"
+                               Text="{Binding SharePosterDataScope, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="setting-hint" IsVisible="{Binding IsUpdating}"
+                               Text="{Binding SharePosterUpdating, Source={x:Static loc:Translations.Instance}}"/>
+                </Grid>
+                <WrapPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,22,4">
+                        <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                                   Text="{Binding TopbarTimeRange, Source={x:Static loc:Translations.Instance}}"/>
+                        <c:TimeRangePicker DataContext="{Binding TimePicker}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,22,4">
+                        <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                                   Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
+                        <ComboBox MinWidth="130"
+                                  ItemsSource="{Binding Filters.AgentOptions}"
+                                  SelectedItem="{Binding Filters.Agent, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="svc:AgentOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,22,4">
+                        <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                                   Text="{Binding TopbarModel, Source={x:Static loc:Translations.Instance}}"/>
+                        <ComboBox MinWidth="124"
+                                  ItemsSource="{Binding Filters.ModelOptions}"
+                                  SelectedItem="{Binding Filters.Model, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="svc:ModelFilterOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+                        <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                                   Text="{Binding TopbarProject, Source={x:Static loc:Translations.Instance}}"/>
+                        <ComboBox MinWidth="130"
+                                  ItemsSource="{Binding Filters.ProjectOptions}"
+                                  SelectedItem="{Binding Filters.Project, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="svc:ProjectFilterOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                </WrapPanel>
+                <!-- 重查失败就地显示（连续改筛选会连续失败，toast 会轰炸）；旧预览保留可导出 -->
+                <TextBlock Classes="setting-hint" TextWrapping="Wrap" IsVisible="{Binding HasReloadError}"
+                           Text="{Binding ReloadError}"/>
+            </StackPanel>
+
+            <!-- 海报选项：四组「标签 + 芯片」在 WrapPanel 里自动换行——样式组扩到 5 个芯片后，
+                 定宽窗口装不下单行八列（德/法语长标签尤甚），分组换行让任何语言都不裁切。 -->
+            <TextBlock Classes="setting-label"
+                       Text="{Binding SharePosterStyleOptions, Source={x:Static loc:Translations.Instance}}"/>
             <WrapPanel>
                 <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,26,8">
                     <TextBlock Classes="setting-label" VerticalAlignment="Center"

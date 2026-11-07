@@ -528,5 +528,9 @@ public sealed partial class Translations
         [nameof(SharePosterTrayAgents)] = "Agents principaux",
         [nameof(SharePosterTrayModels)] = "Usage des modèles",
         [nameof(SharePosterTrayByTokens)] = "Par tokens",
+        [nameof(SharePosterDataScope)] = "Plage de données (les modifications sont synchronisées avec les filtres de la fenêtre principale)",
+        [nameof(SharePosterUpdating)] = "Mise à jour…",
+        [nameof(SharePosterUpdateFailedFormat)] = "Échec de l'actualisation des données : {0}",
+        [nameof(SharePosterStyleOptions)] = "Options de l'affiche",
     };
 }

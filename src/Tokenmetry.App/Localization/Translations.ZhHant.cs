@@ -528,5 +528,9 @@ public sealed partial class Translations
         [nameof(SharePosterTrayAgents)] = "主要 Agent",
         [nameof(SharePosterTrayModels)] = "模型用量",
         [nameof(SharePosterTrayByTokens)] = "按 Token",
+        [nameof(SharePosterDataScope)] = "資料範圍（變更同步到主視窗篩選）",
+        [nameof(SharePosterUpdating)] = "更新中…",
+        [nameof(SharePosterUpdateFailedFormat)] = "資料重新整理失敗：{0}",
+        [nameof(SharePosterStyleOptions)] = "海報選項",
     };
 }

@@ -559,6 +559,10 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterTrayAgents)] = "主要 Agent",
         [nameof(SharePosterTrayModels)] = "模型用量",
         [nameof(SharePosterTrayByTokens)] = "按 Token",
+        [nameof(SharePosterDataScope)] = "数据范围（改动同步到主窗口筛选）",
+        [nameof(SharePosterUpdating)] = "更新中…",
+        [nameof(SharePosterUpdateFailedFormat)] = "数据刷新失败：{0}",
+        [nameof(SharePosterStyleOptions)] = "海报选项",
     };
 
     private static readonly Dictionary<string, string> En = new()
@@ -1067,6 +1071,10 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterTrayAgents)] = "Top agents",
         [nameof(SharePosterTrayModels)] = "Model usage",
         [nameof(SharePosterTrayByTokens)] = "By tokens",
+        [nameof(SharePosterDataScope)] = "Data range (changes sync to the main window filters)",
+        [nameof(SharePosterUpdating)] = "Updating…",
+        [nameof(SharePosterUpdateFailedFormat)] = "Data refresh failed: {0}",
+        [nameof(SharePosterStyleOptions)] = "Poster options",
     };
 
     // ── D-024 新语种字典：字典体在 partial 分文件（Translations.ZhHant.cs 等）——字段声明
@@ -1460,6 +1468,10 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterTrayAgents => Get();
     public string SharePosterTrayModels => Get();
     public string SharePosterTrayByTokens => Get();
+    public string SharePosterDataScope => Get();
+    public string SharePosterUpdating => Get();
+    public string SharePosterUpdateFailedFormat => Get();
+    public string SharePosterStyleOptions => Get();
     public string SharePosterDayCountFormat => Get();
     public string SharePosterCopyFailedFormat => Get();
     public string SharePosterSettingsTitle => Get();

@@ -66,6 +66,9 @@ public partial class SharePosterDialog : Window
                 e.Handled = true;
             }
         };
+        // 关窗解绑：VM 订阅了与应用同生命周期的 FilterStateService（数据范围筛选回写），
+        // 不退订会把整棵 VM 连同海报预览钉在进程里
+        Closed += (_, _) => ViewModel?.Detach();
 
         // 缩放手势挂在 ScrollViewer 上（海报内容的滚轮/双击都冒泡到这里）。TrendChart 已禁
         // AvaPlot 输入并放行滚轮，但这里用 handledEventsToo 兜底：预览里没有任何子元素该吃掉
