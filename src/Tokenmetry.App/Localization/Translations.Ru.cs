@@ -96,6 +96,7 @@ public sealed partial class Translations
         [nameof(TimePresetErrorLimit)] = "Пресетов — не больше {0}",
         [nameof(TimePresetErrorDuplicate)] = "Повтор существующего диапазона",
         [nameof(AllAgents)] = "Все агенты",
+        [nameof(AllDevices)] = "Все устройства",
         [nameof(AllModels)] = "Все модели",
         [nameof(AllProjects)] = "Все проекты",
 

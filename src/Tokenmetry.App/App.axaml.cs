@@ -167,6 +167,11 @@ public partial class App : Application
             // 赋值顺序。
             DependencyInjection.AppServices.Get<BackgroundRefreshWiring>().Attach(dashboard, mainWindowViewModel);
             refreshService.Start();
+            // 跨设备同步（relay 设计 §4.6）：启动装载本机设备 id/名字、按设置恢复同步（开启中后台首轮）；
+            // Changed 事件在 AppServices 内已接线到全局筛选（A12 强制本机 / U5 设备下拉）。退出停定时器。
+            var syncStateService = DependencyInjection.AppServices.Get<Services.SyncStateService>();
+            _ = syncStateService.InitializeAsync();
+            desktop.Exit += (_, _) => syncStateService.Dispose();
             // A-0：真正退出（托盘「退出」/ OS 会话结束）经生命周期正常收尾——Exit 在两种
             // shutdown 路径都会触发，此处停掉后台刷新定时器（替代此前 Environment.Exit 的跳过）。
             desktop.Exit += (_, _) => refreshService.Stop();

@@ -94,6 +94,7 @@ public sealed partial class Translations
         [nameof(TimePresetErrorLimit)] = "{0} préréglages au maximum",
         [nameof(TimePresetErrorDuplicate)] = "Doublon d'une plage existante",
         [nameof(AllAgents)] = "Tous les agents",
+        [nameof(AllDevices)] = "Tous les appareils",
         [nameof(AllModels)] = "Tous les modèles",
         [nameof(AllProjects)] = "Tous les projets",
 

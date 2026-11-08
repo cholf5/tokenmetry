@@ -94,6 +94,7 @@ public sealed partial class Translations
         [nameof(TimePresetErrorLimit)] = "프리셋은 최대 {0}개",
         [nameof(TimePresetErrorDuplicate)] = "기존 프리셋과 중복됩니다",
         [nameof(AllAgents)] = "모든 에이전트",
+        [nameof(AllDevices)] = "모든 기기",
         [nameof(AllModels)] = "모든 모델",
         [nameof(AllProjects)] = "모든 프로젝트",
 

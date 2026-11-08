@@ -94,6 +94,7 @@ public sealed partial class Translations
         [nameof(TimePresetErrorLimit)] = "預設最多 {0} 個",
         [nameof(TimePresetErrorDuplicate)] = "與既有檔位重複",
         [nameof(AllAgents)] = "所有 Agent",
+        [nameof(AllDevices)] = "全部裝置",
         [nameof(AllModels)] = "全部模型",
         [nameof(AllProjects)] = "全部專案",
 
