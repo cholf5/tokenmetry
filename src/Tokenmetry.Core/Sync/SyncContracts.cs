@@ -11,12 +11,16 @@ public sealed record SyncPushRequest(
     IReadOnlyList<Models.UsageFact> UsageFacts,
     IReadOnlyList<Models.SessionFact> SessionFacts);
 
-/// <summary>pull 响应：账号内其他设备的行增量（seq 之后）、全设备清单与当前 seq。</summary>
+/// <summary>
+/// pull 响应：账号内其他设备的行增量（seq 之后）、全设备清单与当前 seq。
+/// hasMore = 服务器还有超出本批（行数上限）的增量，客户端须以响应 Seq 续拉。
+/// </summary>
 public sealed record SyncPullResponse(
     long Seq,
     IReadOnlyList<Models.UsageFact> UsageFacts,
     IReadOnlyList<Models.SessionFact> SessionFacts,
-    IReadOnlyList<SyncDeviceInfo> Devices);
+    IReadOnlyList<SyncDeviceInfo> Devices,
+    bool HasMore = false);
 
 /// <summary>设备清单响应（GET /api/devices）。</summary>
 public sealed record SyncDeviceListResponse(IReadOnlyList<SyncDeviceInfo> Devices);

@@ -1,10 +1,11 @@
 using Tokenmetry.Relay;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSingleton(new RelayDatabase(
+    Environment.GetEnvironmentVariable("TOKENMETRY_RELAY_DB") ?? "relay.db"));
 var app = builder.Build();
 
-var database = new RelayDatabase(
-    Environment.GetEnvironmentVariable("TOKENMETRY_RELAY_DB") ?? "relay.db");
+var database = app.Services.GetRequiredService<RelayDatabase>();
 await database.EnsureCreatedAsync();
 
 // 单租户自举（A15）：env token 非空 = 自建模式（唯一账号）；缺失 = 官方多租户模式（仅 GitHub OAuth）。
@@ -48,6 +49,8 @@ app.MapGet("/api/me", (HttpContext context) =>
     var account = (RelayAccount)context.Items[RelayAuth.AccountItemKey]!;
     return Results.Ok(new { id = account.Id, kind = account.Kind, displayName = account.DisplayName });
 });
+
+app.MapSyncEndpoints();
 
 // TODO(v1 上线项)：HTTPS 不在此强制（自建允许 http://，设计 A15；文档警示明文风险，
 // 反代终结 TLS 是部署责任）。
