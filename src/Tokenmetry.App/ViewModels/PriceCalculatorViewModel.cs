@@ -24,6 +24,9 @@ public sealed record PriceCalculatorModelOption
 
     public bool HasPrice => Definition.HasPrice;
 
+    /// <summary>下拉行的厂商头像视觉（官方 logo / 字母 / 色块 / 上传图，与统计页同源同机制）。</summary>
+    public ModelAvatarVisual Avatar => ModelAvatarVisual.FromDefinition(Definition, DisplayLabel);
+
     public override string ToString() => DisplayLabel;
 }
 
@@ -74,7 +77,9 @@ public sealed partial class PriceCalculatorViewModel : ObservableObject
 
     // ── 计算结果（Recompute 整体重算 + 手动 raise；字符串随语言切换重建）──
     private bool _hasUnitPrices;
-    private string _unitPricesText = string.Empty;
+    private string _inputPriceText = string.Empty;
+    private string _cacheReadPriceText = string.Empty;
+    private string _outputPriceText = string.Empty;
     private bool _hasResult;
     private string _freshInputDetailText = string.Empty;
     private string _cacheReadDetailText = string.Empty;
@@ -120,7 +125,9 @@ public sealed partial class PriceCalculatorViewModel : ObservableObject
     }
 
     public bool HasUnitPrices => _hasUnitPrices;
-    public string UnitPricesText => _unitPricesText;
+    public string InputPriceText => _inputPriceText;
+    public string CacheReadPriceText => _cacheReadPriceText;
+    public string OutputPriceText => _outputPriceText;
     public bool HasResult => _hasResult;
     public string FreshInputDetailText => _freshInputDetailText;
     public string CacheReadDetailText => _cacheReadDetailText;
@@ -218,6 +225,9 @@ public sealed partial class PriceCalculatorViewModel : ObservableObject
 
         _hasUnitPrices = entry is not null && !parseError;
         _hasResult = false;
+        _inputPriceText = string.Empty;
+        _cacheReadPriceText = string.Empty;
+        _outputPriceText = string.Empty;
         _freshInputDetailText = string.Empty;
         _cacheReadDetailText = string.Empty;
         _outputDetailText = string.Empty;
@@ -229,6 +239,10 @@ public sealed partial class PriceCalculatorViewModel : ObservableObject
 
         if (entry is not null && !parseError)
         {
+            _inputPriceText = UsdCostFormatter.FormatPerMillion(entry.InputPerMillion);
+            _cacheReadPriceText = UsdCostFormatter.FormatPerMillion(entry.CacheReadPerMillion);
+            _outputPriceText = UsdCostFormatter.FormatPerMillion(entry.OutputPerMillion);
+
             var estimate = ModelCostCalculator.Calculate(entry, input, hitRate, output, modelId);
             _hasResult = true;
             _freshInputDetailText = DetailText(estimate.FreshInputTokens, entry.InputPerMillion);
@@ -241,13 +255,6 @@ public sealed partial class PriceCalculatorViewModel : ObservableObject
             _blendedCostText = UsdCostFormatter.FormatPerMillion(estimate.BlendedPerMillionUsd);
         }
 
-        _unitPricesText = entry is null
-            ? string.Empty
-            : string.Format(
-                Translations.Instance.PriceCalculatorUnitPricesFormat,
-                UsdCostFormatter.FormatPerMillion(entry.InputPerMillion),
-                UsdCostFormatter.FormatPerMillion(entry.CacheReadPerMillion),
-                UsdCostFormatter.FormatPerMillion(entry.OutputPerMillion));
         _hintText = hint;
 
         RaiseResultChanged();
@@ -320,7 +327,9 @@ public sealed partial class PriceCalculatorViewModel : ObservableObject
     private void RaiseResultChanged()
     {
         OnPropertyChanged(nameof(HasUnitPrices));
-        OnPropertyChanged(nameof(UnitPricesText));
+        OnPropertyChanged(nameof(InputPriceText));
+        OnPropertyChanged(nameof(CacheReadPriceText));
+        OnPropertyChanged(nameof(OutputPriceText));
         OnPropertyChanged(nameof(HasResult));
         OnPropertyChanged(nameof(FreshInputDetailText));
         OnPropertyChanged(nameof(CacheReadDetailText));

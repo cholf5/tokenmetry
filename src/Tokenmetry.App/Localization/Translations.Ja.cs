@@ -550,7 +550,7 @@ public sealed partial class Translations
         [nameof(PriceCalculatorTitle)] = "モデル料金計算ツール",
         [nameof(PriceCalculatorModelLabel)] = "モデル",
         [nameof(PriceCalculatorModelWatermark)] = "キーワードで絞り込み（例: glm-5.3-flash）",
-        [nameof(PriceCalculatorUnitPricesFormat)] = "単価 入力 {0} · キャッシュ読み {1} · 出力 {2}（USD / 100万トークン）",
+        [nameof(PriceCalculatorPerMillionNote)] = "USD / 100万トークン",
         [nameof(PriceCalculatorManualPrices)] = "単価を手動入力（USD / 100万トークン）",
         [nameof(PriceCalculatorManualInput)] = "入力",
         [nameof(PriceCalculatorManualCacheRead)] = "キャッシュ読み",

@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:Tokenmetry.App.ViewModels"
         xmlns:loc="using:Tokenmetry.App.Localization"
+        xmlns:c="using:Tokenmetry.App.Controls"
         mc:Ignorable="d"
         x:Class="Tokenmetry.App.Views.PriceCalculatorWindow"
         x:DataType="vm:PriceCalculatorViewModel"
@@ -15,8 +16,49 @@
         ShowInTaskbar="True">
 
     <!-- I-CALC 模型计价器（独立工具窗口）：选模型 + 填用量 → 实时出费用。
-         与主窗口统计页零共享状态（无 FilterStateService），只读共享模型目录。 -->
-    <StackPanel Margin="20" Spacing="14">
+         与主窗口统计页零共享状态（无 FilterStateService），只读共享模型目录。
+         布局纪律（2026-11-08 重设计）：三列输入一律等宽三分栏、标签恒在字段上方
+         （旧版中列 96px 定宽使标签折行、文本框下沉）；单价从会折行的「·」连接句改为
+         三格单价条；费用明细是全窗唯一的卡片（账单即主角），行首语义圆点复用
+         AppTokenType*（与总览环形图同编码），全部金额 tnum 且共享同一条右缘。 -->
+    <Window.Styles>
+        <!-- 窗体私有样式：色值一律 DynamicResource 取令牌，不得硬编码（设计令牌纪律） -->
+        <Style Selector="TextBlock.stat-value">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+            <Setter Property="TextElement.FontFeatures" Value="tnum"/>
+        </Style>
+        <Style Selector="TextBlock.stat-note">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.receipt-detail">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+            <Setter Property="TextElement.FontFeatures" Value="tnum"/>
+        </Style>
+        <Style Selector="TextBlock.receipt-cost">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+            <Setter Property="TextElement.FontFeatures" Value="tnum"/>
+        </Style>
+        <Style Selector="TextBlock.receipt-total-value">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-0.4"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+            <Setter Property="TextElement.FontFeatures" Value="tnum"/>
+        </Style>
+        <Style Selector="TextBlock.receipt-blended">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+            <Setter Property="TextElement.FontFeatures" Value="tnum"/>
+        </Style>
+    </Window.Styles>
+
+    <StackPanel Margin="20" Spacing="12">
 
         <!-- ── 模型选择 ── -->
         <StackPanel Spacing="6">
@@ -32,47 +74,98 @@
                              PlaceholderText="{Binding PriceCalculatorModelWatermark, Source={x:Static loc:Translations.Instance}}">
                 <AutoCompleteBox.ItemTemplate>
                     <DataTemplate DataType="vm:PriceCalculatorModelOption">
-                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                            <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding Vendor}"
-                                       Foreground="{DynamicResource AppMutedTextBrush}" Margin="12,0,0,0"/>
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,2">
+                            <!-- 厂商头像槽：官方 logo / 字母 / 色块 / 上传图四层，与统计页 model-chip 同机制 -->
+                            <Border Grid.Column="0" Classes="model-chip" VerticalAlignment="Center"
+                                    c:ModelChip.Avatar="{Binding Avatar}">
+                                <Panel>
+                                    <TextBlock Text="{Binding Avatar.GlyphText}"/>
+                                    <Image Classes="model-logo"/>
+                                    <Image Classes="model-avatar"
+                                           Source="{Binding Avatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
+                                    <PathIcon Classes="app-icon model-fallback"
+                                              Data="{StaticResource AppIconCircleHelp}"/>
+                                </Panel>
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="{Binding DisplayLabel}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="2" Text="{Binding Vendor}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AppMutedTextBrush}"/>
                         </Grid>
                     </DataTemplate>
                 </AutoCompleteBox.ItemTemplate>
             </AutoCompleteBox>
-            <TextBlock IsVisible="{Binding HasUnitPrices}"
-                       Text="{Binding UnitPricesText}"
-                       TextWrapping="Wrap"
-                       Foreground="{DynamicResource AppMutedTextBrush}"/>
         </StackPanel>
 
-        <!-- ── 手动填价（快照里没有的模型兜底）── -->
+        <!-- ── 单价条（选中模型的目录价；手动模式下由下方手动区接管）── -->
+        <Border Background="{DynamicResource AppPanelAltBrush}"
+                CornerRadius="8"
+                Padding="12,9"
+                IsVisible="{Binding HasUnitPrices}">
+            <Grid ColumnDefinitions="*,*,*,Auto">
+                <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Classes="table-th"
+                               Text="{Binding PriceCalculatorManualInput, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="stat-value" Text="{Binding InputPriceText}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock Classes="table-th"
+                               Text="{Binding PriceCalculatorManualCacheRead, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="stat-value" Text="{Binding CacheReadPriceText}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="2">
+                    <TextBlock Classes="table-th"
+                               Text="{Binding PriceCalculatorManualOutput, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="stat-value" Text="{Binding OutputPriceText}"/>
+                </StackPanel>
+                <TextBlock Grid.Column="3" Classes="stat-note" Margin="12,0,0,0" VerticalAlignment="Center"
+                           Text="{Binding PriceCalculatorPerMillionNote, Source={x:Static loc:Translations.Instance}}"/>
+            </Grid>
+        </Border>
+
+        <!-- ── 手动填价（快照里没有的模型兜底）：与用量输入同款三分栏，标签恒在字段上方 ── -->
         <CheckBox Content="{Binding PriceCalculatorManualPrices, Source={x:Static loc:Translations.Instance}}"
                   IsChecked="{Binding ManualPrices, Mode=TwoWay}"/>
-        <Grid ColumnDefinitions="Auto,*,16,Auto,*,16,Auto,*" IsVisible="{Binding ManualPrices}">
-            <TextBlock Grid.Column="0" Classes="setting-label" VerticalAlignment="Center"
-                       Text="{Binding PriceCalculatorManualInput, Source={x:Static loc:Translations.Instance}}"/>
-            <TextBox Grid.Column="1" PlaceholderText="{Binding PriceCalculatorManualRequired, Source={x:Static loc:Translations.Instance}}"
-                     Text="{Binding ManualInputPriceText, Mode=TwoWay}"/>
-            <TextBlock Grid.Column="3" Classes="setting-label" VerticalAlignment="Center"
-                       Text="{Binding PriceCalculatorManualCacheRead, Source={x:Static loc:Translations.Instance}}"/>
-            <TextBox Grid.Column="4" PlaceholderText="{Binding PriceCalculatorManualOptional, Source={x:Static loc:Translations.Instance}}"
-                     Text="{Binding ManualCacheReadPriceText, Mode=TwoWay}"/>
-            <TextBlock Grid.Column="6" Classes="setting-label" VerticalAlignment="Center"
-                       Text="{Binding PriceCalculatorManualOutput, Source={x:Static loc:Translations.Instance}}"/>
-            <TextBox Grid.Column="7" PlaceholderText="{Binding PriceCalculatorManualRequired, Source={x:Static loc:Translations.Instance}}"
-                     Text="{Binding ManualOutputPriceText, Mode=TwoWay}"/>
-        </Grid>
+        <Border Background="{DynamicResource AppPanelAltBrush}"
+                CornerRadius="8"
+                Padding="12"
+                IsVisible="{Binding ManualPrices}">
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                    <StackPanel Grid.Column="0" Spacing="6">
+                        <TextBlock Classes="setting-label"
+                                   Text="{Binding PriceCalculatorManualInput, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBox PlaceholderText="{Binding PriceCalculatorManualRequired, Source={x:Static loc:Translations.Instance}}"
+                                 Text="{Binding ManualInputPriceText, Mode=TwoWay}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="6">
+                        <TextBlock Classes="setting-label"
+                                   Text="{Binding PriceCalculatorManualCacheRead, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBox Text="{Binding ManualCacheReadPriceText, Mode=TwoWay}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="6">
+                        <TextBlock Classes="setting-label"
+                                   Text="{Binding PriceCalculatorManualOutput, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBox PlaceholderText="{Binding PriceCalculatorManualRequired, Source={x:Static loc:Translations.Instance}}"
+                                 Text="{Binding ManualOutputPriceText, Mode=TwoWay}"/>
+                    </StackPanel>
+                </Grid>
+                <!-- 缓存读可空的规则说明放提示行（旧版塞在选填框水印里，三分栏下必然截断） -->
+                <TextBlock Classes="setting-hint"
+                           Text="{Binding PriceCalculatorManualOptional, Source={x:Static loc:Translations.Instance}}"/>
+            </StackPanel>
+        </Border>
 
-        <!-- ── 用量输入 ── -->
-        <Grid ColumnDefinitions="*,96,*" IsVisible="True">
-            <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,12,0">
+        <!-- ── 用量输入：等宽三分栏（旧版中列 96px 定宽迫使标签折行、文本框错位）── -->
+        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+            <StackPanel Grid.Column="0" Spacing="6">
                 <TextBlock Classes="setting-label"
                            Text="{Binding PriceCalculatorInputTokens, Source={x:Static loc:Translations.Instance}}"/>
                 <TextBox PlaceholderText="{Binding PriceCalculatorInputWatermark, Source={x:Static loc:Translations.Instance}}"
                          Text="{Binding InputTokensText, Mode=TwoWay}"/>
             </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="6" Margin="0,0,12,0">
+            <StackPanel Grid.Column="1" Spacing="6">
                 <TextBlock Classes="setting-label"
                            Text="{Binding PriceCalculatorCacheHitRate, Source={x:Static loc:Translations.Instance}}"/>
                 <TextBox PlaceholderText="{Binding PriceCalculatorRateWatermark, Source={x:Static loc:Translations.Instance}}"
@@ -86,51 +179,58 @@
             </StackPanel>
         </Grid>
 
-        <!-- ── 费用明细（实时重算）── -->
+        <!-- ── 费用明细（实时重算；全窗唯一卡片 = 账单即主角）── -->
         <Border Classes="panel" Padding="16" IsVisible="{Binding HasResult}">
-            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
-                <Grid.Styles>
-                    <Style Selector="TextBlock.cost-label">
-                        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
-                    </Style>
-                    <Style Selector="TextBlock.cost-detail">
-                        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
-                        <Setter Property="HorizontalAlignment" Value="Right"/>
-                        <Setter Property="Margin" Value="0,0,12,0"/>
-                    </Style>
-                    <Style Selector="TextBlock.cost-value">
-                        <Setter Property="HorizontalAlignment" Value="Right"/>
-                    </Style>
-                </Grid.Styles>
-
-                <TextBlock Grid.Row="0" Grid.ColumnSpan="3" Classes="panel-title" Margin="0,0,0,10"
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Row="0" Classes="panel-title" Margin="0,0,0,8"
                            Text="{Binding PriceCalculatorBreakdownTitle, Source={x:Static loc:Translations.Instance}}"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Classes="cost-label"
-                           Text="{Binding PriceCalculatorCacheRead, Source={x:Static loc:Translations.Instance}}"/>
-                <TextBlock Grid.Row="1" Grid.Column="1" Classes="cost-detail" Text="{Binding CacheReadDetailText}"/>
-                <TextBlock Grid.Row="1" Grid.Column="2" Classes="cost-value" Text="{Binding CacheReadCostText}"/>
+                <!-- 行首语义圆点 = AppTokenType*（与总览 Token 构成环形图同编码：缓存读=绿/未命中=蓝/输出=紫） -->
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,5">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                        <Border Classes="series-dot" VerticalAlignment="Center"
+                                Background="{DynamicResource AppTokenTypeCacheBrush}"/>
+                        <TextBlock FontSize="12"
+                                   Text="{Binding PriceCalculatorCacheRead, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Classes="receipt-detail" Text="{Binding CacheReadDetailText}"/>
+                    <TextBlock Grid.Column="2" Classes="receipt-cost" Text="{Binding CacheReadCostText}"/>
+                </Grid>
+                <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,5">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                        <Border Classes="series-dot" VerticalAlignment="Center"
+                                Background="{DynamicResource AppTokenTypeInputBrush}"/>
+                        <TextBlock FontSize="12"
+                                   Text="{Binding PriceCalculatorFreshInput, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Classes="receipt-detail" Text="{Binding FreshInputDetailText}"/>
+                    <TextBlock Grid.Column="2" Classes="receipt-cost" Text="{Binding FreshInputCostText}"/>
+                </Grid>
+                <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,5">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                        <Border Classes="series-dot" VerticalAlignment="Center"
+                                Background="{DynamicResource AppTokenTypeOutputBrush}"/>
+                        <TextBlock FontSize="12"
+                                   Text="{Binding PriceCalculatorOutput, Source={x:Static loc:Translations.Instance}}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Classes="receipt-detail" Text="{Binding OutputDetailText}"/>
+                    <TextBlock Grid.Column="2" Classes="receipt-cost" Text="{Binding OutputCostText}"/>
+                </Grid>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Classes="cost-label"
-                           Text="{Binding PriceCalculatorFreshInput, Source={x:Static loc:Translations.Instance}}"/>
-                <TextBlock Grid.Row="2" Grid.Column="1" Classes="cost-detail" Text="{Binding FreshInputDetailText}"/>
-                <TextBlock Grid.Row="2" Grid.Column="2" Classes="cost-value" Text="{Binding FreshInputCostText}"/>
+                <Separator Grid.Row="4" Margin="0,10"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Classes="cost-label"
-                           Text="{Binding PriceCalculatorOutput, Source={x:Static loc:Translations.Instance}}"/>
-                <TextBlock Grid.Row="3" Grid.Column="1" Classes="cost-detail" Text="{Binding OutputDetailText}"/>
-                <TextBlock Grid.Row="3" Grid.Column="2" Classes="cost-value" Text="{Binding OutputCostText}"/>
-
-                <Separator Grid.Row="4" Grid.ColumnSpan="3" Margin="0,8"/>
-
-                <TextBlock Grid.Row="5" Grid.Column="0" FontWeight="Bold"
-                           Text="{Binding PriceCalculatorTotal, Source={x:Static loc:Translations.Instance}}"/>
-                <TextBlock Grid.Row="5" Grid.Column="2" Classes="cost-value" FontWeight="Bold" Text="{Binding TotalCostText}"/>
-
-                <TextBlock Grid.Row="6" Grid.Column="0" Classes="cost-label" Margin="0,4,0,0"
-                           Text="{Binding PriceCalculatorBlended, Source={x:Static loc:Translations.Instance}}"/>
-                <TextBlock Grid.Row="6" Grid.Column="2" Classes="cost-value" Foreground="{DynamicResource AppMutedTextBrush}"
-                           Margin="0,4,0,0" Text="{Binding BlendedCostText}"/>
+                <Grid Grid.Row="5" ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                               Text="{Binding PriceCalculatorTotal, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="receipt-total-value"
+                               Text="{Binding TotalCostText}"/>
+                </Grid>
+                <Grid Grid.Row="6" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                    <TextBlock Grid.Column="0" Classes="receipt-blended"
+                               Text="{Binding PriceCalculatorBlended, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Grid.Column="1" Classes="receipt-blended"
+                               Text="{Binding BlendedCostText}"/>
+                </Grid>
             </Grid>
         </Border>
 
