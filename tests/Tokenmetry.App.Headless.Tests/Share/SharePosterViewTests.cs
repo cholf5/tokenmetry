@@ -738,10 +738,11 @@ public class SharePosterViewTests
         var tray = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TrayRoot");
         var overview = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PosterRoot");
 
-        // 信息卡样式 = 托盘基底（设计 §3.1），总览栅格整体隐藏；导出取的是托盘根
+        // 信息卡样式 = 托盘基底（设计 §3.1），总览栅格整体隐藏；导出取的是托盘根。
+        // 托盘走独立窄版（TrayWidth，有意偏离竖版 1080）
         Assert.True(tray.IsVisible);
         Assert.False(overview.IsVisible);
-        Assert.Equal(SharePosterView.PortraitWidth, tray.Bounds.Width, 1);
+        Assert.Equal(SharePosterView.TrayWidth, tray.Bounds.Width, 1);
         Assert.Same(tray, view.PosterRootControl);
 
         // 主要 Agent Top4、模型用量 Top3，各自带品牌标（Agent 走 AgentChip、模型走 ModelChip）
@@ -758,7 +759,7 @@ public class SharePosterViewTests
     [AvaloniaFact]
     public void Tray_style_renders_a_range_header_for_multi_day_windows()
     {
-        // 样式与范围解耦后的新组合：多日范围 × 信息卡。版式选项被无视（托盘固定 1080 竖版），
+        // 样式与范围解耦后的新组合：多日范围 × 信息卡。版式选项被无视（托盘固定 900 窄版），
         // 头部日期行写范围而不是单日「日期 · 周几」。
         var model = ViewModel(layout: SharePosterLayout.Landscape, style: SharePosterStyle.Tray);
         var view = new SharePosterView { DataContext = model };
@@ -768,7 +769,7 @@ public class SharePosterViewTests
         var tray = view.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TrayRoot");
         Assert.True(view.IsTrayStyle);
         Assert.True(tray.IsVisible);
-        Assert.Equal(SharePosterView.PortraitWidth, tray.Bounds.Width, 1);
+        Assert.Equal(SharePosterView.TrayWidth, tray.Bounds.Width, 1);
         Assert.Same(tray, view.PosterRootControl);
 
         var date = view.GetVisualDescendants().OfType<TextBlock>()

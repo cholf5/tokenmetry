@@ -152,7 +152,7 @@
             <Setter Property="CenterSubtitleFontSize" Value="12"/>
         </Style>
 
-        <!-- ── 信息卡样式（托盘基底，设计 §3.1：状态栏信息窗的印刷版；固定 1080 竖版，不提供横置）── -->
+        <!-- ── 信息卡样式（托盘基底，设计 §3.1：状态栏信息窗的印刷版；固定 900 窄版，不提供横置）── -->
         <Style Selector="Border.tray-root">
             <Setter Property="Padding" Value="28"/>
         </Style>
@@ -196,6 +196,9 @@
             <Setter Property="TextAlignment" Value="Left"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+            <!-- es/pt/ru 的缓存占比脚注长于单列宽（14px 实测 318–366px），不折行会被裁切——
+                 es 在 1080 时代就已裁（列宽 306 < 366），收窄到 900 后 de/fr 也进入折行区 -->
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
         <Style Selector="Border.tray-segbar">
             <Setter Property="Height" Value="18"/>
@@ -540,7 +543,7 @@
 
     <ThemeVariantScope x:Name="ThemeScope">
       <Panel>
-        <!-- 宽度由 code-behind 按样式/版式给（托盘与竖版 1080 / 横版 1800），导出按它 2× 光栅化 -->
+        <!-- 宽度由 code-behind 按样式/版式给（托盘 900 / 竖版 1080 / 横版 1800），导出按它 2× 光栅化 -->
         <Border x:Name="PosterRoot"
                 Classes="poster-root"
                 IsVisible="{Binding IsOverviewStyle}"
@@ -787,7 +790,7 @@
              刻意不画信息窗的「记录中」状态点与「单日峰值」徽标：静态海报上的运行状态是假的，
              峰值也不一定当天就是峰值——版式沿用，声称的事实只留数据里有的。 -->
         <Border x:Name="TrayRoot"
-                Width="1080"
+                Width="900"
                 Classes="poster-root tray-root"
                 VerticalAlignment="Top"
                 HorizontalAlignment="Left"

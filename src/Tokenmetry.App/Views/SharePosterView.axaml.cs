@@ -30,6 +30,14 @@ public partial class SharePosterView : UserControl
     /// <summary>竖版画布宽度（导出按 2× 光栅化）。</summary>
     public const double PortraitWidth = 1080;
 
+    /// <summary>
+    /// 信息卡画布宽（900）：有意偏离竖版 1080。信息卡内容只是一摞单列信息流，1080 下
+    /// 内容高度 ~880，排出来是横扁一条，KPI 列间与列表条中段全是气口。下限由 KPI 脚注
+    /// 决定：en/de 的缓存占比脚注 14px 实测 ~227/~240px，默认页边距 58 时 900 给每列
+    /// ~247px 恰好不折行，再窄 en/de 就折——中文/日文等全都没有贴边问题。
+    /// </summary>
+    public const double TrayWidth = 900;
+
     /// <summary>横版画布宽度（设计 §3.3：1800 宽，导出 3600）。</summary>
     public const double LandscapeWidth = 1800;
 
@@ -117,7 +125,7 @@ public partial class SharePosterView : UserControl
             _ => PosterRoot,
         };
 
-    /// <summary>信息卡样式走托盘基底（固定 1080 竖版），总览样式走总览基底（1080 / 1800）——只看样式，与范围无关。</summary>
+    /// <summary>信息卡样式走托盘基底（固定 900 窄版），总览样式走总览基底（1080 / 1800）——只看样式，与范围无关。</summary>
     public bool IsTrayStyle => (DataContext as SharePosterViewModel)?.IsTrayStyle ?? false;
 
     /// <summary>打卡热力图样式走热力基底（固定 1800 横版，能力表锁定）。</summary>
@@ -240,8 +248,9 @@ public partial class SharePosterView : UserControl
 
         if (IsTrayStyle)
         {
-            // 托盘基底是固定 1080 竖版：不受版式选项影响（对话框在信息卡样式下也禁了横版）
-            TrayRoot.Width = PortraitWidth;
+            // 托盘基底是固定 900 窄版：不受版式选项影响（对话框在信息卡样式下也禁了横版）。
+            // 隐形的总览基底仍按竖版宽摆，它自己的栅格口径不变。
+            TrayRoot.Width = TrayWidth;
             PosterRoot.Width = PortraitWidth;
             PosterRoot.Classes.Remove("land");
             ApplyTrayTypeBar();
