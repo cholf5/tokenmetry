@@ -158,8 +158,10 @@
         </Style>
         <Style Selector="Border.tray-header">
             <!-- 内容内缩只由 tray-root 一层承担；头部高度随内容（此前定高 96 会把 52 的 logo
-                 居中出 ~22px 上垫，视觉顶边距比左右宽一截——「上面空出一大截」的来源） -->
-            <Setter Property="Padding" Value="0,0,0,10"/>
+                 居中出 ~22px 上垫，视觉顶边距比左右宽一截——「上面空出一大截」的来源）。
+                 分隔线两侧的气口分两处给：日期到线 14 在这（0,0,0,14），线到 KPI 标签
+                 16 在 KPI 栅格的 Margin——只垫头部会让线贴着标签。 -->
+            <Setter Property="Padding" Value="0,0,0,14"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
         </Style>
@@ -818,8 +820,8 @@
 
                 <StackPanel>
 
-                    <!-- 三格 KPI -->
-                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="22">
+                    <!-- 三格 KPI（与头部线的间距在 Margin 上：线上气口见 tray-header 注） -->
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="22" Margin="0,16,0,0">
                         <StackPanel Grid.Column="0">
                             <TextBlock Classes="tray-k" Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
                             <TextBlock Classes="tray-v table-num" Text="{Binding TotalTokensText}"/>
