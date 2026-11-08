@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
 using System.Threading;
@@ -171,6 +172,23 @@ public sealed class SyncStateService : IDisposable
 
         await RunCoreAsync(ct);
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// 账号设备清单（本机在首 + 远端）：设置页设备管理与顶栏设备下拉共用（单一真相源）。
+    /// 本机 LastSeenAt 取 default（"本机"不参与最后活跃排序，UI 以名字标记本机）。
+    /// </summary>
+    public async Task<IReadOnlyList<SyncDeviceInfo>> ListDevicesAsync(CancellationToken ct = default)
+    {
+        var devices = new List<SyncDeviceInfo>();
+        if (!string.IsNullOrEmpty(LocalDeviceId))
+        {
+            var name = string.IsNullOrWhiteSpace(LocalDeviceName) ? LocalDeviceId : LocalDeviceName;
+            devices.Add(new SyncDeviceInfo(LocalDeviceId, name, default));
+        }
+
+        devices.AddRange(await _store.GetRemoteDevicesAsync(ct));
+        return devices;
     }
 
     public void Dispose()
