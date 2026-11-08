@@ -337,7 +337,8 @@ public class SharePosterViewTests
         Assert.Equal(SharePosterView.PortraitWidth, view.PosterRootControl.Bounds.Width, 1);
 
         // 修订九（HTML 稿重排）：页头报告小签、英雄锁定值两段、完整数字行、note 行、统计两卡、
-        // 模型卡（品牌徽标吃 glm 伪类）、页脚字标——文案与 VM/Translations 同源即语言无关
+        // 模型卡（品牌徽标吃 glm 伪类）——文案与 VM/Translations 同源即语言无关。
+        // 修订十：页脚整行删除（品牌只住页头，同其余四张版式），海报收在模型卡 + 页边距。
         var texts = view.PosterRootControl.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
         Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.SharePosterUsageReport, texts);
         Assert.Contains(vm.MilestoneHeroValueText, texts);
@@ -345,7 +346,8 @@ public class SharePosterViewTests
         Assert.Contains(vm.MilestoneExactTokensText, texts);
         Assert.Contains(vm.MilestoneTopModelName, texts);
         Assert.Contains(vm.MilestoneTopModelCountText, texts);
-        Assert.Contains(texts, t => t == "TOKENMETRY");
+        Assert.DoesNotContain(texts, t => t == "TOKENMETRY");
+        Assert.DoesNotContain(texts, t => t == "tokenmetry.app");
         // note 行 = 单 TextBlock 彩色 Run（一段基线，混排 CJK 不沉底）：段文案全在 Run 上
         var note = view.PosterRootControl.GetVisualDescendants().OfType<TextBlock>()
             .Single(t => t.Classes.Contains("milestone-note"));
