@@ -220,6 +220,13 @@ alignment table with ccusage lives there.
 Full direction in [`docs/kanban/roadmap.md`](docs/kanban/roadmap.md); task cards on the kanban
 board in [`docs/kanban/board.md`](docs/kanban/board.md).
 
+## Contributing
+
+Issues and PRs are both welcome — bug reports, wrong prices, rough edges, or anything you miss.
+And if your AI coding tool isn't covered by the 20 adapters yet, feel free to add one directly:
+adding a source is a fixed recipe (see [How it's built](#how-its-built)), and the engineering
+conventions live in [`AGENTS.md`](AGENTS.md).
+
 ## License
 
 Released under **AGPL-3.0-or-later** ([full text](LICENSE)). You are free to use, study, modify

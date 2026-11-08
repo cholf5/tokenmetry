@@ -220,6 +220,7 @@ public sealed partial class Translations
         [nameof(LabelLicense)] = "授權",
         [nameof(LabelRepository)] = "儲存庫",
         [nameof(AboutWarrantyHint)] = "本程式不提供任何擔保；依 GNU AGPL-3.0 條款散佈。",
+        [nameof(AboutStarHint)] = "用得順手？去儲存庫點個免費的 Star 吧——不花一分錢，但作者能開心很久，維護熱情也能多續航幾個月。",
         [nameof(SettingsCheckUpdate)] = "檢查更新",
         [nameof(SettingsDownloadUpdate)] = "下載更新套件",
         [nameof(SettingsOpenReleasePage)] = "開啟 Release 頁",

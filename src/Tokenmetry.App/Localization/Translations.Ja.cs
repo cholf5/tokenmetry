@@ -220,6 +220,7 @@ public sealed partial class Translations
         [nameof(LabelLicense)] = "ライセンス",
         [nameof(LabelRepository)] = "リポジトリ",
         [nameof(AboutWarrantyHint)] = "本プログラムには一切の保証がありません。GNU AGPL-3.0 の条項に基づき配布されています。",
+        [nameof(AboutStarHint)] = "気に入ったら、リポジトリで無料の Star をひとつどうぞ——タダですが、作者はずっと喜びますし、メンテのモチベーションももう数ヶ月持ちます。",
         [nameof(SettingsCheckUpdate)] = "更新を確認",
         [nameof(SettingsDownloadUpdate)] = "更新パッケージをダウンロード",
         [nameof(SettingsOpenReleasePage)] = "Release ページを開く",
