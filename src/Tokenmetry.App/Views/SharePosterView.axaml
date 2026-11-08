@@ -313,41 +313,171 @@
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
 
-        <!-- ── 里程碑样式基底（设计 §3.1 修订 2026-11-07 第五样式；仅竖版 1080，能力表锁定）──
-             张力只来自字号层级与留白：176 英雄（定尺寸展示字号 = 44 叙事值的 4 倍，溢出收缩见
-             英雄带注，修订八）/ 44 叙事 / 32 模型名，标签全部弱化灰。英雄 HorizontalAlignment=Left：
-             文本本就左起排，视觉与默认 Stretch 等价，但 Bounds 收窄到文本自然宽——溢出守卫与
-             几何断言读的都是它。 -->
-        <Style Selector="TextBlock.milestone-label">
+        <!-- ── 里程碑样式基底（设计 §3.1 修订九 2026-11-08：照 HTML 设计稿重排；仅竖版 1080）──
+             尺度 = 稿子 760 宽画布的像素 ×1.4969（版心 964 / 稿子版心 644，页边距同为 58 时恰是
+             1.5 倍），字体全部取自稿子的层级：176 英雄（= 稿子 clamp 上限 116 的映射，也是 44 的
+             整 4 倍，溢出收缩见英雄带注）/ 54 统计值 / 34 模型名 / 21 说明行，标签弱化灰。
+             英雄 HorizontalAlignment=Left：文本本就左起排，视觉与默认 Stretch 等价，但 Bounds
+             收窄到文本自然宽——溢出守卫与几何断言读的都是它。 -->
+        <Style Selector="Border.milestone-root Border.poster-logo">
+            <Setter Property="Width" Value="72"/>
+            <Setter Property="Height" Value="72"/>
+            <Setter Property="CornerRadius" Value="21"/>
+        </Style>
+        <Style Selector="Border.milestone-root Border.poster-logo Image">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+        </Style>
+        <Style Selector="Border.milestone-root TextBlock.poster-brand">
+            <Setter Property="FontSize" Value="38"/>
+            <Setter Property="LetterSpacing" Value="-1.2"/>
+        </Style>
+        <Style Selector="Border.milestone-root TextBlock.poster-subtitle">
+            <Setter Property="FontSize" Value="19"/>
+        </Style>
+        <Style Selector="Border.milestone-header">
+            <!-- 头部分隔线随分隔间距走（稿子 header padding-bottom 34 → 50） -->
+            <Setter Property="Padding" Value="0,0,0,50"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1.5"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-report">
+            <!-- 页头右侧的「用量报告」小签（稿子右上 Weekly Report 位）：字距拉开当小签用 -->
             <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="2.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="Border.milestone-dot">
+            <!-- eyebrow 前的强调点（稿子 7px 圆点） -->
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Background" Value="{DynamicResource AppAccentGreenBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-eyebrow">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="2"/>
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
         </Style>
         <Style Selector="TextBlock.milestone-hero">
             <Setter Property="FontSize" Value="176"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="LetterSpacing" Value="-3"/>
+            <!-- 稿子 number 字距 -0.085em → 176 × -0.085 ≈ -15，收一档到 -14（系统字体大字号
+                 下 -15 起笔画已贴字面） -->
+            <Setter Property="LetterSpacing" Value="-14"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
+        <Style Selector="TextBlock.milestone-hero-unit">
+            <!-- 稿子 .number .unit：0.32em 绿色中置（56 = 176 × 0.32） -->
+            <Setter Property="FontSize" Value="56"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="-1"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppAccentGreenBrush}"/>
+        </Style>
         <Style Selector="TextBlock.milestone-hero-raw">
-            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontSize" Value="21"/>
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
         </Style>
-        <Style Selector="TextBlock.milestone-value">
-            <Setter Property="FontSize" Value="44"/>
+        <Style Selector="TextBlock.milestone-note">
+            <Setter Property="FontSize" Value="21"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-note-strong">
+            <Setter Property="FontSize" Value="21"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-note-value">
+            <!-- note 里的最活跃日数值：稿子 blue 变量的蓝 -->
+            <Setter Property="FontSize" Value="21"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppAccentBlueBrush}"/>
+        </Style>
+        <Style Selector="Border.milestone-stat">
+            <!-- 稿子 .stat：渐变卡面 + 大圆角，min-height 给两卡一致的体量 -->
+            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="Padding" Value="36,32"/>
+            <Setter Property="MinHeight" Value="176"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-stat-label">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="0.3"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-stat-value">
+            <Setter Property="FontSize" Value="54"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="-2"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-stat-sub">
+            <!-- 「7 / 30」的分母小字（稿子 .value small） -->
+            <Setter Property="FontSize" Value="21"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="Border.milestone-model-card">
+            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="Padding" Value="38,36"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-model-name">
+            <Setter Property="FontSize" Value="34"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="LetterSpacing" Value="-1"/>
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
-        <Style Selector="TextBlock.milestone-model">
-            <Setter Property="FontSize" Value="32"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="LetterSpacing" Value="-0.5"/>
+        <Style Selector="TextBlock.milestone-model-count">
+            <Setter Property="FontSize" Value="21"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <!-- 模型徽标：稿子的绿色圆角徽章位换成 Top 模型的品牌标（复用 model-chip 链，
+             绿底走热力色阶 heat-1 的浅绿档，明暗都成立） -->
+        <Style Selector="Border.model-chip.milestone-badge">
+            <Setter Property="Width" Value="80"/>
+            <Setter Property="Height" Value="80"/>
+            <Setter Property="CornerRadius" Value="22"/>
+            <Setter Property="Background" Value="{DynamicResource AppPosterHeat1Brush}"/>
+        </Style>
+        <Style Selector="Border.model-chip.milestone-badge TextBlock">
+            <Setter Property="FontSize" Value="34"/>
+        </Style>
+        <Style Selector="Border.model-chip.milestone-badge Image.model-logo">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="42"/>
+        </Style>
+        <Style Selector="Border.model-chip.milestone-badge Image.model-avatar">
+            <Setter Property="Width" Value="56"/>
+            <Setter Property="Height" Value="56"/>
+        </Style>
+        <Style Selector="Border.model-chip.milestone-badge PathIcon.model-fallback">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-footer">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="LetterSpacing" Value="0.6"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.milestone-footer-mark">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="1.5"/>
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
-        <Style Selector="Border.milestone-divider">
-            <Setter Property="Height" Value="1"/>
-            <Setter Property="Background" Value="{DynamicResource AppLineBrush}"/>
+        <Style Selector="Border.milestone-glow">
+            <!-- 右侧辉光（稿子 .glow 520px → 780）：向右出血 360 由海报根 ClipToBounds 裁掉 -->
+            <Setter Property="Width" Value="780"/>
+            <Setter Property="Height" Value="780"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="0,255,-360,0"/>
+            <Setter Property="Background" Value="{DynamicResource AppPosterMilestoneGlowBrush}"/>
         </Style>
         <Style Selector="TextBlock.heat-month-label">
             <Setter Property="FontSize" Value="15"/>
@@ -994,84 +1124,135 @@
                 </Border>
             </StackPanel>
         </Border>
-        <!-- ══ 里程碑样式（设计 §3.1 修订 2026-11-07：第五样式）══
-             Wrapped 式大数字叙事：只靠字号层级与留白做张力（§3.5 的"不加装饰、不加图形母题"在此
-             是硬边界），全部数字取自快照已有数据，零图表。仅竖版（能力表登记），固定 1080。
-             修订八（2026-11-08）：英雄带两栏——右列最活跃日/最长连续收掉右半空白，英雄字号
-             定尺寸 176、溢出收缩守卫（见英雄带注）。 -->
+        <!-- ══ 里程碑样式（设计 §3.1 修订九 2026-11-08：照 HTML 设计稿重排）══
+             页头（右补「用量报告」小签）→ 英雄区（eyebrow 强调点 + 176 英雄锁定值/绿色单位 +
+             完整数字行 + 最活跃日/最长连续 note 行）→ 统计两卡（活跃天数「7 / 30」/ 会话）→
+             最常用模型卡（品牌徽标）→ 页脚。全部数字取自快照已有数据，零图表；仅竖版（能力表
+             登记），固定 1080。修订八的「右列两格收空白」被稿子的答案取代：英雄通栏 + note 行。
+             尺度与配色出处见样式组注。 -->
         <Border x:Name="MilestoneRoot"
                 Classes="poster-root milestone-root"
                 IsVisible="{Binding IsMilestoneStyle}"
                 VerticalAlignment="Top"
                 HorizontalAlignment="Left"
+                ClipToBounds="True"
                 Background="{DynamicResource AppBackgroundBrush}">
-            <StackPanel Spacing="14">
+            <Panel>
+                <!-- 右侧辉光：垫在整根内容栈底下（Panel 同层先声明先画），出血裁在海报根 -->
+                <Border Classes="milestone-glow" IsHitTestVisible="False"/>
 
-                <!-- 页头：与总览基底竖版同构（默认 portrait 尺度组，logo 与文字栈顶齐内容区顶边） -->
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" Margin="0,0,0,20">
-                    <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Top">
-                        <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
+                <StackPanel>
+
+                    <!-- 页头：与总览基底同构 + 稿子右上的报告小签（logo 与文字栈顶齐内容区顶边，
+                         小签对中——它不是日期，不占「日期不许右对齐」的规矩） -->
+                    <Border Classes="milestone-header">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="22">
+                            <Border Grid.Column="0" Classes="poster-logo" VerticalAlignment="Top">
+                                <Image Source="avares://Tokenmetry.App/Assets/app-icon.png"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Top">
+                                <TextBlock Classes="poster-brand" Text="Tokenmetry"/>
+                                <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Classes="milestone-report" VerticalAlignment="Center"
+                                       Text="{Binding SharePosterUsageReport, Source={x:Static loc:Translations.Instance}}"/>
+                        </Grid>
                     </Border>
-                    <StackPanel Grid.Column="1" Spacing="9" VerticalAlignment="Top">
-                        <TextBlock Classes="poster-brand" Text="Tokenmetry"/>
-                        <TextBlock Classes="poster-subtitle" Text="{Binding RangeText}"/>
-                    </StackPanel>
-                </Grid>
 
-                <!-- 英雄带（修订八定稿）：左列英雄数字（定尺寸 176，见样式注），右列叙事两格——
-                     最活跃日与最长连续从 2×2 的上排上移与英雄同排：总 Token 是「量」，峰值日是
-                     「量最猛的一天」，阅读顺序不变（总量 → 峰值日 → 连续 → 天数 → 会话 → 模型）。
-                     右半版的空白由这两格收掉——它们是六个元素里最宽的两条，竖着叠起来正好把
-                     英雄带右半填实；底部与英雄完整数字同一条底边线。右列 Auto 取自然宽贴版心
-                     右缘，左列 * 吃剩余；英雄溢出守卫预算 = 版心 − 右列自然宽 − 列距
-                     （code-behind，LayoutUpdated；ColumnSpacing 14 与守卫常量同值）。 -->
-                <Grid x:Name="MilestoneHeroBand" ColumnDefinitions="*,Auto" ColumnSpacing="14" Margin="0,16,0,8">
-                    <StackPanel Grid.Column="0" Spacing="8">
-                        <TextBlock Classes="milestone-label"
-                                   Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock x:Name="MilestoneHeroText" Classes="milestone-hero" Text="{Binding TotalTokensText}"/>
-                        <TextBlock Classes="milestone-hero-raw" Text="{Binding TotalTokensRawText}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" x:Name="MilestoneHeroAside" Spacing="26" VerticalAlignment="Bottom">
-                        <StackPanel Spacing="6">
-                            <TextBlock Classes="milestone-label"
+                    <!-- 英雄区：eyebrow（强调点 + 总 Token）→ 锁定值（尾数 176 + 单位 56 绿色中置，
+                         间距常量见 MilestoneHeroUnitSpacing）→ 完整数字行 → note 行（最活跃日 ·
+                         日期 + 蓝色值 · 最长连续 · 天数）。溢出收缩守卫只量尾数（单位字号固定、
+                         宽度与英雄字号无关），见 code-behind ApplyMilestoneHeroGuard。 -->
+                    <StackPanel Margin="0,64,0,56">
+                        <StackPanel Orientation="Horizontal" Spacing="13">
+                            <Border Classes="milestone-dot"/>
+                            <TextBlock Classes="milestone-eyebrow"
+                                       Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="15" Margin="0,28,0,18">
+                            <TextBlock x:Name="MilestoneHeroText" Classes="milestone-hero"
+                                       Text="{Binding MilestoneHeroValueText}"/>
+                            <TextBlock x:Name="MilestoneHeroUnit" Classes="milestone-hero-unit"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding MilestoneHeroUnitText}"
+                                       IsVisible="{Binding HasMilestoneHeroUnit}"/>
+                        </StackPanel>
+                        <TextBlock Classes="milestone-hero-raw" Text="{Binding MilestoneExactTokensText}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,34,0,0">
+                            <TextBlock Classes="milestone-note"
                                        Text="{Binding KpiPeakDay, Source={x:Static loc:Translations.Instance}}"/>
-                            <TextBlock Classes="milestone-value" Text="{Binding MilestonePeakText}"/>
-                        </StackPanel>
-                        <StackPanel Spacing="6">
-                            <TextBlock Classes="milestone-label"
+                            <TextBlock Classes="milestone-note" Text="·"/>
+                            <TextBlock Classes="milestone-note-strong" Text="{Binding MilestonePeakDateText}"/>
+                            <TextBlock Classes="milestone-note-value" Text="{Binding MilestonePeakValueText}"
+                                       IsVisible="{Binding HasMilestonePeakValue}"/>
+                            <TextBlock Classes="milestone-note" Text="·"/>
+                            <TextBlock Classes="milestone-note"
                                        Text="{Binding SharePosterMilestoneStreak, Source={x:Static loc:Translations.Instance}}"/>
-                            <TextBlock Classes="milestone-value" Text="{Binding MilestoneStreakText}"/>
+                            <TextBlock Classes="milestone-note" Text="·"/>
+                            <TextBlock Classes="milestone-note-strong" Text="{Binding MilestoneStreakText}"/>
                         </StackPanel>
                     </StackPanel>
-                </Grid>
 
-                <Border Classes="milestone-divider"/>
+                    <!-- 统计两卡（稿子 .stats 1fr 1fr）：活跃天数带范围小字，会话单独一卡 -->
+                    <Grid x:Name="MilestoneStats" ColumnDefinitions="*,*" ColumnSpacing="18">
+                        <Border Grid.Column="0" Classes="panel milestone-stat">
+                            <StackPanel>
+                                <TextBlock Classes="milestone-stat-label"
+                                           Text="{Binding SharePosterHeatActiveDays, Source={x:Static loc:Translations.Instance}}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,13,0,0">
+                                    <TextBlock Classes="milestone-stat-value" Text="{Binding HeatActiveDaysText}"/>
+                                    <TextBlock Classes="milestone-stat-sub" VerticalAlignment="Center"
+                                               Text="{Binding MilestoneRangeDayCountText}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" Classes="panel milestone-stat">
+                            <StackPanel>
+                                <TextBlock Classes="milestone-stat-label"
+                                           Text="{Binding KpiSessions, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Classes="milestone-stat-value" Margin="0,13,0,0"
+                                           Text="{Binding SessionsText}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
 
-                <!-- 叙事二格：活跃天数 / 会话数（原 2×2 下排；上排已上移英雄带右列） -->
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="14" Margin="0,10,0,0">
-                    <StackPanel Grid.Column="0" Spacing="6">
-                        <TextBlock Classes="milestone-label"
-                                   Text="{Binding SharePosterHeatActiveDays, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Classes="milestone-value" Text="{Binding HeatActiveDaysText}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Spacing="6">
-                        <TextBlock Classes="milestone-label"
-                                   Text="{Binding KpiSessions, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Classes="milestone-value" Text="{Binding SessionsText}"/>
-                    </StackPanel>
-                </Grid>
+                    <!-- 最常用模型卡：左文右徽（稿子 .model 行的徽章位换成 Top 模型品牌标）；
+                         排行榜雾化档不作用于模型名 -->
+                    <Border x:Name="MilestoneModelCard" Classes="panel milestone-model-card" Margin="0,18,0,0">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Classes="milestone-stat-label"
+                                           Text="{Binding SharePosterMilestoneTopModel, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Classes="milestone-model-name" Margin="0,12,0,0"
+                                           Text="{Binding MilestoneTopModelName}"/>
+                                <TextBlock Classes="milestone-model-count" Margin="0,8,0,0"
+                                           Text="{Binding MilestoneTopModelCountText}"/>
+                            </StackPanel>
+                            <Border Grid.Column="1" Classes="model-chip milestone-badge" VerticalAlignment="Center"
+                                    c:ModelChip.Avatar="{Binding MilestoneTopModelAvatar}"
+                                    IsVisible="{Binding HasMilestoneModelBadge}">
+                                <Panel>
+                                    <TextBlock Text="{Binding MilestoneTopModelAvatar.GlyphText}"/>
+                                    <Image Classes="model-logo"/>
+                                    <Image Classes="model-avatar"
+                                           Source="{Binding MilestoneTopModelAvatar.ImageDataUri, Converter={x:Static c:DataUriImageConverter.Instance}}"/>
+                                    <PathIcon Classes="app-icon model-fallback"
+                                              Data="{StaticResource AppIconCircleHelp}"/>
+                                </Panel>
+                            </Border>
+                        </Grid>
+                    </Border>
 
-                <Border Classes="milestone-divider" Margin="0,14"/>
-
-                <!-- Top 模型：排行首行（名字 + token），雾化档不作用于模型名 -->
-                <StackPanel Spacing="6">
-                    <TextBlock Classes="milestone-label"
-                               Text="{Binding SharePosterMilestoneTopModel, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Classes="milestone-model" Text="{Binding MilestoneTopModelName}"/>
-                    <TextBlock Classes="milestone-hero-raw" Text="{Binding MilestoneTopModelTokens}"/>
+                    <!-- 页脚（稿子三段 space-between）：品牌字标 / 定位语 / 域名——品牌家具不翻译，
+                         同「Tokenmetry」字标先例 -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,45,0,0">
+                        <TextBlock Grid.Column="0" Classes="milestone-footer-mark" Text="TOKENMETRY"/>
+                        <TextBlock Grid.Column="1" Classes="milestone-footer" HorizontalAlignment="Center"
+                                   Text="Local-first · Usage analytics"/>
+                        <TextBlock Grid.Column="2" Classes="milestone-footer" Text="tokenmetry.app"/>
+                    </Grid>
                 </StackPanel>
-            </StackPanel>
+            </Panel>
         </Border>
       </Panel>
     </ThemeVariantScope>

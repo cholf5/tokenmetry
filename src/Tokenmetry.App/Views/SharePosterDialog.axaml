@@ -187,12 +187,13 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-                <!-- 页边距（修订七第二刀后开成参数）：滑杆 0–80、4px 吸附——40 被评过大、20 被评过窄，
-                     干脆交给用户；拖动即重排预览（选项即存，下次打开接着上次的值） -->
+                <!-- 页边距（修订七第二刀后开成参数）：滑杆 0–80、2px 吸附（默认 58 = HTML 设计稿
+                     值，修订九；4px 刻度会把 58 吸到 56/60，故收细到 2）；拖动即重排预览
+                     （选项即存，下次打开接着上次的值） -->
                 <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
                     <TextBlock Classes="setting-label" VerticalAlignment="Center"
                                Text="{Binding SharePosterMargin, Source={x:Static loc:Translations.Instance}}"/>
-                    <Slider Minimum="0" Maximum="80" TickFrequency="4" IsSnapToTickEnabled="True"
+                    <Slider Minimum="0" Maximum="80" TickFrequency="2" IsSnapToTickEnabled="True"
                             Width="160" VerticalAlignment="Center"
                             Value="{Binding Margin}"/>
                     <TextBlock Classes="setting-label" VerticalAlignment="Center"

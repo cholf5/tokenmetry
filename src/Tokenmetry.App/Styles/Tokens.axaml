@@ -116,6 +116,13 @@
             <SolidColorBrush x:Key="AppPosterHeat2Brush" Color="#93d3b8"/>
             <SolidColorBrush x:Key="AppPosterHeat3Brush" Color="#47b28e"/>
             <SolidColorBrush x:Key="AppPosterHeat4Brush" Color="#0e9e77"/>
+            <!-- 分享海报里程碑基底右侧辉光（设计修订九，HTML 稿 .glow 径向渐变）：英雄数字右后方
+                 一片朝强调绿收敛的洗光，出血部分由海报根 ClipToBounds 裁掉。日间海报不画辉光
+                 （浅底上是脏点），恒透明。 -->
+            <RadialGradientBrush x:Key="AppPosterMilestoneGlowBrush">
+                <GradientStop Color="#00183d3a" Offset="0"/>
+                <GradientStop Color="#00183d3a" Offset="1"/>
+            </RadialGradientBrush>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
@@ -203,6 +210,12 @@
             <SolidColorBrush x:Key="AppPosterHeat2Brush" Color="#1f8060"/>
             <SolidColorBrush x:Key="AppPosterHeat3Brush" Color="#2aad85"/>
             <SolidColorBrush x:Key="AppPosterHeat4Brush" Color="#38d6a4"/>
+            <!-- 里程碑基底右侧辉光（同 Light 侧说明）：HTML 稿 glow 色 #183d3a55 的暗底版 -->
+            <RadialGradientBrush x:Key="AppPosterMilestoneGlowBrush">
+                <GradientStop Color="#55183d3a" Offset="0"/>
+                <GradientStop Color="#00183d3a" Offset="0.68"/>
+                <GradientStop Color="#00183d3a" Offset="1"/>
+            </RadialGradientBrush>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

@@ -43,19 +43,19 @@ public partial class SharePosterView : UserControl
     public const int RhythmColumnWidth = 66;
 
     /// <summary>
-    /// 里程碑英雄展示字号（修订八定稿）：设计定的尺寸，不是「能放多大放多大」——通栏满版的
-    /// 第一版被反馈「字太大」。176 = 44 叙事值的整 4 倍（字号体系内的展示档），溢出守卫只会往下收
-    /// （见 <see cref="HeroFontSizeFor"/>）。与 XAML <c>milestone-hero</c> 样式的 Value 必须一致，
-    /// headless 测试锁同值。
+    /// 里程碑英雄展示字号（修订九沿定稿尺寸）：HTML 稿 clamp 上限 116@760 映射到 1080 版心
+    /// ≈ 174，取 176（= 44 叙事值的整 4 倍，字号体系内的展示档）——设计定的尺寸，不是
+    /// 「能放多大放多大」。溢出守卫只会往下收（见 <see cref="HeroFontSizeFor"/>）。
+    /// 与 XAML <c>milestone-hero</c> 样式的 Value 必须一致，headless 测试锁同值。
     /// </summary>
     public const double MilestoneHeroFontSize = 176;
 
     /// <summary>
-    /// 里程碑英雄带列距：右列叙事两格（最活跃日/最长连续）与英雄之间、以及下排叙事二格共用同一
-    /// 栅格间距。XAML 里 <c>MilestoneHeroBand</c> 的 ColumnSpacing 字面量与本值必须一致
-    /// （守卫预算扣减项），headless 测试以「英雄与右列不碰撞」锁住。
+    /// 里程碑英雄锁定值的「尾数 → 单位」间距：尾数与绿色单位同排（HTML 稿 number/unit 锁定），
+    /// XAML 里英雄锁定值 <c>StackPanel</c> 的 Spacing 字面量与本值必须一致（守卫预算扣减项），
+    /// headless 测试以「锁定值不越版心」锁住。
     /// </summary>
-    public const double MilestoneHeroColumnSpacing = 14;
+    public const double MilestoneHeroUnitSpacing = 15;
 
     public SharePosterView()
     {
@@ -212,7 +212,9 @@ public partial class SharePosterView : UserControl
 
     private IEnumerable<Border> CardSurfaces() =>
         KpiGrid.Children.OfType<Border>().Concat(
-            new Border[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel, HeatCard, RhythmCard });
+            new Border[] { TrendPanel, AgentPanel, ModelPanel, TypePanel, ProjectPanel, CostPanel, HeatCard, RhythmCard })
+        .Concat(MilestoneStats.Children.OfType<Border>())
+        .Concat(new Border[] { MilestoneModelCard });
 
     /// <summary>
     /// 按版式重排栅格。两套版面的差别不只是换列宽：面板归属也换行（类型环形、成本趋势从第二排列
@@ -271,7 +273,7 @@ public partial class SharePosterView : UserControl
 
         if (IsMilestoneStyle)
         {
-            // 叙事基底是固定 1080 竖版：纯排版，无栅格要重排、无卡片要投影
+            // 叙事基底是固定 1080 竖版：纯排版，无栅格要重排（卡片投影走 ApplyPanelShadows 统一收）
             MilestoneRoot.Width = PortraitWidth;
             return;
         }
@@ -334,10 +336,14 @@ public partial class SharePosterView : UserControl
     private (string? Text, double BudgetWidth, FontFamily Family, FontWeight Weight, double Spacing)? _heroGuardKey;
 
     /// <summary>
-    /// 里程碑英雄溢出收缩守卫：176 定字号遇上超长紧凑值（万亿级）或很宽的右列叙事格时，实测超宽
-    /// 才等比缩小、永不放大。接在 <see cref="MilestoneRoot"/> 的 LayoutUpdated 上——守卫要等样式值
+    /// 里程碑英雄溢出收缩守卫：176 定字号遇上超长紧凑值（万亿级）时，实测超宽才等比缩小、
+    /// 永不放大。接在 <see cref="MilestoneRoot"/> 的 LayoutUpdated 上——守卫要等样式值
     /// （字族/字重/字距）生效、绑定文本就位后才能量测，布局回调是最可靠的时机；换 VM（页边距滑杆、
-    /// 筛选、样式）时右列宽与字串都会变，回调必然再进来。
+    /// 筛选、样式）时字号串会变，回调必然再进来。
+    /// <para>
+    /// 预算按锁定值口径扣减（修订九：单位从英雄串里拆出来单独 56px 绿字，宽度与英雄字号无关）：
+    /// 预算 = 版心 − 单位自然宽 − 锁定间距。单位块隐藏（未达首档的全量数字）按 0 计。
+    /// </para>
     /// </summary>
     private void ApplyMilestoneHeroGuard()
     {
@@ -346,15 +352,8 @@ public partial class SharePosterView : UserControl
             return;
         }
 
-        // 英雄与右列叙事两格（最活跃日/最长连续）同排：预算 = 版心 − 右列自然宽 − 列距。
-        // 右列是 Auto 列、宽度只由自己的文本决定，与英雄字号无关——收缩不会反过来改预算，不震荡。
-        var asideWidth = MilestoneHeroAside.DesiredSize.Width;
-        if (asideWidth <= 0)
-        {
-            return; // 首轮布局还没量到右列，等下一次布局回调
-        }
-
-        var budget = PortraitWidth - 2 * RequestMargin - asideWidth - MilestoneHeroColumnSpacing;
+        var unitWidth = MilestoneHeroUnit.IsVisible ? MilestoneHeroUnit.DesiredSize.Width : 0;
+        var budget = PortraitWidth - 2 * RequestMargin - unitWidth - MilestoneHeroUnitSpacing;
         var key = (MilestoneHeroText.Text, budget, MilestoneHeroText.FontFamily,
             MilestoneHeroText.FontWeight, MilestoneHeroText.LetterSpacing);
         if (_heroGuardKey == key)

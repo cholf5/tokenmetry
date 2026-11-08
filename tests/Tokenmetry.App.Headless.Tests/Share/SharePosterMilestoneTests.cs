@@ -56,9 +56,10 @@ public class SharePosterMilestoneTests
     {
         var vm = For(Daily((2, 100), (15, 900), (17, 300)));
 
-        // 最猛的一天 = 1/16（offset 15）→ 日期段固定 Invariant yyyy.MM.dd
-        Assert.EndsWith(" · 900", vm.MilestonePeakText, StringComparison.Ordinal);
-        Assert.StartsWith("2026.01.16", vm.MilestonePeakText, StringComparison.Ordinal);
+        // 最猛的一天 = 1/16（offset 15）：日期段固定 Invariant yyyy.MM.dd，值段是「/ 紧凑值」
+        Assert.StartsWith("2026.01.16", vm.MilestonePeakDateText, StringComparison.Ordinal);
+        Assert.EndsWith("/ 900", vm.MilestonePeakValueText, StringComparison.Ordinal);
+        Assert.True(vm.HasMilestonePeakValue);
     }
 
     [Fact]
@@ -73,7 +74,11 @@ public class SharePosterMilestoneTests
             ]);
 
         Assert.Equal("glm-5.3-flash", vm.MilestoneTopModelName);
-        Assert.Contains("450", vm.MilestoneTopModelTokens, StringComparison.Ordinal);
+        // 模型行 = 紧凑值 + 占比（{0} tokens · 占总量 {1} 形态，两段占位都在）
+        Assert.Contains("450", vm.MilestoneTopModelCountText, StringComparison.Ordinal);
+        Assert.Contains("100", vm.MilestoneTopModelCountText, StringComparison.Ordinal);
+        Assert.NotNull(vm.MilestoneTopModelAvatar);
+        Assert.True(vm.HasMilestoneModelBadge);
     }
 
     [Fact]
@@ -81,9 +86,11 @@ public class SharePosterMilestoneTests
     {
         var vm = For(Daily());
 
-        Assert.Equal("—", vm.MilestonePeakText);
+        Assert.Equal("—", vm.MilestonePeakDateText);
+        Assert.False(vm.HasMilestonePeakValue);
         Assert.Equal("—", vm.MilestoneTopModelName);
-        Assert.Equal("—", vm.MilestoneTopModelTokens);
+        Assert.Equal("—", vm.MilestoneTopModelCountText);
+        Assert.False(vm.HasMilestoneModelBadge);
         // 0 天是事实不是冒充（范围里确实没有连续使用的日子）
         Assert.Contains("0", vm.MilestoneStreakText, StringComparison.Ordinal);
     }

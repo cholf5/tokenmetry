@@ -57,7 +57,8 @@ public class SharePosterViewTests
 
     private static SharePosterViewModel ViewModel(SharePosterLayout layout = SharePosterLayout.Portrait,
         SharePosterTheme theme = SharePosterTheme.Dark, bool singleDay = false,
-        SharePosterStyle? style = null, HourlyDistributionResult? hourly = null, double margin = 28)
+        SharePosterStyle? style = null, HourlyDistributionResult? hourly = null,
+        double margin = SharePosterRequest.DefaultMargin)
     {
         var day = new DateOnly(2026, 10, 17);
         var request = new SharePosterRequest(
@@ -82,11 +83,13 @@ public class SharePosterViewTests
         return new SharePosterViewModel(data);
     }
 
-    /// <summary>里程碑英雄带的自建快照：30 天全活跃日序列，总量精确可控——字号各档都要钉住紧凑值字串的量级。</summary>
-    private static SharePosterViewModel MilestoneViewModel(long totalTokens, double margin = SharePosterRequest.DefaultMargin)
+    /// <summary>里程碑英雄区的自建快照：30 天全活跃日序列，总量精确可控——字号各档都要钉住紧凑值字串的量级。</summary>
+    private static SharePosterViewModel MilestoneViewModel(
+        long totalTokens, double margin = SharePosterRequest.DefaultMargin,
+        SharePosterTheme theme = SharePosterTheme.Dark)
     {
         var request = new SharePosterRequest(
-            SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+            SharePosterLayout.Portrait, theme, SharePosterProjectMask.Off,
             new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 30), SharePosterStyle.Milestone,
             Margin: margin);
 
@@ -332,11 +335,26 @@ public class SharePosterViewTests
             view.PosterRootControl);
         Assert.Equal(SharePosterView.PortraitWidth, view.PosterRootControl.Bounds.Width, 1);
 
-        // 纯排版：英雄数字 + 叙事值在版面上；基底子树内零图表、零卡片投影
-        // （圈定当前基底——隐藏的总览基底挂在同一棵视觉树上，其图表不算数）
-        Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.TotalTokensText);
-        Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.MilestonePeakText);
-        Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.MilestoneTopModelName);
+        // 修订九（HTML 稿重排）：页头报告小签、英雄锁定值两段、完整数字行、note 叙事、
+        // 统计两卡、模型卡（品牌徽标吃 glm 伪类）、页脚字标——文案与 VM/Translations 同源即语言无关
+        var texts = view.PosterRootControl.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.SharePosterUsageReport, texts);
+        Assert.Contains(vm.MilestoneHeroValueText, texts);
+        Assert.Equal(vm.HasMilestoneHeroUnit, texts.Contains(vm.MilestoneHeroUnitText));
+        Assert.Contains(vm.MilestoneExactTokensText, texts);
+        Assert.Contains(vm.MilestonePeakDateText, texts);
+        Assert.Contains(vm.MilestoneStreakText, texts);
+        Assert.Contains(vm.MilestoneTopModelName, texts);
+        Assert.Contains(vm.MilestoneTopModelCountText, texts);
+        Assert.Contains(texts, t => t == "TOKENMETRY");
+
+        // 统计两卡 + 模型卡真的在版面上，模型徽标吃到厂商伪类（logo 链生效）
+        var borders = view.PosterRootControl.GetVisualDescendants().OfType<Border>().ToList();
+        Assert.Equal(2, borders.Count(b => b.Classes.Contains("milestone-stat")));
+        Assert.Single(borders, b => b.Classes.Contains("milestone-model-card"));
+        Assert.Contains(borders, b => b.Classes.Contains("milestone-badge") && b.Classes.Contains("model-glm"));
+
+        // 纯排版：基底子树内零图表；暗色主题下卡片无投影（投影只对日间，CardSurfaces 统一收）
         Assert.DoesNotContain(view.PosterRootControl.GetVisualDescendants().OfType<TrendChart>(), _ => true);
         Assert.DoesNotContain(view.PosterRootControl.GetVisualDescendants().OfType<Border>(), b => b.Effect is not null);
 
@@ -344,58 +362,82 @@ public class SharePosterViewTests
     }
 
     /// <summary>
-    /// 里程碑英雄带（修订八定稿）：右列叙事两格（最活跃日/最长连续）贴版心右缘收掉右半空白——
-    /// 这是最初的问题；英雄与右列不碰撞（守卫预算 = 版心 − 右列自然宽 − 列距）；典型量级英雄保持
-    /// 定尺寸 176，超长串收缩进预算、仍不碰撞。断言只钉总量档位与几何边界，不钉具体字串。
+    /// 里程碑英雄区（修订九定稿）：修订八的右列两格被 HTML 稿的答案取代——英雄通栏，最活跃日/
+    /// 最长连续收进 note 行。典型量级英雄保持定尺寸 176（守卫不留本地值），锁定值（尾数 + 间距 +
+    /// 单位）不越版心；长串合法上限（long 满量程）在最大版心（margin 0）下也放得下、不误缩。
+    /// 收缩路径本身由 <see cref="Hero_font_size_shrinks_only_when_the_lockup_overflows"/> 钉住。
     /// </summary>
     [AvaloniaFact]
-    public void Milestone_hero_band_fills_the_right_with_narrative_stats()
+    public void Milestone_hero_spans_the_content_width_and_keeps_the_designed_size()
     {
-        var contentWidth = SharePosterView.PortraitWidth - 2 * SharePosterRequest.DefaultMargin;
-
-        // 典型档：总量 ~3.34e9 →「33.4亿」远小于预算 → 字号保持样式值 176（守卫不留本地值）
+        // 典型档：总量 ~3.34e9 →「33.4」远小于版心 → 字号保持样式值 176（守卫不留本地值）
         var typicalVm = MilestoneViewModel(3_340_000_000);
         var typicalView = new SharePosterView { DataContext = typicalVm };
         var typicalWindow = Host(typicalView);
         using var typicalFrame = ChartTestHelpers.RenderFrame(typicalWindow);
         var typicalHero = typicalView.GetVisualDescendants().OfType<TextBlock>()
             .First(t => t.Name == "MilestoneHeroText");
-        var aside = typicalView.GetVisualDescendants().OfType<StackPanel>()
-            .First(p => p.Name == "MilestoneHeroAside");
+        var typicalUnit = typicalView.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.Name == "MilestoneHeroUnit");
         Assert.Equal(SharePosterView.MilestoneHeroFontSize, typicalHero.FontSize, 1);
 
-        // 右列 Auto 贴版心右缘（右半空白被两格收掉）；英雄不越进列距。
-        // 英雄所在的 col0 从栅格原点起排，其父栈相对坐标与栅格坐标同原点，Bounds 可直接比。
-        Assert.Equal(contentWidth, aside.Bounds.Right, 1);
+        // 锁定值落在版心内（锁定值容器与版心同原点：尾数右缘 + 间距 + 单位宽 ≤ 内容区宽）
+        var contentWidth = SharePosterView.PortraitWidth - 2 * SharePosterRequest.DefaultMargin;
+        var lockupWidth = typicalHero.Bounds.Right + SharePosterView.MilestoneHeroUnitSpacing
+                          + typicalUnit.Bounds.Width;
         Assert.True(
-            typicalHero.Bounds.Right <= aside.Bounds.Left + 4,
-            $"hero right {typicalHero.Bounds.Right} should not collide with aside left {aside.Bounds.Left}");
+            lockupWidth <= contentWidth + 1,
+            $"hero lockup {lockupWidth} should stay inside content width {contentWidth}");
 
-        // 叙事顺序：右列两格就是总量之后的峰值日与最长连续
-        var asideTexts = aside.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-        Assert.Contains(typicalVm.MilestonePeakText, asideTexts);
-        Assert.Contains(typicalVm.MilestoneStreakText, asideTexts);
+        // note 行装着总量之后的两个叙事事实：最活跃日（标签 + 日期 + 蓝色值）与最长连续
+        var noteTexts = typicalView.GetVisualDescendants().OfType<TextBlock>()
+            .Where(t => t.Classes.Contains("milestone-note")
+                        || t.Classes.Contains("milestone-note-strong")
+                        || t.Classes.Contains("milestone-note-value"))
+            .Select(t => t.Text).ToList();
+        Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.KpiPeakDay, noteTexts);
+        Assert.Contains(typicalVm.MilestonePeakDateText, noteTexts);
+        Assert.Contains(typicalVm.MilestonePeakValueText, noteTexts);
+        Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.SharePosterMilestoneStreak, noteTexts);
+        Assert.Contains(typicalVm.MilestoneStreakText, noteTexts);
         typicalWindow.Close();
 
-        // 溢出档：页边距 80 收窄版心到 920 + 合成 ~8.8e18 总量 →「8777778万亿」超预算 →
-        // 守卫等比收缩，收缩后仍不越进右列（预算随右列自然宽走）
-        var overflowView = new SharePosterView
+        // 长串档：long 满量程（zh 万进制下最宽的合法字串）× 最大版心（margin 0）→ 仍 176、不越版心
+        var longView = new SharePosterView
         {
-            DataContext = MilestoneViewModel(8_777_777_777_777_777_777, margin: 80),
+            DataContext = MilestoneViewModel(long.MaxValue, margin: 0),
         };
-        var overflowWindow = Host(overflowView);
-        using var overflowFrame = ChartTestHelpers.RenderFrame(overflowWindow);
-        var overflowHero = overflowView.GetVisualDescendants().OfType<TextBlock>()
+        var longWindow = Host(longView);
+        using var longFrame = ChartTestHelpers.RenderFrame(longWindow);
+        var longHero = longView.GetVisualDescendants().OfType<TextBlock>()
             .First(t => t.Name == "MilestoneHeroText");
-        var overflowAside = overflowView.GetVisualDescendants().OfType<StackPanel>()
-            .First(p => p.Name == "MilestoneHeroAside");
+        var longUnit = longView.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.Name == "MilestoneHeroUnit");
+        Assert.Equal(SharePosterView.MilestoneHeroFontSize, longHero.FontSize, 1);
+        var longLockup = longHero.Bounds.Right + SharePosterView.MilestoneHeroUnitSpacing
+                         + longUnit.Bounds.Width;
         Assert.True(
-            overflowHero.FontSize < SharePosterView.MilestoneHeroFontSize,
-            $"overflow hero font {overflowHero.FontSize} should shrink below {SharePosterView.MilestoneHeroFontSize}");
-        Assert.True(
-            overflowHero.Bounds.Right <= overflowAside.Bounds.Left + 4,
-            $"overflow hero right {overflowHero.Bounds.Right} should not collide with aside left {overflowAside.Bounds.Left}");
-        overflowWindow.Close();
+            longLockup <= SharePosterView.PortraitWidth + 1,
+            $"longest lockup {longLockup} should stay inside full-width content {SharePosterView.PortraitWidth}");
+        longWindow.Close();
+    }
+
+    /// <summary>溢出收缩路径的纯函数锁：预算充足回样式值 176（永不放大），预算不足等比收缩、半磅取整。</summary>
+    [AvaloniaFact]
+    public void Hero_font_size_shrinks_only_when_the_lockup_overflows()
+    {
+        var typeface = new Typeface(FontFamily.Default, FontStyle.Normal, FontWeight.Bold);
+
+        Assert.Equal(
+            SharePosterView.MilestoneHeroFontSize,
+            SharePosterView.HeroFontSizeFor("33.4", 900, typeface, -14), 1);
+        Assert.Equal(
+            SharePosterView.MilestoneHeroFontSize,
+            SharePosterView.HeroFontSizeFor("9223372", 800, typeface, -14), 1);
+
+        var shrunk = SharePosterView.HeroFontSizeFor("9223372", 300, typeface, -14);
+        Assert.True(shrunk < SharePosterView.MilestoneHeroFontSize, $"300px 预算应收缩，实测 {shrunk}");
+        Assert.Equal(0, shrunk % 0.5, 5);
     }
 
     [AvaloniaFact]
@@ -540,6 +582,21 @@ public class SharePosterViewTests
         Assert.All(Cards(dark), card => Assert.Null(card.Effect));
         darkWindow.Close();
 
+        // 修订九：里程碑统计两卡 + 模型卡同吃日间投影（CardSurfaces 统一收口，不许漏登记）
+        var milestone = new SharePosterView
+        {
+            DataContext = MilestoneViewModel(3_340_000_000, theme: SharePosterTheme.Light),
+        };
+        var milestoneWindow = Host(milestone);
+        using var milestoneFrame = ChartTestHelpers.RenderFrame(milestoneWindow);
+        var milestoneCards = milestone.PosterRootControl.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Classes.Contains("milestone-stat") || b.Classes.Contains("milestone-model-card"))
+            .ToList();
+        Assert.Equal(3, milestoneCards.Count);
+        Assert.All(milestoneCards, card => Assert.True(
+            card.Effect is DropShadowEffect { Opacity: > 0 }, "日间里程碑卡片应带极轻投影"));
+        milestoneWindow.Close();
+
         static System.Collections.Generic.List<Border> Cards(SharePosterView view) => view
             .GetVisualDescendants().OfType<Border>()
             .Where(b => b.Classes.Contains("kpi") || b.Classes.Contains("poster-panel"))
@@ -611,7 +668,8 @@ public class SharePosterViewTests
     }
 
     /// <summary>信息卡托盘 fixture：5 个 Agent / 4 个模型，验证 Top4 / Top3 截断与品牌标。</summary>
-    private static SharePosterViewModel TrayViewModel(bool singleDay = true, double margin = 28)
+    private static SharePosterViewModel TrayViewModel(bool singleDay = true,
+        double margin = SharePosterRequest.DefaultMargin)
     {
         var day = new DateOnly(2026, 10, 17);
         var request = new SharePosterRequest(

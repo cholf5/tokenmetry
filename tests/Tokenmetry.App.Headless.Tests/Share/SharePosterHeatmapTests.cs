@@ -132,12 +132,12 @@ public class SharePosterHeatmapTests
     [Fact]
     public void Column_width_and_canvas_width_follow_the_week_count()
     {
-        // chrome 随页边距走（默认 28 → 92）：满 52 周底部横排档预算 1656/52 = 31 回到基准列宽，
-        // 画布 1756——画布随内容与边距收，不再钉 1800
+        // chrome 随页边距走（默认 58 → 152）：满 52 周底部横排档预算 1596/52 = 30 跌破基准列宽，
+        // 列宽被下限（基准格 27 + 间隙 4 = 31）托住；画布如实随内容走 = gutter + 52×31 + chrome
+        // = 1816——不夹 1800，宽边距的余量落在画布上而不是把尾列格子挤出货架
         var chrome = SharePosterHeatmap.CanvasChromeFor(SharePosterRequest.DefaultMargin);
-        var belowBudget = (int)(1800 - chrome - SharePosterHeatmap.WeekdayGutter);
-        Assert.Equal(belowBudget / 52, SharePosterHeatmap.ColumnWidthFor(52));
-        Assert.Equal(SharePosterHeatmap.WeekdayGutter + 52 * (belowBudget / 52) + chrome,
+        Assert.Equal(SharePosterView.HeatCellSize + 4, SharePosterHeatmap.ColumnWidthFor(52));
+        Assert.Equal(SharePosterHeatmap.WeekdayGutter + 52 * (SharePosterView.HeatCellSize + 4) + chrome,
                      SharePosterHeatmap.CanvasWidthFor(52));
 
         // 列宽随周数收放：各档内单调不增（并排档/底部档预算不同，档位边界 41/42 处允许抬升）
@@ -152,7 +152,7 @@ public class SharePosterHeatmapTests
             }
 
             var canvas = SharePosterHeatmap.CanvasWidthFor(weeks);
-            Assert.InRange(canvas, SharePosterHeatmap.MinCanvasWidth, SharePosterView.LandscapeWidth);
+            Assert.True(canvas >= SharePosterHeatmap.MinCanvasWidth, $"画布不应低于 {SharePosterHeatmap.MinCanvasWidth}（{weeks} 周实测 {canvas}）");
         }
 
         // 边距越大画布越宽：chrome = 2×边距 + 卡内边距（12 周列宽在 60 上限钳平，画布差 = chrome 差）
@@ -162,11 +162,11 @@ public class SharePosterHeatmapTests
             SharePosterHeatmap.CanvasWidthFor(12, 20) + 4,
             SharePosterHeatmap.CanvasWidthFor(12, 22), 1);
 
-        // 极窄范围：并排档画布 = 网格 + 占用 + 脚注列（夹在 MinCanvasWidth 与 1800 之间），
+        // 极窄范围：并排档画布 = 网格 + 占用 + 脚注列（下夹 MinCanvasWidth），
         // 1 周理论 528 被 560 下限抬起——不再满 1800 留大段空白
-        Assert.Equal(Math.Clamp(52 + SharePosterHeatmap.MaxCellSize + 4
+        Assert.Equal(Math.Max(52 + SharePosterHeatmap.MaxCellSize + 4
                      + chrome + SharePosterHeatmap.BesideStatsColumnWidth + SharePosterHeatmap.BesideStatsColumnSpacing,
-                     SharePosterHeatmap.MinCanvasWidth, SharePosterView.LandscapeWidth),
+                     SharePosterHeatmap.MinCanvasWidth),
                      SharePosterHeatmap.CanvasWidthFor(1));
         Assert.Equal(52 + 4 * (SharePosterHeatmap.MaxCellSize + 4)
                      + chrome + SharePosterHeatmap.BesideStatsColumnWidth + SharePosterHeatmap.BesideStatsColumnSpacing,

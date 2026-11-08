@@ -71,8 +71,12 @@ public sealed record SharePosterRequest(
     SharePosterStyle Style,
     double Margin = SharePosterRequest.DefaultMargin)
 {
-    /// <summary>页边距默认值：40 过大、20 过窄的两轮反馈取中；反正对话框滑杆可调，不必迁就默认。</summary>
-    public const double DefaultMargin = 28;
+    /// <summary>
+    /// 页边距默认值：里程碑改版（2026-11-08，设计修订九）照 HTML 设计稿取 58——稿子 760 宽的
+    /// 画布四周即 58px，缩放到 1080 宽后仍是同一参数。此前 40 过大、20 过窄、28 取中的三轮反馈
+    /// 就此定稿；滑杆仍可调（刻度 2px，58 在格上）。
+    /// </summary>
+    public const double DefaultMargin = 58;
 
     /// <summary>页边距允许范围（与生成对话框的滑杆一致）。</summary>
     public const double MinMargin = 0;
