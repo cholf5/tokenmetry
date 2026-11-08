@@ -7,7 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -15,6 +17,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.DependencyInjection;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
@@ -743,6 +746,88 @@ public class DimensionPagesTests
         host.Filters.TimeRange = TimeRangeOption.Last90Days;
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(initial + 4, host.Stub.ModelQueries.Count); // 初查 + 30d + 挂起 + 7d + 失败重查
+    }
+
+    // ══════════════════════════ D-010 补：行右键 → 数据与计价页修复入口 ══════════════════════════
+
+    [AvaloniaFact]
+    public void Model_row_context_menu_gates_to_unknown_cost_rows()
+    {
+        // 未知成本行（「未知」chip）右键给修复菜单；已知模型（有价 / 混合 / 无数据）右键无事发生
+        var host = CreateModelsHost();
+        var view = new ModelsView { DataContext = host.Vm };
+        var window = new Window { Width = 1180, Height = 860, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var rows = view.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.DataContext is ModelDetailRowViewModel && b.GetVisualParent() is ContentPresenter)
+            .ToList(); // 行模板根 Border（其内层 chip Border 等继承同一 DataContext，须按父容器排除）
+        Assert.Equal(4, rows.Count);
+        var known = rows.Single(b => ((ModelDetailRowViewModel)b.DataContext!).Name == "claude-sonnet-4");
+        var unknown = rows.Single(b => ((ModelDetailRowViewModel)b.DataContext!).Name == "claude-unpriced-model");
+
+        var knownRequest = new ContextRequestedEventArgs();
+        known.RaiseEvent(knownRequest);
+        Assert.False(knownRequest.Handled, "已知模型行右键不弹修复菜单");
+        Assert.Null(known.ContextMenu);
+
+        var unknownRequest = new ContextRequestedEventArgs();
+        unknown.RaiseEvent(unknownRequest);
+        Assert.True(unknownRequest.Handled, "未知成本行右键给修复菜单");
+        Assert.NotNull(unknown.ContextMenu);
+        Assert.True(unknown.ContextMenu!.IsOpen, "菜单经 Open(placement target) 打开（headless popup 通路）");
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Unknown_model_row_menu_executes_request_commands_with_model_name()
+    {
+        var added = new List<string>();
+        var mapped = new List<string>();
+        var vm = new ModelsViewModel(
+            ShellPages.For(PageId.Models), new FilterStateService(), new StubQueryService { Models = FixtureModels() },
+            avatars: null, addModelRequested: added.Add, addMappingRequested: mapped.Add);
+        Dispatcher.UIThread.RunJobs();
+
+        var menu = ModelsView.BuildUnknownModelRowMenu(vm, "claude-unpriced-model");
+        var items = menu.Items.OfType<MenuItem>().ToList();
+        Assert.Equal(2, items.Count);
+        // 文案引用 Translations 属性断言（语言无关纪律：两套测试与实现同源）
+        Assert.Equal(Translations.Instance.ModelRowAddModel, items[0].Header);
+        Assert.Equal(Translations.Instance.ModelRowAddMapping, items[1].Header);
+
+        items[0].Command!.Execute(items[0].CommandParameter);
+        items[1].Command!.Execute(items[1].CommandParameter);
+        Assert.Equal(new[] { "claude-unpriced-model" }, added);
+        Assert.Equal(new[] { "claude-unpriced-model" }, mapped);
+    }
+
+    [AvaloniaFact]
+    public void Shell_routes_model_row_fix_actions_to_data_pricing_page()
+    {
+        var shell = CreateShell(new StubQueryService { Models = FixtureModels() }, new FilterStateService(), new StubToast());
+        var dataPricing = shell.DataPricing;
+        // 共享 DI 单例：先复位可能残留的弹层 / 揭示状态，本用例只锁路由因果
+        dataPricing.CancelModelEditCommand.Execute(null);
+        dataPricing.HasPendingAliasReveal = false;
+
+        shell.OpenAddModelFor("mystery-model");
+        Assert.Same(dataPricing, shell.CurrentPage);
+        Assert.True(dataPricing.IsModelEditOpen, "跳转落地即开「新增模型」弹层");
+        Assert.Equal("mystery-model", dataPricing.ModelFormId);
+        Assert.False(dataPricing.HasPendingAliasReveal, "两条修复路径互不串台");
+        dataPricing.CancelModelEditCommand.Execute(null); // 复位弹层，不泄漏给后续用例
+
+        shell.OpenAddMappingFor("ark/glm-5.3-flash");
+        Assert.Same(dataPricing, shell.CurrentPage);
+        Assert.False(dataPricing.IsModelEditOpen, "添加映射走页内表单，不弹新增模型弹层");
+        Assert.Equal("ark/glm-5.3-flash", dataPricing.NewAliasSource);
+        Assert.True(dataPricing.HasPendingAliasReveal, "视图揭示请求挂起（滚动 + 聚焦由数据与计价视图消费）");
+        dataPricing.HasPendingAliasReveal = false;
     }
 
     // ══════════════════════════ D-011 项目统计页 ══════════════════════════

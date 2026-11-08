@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
@@ -183,12 +184,16 @@ public sealed class ModelsTotalViewModel
 /// 生命周期 / 线程 / 序号防护纪律同 <see cref="OverviewViewModel"/>：每次导航新建实例、
 /// 外壳 Dispose 退订、FilterStateService 通知已在 UI 线程。加载失败保留上一次成功数据 +
 /// 错误面板（同会话页 P2-2 纪律）；本页无行点击下钻（卡内未要求，明细下钻经会话页搜索/筛选完成）。
+/// 行右键（仅未知成本行）：经外壳回调把模型名带到数据与计价页补身份 / 补价
+/// （回调单向注入，同 D-007 GoToPage 选型；本类型不反向引用外壳与数据与计价单例）。
 /// </summary>
 public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
     private readonly ModelAvatarResolver? _avatars;
+    private readonly Action<string>? _addModelRequested;
+    private readonly Action<string>? _addMappingRequested;
 
     /// <summary>加载序号：重置型加载自增；跨 await 序号不一致的响应/异常直接丢弃（同 OverviewViewModel）。</summary>
     private int _loadSequence;
@@ -216,12 +221,20 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
 
     public bool ShowTotals => Totals is not null;
 
-    public ModelsViewModel(PageDescriptor page, FilterStateService filters, IUsageQueryService query, ModelAvatarResolver? avatars = null)
+    public ModelsViewModel(
+        PageDescriptor page,
+        FilterStateService filters,
+        IUsageQueryService query,
+        ModelAvatarResolver? avatars = null,
+        Action<string>? addModelRequested = null,
+        Action<string>? addMappingRequested = null)
     {
         Page = page;
         _filters = filters;
         _query = query;
         _avatars = avatars;
+        _addModelRequested = addModelRequested;
+        _addMappingRequested = addMappingRequested;
         filters.PropertyChanged += OnFilterPropertyChanged;
         _ = LoadAsync();
     }
@@ -271,4 +284,21 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
     }
 
     public void Dispose() => _filters.PropertyChanged -= OnFilterPropertyChanged;
+
+    // ════════════════ 行右键 → 数据与计价页补身份 / 补价（仅未知成本行装配菜单） ════════════════
+
+    /// <summary>
+    /// 右键「新增此模型」：把当前模型名交给外壳——导航到数据与计价页并打开「新增模型」弹层，
+    /// 模型名预填进 Model ID（价格缺失的修复路径一：直接登记身份 / 价格）。
+    /// 未注入回调（预览 / 测试构造）时如实 no-op，不伪造跳转。
+    /// </summary>
+    [RelayCommand]
+    private void RequestAddModel(string? modelName) => _addModelRequested?.Invoke(modelName ?? string.Empty);
+
+    /// <summary>
+    /// 右键「添加映射」：把当前模型名交给外壳——导航到数据与计价页，模型名预填进「原始模型名」
+    /// 并聚焦规范名输入框（修复路径二：把未知名字归并到已定价的规范模型）。
+    /// </summary>
+    [RelayCommand]
+    private void RequestAddMapping(string? modelName) => _addMappingRequested?.Invoke(modelName ?? string.Empty);
 }

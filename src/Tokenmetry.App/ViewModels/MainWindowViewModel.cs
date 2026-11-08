@@ -226,9 +226,11 @@ public partial class MainWindowViewModel : ViewModelBase
         // D-009/D-010/D-011：Agent / 模型 / 项目统计为真实页（随全局筛选刷新）。D-009 行点击经
         // OpenSessionsForAgent 跳会话页（全局单选 Agent 途径，见 AgentsViewModel 定案）；D-011 行点击
         // 经 OpenSessionsForProject 跳会话页（全局 Project 筛选途径——右栏撤除定案，见 ProjectsViewModel 定案）；
-        // D-010 无行点击下钻。页面 VM 不反向引用本类型（回调单向注入，同 D-007 选型）。
+        // D-010 无行点击下钻，行右键（未知成本行）经 OpenAddModelFor / OpenAddMappingFor 跳数据与计价页
+        // 补身份 / 补价。页面 VM 不反向引用本类型（回调单向注入，同 D-007 选型）。
         PageId.Agents => new AgentsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForAgent),
-        PageId.Models => new ModelsViewModel(ShellPages.For(id), _filters, _usageQuery, _avatars),
+        PageId.Models => new ModelsViewModel(ShellPages.For(id), _filters, _usageQuery, _avatars,
+            OpenAddModelFor, OpenAddMappingFor),
         PageId.Projects => new ProjectsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForProject),
         // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；筛选全部来自
         // 顶栏全局四维（FilterStateService），页内只留搜索/排序（右栏撤除定案见类型说明）。
@@ -282,6 +284,27 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _filters.Project = option;
         GoToPage(PageId.Sessions);
+    }
+
+    /// <summary>
+    /// 模型统计页右键「新增此模型」→ 数据与计价页打开「新增模型」弹层并预填 Model ID。
+    /// 先备好数据与计价单例的表单状态再导航（OnNavigatedTo 重建的是数据源表 / 目录行 / 候选清单，
+    /// 不触碰表单与弹层状态），预填不会被打掉。
+    /// </summary>
+    public void OpenAddModelFor(string modelName)
+    {
+        DataPricing.PrepareAddModel(modelName);
+        GoToPage(PageId.DataPricing);
+    }
+
+    /// <summary>
+    /// 模型统计页右键「添加映射」→ 数据与计价页预填「原始模型名」，导航落地后由视图消费
+    /// 揭示请求（滚动到映射区 + 聚焦规范名输入框，见 DataPricingViewModel.HasPendingAliasReveal）。
+    /// </summary>
+    public void OpenAddMappingFor(string modelName)
+    {
+        DataPricing.PrepareAddMapping(modelName);
+        GoToPage(PageId.DataPricing);
     }
 
     /// <summary>

@@ -515,6 +515,40 @@ public class DataPricingPageTests
     }
 
     [AvaloniaFact]
+    public void PendingAliasReveal_ScrollsToMappingPanelAndFocusesTargetBox()
+    {
+        // 跨页「添加映射」揭示端到端：PrepareAddMapping 在视图创建前挂请求（真实跳转序：外壳先备
+        // 数据与计价单例的状态再导航），视图就位后一次性消费——别名映射区滚进视口 + 光标落规范名框。
+        var vm = CreateViewModel(query: new StubAliasQuery());
+        vm.PrepareAddMapping("ark/glm-5.3-flash");
+        Assert.True(vm.HasPendingAliasReveal);
+
+        var view = new DataPricingView { DataContext = vm }; // DataContext 先于挂树就绪（同跨页时序）
+        var window = new Window { Width = 960, Height = 620, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs(); // 揭示动作帖在 Background 优先级，等它出队
+
+        Assert.False(vm.HasPendingAliasReveal, "揭示请求被视图一次性消费");
+        var scroller = view.GetVisualDescendants().OfType<ScrollViewer>().First();
+        Assert.True(
+            scroller.Offset.Y > 0,
+            "别名映射区在页尾，揭示必须产生滚动（页头 / 数据源 / 口径 / 目录都在上方）");
+
+        var targetBox = view.FindControl<AutoCompleteBox>("AliasTargetBox");
+        Assert.NotNull(targetBox);
+        var focused = window.GetVisualDescendants().OfType<InputElement>().FirstOrDefault(element => element.IsFocused);
+        Assert.True(
+            focused is not null
+            && (ReferenceEquals(focused, targetBox) || targetBox!.GetVisualDescendants().Contains(focused)),
+            $"揭示后光标落在规范名输入框（AutoCompleteBox 会把焦点落到其内部文本框）；实际焦点：{focused?.GetType().Name ?? "无"}");
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void ModelCatalog_MaskClickClosesOverlayWithoutSaving()
     {
         // 与焦点无关的兜底关闭路径（定案二）：点遮罩空白处关闭，点到弹层卡片内部不误关。

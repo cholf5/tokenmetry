@@ -779,6 +779,38 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         IsModelEditOpen = false;
     }
 
+    /// <summary>
+    /// 跨页入口（模型统计页右键「新增此模型」）：进新建态并把模型名预填进 Model ID，打开弹层。
+    /// 弹层打开后的 ID 框聚焦由视图在 IsVisible 翻转时处理（既有 FocusIdBox 配方）；
+    /// 名字按原文预填不归一——保存时 <see cref="ModelId.Normalize"/> 自动收敛，所见即所录。
+    /// </summary>
+    public void PrepareAddModel(string modelId)
+    {
+        ResetModelForm();
+        ModelFormId = modelId;
+        IsModelEditOpen = true;
+    }
+
+    /// <summary>
+    /// 跨页入口（模型统计页右键「添加映射」）：把模型名预填进「原始模型名」并挂起一次视图揭示
+    /// 请求（<see cref="HasPendingAliasReveal"/>）——导航落地后由数据与计价视图消费：滚动到映射区
+    /// 并聚焦规范名输入框。原始名按原文预填（别名解析按原始拼写精确匹配，不做归一）。
+    /// </summary>
+    public void PrepareAddMapping(string rawName)
+    {
+        NewAliasSource = rawName;
+        AliasError = null;
+        HasPendingAliasReveal = true;
+    }
+
+    /// <summary>
+    /// 待办视图揭示请求（模型统计页右键「添加映射」跨页跳转）：数据与计价视图就位后
+    /// （AttachedToVisualTree / DataContext 就绪）消费——滚动到别名映射区并聚焦规范名输入框，
+    /// 随即清零。视图层职责走视图，VM 只负责「有一个待办」的事实。
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasPendingAliasReveal;
+
     // ════════════════════ 模型头像图标选择器（编辑弹层之上的一层 overlay） ════════════════════
 
     /// <summary>图标选择器（草稿编辑器：模式段选 + 载荷 + 预览；确定才写回表单字段）。</summary>

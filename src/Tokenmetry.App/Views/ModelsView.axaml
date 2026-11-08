@@ -56,7 +56,9 @@
                     <TextBlock Grid.Column="6" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThCost, Source={x:Static loc:Translations.Instance}}"/>
                 </Grid>
 
-                <!-- 明细行（ListBox 虚拟化；本页无行点击下钻，D-010 卡内未要求） -->
+                <!-- 明细行（ListBox 虚拟化；本页无行点击下钻，D-010 卡内未要求）。
+                     行右键 = 未知成本行的修复入口（code-behind 门禁：仅 IsUnknownCost 行弹菜单，
+                     两项分别走数据与计价页的「新增模型」弹层与「添加映射」表单，见 ModelsView） -->
                 <ListBox Grid.Row="2"
                          Classes="data-table"
                          ItemsSource="{Binding Rows}">
@@ -64,7 +66,8 @@
                         <DataTemplate x:DataType="vm:ModelDetailRowViewModel">
                             <Border BorderBrush="{DynamicResource AppLineBrush}"
                                     BorderThickness="0,1,0,0"
-                                    Padding="0,13,0,13">
+                                    Padding="0,13,0,13"
+                                    ContextRequested="OnModelRowContextRequested">
                                 <Grid ColumnDefinitions="1.3*,0.9*,80,80,80,80,64" ColumnSpacing="6">
                                     <!-- 模型列：内置厂商 logo + 名称（logo 恒显示，phi/未识别回退字形）
                                          + 服务商副行（I-036 三元组的第三元；无观测时不渲染，列高回到单行）。
