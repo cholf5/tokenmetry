@@ -55,7 +55,7 @@ public class SemiThemeMigrationTests
         var themeService = new ThemeService();
 
         // dark
-        themeService.Apply("dark");
+        themeService.Apply(ThemePaletteCatalog.DefaultPaletteId, "dark");
         Assert.Equal(ThemeVariant.Dark, app.RequestedThemeVariant);
         Assert.Equal(ThemeVariant.Dark, app.ActualThemeVariant);
         // I-027 令牌随三态换色（AppPanelBrush：Light #ffffff / Dark #171c25，见 DesignTokenTests）
@@ -66,7 +66,7 @@ public class SemiThemeMigrationTests
         Assert.Equal(Color.Parse("#1C1F23"), Assert.IsAssignableFrom<Color>(darkSemi));
 
         // light
-        themeService.Apply("light");
+        themeService.Apply(ThemePaletteCatalog.DefaultPaletteId, "light");
         Assert.Equal(ThemeVariant.Light, app.RequestedThemeVariant);
         Assert.Equal(ThemeVariant.Light, app.ActualThemeVariant);
         Assert.True(app.TryGetResource("AppPanelBrush", app.ActualThemeVariant, out var lightBrush));
@@ -75,7 +75,7 @@ public class SemiThemeMigrationTests
         Assert.Equal(Color.Parse("#F9F9F9"), Assert.IsAssignableFrom<Color>(lightSemi));
 
         // system：RequestedThemeVariant 回到 Default（跟随操作系统，由宿主解析出具体变体）
-        themeService.Apply("system");
+        themeService.Apply(ThemePaletteCatalog.DefaultPaletteId, "system");
         Assert.Equal(ThemeVariant.Default, app.RequestedThemeVariant);
         Assert.NotEqual(ThemeVariant.Default, app.ActualThemeVariant);
     }

@@ -101,25 +101,53 @@ public class SettingsPageTests
     }
 
     [AvaloniaFact]
-    public void Theme_combo_is_migrated_with_three_options_and_current_selection()
+    public void Theme_combos_offer_palette_and_mode_with_single_mode_graying()
     {
         var vm = CreateViewModel();
-        vm.SelectedTheme = SettingsViewModel.ThemeOptions.First(o => o.Value == "dark");
-        var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
+        var appThemeService = new ThemeService(); // 复原专用：测试里切画板会污染共享 Application 状态
+        try
+        {
+            vm.SelectedTheme = SettingsViewModel.ThemeOptions.First(o => o.Value == "dark");
+            var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
 
-        var combo = window.GetVisualDescendants().OfType<ComboBox>()
-            .First(c => c.ItemsSource is IReadOnlyList<ThemeOption>); // 设置页现有主题 + 语言两个下拉
-        Assert.Equal(3, combo.ItemCount);
-        Assert.Same(SettingsViewModel.ThemeOptions.Single(o => o.Value == "dark"), combo.SelectedItem);
+            // 画板下拉（PaletteOption）：默认 + 四套生成画板
+            var paletteCombo = window.GetVisualDescendants().OfType<ComboBox>()
+                .First(c => c.ItemsSource is IReadOnlyList<PaletteOption>);
+            Assert.Equal(ThemePaletteCatalog.All.Count, paletteCombo.ItemCount);
+            Assert.Same(SettingsViewModel.PaletteOptions[0], paletteCombo.SelectedItem); // 默认画板
 
-        // 三态选项文案（迁移自旧视图，标签不变）
-        var optionTexts = SettingsViewModel.ThemeOptions.Select(o => o.Label).ToList();
-        Assert.Equal(new[] { "日间", "夜间", "跟随系统" }, optionTexts);
+            // 模式下拉（ThemeOption，唯一）：默认画板三档齐全且可用
+            var modeCombo = window.GetVisualDescendants().OfType<ComboBox>()
+                .First(c => c.ItemsSource is IReadOnlyList<ThemeOption>);
+            Assert.Equal(3, modeCombo.ItemCount);
+            Assert.Same(SettingsViewModel.ThemeOptions.Single(o => o.Value == "dark"), modeCombo.SelectedItem);
+            Assert.True(modeCombo.IsEnabled);
 
-        window.Close();
-        Dispatcher.UIThread.RunJobs();
+            // 单档画板（Nord）：模式档收成唯一档 + 置灰；切回多档画板恢复三档
+            vm.SelectedPalette = SettingsViewModel.PaletteOptions.First(o => o.Value == "nord");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, modeCombo.ItemCount);
+            Assert.False(modeCombo.IsEnabled);
+            Assert.Same(SettingsViewModel.ThemeOptions.Single(o => o.Value == "dark"), modeCombo.SelectedItem);
+
+            vm.SelectedPalette = SettingsViewModel.PaletteOptions.First(o => o.Value == "solarized");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, modeCombo.ItemCount);
+            Assert.True(modeCombo.IsEnabled);
+
+            // 模式三态选项文案（迁移自旧视图，标签不变）
+            var optionTexts = SettingsViewModel.ThemeOptions.Select(o => o.Label).ToList();
+            Assert.Equal(new[] { "日间", "夜间", "跟随系统" }, optionTexts);
+
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            appThemeService.Apply(ThemePaletteCatalog.DefaultPaletteId, "dark");
+        }
     }
 
     [AvaloniaFact]

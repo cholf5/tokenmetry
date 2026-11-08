@@ -17,8 +17,19 @@ public class AppSettings
     /// </summary>
     public int RefreshMinutes { get; set; } = 5;
 
-    /// <summary>外观主题偏好：light（日间）/ dark（夜间）/ system（跟随系统）。</summary>
+    /// <summary>外观模式偏好（画板 × 模式两维中的模式维）：light（日间）/ dark（夜间）/
+    /// system（跟随系统）。单档画板（Nord/Dracula 只有夜间）在应用处强制唯一档，本字段保留
+    /// 用户原偏好——切回多档画板时原日间/夜间选择仍在。消费者 = ThemeService.Apply 的模式归口。</summary>
     public string Theme { get; set; } = "system";
+
+    /// <summary>
+    /// 外观画板偏好（整套配色皮肤，画板 × 模式两维中的画板维）：default（默认画板，原型蓝）/
+    /// nord / dracula / solarized / gruvbox。画板字典在 App 的 Styles/Themes/（由
+    /// scripts/generate-theme-palettes.py 生成，逐令牌过对比度纪律），ThemeService 运行期换入；
+    /// 未知值在解析处如实回落 default。旧 settings.json 无此键 = 默认画板，零迁移。
+    /// 消费者 = ThemeService.Apply（换字典 + 变体归口）与设置页画板选择器。
+    /// </summary>
+    public string ThemePalette { get; set; } = "default";
 
     /// <summary>
     /// 界面语言偏好（统一小写）：zh（简体中文）/ zh-hant（繁體中文）/ en（English）/ ja（日本語）/

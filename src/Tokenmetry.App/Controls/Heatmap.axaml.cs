@@ -9,7 +9,9 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Threading;
+using Tokenmetry.App.DependencyInjection;
 using Tokenmetry.App.Localization;
+using Tokenmetry.App.Services;
 
 namespace Tokenmetry.App.Controls;
 
@@ -92,16 +94,21 @@ public partial class Heatmap : UserControl
         CellHeightProperty.Changed.AddClassHandler<Heatmap>((c, _) => c.Rebuild());
     }
 
-    /// <summary>挂树即重建并（重）挂集合订阅；先退订再订阅防重复（审查 P2-2：与 Detached 对称，支持重挂）。</summary>
+    /// <summary>挂树即重建并（重）挂集合/重译/画板订阅；先退订再订阅防重复（审查 P2-2：与 Detached 对称，支持重挂）。</summary>
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         HookCellsCollection();
         HookTranslationsRetranslate();
+        // 画板切换（变体不变、只换字典）不触发任何已有重建路径，而代码里 ResolveBrush 现取的
+        // 令牌色已随画板变化——订阅服务信号重建。服务是应用级单例，挂/脱树配对退订。
+        _themeService = DependencyInjection.AppServices.Get<IThemeService>();
+        _themeService.Applied -= OnThemeApplied;
+        _themeService.Applied += OnThemeApplied;
         Rebuild();
     }
 
-    /// <summary>脱树退订集合与重译订阅（重挂由 OnAttachedToVisualTree 恢复）；作废进行中的渐入时间线。</summary>
+    /// <summary>脱树退订集合/重译/画板订阅（重挂由 OnAttachedToVisualTree 恢复）；作废进行中的渐入时间线。</summary>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
@@ -110,8 +117,16 @@ public partial class Heatmap : UserControl
             collection.CollectionChanged -= OnCellsCollectionChanged;
         }
         Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
+        if (_themeService is { } themeService)
+        {
+            themeService.Applied -= OnThemeApplied;
+            _themeService = null;
+        }
         _staggerGeneration++;
     }
+
+    /// <summary>画板/模式应用后的重建信号（令牌色在 Rebuild 内现取）。</summary>
+    private void OnThemeApplied(object? sender, EventArgs e) => Rebuild();
 
     private void HookCellsCollection()
     {
@@ -169,6 +184,9 @@ public partial class Heatmap : UserControl
 
     /// <summary>时间线代数：Rebuild/脱树即作废旧时间线（帧回调闭包据此自杀）。</summary>
     private int _staggerGeneration;
+
+    /// <summary>挂树期持有的主题服务订阅（应用级单例，脱树退订防泄漏）。</summary>
+    private IThemeService? _themeService;
 
     /// <summary>
     /// 强度色纯函数（headless 单测覆盖）：ratio ∈ [0,1] 线性映射到 [MinAlpha, MaxAlpha] 透明度，

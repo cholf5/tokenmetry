@@ -38,6 +38,31 @@ public sealed class ThemeOption : ObservableObject
     public void RefreshLabel() => OnPropertyChanged(nameof(Label));
 }
 
+/// <summary>
+/// 外观画板选项（Value 对应 AppSettings.ThemePalette / ThemePaletteCatalog.Id），机制同
+/// <see cref="ThemeOption"/>。默认画板名经 Translations 取串；其余是画板专名——各语种同值
+/// 不翻译（同语言名自名不翻译的惯例）。
+/// </summary>
+public sealed class PaletteOption : ObservableObject
+{
+    public PaletteOption(string value) => Value = value;
+
+    public string Value { get; }
+
+    public string Label => Value switch
+    {
+        ThemePaletteCatalog.DefaultPaletteId => Translations.Instance.ThemePaletteDefault,
+        "nord" => "Nord",
+        "dracula" => "Dracula",
+        "solarized" => "Solarized",
+        "gruvbox" => "Gruvbox",
+        _ => Value,
+    };
+
+    /// <summary>语言切换后由 SettingsViewModel 统一触发（默认画板名随语言重译）。</summary>
+    public void RefreshLabel() => OnPropertyChanged(nameof(Label));
+}
+
 /// <summary>界面语言选项（Value 对应 AppSettings.Language 的取值，统一小写：system / zh / zh-hant /
 /// en / ja / ko / pt-br / ru），机制同 <see cref="ThemeOption"/>。
 /// 语言名按 stupid-dict 惯例经 Translations 显示——自名不翻译，任何界面语言下都显示各语种原名。</summary>
@@ -79,6 +104,10 @@ public partial class SettingsViewModel : ViewModelBase
         new ThemeOption("dark"),
         new ThemeOption("system"),
     };
+
+    /// <summary>外观画板选项（顺序即下拉展示顺序，来自 ThemePaletteCatalog.All，默认画板恒首位）。</summary>
+    public static IReadOnlyList<PaletteOption> PaletteOptions { get; } =
+        ThemePaletteCatalog.All.Select(p => new PaletteOption(p.Id)).ToArray();
 
     /// <summary>界面语言选项（顺序即下拉展示顺序：跟随系统 / 简体中文 / 繁體中文 / English /
     /// 日本語 / 한국어 / Português (Brasil) / Русский / Español / Deutsch / Français；D-025
@@ -157,6 +186,9 @@ public partial class SettingsViewModel : ViewModelBase
     private ThemeOption _selectedTheme;
 
     [ObservableProperty]
+    private PaletteOption _selectedPalette;
+
+    [ObservableProperty]
     private LanguageOption _selectedLanguage;
 
     // ── 分享海报默认值（P5b/P7）：只决定生成对话框打开时的起值，海报本身继承顶部栏筛选 ──
@@ -194,7 +226,10 @@ public partial class SettingsViewModel : ViewModelBase
         _minimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
         _autoStartOnBoot = settings.AutoStartOnBoot;
         _fileLoggingEnabled = settings.FileLoggingEnabled;
-        _selectedTheme = ResolveThemeOption(settings.Theme);
+        _selectedPalette = ResolvePaletteOption(settings.ThemePalette);
+        // 模式显示按画板归口（单档画板强制唯一档显示，不回写存储偏好）；字段直赋不走
+        // OnSelectedThemeChanged 的「应用 + 落盘」，与既有构造纪律一致。
+        _selectedTheme = ResolveThemeOption(CoerceMode(ThemePaletteCatalog.Resolve(_selectedPalette.Value), settings.Theme));
         _selectedLanguage = ResolveLanguageOption(settings.Language);
         _sharePosterLayoutOption = SharePosterOptions.ForLayout(ParseStoredLayout(settings));
         _sharePosterThemeOption = SharePosterOptions.ForTheme(ParseStoredTheme(settings));
@@ -476,7 +511,44 @@ public partial class SettingsViewModel : ViewModelBase
     /// <summary>页面描述符（标题与副标题，与导航项同源）。</summary>
     public PageDescriptor Page { get; } = ShellPages.For(PageId.Settings);
 
-    /// <summary>主题切换：立即应用预览并落盘（全自动保存——预览即生效，无需两段式）。</summary>
+    /// <summary>当前画板信息（选项与目录按 Id 对应）。</summary>
+    private ThemePaletteInfo SelectedPaletteInfo => ThemePaletteCatalog.Resolve(SelectedPalette?.Value);
+
+    /// <summary>模式档位列表：单档画板（Nord/Dracula 只有夜间）只给唯一档，多档画板齐全。</summary>
+    public IReadOnlyList<ThemeOption> EffectiveThemeOptions =>
+        SelectedPaletteInfo.Modes.Count == 1 ? [ThemeOptions[1]] : ThemeOptions;
+
+    /// <summary>模式选择是否可用（单档画板置灰——模式随画板固定，无选择意义）。</summary>
+    public bool IsModeSelectionEnabled => SelectedPaletteInfo.Modes.Count > 1;
+
+    /// <summary>画板切换：换字典应用并落盘；模式显示归口到新画板的档位但不回写存储的模式偏好
+    /// （切回多档画板时用户原日间/夜间选择仍在）。字段直赋 + 手动通知，绕开
+    /// OnSelectedThemeChanged 的「应用 + 落盘」，避免把归口值写进 settings.json。</summary>
+    partial void OnSelectedPaletteChanged(PaletteOption value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        var palette = ThemePaletteCatalog.Resolve(value.Value);
+        _settings.ThemePalette = palette.Id;
+
+        var coerced = CoerceMode(palette, _settings.Theme);
+        var modeOption = EffectiveThemeOptions.FirstOrDefault(o => o.Value == coerced) ?? EffectiveThemeOptions[0];
+        if (!ReferenceEquals(_selectedTheme, modeOption))
+        {
+            _selectedTheme = modeOption;
+            OnPropertyChanged(nameof(SelectedTheme));
+        }
+        OnPropertyChanged(nameof(EffectiveThemeOptions));
+        OnPropertyChanged(nameof(IsModeSelectionEnabled));
+
+        _themeService.Apply(palette.Id, _settings.Theme);
+        PersistSettings();
+    }
+
+    /// <summary>模式切换：立即应用并落盘（全自动保存——预览即生效，无需两段式）。</summary>
     partial void OnSelectedThemeChanged(ThemeOption value)
     {
         if (value is null)
@@ -484,7 +556,7 @@ public partial class SettingsViewModel : ViewModelBase
             return;
         }
 
-        _themeService.Apply(value.Value);
+        _themeService.Apply(_settings.ThemePalette, value.Value);
         _settings.Theme = value.Value;
         PersistSettings();
     }
@@ -605,6 +677,11 @@ public partial class SettingsViewModel : ViewModelBase
             option.RefreshLabel();
         }
 
+        foreach (var option in PaletteOptions)
+        {
+            option.RefreshLabel();
+        }
+
         foreach (var option in LanguageOptions)
         {
             option.RefreshLabel();
@@ -617,6 +694,25 @@ public partial class SettingsViewModel : ViewModelBase
     {
         var normalized = (preference ?? "system").Trim().ToLowerInvariant();
         return ThemeOptions.FirstOrDefault(o => o.Value == normalized) ?? ThemeOptions[2];
+    }
+
+    /// <summary>画板偏好 → 选项（未知/空值如实回落默认画板，同 Theme/Language 的未知值处理）。</summary>
+    private static PaletteOption ResolvePaletteOption(string? preference)
+    {
+        var normalized = (preference ?? ThemePaletteCatalog.DefaultPaletteId).Trim().ToLowerInvariant();
+        return PaletteOptions.FirstOrDefault(o => o.Value == normalized) ?? PaletteOptions[0];
+    }
+
+    /// <summary>模式偏好按画板归口：单档画板强制唯一档；多档画板未知/空值回落 system。</summary>
+    private static string CoerceMode(ThemePaletteInfo palette, string? preference)
+    {
+        if (palette.Modes.Count == 1)
+        {
+            return palette.Modes[0];
+        }
+
+        var normalized = (preference ?? "system").Trim().ToLowerInvariant();
+        return normalized is "light" or "dark" or "system" ? normalized : "system";
     }
 
     /// <summary>语言偏好 → 选项（未知/空值如实回落「跟随系统」，同 Theme 的未知值处理）。</summary>

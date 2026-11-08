@@ -3,8 +3,10 @@
              xmlns:semi="https://irihi.tech/semi"
              x:Class="Tokenmetry.App.App"
              RequestedThemeVariant="Default">
-             <!-- 启动时 ThemeService 按设置里的 Theme（light / dark / system）改写 RequestedThemeVariant；
-                  Default 表示跟随系统。 -->
+             <!-- 启动时 ThemeService 按设置里的 ThemePalette（画板，default/nord/dracula/solarized/gruvbox）
+                  × Theme（模式，light / dark / system）应用主题：换入画板资源字典（Styles/Themes/，
+                  后合入者胜压过本文件的 Tokens.axaml 默认画板）并改写 RequestedThemeVariant；
+                  模式 Default 表示跟随系统。 -->
 
     <Application.Styles>
         <!-- I-026：根主题 FluentTheme → SemiTheme（Locale 用中文，与界面文案一致）。
