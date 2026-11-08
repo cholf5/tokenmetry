@@ -170,7 +170,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,26,8">
                     <TextBlock Classes="setting-label" VerticalAlignment="Center"
                                Text="{Binding SharePosterMask, Source={x:Static loc:Translations.Instance}}"/>
                     <ItemsControl ItemsSource="{Binding MaskOptions}" VerticalAlignment="Center">
