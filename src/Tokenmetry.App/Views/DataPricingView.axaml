@@ -240,8 +240,9 @@
                 </StackPanel>
             </Border>
 
-            <!-- ═══ 模型聚合（别名映射）：原始模型名 → 规范名，统计按规范名合并（规则增删即存即热更新）═══ -->
-            <Border Classes="panel">
+            <!-- ═══ 模型聚合（别名映射）：原始模型名 → 规范名，统计按规范名合并（规则增删即存即热更新）═══
+                 AliasPanel：模型统计页右键「添加映射」跨页跳转的揭示落点（滚动到此 + 聚焦规范名框） -->
+            <Border Classes="panel" x:Name="AliasPanel">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="panel-title" Text="{Binding AliasPanelTitle, Source={x:Static loc:Translations.Instance}}"/>
                     <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
@@ -303,8 +304,10 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Classes="page-subtitle" Text="{Binding AliasTargetLabel, Source={x:Static loc:Translations.Instance}}"/>
-                            <!-- 目标侧候选 = 目录里的模型 ID（关联的目标是模型，不是另一个名字） -->
-                            <AutoCompleteBox ItemsSource="{Binding ModelIdCandidates}"
+                            <!-- 目标侧候选 = 目录里的模型 ID（关联的目标是模型，不是另一个名字）；
+                                 AliasTargetBox：跨页「添加映射」揭示时聚焦落点（光标在此等用户挑规范名） -->
+                            <AutoCompleteBox x:Name="AliasTargetBox"
+                                             ItemsSource="{Binding ModelIdCandidates}"
                                              Text="{Binding NewAliasTarget, Mode=TwoWay}"
                                              PlaceholderText="{Binding AliasTargetPlaceholder, Source={x:Static loc:Translations.Instance}}"
                                              TextFilter="{x:Static c:AutoCompleteFilters.CaseInsensitiveContains}"

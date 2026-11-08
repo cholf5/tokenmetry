@@ -469,6 +469,59 @@ public class DataPricingViewModelTests
             "glm-5.3-flash");
     }
 
+    // ---- 跨页入口（模型统计页右键 → 新增模型弹层 / 添加映射表单）----
+
+    [Fact]
+    public void PrepareAddModel_OpensNewEntryOverlayWithPrefilledId()
+    {
+        var viewModel = CreateViewModel(new AppSettings(), new FakeSettingsStore());
+
+        viewModel.PrepareAddModel("some-unknown-model");
+
+        viewModel.IsModelEditOpen.Should().BeTrue("跨页入口直接打开「新增模型」弹层");
+        viewModel.ModelFormId.Should().Be("some-unknown-model", "模型名预填进 Model ID（按原文，不归一）");
+        viewModel.EditingModelId.Should().BeNull("进新建态而非编辑态");
+        viewModel.ModelFormInput.Should().BeEmpty("价格留空由用户补，不预填猜测值");
+    }
+
+    [Fact]
+    public void PrepareAddModel_DoesNotTouchAliasForm()
+    {
+        var viewModel = CreateViewModel(new AppSettings(), new FakeSettingsStore());
+        viewModel.NewAliasSource = "pre-existing";
+
+        viewModel.PrepareAddModel("some-unknown-model");
+
+        viewModel.NewAliasSource.Should().Be("pre-existing", "新增模型入口不碰映射表单");
+    }
+
+    [Fact]
+    public void PrepareAddMapping_PrefillsRawNameAndRaisesRevealRequest()
+    {
+        var viewModel = CreateViewModel(new AppSettings(), new FakeSettingsStore());
+
+        viewModel.PrepareAddMapping("ark/glm-5.3-flash");
+
+        viewModel.NewAliasSource.Should().Be("ark/glm-5.3-flash", "原始名按原文预填（别名解析精确匹配原文拼写）");
+        viewModel.AliasError.Should().BeNull("上次录入的行内校验提示不跨请求残留");
+        viewModel.NewAliasTarget.Should().BeEmpty("规范名留给用户挑——光标聚焦由视图层完成");
+        viewModel.HasPendingAliasReveal.Should().BeTrue("挂起一次视图揭示请求（滚动到映射区 + 聚焦规范名框）");
+
+        // 揭示请求由视图消费（一次性）：清零后不再重复揭示。
+        viewModel.HasPendingAliasReveal = false;
+        viewModel.HasPendingAliasReveal.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PrepareAddMapping_DoesNotTouchModelEditOverlay()
+    {
+        var viewModel = CreateViewModel(new AppSettings(), new FakeSettingsStore());
+
+        viewModel.PrepareAddMapping("some-raw-name");
+
+        viewModel.IsModelEditOpen.Should().BeFalse("添加映射走页内表单，不弹新增模型弹层");
+    }
+
     // ---- 模型目录（I-035）：条目增删改 + 保存即重算 ----
 
     private static (DataPricingViewModel ViewModel, int[] RefreshCalls) CreateCatalogViewModel(
