@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Tokenmetry.App.Services;
 
 namespace Tokenmetry.App.Tray;
 
@@ -43,6 +44,9 @@ public partial class StatusPopoverWindow : Window
     {
         InitializeComponent();
         ShadowHost.Margin = ShadowMargins;
+        // ToolTip 失活守卫：弹层里 chart-tip 等悬浮 Tip 在失焦时也要收掉。只关 ToolTip 弹层、
+        // 不碰 IsVisible/Hide，与下面的 B-017 失焦收起接线（Hide 与记账归控制器）无次序耦合。
+        ToolTipDeactivationGuard.Attach(this);
         // 失焦收起接线在 StatusPopoverController（B-017 移入）：控制器要同时记账失焦时刻供
         // Toggle 守卫识别"刚被本次托盘点击的失焦收掉"，且走控制器 Hide 补 VM.OnHidden；
         // 这里若再自接线会先一步 Hide，控制器处理器看到的已是 IsVisible=false。

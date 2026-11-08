@@ -63,6 +63,9 @@ public partial class MainWindow : Window
             new Uri("avares://Tokenmetry.App/Assets/app-icon-window.png")));
         // D-026：Windows 原生标题栏跟随应用明暗（系统边框本身不变，只改 caption 配色）。
         WindowsCaptionTheme.Default.Attach(this);
+        // ToolTip 失活守卫：mac 悬浮 Tip 是独立 NSWindow，失活后永不关闭、压在别的 App 前
+        // （顶栏与各页面都有 ToolTip，是主要受害窗口）。详见守卫类型注释。
+        ToolTipDeactivationGuard.Attach(this);
         _settings = settings;
         _settingsStore = settingsStore;
 
