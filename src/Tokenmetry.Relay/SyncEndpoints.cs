@@ -399,7 +399,7 @@ internal static class SyncEndpoints
         return rows;
     }
 
-    private static async Task<List<SyncDeviceInfo>> ReadDevicesAsync(SqliteConnection connection, string accountId, CancellationToken ct)
+    internal static async Task<List<SyncDeviceInfo>> ReadDevicesAsync(SqliteConnection connection, string accountId, CancellationToken ct)
     {
         var devices = new List<SyncDeviceInfo>();
         using var cmd = connection.CreateCommand();
