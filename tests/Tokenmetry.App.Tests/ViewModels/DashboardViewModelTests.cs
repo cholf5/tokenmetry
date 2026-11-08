@@ -286,6 +286,7 @@ public class DashboardViewModelTests
 
         public int ReplaceCalls { get; private set; }
 
+        public Task<string> GetLocalDeviceIdAsync(CancellationToken ct = default) => Task.FromResult(string.Empty);
         public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
         {
             _facts.AddRange(facts);

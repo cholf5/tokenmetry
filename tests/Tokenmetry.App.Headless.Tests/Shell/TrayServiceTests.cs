@@ -295,6 +295,7 @@ public class TrayServiceTests : IDisposable
 
     private sealed class NoopUsageStore : IUsageStore
     {
+        public Task<string> GetLocalDeviceIdAsync(CancellationToken ct = default) => Task.FromResult(string.Empty);
         public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) => Task.CompletedTask;
         public Task ReplaceUsageFactsByDayAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<UsageFact>> GetUsageFactsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<UsageFact>>([]);

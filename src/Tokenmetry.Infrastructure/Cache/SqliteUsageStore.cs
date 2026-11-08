@@ -130,20 +130,120 @@ public class SqliteUsageStore : IUsageStore
 
                 await ExecuteAsync(connection, "CREATE INDEX IF NOT EXISTS idx_usage_facts_day ON usage_facts (day)", ct);
             }),
+
+        new(
+            Version: 3,
+            Name: "device-dimension",
+            ApplyAsync: async (connection, ct) =>
+            {
+                // 跨端同步地基（relay 设计 §4.1）：device 进 usage_facts 主键，行身份变为
+                // (device, day, grain, agent, model, provider, project)——两台机器同天同模型同名项目
+                // 不再撞键。与迁移 2 的"丢弃"分支不同，这是纪律第 2 条的"转换"分支：
+                // 历史行全部保留、device 回填本机 id（迁移时刻不存在远端行，回填即全量）。
+                // 设备 id 无条件生成（不只在开启同步时）——迁移无条件执行才诚实，
+                // 中继只有在用户开启同步后才见到它。
+                var deviceId = Guid.NewGuid().ToString("N");
+
+                // 自举表与 schema_migrations 同级，不进版本化迁移的语义；
+                // last_pushed_at / last_pull_seq 是同步游标（Task 2 的 Get/SetSyncCursor 落点）。
+                await ExecuteAsync(connection, """
+                    CREATE TABLE IF NOT EXISTS device_registry (
+                        device_id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        last_pushed_at TEXT,
+                        last_pull_seq INTEGER
+                    )
+                    """, ct);
+
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "INSERT OR IGNORE INTO device_registry (device_id, name, created_at) VALUES ($deviceId, $name, $createdAt)";
+                    cmd.Parameters.AddWithValue("$deviceId", deviceId);
+                    cmd.Parameters.AddWithValue("$name", Environment.MachineName);
+                    cmd.Parameters.AddWithValue("$createdAt", FormatTimestamp(DateTimeOffset.UtcNow));
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+
+                await ExecuteAsync(connection, """
+                    CREATE TABLE IF NOT EXISTS remote_devices (
+                        device_id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        last_seen_at TEXT NOT NULL
+                    )
+                    """, ct);
+
+                // usage_facts 整表重建：device 进主键，INSERT...SELECT 原样搬数 + 回填本机 id。
+                await ExecuteAsync(connection, """
+                    CREATE TABLE usage_facts_new (
+                        device TEXT NOT NULL,
+                        day TEXT NOT NULL,
+                        grain TEXT NOT NULL,
+                        agent TEXT NOT NULL DEFAULT '',
+                        model TEXT NOT NULL DEFAULT '',
+                        provider TEXT NOT NULL DEFAULT '',
+                        project TEXT NOT NULL DEFAULT '',
+                        project_display_name TEXT NOT NULL DEFAULT '',
+                        input_tokens INTEGER NOT NULL DEFAULT 0,
+                        output_tokens INTEGER NOT NULL DEFAULT 0,
+                        cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+                        cache_creation_ephemeral_5m_tokens INTEGER NOT NULL DEFAULT 0,
+                        cache_creation_ephemeral_1h_tokens INTEGER NOT NULL DEFAULT 0,
+                        cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+                        total_tokens INTEGER NOT NULL DEFAULT 0,
+                        cost_usd TEXT,
+                        updated_at TEXT NOT NULL,
+                        PRIMARY KEY (device, day, grain, agent, model, provider, project)
+                    )
+                    """, ct);
+
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = """
+                        INSERT INTO usage_facts_new (
+                            device, day, grain, agent, model, provider, project, project_display_name,
+                            input_tokens, output_tokens, cache_creation_tokens,
+                            cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
+                            cache_read_tokens, total_tokens, cost_usd, updated_at)
+                        SELECT $device, day, grain, agent, model, provider, project, project_display_name,
+                            input_tokens, output_tokens, cache_creation_tokens,
+                            cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
+                            cache_read_tokens, total_tokens, cost_usd, updated_at
+                        FROM usage_facts
+                        """;
+                    cmd.Parameters.AddWithValue("$device", deviceId);
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+
+                await ExecuteAsync(connection, "DROP TABLE usage_facts", ct);
+                await ExecuteAsync(connection, "ALTER TABLE usage_facts_new RENAME TO usage_facts", ct);
+                await ExecuteAsync(connection, "CREATE INDEX IF NOT EXISTS idx_usage_facts_day ON usage_facts (day)", ct);
+
+                // session_facts：device 只作属性列（session_id 已全局唯一，进主键无收益），
+                // 回填默认值语义诚实：迁移时刻库内全部是本机行。
+                await ExecuteAsync(connection, "ALTER TABLE session_facts ADD COLUMN device TEXT NOT NULL DEFAULT ''", ct);
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "UPDATE session_facts SET device = $device";
+                    cmd.Parameters.AddWithValue("$device", deviceId);
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+                await ExecuteAsync(connection, "CREATE INDEX IF NOT EXISTS idx_session_facts_device ON session_facts (device)", ct);
+            }),
     };
 
     private const string UpsertUsageFactSql = """
         INSERT INTO usage_facts (
-            day, grain, agent, model, provider, project, project_display_name,
+            device, day, grain, agent, model, provider, project, project_display_name,
             input_tokens, output_tokens, cache_creation_tokens,
             cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
             cache_read_tokens, total_tokens, cost_usd, updated_at)
         VALUES (
-            $day, $grain, $agent, $model, $provider, $project, $projectDisplayName,
+            $device, $day, $grain, $agent, $model, $provider, $project, $projectDisplayName,
             $inputTokens, $outputTokens, $cacheCreationTokens,
             $cacheCreationEphemeral5mTokens, $cacheCreationEphemeral1hTokens,
             $cacheReadTokens, $totalTokens, $costUsd, $updatedAt)
-        ON CONFLICT(day, grain, agent, model, provider, project) DO UPDATE SET
+        ON CONFLICT(device, day, grain, agent, model, provider, project) DO UPDATE SET
             project_display_name = excluded.project_display_name,
             input_tokens = excluded.input_tokens,
             output_tokens = excluded.output_tokens,
@@ -158,13 +258,13 @@ public class SqliteUsageStore : IUsageStore
 
     private const string UpsertSessionFactSql = """
         INSERT INTO session_facts (
-            session_id, agent, project, project_display_name, dominant_model,
+            device, session_id, agent, project, project_display_name, dominant_model,
             first_seen_at, last_seen_at,
             input_tokens, output_tokens, cache_creation_tokens,
             cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
             cache_read_tokens, total_tokens, cost_usd, updated_at)
         VALUES (
-            $sessionId, $agent, $project, $projectDisplayName, $dominantModel,
+            $device, $sessionId, $agent, $project, $projectDisplayName, $dominantModel,
             $firstSeenAt, $lastSeenAt,
             $inputTokens, $outputTokens, $cacheCreationTokens,
             $cacheCreationEphemeral5mTokens, $cacheCreationEphemeral1hTokens,
@@ -188,16 +288,16 @@ public class SqliteUsageStore : IUsageStore
         """;
 
     private const string SelectUsageFactsSql = """
-        SELECT day, grain, agent, model, provider, project, project_display_name,
+        SELECT device, day, grain, agent, model, provider, project, project_display_name,
             input_tokens, output_tokens, cache_creation_tokens,
             cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
             cache_read_tokens, total_tokens, cost_usd
         FROM usage_facts
-        ORDER BY day, grain, agent, model, provider, project
+        ORDER BY device, day, grain, agent, model, provider, project
         """;
 
     private const string SelectSessionFactsSql = """
-        SELECT session_id, agent, project, project_display_name, dominant_model,
+        SELECT device, session_id, agent, project, project_display_name, dominant_model,
             first_seen_at, last_seen_at,
             input_tokens, output_tokens, cache_creation_tokens,
             cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
@@ -243,16 +343,29 @@ public class SqliteUsageStore : IUsageStore
         }
     }
 
+    /// <inheritdoc />
+    public async Task<string> GetLocalDeviceIdAsync(CancellationToken ct = default)
+    {
+        await InitializeAsync(ct);
+        using var connection = await OpenAsync(ct);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT device_id FROM device_registry LIMIT 1";
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result as string
+            ?? throw new InvalidOperationException("device_registry is empty: device migration did not run.");
+    }
+
     public async Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
     {
         await InitializeAsync(ct);
         using var connection = await OpenAsync(ct);
         await using var transaction = await connection.BeginTransactionAsync(ct);
         var updatedAt = FormatTimestamp(DateTimeOffset.UtcNow);
+        var deviceId = GetLocalDeviceId(connection);
 
         foreach (var fact in facts)
         {
-            await UpsertUsageFactAsync(connection, (SqliteTransaction)transaction, fact, updatedAt, ct);
+            await UpsertUsageFactAsync(connection, (SqliteTransaction)transaction, fact, deviceId, updatedAt, ct);
         }
 
         await transaction.CommitAsync(ct);
@@ -264,6 +377,7 @@ public class SqliteUsageStore : IUsageStore
         using var connection = await OpenAsync(ct);
         await using var transaction = await connection.BeginTransactionAsync(ct);
         var updatedAt = FormatTimestamp(DateTimeOffset.UtcNow);
+        var deviceId = GetLocalDeviceId(connection);
 
         // 批次涉及的日期先清掉分解粒度行（日内消失的条目不残留），full 粒度行不动
         // —— 同日混源时读取侧以 full 粒度优先，保留它不会造成重复计数。
@@ -278,7 +392,7 @@ public class SqliteUsageStore : IUsageStore
 
         foreach (var fact in facts)
         {
-            await UpsertUsageFactAsync(connection, (SqliteTransaction)transaction, fact, updatedAt, ct);
+            await UpsertUsageFactAsync(connection, (SqliteTransaction)transaction, fact, deviceId, updatedAt, ct);
         }
 
         await transaction.CommitAsync(ct);
@@ -288,12 +402,14 @@ public class SqliteUsageStore : IUsageStore
         SqliteConnection connection,
         SqliteTransaction transaction,
         UsageFact fact,
+        string deviceId,
         string updatedAt,
         CancellationToken ct)
     {
         using var cmd = connection.CreateCommand();
         cmd.Transaction = transaction;
         cmd.CommandText = UpsertUsageFactSql;
+        cmd.Parameters.AddWithValue("$device", deviceId);
         cmd.Parameters.AddWithValue("$day", fact.Day);
         cmd.Parameters.AddWithValue("$grain", fact.Grain);
         cmd.Parameters.AddWithValue("$agent", fact.Agent);
@@ -326,21 +442,22 @@ public class SqliteUsageStore : IUsageStore
         {
             facts.Add(new UsageFact
             {
-                Day = reader.GetString(0),
-                Grain = reader.GetString(1),
-                Agent = reader.GetString(2),
-                Model = reader.GetString(3),
-                Provider = reader.GetString(4),
-                Project = reader.GetString(5),
-                ProjectDisplayName = reader.GetString(6),
-                InputTokens = reader.GetInt64(7),
-                OutputTokens = reader.GetInt64(8),
-                CacheCreationTokens = reader.GetInt64(9),
-                CacheCreationEphemeral5mTokens = reader.GetInt64(10),
-                CacheCreationEphemeral1hTokens = reader.GetInt64(11),
-                CacheReadTokens = reader.GetInt64(12),
-                TotalTokens = reader.GetInt64(13),
-                CostUsd = ReadCost(reader, 14),
+                Device = reader.GetString(0),
+                Day = reader.GetString(1),
+                Grain = reader.GetString(2),
+                Agent = reader.GetString(3),
+                Model = reader.GetString(4),
+                Provider = reader.GetString(5),
+                Project = reader.GetString(6),
+                ProjectDisplayName = reader.GetString(7),
+                InputTokens = reader.GetInt64(8),
+                OutputTokens = reader.GetInt64(9),
+                CacheCreationTokens = reader.GetInt64(10),
+                CacheCreationEphemeral5mTokens = reader.GetInt64(11),
+                CacheCreationEphemeral1hTokens = reader.GetInt64(12),
+                CacheReadTokens = reader.GetInt64(13),
+                TotalTokens = reader.GetInt64(14),
+                CostUsd = ReadCost(reader, 15),
             });
         }
 
@@ -353,11 +470,13 @@ public class SqliteUsageStore : IUsageStore
         using var connection = await OpenAsync(ct);
         await using var transaction = await connection.BeginTransactionAsync(ct);
         var updatedAt = FormatTimestamp(DateTimeOffset.UtcNow);
+        var deviceId = GetLocalDeviceId(connection);
 
         foreach (var fact in facts)
         {
             using var cmd = connection.CreateCommand();
             cmd.CommandText = UpsertSessionFactSql;
+            cmd.Parameters.AddWithValue("$device", deviceId);
             cmd.Parameters.AddWithValue("$sessionId", fact.SessionId);
             cmd.Parameters.AddWithValue("$agent", fact.Agent);
             cmd.Parameters.AddWithValue("$project", fact.Project);
@@ -393,21 +512,22 @@ public class SqliteUsageStore : IUsageStore
         {
             facts.Add(new SessionFact
             {
-                SessionId = reader.GetString(0),
-                Agent = reader.GetString(1),
-                Project = reader.GetString(2),
-                ProjectDisplayName = reader.GetString(3),
-                DominantModel = reader.GetString(4),
-                FirstSeenAt = ReadTimestamp(reader, 5),
-                LastSeenAt = ReadTimestamp(reader, 6),
-                InputTokens = reader.GetInt64(7),
-                OutputTokens = reader.GetInt64(8),
-                CacheCreationTokens = reader.GetInt64(9),
-                CacheCreationEphemeral5mTokens = reader.GetInt64(10),
-                CacheCreationEphemeral1hTokens = reader.GetInt64(11),
-                CacheReadTokens = reader.GetInt64(12),
-                TotalTokens = reader.GetInt64(13),
-                CostUsd = ReadCost(reader, 14),
+                Device = reader.GetString(0),
+                SessionId = reader.GetString(1),
+                Agent = reader.GetString(2),
+                Project = reader.GetString(3),
+                ProjectDisplayName = reader.GetString(4),
+                DominantModel = reader.GetString(5),
+                FirstSeenAt = ReadTimestamp(reader, 6),
+                LastSeenAt = ReadTimestamp(reader, 7),
+                InputTokens = reader.GetInt64(8),
+                OutputTokens = reader.GetInt64(9),
+                CacheCreationTokens = reader.GetInt64(10),
+                CacheCreationEphemeral5mTokens = reader.GetInt64(11),
+                CacheCreationEphemeral1hTokens = reader.GetInt64(12),
+                CacheReadTokens = reader.GetInt64(13),
+                TotalTokens = reader.GetInt64(14),
+                CostUsd = ReadCost(reader, 15),
             });
         }
 
@@ -475,6 +595,15 @@ public class SqliteUsageStore : IUsageStore
 
             await transaction.CommitAsync(ct);
         }
+    }
+
+    /// <summary>连接内读取本机设备 id（device_registry 单行；迁移 3 自举）。</summary>
+    private static string GetLocalDeviceId(SqliteConnection connection)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT device_id FROM device_registry LIMIT 1";
+        return cmd.ExecuteScalar() as string
+            ?? throw new InvalidOperationException("device_registry is empty: device migration did not run.");
     }
 
     private async Task<SqliteConnection> OpenAsync(CancellationToken ct)

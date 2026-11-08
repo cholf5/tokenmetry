@@ -6,6 +6,9 @@ namespace Tokenmetry.Core.Models;
 /// </summary>
 public class SessionFact
 {
+    /// <summary>归属设备 id；本地写路径由 store 盖戳（远端行原样落地）。</summary>
+    public string Device { get; set; } = string.Empty;
+
     /// <summary>会话 id（统一记录模型保证非空，日志体缺失时为文件名推导值）。</summary>
     public string SessionId { get; set; } = string.Empty;
 
@@ -40,4 +43,10 @@ public class SessionFact
 
     /// <summary>已知成本合计（日志自带 costUSD 之和）；全部未知时为 null。</summary>
     public decimal? CostUsd { get; set; }
+
+    /// <summary>
+    /// 行版本时间戳（UTC "O" 文本）。本地写路径忽略此值（由 store 盖戳）；
+    /// 同步载荷必带——接收端按它做 LWW，永不重盖。
+    /// </summary>
+    public DateTimeOffset? UpdatedAt { get; set; }
 }

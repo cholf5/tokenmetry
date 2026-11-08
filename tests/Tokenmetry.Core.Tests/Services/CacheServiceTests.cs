@@ -119,6 +119,7 @@ sealed class InMemoryUsageStore : IUsageStore
     public List<UsageFact> Facts { get; } = new();
     public List<SessionFact> SessionFacts { get; } = new();
 
+    public Task<string> GetLocalDeviceIdAsync(CancellationToken ct = default) => Task.FromResult(string.Empty);
     public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
     {
         foreach (var fact in facts)
