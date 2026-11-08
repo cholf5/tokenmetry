@@ -199,7 +199,7 @@ public class SettingsViewModelTests
 
         viewModel.SelectedTheme = SettingsViewModel.ThemeOptions.First(o => o.Value == "dark");
 
-        themeService.LastApplied.Should().Be("dark");
+        themeService.LastAppliedMode.Should().Be("dark");
         settings.Theme.Should().Be("dark");
         store.SaveCalls.Should().Be(1);
     }
@@ -321,7 +321,7 @@ public class SettingsViewModelTests
 
         viewModel.SelectedTheme = SettingsViewModel.ThemeOptions.First(o => o.Value == "dark");
 
-        themeService.LastApplied.Should().Be("dark"); // UI 侧生效
+        themeService.LastAppliedMode.Should().Be("dark"); // UI 侧生效
         settings.Theme.Should().Be("dark");           // 内存设置生效
         store.SavedSettings.Should().BeNull();        // 落盘失败（待下次更改重试）
     }
@@ -344,6 +344,58 @@ public class SettingsViewModelTests
         var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
 
         viewModel.SelectedTheme.Value.Should().Be("system");
+    }
+
+    // ---- 外观画板（ThemePalette × Theme 画板×模式两维；机制与 Theme 全链路同构）----
+
+    [Fact]
+    public void Constructor_ResolvesPalettePreferenceFromSettings()
+    {
+        var settings = new AppSettings { Theme = "light", ThemePalette = "nord" };
+
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
+
+        viewModel.SelectedPalette.Value.Should().Be("nord");
+        // 单档画板（Nord 只有夜间）：模式显示强制唯一档，选择器置灰，但不回写存储的模式偏好
+        viewModel.SelectedTheme.Value.Should().Be("dark");
+        viewModel.IsModeSelectionEnabled.Should().BeFalse();
+        viewModel.EffectiveThemeOptions.Should().ContainSingle().Which.Value.Should().Be("dark");
+        settings.Theme.Should().Be("light");
+    }
+
+    [Fact]
+    public void Constructor_WithUnknownPalettePreference_FallsBackToDefault()
+    {
+        var settings = new AppSettings { ThemePalette = "sepia" };
+
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
+
+        viewModel.SelectedPalette.Value.Should().Be("default");
+        viewModel.IsModeSelectionEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PaletteChange_AppliesPersistsAndCoercesModeDisplayWithoutOverwritingStoredMode()
+    {
+        var settings = new AppSettings { Theme = "light" };
+        var store = new FakeSettingsStore();
+        var themeService = new FakeThemeService();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, themeService);
+
+        viewModel.SelectedPalette = SettingsViewModel.PaletteOptions.First(o => o.Value == "nord");
+
+        themeService.LastAppliedPalette.Should().Be("nord"); // UI 侧生效
+        settings.ThemePalette.Should().Be("nord");           // 内存设置生效
+        store.SaveCalls.Should().Be(1);                      // 即落盘
+        viewModel.SelectedTheme.Value.Should().Be("dark");   // 模式显示按画板归口
+        settings.Theme.Should().Be("light");                 // 存储的模式偏好不被归口值覆盖
+        viewModel.IsModeSelectionEnabled.Should().BeFalse();
+
+        // 切回多档画板：模式显示恢复用户原日间偏好
+        viewModel.SelectedPalette = SettingsViewModel.PaletteOptions.First(o => o.Value == "solarized");
+        viewModel.SelectedTheme.Value.Should().Be("light");
+        viewModel.IsModeSelectionEnabled.Should().BeTrue();
+        themeService.LastAppliedPalette.Should().Be("solarized");
     }
 
     // ---- 界面语言（system / zh / zh-hant / en / ja / ko / pt-br / ru，机制与 Theme 全链路同构）----
@@ -589,11 +641,20 @@ public class SettingsViewModelTests
 
     private sealed class FakeThemeService : IThemeService
     {
-        public string? LastApplied { get; private set; }
+        public string? LastAppliedPalette { get; private set; }
 
-        public void Apply(string? themePreference)
+        public string? LastAppliedMode { get; private set; }
+
+        public string AppliedPaletteId => LastAppliedPalette ?? "default";
+
+#pragma warning disable CS0067 // 测试桩不触发 Applied：图表重绘信号路径由 headless 测试覆盖
+        public event EventHandler? Applied;
+#pragma warning restore CS0067
+
+        public void Apply(string? palettePreference, string? modePreference)
         {
-            LastApplied = themePreference;
+            LastAppliedPalette = palettePreference;
+            LastAppliedMode = modePreference;
         }
     }
 

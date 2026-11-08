@@ -9,6 +9,7 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -486,5 +487,239 @@ public class DesignTokenTests
             $"缺少动效令牌 {key}");
         Assert.IsType<double>(value);
         return (double)value!;
+    }
+
+    // ════════════════════ 应用画板（Styles/Themes/，scripts/generate-theme-palettes.py 生成）════════════════════
+
+    /// <summary>画板字典必须逐键覆盖的 App* 令牌（随模式翻转集，与 Tokens.axaml 默认画板同键位）。
+    /// 刻意不含 AppPoster* / AppSeries* / AppTokenType* / AppMiniFill* / AppMotion*——海报内容与
+    /// 数据语义色不吃应用画板（生成脚本同样不产出）。</summary>
+    private static readonly string[] PaletteAppKeys =
+    [
+        "AppBackgroundBrush", "AppPanelBrush", "AppPanelAltBrush", "AppLineBrush",
+        "AppTextBrush", "AppMutedTextBrush",
+        "AppAccentBlueBrush", "AppAccentCyanBrush", "AppAccentPurpleBrush",
+        "AppAccentGreenBrush", "AppAccentOrangeBrush", "AppAccentRedBrush",
+        "AppCardBackgroundBrush", "AppCardLineBrush", "AppLinkBrush",
+        "AppChipBackgroundBrush", "AppChipTextBrush", "AppMiniTrackBrush", "AppKpiTitleBrush",
+        "AppIconChipBlueBackgroundBrush", "AppIconChipBlueForegroundBrush",
+        "AppIconChipAmberBackgroundBrush", "AppIconChipAmberForegroundBrush",
+        "AppIconChipPurpleBackgroundBrush", "AppIconChipPurpleForegroundBrush",
+        "AppIconChipGreenBackgroundBrush", "AppIconChipGreenForegroundBrush",
+        "AppIconChipNeutralBackgroundBrush", "AppIconChipNeutralForegroundBrush",
+        "AppSidebarBackgroundBrush", "AppTopbarBackgroundBrush",
+        "AppNavForegroundBrush", "AppNavActiveBackgroundBrush", "AppNavActiveForegroundBrush",
+        "AppNavActiveIndicatorBrush", "AppNavHoverBackgroundBrush", "AppNavRestBackgroundBrush",
+        "AppChartGridLineBrush", "AppChartAxisLineBrush", "AppOverlayScrimBrush",
+        "AppBannerActiveBackgroundBrush", "AppBannerActiveLineBrush",
+        "AppBannerWarnBackgroundBrush", "AppBannerWarnLineBrush",
+        "AppScrollBarThumbBrush", "AppScrollBarThumbHoverBrush",
+        "AppOnBrandForegroundBrush", "AppPopoverCardBackgroundBrush", "AppPopoverShadowColor",
+    ];
+
+    /// <summary>画板文件 → 声明并必须齐备的变体（与 ThemePaletteCatalog.Modes 同步维护）。</summary>
+    private static readonly Dictionary<string, ThemeVariant[]> PaletteFiles = new()
+    {
+        ["Nord"] = [ThemeVariant.Dark],
+        ["Dracula"] = [ThemeVariant.Dark],
+        ["Solarized"] = [ThemeVariant.Light, ThemeVariant.Dark],
+        ["Gruvbox"] = [ThemeVariant.Light, ThemeVariant.Dark],
+    };
+
+    /// <summary>画板必须覆盖的 Semi 控件别名键（每族至少钉住关键键，逐键核对自
+    /// Semi.Avalonia v12.1.0.1 的 Themes/{Light,Dark}/{Control}.axaml；族清单与生成脚本
+    /// SEMI_ALIASES 同源，缺族 = 该控件族回落 Semi 原生灰、画板气质串味）。</summary>
+    private static readonly string[] PaletteSemiAliasKeys =
+    [
+        "WindowDefaultBackground",
+        "TextBoxDefaultBackground", "TextBoxForeground", "TextBoxFocusBorderBrush",
+        "ComboBoxSelectorBackground", "ComboBoxPopupBackground", "ComboBoxItemSelectedBackground",
+        "AutoCompleteBoxPopupBackground",
+        "CheckBoxForeground", "CheckBoxCheckedDefaultBackground",
+        "ToggleButtonPrimaryIndeterminateBorderBrush",
+        "ToolTipBackground",
+        "FlyoutBackground",
+        "ListBoxItemSelectedBackground",
+        "NotificationCardBackground", "NotificationCardTitleForeground",
+        "DataValidationErrorsForeground",
+        "ButtonDefaultBackground", "ButtonSolidPrimaryBackground",
+        "MenuFlyoutBackground", "MenuItemForeground",
+        "SliderTrackForeground", "SliderTrackBackground",
+    ];
+
+    private static ResourceDictionary LoadPalette(string name) =>
+        Assert.IsType<ResourceDictionary>(AvaloniaXamlLoader.Load(
+            new Uri($"avares://Tokenmetry.App/Styles/Themes/{name}.axaml")));
+
+    private static IEnumerable<(string Palette, ThemeVariant Variant, ResourceDictionary Dict)> PaletteDictionaries()
+    {
+        foreach (var (name, variants) in PaletteFiles)
+        {
+            var dict = LoadPalette(name);
+            foreach (var variant in variants)
+            {
+                Assert.True(dict.ThemeDictionaries.TryGetValue(variant, out var mode),
+                    $"{name}.axaml 缺少 {variant} 变体字典");
+                yield return (name, variant, (ResourceDictionary)mode!);
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Every_palette_dictionary_defines_all_app_tokens()
+    {
+        foreach (var (palette, variant, dict) in PaletteDictionaries())
+        {
+            foreach (var key in PaletteAppKeys)
+            {
+                Assert.True(dict.TryGetResource(key, variant, out var value),
+                    $"{palette}/{variant} 缺少画板令牌 {key}");
+                // 渐变键（AppCardBackgroundBrush）是画刷、投影键是 Color，其余画刷
+                Assert.True(value is IBrush or Color, $"{palette}/{variant} 的 {key} 既不是画刷也不是 Color");
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Palette_dictionaries_do_not_shadow_poster_series_or_motion_tokens()
+    {
+        // 海报令牌（随海报子树本地默认字典走）、图表系列色/Token 类型色（数据语义、全画板恒定）、
+        // 动效常量（全局）——画板字典一旦产出这些键就把「不吃应用画板」的边界打穿了。
+        string[] forbiddenPrefixes = ["AppPoster", "AppSeries", "AppTokenType", "AppMotion", "AppMiniFill"];
+        foreach (var (palette, _, dict) in PaletteDictionaries())
+        {
+            foreach (var key in dict.Keys.OfType<string>())
+            {
+                Assert.True(!forbiddenPrefixes.Any(key.StartsWith),
+                    $"{palette} 画板不应定义数据/海报/动效令牌 {key}");
+                if (key.StartsWith("App", StringComparison.Ordinal))
+                {
+                    Assert.Contains(key, (IEnumerable<string>)PaletteAppKeys); // App* 键只许在必需名单内
+                }
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Palette_semi_alias_overrides_cover_used_control_families()
+    {
+        foreach (var (palette, variant, dict) in PaletteDictionaries())
+        {
+            foreach (var key in PaletteSemiAliasKeys)
+            {
+                Assert.True(dict.TryGetResource(key, variant, out _),
+                    $"{palette}/{variant} 缺少 Semi 别名覆盖 {key}（对应控件族回落 Semi 原生灰）");
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Palette_text_and_accent_contrast_meet_discipline()
+    {
+        // 与生成脚本同一套 WCAG 纪律（正文 ≥7 / 次要与强调 ≥4.5），在测试侧独立重算——
+        // 手改 axaml 或脚本阈值放水都会在此暴露。Q-020 教训：muted 必须按它实际出现的底校准。
+        foreach (var (palette, variant, dict) in PaletteDictionaries())
+        {
+            var c = (string key) =>
+            {
+                Assert.True(dict.TryGetResource(key, variant, out var v), $"{palette}/{variant} 缺 {key}");
+                return Assert.IsAssignableFrom<ISolidColorBrush>(v!).Color;
+            };
+            var bg = c("AppBackgroundBrush");
+            var panel = c("AppPanelBrush");
+            var sidebar = c("AppSidebarBackgroundBrush");
+            var text = c("AppTextBrush");
+            var muted = c("AppMutedTextBrush");
+
+            Assert.True(Contrast(text, bg) >= 7.0, $"{palette}/{variant} 正文对页面底 {Contrast(text, bg):F2} < 7");
+            Assert.True(Contrast(text, panel) >= 7.0, $"{palette}/{variant} 正文对面板 {Contrast(text, panel):F2} < 7");
+            Assert.True(Contrast(text, sidebar) >= 7.0, $"{palette}/{variant} 正文对侧栏 {Contrast(text, sidebar):F2} < 7");
+            Assert.True(Contrast(muted, bg) >= 4.5, $"{palette}/{variant} 次要文字对页面底 {Contrast(muted, bg):F2} < 4.5");
+            Assert.True(Contrast(muted, panel) >= 4.5, $"{palette}/{variant} 次要文字对面板 {Contrast(muted, panel):F2} < 4.5");
+
+            foreach (var accent in new[] { "Blue", "Cyan", "Purple", "Green", "Orange", "Red" })
+            {
+                var color = c($"AppAccent{accent}Brush");
+                Assert.True(Contrast(color, panel) >= 4.5,
+                    $"{palette}/{variant} 强调{accent} 对面板 {Contrast(color, panel):F2} < 4.5");
+            }
+
+            Assert.True(Contrast(c("AppLinkBrush"), panel) >= 4.5, $"{palette}/{variant} 链接对面板 < 4.5");
+            Assert.True(Contrast(c("AppChipTextBrush"), c("AppChipBackgroundBrush")) >= 4.5,
+                $"{palette}/{variant} chip 文字对 chip 底 < 4.5");
+            Assert.True(Contrast(c("AppKpiTitleBrush"), panel) >= 4.5, $"{palette}/{variant} KPI 顶标签对面板 < 4.5");
+            Assert.True(Contrast(c("AppNavForegroundBrush"), sidebar) >= 4.5,
+                $"{palette}/{variant} 导航前景对侧栏 < 4.5");
+            Assert.True(Contrast(c("AppNavActiveForegroundBrush"), c("AppNavActiveBackgroundBrush")) >= 4.5,
+                $"{palette}/{variant} 导航选中字对选中底 < 4.5");
+            Assert.True(Contrast(c("AppScrollBarThumbBrush"), bg) >= 1.7,
+                $"{palette}/{variant} 滚动条滑块对页面底 < 1.7");
+
+            foreach (var role in new[] { "Blue", "Amber", "Purple", "Green", "Neutral" })
+            {
+                Assert.True(Contrast(c($"AppIconChip{role}ForegroundBrush"), c($"AppIconChip{role}BackgroundBrush")) >= 4.5,
+                    $"{palette}/{variant} 图标芯片 {role} 前景对软底 < 4.5");
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Style_preview_page_renders_in_every_palette()
+    {
+        // 各画板 × 支持模式的整页离屏截图（TOKENMETRY_STYLE_PREVIEW_DIR 设置时留档）——
+        // 新画板的目检通道：色相气质、层级、Semi 控件是否串味都看这里。
+        var dir = Environment.GetEnvironmentVariable("TOKENMETRY_STYLE_PREVIEW_DIR");
+        var service = new ThemeService();
+        try
+        {
+            foreach (var palette in ThemePaletteCatalog.All)
+            {
+            foreach (var mode in palette.Modes)
+            {
+                service.Apply(palette.Id, mode);
+                // system 档在窗口显式定档（App 级 Default 的实际解析随宿主，预览只要亮/暗两张确定图）
+                var variant = mode == "dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+                var window = new Window
+                {
+                    Width = 880,
+                    Height = 720,
+                    Content = new StylePreviewView(),
+                    RequestedThemeVariant = variant,
+                    Background = Application.Current!.TryGetResource("AppBackgroundBrush", variant, out var bg)
+                        ? (IBrush)bg! : Brushes.Black,
+                };
+                    window.Show();
+                    Dispatcher.UIThread.RunJobs();
+                    Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                    var frame = window.CaptureRenderedFrame();
+                    Assert.NotNull(frame);
+
+                    if (!string.IsNullOrWhiteSpace(dir))
+                    {
+                        Directory.CreateDirectory(dir);
+                        var path = Path.Combine(dir, $"style-preview-{palette.Id}-{mode}.png");
+                        frame!.Save(path, new PngBitmapEncoderOptions());
+                        Assert.True(File.Exists(path), $"截图未生成：{path}");
+                    }
+
+                    window.Close();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }
+        }
+        finally
+        {
+            service.Apply(ThemePaletteCatalog.DefaultPaletteId, "dark");
+        }
+    }
+
+    /// <summary>WCAG 相对亮度对比度（与生成脚本同式）。</summary>
+    private static double Contrast(Color a, Color b)
+    {
+        static double Channel(byte v) => v <= 10 ? v / 255.0 / 12.92 : Math.Pow((v / 255.0 + 0.055) / 1.055, 2.4);
+        var la = 0.2126 * Channel(a.R) + 0.7152 * Channel(a.G) + 0.0722 * Channel(a.B);
+        var lb = 0.2126 * Channel(b.R) + 0.7152 * Channel(b.G) + 0.0722 * Channel(b.B);
+        var (hi, lo) = la >= lb ? (la, lb) : (lb, la);
+        return (hi + 0.05) / (lo + 0.05);
     }
 }

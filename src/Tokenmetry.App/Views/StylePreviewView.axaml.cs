@@ -89,13 +89,13 @@ public partial class StylePreviewView : UserControl
     }
 
     private void OnLightThemeClick(object? sender, RoutedEventArgs e) =>
-        AppServices.Get<IThemeService>().Apply("light");
+        AppServices.Get<IThemeService>().Apply(ThemePaletteCatalog.DefaultPaletteId, "light");
 
     private void OnDarkThemeClick(object? sender, RoutedEventArgs e) =>
-        AppServices.Get<IThemeService>().Apply("dark");
+        AppServices.Get<IThemeService>().Apply(ThemePaletteCatalog.DefaultPaletteId, "dark");
 
     private void OnSystemThemeClick(object? sender, RoutedEventArgs e) =>
-        AppServices.Get<IThemeService>().Apply("system");
+        AppServices.Get<IThemeService>().Apply(ThemePaletteCatalog.DefaultPaletteId, "system");
 
     private void OnToastClick(object? sender, RoutedEventArgs e) =>
         AppServices.Get<IToastService>().Show("Toast 演示：I-027 共享反馈样式", this);

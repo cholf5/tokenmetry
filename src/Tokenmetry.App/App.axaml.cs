@@ -47,7 +47,7 @@ public partial class App : Application
         }
 
         var settings = DependencyInjection.AppServices.Get<AppSettings>();
-        DependencyInjection.AppServices.Get<IThemeService>().Apply(settings.Theme);
+        DependencyInjection.AppServices.Get<IThemeService>().Apply(settings.ThemePalette, settings.Theme);
         // 界面语言在主窗 / 托盘创建前应用（托盘菜单、顶栏、各页文案都经 Translations 取串）。
         Localization.Translations.ApplyPreference(settings.Language);
 

@@ -29,13 +29,31 @@
                 <StackPanel Spacing="16">
                     <TextBlock Classes="panel-title" Text="{Binding AppearanceTitle, Source={x:Static loc:Translations.Instance}}"/>
 
-                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="14">
 
-                        <!-- 主题 -->
+                        <!-- 主题（画板：整套配色气质，Styles/Themes/ 的生成画板） -->
                         <TextBlock Grid.Row="0" Grid.Column="0" Classes="setting-label"
                                    Text="{Binding LabelTheme, Source={x:Static loc:Translations.Instance}}"/>
                         <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
-                            <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme}"
+                            <ComboBox ItemsSource="{Binding PaletteOptions}" SelectedItem="{Binding SelectedPalette}"
+                                      Width="300" HorizontalAlignment="Left"
+                                      HorizontalContentAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PaletteOption">
+                                        <TextBlock Text="{Binding Label}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                       Text="{Binding ThemeHint, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+
+                        <!-- 模式（画板 × 模式两维的模式维；单档画板置灰——模式随画板固定） -->
+                        <TextBlock Grid.Row="1" Grid.Column="0" Classes="setting-label"
+                                   Text="{Binding ThemeModeLabel, Source={x:Static loc:Translations.Instance}}"/>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                            <ComboBox ItemsSource="{Binding EffectiveThemeOptions}" SelectedItem="{Binding SelectedTheme}"
+                                      IsEnabled="{Binding IsModeSelectionEnabled}"
                                       Width="300" HorizontalAlignment="Left"
                                       HorizontalContentAlignment="Stretch">
                                 <ComboBox.ItemTemplate>
@@ -45,13 +63,13 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                             <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                                       Text="{Binding ThemeHint, Source={x:Static loc:Translations.Instance}}"/>
+                                       Text="{Binding ThemeModeHint, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
 
                         <!-- 界面语言（切换即时全局生效并落盘） -->
-                        <TextBlock Grid.Row="1" Grid.Column="0" Classes="setting-label"
+                        <TextBlock Grid.Row="2" Grid.Column="0" Classes="setting-label"
                                    Text="{Binding LabelLanguage, Source={x:Static loc:Translations.Instance}}"/>
-                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
                             <ComboBox ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}"
                                       Width="300" HorizontalAlignment="Left"
                                       HorizontalContentAlignment="Stretch">
@@ -66,9 +84,9 @@
                         </StackPanel>
 
                         <!-- 刷新间隔 -->
-                        <TextBlock Grid.Row="2" Grid.Column="0" Classes="setting-label"
+                        <TextBlock Grid.Row="3" Grid.Column="0" Classes="setting-label"
                                    Text="{Binding LabelRefreshInterval, Source={x:Static loc:Translations.Instance}}"/>
-                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                        <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
                             <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="1" Width="300"
                                      HorizontalAlignment="Left"/>
                             <!-- 全自动保存的行内校验：非法输入显示提示且不落盘（保留上一个合法值） -->

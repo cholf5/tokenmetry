@@ -8,7 +8,9 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Tokenmetry.App.DependencyInjection;
 using Tokenmetry.App.Localization;
+using Tokenmetry.App.Services;
 using Tokenmetry.Core.Models;
 using ScottPlot;
 using ScottPlot.Plottables;
@@ -178,6 +180,9 @@ public partial class TrendChart : UserControl
     private Coordinates[] _hoverCoords = Array.Empty<Coordinates>();
     private string[] _hoverLabels = Array.Empty<string>();
 
+    /// <summary>挂树期持有的主题服务订阅（应用级单例，脱树退订防泄漏）。</summary>
+    private IThemeService? _themeService;
+
     public TrendChart()
     {
         InitializeComponent();
@@ -210,22 +215,35 @@ public partial class TrendChart : UserControl
     private void OnActualThemeVariantChanged(object? sender, EventArgs e) => RebuildPlot();
 
     /// <summary>
-    /// 挂树即重建并（重）挂重译订阅；先退订再订阅防重复（同 DonutChart/Heatmap 纪律，支持重挂）。
+    /// 挂树即重建并（重）挂重译与画板订阅；先退订再订阅防重复（同 DonutChart/Heatmap 纪律，支持重挂）。
     /// </summary>
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
+        // 画板切换（变体不变、只换字典）不触发 ActualThemeVariantChanged，但 chrome 色已随画板
+        // 变化——订阅服务信号重绘。服务是应用级单例，挂/脱树配对退订（同 Translations 纪律）。
+        _themeService = AppServices.Get<IThemeService>();
+        _themeService.Applied -= OnThemeApplied;
+        _themeService.Applied += OnThemeApplied;
         RebuildPlot();
     }
 
-    /// <summary>脱树退订重译订阅（Translations 是应用级单例，不随控件释放，防泄漏）。</summary>
+    /// <summary>脱树退订重译与画板订阅（两者都是应用级单例，不随控件释放，防泄漏）。</summary>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         Translations.Instance.PropertyChanged -= OnTranslationsPropertyChanged;
+        if (_themeService is { } themeService)
+        {
+            themeService.Applied -= OnThemeApplied;
+            _themeService = null;
+        }
     }
+
+    /// <summary>画板/模式应用后的重绘信号（chrome 色在 RebuildPlot 内按令牌现取）。</summary>
+    private void OnThemeApplied(object? sender, EventArgs e) => RebuildPlot();
 
     /// <summary>
     /// 语言切换重译（B-007 同 DonutChart/Heatmap 纪律）：以 PropertyChanged(CurrentLanguage) 作为

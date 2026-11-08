@@ -45,7 +45,7 @@
 |---|---|---|
 | `App*` | 本项目设计令牌（I-027 起） | 唯一允许新增的资源键前缀 |
 | （无前缀 `*Brush`） | 遗留层（I-025 批次，App.axaml） | SecondaryTextBrush 等 10 组，冻结不新增；Q-002 收敛合并 |
-| `Semi*` / 控件前缀 | Semi.Avalonia | 禁止占用/覆盖；Semi 共 146 个 `*Brush` + 178 个 `*Color` 键 |
+| `Semi*` / 控件前缀 | Semi.Avalonia | 禁止占用/覆盖；Semi 共 146 个 `*Brush` + 178 个 `*Color` 键。**唯一例外**：画板字典（Styles/Themes/）对「控件别名键」白名单的运行期覆盖，见 §11 |
 | `DataGrid*Brush` | Semi.Avalonia.DataGrid | 同上 |
 
 新增任何键之前，用独立 `new Semi.Avalonia.SemiTheme()` 实例 `TryGetResource(key, Light/Dark)` 复核无撞名（headless 测试 `DesignTokenTests.New_tokens_have_no_key_collision_with_semi_theme` 已固化此检查）。
@@ -194,3 +194,15 @@ circle/ellipse/rect/line/polyline 转 arc/H/V/A 路径）。**勿手改**；再�
   `Assets/app-icon.png`（居中 Apple 网格变体；窗口标题栏用其出血变体 app-icon-window.png）。
   2026-10-24 起替换此前的「圆环+弧形」（侧栏）与「T 字芯片」（弹窗，AppPopoverLogoBackgroundBrush
   渐变令牌随之退场）两个占位。
+
+## 11. 应用画板（可选主题皮肤，2026-11-08）
+
+默认画板 = 本文件 §2-§6 的 Tokens.axaml 明暗两档（原型蓝看板风）。在此之外，应用提供固定精选的四套整套画板：**Nord**（官方冷蓝灰，仅暗色）/ **Dracula**（紫黑霓虹，仅暗色）/ **Solarized**（官方暖纸亮色 + 暗青暗色）/ **Gruvbox**（复古暖棕，亮暗两档）。立场与默认画板一致：固定封闭集合，不做主题引擎、不开放自定义取色（Opinionated 立场不因画板而破）。
+
+- **单一事实来源**：`scripts/generate-theme-palettes.py`（画板定义 + WCAG 断言 + XAML 产出）。改色改脚本后重跑，产物 `Styles/Themes/{Nord,Dracula,Solarized,Gruvbox}.axaml` 勿手改。对比度纪律与 §2 同源但阈值带 +0.05 安全边距（正文 ≥7 / 次要与强调 ≥4.5）——双实现（python 生成器 / C# 测试）浮点尾数差曾让 4.5001 过、4.4999 挂，压线的值不算达标。测试侧 `DesignTokenTests` 独立重算复核。
+- **键位边界**：画板字典只覆盖 46 个随模式翻转的 App* 令牌 + Semi 别名白名单。**刻意不含** `AppPoster*`（海报内容不吃应用画板）、`AppSeries*`/`AppTokenType*`（数据语义色全画板恒定）、`AppMiniFill*`/`AppMotion*`（全局常量）。`DesignTokenTests.Palette_dictionaries_do_not_shadow_poster_series_or_motion_tokens` 固化此边界。
+- **Semi* 覆盖例外（§1 规则的唯一例外）**：Semi v12 的控件 ControlTheme 只消费「控件别名键」（`Themes/{Light,Dark}/{Control}.axaml` 内用 StaticResource 烤死的语义值），覆盖语义键无效——别名键是 Semi 原生控件跟随画板换肤的唯一通道。画板字典按白名单覆盖应用实际使用控件族（Window/TextBox/ComboBox/AutoCompleteBox/CheckBox/ToggleButton/ToolTip/Flyout/ListBox/NotificationCard/DataValidationErrors/Button/Menu/Slider）的别名键，值由画板主值派生（`semi_semantics()`）。覆盖的是既有键而非新增键，`App*` 前缀规则与撞名测试不受影响。
+- **运行机制**：`ThemePaletteCatalog`（画板目录）× `ThemeService.Apply(palette, mode)`。合并字典「后合入者胜」（Avalonia 12 实测），画板字典追加到 Application.Resources 末尾压过 Tokens.axaml；默认画板退挂字典。每次 Apply 重新解析 XAML——ResourceDictionary 挂过 Application 即记住 owner，复用旧实例再挂会抛「already has a parent」。单档画板强制唯一变体，多档画板 light/dark/system 齐全。
+- **海报隔离**：`SharePosterView` 的 `ThemeScope` 本地合入一份 Tokens.axaml——元素资源先于 Application 资源命中，应用画板压不进海报子树，海报永远用默认画板的日/夜值（`ThemePaletteTests.Poster_theme_scope_shields_poster_subtree_from_app_palette` 固化）。
+- **位图图表跟随**：ScottPlot（TrendChart）与 Heatmap 代码现取令牌渲染，变体不变而画板切换时 `ActualThemeVariantChanged` 不触发——订阅 `IThemeService.Applied`（挂/脱树配对退订，同 Translations 纪律）重绘。
+- **存储**：`AppSettings.ThemePalette`（画板维，未知值回落 default）× `AppSettings.Theme`（模式维，语义即亮暗档）。旧 settings.json 无 ThemePalette 键 = 默认画板，零迁移；单档画板下模式显示强制归口但不回写存储偏好，切回多档画板时用户原偏好仍在。
