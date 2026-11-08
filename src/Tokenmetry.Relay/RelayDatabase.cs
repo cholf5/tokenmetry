@@ -36,6 +36,15 @@ internal sealed class RelayDatabase(string dbPath)
             CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_github_sub
                 ON accounts (github_sub) WHERE github_sub IS NOT NULL;
 
+            -- GitHub 多设备登录各自持 token（一次登录签发一条；明文不落库，SHA-256 落库）。
+            -- shared 单租户仍走 accounts.credential_hash（A15）。
+            CREATE TABLE IF NOT EXISTS account_tokens (
+                account_id TEXT NOT NULL,
+                credential_hash TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (account_id, credential_hash)
+            );
+
             CREATE TABLE IF NOT EXISTS devices (
                 account_id TEXT NOT NULL,
                 device_id TEXT NOT NULL,
@@ -110,6 +119,68 @@ internal sealed class RelayDatabase(string dbPath)
         cmd.Parameters.AddWithValue("$hash", RelayAuth.HashToken(token));
         cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
         await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    /// <summary>
+    /// GitHub 身份 upsert（kind='github'）：首次登录建账号，再次登录更新资料并追加签发 token。
+    /// token 明文不落库——credential_hash 是唯一凭据痕迹。
+    /// </summary>
+    public async Task UpsertGitHubAccountAsync(string githubSub, string? login, string? avatarUrl, string credentialHash, CancellationToken ct = default)
+    {
+        await using var connection = OpenConnection();
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(ct);
+
+        string? accountId;
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.Transaction = transaction;
+            cmd.CommandText = "SELECT id FROM accounts WHERE github_sub = $sub";
+            cmd.Parameters.AddWithValue("$sub", githubSub);
+            accountId = await cmd.ExecuteScalarAsync(ct) as string;
+        }
+
+        if (accountId is null)
+        {
+            accountId = Guid.NewGuid().ToString("N");
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = """
+                INSERT INTO accounts (id, kind, credential_hash, github_sub, display_name, avatar_url, created_at, seq)
+                VALUES ($id, 'github', $hash, $sub, $login, $avatar, $now, 0)
+                """;
+            insert.Parameters.AddWithValue("$id", accountId);
+            insert.Parameters.AddWithValue("$hash", credentialHash);
+            insert.Parameters.AddWithValue("$sub", githubSub);
+            insert.Parameters.AddWithValue("$login", (object?)login ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$avatar", (object?)avatarUrl ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
+            await insert.ExecuteNonQueryAsync(ct);
+        }
+        else
+        {
+            using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = """
+                UPDATE accounts SET credential_hash = $hash, display_name = $login, avatar_url = $avatar WHERE id = $id
+                """;
+            update.Parameters.AddWithValue("$hash", credentialHash);
+            update.Parameters.AddWithValue("$login", (object?)login ?? DBNull.Value);
+            update.Parameters.AddWithValue("$avatar", (object?)avatarUrl ?? DBNull.Value);
+            update.Parameters.AddWithValue("$id", accountId);
+            await update.ExecuteNonQueryAsync(ct);
+        }
+
+        using var tokenInsert = connection.CreateCommand();
+        tokenInsert.Transaction = transaction;
+        tokenInsert.CommandText = """
+            INSERT OR IGNORE INTO account_tokens (account_id, credential_hash, created_at) VALUES ($id, $hash, $now)
+            """;
+        tokenInsert.Parameters.AddWithValue("$id", accountId);
+        tokenInsert.Parameters.AddWithValue("$hash", credentialHash);
+        tokenInsert.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
+        await tokenInsert.ExecuteNonQueryAsync(ct);
+
+        await transaction.CommitAsync(ct);
     }
 
     private static async Task ExecuteAsync(SqliteConnection connection, string sql, CancellationToken ct)
