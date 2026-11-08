@@ -1,4 +1,5 @@
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Sync;
 
 namespace Tokenmetry.Core.Abstractions;
 
@@ -36,4 +37,41 @@ public interface IUsageStore
     /// 旧 CLI 分解行残留会在混源日干扰读取与诊断。
     /// </summary>
     Task DeleteDecompositionFactsAsync(CancellationToken ct = default);
+
+    // ---- 跨端同步（relay 设计 §4.2/§4.3）：以下方法为 SyncEngine 的存储面 ----
+
+    /// <summary>本机设备名（迁移时抓 MachineName 当初值，之后不随 hostname 漂移，A7）。</summary>
+    Task<string> GetLocalDeviceNameAsync(CancellationToken ct = default);
+
+    Task SetLocalDeviceNameAsync(string name, CancellationToken ct = default);
+
+    /// <summary>
+    /// 远端行原样落地：device 与 updated_at 按载荷保留、不盖本机戳、不重算值（A3），
+    /// LWW 守卫（仅当载荷 updated_at 更新时覆盖）。
+    /// </summary>
+    Task UpsertRemoteUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default);
+
+    /// <inheritdoc cref="UpsertRemoteUsageFactsAsync"/>
+    Task UpsertRemoteSessionFactsAsync(IReadOnlyList<SessionFact> facts, CancellationToken ct = default);
+
+    /// <summary>本机设备且 updated_at 严格大于 since 的行（增量推送的读取面）。</summary>
+    Task<IReadOnlyList<UsageFact>> GetLocalUsageFactsSinceAsync(DateTimeOffset since, CancellationToken ct = default);
+
+    /// <inheritdoc cref="GetLocalUsageFactsSinceAsync"/>
+    Task<IReadOnlyList<SessionFact>> GetLocalSessionFactsSinceAsync(DateTimeOffset since, CancellationToken ct = default);
+
+    /// <summary>同步游标：上次推送的最大 updated_at 与上次拉取见到的服务端 seq。</summary>
+    Task<(DateTimeOffset? LastPushedAt, long LastPullSeq)> GetSyncCursorAsync(CancellationToken ct = default);
+
+    Task SetSyncCursorAsync(DateTimeOffset? lastPushedAt, long? lastPullSeq, CancellationToken ct = default);
+
+    /// <summary>远端设备清单（本机除外；设备清单对账的本地侧账本）。</summary>
+    Task<IReadOnlyList<SyncDeviceInfo>> GetRemoteDevicesAsync(CancellationToken ct = default);
+
+    Task UpsertRemoteDevicesAsync(IReadOnlyList<SyncDeviceInfo> devices, CancellationToken ct = default);
+
+    /// <summary>
+    /// 设备退场（A13 设备清单对账 / 解绑）：删除其 remote_devices 行与该设备的全部 usage/session 行。
+    /// </summary>
+    Task DeleteRemoteDeviceDataAsync(string deviceId, CancellationToken ct = default);
 }
