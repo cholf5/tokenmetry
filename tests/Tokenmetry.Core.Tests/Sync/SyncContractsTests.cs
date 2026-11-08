@@ -71,13 +71,15 @@ public sealed class SyncContractsTests
             Seq: 42,
             UsageFacts: new List<UsageFact> { fact },
             SessionFacts: new List<SessionFact> { session },
-            Devices: new List<SyncDeviceInfo> { new("devB", "Device B", at) });
+            Devices: new List<SyncDeviceInfo> { new("devB", "Device B", at) },
+            HasMore: true);
 
         var json = JsonSerializer.Serialize(response, SyncJsonContext.Default.SyncPullResponse);
         var restored = JsonSerializer.Deserialize(json, SyncJsonContext.Default.SyncPullResponse);
 
         restored.Should().NotBeNull();
         restored!.Seq.Should().Be(42);
+        restored.HasMore.Should().BeTrue("分页续拉依赖 hasMore");
         restored.UsageFacts.Should().ContainSingle().Which.Should().BeEquivalentTo(fact);
         restored.SessionFacts.Should().ContainSingle().Which.Should().BeEquivalentTo(session);
         restored.Devices.Should().Equal(new SyncDeviceInfo("devB", "Device B", at));
