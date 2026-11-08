@@ -241,7 +241,7 @@ public class AppShellTests
 
         var topBar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TopBar");
         var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
-        Assert.Equal(3, combos.Count); // Agent + Model + Project（D-020：时间范围改档名按钮 + 弹层选择器）
+        Assert.Equal(4, combos.Count); // Agent + Model + Project + Device（D-020 时间范围改档名按钮；设备下拉仅同步开启可见，hidden 时仍在可视树）
 
         // 时间范围（D-020 选择器）：默认最近 7 天；内置 8 档 + 自定义哨兵（预设未装载），档名按钮取 VM 面
         var timeButton = topBar.GetVisualDescendants().OfType<DropDownButton>().First();
@@ -453,7 +453,7 @@ public class AppShellTests
 
         var topBar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TopBar");
         var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
-        Assert.Equal(3, combos.Count); // Agent + Model + Project（D-020：时间范围改档名按钮 + 弹层选择器）
+        Assert.Equal(4, combos.Count); // Agent + Model + Project + Device（D-020 时间范围改档名按钮；设备下拉仅同步开启可见，hidden 时仍在可视树）
         var timeButton = topBar.GetVisualDescendants().OfType<DropDownButton>().First();
         var settingsButton = topBar.GetVisualDescendants().OfType<Button>()
             .First(b => b.Classes.Contains("icon-btn"));

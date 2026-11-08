@@ -45,6 +45,7 @@ public sealed partial class Translations
         [nameof(TopbarAgent)] = "Agente",
         [nameof(TopbarModel)] = "Modelo",
         [nameof(TopbarProject)] = "Proyecto",
+        [nameof(TopbarDevice)] = "Dispositivo",
         [nameof(StatusStarting)] = "Iniciando…",
         [nameof(StatusScanning)] = "Escaneando datos locales…",
         [nameof(StatusNoLocalData)] = "No se encontraron datos locales",

@@ -47,6 +47,7 @@ public sealed partial class Translations
         [nameof(TopbarAgent)] = "Агент",
         [nameof(TopbarModel)] = "Модель",
         [nameof(TopbarProject)] = "Проект",
+        [nameof(TopbarDevice)] = "Устройство",
         [nameof(StatusStarting)] = "Запуск…",
         [nameof(StatusScanning)] = "Сканирование локальных данных…",
         [nameof(StatusNoLocalData)] = "Локальные данные не найдены",
