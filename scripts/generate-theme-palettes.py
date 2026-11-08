@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # 应用画板（主题皮肤）生成器：四套可选画板的单一事实来源。
 #
-# 产物：src/Tokenmetry.App/Styles/Themes/{Nord,Dracula,Solarized,Gruvbox}.axaml
+# 产物：src/Tokenmetry.App/Styles/Themes/{Nord,Dracula,Solarized,Gruvbox}.axaml（x:Class 编译期 XAML）
+#       及同名 .axaml.cs code-behind（类型化实例化，AOT 零 IL 警告纪律，见 ThemeService）。
 # 每个文件 = ResourceDictionary.ThemeDictionaries（Light/Dark 各一份，仅该画板支持的模式），
 # 内含两类资源：
 #   1. App* 设计令牌（46 个随模式翻转的键，与 Styles/Tokens.axaml 默认画板同键位；
@@ -745,12 +746,15 @@ def emit_palette(palette_name):
         modes_xml.append("\n".join(lines))
 
     header = f'''<ResourceDictionary xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    x:Class="Tokenmetry.App.Styles.Themes.{meta["file"]}">
 
 <!--
     {meta["file"]} 画板（{ "/".join(m.capitalize() for m in meta["modes"]) }）：ThemeService 按 settings.ThemePalette 运行期换入。
     {meta["source"]}。
     由 scripts/generate-theme-palettes.py 生成，勿手改；改色请改脚本内画板定义后重跑。
+    x:Class = 编译期 XAML + 同名 code-behind（ThemeService 类型化实例化）；不要去掉——
+    运行期 AvaloniaXamlLoader.Load(Uri) 带 RequiresUnreferencedCode，AOT 发布直接 IL2026。
 -->
 
     <ResourceDictionary.ThemeDictionaries>
@@ -762,6 +766,27 @@ def emit_palette(palette_name):
     with open(out, "w") as f:
         f.write(header)
     print(f"写入 {os.path.relpath(out, HERE + '/..')}")
+
+    code = f'''using Avalonia.Controls;
+using Avalonia.Markup.Xaml;
+
+namespace Tokenmetry.App.Styles.Themes;
+
+/// <summary>
+/// {meta["file"]} 画板字典：编译期 XAML（x:Class），ThemeService 类型化实例化。
+/// 由 scripts/generate-theme-palettes.py 生成，勿手改。Load(this) 走编译期 populate（同 App.axaml.cs
+/// 的既有模式）；刻意不走 AvaloniaXamlLoader.Load(Uri)——URI 重载带 RequiresUnreferencedCode，
+/// AOT 发布（TreatWarningsAsErrors）下直接 IL2026。
+/// </summary>
+public partial class {meta["file"]} : ResourceDictionary
+{{
+    public {meta["file"]}() => AvaloniaXamlLoader.Load(this);
+}}
+'''
+    out_cs = os.path.join(OUT_DIR, f'{meta["file"]}.axaml.cs')
+    with open(out_cs, "w") as f:
+        f.write(code)
+    print(f"写入 {os.path.relpath(out_cs, HERE + '/..')}")
 
 
 def main():

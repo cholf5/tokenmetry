@@ -1,7 +1,6 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 
 namespace Tokenmetry.App.Services;
@@ -47,18 +46,19 @@ public sealed class ThemeService : IThemeService
         //（Avalonia 12 实测确认），必须压过常驻的 Tokens.axaml 画板值才能接管 App* 键。
         // 默认画板没有运行期字典：只退挂。单档画板只定义自己支持的那档 ThemeDictionaries，
         // 误入另一档时查找自然落回 Tokens.axaml 同名档——安全的语义回落。
-        // 每次重新解析 XAML：ResourceDictionary 一旦挂过 Application 就记住 owner，复用旧实例
-        // 再挂会抛「already has a parent」；画板切换是低频操作，重复解析成本可忽略。
+        // 每次新建实例：ResourceDictionary 一旦挂过 Application 就记住 owner，复用旧实例
+        // 再挂会抛「already has a parent」；编译期 XAML（x:Class）的类型化构造近乎免费，
+        // 画板切换是低频操作。刻意不运行期解析 URI——AvaloniaXamlLoader.Load(Uri) 带
+        // RequiresUnreferencedCode，AOT 发布（TreatWarningsAsErrors）下直接 IL2026。
         if (_appliedPalette is not null)
         {
             app.Resources.MergedDictionaries.Remove(_appliedPalette);
             _appliedPalette = null;
         }
 
-        if (palette.ResourcePath is { } resourcePath)
+        if (palette.CreateDictionary is { } create)
         {
-            _appliedPalette = AvaloniaXamlLoader.Load(new Uri(resourcePath)) as ResourceDictionary
-                ?? throw new InvalidOperationException($"画板字典加载失败：{resourcePath}");
+            _appliedPalette = create();
             app.Resources.MergedDictionaries.Add(_appliedPalette);
         }
 

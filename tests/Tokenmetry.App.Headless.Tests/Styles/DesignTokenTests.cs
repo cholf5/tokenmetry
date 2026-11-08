@@ -547,8 +547,10 @@ public class DesignTokenTests
         "SliderTrackForeground", "SliderTrackBackground",
     ];
 
+    // 画板字典是编译期 XAML（x:Class → Styles.Themes.{Name} 子类，AOT 纪律见 ThemeService）：
+    // Load(uri) 返回的就是该子类实例，断言须用 IsAssignableFrom（语义仍是 ResourceDictionary）。
     private static ResourceDictionary LoadPalette(string name) =>
-        Assert.IsType<ResourceDictionary>(AvaloniaXamlLoader.Load(
+        Assert.IsAssignableFrom<ResourceDictionary>(AvaloniaXamlLoader.Load(
             new Uri($"avares://Tokenmetry.App/Styles/Themes/{name}.axaml")));
 
     private static IEnumerable<(string Palette, ThemeVariant Variant, ResourceDictionary Dict)> PaletteDictionaries()

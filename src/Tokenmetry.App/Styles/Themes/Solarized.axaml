@@ -1,10 +1,13 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    x:Class="Tokenmetry.App.Styles.Themes.Solarized">
 
 <!--
     Solarized 画板（Light/Dark）：ThemeService 按 settings.ThemePalette 运行期换入。
     Solarized 官方色板（ethanschoonover.com/solarized）：base03-base3 八阶灰 + yellow/orange/red/magenta/violet/blue/cyan/green 八强调色。
     由 scripts/generate-theme-palettes.py 生成，勿手改；改色请改脚本内画板定义后重跑。
+    x:Class = 编译期 XAML + 同名 code-behind（ThemeService 类型化实例化）；不要去掉——
+    运行期 AvaloniaXamlLoader.Load(Uri) 带 RequiresUnreferencedCode，AOT 发布直接 IL2026。
 -->
 
     <ResourceDictionary.ThemeDictionaries>
