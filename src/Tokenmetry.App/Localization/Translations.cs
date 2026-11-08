@@ -116,6 +116,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(TimePresetErrorLimit)] = "预设最多 {0} 个",
         [nameof(TimePresetErrorDuplicate)] = "与既有档位重复",
         [nameof(AllAgents)] = "所有 Agent",
+        [nameof(AllDevices)] = "全部设备",
         [nameof(AllModels)] = "全部模型",
         [nameof(AllProjects)] = "全部项目",
 
@@ -685,6 +686,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(TimePresetErrorLimit)] = "Up to {0} presets",
         [nameof(TimePresetErrorDuplicate)] = "Duplicate of an existing range",
         [nameof(AllAgents)] = "All agents",
+        [nameof(AllDevices)] = "All devices",
         [nameof(AllModels)] = "All models",
         [nameof(AllProjects)] = "All projects",
 
@@ -1398,6 +1400,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string TimePresetErrorLimit => Get();
     public string TimePresetErrorDuplicate => Get();
     public string AllAgents => Get();
+    public string AllDevices => Get();
     public string AllModels => Get();
     public string AllProjects => Get();
 

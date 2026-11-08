@@ -94,6 +94,7 @@ public sealed partial class Translations
         [nameof(TimePresetErrorLimit)] = "Até {0} predefinições",
         [nameof(TimePresetErrorDuplicate)] = "Duplica uma faixa existente",
         [nameof(AllAgents)] = "Todos os agentes",
+        [nameof(AllDevices)] = "Todos os dispositivos",
         [nameof(AllModels)] = "Todos os modelos",
         [nameof(AllProjects)] = "Todos os projetos",
 
