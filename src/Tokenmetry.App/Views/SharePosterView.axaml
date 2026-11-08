@@ -460,17 +460,6 @@
             <Setter Property="Width" Value="34"/>
             <Setter Property="Height" Value="34"/>
         </Style>
-        <Style Selector="TextBlock.milestone-footer">
-            <Setter Property="FontSize" Value="16"/>
-            <Setter Property="LetterSpacing" Value="0.6"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
-        </Style>
-        <Style Selector="TextBlock.milestone-footer-mark">
-            <Setter Property="FontSize" Value="16"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="LetterSpacing" Value="1.5"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
-        </Style>
         <Style Selector="Border.milestone-glow">
             <!-- 右侧辉光（稿子 .glow 520px → 780）：向右出血 360 由海报根 ClipToBounds 裁掉 -->
             <Setter Property="Width" Value="780"/>
@@ -1247,14 +1236,9 @@
                         </Grid>
                     </Border>
 
-                    <!-- 页脚（稿子三段 space-between）：品牌字标 / 定位语 / 域名——品牌家具不翻译，
-                         同「Tokenmetry」字标先例 -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,45,0,0">
-                        <TextBlock Grid.Column="0" Classes="milestone-footer-mark" Text="TOKENMETRY"/>
-                        <TextBlock Grid.Column="1" Classes="milestone-footer" HorizontalAlignment="Center"
-                                   Text="Local-first · Usage analytics"/>
-                        <TextBlock Grid.Column="2" Classes="milestone-footer" Text="tokenmetry.app"/>
-                    </Grid>
+                    <!-- 页脚已删（修订十）：页头已是完整品牌堆叠（logo/字标/小签），页脚三段
+                         字标 + 定位语 + 域名是同画布第二遍盖章；海报收在模型卡 + 页边距上，
+                         与其余四张版式「品牌只住页头」一致。 -->
                 </StackPanel>
             </Panel>
         </Border>
