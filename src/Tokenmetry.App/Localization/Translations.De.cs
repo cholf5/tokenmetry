@@ -550,7 +550,7 @@ public sealed partial class Translations
         [nameof(PriceCalculatorTitle)] = "Modell-Preisrechner",
         [nameof(PriceCalculatorModelLabel)] = "Modell",
         [nameof(PriceCalculatorModelWatermark)] = "Zum Filtern tippen, z. B. glm-5.3-flash",
-        [nameof(PriceCalculatorUnitPricesFormat)] = "Einzelpreise — Eingabe {0} · Cache-Lesezugriff {1} · Ausgabe {2} (USD / 1 Mio. Tokens)",
+        [nameof(PriceCalculatorPerMillionNote)] = "USD / 1 Mio. Tokens",
         [nameof(PriceCalculatorManualPrices)] = "Preise manuell eingeben (USD / 1 Mio. Tokens)",
         [nameof(PriceCalculatorManualInput)] = "Eingabe",
         [nameof(PriceCalculatorManualCacheRead)] = "Cache-Lesezugriff",

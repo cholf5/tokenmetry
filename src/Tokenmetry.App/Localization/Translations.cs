@@ -582,7 +582,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(PriceCalculatorTitle)] = "模型计价器",
         [nameof(PriceCalculatorModelLabel)] = "模型",
         [nameof(PriceCalculatorModelWatermark)] = "输入关键字筛选，如 glm-5.3-flash",
-        [nameof(PriceCalculatorUnitPricesFormat)] = "单价 输入 {0} · 缓存读 {1} · 输出 {2}（USD / 百万 tokens）",
+        [nameof(PriceCalculatorPerMillionNote)] = "USD / 百万 tokens",
         [nameof(PriceCalculatorManualPrices)] = "手动填单价（USD / 百万 tokens）",
         [nameof(PriceCalculatorManualInput)] = "输入价",
         [nameof(PriceCalculatorManualCacheRead)] = "缓存读价",
@@ -1133,7 +1133,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(PriceCalculatorTitle)] = "Model Price Calculator",
         [nameof(PriceCalculatorModelLabel)] = "Model",
         [nameof(PriceCalculatorModelWatermark)] = "Type to filter, e.g. glm-5.3-flash",
-        [nameof(PriceCalculatorUnitPricesFormat)] = "Unit prices — input {0} · cache read {1} · output {2} (USD / 1M tokens)",
+        [nameof(PriceCalculatorPerMillionNote)] = "USD / 1M tokens",
         [nameof(PriceCalculatorManualPrices)] = "Enter prices manually (USD / 1M tokens)",
         [nameof(PriceCalculatorManualInput)] = "Input",
         [nameof(PriceCalculatorManualCacheRead)] = "Cache read",
@@ -1535,7 +1535,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string PriceCalculatorTitle => Get();
     public string PriceCalculatorModelLabel => Get();
     public string PriceCalculatorModelWatermark => Get();
-    public string PriceCalculatorUnitPricesFormat => Get();
+    public string PriceCalculatorPerMillionNote => Get();
     public string PriceCalculatorManualPrices => Get();
     public string PriceCalculatorManualInput => Get();
     public string PriceCalculatorManualCacheRead => Get();

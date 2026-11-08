@@ -550,7 +550,7 @@ public sealed partial class Translations
         [nameof(PriceCalculatorTitle)] = "模型計價器",
         [nameof(PriceCalculatorModelLabel)] = "模型",
         [nameof(PriceCalculatorModelWatermark)] = "輸入關鍵字篩選，如 glm-5.3-flash",
-        [nameof(PriceCalculatorUnitPricesFormat)] = "單價 輸入 {0} · 快取讀 {1} · 輸出 {2}（USD / 百萬 tokens）",
+        [nameof(PriceCalculatorPerMillionNote)] = "USD / 百萬 tokens",
         [nameof(PriceCalculatorManualPrices)] = "手動填單價（USD / 百萬 tokens）",
         [nameof(PriceCalculatorManualInput)] = "輸入價",
         [nameof(PriceCalculatorManualCacheRead)] = "快取讀價",

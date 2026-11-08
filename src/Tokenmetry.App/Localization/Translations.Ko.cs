@@ -550,7 +550,7 @@ public sealed partial class Translations
         [nameof(PriceCalculatorTitle)] = "모델 가격 계산기",
         [nameof(PriceCalculatorModelLabel)] = "모델",
         [nameof(PriceCalculatorModelWatermark)] = "키워드로 필터링 (예: glm-5.3-flash)",
-        [nameof(PriceCalculatorUnitPricesFormat)] = "단가 입력 {0} · 캐시 읽기 {1} · 출력 {2} (USD / 100만 토큰)",
+        [nameof(PriceCalculatorPerMillionNote)] = "USD / 100만 토큰",
         [nameof(PriceCalculatorManualPrices)] = "단가 직접 입력 (USD / 100만 토큰)",
         [nameof(PriceCalculatorManualInput)] = "입력",
         [nameof(PriceCalculatorManualCacheRead)] = "캐시 읽기",

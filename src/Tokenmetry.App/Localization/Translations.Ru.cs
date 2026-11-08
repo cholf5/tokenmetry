@@ -552,7 +552,7 @@ public sealed partial class Translations
         [nameof(PriceCalculatorTitle)] = "Калькулятор цен моделей",
         [nameof(PriceCalculatorModelLabel)] = "Модель",
         [nameof(PriceCalculatorModelWatermark)] = "Введите для фильтра, напр. glm-5.3-flash",
-        [nameof(PriceCalculatorUnitPricesFormat)] = "Цены — ввод {0} · чтение кэша {1} · вывод {2} (USD / 1 млн токенов)",
+        [nameof(PriceCalculatorPerMillionNote)] = "USD / 1 млн токенов",
         [nameof(PriceCalculatorManualPrices)] = "Указать цены вручную (USD / 1 млн токенов)",
         [nameof(PriceCalculatorManualInput)] = "Ввод",
         [nameof(PriceCalculatorManualCacheRead)] = "Чтение кэша",
