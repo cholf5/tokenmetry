@@ -84,7 +84,7 @@ public sealed class SharePosterViewModel
                 .ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
         MilestonePeakValueText = milestonePeak is null
             ? string.Empty
-            : "/ " + TrendChart.FormatCompactTokens(milestonePeak.TotalTokens);
+            : " / " + TrendChart.FormatCompactTokens(milestonePeak.TotalTokens);
         var streak = 0;
         var run = 0;
         foreach (var day in data.Daily)
@@ -187,7 +187,8 @@ public sealed class SharePosterViewModel
     /// <summary>里程碑 note 最活跃日的日期段（yyyy.MM.dd）；无数据为「—」。</summary>
     public string MilestonePeakDateText { get; }
 
-    /// <summary>里程碑 note 最活跃日的蓝色值段（「/ 紧凑值」）；无数据为空串（整段隐藏）。</summary>
+    /// <summary>里程碑 note 最活跃日的蓝色值段（段首带空格的「 / 紧凑值」——note 行是单
+    /// TextBlock，段间距即字符）；无数据为空串（Run 渲染为空）。</summary>
     public string MilestonePeakValueText { get; }
 
     /// <summary>蓝色值段是否显示（全空范围不给「/ —」占位）。</summary>
