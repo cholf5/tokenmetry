@@ -51,6 +51,7 @@ app.MapGet("/api/me", (HttpContext context) =>
 });
 
 app.MapSyncEndpoints();
+app.MapDeviceEndpoints();
 
 // TODO(v1 上线项)：HTTPS 不在此强制（自建允许 http://，设计 A15；文档警示明文风险，
 // 反代终结 TLS 是部署责任）。
