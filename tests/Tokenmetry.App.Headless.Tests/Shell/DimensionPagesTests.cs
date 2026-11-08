@@ -753,7 +753,10 @@ public class DimensionPagesTests
     [AvaloniaFact]
     public void Model_row_context_menu_gates_to_unknown_cost_rows()
     {
-        // 未知成本行（「未知」chip）右键给修复菜单；已知模型（有价 / 混合 / 无数据）右键无事发生
+        // 未知成本行（「未知」chip）整行右键给修复菜单；已知模型（有价 / 混合 / 无数据）右键无事发生。
+        // 点击点取行顶 padding 空白区（行 Border Padding=0,13,0,13，无子元素覆盖）：同时锁死
+        // 门禁语义（IsUnknownCost）与整行可达性——行根 Border 无背景时 Avalonia hit test 只认
+        // 字形/chip，右键等于「必须点在名字上」，透明底让空白区命中冒泡到行（真实输入管线验证）。
         var host = CreateModelsHost();
         var view = new ModelsView { DataContext = host.Vm };
         var window = new Window { Width = 1180, Height = 860, Content = view };
@@ -768,16 +771,22 @@ public class DimensionPagesTests
         var known = rows.Single(b => ((ModelDetailRowViewModel)b.DataContext!).Name == "claude-sonnet-4");
         var unknown = rows.Single(b => ((ModelDetailRowViewModel)b.DataContext!).Name == "claude-unpriced-model");
 
-        var knownRequest = new ContextRequestedEventArgs();
-        known.RaiseEvent(knownRequest);
-        Assert.False(knownRequest.Handled, "已知模型行右键不弹修复菜单");
-        Assert.Null(known.ContextMenu);
+        var unknownPoint = unknown.TranslatePoint(new Point(unknown.Bounds.Width / 2, 3), window)
+            ?? throw new InvalidOperationException("未知行不在可视树");
+        window.MouseDown(unknownPoint, MouseButton.Right);
+        window.MouseUp(unknownPoint, MouseButton.Right);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(unknown.ContextMenu is { IsOpen: true }, "未知成本行整行（含 padding 空白区）右键给修复菜单");
+        unknown.ContextMenu!.Close();
+        Dispatcher.UIThread.RunJobs();
 
-        var unknownRequest = new ContextRequestedEventArgs();
-        unknown.RaiseEvent(unknownRequest);
-        Assert.True(unknownRequest.Handled, "未知成本行右键给修复菜单");
-        Assert.NotNull(unknown.ContextMenu);
-        Assert.True(unknown.ContextMenu!.IsOpen, "菜单经 Open(placement target) 打开（headless popup 通路）");
+        var knownPoint = known.TranslatePoint(new Point(known.Bounds.Width / 2, 3), window)
+            ?? throw new InvalidOperationException("已知行不在可视树");
+        window.MouseDown(knownPoint, MouseButton.Right);
+        window.MouseUp(knownPoint, MouseButton.Right);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Null(known.ContextMenu); // 已知模型行：不建菜单，ContextRequested 不置 Handled
+        Assert.False(unknown.ContextMenu.IsOpen, "已知行右键不会误开其它行的菜单");
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
