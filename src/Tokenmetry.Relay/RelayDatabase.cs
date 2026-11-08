@@ -105,20 +105,45 @@ internal sealed class RelayDatabase(string dbPath)
 
     /// <summary>
     /// 单租户自举（A15）：TOKENMETRY_RELAY_TOKEN 的 SHA-256 即唯一账号凭据。
-    /// INSERT OR IGNORE：同 token 重启复用既有账号；换 token = 新账号（自建文档警示）。
+    /// INSERT OR IGNORE：同 token 重启复用既有账号。换 token = 重签——其他 shared 账号
+    /// 连同其行/设备/token 一并退役（终审 I4：泄露轮换必须真正撤销旧凭据）。
     /// </summary>
     public static async Task BootstrapSharedAccountAsync(RelayDatabase database, string token, CancellationToken ct = default)
     {
         await using var connection = database.OpenConnection();
-        using var cmd = connection.CreateCommand();
-        cmd.CommandText = """
-            INSERT OR IGNORE INTO accounts (id, kind, credential_hash, github_sub, display_name, avatar_url, created_at, seq)
-            VALUES ($id, 'shared', $hash, NULL, 'self-hosted', NULL, $now, 0)
-            """;
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$hash", RelayAuth.HashToken(token));
-        cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
-        await cmd.ExecuteNonQueryAsync(ct);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(ct);
+
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.Transaction = transaction;
+            cmd.CommandText = """
+                INSERT OR IGNORE INTO accounts (id, kind, credential_hash, github_sub, display_name, avatar_url, created_at, seq)
+                VALUES ($id, 'shared', $hash, NULL, 'self-hosted', NULL, $now, 0)
+                """;
+            cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            cmd.Parameters.AddWithValue("$hash", RelayAuth.HashToken(token));
+            cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        // 退役旧 shared 账号（新账号之外的全部）：级联清行/设备/token，凭据随之失效。
+        foreach (var sql in new[]
+                 {
+                     "DELETE FROM usage_rows WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
+                     "DELETE FROM session_rows WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
+                     "DELETE FROM devices WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
+                     "DELETE FROM account_tokens WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
+                     "DELETE FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash",
+                 })
+        {
+            using var delete = connection.CreateCommand();
+            delete.Transaction = transaction;
+            delete.CommandText = sql;
+            delete.Parameters.AddWithValue("$hash", RelayAuth.HashToken(token));
+            await delete.ExecuteNonQueryAsync(ct);
+        }
+
+        await transaction.CommitAsync(ct);
     }
 
     /// <summary>
