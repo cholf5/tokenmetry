@@ -1151,6 +1151,8 @@ public class UsageQueryServiceTests : IAsyncLifetime
 
         public int SessionReads { get; private set; }
 
+        public Task<string> GetLocalDeviceIdAsync(CancellationToken ct = default) =>
+            _inner.GetLocalDeviceIdAsync(ct);
         public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) =>
             _inner.UpsertUsageFactsAsync(facts, ct);
 

@@ -49,8 +49,8 @@ public class SqliteUsageStoreTests : IAsyncLifetime
         var facts = await _store.GetUsageFactsAsync();
         facts.Should().ContainSingle();
         facts[0].CostUsd.Should().Be(1.23m);
-        // 重复 Initialize 不重跑迁移：全部已注册版本各落账一次、顺序完整（I-036 起有 migration 2）。
-        MigrationVersions().Should().Equal(1L, 2L);
+        // 重复 Initialize 不重跑迁移：全部已注册版本各落账一次、顺序完整（迁移 3 起含设备维度）。
+        MigrationVersions().Should().Equal(1L, 2L, 3L);
     }
 
     /// <summary>I-036：provider 进入维度（三元组 agent × model × provider）——同模型不同 provider 分行的往返。</summary>
@@ -128,6 +128,8 @@ public class SqliteUsageStoreTests : IAsyncLifetime
         stored.Should().HaveCount(2);
 
         var restored = stored.Single(row => row.Day == "2026-06-19");
+        // 本地写路径由 store 盖本机 device 戳（迁移 3 起），往返断言以盖戳后的值为准。
+        fact.Device = await _store.GetLocalDeviceIdAsync();
         restored.Should().BeEquivalentTo(fact);
 
         var restoredCostless = stored.Single(row => row.Day == "2026-06-20");
@@ -237,6 +239,8 @@ public class SqliteUsageStoreTests : IAsyncLifetime
         var stored = await _store.GetSessionFactsAsync();
         stored.Should().HaveCount(2);
         var restored = stored.Single(fact => fact.SessionId == "session-1");
+        // 本地写路径由 store 盖本机 device 戳（迁移 3 起），往返断言以盖戳后的值为准。
+        first.Device = await _store.GetLocalDeviceIdAsync();
         restored.Should().BeEquivalentTo(first);
 
         // 同一会话重复扫描更新数值而非插新行

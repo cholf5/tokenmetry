@@ -604,6 +604,7 @@ public class LocalIngestionDataSourceTests : IDisposable
         /// <summary>模拟库被外部清空（I-042 自愈测试用）。</summary>
         public void ClearFacts() => _facts.Clear();
 
+        public Task<string> GetLocalDeviceIdAsync(CancellationToken ct = default) => Task.FromResult(string.Empty);
         public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
         {
             foreach (var fact in facts)

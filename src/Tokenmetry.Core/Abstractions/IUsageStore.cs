@@ -9,6 +9,12 @@ namespace Tokenmetry.Core.Abstractions;
 /// </summary>
 public interface IUsageStore
 {
+    /// <summary>
+    /// 本机设备 id（迁移 3 自举的稳定 GUID）。跨端同步的行归属维度；
+    /// 设备名见实现侧的设备注册表读写方法。
+    /// </summary>
+    Task<string> GetLocalDeviceIdAsync(CancellationToken ct = default);
+
     Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default);
 
     /// <summary>

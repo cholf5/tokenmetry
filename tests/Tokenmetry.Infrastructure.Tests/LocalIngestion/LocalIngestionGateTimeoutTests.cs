@@ -109,6 +109,7 @@ public class LocalIngestionGateTimeoutTests
 
     private sealed class GateTestStore : IUsageStore
     {
+        public Task<string> GetLocalDeviceIdAsync(CancellationToken ct = default) => Task.FromResult(string.Empty);
         public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) => Task.CompletedTask;
 
         public Task ReplaceUsageFactsByDayAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) => Task.CompletedTask;
