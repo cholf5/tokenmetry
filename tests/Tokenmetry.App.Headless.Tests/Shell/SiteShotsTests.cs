@@ -40,7 +40,7 @@ public class SiteShotsTests
 
     // ── stub：查询服务（七面数据可配置，模式同 DimensionPagesTests）──
 
-    private sealed class StubQueryService : IUsageQueryService
+    internal sealed class StubQueryService : IUsageQueryService
     {
         public UsageKpiResult Kpi { get; set; } = new();
 
@@ -114,7 +114,7 @@ public class SiteShotsTests
     // ── 受控演示数据：一周多 Agent / 多模型混用（量级与成本比例取真实区间）──
 
     /// <summary>演示数据基线：7 天总 token 36.44M / 已知成本 $81.22 + 缺价（kimi-k2.5）未知贡献 / 214 会话。</summary>
-    private static class SiteData
+    internal static class SiteData
     {
         public const long WeekTokens = 36_440_000;
 
