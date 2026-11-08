@@ -314,15 +314,19 @@
         </Style>
 
         <!-- ── 里程碑样式基底（设计 §3.1 修订 2026-11-07 第五样式；仅竖版 1080，能力表锁定）──
-             张力只来自字号层级与留白：120 英雄 / 44 叙事 / 32 模型名，标签全部弱化灰。 -->
+             张力只来自字号层级与留白：176 英雄（定尺寸展示字号 = 44 叙事值的 4 倍，溢出收缩见
+             英雄带注，修订八）/ 44 叙事 / 32 模型名，标签全部弱化灰。英雄 HorizontalAlignment=Left：
+             文本本就左起排，视觉与默认 Stretch 等价，但 Bounds 收窄到文本自然宽——溢出守卫与
+             几何断言读的都是它。 -->
         <Style Selector="TextBlock.milestone-label">
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
         </Style>
         <Style Selector="TextBlock.milestone-hero">
-            <Setter Property="FontSize" Value="120"/>
+            <Setter Property="FontSize" Value="176"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="LetterSpacing" Value="-3"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
         <Style Selector="TextBlock.milestone-hero-raw">
@@ -992,7 +996,9 @@
         </Border>
         <!-- ══ 里程碑样式（设计 §3.1 修订 2026-11-07：第五样式）══
              Wrapped 式大数字叙事：只靠字号层级与留白做张力（§3.5 的"不加装饰、不加图形母题"在此
-             是硬边界），全部数字取自快照已有数据，零图表。仅竖版（能力表登记），固定 1080。 -->
+             是硬边界），全部数字取自快照已有数据，零图表。仅竖版（能力表登记），固定 1080。
+             修订八（2026-11-08）：英雄带两栏——右列最活跃日/最长连续收掉右半空白，英雄字号
+             定尺寸 176、溢出收缩守卫（见英雄带注）。 -->
         <Border x:Name="MilestoneRoot"
                 Classes="poster-root milestone-root"
                 IsVisible="{Binding IsMilestoneStyle}"
@@ -1012,34 +1018,44 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- 英雄数字：总 Token（紧凑值 + 完整数字两行，与托盘基底同一词汇） -->
-                <StackPanel Spacing="8" Margin="0,16,0,8">
-                    <TextBlock Classes="milestone-label"
-                               Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Classes="milestone-hero" Text="{Binding TotalTokensText}"/>
-                    <TextBlock Classes="milestone-hero-raw" Text="{Binding TotalTokensRawText}"/>
-                </StackPanel>
+                <!-- 英雄带（修订八定稿）：左列英雄数字（定尺寸 176，见样式注），右列叙事两格——
+                     最活跃日与最长连续从 2×2 的上排上移与英雄同排：总 Token 是「量」，峰值日是
+                     「量最猛的一天」，阅读顺序不变（总量 → 峰值日 → 连续 → 天数 → 会话 → 模型）。
+                     右半版的空白由这两格收掉——它们是六个元素里最宽的两条，竖着叠起来正好把
+                     英雄带右半填实；底部与英雄完整数字同一条底边线。右列 Auto 取自然宽贴版心
+                     右缘，左列 * 吃剩余；英雄溢出守卫预算 = 版心 − 右列自然宽 − 列距
+                     （code-behind，LayoutUpdated；ColumnSpacing 14 与守卫常量同值）。 -->
+                <Grid x:Name="MilestoneHeroBand" ColumnDefinitions="*,Auto" ColumnSpacing="14" Margin="0,16,0,8">
+                    <StackPanel Grid.Column="0" Spacing="8">
+                        <TextBlock Classes="milestone-label"
+                                   Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock x:Name="MilestoneHeroText" Classes="milestone-hero" Text="{Binding TotalTokensText}"/>
+                        <TextBlock Classes="milestone-hero-raw" Text="{Binding TotalTokensRawText}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" x:Name="MilestoneHeroAside" Spacing="26" VerticalAlignment="Bottom">
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="milestone-label"
+                                       Text="{Binding KpiPeakDay, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Classes="milestone-value" Text="{Binding MilestonePeakText}"/>
+                        </StackPanel>
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="milestone-label"
+                                       Text="{Binding SharePosterMilestoneStreak, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Classes="milestone-value" Text="{Binding MilestoneStreakText}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
 
                 <Border Classes="milestone-divider"/>
 
-                <!-- 叙事四格：最猛的一天 / 最长连续 / 活跃天数 / 会话数（2 × 2，全左起排） -->
-                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="14" Margin="0,10,0,0">
-                    <StackPanel Grid.Column="0" Grid.Row="0" Spacing="6">
-                        <TextBlock Classes="milestone-label"
-                                   Text="{Binding KpiPeakDay, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Classes="milestone-value" Text="{Binding MilestonePeakText}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Grid.Row="0" Spacing="6">
-                        <TextBlock Classes="milestone-label"
-                                   Text="{Binding SharePosterMilestoneStreak, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Classes="milestone-value" Text="{Binding MilestoneStreakText}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="0" Grid.Row="1" Spacing="6" Margin="0,26,0,0">
+                <!-- 叙事二格：活跃天数 / 会话数（原 2×2 下排；上排已上移英雄带右列） -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="14" Margin="0,10,0,0">
+                    <StackPanel Grid.Column="0" Spacing="6">
                         <TextBlock Classes="milestone-label"
                                    Text="{Binding SharePosterHeatActiveDays, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBlock Classes="milestone-value" Text="{Binding HeatActiveDaysText}"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Grid.Row="1" Spacing="6" Margin="0,26,0,0">
+                    <StackPanel Grid.Column="1" Spacing="6">
                         <TextBlock Classes="milestone-label"
                                    Text="{Binding KpiSessions, Source={x:Static loc:Translations.Instance}}"/>
                         <TextBlock Classes="milestone-value" Text="{Binding SessionsText}"/>

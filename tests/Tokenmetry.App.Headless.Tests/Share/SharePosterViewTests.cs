@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -77,6 +78,32 @@ public class SharePosterViewTests
             sessionCount: 764,
             hourly: hourly,
             hourlyCutoffHour: hourly is null ? null : 12);
+
+        return new SharePosterViewModel(data);
+    }
+
+    /// <summary>里程碑英雄带的自建快照：30 天全活跃日序列，总量精确可控——字号各档都要钉住紧凑值字串的量级。</summary>
+    private static SharePosterViewModel MilestoneViewModel(long totalTokens, double margin = SharePosterRequest.DefaultMargin)
+    {
+        var request = new SharePosterRequest(
+            SharePosterLayout.Portrait, SharePosterTheme.Dark, SharePosterProjectMask.Off,
+            new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 30), SharePosterStyle.Milestone,
+            Margin: margin);
+
+        var daily = Enumerable.Range(0, 30).Select(i => new DailyUsagePoint
+        {
+            Day = new DateOnly(2026, 10, 1).AddDays(i).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            InputTokens = totalTokens / 30,
+            TotalTokens = totalTokens / 30,
+            HasData = true,
+        }).ToArray();
+
+        var data = SharePosterSnapshot.Build(
+            request, daily,
+            [Row("ZCode", totalTokens)],
+            [Row("glm-5.3-flash", totalTokens)],
+            [Row("Zearth", totalTokens)],
+            sessionCount: 87);
 
         return new SharePosterViewModel(data);
     }
@@ -314,6 +341,61 @@ public class SharePosterViewTests
         Assert.DoesNotContain(view.PosterRootControl.GetVisualDescendants().OfType<Border>(), b => b.Effect is not null);
 
         window.Close();
+    }
+
+    /// <summary>
+    /// 里程碑英雄带（修订八定稿）：右列叙事两格（最活跃日/最长连续）贴版心右缘收掉右半空白——
+    /// 这是最初的问题；英雄与右列不碰撞（守卫预算 = 版心 − 右列自然宽 − 列距）；典型量级英雄保持
+    /// 定尺寸 176，超长串收缩进预算、仍不碰撞。断言只钉总量档位与几何边界，不钉具体字串。
+    /// </summary>
+    [AvaloniaFact]
+    public void Milestone_hero_band_fills_the_right_with_narrative_stats()
+    {
+        var contentWidth = SharePosterView.PortraitWidth - 2 * SharePosterRequest.DefaultMargin;
+
+        // 典型档：总量 ~3.34e9 →「33.4亿」远小于预算 → 字号保持样式值 176（守卫不留本地值）
+        var typicalVm = MilestoneViewModel(3_340_000_000);
+        var typicalView = new SharePosterView { DataContext = typicalVm };
+        var typicalWindow = Host(typicalView);
+        using var typicalFrame = ChartTestHelpers.RenderFrame(typicalWindow);
+        var typicalHero = typicalView.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.Name == "MilestoneHeroText");
+        var aside = typicalView.GetVisualDescendants().OfType<StackPanel>()
+            .First(p => p.Name == "MilestoneHeroAside");
+        Assert.Equal(SharePosterView.MilestoneHeroFontSize, typicalHero.FontSize, 1);
+
+        // 右列 Auto 贴版心右缘（右半空白被两格收掉）；英雄不越进列距。
+        // 英雄所在的 col0 从栅格原点起排，其父栈相对坐标与栅格坐标同原点，Bounds 可直接比。
+        Assert.Equal(contentWidth, aside.Bounds.Right, 1);
+        Assert.True(
+            typicalHero.Bounds.Right <= aside.Bounds.Left + 4,
+            $"hero right {typicalHero.Bounds.Right} should not collide with aside left {aside.Bounds.Left}");
+
+        // 叙事顺序：右列两格就是总量之后的峰值日与最长连续
+        var asideTexts = aside.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains(typicalVm.MilestonePeakText, asideTexts);
+        Assert.Contains(typicalVm.MilestoneStreakText, asideTexts);
+        typicalWindow.Close();
+
+        // 溢出档：页边距 80 收窄版心到 920 + 合成 ~8.8e18 总量 →「8777778万亿」超预算 →
+        // 守卫等比收缩，收缩后仍不越进右列（预算随右列自然宽走）
+        var overflowView = new SharePosterView
+        {
+            DataContext = MilestoneViewModel(8_777_777_777_777_777_777, margin: 80),
+        };
+        var overflowWindow = Host(overflowView);
+        using var overflowFrame = ChartTestHelpers.RenderFrame(overflowWindow);
+        var overflowHero = overflowView.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.Name == "MilestoneHeroText");
+        var overflowAside = overflowView.GetVisualDescendants().OfType<StackPanel>()
+            .First(p => p.Name == "MilestoneHeroAside");
+        Assert.True(
+            overflowHero.FontSize < SharePosterView.MilestoneHeroFontSize,
+            $"overflow hero font {overflowHero.FontSize} should shrink below {SharePosterView.MilestoneHeroFontSize}");
+        Assert.True(
+            overflowHero.Bounds.Right <= overflowAside.Bounds.Left + 4,
+            $"overflow hero right {overflowHero.Bounds.Right} should not collide with aside left {overflowAside.Bounds.Left}");
+        overflowWindow.Close();
     }
 
     [AvaloniaFact]
