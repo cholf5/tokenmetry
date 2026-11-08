@@ -86,6 +86,9 @@ public static class AppServices
         services.AddSingleton<FilterStatePersistence>();
         // D-020 用户自定义相对时间预设：单点装载/增删/落盘，依赖上面三个单例
         services.AddSingleton<TimeRangePresetService>();
+        // 跨设备同步（relay 设计 §4.6）：开关即时生效、定时轮询 + 失败指数退避；
+        // 未开启时后端不建、定时器不启（G3 零出站）。筛选面接线（强制本机/设备清单）见 FilterStateService。
+        services.AddSingleton<SyncStateService>();
 
         // Core services
         services.AddSingleton<DateRangeService>();
