@@ -57,6 +57,8 @@ public partial class SharePosterDialog : Window
     public SharePosterDialog()
     {
         InitializeComponent();
+        // ToolTip 失活守卫：对话框里海报图例有悬浮 Tip，失活后同样不能留在屏幕上压别的 App。
+        ToolTipDeactivationGuard.Attach(this);
         // Esc 关闭：独立窗口的关闭语义之一（设计 §9.1 把 Esc/关闭列为选独立窗口的代价）
         KeyDown += (_, e) =>
         {

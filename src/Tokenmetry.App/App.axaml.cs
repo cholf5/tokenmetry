@@ -26,6 +26,11 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // mac 上 ToolTip 弹层是独立 NSWindow（悬浮层级、压在所有 App 前），app 失活后收不到
+        // 鼠标事件、悬浮永不关闭（Avalonia #6677 一族）。这里装全局「未激活窗口不许开 Tip」；
+        // 「失活/关窗时关掉已开的」在 ToolTipDeactivationGuard.Attach（各窗口构造里接）。
+        Services.ToolTipDeactivationGuard.Install();
+
         // A-7：启动期不可恢复错误（facts 库迁移失败等）给可读错误窗，不再原始异常闪退。
         try
         {

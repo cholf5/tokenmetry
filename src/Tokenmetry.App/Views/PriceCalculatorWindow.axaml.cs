@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Tokenmetry.App.Services;
 
 namespace Tokenmetry.App.Views;
 
@@ -12,6 +13,8 @@ public partial class PriceCalculatorWindow : Window
     public PriceCalculatorWindow()
     {
         InitializeComponent();
+        // ToolTip 失活守卫：工具窗失活/关窗时把悬浮 Tip 收掉，别压在别的 App 前（同 MainWindow）。
+        ToolTipDeactivationGuard.Attach(this);
         KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape)
