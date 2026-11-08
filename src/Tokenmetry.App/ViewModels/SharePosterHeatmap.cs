@@ -224,15 +224,17 @@ public static class SharePosterHeatmap
     }
 
     /// <summary>
-    /// 热力海报画布宽：网格 + 固定占用，并排档再加脚注列，夹在 <see cref="MinCanvasWidth"/> 与
-    /// 1800 之间——宽度跟着内容与页边距走（边距越大画布越宽），高度被并排脚注压住。
+    /// 热力海报画布宽：网格 + 固定占用，并排档再加脚注列，下夹 <see cref="MinCanvasWidth"/>
+    /// （窄范围不再窄而长）——宽度跟着内容与页边距走（边距越大画布越宽），高度被并排脚注压住。
+    /// 上限不夹 1800：满 52 周 × 宽页边距（≥ 50）时网格 + chrome 天然超过 1800，夹住会把
+    /// 尾列格子挤出货架（列宽有 31 的下限托底，画布只能如实变宽）。
     /// </summary>
     public static double CanvasWidthFor(int weeks, double margin = SharePosterRequest.DefaultMargin)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(weeks);
         var grid = WeekdayGutter + weeks * ColumnWidthFor(weeks, margin);
         var beside = UseBesideStats(weeks) ? BesideStatsColumnWidth + BesideStatsColumnSpacing : 0;
-        return Math.Clamp(grid + CanvasChromeFor(margin) + beside, MinCanvasWidth, SharePosterView.LandscapeWidth);
+        return Math.Max(MinCanvasWidth, grid + CanvasChromeFor(margin) + beside);
     }
 
     /// <summary>

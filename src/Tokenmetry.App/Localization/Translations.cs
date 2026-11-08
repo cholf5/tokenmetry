@@ -523,6 +523,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMilestoneStreak)] = "最长连续",
         [nameof(SharePosterMilestoneStreakFormat)] = "{0} 天",
         [nameof(SharePosterMilestoneTopModel)] = "最常用模型",
+        [nameof(SharePosterUsageReport)] = "用量报告",
+        [nameof(SharePosterMilestoneExactFormat)] = "{0} tokens",
+        [nameof(SharePosterMilestoneModelCountFormat)] = "{0} tokens · 占总量 {1}",
         [nameof(SharePosterLayout)] = "版式",
         [nameof(SharePosterLayoutPortrait)] = "竖版",
         [nameof(SharePosterLayoutLandscape)] = "横版",
@@ -1065,6 +1068,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterMilestoneStreak)] = "Longest streak",
         [nameof(SharePosterMilestoneStreakFormat)] = "{0} days",
         [nameof(SharePosterMilestoneTopModel)] = "Top model",
+        [nameof(SharePosterUsageReport)] = "Usage report",
+        [nameof(SharePosterMilestoneExactFormat)] = "{0} tokens",
+        [nameof(SharePosterMilestoneModelCountFormat)] = "{0} tokens · {1} of total",
         [nameof(SharePosterLayout)] = "Layout",
         [nameof(SharePosterLayoutPortrait)] = "Portrait",
         [nameof(SharePosterLayoutLandscape)] = "Landscape",
@@ -1544,6 +1550,9 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterMilestoneStreak => Get();
     public string SharePosterMilestoneStreakFormat => Get();
     public string SharePosterMilestoneTopModel => Get();
+    public string SharePosterUsageReport => Get();
+    public string SharePosterMilestoneExactFormat => Get();
+    public string SharePosterMilestoneModelCountFormat => Get();
     public string SharePosterHeatLess => Get();
     public string SharePosterHeatMore => Get();
     public string SharePosterHeatCaption => Get();

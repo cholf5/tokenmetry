@@ -71,14 +71,20 @@ public sealed class SharePosterViewModel
         {
             RhythmPeakText = "—";
         }
-        // 里程碑（样式 C）：全部取自快照已有数据，零新查询——峰值扫完整范围（不受热力图 52 周开窗
-        // 限制），最长连续从补零日序列里数 HasData 连段，Top 模型直接取模型排行首行（已格式化）。
-        var milestonePeaks = data.Daily.Where(d => d.TotalTokens > 0).OrderByDescending(d => d.TotalTokens).ToArray();
-        MilestonePeakText = milestonePeaks.Length > 0
-            ? DateOnly.ParseExact(milestonePeaks[0].Day, "yyyy-MM-dd", CultureInfo.InvariantCulture)
-                  .ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
-              + " · " + TrendChart.FormatCompactTokens(milestonePeaks[0].TotalTokens)
-            : "—";
+        // 里程碑（样式 C，设计修订九照 HTML 稿重排）：全部取自快照已有数据，零新查询——最活跃日
+        // 扫完整范围（不受热力图 52 周开窗限制），note 行拆「日期 / 蓝色值」两段；最长连续从补零
+        // 日序列里数 HasData 连段；Top 模型行给紧凑值 + 占比，徽标吃模型品牌链。
+        var milestonePeak = data.Daily
+            .Where(d => d.TotalTokens > 0)
+            .OrderByDescending(d => d.TotalTokens)
+            .FirstOrDefault();
+        MilestonePeakDateText = milestonePeak is null
+            ? "—"
+            : DateOnly.ParseExact(milestonePeak.Day, "yyyy-MM-dd", CultureInfo.InvariantCulture)
+                .ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
+        MilestonePeakValueText = milestonePeak is null
+            ? string.Empty
+            : "/ " + TrendChart.FormatCompactTokens(milestonePeak.TotalTokens);
         var streak = 0;
         var run = 0;
         foreach (var day in data.Daily)
@@ -93,10 +99,28 @@ public sealed class SharePosterViewModel
             streak.ToString("N0", CultureInfo.CurrentCulture));
         var topModel = data.Models.Count > 0 ? data.Models[0] : null;
         MilestoneTopModelName = topModel?.Name ?? "—";
-        MilestoneTopModelTokens = topModel is null ? "—" : TrendChart.FormatCompactTokens(topModel.Tokens);
+        MilestoneTopModelCountText = topModel is null
+            ? "—"
+            : string.Format(
+                CultureInfo.CurrentCulture,
+                Translations.Instance.SharePosterMilestoneModelCountFormat,
+                TrendChart.FormatCompactTokens(topModel.Tokens),
+                Percent(topModel.Share));
+        var resolveModelIcon = modelIconResolver ?? ModelAvatarVisual.FromName;
+        MilestoneTopModelAvatar = topModel is null ? null : resolveModelIcon(topModel.Name);
+        // 英雄锁定值与完整数字行（HTML 稿的 number/unit 与 exact 行）：紧凑串拆「尾数 + 单位」，
+        // 单位单独绿色小字号；活跃天数卡的小字分母是范围天数（不是有记录天数——「7 / 7」里
+        // 两个数字各说各的事）。
+        (MilestoneHeroValueText, MilestoneHeroUnitText) = SplitCompactUnit(TotalTokensText);
+        MilestoneExactTokensText = string.Format(
+            CultureInfo.CurrentCulture,
+            Translations.Instance.SharePosterMilestoneExactFormat,
+            TotalTokensRawText);
+        MilestoneRangeDayCountText = "/ " + (data.Request.RangeEnd.DayNumber - data.Request.RangeStart.DayNumber + 1)
+            .ToString("N0", CultureInfo.CurrentCulture);
         // 模型行带品牌 logo（与总览页同一条链：ModelAvatarVisual → ModelChip 伪类 → 令牌画刷）；
         // 解析器来自模型目录（用户自定义头像也生效），未注入时回落内置名字推断。
-        ModelRows = BuildRows(data.Models, modelIcons: modelIconResolver ?? ModelAvatarVisual.FromName);
+        ModelRows = BuildRows(data.Models, modelIcons: resolveModelIcon);
         ProjectRows = BuildRows(data.Projects, data.Request.ProjectMask);
     }
 
@@ -148,17 +172,44 @@ public sealed class SharePosterViewModel
     /// <summary>里程碑样式 = 叙事基底（Wrapped 式大数字，仅竖版）。</summary>
     public bool IsMilestoneStyle => Data.Request.Style == SharePosterStyle.Milestone;
 
-    /// <summary>里程碑：全范围最猛的一天「日期 · 紧凑值」；无数据为「—」。</summary>
-    public string MilestonePeakText { get; }
+    /// <summary>里程碑英雄锁定值的尾数（拆自 <see cref="TotalTokensText"/>，单位单独绿色小字号）。</summary>
+    public string MilestoneHeroValueText { get; }
+
+    /// <summary>里程碑英雄锁定值的单位（如「亿」/" M"；未达首档全量数字时为空串，单位块隐藏）。</summary>
+    public string MilestoneHeroUnitText { get; }
+
+    /// <summary>单位块是否显示（空串不摆一个空位）。</summary>
+    public bool HasMilestoneHeroUnit => MilestoneHeroUnitText.Length > 0;
+
+    /// <summary>里程碑：英雄下完整数字行（千分位 + tokens 单位词）。</summary>
+    public string MilestoneExactTokensText { get; }
+
+    /// <summary>里程碑 note 最活跃日的日期段（yyyy.MM.dd）；无数据为「—」。</summary>
+    public string MilestonePeakDateText { get; }
+
+    /// <summary>里程碑 note 最活跃日的蓝色值段（「/ 紧凑值」）；无数据为空串（整段隐藏）。</summary>
+    public string MilestonePeakValueText { get; }
+
+    /// <summary>蓝色值段是否显示（全空范围不给「/ —」占位）。</summary>
+    public bool HasMilestonePeakValue => MilestonePeakValueText.Length > 0;
 
     /// <summary>里程碑：最长连续使用天数（日序列 HasData 连段的最大长度）。</summary>
     public string MilestoneStreakText { get; }
 
-    /// <summary>里程碑：Top 模型名与 token（模型排行首行，已格式化）；无数据为「—」。</summary>
+    /// <summary>里程碑：活跃天数卡的小字分母「/ 范围天数」（有记录天数是另一个数字，各说各的事）。</summary>
+    public string MilestoneRangeDayCountText { get; }
+
+    /// <summary>里程碑：Top 模型名（模型排行首行）；无数据为「—」。</summary>
     public string MilestoneTopModelName { get; }
 
-    /// <summary>里程碑：Top 模型的 token 文案。</summary>
-    public string MilestoneTopModelTokens { get; }
+    /// <summary>里程碑：Top 模型行「紧凑 tokens · 占总量 x%」；无数据为「—」。</summary>
+    public string MilestoneTopModelCountText { get; }
+
+    /// <summary>里程碑：Top 模型的品牌徽标头像（解析失败为 null，徽标隐藏、名字照常）。</summary>
+    public ModelAvatarVisual? MilestoneTopModelAvatar { get; }
+
+    /// <summary>模型徽标是否显示（头像解析出来了才摆）。</summary>
+    public bool HasMilestoneModelBadge => MilestoneTopModelAvatar is not null;
 
     /// <summary>是否单日窗口（决定趋势图形态与日期文案，与样式无关）。</summary>
     public bool IsSingleDay => Data.Request.IsSingleDay;
@@ -257,6 +308,22 @@ public sealed class SharePosterViewModel
 
     private static string Percent(decimal? value) =>
         value is null ? "—" : (value.Value * 100).ToString("F1", CultureInfo.InvariantCulture) + "%";
+
+    /// <summary>
+    /// 紧凑串拆「尾数 + 单位」：<see cref="TrendChart.FormatCompactTokens"/> 恒为单位后缀（数字在前），
+    /// 尾部连续非数字即单位——西文单位带前导不换行空格、俄语带句点，均非数字；未达首档的全量数字
+    /// 尾部是数字，单位为空。各语种数字只含 ASCII 数字与分组/小数符，从尾部回扫不会切进尾数。
+    /// </summary>
+    private static (string Value, string Unit) SplitCompactUnit(string text)
+    {
+        var valueEnd = text.Length;
+        while (valueEnd > 0 && !char.IsDigit(text[valueEnd - 1]))
+        {
+            valueEnd--;
+        }
+
+        return (text[..valueEnd], text[valueEnd..]);
+    }
 
     /// <summary>局部雾化保留的可见字符数（够认出来源，不够读出项目名）。</summary>
     public const int MaskVisibleChars = 4;
