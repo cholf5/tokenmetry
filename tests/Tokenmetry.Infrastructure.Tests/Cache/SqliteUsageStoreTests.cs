@@ -130,7 +130,9 @@ public class SqliteUsageStoreTests : IAsyncLifetime
         var restored = stored.Single(row => row.Day == "2026-06-19");
         // 本地写路径由 store 盖本机 device 戳（迁移 3 起），往返断言以盖戳后的值为准。
         fact.Device = await _store.GetLocalDeviceIdAsync();
-        restored.Should().BeEquivalentTo(fact);
+        // updated_at 同为 store 盖戳（本地写路径忽略载荷值），只断言"已盖戳"，不参与逐列比较。
+        restored.Should().BeEquivalentTo(fact, options => options.Excluding(row => row.UpdatedAt));
+        restored.UpdatedAt.Should().NotBeNull();
 
         var restoredCostless = stored.Single(row => row.Day == "2026-06-20");
         restoredCostless.CostUsd.Should().BeNull();
@@ -241,7 +243,9 @@ public class SqliteUsageStoreTests : IAsyncLifetime
         var restored = stored.Single(fact => fact.SessionId == "session-1");
         // 本地写路径由 store 盖本机 device 戳（迁移 3 起），往返断言以盖戳后的值为准。
         first.Device = await _store.GetLocalDeviceIdAsync();
-        restored.Should().BeEquivalentTo(first);
+        // updated_at 同为 store 盖戳（本地写路径忽略载荷值），只断言"已盖戳"，不参与逐列比较。
+        restored.Should().BeEquivalentTo(first, options => options.Excluding(row => row.UpdatedAt));
+        restored.UpdatedAt.Should().NotBeNull();
 
         // 同一会话重复扫描更新数值而非插新行
         var updated = new SessionFact { SessionId = "session-2", Agent = "Claude Code", InputTokens = 10, FirstSeenAt = DateTimeOffset.UtcNow, LastSeenAt = DateTimeOffset.UtcNow };
