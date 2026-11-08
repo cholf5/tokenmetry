@@ -67,6 +67,8 @@ public static class AppServices
         services.AddSingleton<IAppSettingsStore>(settingsStore);
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<IToastService, ToastService>();
+        // I-CALC 模型计价器（独立工具窗口，托盘/macOS Tools 菜单共用入口；不进统计信息架构）。
+        services.AddSingleton<PriceCalculatorLauncher>();
         // I-039 更新（设置页 / 托盘 / 主窗横幅共享同一状态；网络只在实际检查/下载时发生）。
         // 更新日志记录「有一次更新正在生效」，重启后的新版本靠它判断成功与否并弹「已更新到 vX」；
         // 与 settings.json 同目录，不进缓存库（隐私红线只提聚合事实；这里只是版本号与备份路径）。

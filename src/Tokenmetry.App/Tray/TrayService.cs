@@ -19,7 +19,9 @@ namespace Tokenmetry.App.Tray;
 /// <summary>
 /// A-0 托盘常驻（v0.5 规格 docs/plans/2026-10-11-opinionated-usage-stats-pivot.md §5）：
 /// 图标常驻，tooltip 两行 = 产品名 + 今日摘要（tokens/成本/缓存命中，TrayTooltipBuilder）；
-/// 菜单 = 打开主窗 / 立即刷新 / 设置 / 检查更新 / 退出。
+/// 菜单 = 打开主窗 / 立即刷新 / 设置 / 模型计价器 / 检查更新 / 退出（计价器为 I-CALC
+/// 独立工具入口，Windows/Linux 无应用菜单栏，托盘是它的家；macOS 另有 Tools 菜单，
+/// 见 ToolsMenuInstaller）。
 /// <para><b>双轨（D-016 升级台阶，用户拍板"点图标直接弹层"后实施）</b>：macOS 生产路径经
 /// <see cref="MacTrayInterop"/> 自管 NSStatusItem——左键 Toggle 弹层、右键弹原生菜单（Avalonia 的
 /// TrayIcon.Clicked 在 macOS 从不 raise，官方文档 + trayicon.mm 留证）；安装失败自动回落 Avalonia
@@ -33,7 +35,7 @@ namespace Tokenmetry.App.Tray;
 /// 拦截在 MainWindow.OnClosing；真正退出走 <see cref="ExitApp"/> → desktop.Shutdown()，经生命周期
 /// 正常收尾（App 订阅 desktop.Exit 停后台刷新定时器），不使用 Environment.Exit。</para>
 /// <para>依赖为可选注入：App 启动传齐 dashboard/shell/refreshService/popover；headless 测试等场景
-/// 可仅传窗口（托盘仍注册，刷新/导航/成本联动/弹层按 null 跳过）。</para>
+/// 可仅传窗口（托盘仍注册，刷新/导航/成本联动/弹层/计价器按 null 跳过）。</para>
 /// </summary>
 public class TrayService
 {
@@ -42,10 +44,12 @@ public class TrayService
     private readonly MainWindowViewModel? _shell;
     private readonly BackgroundRefreshService? _refreshService;
     private readonly StatusPopoverController? _popover;
+    private readonly PriceCalculatorLauncher? _calculatorLauncher;
     private TrayIcon? _trayIcon;
     private NativeMenuItem? _openItem;
     private NativeMenuItem? _refreshItem;
     private NativeMenuItem? _settingsItem;
+    private NativeMenuItem? _calculatorItem;
     private NativeMenuItem? _updateItem;
     private NativeMenuItem? _exitItem;
     private UpdateService? _updateService;
@@ -57,7 +61,7 @@ public class TrayService
     {
     }
 
-    public TrayService(Window mainWindow, DashboardViewModel? dashboard, MainWindowViewModel? shell, BackgroundRefreshService? refreshService, StatusPopoverController? popover = null, UpdateService? updateService = null)
+    public TrayService(Window mainWindow, DashboardViewModel? dashboard, MainWindowViewModel? shell, BackgroundRefreshService? refreshService, StatusPopoverController? popover = null, UpdateService? updateService = null, PriceCalculatorLauncher? priceCalculatorLauncher = null)
     {
         _mainWindow = mainWindow;
         _dashboard = dashboard;
@@ -65,6 +69,7 @@ public class TrayService
         _refreshService = refreshService;
         _popover = popover;
         _updateService = updateService;
+        _calculatorLauncher = priceCalculatorLauncher;
     }
 
     public void Initialize()
@@ -138,6 +143,7 @@ public class TrayService
             new(() => Translations.Instance.TrayOpenWindow, ShowWindow),
             new(() => Translations.Instance.TrayRefreshNow, RefreshNow),
             new(() => Translations.Instance.TraySettings, OpenSettings),
+            new(() => Translations.Instance.TrayPriceCalculator, OpenPriceCalculator),
         };
         // I-039「检查更新」常驻项：未发现新版本时点击即查；发现后标题就地翻成「发现新版本 vX.Y.Z」，
         // 点击改为打开 Release 页（interop 无运行期插项能力，只能常驻 + 改标题，见 MacTrayInterop）。
@@ -156,6 +162,7 @@ public class TrayService
         _openItem = new NativeMenuItem { Header = Translations.Instance.TrayOpenWindow, Command = new RelayCommand(ShowWindow) };
         _refreshItem = new NativeMenuItem { Header = Translations.Instance.TrayRefreshNow, Command = new RelayCommand(RefreshNow) };
         _settingsItem = new NativeMenuItem { Header = Translations.Instance.TraySettings, Command = new RelayCommand(OpenSettings) };
+        _calculatorItem = new NativeMenuItem { Header = Translations.Instance.TrayPriceCalculator, Command = new RelayCommand(OpenPriceCalculator) };
         _updateItem = new NativeMenuItem { Header = UpdateItemTitle(), Command = new RelayCommand(OpenUpdateMenuItem) };
         _exitItem = new NativeMenuItem { Header = Translations.Instance.TrayExit, Command = new RelayCommand(ExitApp) };
 
@@ -171,6 +178,7 @@ public class TrayService
                     _openItem,
                     _refreshItem,
                     _settingsItem,
+                    _calculatorItem,
                     _updateItem,
                     new NativeMenuItemSeparator(),
                     _exitItem,
@@ -261,6 +269,11 @@ public class TrayService
         if (_settingsItem is { } settings)
         {
             settings.Header = Translations.Instance.TraySettings;
+        }
+
+        if (_calculatorItem is { } calculator)
+        {
+            calculator.Header = Translations.Instance.TrayPriceCalculator;
         }
 
         if (_updateItem is { } update)
@@ -431,6 +444,13 @@ public class TrayService
     {
         _shell?.OpenSettingsCommand.Execute(null);
         ShowWindow();
+    }
+
+    /// <summary>打开模型计价器（I-CALC 独立工具）：单例窗口激活/重建，与主窗口无导航关系，
+    /// 不经 ShowWindow（不动主窗）。</summary>
+    private void OpenPriceCalculator()
+    {
+        _calculatorLauncher?.Show();
     }
 
     private void ExitApp()
