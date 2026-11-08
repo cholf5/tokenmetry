@@ -12,6 +12,7 @@ using Avalonia.VisualTree;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Headless.Tests.Controls;
 using Tokenmetry.App.Localization;
+using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
 using Tokenmetry.Core.Models;
@@ -335,18 +336,25 @@ public class SharePosterViewTests
             view.PosterRootControl);
         Assert.Equal(SharePosterView.PortraitWidth, view.PosterRootControl.Bounds.Width, 1);
 
-        // 修订九（HTML 稿重排）：页头报告小签、英雄锁定值两段、完整数字行、note 叙事、
-        // 统计两卡、模型卡（品牌徽标吃 glm 伪类）、页脚字标——文案与 VM/Translations 同源即语言无关
+        // 修订九（HTML 稿重排）：页头报告小签、英雄锁定值两段、完整数字行、note 行、统计两卡、
+        // 模型卡（品牌徽标吃 glm 伪类）、页脚字标——文案与 VM/Translations 同源即语言无关
         var texts = view.PosterRootControl.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
         Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.SharePosterUsageReport, texts);
         Assert.Contains(vm.MilestoneHeroValueText, texts);
         Assert.Equal(vm.HasMilestoneHeroUnit, texts.Contains(vm.MilestoneHeroUnitText));
         Assert.Contains(vm.MilestoneExactTokensText, texts);
-        Assert.Contains(vm.MilestonePeakDateText, texts);
-        Assert.Contains(vm.MilestoneStreakText, texts);
         Assert.Contains(vm.MilestoneTopModelName, texts);
         Assert.Contains(vm.MilestoneTopModelCountText, texts);
         Assert.Contains(texts, t => t == "TOKENMETRY");
+        // note 行 = 单 TextBlock 彩色 Run（一段基线，混排 CJK 不沉底）：段文案全在 Run 上
+        var note = view.PosterRootControl.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Classes.Contains("milestone-note"));
+        var noteRuns = note.Inlines!.OfType<Avalonia.Controls.Documents.Run>().Select(r => r.Text).ToList();
+        Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.KpiPeakDay, noteRuns);
+        Assert.Contains(vm.MilestonePeakDateText, noteRuns);
+        Assert.Contains(vm.MilestonePeakValueText, noteRuns);
+        Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.SharePosterMilestoneStreak, noteRuns);
+        Assert.Contains(vm.MilestoneStreakText, noteRuns);
 
         // 统计两卡 + 模型卡真的在版面上，模型徽标吃到厂商伪类（logo 链生效）
         var borders = view.PosterRootControl.GetVisualDescendants().OfType<Border>().ToList();
@@ -389,17 +397,16 @@ public class SharePosterViewTests
             lockupWidth <= contentWidth + 1,
             $"hero lockup {lockupWidth} should stay inside content width {contentWidth}");
 
-        // note 行装着总量之后的两个叙事事实：最活跃日（标签 + 日期 + 蓝色值）与最长连续
-        var noteTexts = typicalView.GetVisualDescendants().OfType<TextBlock>()
-            .Where(t => t.Classes.Contains("milestone-note")
-                        || t.Classes.Contains("milestone-note-strong")
-                        || t.Classes.Contains("milestone-note-value"))
-            .Select(t => t.Text).ToList();
-        Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.KpiPeakDay, noteTexts);
-        Assert.Contains(typicalVm.MilestonePeakDateText, noteTexts);
-        Assert.Contains(typicalVm.MilestonePeakValueText, noteTexts);
-        Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.SharePosterMilestoneStreak, noteTexts);
-        Assert.Contains(typicalVm.MilestoneStreakText, noteTexts);
+        // note 行装着总量之后的两个叙事事实（单 TextBlock 彩色 Run，一段基线）：
+        // 最活跃日（标签 + 日期 + 蓝色值）与最长连续
+        var note = typicalView.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Classes.Contains("milestone-note"));
+        var noteRuns = note.Inlines!.OfType<Avalonia.Controls.Documents.Run>().Select(r => r.Text).ToList();
+        Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.KpiPeakDay, noteRuns);
+        Assert.Contains(typicalVm.MilestonePeakDateText, noteRuns);
+        Assert.Contains(typicalVm.MilestonePeakValueText, noteRuns);
+        Assert.Contains(Tokenmetry.App.Localization.Translations.Instance.SharePosterMilestoneStreak, noteRuns);
+        Assert.Contains(typicalVm.MilestoneStreakText, noteRuns);
         typicalWindow.Close();
 
         // 长串档：long 满量程（zh 万进制下最宽的合法字串）× 最大版心（margin 0）→ 仍 176、不越版心
@@ -438,6 +445,34 @@ public class SharePosterViewTests
         var shrunk = SharePosterView.HeroFontSizeFor("9223372", 300, typeface, -14);
         Assert.True(shrunk < SharePosterView.MilestoneHeroFontSize, $"300px 预算应收缩，实测 {shrunk}");
         Assert.Equal(0, shrunk % 0.5, 5);
+    }
+
+    /// <summary>
+    /// 末位数字不得被负字距裁切：TextBlock 默认 ClipToBounds，而负 LetterSpacing 让量测宽
+    /// （尾字符之后也吃一格字距）比墨迹包络窄 |spacing|——真机字体数字 bearing 近零时末位
+    /// 越界被裁掉一竖条（「7295」的 5）。英雄样式以右内边距补回 |spacing|，本测试锁字体无关
+    /// 的不变式：hero bounds 必须 ≥ 量测宽 + |字距|（最坏墨迹包络），否则任何字体都可能裁。
+    /// （不钉像素：headless 与真机字体的 bearing 不同，墨迹是否越界本身跨平台不稳定。）
+    /// </summary>
+    [AvaloniaFact]
+    public void Milestone_hero_bounds_cover_the_negative_letter_spacing_envelope()
+    {
+        var vm = MilestoneViewModel(72_950_000); // 「7295万」：与真机截图同量级
+        var view = new SharePosterView { DataContext = vm };
+        var window = Host(view);
+        using var frame = ChartTestHelpers.RenderFrame(window);
+
+        var hero = view.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.Name == "MilestoneHeroText");
+        using var layout = new Avalonia.Media.TextFormatting.TextLayout(
+            hero.Text!, new Typeface(hero.FontFamily, FontStyle.Normal, hero.FontWeight),
+            hero.FontSize, Brushes.Black, letterSpacing: hero.LetterSpacing);
+
+        Assert.True(
+            hero.Bounds.Width >= layout.Width + Math.Abs(hero.LetterSpacing) - 0.5,
+            $"hero bounds {hero.Bounds.Width} 应罩住量测宽 {layout.Width} + 字距包络 " +
+            $"{Math.Abs(hero.LetterSpacing)}——否则末位数字会被 ClipToBounds 裁切");
+        window.Close();
     }
 
     [AvaloniaFact]

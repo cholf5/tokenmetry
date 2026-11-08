@@ -51,11 +51,12 @@ public partial class SharePosterView : UserControl
     public const double MilestoneHeroFontSize = 176;
 
     /// <summary>
-    /// 里程碑英雄锁定值的「尾数 → 单位」间距：尾数与绿色单位同排（HTML 稿 number/unit 锁定），
-    /// XAML 里英雄锁定值 <c>StackPanel</c> 的 Spacing 字面量与本值必须一致（守卫预算扣减项），
-    /// headless 测试以「锁定值不越版心」锁住。
+    /// 里程碑英雄锁定值的「尾数 → 单位」间距：尾数与绿色单位同排（HTML 稿 number/unit 锁定）。
+    /// 英雄样式的右内边距（负字距补偿，14）也落在视觉间隙里，故此处取 8——补偿 + 间距 ≈ 稿子的
+    /// 单位左距（10 × 1.5 = 15），不会因补偿而变宽。XAML 里英雄锁定值 <c>StackPanel</c> 的
+    /// Spacing 字面量与本值必须一致（守卫预算扣减项），headless 测试以「锁定值不越版心」锁住。
     /// </summary>
-    public const double MilestoneHeroUnitSpacing = 15;
+    public const double MilestoneHeroUnitSpacing = 8;
 
     public SharePosterView()
     {
@@ -342,7 +343,9 @@ public partial class SharePosterView : UserControl
     /// 筛选、样式）时字号串会变，回调必然再进来。
     /// <para>
     /// 预算按锁定值口径扣减（修订九：单位从英雄串里拆出来单独 56px 绿字，宽度与英雄字号无关）：
-    /// 预算 = 版心 − 单位自然宽 − 锁定间距。单位块隐藏（未达首档的全量数字）按 0 计。
+    /// 预算 = 版心 − 单位自然宽 − 锁定间距 − 负字距补偿（英雄样式右内边距补回尾字符负字距削掉的
+    /// 量测宽，HeroFontSizeFor 的 TextLayout 宽不含这份补偿，预算要同步扣，否则锁定值可越界
+    /// |字距|）。单位块隐藏（未达首档的全量数字）按 0 计。
     /// </para>
     /// </summary>
     private void ApplyMilestoneHeroGuard()
@@ -353,7 +356,8 @@ public partial class SharePosterView : UserControl
         }
 
         var unitWidth = MilestoneHeroUnit.IsVisible ? MilestoneHeroUnit.DesiredSize.Width : 0;
-        var budget = PortraitWidth - 2 * RequestMargin - unitWidth - MilestoneHeroUnitSpacing;
+        var budget = PortraitWidth - 2 * RequestMargin - unitWidth - MilestoneHeroUnitSpacing
+                     - Math.Abs(MilestoneHeroText.LetterSpacing);
         var key = (MilestoneHeroText.Text, budget, MilestoneHeroText.FontFamily,
             MilestoneHeroText.FontWeight, MilestoneHeroText.LetterSpacing);
         if (_heroGuardKey == key)

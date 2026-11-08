@@ -368,6 +368,11 @@
             <!-- 稿子 number 字距 -0.085em → 176 × -0.085 ≈ -15，收一档到 -14（系统字体大字号
                  下 -15 起笔画已贴字面） -->
             <Setter Property="LetterSpacing" Value="-14"/>
+            <!-- 负字距的量测宽比墨迹包络窄 |spacing|（尾字符之后也吃一格字距），而 TextBlock
+                 默认 ClipToBounds——真机字体数字 bearing 近零时末位被裁掉一竖条（「7295」的 5）。
+                 右内边距把量测宽补回 |spacing|，bounds 罩住最坏墨迹；守卫预算同步扣这份补偿
+                 （ApplyMilestoneHeroGuard）。与上面的 LetterSpacing 必须成对改。 -->
+            <Setter Property="Padding" Value="0,0,14,0"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
@@ -387,17 +392,8 @@
             <Setter Property="FontSize" Value="21"/>
             <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
         </Style>
-        <Style Selector="TextBlock.milestone-note-strong">
-            <Setter Property="FontSize" Value="21"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
-        </Style>
-        <Style Selector="TextBlock.milestone-note-value">
-            <!-- note 里的最活跃日数值：稿子 blue 变量的蓝 -->
-            <Setter Property="FontSize" Value="21"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppAccentBlueBrush}"/>
-        </Style>
+        <!-- note 行的事实段/蓝色值段是 Run 内联属性（ Foreground/FontWeight 直接写在 Run 上，
+             Run 不吃样式选择器），不设独立样式类 -->
         <Style Selector="Border.milestone-stat">
             <!-- 稿子 .stat：渐变卡面 + 大圆角，min-height 给两卡一致的体量 -->
             <Setter Property="CornerRadius" Value="24"/>
@@ -1169,7 +1165,7 @@
                             <TextBlock Classes="milestone-eyebrow"
                                        Text="{Binding KpiTotalTokens, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="15" Margin="0,28,0,18">
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,28,0,18">
                             <TextBlock x:Name="MilestoneHeroText" Classes="milestone-hero"
                                        Text="{Binding MilestoneHeroValueText}"/>
                             <TextBlock x:Name="MilestoneHeroUnit" Classes="milestone-hero-unit"
@@ -1178,19 +1174,22 @@
                                        IsVisible="{Binding HasMilestoneHeroUnit}"/>
                         </StackPanel>
                         <TextBlock Classes="milestone-hero-raw" Text="{Binding MilestoneExactTokensText}"/>
-                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,34,0,0">
-                            <TextBlock Classes="milestone-note"
-                                       Text="{Binding KpiPeakDay, Source={x:Static loc:Translations.Instance}}"/>
-                            <TextBlock Classes="milestone-note" Text="·"/>
-                            <TextBlock Classes="milestone-note-strong" Text="{Binding MilestonePeakDateText}"/>
-                            <TextBlock Classes="milestone-note-value" Text="{Binding MilestonePeakValueText}"
-                                       IsVisible="{Binding HasMilestonePeakValue}"/>
-                            <TextBlock Classes="milestone-note" Text="·"/>
-                            <TextBlock Classes="milestone-note"
-                                       Text="{Binding SharePosterMilestoneStreak, Source={x:Static loc:Translations.Instance}}"/>
-                            <TextBlock Classes="milestone-note" Text="·"/>
-                            <TextBlock Classes="milestone-note-strong" Text="{Binding MilestoneStreakText}"/>
-                        </StackPanel>
+                        <!-- note 行（稿子 hero-note）：单 TextBlock + 彩色 Run——同一行框一段基线。
+                             不能拆成横排 StackPanel 的多个 TextBlock：各块顶对齐，混排 CJK 的块
+                             行框 ascent 更高，段里的拉丁数字基线比纯拉丁块低（蓝字会沉下去） -->
+                        <TextBlock Classes="milestone-note" Margin="0,34,0,0">
+                            <Run Text="{Binding KpiPeakDay, Source={x:Static loc:Translations.Instance}}"/>
+                            <Run Text=" · "/>
+                            <Run Text="{Binding MilestonePeakDateText}"
+                                 FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}"/>
+                            <Run Text="{Binding MilestonePeakValueText}"
+                                 FontWeight="SemiBold" Foreground="{DynamicResource AppAccentBlueBrush}"/>
+                            <Run Text=" · "/>
+                            <Run Text="{Binding SharePosterMilestoneStreak, Source={x:Static loc:Translations.Instance}}"/>
+                            <Run Text=" · "/>
+                            <Run Text="{Binding MilestoneStreakText}"
+                                 FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}"/>
+                        </TextBlock>
                     </StackPanel>
 
                     <!-- 统计两卡（稿子 .stats 1fr 1fr）：活跃天数带范围小字，会话单独一卡 -->
