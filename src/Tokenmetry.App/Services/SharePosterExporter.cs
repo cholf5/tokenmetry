@@ -7,7 +7,6 @@ using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Tokenmetry.App.Localization;
-using Tokenmetry.Core.Models;
 
 namespace Tokenmetry.App.Services;
 
@@ -23,17 +22,13 @@ public static class SharePosterExporter
 
     private const string Extension = ".png";
 
-    /// <summary>按时间范围生成文件名：单日一段日期，多日两段。</summary>
-    public static string FileName(SharePosterRequest request)
+    /// <summary>
+    /// 按保存时刻生成文件名：固定 tokenmetry-yyyyMMdd-HHmmss，不含海报的数据范围。
+    /// 保存对话框弹出时还不知道落盘目录，无法查重，所以靠保存时刻保证同一天多次导出的建议名互不覆盖。
+    /// </summary>
+    public static string FileName(DateTime? savedAt = null)
     {
-        var start = request.RangeStart.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-        if (request.IsSingleDay)
-        {
-            return "tokenmetry-" + start + Extension;
-        }
-
-        var end = request.RangeEnd.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-        return "tokenmetry-" + start + "-" + end + Extension;
+        return "tokenmetry-" + (savedAt ?? DateTime.Now).ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + Extension;
     }
 
     /// <summary>把已布局的海报根节点按 <see cref="ExportScale"/> 光栅化。</summary>
@@ -89,15 +84,14 @@ public static class SharePosterExporter
     }
 
     /// <summary>保存为 PNG。返回 null 表示用户取消了保存对话框。</summary>
-    public static async Task<string?> SaveAsync(
-        TopLevel topLevel, Bitmap bitmap, SharePosterRequest request)
+    public static async Task<string?> SaveAsync(TopLevel topLevel, Bitmap bitmap)
     {
         ArgumentNullException.ThrowIfNull(topLevel);
 
         var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = Translations.Instance.SharePosterSave,
-            SuggestedFileName = FileName(request),
+            SuggestedFileName = FileName(),
             DefaultExtension = "png",
             FileTypeChoices =
             [
