@@ -205,15 +205,86 @@ public static class UsageFactsMapper
     /// 把 facts 按日聚合回 <see cref="DailyUsageSummary"/> 形状（页面数据面）。
     /// 同一天同时存在 full 粒度行（统一记录聚合）与分解粒度行（CLI 源）时，以 full 粒度为准，
     /// 避免两种来源混算导致重复计数（数据源切换的清理是 I-005 的职责）。
+    /// 粒度兜底按 (device, day) 收口（relay 设计 §4.3 地雷 1）：每设备各自按既有口径成行，
+    /// 同日多设备的行再并成一行——扫描设备的 full 行不吞并其他设备同日的分解行；
+    /// 单设备每日一组，行为与收窄前逐位一致。
     /// </summary>
     public static List<DailyUsageSummary> ToDailySummaries(IReadOnlyList<UsageFact> facts)
     {
-        return facts
-            .Where(fact => !string.IsNullOrWhiteSpace(fact.Day))
-            .GroupBy(fact => fact.Day, StringComparer.Ordinal)
-            .Select(group => BuildDailySummary(group.Key, group.ToList()))
+        var byDeviceDay = new Dictionary<(string Device, string Day), List<UsageFact>>();
+        foreach (var fact in facts.Where(fact => !string.IsNullOrWhiteSpace(fact.Day)))
+        {
+            if (!byDeviceDay.TryGetValue((fact.Device, fact.Day), out var list))
+            {
+                list = new List<UsageFact>();
+                byDeviceDay[(fact.Device, fact.Day)] = list;
+            }
+
+            list.Add(fact);
+        }
+
+        var byDay = new Dictionary<string, DailyUsageSummary>(StringComparer.Ordinal);
+        foreach (var group in byDeviceDay)
+        {
+            var summary = BuildDailySummary(group.Key.Day, group.Value);
+            byDay[group.Key.Day] = byDay.TryGetValue(group.Key.Day, out var merged)
+                ? MergeDailySummaries(merged, summary)
+                : summary;
+        }
+
+        return byDay
+            .Values
             .OrderByDescending(summary => summary.Date, StringComparer.Ordinal)
             .ToList();
+    }
+
+    /// <summary>合并同日两台设备的摘要：数值求和、三类 breakdown 按 key 求和（key 并集，排序沿用键序）。</summary>
+    private static DailyUsageSummary MergeDailySummaries(DailyUsageSummary left, DailyUsageSummary right)
+    {
+        return new DailyUsageSummary
+        {
+            Date = left.Date,
+            TotalCostUsd = left.TotalCostUsd + right.TotalCostUsd,
+            TotalTokens = left.TotalTokens + right.TotalTokens,
+            InputTokens = left.InputTokens + right.InputTokens,
+            OutputTokens = left.OutputTokens + right.OutputTokens,
+            CacheCreationTokens = left.CacheCreationTokens + right.CacheCreationTokens,
+            CacheReadTokens = left.CacheReadTokens + right.CacheReadTokens,
+            Agents = left.Agents
+                .Concat(right.Agents)
+                .GroupBy(breakdown => breakdown.Agent, StringComparer.Ordinal)
+                .Select(group => new AgentBreakdown
+                {
+                    Agent = group.Key,
+                    CostUsd = group.Sum(breakdown => breakdown.CostUsd),
+                    TotalTokens = group.Sum(breakdown => breakdown.TotalTokens),
+                })
+                .OrderBy(breakdown => breakdown.Agent, StringComparer.Ordinal)
+                .ToList(),
+            Models = left.Models
+                .Concat(right.Models)
+                .GroupBy(breakdown => breakdown.Model, StringComparer.Ordinal)
+                .Select(group => new ModelBreakdown
+                {
+                    Model = group.Key,
+                    CostUsd = group.Sum(breakdown => breakdown.CostUsd),
+                    TotalTokens = group.Sum(breakdown => breakdown.TotalTokens),
+                })
+                .OrderBy(breakdown => breakdown.Model, StringComparer.Ordinal)
+                .ToList(),
+            Projects = left.Projects
+                .Concat(right.Projects)
+                .GroupBy(breakdown => breakdown.Project, StringComparer.Ordinal)
+                .Select(group => new ProjectBreakdown
+                {
+                    Project = group.Key,
+                    DisplayName = group.Select(breakdown => breakdown.DisplayName).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ?? string.Empty,
+                    CostUsd = group.Sum(breakdown => breakdown.CostUsd),
+                    TotalTokens = group.Sum(breakdown => breakdown.TotalTokens),
+                })
+                .OrderBy(breakdown => breakdown.Project, StringComparer.Ordinal)
+                .ToList(),
+        };
     }
 
     private static DailyUsageSummary BuildDailySummary(string day, List<UsageFact> facts)
@@ -270,44 +341,48 @@ public static class UsageFactsMapper
             return summary;
         }
 
-        var dayRow = facts.FirstOrDefault(fact => fact.Grain == UsageFactGrain.Day);
-        summary.InputTokens = dayRow?.InputTokens ?? 0;
-        summary.OutputTokens = dayRow?.OutputTokens ?? 0;
-        summary.CacheCreationTokens = dayRow?.CacheCreationTokens ?? 0;
-        summary.CacheReadTokens = dayRow?.CacheReadTokens ?? 0;
-        summary.TotalTokens = dayRow?.TotalTokens ?? 0;
-        summary.TotalCostUsd = dayRow?.CostUsd ?? 0m;
+        // day 粒度行：单设备每日恰一行；合并视图同日可有多设备各一行（见 ToDailySummaries），求和。
+        var dayRows = facts.Where(fact => fact.Grain == UsageFactGrain.Day).ToList();
+        summary.InputTokens = dayRows.Sum(fact => fact.InputTokens);
+        summary.OutputTokens = dayRows.Sum(fact => fact.OutputTokens);
+        summary.CacheCreationTokens = dayRows.Sum(fact => fact.CacheCreationTokens);
+        summary.CacheReadTokens = dayRows.Sum(fact => fact.CacheReadTokens);
+        summary.TotalTokens = dayRows.Sum(fact => fact.TotalTokens);
+        summary.TotalCostUsd = SumCosts(dayRows.Select(fact => fact.CostUsd)) ?? 0m;
 
         summary.Agents = facts
             .Where(fact => fact.Grain == UsageFactGrain.Agent && !string.IsNullOrWhiteSpace(fact.Agent))
-            .Select(fact => new AgentBreakdown
+            .GroupBy(fact => fact.Agent, StringComparer.Ordinal)
+            .Select(group => new AgentBreakdown
             {
-                Agent = fact.Agent,
-                CostUsd = fact.CostUsd ?? 0m,
-                TotalTokens = fact.TotalTokens,
+                Agent = group.Key,
+                CostUsd = SumCosts(group.Select(fact => fact.CostUsd)) ?? 0m,
+                TotalTokens = group.Sum(fact => fact.TotalTokens),
             })
             .OrderBy(breakdown => breakdown.Agent, StringComparer.Ordinal)
             .ToList();
 
         summary.Models = facts
             .Where(fact => fact.Grain == UsageFactGrain.Model && !string.IsNullOrWhiteSpace(fact.Model))
-            .Select(fact => new ModelBreakdown
+            .GroupBy(fact => fact.Model, StringComparer.Ordinal)
+            .Select(group => new ModelBreakdown
             {
-                Model = fact.Model,
-                CostUsd = fact.CostUsd ?? 0m,
-                TotalTokens = fact.TotalTokens,
+                Model = group.Key,
+                CostUsd = SumCosts(group.Select(fact => fact.CostUsd)) ?? 0m,
+                TotalTokens = group.Sum(fact => fact.TotalTokens),
             })
             .OrderBy(breakdown => breakdown.Model, StringComparer.Ordinal)
             .ToList();
 
         summary.Projects = facts
             .Where(fact => fact.Grain == UsageFactGrain.Project && !string.IsNullOrWhiteSpace(fact.Project))
-            .Select(fact => new ProjectBreakdown
+            .GroupBy(fact => fact.Project, StringComparer.Ordinal)
+            .Select(group => new ProjectBreakdown
             {
-                Project = fact.Project,
-                DisplayName = fact.ProjectDisplayName,
-                CostUsd = fact.CostUsd ?? 0m,
-                TotalTokens = fact.TotalTokens,
+                Project = group.Key,
+                DisplayName = group.Select(fact => fact.ProjectDisplayName).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ?? string.Empty,
+                CostUsd = SumCosts(group.Select(fact => fact.CostUsd)) ?? 0m,
+                TotalTokens = group.Sum(fact => fact.TotalTokens),
             })
             .OrderBy(breakdown => breakdown.Project, StringComparer.Ordinal)
             .ToList();
