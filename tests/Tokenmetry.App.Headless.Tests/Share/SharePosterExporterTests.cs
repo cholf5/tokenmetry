@@ -28,17 +28,19 @@ public class SharePosterExporterTests
             style ?? (start == end ? SharePosterStyle.Tray : SharePosterStyle.Overview));
 
     [Fact]
-    public void File_name_for_a_single_day_has_one_date()
+    public void File_name_is_the_save_timestamp_without_the_range()
     {
-        var day = new DateOnly(2026, 10, 17);
-        Assert.Equal("tokenmetry-20261017.png", SharePosterExporter.FileName(Request(day, day)));
+        var savedAt = new DateTime(2026, 11, 8, 21, 5, 0);
+        Assert.Equal("tokenmetry-20261108-210500.png", SharePosterExporter.FileName(savedAt));
     }
 
     [Fact]
-    public void File_name_for_a_range_has_both_dates()
+    public void Two_saves_at_different_moments_suggest_different_names()
     {
-        var request = Request(new DateOnly(2026, 1, 28), new DateOnly(2026, 11, 2));
-        Assert.Equal("tokenmetry-20260128-20261102.png", SharePosterExporter.FileName(request));
+        // 回归锁：建议名只带日期时，同一天多次导出会互相覆盖。
+        var morning = SharePosterExporter.FileName(new DateTime(2026, 10, 17, 9, 30, 0));
+        var evening = SharePosterExporter.FileName(new DateTime(2026, 10, 17, 21, 5, 0));
+        Assert.NotEqual(morning, evening);
     }
 
     [AvaloniaFact]

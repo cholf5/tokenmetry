@@ -153,7 +153,7 @@ public partial class SharePosterDialog : Window
         try
         {
             using var bitmap = SharePosterExporter.Render(PreviewView.PosterRootControl);
-            var path = await SharePosterExporter.SaveAsync(this, bitmap, ViewModel.CurrentRequest);
+            var path = await SharePosterExporter.SaveAsync(this, bitmap);
             StatusText.Text = path is null ? string.Empty : string.Format(t.SharePosterSavedFormat, path);
         }
         catch (Exception ex)
