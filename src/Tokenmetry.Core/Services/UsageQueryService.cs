@@ -349,6 +349,12 @@ public class UsageQueryService : IUsageQueryService
                 continue;
             }
 
+            if (filter.Device is { } device
+                && !string.Equals(fact.Device, device, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             if (!string.IsNullOrWhiteSpace(filter.Agent)
                 && !string.Equals(fact.Agent, filter.Agent, StringComparison.Ordinal))
             {
@@ -381,6 +387,12 @@ public class UsageQueryService : IUsageQueryService
     {
         foreach (var session in sessions)
         {
+            if (filter.Device is { } device
+                && !string.Equals(session.Device, device, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             if (!string.IsNullOrWhiteSpace(filter.Agent)
                 && !string.Equals(session.Agent, filter.Agent, StringComparison.Ordinal))
             {
@@ -423,16 +435,21 @@ public class UsageQueryService : IUsageQueryService
 
     private static Dictionary<string, List<UsageFact>> DailyFactsByDay(IEnumerable<UsageFact> facts)
     {
+        // (device, day) 分组粒度兜底（relay 设计 §4.3 地雷 1）：每设备各自 full 优先/分解兜底后
+        // 并成单日行集——扫描设备的 full 行不得压掉 CLI 设备同日的分解行（合并视图双算/漏算）。
+        // 单机（行 Device 全为空串或同值）退化为按天分组，行为与收窄前逐位一致。
+        // 键的存在本身承载"该日有 facts"（Flagged zero point：行都在但不计入日合计时，
+        // 日点保持 HasData=true 值为 0，不塌缩成空洞）。
         var byDay = new Dictionary<string, List<UsageFact>>(StringComparer.Ordinal);
-        foreach (var fact in facts)
+        foreach (var group in facts.GroupBy(fact => (fact.Device, fact.Day)))
         {
-            if (!byDay.TryGetValue(fact.Day, out var list))
+            if (!byDay.TryGetValue(group.Key.Day, out var list))
             {
                 list = new List<UsageFact>();
-                byDay[fact.Day] = list;
+                byDay[group.Key.Day] = list;
             }
 
-            list.Add(fact);
+            list.AddRange(ResolveDailyRows(group.ToList()));
         }
 
         return byDay;
@@ -470,9 +487,11 @@ public class UsageQueryService : IUsageQueryService
     // ---- 日序列与 KPI ----
 
     /// <summary>
-    /// 单日行解析：有 full 粒度行只用 full 行（统一记录聚合，维度齐全）；否则用 Day 粒度行
+    /// 单设备单日行解析：有 full 粒度行只用 full 行（统一记录聚合，维度齐全）；否则用 Day 粒度行
     /// （CLI 源的日合计）。两者皆无返回空列表（该日在日合计口径下无数据；同日的其他分解行
     /// 不折算进日合计，对齐 <see cref="UsageFactsMapper.ToDailySummaries"/>）。
+    /// 调用方必须传入单个 (device, day) 分组的行集——跨设备合并视图的兜底按 (device, day) 收口，
+    /// 在这里按整日兜底会互相吞并（relay 设计 §4.3 地雷 1）。
     /// </summary>
     private static List<UsageFact> ResolveDailyRows(IReadOnlyList<UsageFact> dayRows)
     {
@@ -495,21 +514,23 @@ public class UsageQueryService : IUsageQueryService
 
     private static DailyUsagePoint BuildDailyPoint(string day, List<UsageFact>? rows)
     {
-        if (rows is not { Count: > 0 })
+        if (rows is null)
         {
             return new DailyUsagePoint { Day = day, Cost = AggregatedCost.Empty, HasData = false };
         }
 
-        var resolved = ResolveDailyRows(rows);
+        // rows 已是 (device, day) 分组兜底后的并集（见 DailyFactsByDay），直接累计，不得再兜底
+        // ——再兜底会把 CLI 设备的 day 行在存在其他设备 full 行的合并日整组丢掉。
+        // 键存在但行集为空 = "flagged zero point"（该日有 facts、均不计入日合计）。
         return new DailyUsagePoint
         {
             Day = day,
-            InputTokens = resolved.Sum(fact => fact.InputTokens),
-            OutputTokens = resolved.Sum(fact => fact.OutputTokens),
-            CacheCreationTokens = resolved.Sum(fact => fact.CacheCreationTokens),
-            CacheReadTokens = resolved.Sum(fact => fact.CacheReadTokens),
-            TotalTokens = resolved.Sum(fact => fact.TotalTokens),
-            Cost = AggregatedCost.FromRowCosts(resolved.Select(fact => fact.CostUsd)),
+            InputTokens = rows.Sum(fact => fact.InputTokens),
+            OutputTokens = rows.Sum(fact => fact.OutputTokens),
+            CacheCreationTokens = rows.Sum(fact => fact.CacheCreationTokens),
+            CacheReadTokens = rows.Sum(fact => fact.CacheReadTokens),
+            TotalTokens = rows.Sum(fact => fact.TotalTokens),
+            Cost = AggregatedCost.FromRowCosts(rows.Select(fact => fact.CostUsd)),
             HasData = true,
         };
     }
@@ -539,6 +560,7 @@ public class UsageQueryService : IUsageQueryService
             Agent = filter.Agent,
             Model = filter.Model,
             Project = filter.Project,
+            Device = filter.Device,
         };
     }
 
@@ -557,7 +579,8 @@ public class UsageQueryService : IUsageQueryService
         CacheReadShareChange = MetricChange.From(current.CacheReadShare, previous.CacheReadShare),
     };
 
-    /// <summary>KPI 聚合（纯计算，不发存储读）：复合快照在单次全表读上对当前/上一窗口复用。</summary>
+    /// <summary>KPI 聚合（纯计算，不发存储读）：复合快照在单次全表读上对当前/上一窗口复用。
+    /// byDay 的行集已按 (device, day) 兜底（见 DailyFactsByDay），直接累计、不得再兜底。</summary>
     private static KpiAggregate BuildKpiAggregate(
         Dictionary<string, List<UsageFact>> byDay, IReadOnlyList<SessionFact> sessions)
     {
@@ -566,10 +589,9 @@ public class UsageQueryService : IUsageQueryService
         var cost = AggregatedCost.Empty;
         foreach (var dayRows in byDay.Values)
         {
-            var resolved = ResolveDailyRows(dayRows);
-            totalTokens += resolved.Sum(fact => fact.TotalTokens);
-            cacheReadTokens += resolved.Sum(fact => fact.CacheReadTokens);
-            cost = cost.Add(AggregatedCost.FromRowCosts(resolved.Select(fact => fact.CostUsd)));
+            totalTokens += dayRows.Sum(fact => fact.TotalTokens);
+            cacheReadTokens += dayRows.Sum(fact => fact.CacheReadTokens);
+            cost = cost.Add(AggregatedCost.FromRowCosts(dayRows.Select(fact => fact.CostUsd)));
         }
 
         var cacheReadShare = totalTokens > 0 ? (decimal?)Math.Round((decimal)cacheReadTokens / totalTokens, 4) : null;
@@ -618,7 +640,8 @@ public class UsageQueryService : IUsageQueryService
         bool withProvider)
     {
         var factRowsByKey = new Dictionary<string, List<UsageFact>>(StringComparer.Ordinal);
-        foreach (var dayGroup in scopedFacts.GroupBy(fact => fact.Day, StringComparer.Ordinal))
+        // 兜底按 (device, day) 收口（relay 设计 §4.3 地雷 1）：单设备单日内 full 优先，跨设备互不吞并。
+        foreach (var dayGroup in scopedFacts.GroupBy(fact => (fact.Device, fact.Day)))
         {
             var dayRows = dayGroup.ToList();
             var full = dayRows.Where(fact => fact.Grain == UsageFactGrain.Full).ToList();
