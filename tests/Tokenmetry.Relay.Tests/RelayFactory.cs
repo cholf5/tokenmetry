@@ -16,9 +16,9 @@ internal sealed class RelayFactory : WebApplicationFactory<Program>
         _dbPath = string.Empty;
     }
 
-    public RelayFactory(string? token = null, string? githubClientId = null, string? githubClientSecret = null)
+    public RelayFactory(string? token = null, string? githubClientId = null, string? githubClientSecret = null, string? dbPath = null)
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"tokenmetry-relay-{Guid.NewGuid():N}.db");
+        _dbPath = dbPath ?? Path.Combine(Path.GetTempPath(), $"tokenmetry-relay-{Guid.NewGuid():N}.db");
         Environment.SetEnvironmentVariable("TOKENMETRY_RELAY_DB", _dbPath);
         Environment.SetEnvironmentVariable("TOKENMETRY_RELAY_TOKEN", token);
         Environment.SetEnvironmentVariable("TOKENMETRY_RELAY_GITHUB_CLIENT_ID", githubClientId);

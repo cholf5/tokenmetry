@@ -104,6 +104,11 @@ public sealed class SyncStateService : IDisposable
         BuildBackend(endpoint, token);
         _consecutiveFailures = 0;
 
+        // 重置同步游标（终审 I5）：Enable 可能指向新中继/新账号（删库重建、轮换 token、切账号）——
+        // 旧游标会让全量重推/重拉永不发生，新桶看不到历史。重置后首轮全量 push/pull，
+        // 由两端 LWW 幂等消化（A14 值变化检测使重推天然只发有差异的行）。
+        await _store.SetSyncCursorAsync(null, null, ct);
+
         // 注册本机设备（名字沿用本地注册表；A7：启用时刻抓一次，之后不随 hostname 漂移）。
         // 注册/换 token 是中继专属流程（A5）——fake 后端与社区实现无此成员时跳过。
         if (_backend is RelaySyncBackend relay)

@@ -161,6 +161,28 @@ public sealed class SyncStateServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Enable_ResetsCursors_FullResync()
+    {
+        // 终审 I5：Enable 必须重置同步游标（中继重建 / 切换账号场景）——否则旧游标让全量重推
+        // 不会发生，新账号/新中继永远看不到历史；重置后的全量 push/pull 由两端 LWW 幂等消化。
+        var settings = new AppSettings();
+        var settingsStore = new FakeSettingsStore();
+        var backend = new FakeBackend();
+        var stale = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        await _store.SetSyncCursorAsync(stale, 42);
+
+        var service = CreateService(_store, settings, settingsStore, backend);
+        await service.InitializeAsync();
+        await service.EnableAsync("http://relay.example:8080", "tok");
+
+        // Enable 内重置游标后立即跑一轮：pull 从 0 起（fake 收到 Pull(0)），游标最终 = 本轮结果
+        //（pull Seq=5 而非旧值 42/max(42,5)），且推送游标不再残留旧值语义。
+        backend.PullSequences.Should().Contain(0L, "游标已重置：首轮从 0 全量拉取");
+        var cursor = await _store.GetSyncCursorAsync();
+        cursor.LastPullSeq.Should().Be(5L);
+    }
+
+    [Fact]
     public async Task Rename_UpdatesLocalAndRemote()
     {
         var settings = new AppSettings();

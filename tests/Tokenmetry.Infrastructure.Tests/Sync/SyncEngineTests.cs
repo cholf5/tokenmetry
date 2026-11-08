@@ -15,12 +15,14 @@ public sealed class SyncEngineTests : IAsyncLifetime
 {
     private string _tempDbPath = null!;
     private SqliteUsageStore _store = null!;
+    private string? _localDeviceId;
 
     public async Task InitializeAsync()
     {
         _tempDbPath = Path.Combine(Path.GetTempPath(), $"tokenmetry-sync-{Guid.NewGuid():N}.db");
         _store = new SqliteUsageStore(_tempDbPath);
         await _store.InitializeAsync();
+        _localDeviceId = await _store.GetLocalDeviceIdAsync();
     }
 
     public async Task DisposeAsync()
@@ -196,6 +198,50 @@ public sealed class SyncEngineTests : IAsyncLifetime
         var cursor = await _store.GetSyncCursorAsync();
         cursor.LastPushedAt.Should().Be(localUpdatedAt, "推送游标 = 批次内最大 updated_at");
         cursor.LastPullSeq.Should().Be(42, "拉取游标 = 末次响应 Seq");
+    }
+
+    [Fact]
+    public async Task RunOnce_RemoteDevices_ExcludesCaller()
+    {
+        // 终审 C2/I3：pull 响应的设备清单包含 caller 自身（服务端如此返回），
+        // 落本地 remote_devices 时必须剔除——本机不是"远端设备"，进清单会让 UI 重复出本机、
+        // 且让对账清退把本机当作可清退对象。
+        var backend = new FakeBackend
+        {
+            PullResponder = _ => new SyncPullResponse(
+                Seq: 3, new List<UsageFact>(), new List<SessionFact>(),
+                new List<SyncDeviceInfo> { Device(_localDeviceId!, "Self"), Device("devB", "Laptop") }, false),
+        };
+        var engine = new SyncEngine(_store, () => backend);
+
+        await engine.RunOnceAsync();
+
+        (await _store.GetRemoteDevicesAsync()).Select(device => device.DeviceId)
+            .Should().ContainSingle("本机不得进远端设备清单").Which.Should().Be("devB");
+    }
+
+    [Fact]
+    public async Task RunOnce_NeverPurgesSelf_EvenWhenListLacksCaller()
+    {
+        // 终审 C2：设备被远端解绑（或中继重建）后，响应清单缺 caller——
+        // 对账清退必须豁免本机，否则空闲设备的本地历史被整表删除（不可恢复）。
+        await _store.UpsertUsageFactsAsync(new List<UsageFact>
+        {
+            new() { Day = "2026-06-19", Grain = UsageFactGrain.Full, TotalTokens = 10 },
+        });
+
+        var backend = new FakeBackend
+        {
+            PullResponder = _ => new SyncPullResponse(
+                Seq: 3, new List<UsageFact>(), new List<SessionFact>(),
+                new List<SyncDeviceInfo> { Device("devB") }, false),
+        };
+        var engine = new SyncEngine(_store, () => backend);
+
+        var result = await engine.RunOnceAsync();
+
+        result!.PurgedDeviceIds.Should().BeEmpty("本机不得被对账清退");
+        (await _store.GetUsageFactsAsync()).Should().Contain(row => row.TotalTokens == 10, "本地历史完整保留");
     }
 
     [Fact]

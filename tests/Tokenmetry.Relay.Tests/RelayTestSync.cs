@@ -35,12 +35,14 @@ internal static class RelayTestSync
         return await client.SendAsync(message);
     }
 
-    public static async Task<SyncPullResponse> PullAsync(HttpClient client, string device, long since)
+    public static async Task<SyncPullResponse> PullAsync(HttpClient client, string device, long since, int? limit = null)
     {
-        using var message = new HttpRequestMessage(HttpMethod.Get, $"/api/sync/pull?since={since}");
+        using var message = new HttpRequestMessage(HttpMethod.Get, $"/api/sync/pull?since={since}" + (limit is { } l ? $"&limit={l}" : string.Empty));
         message.Headers.Add("X-Tokenmetry-Device", device);
         var response = await client.SendAsync(message);
         response.EnsureSuccessStatusCode();
         return JsonSerializer.Deserialize(await response.Content.ReadAsStreamAsync(), SyncJsonContext.Default.SyncPullResponse)!;
     }
+
+    public static Task<HttpResponseMessage> SendGetAsync(HttpClient client, string uri) => client.GetAsync(uri);
 }

@@ -61,10 +61,17 @@ public sealed class SyncEngine(IUsageStore store, Func<ISyncBackend?> backendPro
             hasMore = response.HasMore;
         }
 
+        // 服务端的设备清单包含 caller 自身；本机不是"远端设备"——剔除后才落 remote_devices
+        // （终审 C2/I3：否则 UI 重复出本机，且对账清退可能把本机当清退对象）。
+        var localDeviceId = await store.GetLocalDeviceIdAsync(ct);
+        devices = devices.Where(device => device.DeviceId != localDeviceId).ToList();
+
         // A13 设备清单对账：本地已知的远端设备从账号清单消失（他机解绑/删号传播）→ 清其本地副本。
+        // 本机永远豁免（终审 C2）：设备被远端解绑/中继重建后响应清单缺 caller，若不清退豁免，
+        // 空闲设备的本地历史会被 DeleteRemoteDeviceDataAsync(本机) 整表删除——不可恢复。
         var currentDevices = devices.Select(device => device.DeviceId).ToHashSet(StringComparer.Ordinal);
         var purgedDeviceIds = (await store.GetRemoteDevicesAsync(ct))
-            .Where(device => !currentDevices.Contains(device.DeviceId))
+            .Where(device => device.DeviceId != localDeviceId && !currentDevices.Contains(device.DeviceId))
             .Select(device => device.DeviceId)
             .ToList();
         foreach (var purgedDeviceId in purgedDeviceIds)

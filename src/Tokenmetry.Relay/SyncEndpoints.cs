@@ -107,30 +107,39 @@ internal static class SyncEndpoints
             return Results.BadRequest(new { error = "since must be an integer seq." });
         }
 
-        await using var connection = database.OpenConnection();
-
-        // 行数上限跨 usage/session 两表合并计（peek 一行探测 hasMore，探测行不返回）。
-        var usage = await ReadUsageRowsAsync(connection, account.Id, deviceId, since, PullRowLimit + 1, ct);
-        var hasMore = usage.Count > PullRowLimit;
-        var usageRows = usage.Take(PullRowLimit).ToList();
-
-        var remaining = PullRowLimit - usageRows.Count;
-        var sessions = await ReadSessionRowsAsync(connection, account.Id, deviceId, since, remaining + 1, ct);
-        if (sessions.Count > remaining)
+        // limit 可调（设计 §4.4；钳到 [1, PullRowLimit]）——测试分页语义与部署调优用。
+        var limit = PullRowLimit;
+        if (request.Query.TryGetValue("limit", out var rawLimit)
+            && long.TryParse(rawLimit, out var parsedLimit))
         {
-            hasMore = true;
-            sessions = sessions.Take(remaining).ToList();
+            limit = (int)Math.Clamp(parsedLimit, 1, PullRowLimit);
         }
 
-        // hasMore 时响应 Seq = 本批最大 seq（客户端续拉游标，不得跳过未拉行）；
+        await using var connection = database.OpenConnection();
+
+        // 行数上限跨 usage/session 两表合并计（各 peek 一行探测 hasMore，探测行不返回）。
+        var usage = await ReadUsageRowsAsync(connection, account.Id, deviceId, since, limit + 1, ct);
+        var usageRows = usage.Take(limit).ToList();
+        long? usageFrontier = usage.Count > limit ? usage[limit].Seq : null;
+
+        var remaining = limit - usageRows.Count;
+        var sessions = await ReadSessionRowsAsync(connection, account.Id, deviceId, since, remaining + 1, ct);
+        long? sessionFrontier = sessions.Count > remaining ? sessions[remaining].Seq : null;
+        var sessionRows = sessions.Take(remaining).ToList();
+
+        var hasMore = usageFrontier is not null || sessionFrontier is not null;
+
+        // 续拉游标（终审 C1）：seq 账号级交错于两表，按表分页的窗口边界之外可能还有更低 seq 的行——
+        // 响应 Seq 必须取"两表首个被跳过行的最小 seq − 1"（水位线），而非本批最大 seq（那会永久跳行）。
+        // 已交付的行在续拉中被重复返回是安全的：客户端落库走 LWW 幂等 upsert。
         // 拉尽时 = 账号当前头部（caller 自身行的 seq 被跳过是安全的：未来他机行必然更大）。
         var responseSeq = hasMore
-            ? Enumerable.Concat(usageRows.Select(row => row.Seq), sessions.Select(row => row.Seq)).DefaultIfEmpty(since).Max()
+            ? new[] { usageFrontier, sessionFrontier }.Where(frontier => frontier is not null).Min()!.Value - 1
             : await AccountSeqAsync(connection, account.Id, ct);
 
         var devices = await ReadDevicesAsync(connection, account.Id, ct);
         return Results.Json(
-            new SyncPullResponse(responseSeq, usageRows.Select(row => row.Fact).ToList(), sessions.Select(row => row.Fact).ToList(), devices, hasMore),
+            new SyncPullResponse(responseSeq, usageRows.Select(row => row.Fact).ToList(), sessionRows.Select(row => row.Fact).ToList(), devices, hasMore),
             SyncJsonContext.Default.Options);
     }
 
@@ -286,12 +295,11 @@ internal static class SyncEndpoints
     private static async Task TouchDeviceAsync(
         SqliteConnection connection, SqliteTransaction transaction, string accountId, string deviceId, CancellationToken ct)
     {
+        // 只更新已注册设备的 last_seen（终审 C2：INSERT 会让被解绑设备的 push 把自己"复活"回设备清单，
+        // A13 对账永远清不掉它；重新入网只走 POST /api/devices 注册）。
         using var cmd = connection.CreateCommand();
         cmd.Transaction = transaction;
-        cmd.CommandText = """
-            INSERT INTO devices (account_id, device_id, name, last_seen_at) VALUES ($accountId, $deviceId, $deviceId, $now)
-            ON CONFLICT(account_id, device_id) DO UPDATE SET last_seen_at = excluded.last_seen_at
-            """;
+        cmd.CommandText = "UPDATE devices SET last_seen_at = $now WHERE account_id = $accountId AND device_id = $deviceId";
         cmd.Parameters.AddWithValue("$accountId", accountId);
         cmd.Parameters.AddWithValue("$deviceId", deviceId);
         cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
