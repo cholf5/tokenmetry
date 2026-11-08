@@ -30,7 +30,7 @@ internal static class RelayAuth
     public static string HashToken(string token) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 
-    /// <summary>token → 账号；无匹配凭据返回 null（调用方落 401）。</summary>
+    /// <summary>token → 账号；无匹配凭据返回 null（调用方落 401）。凭据可住 accounts（shared 自举）或 account_tokens（GitHub 签发，多设备并存）。</summary>
     public static async Task<RelayAccount?> MapAccountAsync(SqliteConnection connection, string token)
     {
         using var cmd = connection.CreateCommand();
@@ -41,19 +41,27 @@ internal static class RelayAuth
             LIMIT 1
             """;
         cmd.Parameters.AddWithValue("$hash", HashToken(token));
-        var result = await cmd.ExecuteScalarAsync();
-        if (result is null)
-        {
-            return null;
-        }
 
         using var reader = await cmd.ExecuteReaderAsync();
-        if (!await reader.ReadAsync())
+        if (await reader.ReadAsync())
         {
-            return null;
+            return ReadAccount(reader);
         }
 
-        return new RelayAccount(
+        await reader.DisposeAsync();
+        using var tokenCmd = connection.CreateCommand();
+        tokenCmd.CommandText = """
+            SELECT a.id, a.kind, a.github_sub, a.display_name, a.avatar_url
+            FROM accounts a
+            JOIN account_tokens t ON t.account_id = a.id
+            WHERE t.credential_hash = $hash
+            LIMIT 1
+            """;
+        tokenCmd.Parameters.AddWithValue("$hash", HashToken(token));
+        using var tokenReader = await tokenCmd.ExecuteReaderAsync();
+        return await tokenReader.ReadAsync() ? ReadAccount(tokenReader) : null;
+
+        static RelayAccount ReadAccount(SqliteDataReader reader) => new(
             Id: reader.GetString(0),
             Kind: reader.GetString(1),
             GithubSub: reader.IsDBNull(2) ? null : reader.GetString(2),

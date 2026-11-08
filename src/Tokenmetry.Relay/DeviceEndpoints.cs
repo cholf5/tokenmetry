@@ -113,6 +113,7 @@ internal static class DeviceEndpoints
                          "DELETE FROM usage_rows WHERE account_id = $accountId",
                          "DELETE FROM session_rows WHERE account_id = $accountId",
                          "DELETE FROM devices WHERE account_id = $accountId",
+                         "DELETE FROM account_tokens WHERE account_id = $accountId",
                          "DELETE FROM accounts WHERE id = $accountId",
                      })
             {

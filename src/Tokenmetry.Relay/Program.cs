@@ -1,6 +1,7 @@
 using Tokenmetry.Relay;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddHttpClient(); // GitHub OAuth 交换的出站 HttpClient（Task 8）
 builder.Services.AddSingleton(new RelayDatabase(
     Environment.GetEnvironmentVariable("TOKENMETRY_RELAY_DB") ?? "relay.db"));
 var app = builder.Build();
@@ -20,7 +21,9 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/api"))
+    // /api/auth 是认证前身份交换（GitHub OAuth），豁免 Bearer；其余 /api/* 全部要求凭据。
+    if (context.Request.Path.StartsWithSegments("/api")
+        && !context.Request.Path.StartsWithSegments("/api/auth"))
     {
         // TODO(v1 上线项)：限流未内建（设计 §4.5 留给部署层——反代/防火墙；自建文档警示）。
         var token = RelayAuth.ExtractBearerToken(context.Request);
@@ -52,6 +55,7 @@ app.MapGet("/api/me", (HttpContext context) =>
 
 app.MapSyncEndpoints();
 app.MapDeviceEndpoints();
+app.MapGitHubAuthEndpoints();
 
 // TODO(v1 上线项)：HTTPS 不在此强制（自建允许 http://，设计 A15；文档警示明文风险，
 // 反代终结 TLS 是部署责任）。

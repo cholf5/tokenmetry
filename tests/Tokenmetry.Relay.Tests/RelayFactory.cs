@@ -10,11 +10,19 @@ internal sealed class RelayFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbPath;
 
-    public RelayFactory(string? token = null)
+    /// <summary>WithWebHostBuilder 派生实例走此构造；进程级环境变量由根实例设置（static 状态，先于派生）。</summary>
+    public RelayFactory()
+    {
+        _dbPath = string.Empty;
+    }
+
+    public RelayFactory(string? token = null, string? githubClientId = null, string? githubClientSecret = null)
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"tokenmetry-relay-{Guid.NewGuid():N}.db");
         Environment.SetEnvironmentVariable("TOKENMETRY_RELAY_DB", _dbPath);
         Environment.SetEnvironmentVariable("TOKENMETRY_RELAY_TOKEN", token);
+        Environment.SetEnvironmentVariable("TOKENMETRY_RELAY_GITHUB_CLIENT_ID", githubClientId);
+        Environment.SetEnvironmentVariable("TOKENMETRY_RELAY_GITHUB_CLIENT_SECRET", githubClientSecret);
     }
 
     protected override void Dispose(bool disposing)
