@@ -565,6 +565,34 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterUpdateFailedFormat)] = "数据刷新失败：{0}",
         [nameof(SharePosterStyleOptions)] = "海报选项",
         [nameof(SharePosterMargin)] = "页边距",
+
+        // ── I-CALC 模型计价器（独立工具：托盘 / macOS Tools 菜单入口，不进统计页签）──
+        [nameof(ToolsMenuTitle)] = "工具",
+        [nameof(TrayPriceCalculator)] = "模型计价器",
+        [nameof(PriceCalculatorTitle)] = "模型计价器",
+        [nameof(PriceCalculatorModelLabel)] = "模型",
+        [nameof(PriceCalculatorModelWatermark)] = "输入关键字筛选，如 glm-5.3-flash",
+        [nameof(PriceCalculatorUnitPricesFormat)] = "单价 输入 {0} · 缓存读 {1} · 输出 {2}（USD / 百万 tokens）",
+        [nameof(PriceCalculatorManualPrices)] = "手动填单价（USD / 百万 tokens）",
+        [nameof(PriceCalculatorManualInput)] = "输入价",
+        [nameof(PriceCalculatorManualCacheRead)] = "缓存读价",
+        [nameof(PriceCalculatorManualOutput)] = "输出价",
+        [nameof(PriceCalculatorManualRequired)] = "必填",
+        [nameof(PriceCalculatorManualOptional)] = "选填，缺省按输入价 × 0.1",
+        [nameof(PriceCalculatorInputTokens)] = "输入 tokens",
+        [nameof(PriceCalculatorCacheHitRate)] = "缓存命中率（%）",
+        [nameof(PriceCalculatorOutputTokens)] = "输出 tokens",
+        [nameof(PriceCalculatorInputWatermark)] = "如 20亿 / 2e9",
+        [nameof(PriceCalculatorRateWatermark)] = "如 80",
+        [nameof(PriceCalculatorOutputWatermark)] = "如 500万",
+        [nameof(PriceCalculatorBreakdownTitle)] = "费用明细",
+        [nameof(PriceCalculatorCacheRead)] = "输入（缓存命中）",
+        [nameof(PriceCalculatorFreshInput)] = "输入（未命中）",
+        [nameof(PriceCalculatorOutput)] = "输出",
+        [nameof(PriceCalculatorTotal)] = "合计",
+        [nameof(PriceCalculatorBlended)] = "折合每百万 tokens",
+        [nameof(PriceCalculatorNoPriceHint)] = "该模型暂无价格数据，可勾选手动填单价",
+        [nameof(PriceCalculatorInvalidNumber)] = "有无法识别的数值，已暂停计算",
     };
 
     private static readonly Dictionary<string, string> En = new()
@@ -1079,6 +1107,34 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SharePosterUpdateFailedFormat)] = "Data refresh failed: {0}",
         [nameof(SharePosterStyleOptions)] = "Poster options",
         [nameof(SharePosterMargin)] = "Page margin",
+
+        // ── I-CALC model price calculator (standalone tool) ──
+        [nameof(ToolsMenuTitle)] = "Tools",
+        [nameof(TrayPriceCalculator)] = "Model Price Calculator",
+        [nameof(PriceCalculatorTitle)] = "Model Price Calculator",
+        [nameof(PriceCalculatorModelLabel)] = "Model",
+        [nameof(PriceCalculatorModelWatermark)] = "Type to filter, e.g. glm-5.3-flash",
+        [nameof(PriceCalculatorUnitPricesFormat)] = "Unit prices — input {0} · cache read {1} · output {2} (USD / 1M tokens)",
+        [nameof(PriceCalculatorManualPrices)] = "Enter prices manually (USD / 1M tokens)",
+        [nameof(PriceCalculatorManualInput)] = "Input",
+        [nameof(PriceCalculatorManualCacheRead)] = "Cache read",
+        [nameof(PriceCalculatorManualOutput)] = "Output",
+        [nameof(PriceCalculatorManualRequired)] = "Required",
+        [nameof(PriceCalculatorManualOptional)] = "Optional, defaults to input × 0.1",
+        [nameof(PriceCalculatorInputTokens)] = "Input tokens",
+        [nameof(PriceCalculatorCacheHitRate)] = "Cache hit rate (%)",
+        [nameof(PriceCalculatorOutputTokens)] = "Output tokens",
+        [nameof(PriceCalculatorInputWatermark)] = "e.g. 2e9 / 2B",
+        [nameof(PriceCalculatorRateWatermark)] = "e.g. 80",
+        [nameof(PriceCalculatorOutputWatermark)] = "e.g. 5M",
+        [nameof(PriceCalculatorBreakdownTitle)] = "Cost breakdown",
+        [nameof(PriceCalculatorCacheRead)] = "Input (cache hit)",
+        [nameof(PriceCalculatorFreshInput)] = "Input (uncached)",
+        [nameof(PriceCalculatorOutput)] = "Output",
+        [nameof(PriceCalculatorTotal)] = "Total",
+        [nameof(PriceCalculatorBlended)] = "Blended per 1M tokens",
+        [nameof(PriceCalculatorNoPriceHint)] = "No price data for this model — enter prices manually",
+        [nameof(PriceCalculatorInvalidNumber)] = "Some value can't be parsed — calculation paused",
     };
 
     // ── D-024 新语种字典：字典体在 partial 分文件（Translations.ZhHant.cs 等）——字段声明
@@ -1448,6 +1504,34 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SharePosterThemeLight => Get();
     public string SharePosterMask => Get();
     public string SharePosterMargin => Get();
+
+    // ── I-CALC 模型计价器 ──
+    public string ToolsMenuTitle => Get();
+    public string TrayPriceCalculator => Get();
+    public string PriceCalculatorTitle => Get();
+    public string PriceCalculatorModelLabel => Get();
+    public string PriceCalculatorModelWatermark => Get();
+    public string PriceCalculatorUnitPricesFormat => Get();
+    public string PriceCalculatorManualPrices => Get();
+    public string PriceCalculatorManualInput => Get();
+    public string PriceCalculatorManualCacheRead => Get();
+    public string PriceCalculatorManualOutput => Get();
+    public string PriceCalculatorManualRequired => Get();
+    public string PriceCalculatorManualOptional => Get();
+    public string PriceCalculatorInputTokens => Get();
+    public string PriceCalculatorCacheHitRate => Get();
+    public string PriceCalculatorOutputTokens => Get();
+    public string PriceCalculatorInputWatermark => Get();
+    public string PriceCalculatorRateWatermark => Get();
+    public string PriceCalculatorOutputWatermark => Get();
+    public string PriceCalculatorBreakdownTitle => Get();
+    public string PriceCalculatorCacheRead => Get();
+    public string PriceCalculatorFreshInput => Get();
+    public string PriceCalculatorOutput => Get();
+    public string PriceCalculatorTotal => Get();
+    public string PriceCalculatorBlended => Get();
+    public string PriceCalculatorNoPriceHint => Get();
+    public string PriceCalculatorInvalidNumber => Get();
     public string SharePosterMaskOff => Get();
     public string SharePosterMaskPartial => Get();
     public string SharePosterMaskFull => Get();

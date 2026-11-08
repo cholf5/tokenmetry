@@ -374,13 +374,25 @@ public sealed class PricingEngine
         return false;
     }
 
+    /// <summary>一次分桶计价的产物（各桶已含速度倍率）；<see cref="TotalCostUsd"/> 是整式
+    /// 「桶和 × 倍率」的单次舍入结果，与 <see cref="ComputeCost"/> 逐位一致。</summary>
+    public readonly record struct TokenCostBreakdown(
+        decimal InputCostUsd,
+        decimal OutputCostUsd,
+        decimal CacheWriteCostUsd,
+        decimal CacheReadCostUsd,
+        decimal TotalCostUsd);
+
     /// <summary>
     /// 计价公式（蓝本 aggregation.rs price_entry）：1h cache write 按 input × 2，
     /// 5m cache write 按模型 cache write 价；有 5m/1h 细分时不再对 cache_creation 总数重复计价。
     /// 长上下文分档（蓝本 cost.rs 两段式）：请求上下文（input + cache 各桶）超过条目阈值时全部桶
     /// 整体切换分档单价（缺项回落基础档；1h cache write 按"生效 input 价 × 2"跟随切换）。
+    /// <para><b>分桶成本唯一出处</b>：主管道（<see cref="ComputeCost"/>）与模型计价器
+    /// （<see cref="ModelCostCalculator"/>）都经本方法取数——计价口径只许改这一处，
+    /// 计价器不得自建公式。</para>
     /// </summary>
-    private static decimal ComputeCost(
+    public static TokenCostBreakdown ComputeCostBreakdown(
         TokenUsageDetail tokens,
         ModelPriceEntry entry,
         long? outputTokenOverride = null,
@@ -407,14 +419,31 @@ public sealed class PricingEngine
             }
         }
 
-        var cost = Price(tokens.InputTokens, inputPerMillion)
-                   + Price(outputTokens, outputPerMillion)
-                   + Price(cacheCreation5m, cacheWritePerMillion)
-                   + Price(cacheCreation1h, inputPerMillion * 2m)
-                   + Price(tokens.CacheReadTokens, cacheReadPerMillion);
+        var inputCost = Price(tokens.InputTokens, inputPerMillion);
+        var outputCost = Price(outputTokens, outputPerMillion);
+        var cacheWriteCost = Price(cacheCreation5m, cacheWritePerMillion)
+                             + Price(cacheCreation1h, inputPerMillion * 2m);
+        var cacheReadCost = Price(tokens.CacheReadTokens, cacheReadPerMillion);
 
         // 蓝本 cost.rs calculate_cost_from_tokens：倍率乘在整条成本上（不是逐桶）。
-        return cost * SpeedMultiplierTable.Resolve(model, tokens.Speed);
+        // 分桶值各乘一次倍率只作展示；总价保持原式（桶和 × 倍率）单次舍入，主管道口径逐位不变。
+        var multiplier = SpeedMultiplierTable.Resolve(model, tokens.Speed);
+        var total = (inputCost + outputCost + cacheWriteCost + cacheReadCost) * multiplier;
+        return new TokenCostBreakdown(
+            inputCost * multiplier,
+            outputCost * multiplier,
+            cacheWriteCost * multiplier,
+            cacheReadCost * multiplier,
+            total);
+    }
+
+    private static decimal ComputeCost(
+        TokenUsageDetail tokens,
+        ModelPriceEntry entry,
+        long? outputTokenOverride = null,
+        string? model = null)
+    {
+        return ComputeCostBreakdown(tokens, entry, outputTokenOverride, model).TotalCostUsd;
     }
 
     /// <summary>token 计数饱和加（lenient 解析域内防御，蓝本 u64 saturating_add 同式）。</summary>

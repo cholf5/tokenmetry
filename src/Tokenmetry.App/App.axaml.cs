@@ -125,8 +125,17 @@ public partial class App : Application
                 DependencyInjection.AppServices.Get<DateRangeService>(),
                 DependencyInjection.AppServices.Get<ModelAvatarResolver>());
             var updateService = DependencyInjection.AppServices.Get<Update.UpdateService>();
-            var trayService = new TrayService(mainWindow, dashboard, mainWindowViewModel, refreshService, popover, updateService);
+            // I-CALC 计价器入口：托盘菜单（全平台）+ macOS Tools 菜单共用同一启动器单例。
+            var priceCalculatorLauncher = DependencyInjection.AppServices.Get<Services.PriceCalculatorLauncher>();
+            var trayService = new TrayService(mainWindow, dashboard, mainWindowViewModel, refreshService, popover, updateService, priceCalculatorLauncher);
             trayService.Initialize();
+
+            // I-CALC macOS 应用菜单栏 Tools 菜单（仅真机；headless 无菜单栏，Windows 上 SetMenu
+            // 会渲染成窗体内菜单条——非产品语义，Windows 走托盘菜单）。
+            if (OperatingSystem.IsMacOS() && !Tray.TrayService.IsHeadlessTestHost)
+            {
+                Tray.ToolsMenuInstaller.Install(mainWindow, priceCalculatorLauncher);
+            }
 
             // B-013：首实例监听第二实例的激活请求——唤回主窗与托盘「打开窗口」同一语义。
             // 守卫在 Program.Main 获取（headless 测试宿主旁路后恒为 null），监听必须在主窗

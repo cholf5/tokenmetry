@@ -65,6 +65,7 @@ public class TrayServiceTests : IDisposable
         Assert.Contains("打开主窗", headers);
         Assert.Contains("立即刷新", headers);
         Assert.Contains("设置", headers);
+        Assert.Contains(Translations.Instance.TrayPriceCalculator, headers); // I-CALC 计价器（独立工具入口）
         Assert.Contains("退出", headers);
         Assert.Null(CostItem(icon)); // 今日成本行已移除：成本只走 tooltip（Avalonia 路径）
         Assert.DoesNotContain(headers, h => h as string == "快捷信息窗"); // 弹层入口只剩托盘左键
