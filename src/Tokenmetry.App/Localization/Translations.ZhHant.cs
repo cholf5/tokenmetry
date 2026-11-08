@@ -45,6 +45,7 @@ public sealed partial class Translations
         [nameof(TopbarAgent)] = "Agent",
         [nameof(TopbarModel)] = "模型",
         [nameof(TopbarProject)] = "專案",
+        [nameof(TopbarDevice)] = "裝置",
         [nameof(StatusStarting)] = "啟動中…",
         [nameof(StatusScanning)] = "正在掃描本機資料…",
         [nameof(StatusNoLocalData)] = "未偵測到本機資料",

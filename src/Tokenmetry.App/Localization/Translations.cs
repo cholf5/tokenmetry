@@ -65,6 +65,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(TopbarAgent)] = "Agent",
         [nameof(TopbarModel)] = "模型",
         [nameof(TopbarProject)] = "项目",
+        [nameof(TopbarDevice)] = "设备",
         [nameof(StatusStarting)] = "启动中…",
         [nameof(StatusScanning)] = "正在扫描本地数据…",
         [nameof(StatusNoLocalData)] = "未检出本地数据",
@@ -659,6 +660,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(TopbarAgent)] = "Agent",
         [nameof(TopbarModel)] = "Model",
         [nameof(TopbarProject)] = "Project",
+        [nameof(TopbarDevice)] = "Device",
         [nameof(StatusStarting)] = "Starting…",
         [nameof(StatusScanning)] = "Scanning local data…",
         [nameof(StatusNoLocalData)] = "No local data found",
@@ -1392,6 +1394,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string TopbarAgent => Get();
     public string TopbarModel => Get();
     public string TopbarProject => Get();
+    public string TopbarDevice => Get();
     public string StatusStarting => Get();
     public string StatusScanning => Get();
     public string StatusNoLocalData => Get();

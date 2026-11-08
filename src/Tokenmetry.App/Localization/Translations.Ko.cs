@@ -45,6 +45,7 @@ public sealed partial class Translations
         [nameof(TopbarAgent)] = "에이전트",
         [nameof(TopbarModel)] = "모델",
         [nameof(TopbarProject)] = "프로젝트",
+        [nameof(TopbarDevice)] = "기기",
         [nameof(StatusStarting)] = "시작 중…",
         [nameof(StatusScanning)] = "로컬 데이터 스캔 중…",
         [nameof(StatusNoLocalData)] = "로컬 데이터 없음",
