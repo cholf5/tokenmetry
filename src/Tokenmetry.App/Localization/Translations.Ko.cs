@@ -220,6 +220,7 @@ public sealed partial class Translations
         [nameof(LabelLicense)] = "라이선스",
         [nameof(LabelRepository)] = "저장소",
         [nameof(AboutWarrantyHint)] = "이 프로그램은 어떠한 보증도 제공하지 않습니다. GNU AGPL-3.0 조건에 따라 배포됩니다.",
+        [nameof(AboutStarHint)] = "앱이 마음에 든다면 저장소에 공짜 Star를 하나 눌러 주세요. 공짜지만 개발자는 한동안 신나고, 유지 관리 의욕도 몇 달 더 이어집니다.",
         [nameof(SettingsCheckUpdate)] = "업데이트 확인",
         [nameof(SettingsDownloadUpdate)] = "업데이트 패키지 다운로드",
         [nameof(SettingsOpenReleasePage)] = "Release 페이지 열기",

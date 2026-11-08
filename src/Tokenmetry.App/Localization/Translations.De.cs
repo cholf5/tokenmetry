@@ -220,6 +220,7 @@ public sealed partial class Translations
         [nameof(LabelLicense)] = "Lizenz",
         [nameof(LabelRepository)] = "Repository",
         [nameof(AboutWarrantyHint)] = "Dieses Programm kommt ohne jegliche Garantie; es wird unter den Bedingungen der GNU AGPL-3.0 verbreitet.",
+        [nameof(AboutStarHint)] = "Gefällt dir das Tool? Hinterlasse dem Repo einen kostenlosen Star — kostet nichts, macht den Autor lange glücklich und verlängert die Motivation, es weiterzupflegen, um ein paar Monate.",
         [nameof(SettingsCheckUpdate)] = "Nach Updates suchen",
         [nameof(SettingsDownloadUpdate)] = "Update herunterladen",
         [nameof(SettingsOpenReleasePage)] = "Release-Seite öffnen",

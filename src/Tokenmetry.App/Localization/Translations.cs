@@ -249,6 +249,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(LabelLicense)] = "许可",
         [nameof(LabelRepository)] = "仓库",
         [nameof(AboutWarrantyHint)] = "本程序不提供任何担保；依 GNU AGPL-3.0 条款分发。",
+        // 「关于」区求 Star 行：整句文案，句中「Star」为链接词（GitHub 专名不进 i18n，LinkTextBlock 拆句渲染）
+        [nameof(AboutStarHint)] = "用得顺手？去仓库点个免费的 Star 吧——不花一分钱，但作者能开心很久，维护热情也能多续航几个月。",
         [nameof(SettingsCheckUpdate)] = "检查更新",
         [nameof(SettingsDownloadUpdate)] = "下载更新包",
         [nameof(SettingsOpenReleasePage)] = "打开 Release 页",
@@ -809,6 +811,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(LabelLicense)] = "License",
         [nameof(LabelRepository)] = "Repository",
         [nameof(AboutWarrantyHint)] = "This program comes with no warranty; it is distributed under the terms of the GNU AGPL-3.0.",
+        [nameof(AboutStarHint)] = "Enjoying the app? Leave the repo a free Star — costs nothing, makes the author happy for a long time, and keeps the maintenance going a few months longer.",
         [nameof(SettingsCheckUpdate)] = "Check for updates",
         [nameof(SettingsDownloadUpdate)] = "Download update",
         [nameof(SettingsOpenReleasePage)] = "Open the Release page",
@@ -1611,6 +1614,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string LabelLicense => Get();
     public string LabelRepository => Get();
     public string AboutWarrantyHint => Get();
+    public string AboutStarHint => Get();
     public string SettingsCheckUpdate => Get();
     public string SettingsDownloadUpdate => Get();
     public string SettingsOpenReleasePage => Get();

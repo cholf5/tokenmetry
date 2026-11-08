@@ -199,6 +199,12 @@ dotnet test  Tokenmetry.sln     # 全部测试
 完整方向见 [`docs/kanban/roadmap.md`](docs/kanban/roadmap.md)，任务卡片看板见
 [`docs/kanban/board.md`](docs/kanban/board.md)。
 
+## 参与贡献
+
+欢迎提 Issue 或 PR——bug、价格不对、用着别扭的地方，或者想看的功能，都欢迎。如果你常用的 AI
+编程工具还没有适配器，也欢迎直接动手加一个：新增数据源是固定套路（见[架构与开发](#架构与开发)），
+工程约定见 [`AGENTS.md`](AGENTS.md)。
+
 ## License
 
 以 **AGPL-3.0-or-later** 发布（全文见 [`LICENSE`](LICENSE)）。你可以自由地使用、学习、修改和再

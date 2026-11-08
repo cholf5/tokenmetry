@@ -199,6 +199,26 @@ public class TranslationsTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("Zh")]
+    [InlineData("En")]
+    [InlineData("ZhHant")]
+    [InlineData("Ja")]
+    [InlineData("Ko")]
+    [InlineData("PtBr")]
+    [InlineData("Ru")]
+    [InlineData("Es")]
+    [InlineData("De")]
+    [InlineData("Fr")]
+    public void StarHint_ContainsExactlyOneLinkWord(string fieldName)
+    {
+        // 设置页「关于」区的求 Star 行由 LinkTextBlock 按链接词「Star」拆句渲染（SettingsView
+        // XAML 里的 LinkText="Star"）：任何语种丢词 / 多词都会让链接定位错乱，按机械不变式拦住。
+        var value = SourceDictionary(fieldName)["AboutStarHint"];
+        Regex.Matches(value, "Star").Should().HaveCount(1,
+            because: $"key AboutStarHint 的 {fieldName} 译文必须恰好含一个链接词 Star（LinkTextBlock 按它拆句）");
+    }
+
     [Fact]
     public void FallbackChain_SecondaryLanguages_FallBackToEnglishThenChineseSimplified()
     {

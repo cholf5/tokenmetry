@@ -4,12 +4,14 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Tokenmetry.App.Controls;
 using Tokenmetry.App.DependencyInjection;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
@@ -208,6 +210,29 @@ public class SettingsPageTests
         Assert.Contains("外观与通用", texts);
         Assert.Contains("本地路径", texts);
         Assert.DoesNotContain("已识别的数据源", texts);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void About_panel_star_appeal_links_inline_to_repository()
+    {
+        // 求 Star 行：整句文案里的「Star」是句中链接（LinkTextBlock 拆句渲染 + 命中测试开仓库，
+        // Avalonia 无内联 Hyperlink）。断言语言无关——全文与链接词都取自同一出处，链接目标取自 VM。
+        var vm = CreateViewModel();
+        var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var starLine = window.GetVisualDescendants().OfType<LinkTextBlock>().Single();
+        Assert.Equal(Translations.Instance.AboutStarHint, starLine.SourceText);
+        Assert.Equal(vm.AboutRepositoryUrl, starLine.LinkUrl);
+
+        // 拆句正确：渲染出的全文 = 整句，链接段恰好圈住「Star」一词
+        var rendered = string.Concat(starLine.Inlines!.OfType<Run>().Select(r => r.Text));
+        Assert.Equal(Translations.Instance.AboutStarHint, rendered);
+        Assert.Equal("Star", rendered.Substring(starLine.LinkStart, starLine.LinkLength));
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
