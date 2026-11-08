@@ -280,6 +280,46 @@ public class StatusPopoverTests
             vm.TopAgents![0].Subtitle);
     }
 
+    [AvaloniaFact]
+    public async Task Banner_attribution_survives_out_of_window_snapshot_after_reopen()
+    {
+        var stub = new StubQueryService
+        {
+            Kpi = FixtureKpi(),
+            Daily = FixtureDaily(),
+            Agents = FixtureAgents(),
+        };
+        var vm = new StatusPopoverViewModel(stub, null, new DateRangeService());
+        vm.HandleTodayTokensRound(42381, T0);
+        await vm.ReloadAsyncAt(T0);
+
+        stub.Agents =
+        [
+            Agent("Claude Code", 20624 + 3200, 4.12m),
+            Agent("Codex", 13582, 2.86m),
+            Agent("Cursor", 5261, 1.10m),
+            Agent("GitHub Copilot", 2914, 0.55m),
+        ];
+        vm.HandleTodayTokensRound(42381 + 3200, T0.AddSeconds(60));
+        await vm.ReloadAsyncAt(T0.AddSeconds(60));
+        Assert.Contains("Claude Code", vm.BannerTitle);
+
+        // 弹层久关后重开（OnShown 路径）：快照间隔 9 分钟超速率 45–90s 窗口。旧口径分 Agent
+        // 速率清空 → 横幅落通用标题（用户报的「有时有名字有时没有」）；增量口径归属不受窗口
+        // 约束，重开即指认「谁在长」。回归锁：本用例在旧实现下最后一条断言必挂（已验证）。
+        stub.Agents =
+        [
+            Agent("Claude Code", 20624 + 3200 + 1200, 4.12m),
+            Agent("Codex", 13582, 2.86m),
+            Agent("Cursor", 5261, 1.10m),
+            Agent("GitHub Copilot", 2914, 0.55m),
+        ];
+        await vm.ReloadAsyncAt(T0.AddMinutes(9));
+
+        Assert.True(vm.IsBannerVisible); // 上一轮速率取样仍挂帐，重开即显 Active banner
+        Assert.Contains("Claude Code", vm.BannerTitle);
+    }
+
     // ── Q-011: 异常不进 banner——banner 只承载实时速率；日尺度异常归位今日花费 KPI 徽标 ──
 
     [AvaloniaFact]
@@ -771,6 +811,19 @@ public class StatusPopoverTests
         var rates = StatusPopoverViewModel.ComputeAgentRates(
             prev, T0, new Dictionary<string, long> { ["Claude Code"] = 23824 }, T0.AddSeconds(120));
         Assert.Empty(rates);
+    }
+
+    [Fact]
+    public void ComputeAgentDeltas_counts_first_seen_as_full_gain()
+    {
+        var prev = new Dictionary<string, long> { ["Claude Code"] = 20624, ["Codex"] = 13582 };
+        var curr = new Dictionary<string, long> { ["Claude Code"] = 23824, ["Codex"] = 13000, ["New Agent"] = 4000 };
+
+        var deltas = StatusPopoverViewModel.ComputeAgentDeltas(prev, curr);
+
+        Assert.Equal(3200, deltas["Claude Code"]);   // 增量
+        Assert.False(deltas.ContainsKey("Codex"));   // 回落 → 不产出
+        Assert.Equal(4000, deltas["New Agent"]);     // 首次出现 → 现值全量计（上次缺席 = 今日零记录）
     }
 
     private static SessionListRow Session(string agent, DateTimeOffset lastSeen) => new()

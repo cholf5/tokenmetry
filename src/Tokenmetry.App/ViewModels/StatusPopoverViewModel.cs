@@ -227,8 +227,10 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     private Dictionary<string, long> _lastAgentTokens = new();
     private DateTimeOffset _lastAgentSnapshotAt = DateTimeOffset.MinValue;
 
-    /// <summary>最近一次 Apply 算出的分 Agent 速率（Active banner 的增量归属用；与 Agent 行同源）。</summary>
-    private IReadOnlyDictionary<string, double> _lastAgentRates = new Dictionary<string, double>();
+    /// <summary>最近一次 Apply 算出的分 Agent 正增量（Active banner 的归属用）：归属只需回答「谁在长」，
+    /// 不设速率窗口——弹层刚打开、快照间隔超窗时也能指认（否则刚打开的横幅长期落不了名字）；
+    /// 速率值（Agent 行副题「当前 X/min」）不走此字段，由 Apply 内局部增量速率直供。</summary>
+    private IReadOnlyDictionary<string, long> _lastAgentDeltas = new Dictionary<string, long>();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LiveText), nameof(StateClassActive))]
@@ -463,9 +465,10 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
         // Agent Top4 + 副题（分 Agent 速率：与上次查询快照配对；最近活动：最近会话查询派生）
         var currentTokens = agents.ToDictionary(a => a.Key, a => a.TotalTokens);
         var agentRates = ComputeAgentRates(_lastAgentTokens, _lastAgentSnapshotAt, currentTokens, snapshotAt);
+        var agentDeltas = ComputeAgentDeltas(_lastAgentTokens, currentTokens);
         _lastAgentTokens = currentTokens;
         _lastAgentSnapshotAt = snapshotAt;
-        _lastAgentRates = agentRates;
+        _lastAgentDeltas = agentDeltas;
 
         var lastActiveByAgent = sessions.Rows
             .GroupBy(r => r.Agent)
@@ -507,7 +510,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
                 _modelAvatars is { } avatars ? avatars.Resolve : null))
             .ToList();
 
-        // banner 的增量归属吃本 Apply 的新鲜 Agent 速率（轮次回写先于查询完成，归属滞后一轮时在此校正）
+        // banner 的增量归属吃本 Apply 的新鲜 Agent 增量（轮次回写先于查询完成，归属滞后一轮时在此校正）
         RecomputeState();
     }
 
@@ -577,6 +580,30 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
         return rates;
     }
 
+    /// <summary>
+    /// 横幅归属口径的分 Agent 正增量（与 <see cref="ComputeAgentRates"/> 同一对快照，但不设间隔窗口）：
+    /// 归属只回答「这轮谁在长」，速率值才需要窗口防荒谬。上次快照缺席的 Agent 按现值全量计增量
+    ///（今日窗口语义：上次缺席 = 今日尚无记录 ⟹ 现值全部产生于间隔内；代价是弹层久关重开的首轮
+    /// 归属指向「距上次快照累计最多者」，可能滞后于当下干活的人，一轮内校正）；零增量/回落不产出。
+    /// internal 纯函数供测试对账。
+    /// </summary>
+    internal static IReadOnlyDictionary<string, long> ComputeAgentDeltas(
+        IReadOnlyDictionary<string, long> previous,
+        IReadOnlyDictionary<string, long> current)
+    {
+        var deltas = new Dictionary<string, long>();
+        foreach (var (key, tokens) in current)
+        {
+            var delta = previous.TryGetValue(key, out var prev) ? tokens - prev : tokens;
+            if (delta > 0)
+            {
+                deltas[key] = delta;
+            }
+        }
+
+        return deltas;
+    }
+
     // ── 刷新线信号（DashboardViewModel，线程池线程 raise → marshal）──
 
     private void OnDashboardPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -635,9 +662,10 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
         {
             State = StatusPopoverState.Active;
             IsBannerVisible = true;
-            // 增量归属：本轮增速最高的 Agent（Apply 的快照对口径，与 Agent 行同源）；
-            // 拿不到具体 Agent（查询未跟上 / 增量来自快照外新 Agent）时给通用标题。
-            var topAgent = _lastAgentRates.OrderByDescending(kv => kv.Value).FirstOrDefault().Key;
+            // 增量归属：自上次快照以来正增量最大的 Agent（增量口径，不受速率 45–90s 窗口约束——
+            // 弹层刚打开、快照间隔超窗时也指认得出「谁在长」）。无正增量可得（首轮 Apply 前 /
+            // 全体回落）时给通用标题。
+            var topAgent = _lastAgentDeltas.OrderByDescending(kv => kv.Value).FirstOrDefault().Key;
             BannerTitle = string.IsNullOrEmpty(topAgent)
                 ? Translations.Instance.PopoverActiveBannerTitle
                 : string.Format(Translations.Instance.PopoverActiveBannerTitleFormat, topAgent);
