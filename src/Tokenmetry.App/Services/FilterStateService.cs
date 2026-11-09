@@ -156,6 +156,59 @@ public sealed class AgentOption : INotifyPropertyChanged, IEquatable<AgentOption
 }
 
 /// <summary>
+/// 设备筛选选项（relay 设计 U5/A8，形状仿 <see cref="AgentOption"/>）。"全部设备"是不过滤的
+/// 固定 UI 语义项（Label 实时取串）；真实设备清单由 SyncStateService 在设备清单变化时经
+/// <see cref="FilterStateService.UpdateDeviceOptions"/> 注入。相等性只看 <see cref="Id"/>。
+/// </summary>
+public sealed class DeviceFilterOption : INotifyPropertyChanged, IEquatable<DeviceFilterOption>
+{
+    /// <summary>"全部设备"（不过滤）的固定标识。</summary>
+    public const string AllId = "all";
+
+    public DeviceFilterOption(string id, string? label = null)
+    {
+        Id = id;
+        _label = label;
+    }
+
+    public string Id { get; }
+
+    private readonly string? _label;
+
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>展示名：真实设备为中继登记名（数据，非 UI 文案）；"全部设备"哨兵经 Translations 实时取串。</summary>
+    public string Label => Id == AllId ? Translations.Instance.AllDevices : (_label ?? Id);
+
+    /// <summary>语言切换后刷新哨兵展示名。</summary>
+    public void RefreshLabel() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Label)));
+
+    /// <summary>"全部设备"（不过滤）选项（运行时默认值，也是选项清单首项）。</summary>
+    public static DeviceFilterOption All { get; } = new(AllId);
+
+    public override string ToString() => Label;
+
+    public bool Equals(DeviceFilterOption? other) => other is not null && Id == other.Id;
+
+    public override bool Equals(object? obj) => obj is DeviceFilterOption other && Equals(other);
+
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Id);
+
+    static DeviceFilterOption()
+    {
+        // All 为进程级稳定实例，直订阅语言切换信号刷新哨兵 Label，无需退订（同 AgentOption）。
+        Translations.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Translations.CurrentLanguage))
+            {
+                All.RefreshLabel();
+            }
+        };
+    }
+}
+
+/// <summary>
 /// 全局筛选状态（D-003）：时间范围 + Agent。顶部栏是主要编辑入口，各页 VM 经
 /// <see cref="INotifyPropertyChanged"/>（含 <see cref="Display"/> 汇总串）订阅变更。
 /// 线程模型：属性写入若发生在非 UI 线程，整个赋值 + 通知被 marshal 到 UI 线程执行，
@@ -171,6 +224,10 @@ public sealed class FilterStateService : ObservableObject
     private ProjectFilterOption _project = ProjectFilterOption.All;
     private IReadOnlyList<ModelFilterOption> _modelOptions = [ModelFilterOption.All];
     private IReadOnlyList<ProjectFilterOption> _projectOptions = [ProjectFilterOption.All];
+    private DeviceFilterOption _device = DeviceFilterOption.All;
+    private IReadOnlyList<DeviceFilterOption> _deviceOptions = [DeviceFilterOption.All];
+    private bool _isSyncEnabled;
+    private string _localDeviceId = string.Empty;
     private DateTimeOffset? _customFromDate;
     private DateTimeOffset? _customToDate;
 
@@ -182,7 +239,8 @@ public sealed class FilterStateService : ObservableObject
 
     /// <summary>
     /// 属性名是否会影响查询结果（各页 VM OnFilterPropertyChanged 的统一判据）：
-    /// 空 = 语言切换全属性广播（整页重查重渲染），其余为筛选的四个可变维度。
+    /// 空 = 语言切换全属性广播（整页重查重渲染），其余为筛选的可变维度。
+    /// IsSyncEnabled/LocalDeviceId 改变查询语义（A12 强制本机 ↔ 合并视图），入列；
     /// Display 是派生串，不在此列（避免一次变更触发两次重查）。
     /// </summary>
     public static bool AffectsQueries(string? propertyName) =>
@@ -191,6 +249,9 @@ public sealed class FilterStateService : ObservableObject
         || propertyName == nameof(Agent)
         || propertyName == nameof(Model)
         || propertyName == nameof(Project)
+        || propertyName == nameof(Device)
+        || propertyName == nameof(IsSyncEnabled)
+        || propertyName == nameof(LocalDeviceId)
         || propertyName == nameof(CustomFromDate)
         || propertyName == nameof(CustomToDate);
 
@@ -308,14 +369,46 @@ public sealed class FilterStateService : ObservableObject
         set => SetOnUi(() => SetProperty(ref _project, value));
     }
 
+    /// <summary>
+    /// 设备筛选（顶栏全局，relay 设计 U5）：默认全部设备（不过滤）。仅同步开启时下拉渲染（Task 13）；
+    /// 查询值经 GlobalFilterMapper 收口——同步关闭时强制本机 id（A12），本属性不影响关闭态查询。
+    /// </summary>
+    public DeviceFilterOption Device
+    {
+        get => _device;
+        set => SetOnUi(() => SetProperty(ref _device, value));
+    }
+
+    /// <summary>设备选项清单（初始仅"全部设备"哨兵；真实清单由 SyncStateService 经 UpdateDeviceOptions 注入）。</summary>
+    public IReadOnlyList<DeviceFilterOption> DeviceOptions => _deviceOptions;
+
+    /// <summary>同步是否开启（SyncStateService 投影；关 = 设备下拉不渲染 + 查询强制本机）。</summary>
+    public bool IsSyncEnabled
+    {
+        get => _isSyncEnabled;
+        set => SetOnUi(() => SetProperty(ref _isSyncEnabled, value));
+    }
+
+    /// <summary>本机设备 id（SyncStateService 投影；GlobalFilterMapper 关闭态强制使用）。</summary>
+    public string LocalDeviceId
+    {
+        get => _localDeviceId;
+        set => SetOnUi(() => SetProperty(ref _localDeviceId, value));
+    }
+
     /// <summary>模型选项清单（初始仅"全部模型"哨兵——诚实：真实清单未加载前不冒充选项）。</summary>
     public IReadOnlyList<ModelFilterOption> ModelOptions => _modelOptions;
 
     /// <summary>项目选项清单（初始仅"全部项目"哨兵，语义同 <see cref="ModelOptions"/>）。</summary>
     public IReadOnlyList<ProjectFilterOption> ProjectOptions => _projectOptions;
 
-    /// <summary>筛选汇总展示串（如「最近 7 天 · 所有 Agent · 全部模型 · 全部项目」），任一维度变化都会通知。</summary>
-    public string Display => $"{TimeRange.Label} · {Agent.Label} · {Model.Label} · {Project.Label}";
+    /// <summary>
+    /// 筛选汇总展示串（如「最近 7 天 · 所有 Agent · 全部模型 · 全部项目」），任一维度变化都会通知。
+    /// 设备维度仅在同步开启时追加（U5：同步关闭不渲染设备维，不打扰单机用户）。
+    /// </summary>
+    public string Display => IsSyncEnabled
+        ? $"{TimeRange.Label} · {Agent.Label} · {Model.Label} · {Project.Label} · {Device.Label}"
+        : $"{TimeRange.Label} · {Agent.Label} · {Model.Label} · {Project.Label}";
 
     private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -324,6 +417,11 @@ public sealed class FilterStateService : ObservableObject
             // 时间档 Label 为计算属性（含预设的词表自动命名），先逐项显式刷新（选项实例自带 INPC，
             // 绑定项文案即时重译；旧静态构造器订阅随预设的生命周期化退场——D-020）。
             foreach (var option in _timeRangeOptions)
+            {
+                option.RefreshLabel();
+            }
+
+            foreach (var option in _deviceOptions)
             {
                 option.RefreshLabel();
             }
@@ -393,6 +491,39 @@ public sealed class FilterStateService : ObservableObject
 
             _projectOptions = options;
             OnPropertyChanged(nameof(ProjectOptions));
+        });
+    }
+
+    /// <summary>
+    /// 替换设备选项清单并通知（relay 设计：SyncStateService 在设备清单变化时注入）。
+    /// 选中项按 Id 在新清单中找回（选项稳定实例契约）；当前设备不在新清单（他机被解绑）时回落"全部设备"
+    /// ——设备清单是数据驱动，持久化死设备 id 会制造静默空结果（A8，同 Agent 先例）。
+    /// </summary>
+    public void UpdateDeviceOptions(IReadOnlyList<DeviceFilterOption> options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        RunOnUi(() =>
+        {
+            if (ReferenceEquals(_deviceOptions, options))
+            {
+                return;
+            }
+
+            _deviceOptions = options;
+            OnPropertyChanged(nameof(DeviceOptions));
+
+            var current = options.FirstOrDefault(o => o.Equals(_device));
+            if (current is null && !ReferenceEquals(_device, DeviceFilterOption.All))
+            {
+                _device = DeviceFilterOption.All;
+                OnPropertyChanged(nameof(Device));
+                OnPropertyChanged(nameof(Display));
+            }
+            else if (current is not null && !ReferenceEquals(current, _device))
+            {
+                _device = current;
+                OnPropertyChanged(nameof(Device));
+            }
         });
     }
 

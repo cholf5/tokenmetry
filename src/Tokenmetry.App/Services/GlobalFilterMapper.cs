@@ -9,20 +9,35 @@ namespace Tokenmetry.App.Services;
 /// 用户预设共用 RelativeRangeSpec）由 Spec 计算端点；All 双端无界；Custom 按起止日期，
 /// 未选侧不设界限、起止倒置自动换序、跨度超日序列物化上限时收口上限——见 Build 注释）；
 /// Agent.Id 直传（<see cref="AgentOption.AllId"/> → null 不过滤，查询服务语义为空白不过滤）；
-/// Model/Project 取选中选项的查询值（哨兵 All 的 Model/Path 为 null = 不过滤，空白同样不过滤）。
+/// Model/Project 取选中选项的查询值（哨兵 All 的 Model/Path 为 null = 不过滤，空白同样不过滤）；
+/// 设备维度（relay 设计 A12）单点收口：同步关闭强制本机 id（不依赖 UI 状态，页面与海报随之只看本机），
+/// 同步开启按选中项（"全部设备"哨兵 → null = 合并视图）。
 /// 会话列表（I-029）的时间口径同样按 first_seen_at 的本地自然日比较，共用本映射。
 /// internal 供页面 VM 与测试对账。
 /// </summary>
 internal static class GlobalFilterMapper
 {
     /// <summary>全局筛选状态 → <see cref="UsageQueryFilter"/>（页面 VM 统一入口；自定义档从状态读起止日期，
-    /// Model/Project 取选中选项的查询值——哨兵 All 的 Model/Path 为 null = 不过滤）。</summary>
+    /// Model/Project 取选中选项的查询值——哨兵 All 的 Model/Path 为 null = 不过滤；设备按 A12 收口）。</summary>
     public static UsageQueryFilter Build(FilterStateService filters)
     {
         ArgumentNullException.ThrowIfNull(filters);
         return Build(filters.TimeRange, filters.Agent, filters.CustomFromDate, filters.CustomToDate,
-            filters.Model.Model, filters.Project.Path);
+            filters.Model.Model, filters.Project.Path, device: ResolveDevice(filters.IsSyncEnabled, filters.LocalDeviceId, filters.Device));
     }
+
+    /// <summary>
+    /// 设备维度查询值收口（A12，纯函数）：同步关闭 = 强制本机 id（不依赖 UI 状态，页面与海报随之只看本机）；
+    /// 同步开启 = "全部设备"哨兵 → null（合并视图），具体设备 → Id 直传。抽成纯函数供无 UI 运行时的
+    /// App.Tests 确定性断言（FilterStateService 属性 setter 依赖 UI 线程 marshal，见其类型注释）；
+    /// 状态对象路径由 headless 用例在真 UI 线程覆盖。
+    /// </summary>
+    internal static string? ResolveDevice(bool isSyncEnabled, string localDeviceId, DeviceFilterOption device) =>
+        !isSyncEnabled
+            ? localDeviceId
+            : device.Id == DeviceFilterOption.AllId
+                ? null
+                : device.Id;
 
     /// <summary>全局筛选（时间范围 + 单选 Agent + 自定义起止 + Model/Project 查询值）→ <see cref="UsageQueryFilter"/>（纯函数，internal 供测试对账）。</summary>
     public static UsageQueryFilter Build(
@@ -31,13 +46,14 @@ internal static class GlobalFilterMapper
         DateTimeOffset? customFrom = null,
         DateTimeOffset? customTo = null,
         string? model = null,
-        string? project = null)
+        string? project = null,
+        string? device = null)
     {
-        return Build(range, agent, customFrom, customTo, model, project, DateOnly.FromDateTime(DateTime.Today));
+        return Build(range, agent, customFrom, customTo, model, project, DateOnly.FromDateTime(DateTime.Today), device);
     }
 
     /// <summary>带 today 注入的映射内核（internal：日历档「本月/上月/本周/上周」的跨月/跨年/周锚点
-    /// 边界测试需要钉死「今天」，否则用例随运行日期漂移）。</summary>
+    /// 边界测试需要钉死「今天」，否则用例随运行日期漂移；device 为设备维度查询值，null = 不过滤）。</summary>
     internal static UsageQueryFilter Build(
         TimeRangeOption range,
         AgentOption agent,
@@ -45,7 +61,8 @@ internal static class GlobalFilterMapper
         DateTimeOffset? customTo,
         string? model,
         string? project,
-        DateOnly today)
+        DateOnly today,
+        string? device = null)
     {
         DateOnly? fromDay;
         DateOnly? toDay;
@@ -76,6 +93,7 @@ internal static class GlobalFilterMapper
             Agent = agent.Id == AgentOption.AllId ? null : agent.Id,
             Model = string.IsNullOrWhiteSpace(model) ? null : model,
             Project = string.IsNullOrWhiteSpace(project) ? null : project,
+            Device = string.IsNullOrWhiteSpace(device) ? null : device,
         };
     }
 

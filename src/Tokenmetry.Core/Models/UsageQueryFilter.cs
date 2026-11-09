@@ -34,6 +34,13 @@ public sealed class UsageQueryFilter
     /// <summary>项目精确过滤（原始路径）；null/空白 = 所有项目。粒度语义同 <see cref="Model"/>。</summary>
     public string? Project { get; init; }
 
+    /// <summary>
+    /// 设备精确过滤（跨端同步，relay 设计 §4.3）：null = 不过滤（合并视图 = 全部设备并集），
+    /// 非 null = 精确设备 id（含空串匹配无主行）。GlobalFilterMapper 单点收口：
+    /// 同步关闭时强制本机设备 id，同步开启时按筛选下拉（"全部设备" → null）。
+    /// </summary>
+    public string? Device { get; init; }
+
     /// <summary>范围是否合法（FromDay ≤ ToDay；无界视为合法）。</summary>
     public bool IsRangeValid =>
         FromDay is null || ToDay is null

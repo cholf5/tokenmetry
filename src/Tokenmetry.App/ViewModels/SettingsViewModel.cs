@@ -1,8 +1,11 @@
 using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +15,7 @@ using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.Update;
 using Tokenmetry.Core.Abstractions;
+using Tokenmetry.Infrastructure.Sync;
 using Tokenmetry.Core.Models;
 
 namespace Tokenmetry.App.ViewModels;
@@ -209,7 +213,8 @@ public partial class SettingsViewModel : ViewModelBase
         IAutoStartManager autoStartManager,
         UpdateService? updateService = null,
         Action<string>? openDataFolderOverride = null,
-        Action<string>? openLogFolderOverride = null)
+        Action<string>? openLogFolderOverride = null,
+        SyncStateService? syncStateService = null)
     {
         _settings = settings;
         _store = store;
@@ -249,6 +254,18 @@ public partial class SettingsViewModel : ViewModelBase
 
         // 语言切换重译订阅：本页 VM 为 DI 单例（与外壳同生命周期），直订阅无需退订。
         Translations.Instance.PropertyChanged += OnTranslationsPropertyChanged;
+
+        // 跨设备同步（relay 设计 §4.6）：服务为 DI 单例，VM 直订阅 Changed（可能后台线程触发，
+        // 统一 marshal 回 UI）。构造即同步一次已知状态（后续以 RefreshSyncStateAsync 增量跟上），
+        // 否则错过启动期 InitializeAsync 的 Changed 后设置页一直显示空同步态。
+        _syncState = syncStateService;
+        if (_syncState is not null)
+        {
+            _syncState.Changed += OnSyncStateChanged;
+            SyncEndpointInput = settings.SyncEndpoint;
+            IsSyncEnabled = _syncState.IsEnabled;
+            _ = RefreshSyncStateAsync();
+        }
     }
 
     public string CacheDbPath { get; }
@@ -721,4 +738,288 @@ public partial class SettingsViewModel : ViewModelBase
         var normalized = (preference ?? "system").Trim().ToLowerInvariant();
         return LanguageOptions.FirstOrDefault(o => o.Value == normalized) ?? LanguageOptions[0];
     }
+
+    // ── 跨设备同步区块（relay 设计 §4.6 / Task 12）──
+
+    private readonly SyncStateService? _syncState;
+
+    /// <summary>确认中的待移除设备行（内联确认面板，headless 可测——仓库无既有确认弹窗服务）。</summary>
+    private SyncDeviceRowVM? _pendingRemoveRow;
+
+    /// <summary>RefreshSyncStateAsync 回写投影时抑制 OnIsSyncEnabledChanged 的开关副作用。</summary>
+    private bool _suppressSyncToggle;
+
+    /// <summary>同步状态服务是否就位（headless 部分测试不带服务构造 → 区块整体隐藏）。</summary>
+    public bool HasSyncState => _syncState is not null;
+
+    /// <summary>同步开关（投影 = SyncStateService.IsEnabled；用户拨动 = 启用/关闭动作的入口）。</summary>
+    [ObservableProperty]
+    private bool _isSyncEnabled;
+
+    [ObservableProperty]
+    private string _syncEndpointInput = string.Empty;
+
+    /// <summary>账号 token 输入（自建通道粘贴；明文 v1 落盘为设计已知取舍——同 settings.json 纪律）。</summary>
+    [ObservableProperty]
+    private string _syncTokenInput = string.Empty;
+
+    /// <summary>通道选择：true = 官方实例（GitHub 登录），false = 自建中继（地址 + token）。</summary>
+    [ObservableProperty]
+    private bool _isOfficialMode;
+
+    [ObservableProperty]
+    private string _deviceNameInput = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<SyncDeviceRowVM> _deviceRows = new();
+
+    [ObservableProperty]
+    private string _syncStatusText = string.Empty;
+
+    [ObservableProperty]
+    private string _lastSyncText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isRemoveConfirmVisible;
+
+    partial void OnIsSyncEnabledChanged(bool value)
+    {
+        // 投影回写（RefreshSyncStateAsync）不触发动作；用户拨动开关 = 启用/关闭动作。
+        if (_suppressSyncToggle || _syncState is null)
+        {
+            return;
+        }
+
+        if (value)
+        {
+            _ = EnableSyncAsync();
+        }
+        else
+        {
+            _ = DisableSyncAsync();
+        }
+    }
+
+    /// <summary>从 SyncStateService 装载区块状态（构造、Changed 回调、测试直调的统一入口）。</summary>
+    internal async Task RefreshSyncStateAsync()
+    {
+        var syncState = _syncState;
+        if (syncState is null)
+        {
+            return;
+        }
+
+        _suppressSyncToggle = true;
+        try
+        {
+            IsSyncEnabled = syncState.IsEnabled;
+            if (!string.IsNullOrEmpty(syncState.LocalDeviceName))
+            {
+                DeviceNameInput = syncState.LocalDeviceName;
+            }
+
+            SyncStatusText = syncState.IsSyncing
+                ? Translations.Instance.SyncStatusSyncing
+                : syncState.LastError is not null
+                    ? Translations.Instance.SyncStatusError
+                    : Translations.Instance.SyncStatusIdle;
+            LastSyncText = syncState.LastRunAtUtc == default
+                ? string.Empty
+                : syncState.LastRunAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+
+            var rows = new ObservableCollection<SyncDeviceRowVM>();
+            if (syncState.IsEnabled)
+            {
+                var thisDevice = Translations.Instance.ThisDevice;
+                foreach (var device in await syncState.ListDevicesAsync())
+                {
+                    var name = string.IsNullOrWhiteSpace(device.Name) ? device.DeviceId : device.Name;
+                    var lastSeen = device.LastSeenAt == default
+                        ? string.Empty
+                        : device.LastSeenAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+                    rows.Add(new SyncDeviceRowVM(device.DeviceId, name, lastSeen, device.DeviceId == syncState.LocalDeviceId, thisDevice));
+                }
+            }
+
+            DeviceRows = rows;
+        }
+        finally
+        {
+            _suppressSyncToggle = false;
+        }
+    }
+
+    private void OnSyncStateChanged() =>
+        Dispatcher.UIThread.Post(() => _ = RefreshSyncStateAsync());
+
+    [RelayCommand]
+    private async Task EnableSyncAsync(CancellationToken ct = default)
+    {
+        if (_syncState is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (IsOfficialMode)
+            {
+                await EnableViaGitHubAsync(ct);
+                return;
+            }
+
+            await _syncState.EnableAsync(SyncEndpointInput.Trim(), SyncTokenInput.Trim(), ct);
+        }
+        catch (Exception ex)
+        {
+            SetSyncError(ex);
+        }
+    }
+
+    /// <summary>官方通道：GitHub loopback 登录 → 中继换 token → 启用（端点 = 编译期官方常量）。</summary>
+    private async Task EnableViaGitHubAsync(CancellationToken ct)
+    {
+        var endpoint = TokenmetryOfficial.OfficialRelayUrl;
+        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(TokenmetryOfficial.GitHubClientId) || _syncState is null)
+        {
+            SyncStatusText = Translations.Instance.SyncStatusError;
+            LastSyncText = string.Empty;
+            return;
+        }
+
+        var backend = new RelaySyncBackend(new HttpClient { Timeout = TimeSpan.FromSeconds(30) }, endpoint, "anonymous", _syncState.LocalDeviceId);
+        var token = await GitHubSyncLogin.AcquireTokenAsync(backend, ct);
+        if (string.IsNullOrEmpty(token))
+        {
+            return; // 用户放弃 / 超时 / 配置未就绪：状态保持未启用
+        }
+
+        await _syncState.EnableAsync(endpoint, token, ct);
+    }
+
+    [RelayCommand]
+    private async Task DisableSyncAsync(CancellationToken ct = default)
+    {
+        if (_syncState is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _syncState.DisableAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            SetSyncError(ex);
+        }
+    }
+
+    /// <summary>官方模式登录按钮与开关启用共用同一流程（token 由交换流程带回后一并启用）。</summary>
+    [RelayCommand]
+    private Task LoginGitHubAsync(CancellationToken ct) => EnableViaGitHubAsync(ct);
+
+    [RelayCommand]
+    private async Task RenameDeviceAsync(CancellationToken ct = default)
+    {
+        if (_syncState is null || string.IsNullOrWhiteSpace(DeviceNameInput))
+        {
+            return;
+        }
+
+        try
+        {
+            await _syncState.RenameDeviceAsync(DeviceNameInput.Trim(), ct);
+        }
+        catch (Exception ex)
+        {
+            SetSyncError(ex);
+        }
+    }
+
+    [RelayCommand]
+    private async Task SyncNowAsync(CancellationToken ct = default)
+    {
+        if (_syncState is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _syncState.RunNowAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            SetSyncError(ex);
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveDevice(SyncDeviceRowVM? row)
+    {
+        if (row is null || row.IsLocal)
+        {
+            // 本机不移除（解绑自身 = 转未登录态，由关闭同步承担——不做隐藏式的自我删除入口）。
+            return;
+        }
+
+        _pendingRemoveRow = row;
+        IsRemoveConfirmVisible = true;
+    }
+
+    [RelayCommand]
+    private async Task ConfirmRemoveAsync(CancellationToken ct = default)
+    {
+        var row = _pendingRemoveRow;
+        IsRemoveConfirmVisible = false;
+        _pendingRemoveRow = null;
+        if (row is null || _syncState is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _syncState.RemoveDeviceAsync(row.DeviceId, ct);
+        }
+        catch (Exception ex)
+        {
+            SetSyncError(ex);
+        }
+    }
+
+    [RelayCommand]
+    private void CancelRemove()
+    {
+        _pendingRemoveRow = null;
+        IsRemoveConfirmVisible = false;
+    }
+
+    private void SetSyncError(Exception ex) =>
+        SyncStatusText = $"{Translations.Instance.SyncStatusError}: {ex.Message}";
+}
+
+/// <summary>设备清单行（设置页同步区块；IsLocal 行以「本机」标记且无移除按钮）。</summary>
+public sealed class SyncDeviceRowVM
+{
+    public SyncDeviceRowVM(string deviceId, string name, string lastSeenText, bool isLocal, string thisDeviceLabel)
+    {
+        DeviceId = deviceId;
+        Name = name;
+        LastSeenText = lastSeenText;
+        IsLocal = isLocal;
+        // 本机行名字缀「本机」标记（本机名可与远端重名）；远端行原样显示登记名。
+        DisplayName = isLocal ? $"{name} · {thisDeviceLabel}" : name;
+    }
+
+    public string DeviceId { get; }
+
+    public string Name { get; }
+
+    public string DisplayName { get; }
+
+    public string LastSeenText { get; }
+
+    public bool IsLocal { get; }
 }

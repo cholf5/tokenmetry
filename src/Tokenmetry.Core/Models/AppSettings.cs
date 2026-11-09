@@ -165,4 +165,20 @@ public class AppSettings
     /// 空字典 = 不聚合（默认）。
     /// </summary>
     public Dictionary<string, string> ModelAliases { get; set; } = new();
+
+    /// <summary>
+    /// 跨设备同步开关（relay 设计 §4.6，默认关 = 零出站网络请求，G3 红线）。
+    /// 消费者 = SyncStateService（后端装配/定时器停启的归口）与 GlobalFilterMapper
+    /// （关时查询强制本机设备 id，A12 单点收口）；UI 出口 = 设置页「跨设备同步」区块。
+    /// </summary>
+    public bool SyncEnabled { get; set; }
+
+    /// <summary>同步中继根地址（官方实例或自建 http(s)://host:port）。消费者 = SyncStateService 建 RelaySyncBackend。</summary>
+    public string SyncEndpoint { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 同步账号 token（明文落盘——设计 §4.6 已知取舍：v1 接受，OS keyring 列为远期增强）。
+    /// 只随 Authorization 头过线，不进任何日志（隐私红线）。消费者 = SyncStateService。
+    /// </summary>
+    public string SyncToken { get; set; } = string.Empty;
 }

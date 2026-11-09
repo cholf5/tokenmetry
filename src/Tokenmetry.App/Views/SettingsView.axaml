@@ -281,6 +281,120 @@
                                Text="{Binding AboutHint, Source={x:Static loc:Translations.Instance}}"/>
                 </StackPanel>
             </Border>
+
+            <!-- ═══ 跨设备同步（relay 设计 §4.6：显式 opt-in 例外，默认零网络；账号与网络偏好归应用偏好页）═══ -->
+            <Border Classes="panel" IsVisible="{Binding HasSyncState}">
+                <StackPanel Spacing="16">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="panel-title"
+                                   Text="{Binding SyncTitle, Source={x:Static loc:Translations.Instance}}"/>
+                        <!-- 开关 = 启用/关闭动作的入口（关闭态拨上 = 以当前输入启用；开启态拨下 = 关闭同步） -->
+                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsSyncEnabled}"/>
+                    </Grid>
+
+                    <!-- 未启用：通道选择 + 凭据输入 + 启用提示 -->
+                    <StackPanel Spacing="14" IsVisible="{Binding !IsSyncEnabled}">
+                        <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                   Text="{Binding SyncDisabledHint, Source={x:Static loc:Translations.Instance}}"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="20">
+                            <RadioButton GroupName="syncMode" Content="{Binding SyncModeOfficial, Source={x:Static loc:Translations.Instance}}"
+                                         IsChecked="{Binding IsOfficialMode}"/>
+                            <RadioButton GroupName="syncMode" Content="{Binding SyncModeSelfHosted, Source={x:Static loc:Translations.Instance}}"
+                                         IsChecked="{Binding !IsOfficialMode}"/>
+                        </StackPanel>
+
+                        <!-- 官方通道：GitHub 登录（loopback 回监听；client_id 编译期常量，未配置时点击呈错误态） -->
+                        <Button Classes="app-btn"
+                                Content="{Binding SyncLoginGitHub, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding LoginGitHubCommand}"
+                                IsVisible="{Binding IsOfficialMode}"/>
+
+                        <!-- 自建通道：中继地址 + CLI 签发的账号 token -->
+                        <StackPanel Spacing="10" IsVisible="{Binding !IsOfficialMode}">
+                            <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                                <TextBlock Grid.Column="0" Classes="setting-label"
+                                           Text="{Binding SyncEndpoint, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBox Grid.Column="1" Text="{Binding SyncEndpointInput}"
+                                         PlaceholderText="http://192.168.1.10:8080"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                                <TextBlock Grid.Column="0" Classes="setting-label"
+                                           Text="{Binding SyncToken, Source={x:Static loc:Translations.Instance}}"/>
+                                <!-- token 掩码显示（防 shoulder-surfing；值明文随 settings.json 落盘为设计已知取舍） -->
+                                <TextBox Grid.Column="1" Text="{Binding SyncTokenInput}" PasswordChar="•"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <Button Classes="app-btn primary" HorizontalAlignment="Left"
+                                Content="{Binding SyncEnable, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding EnableSyncCommand}"/>
+                    </StackPanel>
+
+                    <!-- 已启用：状态 + 设备管理 -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsSyncEnabled}">
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <TextBlock Classes="setting-hint" Text="{Binding SyncStatusText}"/>
+                            <TextBlock Classes="setting-hint"
+                                       Text="{Binding LastSyncText}"
+                                       IsVisible="{Binding LastSyncText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            <Button Classes="app-btn" Content="{Binding SyncNow, Source={x:Static loc:Translations.Instance}}"
+                                    Command="{Binding SyncNowCommand}"/>
+                            <Button Classes="app-btn" Content="{Binding SyncDisable, Source={x:Static loc:Translations.Instance}}"
+                                    Command="{Binding DisableSyncCommand}"/>
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="132,Auto,*" ColumnSpacing="16">
+                            <TextBlock Grid.Column="0" Classes="setting-label"
+                                       Text="{Binding SyncDeviceName, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBox Grid.Column="1" Width="220" Text="{Binding DeviceNameInput}"/>
+                            <Button Grid.Column="2" Classes="app-btn" VerticalAlignment="Center"
+                                    Content="{Binding SyncRename, Source={x:Static loc:Translations.Instance}}"
+                                    Command="{Binding RenameDeviceCommand}"/>
+                        </Grid>
+
+                        <TextBlock Classes="setting-label"
+                                   Text="{Binding SyncDevices, Source={x:Static loc:Translations.Instance}}"/>
+                        <ItemsControl ItemsSource="{Binding DeviceRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SyncDeviceRowVM">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12" Margin="0,2">
+                                        <StackPanel Grid.Column="0" Spacing="1">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/>
+                                            <SelectableTextBlock Classes="setting-hint" Text="{Binding DeviceId}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Classes="setting-hint" VerticalAlignment="Center"
+                                                   Text="{Binding LastSeenText}"/>
+                                        <Button Grid.Column="3" Classes="app-btn"
+                                                Content="{Binding SyncRemove, Source={x:Static loc:Translations.Instance}}"
+                                                Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).RemoveDeviceCommand}"
+                                                CommandParameter="{Binding}"
+                                                IsVisible="{Binding !IsLocal}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- 移除确认（内联面板：解绑会级联清该设备的全部行，不可不问） -->
+                        <Border Classes="panel" IsVisible="{Binding IsRemoveConfirmVisible}">
+                            <StackPanel Spacing="10">
+                                <TextBlock FontWeight="SemiBold"
+                                           Text="{Binding SyncRemoveConfirmTitle, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                           Text="{Binding SyncRemoveConfirmMessage, Source={x:Static loc:Translations.Instance}}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Classes="app-btn"
+                                            Content="{Binding SyncRemove, Source={x:Static loc:Translations.Instance}}"
+                                            Command="{Binding ConfirmRemoveCommand}"/>
+                                    <Button Classes="app-btn"
+                                            Content="{Binding ModelFormCancel, Source={x:Static loc:Translations.Instance}}"
+                                            Command="{Binding CancelRemoveCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

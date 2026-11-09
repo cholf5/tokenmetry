@@ -305,7 +305,7 @@
                 Background="{DynamicResource AppTopbarBackgroundBrush}"
                 BorderBrush="{DynamicResource AppLineBrush}"
                 BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" Margin="18,0" VerticalAlignment="Center">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" Margin="18,0" VerticalAlignment="Center">
                 <!-- 全局时间范围（D-020：档名按钮 + 弹层 = 档位清单/我的预设/自定义日期；
                      取代 ComboBox + 自定义档 inline DatePicker——顶栏不再随档位切换 reflow） -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
@@ -351,8 +351,23 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </StackPanel>
+                <!-- 全局设备筛选（relay 设计 U5：仅同步开启时渲染，选项 = SyncStateService 设备清单；
+                     查询收口在 GlobalFilterMapper——同步关闭时强制本机，不依赖本控件状态） -->
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
+                            IsVisible="{Binding Filters.IsSyncEnabled}">
+                    <TextBlock Classes="topbar-label" Text="{Binding TopbarDevice, Source={x:Static loc:Translations.Instance}}"/>
+                    <ComboBox MinWidth="130"
+                              ItemsSource="{Binding Filters.DeviceOptions}"
+                              SelectedItem="{Binding Filters.Device, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="svc:DeviceFilterOption">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
                 <!-- 数据状态（轻量实现：就绪 + 最近刷新时间；真实状态接线 TODO 见 MainWindowViewModel） -->
-                <Border Grid.Column="5"
+                <Border Grid.Column="6"
                         Background="{DynamicResource AppPanelAltBrush}"
                         BorderBrush="{DynamicResource AppLineBrush}"
                         BorderThickness="1"
@@ -380,7 +395,7 @@
                 <!-- 手动刷新（⟳）：经 BackgroundRefreshService 单飞槽触发一轮采集刷新（与定时器 /
                      托盘「立即刷新」/ 数据与计价页重扫同一合并语义）；扫描进行中按钮禁用并切换为
                      进行中字形，轮次结束的状态/时间戳/页面重查回写由 BackgroundRefreshWiring 统一完成 -->
-                <Button Grid.Column="6"
+                <Button Grid.Column="7"
                         Classes="icon-btn"
                         Command="{Binding RefreshDataCommand}"
                         IsEnabled="{Binding !RefreshDataCommand.IsRunning}"
@@ -397,7 +412,7 @@
                     </Panel>
                 </Button>
                 <!-- 设置入口（导航到设置页；数据源与计价在侧栏「数据与计价」） -->
-                <Button Grid.Column="7"
+                <Button Grid.Column="8"
                         Classes="icon-btn"
                         Command="{Binding OpenSettingsCommand}"
                         ToolTip.Tip="{Binding NavSettings, Source={x:Static loc:Translations.Instance}}">
