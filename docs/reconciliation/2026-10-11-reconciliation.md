@@ -6,6 +6,13 @@
   - **自研链路**：JSONL 直读适配器（`ClaudeCodeJsonlAdapter` / `CodexJsonlAdapter`）→ 统一 `UsageRecord` → 自有 `PricingEngine`（内置 models.dev 快照）→ 按 UTC 自然日聚合；
   - **CLI 链**：`npx --yes ccusage@20.0.29 <agent> daily --json --offline --timezone UTC`。
 - 测试实现：`tests/Tokenmetry.Reconciliation.Tests/`（新项目，已并入 `Tokenmetry.sln`）。
+
+## 0. 蓝本同步账（adapter 算法对齐的版本锚，下次同步先看这里）
+
+蓝本仓库 `../ccusage`（adapter 蓝图在 `rust/adapters/`，核心在 `rust/crates/ccusage-core/`）。每次同步在此追加一行：**版本 + 本地 HEAD commit**，下次同步 `git -C ../ccusage log <commit>..HEAD` 即得增量。注意 golden fixtures 仍钉 20.0.29（§1.3），与这里的算法锚分开看。
+
+- **2026-10-30 → 20.0.45**（release commit `154e13bb`）：fast/flex 倍率表照抄、Claude 消息级去重键锚 20.0.45、Kimi k2.5/k2.6 候选、zstd rollout 读取（§6 第 6/7/8 条；11-01 的去重索引增量化不改语义）。
+- **2026-11-09 → 20.0.48**（本地 HEAD `0c1bdd19`）：ultrafast 档位（#1989）、OpenCode claude-agent 跨源去重（#2007）（§6 第 6/9 条）。
 - 结论速览：**fixture 对账 tokens 逐项精确一致、cost 全部一致；本机真实数据（Codex，19 文件 / 2931 条记录）tokens 级全等、cost 全期 $101.3856438 两侧一致**。对账暴露并修复了一处内置快照漏收（gpt-5.6-terra，详见差异归类 §5）。
 
 ## 1. 对账方法
@@ -120,9 +127,10 @@ I-004 备忘提到的新版 ccusage compaction 去重逻辑：本机 19 个真�
 3. 其余已知规则（costUSD 优先、5m/1h 倍率、synthetic、去重、累计快照守卫、UTC 分桶）实测两侧一致，见 §1.2。`-fast` 的计价口径见下条 6：当年 fixture 用的 `claude-sonnet-4-5` 倍率恰为 1.0，故旧结论误记为"两侧一致"。
 4. **ZCode 非 Z.ai provider 行的成本**（2026-10-18 起）：CLI 对自定义 provider 行计 0（missingPricing / totalCost 0 口径）；自研改为 `CostUsd = null` 交三级计价引擎（用户条目 → models.dev → 内置快照），可解析时计入成本、不可解析时如实未定价。这是为可用性做的**有意分歧**（旧口径的哨兵 0 会经 LogCost 短路压掉用户的全部目录配置），定案见 `docs/plans/2026-10-18-zcode-custom-provider-pricing-design.md`。对账时 ZCode 自定义 provider 部分的 cost 差异属预期，不算解析回归。
 5. **第三方渠道按官方价计价**（2026-10-23 起，P-001）：CLI 沿用 models.dev 全量价目（含第三方 provider 与 coding-plan 全零条目），同名多条目时按店面前缀 / rank / 顺序择一；自研的远程层先经官方目录投影（白名单厂商 + 家族归属 + 海外店优先 + 归一键去重），**只承认模型厂商的官方价**，带第三方前缀的名字（如 `openrouter/z-ai/glm-5.3-flash`）剥前缀后按官方价计。这是 Opinionated 立场的**有意分歧**（"追第三方价 = 永远跟边界情况斗争"，2026-10-21 实锤：`scnet-token-plan/GLM-5.3-Flash` 全零条目在真实数据上压过 20+ 有价条目，39.9 亿 tokens 计 $0；golden 审计 2026-10-23：全部 golden 仅含官方模型名，Reconciliation.Tests 不受影响）。对账时第三方渠道部分的 cost 差异（CLI 低估 / 自研按官方价）属预期，不算解析回归；用户要按渠道价计走用户条目（可带 Provider 前缀作用域）。定案见 `docs/plans/2026-10-23-official-pricing-catalog-design.md`。
-6. **服务档位倍率**（2026-10-30 起）：ccusage 的倍率数据来自 LiteLLM `provider_specific_entry.fast|flex` + 两个 overrides 文件；本仓库只认官方价、不接 LiteLLM，故内置一份静态表 `Pricing/speed-multipliers.json`（照抄 20.0.45 的 overrides），且 Codex 档位只认日志里的 `thread_settings_applied`，不读 `config.toml` 的 `service_tier`（老日志因此按 standard 计）。对账时若出现"只有 fast/flex 行成本不同"，先看是不是这两种差异。
+6. **服务档位倍率**（2026-10-30 起；2026-11-09 随 ccusage 20.0.48 增补 ultrafast）：ccusage 的倍率数据来自 LiteLLM `provider_specific_entry.fast|flex` + overrides 文件；本仓库只认官方价、不接 LiteLLM，故内置一份静态表 `Pricing/speed-multipliers.json`（现锚 20.0.48 的 fast/flex/ultrafast 三个 overrides），且 Codex 档位只认日志里的 `thread_settings_applied`，不读 `config.toml` 的 `service_tier`（老日志因此按 standard 计）。ultrafast（20.0.46 起 #1989）：OpenAI 只为 gpt-6-astra / gpt-6.1-sol 发布 ultrafast 价（恰 6× Standard，exact-only 无 prefix），未发布 ultrafast 价的模型按 Standard 计。对账时若出现"只有 fast/flex/ultrafast 行成本不同"，先看是不是这两种差异。
 7. **Kimi `kimi-for-coding` 定价**（2026-10-30 起）：按时间戳切成 `moonshot/kimi-k2.5`（< 1776698890072 ms）或 `moonshot/kimi-k2.6`，与蓝本 `model_candidates` 一致。对账 fixture 不含该模型名，差异只会出现在真实数据上。
 8. **Codex 压缩 rollout**（2026-10-30 起）：`.jsonl.zst` 与明文同存时明文优先、跨目录按解压后路径去重；**fork/子代理回放抑制与 compaction 去重仍未移植**（独立计划），因此子代理会话继承的父历史当前会被重复计。
+9. **OpenCode claude-agent 跨源去重**（2026-11-09 起，随 ccusage 20.0.48 #2007）：OpenCode 的 claude-agent provider 内跑 Claude Code，Claude 会另写转录，统一入账双计。本仓库在采集管道仲裁丢弃 OpenCode claude-agent 行，当且仅当其原生会话（`content[].native.sessionID`）在**同一 UTC 日**被 Claude 源的主线程记录计了账；Claude 源缺席 / 零记录 / 只有 sidechain 用量 / 日期不同 → 保留。与蓝本的口径差异：蓝本按 Claude 源时区逐日匹配（daily 族），本仓固定 UTC；午夜跨界 turn 双计属两边共有的文档化限制。已知残留：升级前已双计入库的 OpenCode facts 行不会自动清退（facts 是 upsert、无"消失桶"清理语义，与日志删除后的残留同性质）。
 
 ## 7. 对产品立场的意义
 
