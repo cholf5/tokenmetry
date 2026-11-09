@@ -1,8 +1,10 @@
 namespace Tokenmetry.Relay.Tests;
 
 using System.Globalization;
+using System.Text;
 using Microsoft.Data.Sqlite;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Sync;
 
 /// <summary>
 /// 排行榜中继存储（leaderboard 计划 Task 2）：leaderboard_settings / leaderboard_rollup 两表 +
@@ -582,5 +584,424 @@ public sealed class LeaderboardTests
         cmd.CommandText = "SELECT COUNT(*) FROM leaderboard_rollup WHERE account_id = $accountId";
         cmd.Parameters.AddWithValue("$accountId", accountId);
         return (int)(long)(await cmd.ExecuteScalarAsync())!;
+    }
+}
+
+/// <summary>
+/// 排行榜 HTTP 层（leaderboard 计划 Task 3）：公开读（匿名 + CORS）、偏好读写（Bearer）、
+/// push / 解绑 / 删号 / 换 token 四个触发点的端到端语义。走 RelayTestSync 助手；每个用例独立中继实例。
+/// </summary>
+public sealed class LeaderboardHttpTests
+{
+    // 固定月窗口：榜单 GET 一律显式 month=2026-11（默认取当前 UTC 月，固定数据跨月会假红）。
+    private const string Month = "2026-11";
+    private const string Day1 = "2026-11-01";
+    private const string Day5 = "2026-11-05";
+
+    private static readonly DateTimeOffset T1 = new(2026, 11, 5, 10, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset T2 = new(2026, 11, 5, 11, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task Board_Anonymous_WithCorsHeader()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var anonymous = factory.CreateClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/leaderboard");
+        request.Headers.Add("Origin", "https://tokenmetry.example");
+        using var board = await anonymous.SendAsync(request);
+        board.StatusCode.Should().Be(HttpStatusCode.OK, "公开榜单读匿名可达（中间件豁免 /api/leaderboard 前缀）");
+        board.Headers.Contains("Access-Control-Allow-Origin").Should().BeTrue("公开端点必须带 CORS 头（AllowAnyOrigin）");
+        var body = await board.Content.ReadFromJsonAsync(SyncJsonContext.Default.LeaderboardResponse);
+        body!.Participants.Should().Be(0, "空库空榜");
+
+        using var preference = await anonymous.GetAsync("/api/me/leaderboard");
+        preference.StatusCode.Should().Be(HttpStatusCode.Unauthorized, "豁免只限公开段前缀，偏好端点仍走 Bearer");
+    }
+
+    [Fact]
+    public async Task Preference_Roundtrip_AndFallback()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var client = RelayTestSync.Client(factory);
+
+        var initial = await GetPreferenceAsync(client);
+        initial.OptIn.Should().BeFalse("未设置过 → 未 opt-in");
+        initial.DisplayName.Should().Be("self-hosted", "生效名回落 shared 账号默认名（L8 链）");
+
+        (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
+        var optedIn = await GetPreferenceAsync(client);
+        optedIn.OptIn.Should().BeTrue();
+        optedIn.DisplayName.Should().Be("Alice", "PUT 与 GET 同形状往返");
+
+        // 空串 = NULL（用默认名）→ 生效名回落 accounts 默认，而不是 "anonymous"（shared 账号有默认名）。
+        (await PutPreferenceAsync(client, optIn: true, string.Empty)).EnsureSuccessStatusCode();
+        var fallback = await GetPreferenceAsync(client);
+        fallback.OptIn.Should().BeTrue();
+        fallback.DisplayName.Should().Be("self-hosted", "空串归一为 NULL 后回落账号默认名");
+
+        // opt-out = 关闭即删（settings 行删）→ optIn=false，生效名仍回落账号默认名。
+        (await PutPreferenceAsync(client, optIn: false, null)).EnsureSuccessStatusCode();
+        var optedOut = await GetPreferenceAsync(client);
+        optedOut.OptIn.Should().BeFalse();
+        optedOut.DisplayName.Should().Be("self-hosted");
+    }
+
+    [Fact]
+    public async Task Preference_NameTooLong_400()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var client = RelayTestSync.Client(factory);
+
+        (await PutPreferenceAsync(client, optIn: true, new string('字', 65)))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest, "displayName trim 后 >64 字符必须 400");
+
+        (await PutPreferenceAsync(client, optIn: true, new string('字', 64)))
+            .StatusCode.Should().Be(HttpStatusCode.OK, "64 字符恰好在界内");
+
+        var state = await GetPreferenceAsync(client);
+        state.OptIn.Should().BeTrue();
+        state.DisplayName.Should().Be(new string('字', 64), "65 字符的非法 PUT 不得产生任何落库");
+    }
+
+    [Fact]
+    public async Task Board_InvalidParams_400()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var anonymous = factory.CreateClient();
+
+        (await anonymous.GetAsync("/api/leaderboard?board=xyz"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest, "board 只有 cost|tokens");
+        (await anonymous.GetAsync("/api/leaderboard?month=2026-13"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest, "月份越界（yyyy-MM TryParseExact 拒收）");
+        (await anonymous.GetAsync("/api/leaderboard?month=abc"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest, "月份格式非法");
+        (await anonymous.GetAsync("/api/leaderboard?limit=nope"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest, "limit 非整数");
+    }
+
+    [Fact]
+    public async Task Board_LimitClamped()
+    {
+        var dbPath = NewDbPath();
+        await using var factory = new RelayFactory(token: "abc", dbPath: dbPath);
+        using var anonymous = factory.CreateClient(); // 首请求拉起中继主机（EnsureCreatedAsync 建表）
+        await SeedBoardAccountsAsync(dbPath, 105);
+
+        var floor = await GetBoardAsync(anonymous, $"/api/leaderboard?board=tokens&month={Month}&limit=0");
+        floor.Entries.Should().HaveCount(1, "limit 钳到下界 1");
+        floor.Participants.Should().Be(105, "participants 不受 limit 影响");
+
+        var ceiling = await GetBoardAsync(anonymous, $"/api/leaderboard?board=tokens&month={Month}&limit=150");
+        ceiling.Entries.Should().HaveCount(100, "limit 钳到上界 100");
+        ceiling.Participants.Should().Be(105);
+        ceiling.Entries.Select(entry => entry.Rank).Should().Equal(Enumerable.Range(1, 100), "rank = 行号");
+    }
+
+    [Fact]
+    public async Task Push_RecomputesOnlyWhenOptedIn()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var client = RelayTestSync.Client(factory);
+        using var anonymous = factory.CreateClient();
+
+        // 未 opt-in：push 落库但不重算 → 榜单 0 participants。
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+
+        var before = await BoardAsync(anonymous);
+        before.Participants.Should().Be(0);
+
+        // PUT opt-in=true → 全量重建拾回 push 历史。
+        (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
+        var afterOptIn = await BoardAsync(anonymous);
+        afterOptIn.Participants.Should().Be(1);
+        afterOptIn.Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(100);
+
+        // push 当日新行（不同 model = 不同 PK）→ 增量重算即时反映到榜单。
+        var sameDayExtra = RelayTestSync.UsageRow("devA", Day5, 50, 0.50m, T2);
+        sameDayExtra.Model = "model-b";
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact> { sameDayExtra },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+
+        var afterPush = await BoardAsync(anonymous);
+        afterPush.Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(150, "push 事务内按 day 增量重算");
+
+        // push 历史 day 行 → batch 去重 day 集合同样拾取。
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devA", Day1, 200, 2.00m, T2) },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+
+        var afterHistory = await BoardAsync(anonymous);
+        afterHistory.Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(350, "历史 day 行同样拾取");
+
+        // session-only batch 不触发重算（session 行不进总量）。
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact>(),
+            new List<SessionFact>
+            {
+                new() { Device = "devA", SessionId = "s-a", TotalTokens = 999, FirstSeenAt = T2, LastSeenAt = T2, UpdatedAt = T2 },
+            }))).EnsureSuccessStatusCode();
+
+        var afterSessionOnly = await BoardAsync(anonymous);
+        afterSessionOnly.Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(350, "session 行不进总量、不触发重算");
+    }
+
+    [Fact]
+    public async Task Board_ExcludesOptedOut_AndOrphans()
+    {
+        var dbPath = NewDbPath();
+        await using var factory = new RelayFactory(token: "abc", dbPath: dbPath);
+        using var client = RelayTestSync.Client(factory);
+        using var anonymous = factory.CreateClient();
+
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+        (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
+
+        var optedIn = await BoardAsync(anonymous);
+        optedIn.Participants.Should().Be(1);
+        optedIn.Entries.Should().ContainSingle().Which.DisplayName.Should().Be("Alice");
+
+        // opt-out → 关闭即删（settings + rollup 全清）→ entries/participants 归零。
+        (await PutPreferenceAsync(client, optIn: false, null)).EnsureSuccessStatusCode();
+        var optedOut = await BoardAsync(anonymous);
+        optedOut.Participants.Should().Be(0);
+        optedOut.Entries.Should().BeEmpty();
+
+        // 换 token 退役旧 shared 账号（Task 2 级联已清 settings/rollup）→ 榜单保持空。
+        string retiredAccountId;
+        await using (var connection = await OpenDbAsync(dbPath))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "SELECT id FROM accounts WHERE kind = 'shared'";
+            retiredAccountId = (string)(await cmd.ExecuteScalarAsync())!;
+        }
+
+        await RelayDatabase.BootstrapSharedAccountAsync(new RelayDatabase(dbPath), "new-token");
+        var afterRotation = await BoardAsync(anonymous);
+        afterRotation.Participants.Should().Be(0, "退役级联已清退旧账号榜单行");
+
+        // 钉死 accounts JOIN 排除（Review Focus 2）：即使级联遗漏残留 settings + rollup（孤儿行），
+        // 已不在 accounts 的退役账号也不得计入榜单。
+        await using (var connection = await OpenDbAsync(dbPath))
+        {
+            using var settings = connection.CreateCommand();
+            settings.CommandText = """
+                INSERT INTO leaderboard_settings (account_id, opt_in, display_name, updated_at)
+                VALUES ($id, 1, 'ghost', $now)
+                """;
+            settings.Parameters.AddWithValue("$id", retiredAccountId);
+            settings.Parameters.AddWithValue("$now", T1.ToString("O"));
+            await settings.ExecuteNonQueryAsync();
+
+            using var rollup = connection.CreateCommand();
+            rollup.CommandText = """
+                INSERT INTO leaderboard_rollup (account_id, day, total_tokens, cost_usd, updated_at)
+                VALUES ($id, $day, 999, '9.99', $now)
+                """;
+            rollup.Parameters.AddWithValue("$id", retiredAccountId);
+            rollup.Parameters.AddWithValue("$day", Day5);
+            rollup.Parameters.AddWithValue("$now", T1.ToString("O"));
+            await rollup.ExecuteNonQueryAsync();
+        }
+
+        var withOrphan = await BoardAsync(anonymous);
+        withOrphan.Participants.Should().Be(0, "孤儿账号残留行不得计入（accounts JOIN）");
+        withOrphan.Entries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Board_CostSum_IsExactDecimal()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var client = RelayTestSync.Client(factory);
+        using var anonymous = factory.CreateClient();
+
+        (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
+        var modelA = RelayTestSync.UsageRow("devA", Day5, 10, 1.10m, T1);
+        modelA.Model = "model-a";
+        var modelB = RelayTestSync.UsageRow("devA", Day5, 20, 2.20m, T1);
+        modelB.Model = "model-b";
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact> { modelA, modelB },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+
+        var board = await GetBoardAsync(anonymous, $"/api/leaderboard?board=cost&month={Month}");
+        var entry = board.Entries.Should().ContainSingle().Subject;
+        entry.TotalCostUsd.Should().Be(3.30m, "榜单成本经 JSON 反序列化必须精确 decimal（浮点求和会被此断言抓住）");
+        entry.TotalTokens.Should().Be(30);
+    }
+
+    [Fact]
+    public async Task UnbindDevice_RebuildsRollup()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var client = RelayTestSync.Client(factory);
+        using var anonymous = factory.CreateClient();
+
+        (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+        (await RelayTestSync.PushAsync(client, "devB", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devB", Day1, 50, 0.50m, T1) },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+
+        var before = await BoardAsync(anonymous);
+        before.Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(150);
+
+        // 解绑 devB：级联删该设备行 + 事务内全量重建 rollup → devB 独占的历史 day 虚高必须消失。
+        using var unbind = await client.DeleteAsync("/api/devices/devB");
+        unbind.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var after = await BoardAsync(anonymous);
+        after.Participants.Should().Be(1, "解绑不改变 opt-in 状态");
+        after.Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(100, "重建后 devB 独占 day 的 rollup 消失");
+    }
+
+    [Fact]
+    public async Task ReOptIn_RebuildsFromAllDays()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var client = RelayTestSync.Client(factory);
+        using var anonymous = factory.CreateClient();
+
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+        (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
+        (await BoardAsync(anonymous)).Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(100);
+
+        // 关闭即删 → 榜单归零；随后在未 opt-in 期间再 push 一行（落库、无 rollup）。
+        (await PutPreferenceAsync(client, optIn: false, null)).EnsureSuccessStatusCode();
+        (await BoardAsync(anonymous)).Entries.Should().BeEmpty();
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devA", Day1, 50, 0.50m, T2) },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+        (await BoardAsync(anonymous)).Entries.Should().BeEmpty("未 opt-in 的 push 不产生 rollup");
+
+        // 再次 opt-in → 全量重建必须拾回全部 usage_rows 历史（含 opt-out 窗口期间 push 的行）。
+        (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
+        var rebuilt = await BoardAsync(anonymous);
+        rebuilt.Participants.Should().Be(1);
+        rebuilt.Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(150, "重建从 usage_rows 全量聚合，不吃残留 rollup");
+    }
+
+    [Fact]
+    public async Task DeleteAccount_ClearsBoard()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var client = RelayTestSync.Client(factory);
+        using var anonymous = factory.CreateClient();
+
+        (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
+        (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+        (await BoardAsync(anonymous)).Participants.Should().Be(1);
+
+        using var deleted = await client.DeleteAsync("/api/me");
+        deleted.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var board = await BoardAsync(anonymous);
+        board.Participants.Should().Be(0, "删号级联清退榜单行");
+        board.Entries.Should().BeEmpty();
+
+        using var preference = await client.GetAsync("/api/me/leaderboard");
+        preference.StatusCode.Should().Be(HttpStatusCode.Unauthorized, "删号后旧凭据失效");
+    }
+
+    // ---- HTTP 助手 ----
+
+    private static Task<LeaderboardResponse> BoardAsync(HttpClient anonymous, string board = "tokens") =>
+        GetBoardAsync(anonymous, $"/api/leaderboard?board={board}&month={Month}");
+
+    private static async Task<LeaderboardResponse> GetBoardAsync(HttpClient client, string uri)
+    {
+        using var response = await client.GetAsync(uri);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync(SyncJsonContext.Default.LeaderboardResponse))!;
+    }
+
+    private static async Task<LeaderboardPreferenceResponse> GetPreferenceAsync(HttpClient client)
+    {
+        using var response = await client.GetAsync("/api/me/leaderboard");
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync(SyncJsonContext.Default.LeaderboardPreferenceResponse))!;
+    }
+
+    private static async Task<HttpResponseMessage> PutPreferenceAsync(HttpClient client, bool optIn, string? displayName)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Put, "/api/me/leaderboard")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(
+                    new LeaderboardPreferenceRequest(optIn, displayName),
+                    SyncJsonContext.Default.LeaderboardPreferenceRequest),
+                Encoding.UTF8,
+                "application/json"),
+        };
+        return await client.SendAsync(message);
+    }
+
+    // ---- 直灌脚手架（限位/孤儿注入需要多账号，HTTP 层无造号通道，直接对库写入）----
+
+    private static string NewDbPath() =>
+        Path.Combine(Path.GetTempPath(), $"tokenmetry-leaderboard-http-{Guid.NewGuid():N}.db");
+
+    private static async Task<SqliteConnection> OpenDbAsync(string dbPath)
+    {
+        var connection = new SqliteConnection($"Data Source={dbPath}");
+        await connection.OpenAsync();
+        return connection;
+    }
+
+    private static async Task SeedBoardAccountsAsync(string dbPath, int count)
+    {
+        await using var connection = await OpenDbAsync(dbPath);
+        for (var i = 0; i < count; i++)
+        {
+            using (var account = connection.CreateCommand())
+            {
+                account.CommandText = """
+                    INSERT INTO accounts (id, kind, credential_hash, github_sub, display_name, avatar_url, created_at, seq)
+                    VALUES ($id, 'github', $hash, $sub, $name, NULL, $now, 0)
+                    """;
+                account.Parameters.AddWithValue("$id", $"seed-acct-{i:000}");
+                account.Parameters.AddWithValue("$hash", $"seed-hash-{i:000}");
+                account.Parameters.AddWithValue("$sub", $"seed-sub-{i:000}");
+                account.Parameters.AddWithValue("$name", $"user-{i:000}");
+                account.Parameters.AddWithValue("$now", T1.ToString("O"));
+                await account.ExecuteNonQueryAsync();
+            }
+
+            using (var settings = connection.CreateCommand())
+            {
+                settings.CommandText = """
+                    INSERT INTO leaderboard_settings (account_id, opt_in, display_name, updated_at)
+                    VALUES ($id, 1, NULL, $now)
+                    """;
+                settings.Parameters.AddWithValue("$id", $"seed-acct-{i:000}");
+                settings.Parameters.AddWithValue("$now", T1.ToString("O"));
+                await settings.ExecuteNonQueryAsync();
+            }
+
+            using (var rollup = connection.CreateCommand())
+            {
+                rollup.CommandText = """
+                    INSERT INTO leaderboard_rollup (account_id, day, total_tokens, cost_usd, updated_at)
+                    VALUES ($id, $day, $tokens, NULL, $now)
+                    """;
+                rollup.Parameters.AddWithValue("$id", $"seed-acct-{i:000}");
+                rollup.Parameters.AddWithValue("$day", Day1);
+                rollup.Parameters.AddWithValue("$tokens", 1000 + i);
+                rollup.Parameters.AddWithValue("$now", T1.ToString("O"));
+                await rollup.ExecuteNonQueryAsync();
+            }
+        }
     }
 }

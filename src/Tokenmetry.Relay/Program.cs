@@ -2,6 +2,9 @@ using Tokenmetry.Relay;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient(); // GitHub OAuth 交换的出站 HttpClient（Task 8）
+builder.Services.AddCors(options => options.AddPolicy(
+    LeaderboardEndpoints.PublicCorsPolicyName,
+    policy => policy.AllowAnyOrigin().AllowAnyHeader().WithMethods("GET"))); // 公开榜单读跨域（设计 §4.3，仅 GET）
 builder.Services.AddSingleton(new RelayDatabase(
     Environment.GetEnvironmentVariable("TOKENMETRY_RELAY_DB") ?? "relay.db"));
 var app = builder.Build();
@@ -19,11 +22,17 @@ if (!string.IsNullOrEmpty(bootstrapToken))
 // 匿名健康检查（自建编排用）；/api/* 全部要求 Bearer。
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
+// CORS 必须先于 Bearer 中间件：预检 OPTIONS 不带凭据，须由 CORS 中间件短路应答而非落 401。
+// 未带策略名的 UseCors 只对挂了 RequireCors 元数据的端点生效——其余端点直通、不加任何 CORS 头。
+app.UseCors();
+
 app.Use(async (context, next) =>
 {
-    // /api/auth 是认证前身份交换（GitHub OAuth），豁免 Bearer；其余 /api/* 全部要求凭据。
+    // /api/auth 是认证前身份交换（GitHub OAuth），/api/leaderboard 是公开榜单读（设计 §4.3，匿名 + CORS），
+    // 两者豁免 Bearer；/api/me/leaderboard 不匹配该前缀，仍走 Bearer。其余 /api/* 全部要求凭据。
     if (context.Request.Path.StartsWithSegments("/api")
-        && !context.Request.Path.StartsWithSegments("/api/auth"))
+        && !context.Request.Path.StartsWithSegments("/api/auth")
+        && !context.Request.Path.StartsWithSegments("/api/leaderboard"))
     {
         // TODO(v1 上线项)：限流未内建（设计 §4.5 留给部署层——反代/防火墙；自建文档警示）。
         var token = RelayAuth.ExtractBearerToken(context.Request);
@@ -56,6 +65,7 @@ app.MapGet("/api/me", (HttpContext context) =>
 app.MapSyncEndpoints();
 app.MapDeviceEndpoints();
 app.MapGitHubAuthEndpoints();
+app.MapLeaderboardEndpoints();
 
 // TODO(v1 上线项)：HTTPS 不在此强制（自建允许 http://，设计 A15；文档警示明文风险，
 // 反代终结 TLS 是部署责任）。
