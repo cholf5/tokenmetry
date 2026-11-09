@@ -4,7 +4,7 @@ using Tokenmetry.Core.Models;
 namespace Tokenmetry.Core.Services;
 
 /// <summary>
-/// 服务档位倍率表（fast / flex）：ccusage 在 `calculate_cost_from_tokens` 里按 `usage.speed`
+/// 服务档位倍率表（fast / flex / ultrafast）：ccusage 在 `calculate_cost_from_tokens` 里按 `usage.speed`
 /// 对整条成本乘倍率，本表是它倍率数据的桌面等价物（数据见 Pricing/speed-multipliers.json）。
 /// 匹配口径：用 <see cref="PricingModelMatcher.GetCandidates"/> 的候选链（已剥 provider 前缀与
 /// `-fast` 采集标记）逐候选查 exact；全未命中再查 prefix（candidate == prefix 或以 "prefix-" 开头，
@@ -17,13 +17,16 @@ public static class SpeedMultiplierTable
 
     private static readonly (Dictionary<string, decimal> Exact, string[] PrefixKeys, Dictionary<string, decimal> Prefix) Fast;
     private static readonly (Dictionary<string, decimal> Exact, string[] PrefixKeys, Dictionary<string, decimal> Prefix) Flex;
+    private static readonly (Dictionary<string, decimal> Exact, string[] PrefixKeys, Dictionary<string, decimal> Prefix) Ultrafast;
 
     static SpeedMultiplierTable()
     {
         var (fastExact, fastPrefix) = Load("fast");
         var (flexExact, flexPrefix) = Load("flex");
+        var (ultrafastExact, ultrafastPrefix) = Load("ultrafast");
         Fast = (fastExact, OrderPrefixes(fastPrefix), fastPrefix);
         Flex = (flexExact, OrderPrefixes(flexPrefix), flexPrefix);
+        Ultrafast = (ultrafastExact, OrderPrefixes(ultrafastPrefix), ultrafastPrefix);
     }
 
     /// <summary>该模型在该档位下的倍率；standard 或表未命中返回 1。</summary>
@@ -34,7 +37,12 @@ public static class SpeedMultiplierTable
             return 1m;
         }
 
-        var table = speed == SpeedTier.Fast ? Fast : Flex;
+        var table = speed switch
+        {
+            SpeedTier.Fast => Fast,
+            SpeedTier.Ultrafast => Ultrafast,
+            _ => Flex,
+        };
         var candidates = PricingModelMatcher.GetCandidates(model);
 
         foreach (var candidate in candidates)

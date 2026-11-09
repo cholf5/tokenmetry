@@ -289,13 +289,14 @@ public partial class CodexJsonlFileParser
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
 
-    /// <summary>与 codex parser.rs `codex_service_tier` 一致：default/standard → Standard，
-    /// fast/priority → Fast，flex → Flex，其它取值 → null（未知档位）。</summary>
+    /// <summary>与 codex parser.rs `codex_service_tier` 一致（ccusage 20.0.48）：default/standard → Standard，
+    /// fast/priority → Fast，flex → Flex，ultrafast → Ultrafast，其它取值 → null（未知档位）。</summary>
     private static SpeedTier? ParseSpeedTier(string value) => value switch
     {
         "default" or "standard" => SpeedTier.Standard,
         "fast" or "priority" => SpeedTier.Fast,
         "flex" => SpeedTier.Flex,
+        "ultrafast" => SpeedTier.Ultrafast,
         _ => null,
     };
 

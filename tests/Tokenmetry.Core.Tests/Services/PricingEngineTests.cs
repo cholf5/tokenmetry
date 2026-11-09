@@ -96,6 +96,23 @@ public class PricingEngineTests
     }
 
     [Fact]
+    public void Snapshot_UltrafastTierMultipliesWholeCostAtPublishedRate()
+    {
+        // ccusage 20.0.48（#1989）：ultrafast 只认日志记录的 service_tier；OpenAI 只为
+        // GPT-6.1 Sol / GPT-6 Astra 发布 ultrafast 价（恰 6× Standard，各分量同倍率），
+        // 倍率乘在整条成本上（fast/flex 同式）；未发布 ultrafast 价的模型按 Standard 计。
+        var engine = new PricingEngine();
+
+        var standard = engine.PriceTokens("gpt-6.1-sol", Tokens(100_000, 100_000));
+        engine.PriceTokens("gpt-6.1-sol", Tokens(100_000, 100_000, speed: SpeedTier.Ultrafast))
+            .CostUsd.Should().Be(standard.CostUsd * 6m);
+
+        var codexStandard = engine.PriceTokens("gpt-5.3-codex", Tokens(100_000, 0));
+        engine.PriceTokens("gpt-5.3-codex", Tokens(100_000, 0, speed: SpeedTier.Ultrafast))
+            .CostUsd.Should().Be(codexStandard.CostUsd);
+    }
+
+    [Fact]
     public void Snapshot_PricesCodexGptFamilies()
     {
         var engine = new PricingEngine();
@@ -498,7 +515,8 @@ public class PricingEngineTests
         long cacheCreation = 0,
         long cache5m = 0,
         long cache1h = 0,
-        long cacheRead = 0)
+        long cacheRead = 0,
+        SpeedTier speed = SpeedTier.Standard)
     {
         return new TokenUsageDetail
         {
@@ -508,6 +526,7 @@ public class PricingEngineTests
             CacheCreationEphemeral5mTokens = cache5m,
             CacheCreationEphemeral1hTokens = cache1h,
             CacheReadTokens = cacheRead,
+            Speed = speed,
         };
     }
 
