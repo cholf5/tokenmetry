@@ -438,6 +438,39 @@ public class CodexJsonlAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task Recognizes_the_recorded_ultrafast_service_tier()
+    {
+        // ccusage 20.0.48（#1989）：rollout 里记录的 service_tier:"ultrafast" 自成档位，
+        // 不再落入"未知值清档"分支按 Standard 计价。
+        var home = CreateTempHome();
+        WriteSessionFile(home, "sessions/2026/01/01/rollout-ultrafast.jsonl",
+            """{"timestamp":"2026-01-01T10:00:00.000Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"service_tier":"ultrafast"}}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:01.000Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":5,"output_tokens":1,"total_tokens":6}}}}""");
+
+        var result = await new CodexJsonlAdapter(configuredHome: home).ScanAsync();
+
+        result.Records.Should().ContainSingle().Subject.Speed.Should().Be(SpeedTier.Ultrafast);
+    }
+
+    [Fact]
+    public async Task Switches_back_to_standard_when_the_thread_leaves_ultrafast()
+    {
+        // Ultrafast 逐请求记账：切回 Standard 后，后续请求按 Standard、先前请求保持 Ultrafast。
+        var home = CreateTempHome();
+        WriteSessionFile(home, "sessions/2026/01/01/rollout-ultrafast-back.jsonl",
+            """{"timestamp":"2026-01-01T10:00:00.000Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"service_tier":"ultrafast"}}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:01.000Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":5,"output_tokens":1,"total_tokens":6}}}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:02.000Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"service_tier":"default"}}}""" + "\n"
+            + """{"timestamp":"2026-01-01T10:00:03.000Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":8,"output_tokens":2,"total_tokens":10}}}}""");
+
+        var result = await new CodexJsonlAdapter(configuredHome: home).ScanAsync();
+
+        result.Records.Should().HaveCount(2);
+        result.Records[0].Speed.Should().Be(SpeedTier.Ultrafast);
+        result.Records[1].Speed.Should().Be(SpeedTier.Standard);
+    }
+
+    [Fact]
     public async Task Reads_a_zstandard_compressed_rollout()
     {
         var home = CreateTempHome();

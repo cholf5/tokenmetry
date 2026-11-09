@@ -16,4 +16,8 @@ public enum SpeedTier
 
     /// <summary>弹性档（Codex `service_tier:"flex"`）。</summary>
     Flex = 2,
+
+    /// <summary>极速档（Codex `service_tier:"ultrafast"`，ccusage 20.0.48 #1989 起自成档位；
+    /// OpenAI 只为 GPT-6.1 Sol / GPT-6 Astra 发布 ultrafast 价，恰 6× Standard，其余模型按 Standard 计）。</summary>
+    Ultrafast = 3,
 }

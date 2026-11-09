@@ -1,6 +1,6 @@
 {
   "_provenance": {
-    "anchor": "ccusage 20.0.45 rust/crates/ccusage-core/src/fast-multiplier-overrides.json + flex-multiplier-overrides.json 逐条照抄（2026-10-30）",
+    "anchor": "ccusage 20.0.48 rust/crates/ccusage-core/src/{fast,flex,ultrafast}-multiplier-overrides.json 逐条照抄（20.0.48 于 2026-11-09 同步；ultrafast 仅 gpt-6-astra / gpt-6.1-sol，恰 6× Standard）",
     "note": "ccusage 还会从 LiteLLM 的 provider_specific_entry.fast|flex 读倍率；本仓库只认官方价、不接 LiteLLM，故只维护这份静态表。刷新时与本文件 anchor 版本一起走。"
   },
   "fast": {
@@ -46,6 +46,13 @@
       "gpt-5-nano": 0.5,
       "o3": 0.5,
       "o4-mini": 0.5
+    },
+    "prefix": {}
+  },
+  "ultrafast": {
+    "exact": {
+      "gpt-6-astra": 6.0,
+      "gpt-6.1-sol": 6.0
     },
     "prefix": {}
   }

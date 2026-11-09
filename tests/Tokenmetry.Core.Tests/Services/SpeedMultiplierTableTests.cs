@@ -28,11 +28,23 @@ public class SpeedMultiplierTableTests
         SpeedMultiplierTable.Resolve(model, SpeedTier.Flex).Should().Be((decimal)expected);
     }
 
+    [Theory]
+    [InlineData("gpt-6-astra", 6.0)]
+    [InlineData("gpt-6.1-sol", 6.0)]
+    [InlineData("openai/gpt-6.1-sol", 6.0)]
+    [InlineData("gpt-5.3-codex", 1.0)]
+    [InlineData("gpt-6.1-sol-20260101", 1.0)]
+    public void Ultrafast_tier_resolves_from_the_override_table(string model, double expected)
+    {
+        SpeedMultiplierTable.Resolve(model, SpeedTier.Ultrafast).Should().Be((decimal)expected);
+    }
+
     [Fact]
     public void Standard_tier_is_never_multiplied()
     {
         SpeedMultiplierTable.Resolve("claude-opus-4-6", SpeedTier.Standard).Should().Be(1m);
         SpeedMultiplierTable.Resolve(null, SpeedTier.Fast).Should().Be(1m);
+        SpeedMultiplierTable.Resolve(null, SpeedTier.Ultrafast).Should().Be(1m);
         SpeedMultiplierTable.Resolve("unknown-model", SpeedTier.Fast).Should().Be(1m);
     }
 }
