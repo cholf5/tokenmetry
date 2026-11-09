@@ -72,7 +72,7 @@ Tokenmetry 按文件 mtime 与大小记账，变更才重扫，增量落进本�
   <tr><td><strong>三级定价回退</strong></td><td>用户覆盖 → models.dev 后台刷新（TTL 24 小时，永不阻塞 UI）→ 随应用内置的价格快照。</td></tr>
   <tr><td><strong>托盘常驻</strong></td><td>弹层即见今日 Token、花费与实时速率；成本异常以徽章标出。</td></tr>
   <tr><td><strong>CSV 导出 + 全局筛选</strong></td><td>时间范围、Agent、模型、项目四维筛选贯穿所有视图。</td></tr>
-  <tr><td><strong>跨设备同步（显式 opt-in）</strong></td><td>可选的中继同步把每台机器的聚合用量并为一个账号视图——不开启就零网络，关闭即回落纯本机（<a href="docs/selfhost.md">一条 docker run 自建</a>）。</td></tr>
+  <tr><td><strong>跨设备同步（显式 opt-in）</strong></td><td>可选的中继同步把每台机器的聚合用量并为一个账号视图——不开启就零网络，关闭即回落纯本机（<a href="docs/selfhost.md">一条 docker run 自建</a>）。再单独 opt-in 一次，账号还可登上社区月度双榜——Token 榜与金额榜并列——<a href="https://tokenmetry.app/leaderboard">在网页查看</a>。</td></tr>
   <tr><td><strong>明暗双主题，10 种界面语言</strong></td><td>简体/繁体中文、英、日、韩、葡（BR）、俄、西、德、法——运行时即时切换，默认跟随系统。</td></tr>
   <tr><td><strong>诚实的空态</strong></td><td>无数据时显示支持的 Agent 清单与重扫按钮，不甩堆栈。</td></tr>
 </table>

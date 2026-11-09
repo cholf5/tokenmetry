@@ -5,7 +5,8 @@ Tokenmetry 的跨设备同步由一个刻意"笨"的中继完成：每台设备�
 prompt、代码、会话内容——隐私红线与客户端一致。**默认不上传不登录**：只有你在设置页显式开启同步，
 客户端才会发出任何网络请求。
 
-排行榜（全球榜单）是 v1.1 规划，v1 中继不建任何排行榜表。
+排行榜（全球榜单）自 v1.1 内置：`leaderboard_settings` / `leaderboard_rollup` 两张表随建库幂等创建
+（`CREATE TABLE IF NOT EXISTS`），旧部署重启即自动补表，详见[下文](#排行榜v11)。
 
 ## 快速开始（Docker）
 
@@ -33,10 +34,44 @@ docker run -d --name tokenmetry-relay \
 | `TOKENMETRY_RELAY_DB` | SQLite 库文件路径 | 容器内 `/data/relay.db`（裸跑为工作目录 `relay.db`） |
 | `TOKENMETRY_RELAY_GITHUB_CLIENT_ID` / `_SECRET` | GitHub OAuth 交换（官方模式用）；自建不配即自动关闭该端点（404） | 空 |
 
+## 端点一览
+
+除 `/health`（匿名存活检查）、`/api/auth/github`（认证前身份交换）与 `GET /api/leaderboard`（公开
+榜单读）外，全部要求 Bearer 访问令牌：
+
+| 端点 | 方法 | 说明 |
+|---|---|---|
+| `/api/auth/github` | POST | GitHub OAuth 交换（官方模式；自建未配 Client ID/Secret 时 404） |
+| `/api/me` | GET / DELETE | 账号信息 / 删除账号（级联清全部行、设备与榜单数据） |
+| `/api/sync/push` | POST | 推送本地聚合事实行（按 (device, PK) LWW 落库） |
+| `/api/sync/pull` | GET | 拉取其他设备增量（单响应 ≤2000 行，`hasMore` 续拉） |
+| `/api/devices` | GET / POST | 设备列表 / 注册 |
+| `/api/devices/{deviceId}` | PATCH / DELETE | 设备改名 / 解绑（解绑级联清该设备全部行） |
+| `/api/leaderboard` | GET | 公开榜单读：`board=cost\|tokens`（默认 cost）、`month=YYYY-MM`（默认当月）、`limit`（默认 100，钳 [1,100]）；匿名 + CORS 放行（仅 GET） |
+| `/api/me/leaderboard` | GET / PUT | 排行榜偏好读/写（opt-in 与展示名；PUT 开启即全量重建 rollup，关闭即删） |
+
+## 排行榜（v1.1）
+
+中继内置两个月度全球榜单：**Token 榜**（按 total tokens 排名）与**金额榜**（按 cost 排名），通过
+`GET /api/leaderboard` 匿名公开读。参与完全 opt-in：
+
+- 默认不上榜。客户端在设置页「跨设备同步」区块单独 opt-in 并确认展示名；开启时服务端全量重建该账号
+  的历史 rollup（历史月同样在榜），关闭时**即刻删除**其榜单设置与全部 rollup。
+- 公开数据只有账号级聚合数字：排名、展示名（自定义名 → 账号默认名 → `"anonymous"` 回落）、GitHub
+  头像（GitHub OAuth 账号才有）、当月 token 与成本合计。没有项目、模型、会话维度——表结构里就没有
+  这些列。
+- 维护零后台任务：opt-in 账号的 rollup 在 push 事务内按受影响日期增量重算；设备解绑触发全量重建，
+  删号与换 token（旧账号退役）级联清理榜单数据。未 opt-in 的账号不写榜单表，push 路径零新增开销。
+- 自建实例的榜单范围 = 你服务器上的账号集合：纯 token 单租户自建即只有你自己（榜单对单账号自建是
+  自娱但无害）；配了 GitHub OAuth 则为该实例的全部 GitHub 账号。
+- tokenmetry.app 的榜单页只读官方实例：官网 `apiBase` 与官方中继 URL 一样是**上线前的所有者配置项**
+  （部署期覆盖，不硬编码进站点或客户端）。自建的榜单数据在你自己服务器的 `GET /api/leaderboard`。
+
 ## Token 丢失 / 重签
 
-- **换 token**：改 `TOKENMETRY_RELAY_TOKEN` 环境变量并重启容器。注意：换 token = 生成一个**新的空账号**
-  （旧账号的数据仍在库中，但客户端需回到设置页用新 token 重新开启）。
+- **换 token**：改 `TOKENMETRY_RELAY_TOKEN` 环境变量并重启容器。注意：换 token = 退役旧账号并生成
+  一个**新的空账号**——旧账号的行、设备与榜单数据随重签清除，各设备会在下一轮同步全量重推；客户端需
+  回到设置页用新 token 重新开启。
 - **删库重建**：`docker volume rm tokenmetry-relay-data`（或删除 `relay.db`）后重启。各设备会在
   下一轮同步把本地数据全量重推，无需迁移。
 - 官方实例模式（GitHub 登录）每个账号可同时持有多台设备 token，重复登录互不踢线。
@@ -50,6 +85,9 @@ docker run -d --name tokenmetry-relay \
   你的用量数据被读写。
 - **中继可读**：信任模型是不做 E2EE（U2）——运营者（或拿到服务器的人）能读到聚合事实行。介意就
   自建，不要用别人的实例。
+- **榜单公开读**：`GET /api/leaderboard` 对全网匿名开放（CORS 仅放行 GET、无凭据），上面只会出现
+  显式 opt-in 账号的账号级聚合数字；不想暴露就保持设置页 opt-in 关闭。公开端点对限流的需求比同步
+  端点更直接——反代层兜底同样适用。
 - HTTPS 强制不在服务端做（A15，自建允许 http）；SQLite 走 WAL，建议把数据卷放在本地盘而非网络
   文件系统。
 
