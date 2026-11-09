@@ -39,6 +39,8 @@ internal static class GitHubAuthEndpoints
             var http = httpClientFactory.CreateClient(HttpClientName);
 
             // 1) code → access_token（Accept: application/json 才返回 JSON 形状）
+            // TODO(v1 上线项)：官方模式客户端流程落地时补 PKCE/state（中继只做机密交换半边，
+            // 跳转与 code 防置换由客户端流程负责；自建模式无此端点，不受影响）。
             using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "https://github.com/login/oauth/access_token");
             tokenRequest.Headers.Accept.ParseAdd("application/json");
             tokenRequest.Content = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -71,7 +73,13 @@ internal static class GitHubAuthEndpoints
             }
 
             var user = await userResponse.Content.ReadFromJsonAsync<JsonElement>(context.RequestAborted);
-            var githubSub = user.GetProperty("id").GetInt64().ToString();
+            // /user 形状防御：缺 id 或非数字一律 401，与上游失败路径同形——GitHub 返回异常形状不冒 500。
+            if (!user.TryGetProperty("id", out var idElement) || !idElement.TryGetInt64(out var githubId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var githubSub = githubId.ToString();
             var login = user.TryGetProperty("login", out var loginElement) ? loginElement.GetString() : null;
             var avatarUrl = user.TryGetProperty("avatar_url", out var avatarElement) ? avatarElement.GetString() : null;
 

@@ -24,6 +24,19 @@ internal static class RelayTestSync
         UpdatedAt = at,
     };
 
+    /// <summary>注册设备（正式客户端流程，EnableAsync → RegisterDeviceAsync 的测试同形）；
+    /// push 只收已注册设备的行，所有先 push 的用例必须先走这里。</summary>
+    public static async Task RegisterAsync(HttpClient client, string deviceId, string name)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, "/api/devices");
+        message.Headers.Add("X-Tokenmetry-Device", deviceId);
+        message.Content = new StringContent(
+            JsonSerializer.Serialize(new { deviceId, name }),
+            Encoding.UTF8,
+            "application/json");
+        (await client.SendAsync(message)).EnsureSuccessStatusCode();
+    }
+
     public static async Task<HttpResponseMessage> PushAsync(HttpClient client, string device, SyncPushRequest request)
     {
         using var message = new HttpRequestMessage(HttpMethod.Post, "/api/sync/push");

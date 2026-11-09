@@ -60,6 +60,8 @@ public sealed class DeviceEndpointsTests
         using var devA = RelayTestSync.Client(factory);
         using var devB = RelayTestSync.Client(factory);
 
+        await RelayTestSync.RegisterAsync(devA, "devA", "Desktop A");
+        await RelayTestSync.RegisterAsync(devB, "devB", "Laptop B");
         (await RelayTestSync.PushAsync(devA, "devA", new SyncPushRequest(
             new List<UsageFact> { RelayTestSync.UsageRow("devA", "2026-06-19", 100, 1.00m, T1) },
             new List<SessionFact>
@@ -86,6 +88,7 @@ public sealed class DeviceEndpointsTests
         await using var factory = new RelayFactory(token: "abc");
         using var devA = RelayTestSync.Client(factory);
 
+        await RelayTestSync.RegisterAsync(devA, "devA", "Desktop A");
         (await RelayTestSync.PushAsync(devA, "devA", new SyncPushRequest(
             new List<UsageFact> { RelayTestSync.UsageRow("devA", "2026-06-19", 100, 1.00m, T1) },
             new List<SessionFact>()))).EnsureSuccessStatusCode();

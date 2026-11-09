@@ -8,6 +8,13 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /app/publish .
 
+# 编排存活检查需要 curl（aspnet 运行时镜像不带），HEALTHCHECK 打匿名 /health。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl --fail --silent http://localhost:8080/health || exit 1
+
 # 数据卷：库文件默认落 /data（TOKENMETRY_RELAY_DB 可覆盖）。
 ENV TOKENMETRY_RELAY_DB=/data/relay.db
 VOLUME /data

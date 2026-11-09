@@ -12,7 +12,9 @@ public sealed class RelaySkeletonTests
     [Fact]
     public async Task Health_WithoutToken_Returns401_OnApiRoutes()
     {
-        await using var factory = new RelayFactory();
+        // 显式 token: null = 清空进程级 env（无参构造是 WithWebHostBuilder 派生实例专用，不动 env——
+        // 先前测试留下的 TOKENMETRY_RELAY_TOKEN 不得泄漏进本用例的启动语义）。
+        await using var factory = new RelayFactory(token: null);
         using var client = factory.CreateClient();
 
         var health = await client.GetAsync("/health");
@@ -54,6 +56,7 @@ public sealed class RelaySkeletonTests
             await using (var first = new RelayFactory(token: "old-token", dbPath: dbPath))
             {
                 using var oldClient = RelayTestSync.Client(first, "old-token");
+                await RelayTestSync.RegisterAsync(oldClient, "devA", "Desktop A");
                 (await RelayTestSync.PushAsync(oldClient, "devA", new SyncPushRequest(
                     new List<UsageFact> { RelayTestSync.UsageRow("devA", "2026-06-19", 100, 1.00m, T1) },
                     new List<SessionFact>()))).EnsureSuccessStatusCode();
