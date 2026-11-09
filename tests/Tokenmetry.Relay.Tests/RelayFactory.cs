@@ -10,7 +10,9 @@ internal sealed class RelayFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbPath;
 
-    /// <summary>WithWebHostBuilder 派生实例走此构造；进程级环境变量由根实例设置（static 状态，先于派生）。</summary>
+    /// <summary>WithWebHostBuilder 派生实例专用（反射走此构造）：必须保持 env 原样——派生主机沿用根实例
+    /// 已设置的进程级环境变量（static 状态，先于派生）。测试根实例一律走带参构造（钉死独立临时库与 env），
+    /// 无参构造的 env 透传不得用于根实例（会吃进前序测试留下的进程级 env）。</summary>
     public RelayFactory()
     {
         _dbPath = string.Empty;

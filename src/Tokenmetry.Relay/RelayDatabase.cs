@@ -14,6 +14,11 @@ internal sealed class RelayDatabase(string dbPath)
     {
         var connection = new SqliteConnection($"Data Source={dbPath}");
         connection.Open();
+        // busy_timeout 逐连接生效（EnsureCreated 只覆盖建库那一条）——push 写事务与 pull 读路径
+        // 统一拿 5s 钳位重试，锁冲突不早早冒 "database is locked"。走连接池每次 Open 重设一次，开销可忽略。
+        using var pragma = connection.CreateCommand();
+        pragma.CommandText = "PRAGMA busy_timeout=5000;";
+        pragma.ExecuteNonQuery();
         return connection;
     }
 

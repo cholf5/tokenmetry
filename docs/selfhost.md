@@ -43,10 +43,10 @@ docker run -d --name tokenmetry-relay \
 |---|---|---|
 | `/api/auth/github` | POST | GitHub OAuth 交换（官方模式；自建未配 Client ID/Secret 时 404） |
 | `/api/me` | GET / DELETE | 账号信息 / 删除账号（级联清全部行、设备与榜单数据） |
-| `/api/sync/push` | POST | 推送本地聚合事实行（按 (device, PK) LWW 落库） |
+| `/api/sync/push` | POST | 推送本地聚合事实行（按 (device, PK) LWW 落库；仅收**已注册**设备的行，未注册设备 400） |
 | `/api/sync/pull` | GET | 拉取其他设备增量（单响应 ≤2000 行，`hasMore` 续拉） |
 | `/api/devices` | GET / POST | 设备列表 / 注册 |
-| `/api/devices/{deviceId}` | PATCH / DELETE | 设备改名 / 解绑（解绑级联清该设备全部行） |
+| `/api/devices/{deviceId}` | PATCH / DELETE | 设备改名 / 解绑（级联清该设备全部行；解绑设备的后续 push 一律 400 拒收，重新入网走 POST /api/devices 注册） |
 | `/api/leaderboard` | GET | 公开榜单读：`board=cost\|tokens`（默认 cost）、`month=YYYY-MM`（默认当月）、`limit`（默认 100，钳 [1,100]）；匿名 + CORS 放行（仅 GET） |
 | `/api/me/leaderboard` | GET / PUT | 排行榜偏好读/写（opt-in 与展示名；PUT 开启即全量重建 rollup，关闭即删） |
 
@@ -80,7 +80,8 @@ docker run -d --name tokenmetry-relay \
 
 - **HTTP 明文**：客户端默认允许 `http://`。局域网内可用；跨公网请务必在反代（Caddy / nginx /
   Cloudflare Tunnel）终结 TLS，让客户端填 `https://` 地址——token 与用量数据都会过线。
-- **限流未内建**：v1 没有请求频率 / 行数 / 存储配额限制（服务端留了 TODO）。自建在公网时请用
+- **限流未内建**：v1 没有请求频率 / 行数 / 存储配额限制（服务端留了 TODO）。事实上的单请求载荷上限
+  是 Kestrel 默认 30 MB 请求体上限（约可容纳数万行事实/批），可在反代层进一步收紧。自建在公网时请用
   反代层（nginx `limit_req`、Cloudflare）或防火墙白名单兜住；单租户 token 泄露的最大影响面 =
   你的用量数据被读写。
 - **中继可读**：信任模型是不做 E2EE（U2）——运营者（或拿到服务器的人）能读到聚合事实行。介意就

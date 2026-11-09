@@ -724,6 +724,7 @@ public sealed class LeaderboardHttpTests
         using var anonymous = factory.CreateClient();
 
         // 未 opt-in：push 落库但不重算 → 榜单 0 participants。
+        await RelayTestSync.RegisterAsync(client, "devA", "Desktop A");
         (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
             new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
             new List<SessionFact>()))).EnsureSuccessStatusCode();
@@ -775,6 +776,7 @@ public sealed class LeaderboardHttpTests
         using var client = RelayTestSync.Client(factory);
         using var anonymous = factory.CreateClient();
 
+        await RelayTestSync.RegisterAsync(client, "devA", "Desktop A");
         (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
             new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
             new List<SessionFact>()))).EnsureSuccessStatusCode();
@@ -840,6 +842,7 @@ public sealed class LeaderboardHttpTests
         using var anonymous = factory.CreateClient();
 
         (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
+        await RelayTestSync.RegisterAsync(client, "devA", "Desktop A");
         var modelA = RelayTestSync.UsageRow("devA", Day5, 10, 1.10m, T1);
         modelA.Model = "model-a";
         var modelB = RelayTestSync.UsageRow("devA", Day5, 20, 2.20m, T1);
@@ -861,6 +864,8 @@ public sealed class LeaderboardHttpTests
         using var client = RelayTestSync.Client(factory);
         using var anonymous = factory.CreateClient();
 
+        await RelayTestSync.RegisterAsync(client, "devA", "Desktop A");
+        await RelayTestSync.RegisterAsync(client, "devB", "Laptop B");
         (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
         (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
             new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
@@ -879,6 +884,16 @@ public sealed class LeaderboardHttpTests
         var after = await BoardAsync(anonymous);
         after.Participants.Should().Be(1, "解绑不改变 opt-in 状态");
         after.Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(100, "重建后 devB 独占 day 的 rollup 消失");
+
+        // 解绑粘滞到行摄取：被解绑设备的后续 push 直接 400——否则行回流 usage_rows，
+        // 下次重算会把已删除设备的数据重新吸回公开榜单，defeating 解绑触发的全量重建。
+        var reabsorbed = await RelayTestSync.PushAsync(client, "devB", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devB", Day1, 70, 0.70m, T2) },
+            new List<SessionFact>()));
+        reabsorbed.StatusCode.Should().Be(HttpStatusCode.BadRequest, "未注册设备的 push 必须被拒收");
+
+        var finalBoard = await BoardAsync(anonymous);
+        finalBoard.Entries.Should().ContainSingle().Which.TotalTokens.Should().Be(100, "解绑设备的行不得经重算回流榜单");
     }
 
     [Fact]
@@ -888,6 +903,7 @@ public sealed class LeaderboardHttpTests
         using var client = RelayTestSync.Client(factory);
         using var anonymous = factory.CreateClient();
 
+        await RelayTestSync.RegisterAsync(client, "devA", "Desktop A");
         (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
             new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
             new List<SessionFact>()))).EnsureSuccessStatusCode();
@@ -916,6 +932,7 @@ public sealed class LeaderboardHttpTests
         using var client = RelayTestSync.Client(factory);
         using var anonymous = factory.CreateClient();
 
+        await RelayTestSync.RegisterAsync(client, "devA", "Desktop A");
         (await PutPreferenceAsync(client, optIn: true, "Alice")).EnsureSuccessStatusCode();
         (await RelayTestSync.PushAsync(client, "devA", new SyncPushRequest(
             new List<UsageFact> { RelayTestSync.UsageRow("devA", Day5, 100, 1.00m, T1) },
