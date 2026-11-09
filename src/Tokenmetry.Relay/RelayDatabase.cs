@@ -3,7 +3,8 @@ using Microsoft.Data.Sqlite;
 namespace Tokenmetry.Relay;
 
 /// <summary>
-/// 中继 SQLite 存储（A4/A15）：刻意笨的"桶"——accounts / devices / usage_rows / session_rows 四表，
+/// 中继 SQLite 存储（A4/A15）：刻意笨的"桶"——accounts / devices / usage_rows / session_rows +
+/// leaderboard_settings / leaderboard_rollup（排行榜读模型，leaderboard 设计 §4.1）六表，
 /// 幂等建表，无版本化迁移（自建部署可随时删库重建，客户端全量可重推）。
 /// 账号级单调 seq 计数器住在 accounts.seq（行级变更账本的发号源，Task 6 消费）。
 /// </summary>
@@ -100,6 +101,26 @@ internal sealed class RelayDatabase(string dbPath)
                 PRIMARY KEY (account_id, session_id)
             );
             CREATE INDEX IF NOT EXISTS idx_session_rows_seq ON session_rows (account_id, seq);
+
+            -- 排行榜读模型（leaderboard 设计 §4.1 原文；幂等补表即用，L5）
+            -- opt-in 状态与展示名（账号级；独立于 accounts 表 = 旧库补表即用，且删行即退出）
+            CREATE TABLE IF NOT EXISTS leaderboard_settings (
+                account_id   TEXT PRIMARY KEY,
+                opt_in       INTEGER NOT NULL DEFAULT 0,
+                display_name TEXT,                    -- NULL = 用 accounts.display_name 默认
+                updated_at   TEXT NOT NULL
+            );
+
+            -- 账号 × 日 物化聚合（relay 设计 §5 读模型）；只含 token/成本两个指标列，无项目/会话/模型维度
+            CREATE TABLE IF NOT EXISTS leaderboard_rollup (
+                account_id   TEXT NOT NULL,
+                day          TEXT NOT NULL,           -- yyyy-MM-dd（客户端本地分桶文本，原样）
+                total_tokens INTEGER NOT NULL DEFAULT 0,
+                cost_usd     TEXT,                    -- TEXT decimal，同 usage_rows 口径；全空 = NULL
+                updated_at   TEXT NOT NULL,
+                PRIMARY KEY (account_id, day)
+            );
+            CREATE INDEX IF NOT EXISTS idx_leaderboard_rollup_day ON leaderboard_rollup (day);
             """, ct);
     }
 
@@ -131,6 +152,8 @@ internal sealed class RelayDatabase(string dbPath)
                  {
                      "DELETE FROM usage_rows WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
                      "DELETE FROM session_rows WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
+                     "DELETE FROM leaderboard_settings WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
+                     "DELETE FROM leaderboard_rollup WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
                      "DELETE FROM devices WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
                      "DELETE FROM account_tokens WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
                      "DELETE FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash",
