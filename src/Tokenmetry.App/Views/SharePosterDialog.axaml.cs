@@ -57,6 +57,9 @@ public partial class SharePosterDialog : Window
     public SharePosterDialog()
     {
         InitializeComponent();
+        // D-026：Windows 原生标题栏跟随应用明暗（系统边框本身不变，只改 caption 配色）；
+        // 非系统默认主题的深色模式下，缺这行 caption 会顶一条白色系统标题栏（同 MainWindow）。
+        WindowsCaptionTheme.Default.Attach(this);
         // ToolTip 失活守卫：对话框里海报图例有悬浮 Tip，失活后同样不能留在屏幕上压别的 App。
         ToolTipDeactivationGuard.Attach(this);
         // Esc 关闭：独立窗口的关闭语义之一（设计 §9.1 把 Esc/关闭列为选独立窗口的代价）
