@@ -26,6 +26,15 @@ public class UsageRecord
     /// <summary>会话 id（日志体缺失时回退到文件名推导值）。高基数：有意不驻留。</summary>
     public string SessionId { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 跨源链接（OpenCode claude-agent 行专用）：该行实际所属的 Claude Code 会话 id
+    /// （data.content[].native.sessionID）。claude-agent provider 内跑 Claude Code、Claude 会另写
+    /// 转录，统一入账时按 (NativeSessionId, UTC 日) 与 Claude 源实际计账的主线程记录对账去重，
+    /// 见 LocalIngestionDataSource.ApplyClaudeAgentDedup（ccusage 20.0.48 #2007 同语义）。
+    /// 其余源 / 其余 provider 恒为 null；不落 facts。
+    /// </summary>
+    public string? NativeSessionId { get; set; }
+
     /// <summary>模型名（已归一化，含 -fast 后缀标记；&lt;synthetic&gt; 等无模型记录为 null）。低基数：写入驻留。</summary>
     public string? Model { get => _model; set => _model = value is null ? null : UsageStringPool.Intern(value); }
 

@@ -1,5 +1,6 @@
 namespace Tokenmetry.Infrastructure.Tests.LocalIngestion;
 
+using Microsoft.Data.Sqlite;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
@@ -75,6 +76,120 @@ public class LocalIngestionDataSourceTests : IDisposable
         var codexSession = store.SessionFacts.Single(fact => fact.SessionId == "rollout-x");
         codexSession.ProjectDisplayName.Should().Be("codex-proj");
         codexSession.DominantModel.Should().Be("gpt-5");
+    }
+
+    // ---- OpenCode claude-agent 跨源去重（ccusage 20.0.48 #2007：统一报表 Claude Agent turns 只计一次）----
+
+    [Fact]
+    public async Task Deduplicates_opencode_claude_agent_turns_already_counted_by_claude()
+    {
+        // OpenCode 的 claude-agent provider 内跑 Claude Code，Claude 会另写转录；OpenCode 行携带的
+        // 原生会话（session-a）当天已被 Claude 源计账 → 该行整条丢弃，不双计。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
+            ClaudeLine("msg-1", "claude-test", costUsd: "0.05", inputTokens: 10, outputTokens: 20));
+        var openCodeDir = CreateOpenCodeDataDir(claudeRoot);
+        var db = Path.Combine(openCodeDir, "opencode.db");
+        CreateOpenCodeDatabase(db);
+        InsertOpenCodeAssistantRow(db, "oc-1", "oc-session", OpenCodeSameDayMs, ClaudeAgentRow("session-a", OpenCodeSameDayMs));
+
+        var source = CreateSource(store, claudeRoot, codexHome, opencodeDataDir: openCodeDir);
+
+        var rows = await source.GetDailyUsageAsync();
+
+        var day = rows.Should().ContainSingle().Subject;
+        day.Date.Should().Be("2026-05-25");
+        day.TotalTokens.Should().Be(30, "只剩 Claude 的 10+20；OpenCode claude-agent 行不双计");
+        day.TotalCostUsd.Should().Be(0.05m);
+    }
+
+    [Fact]
+    public async Task Keeps_opencode_claude_agent_turns_on_days_claude_did_not_count()
+    {
+        // 逐 (会话 × UTC 日) 匹配：Claude 在 05-25 计了 session-a，OpenCode 行落在 05-26 → 保留。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
+            ClaudeLine("msg-1", "claude-test", costUsd: "0.05", inputTokens: 10, outputTokens: 20));
+        var openCodeDir = CreateOpenCodeDataDir(claudeRoot);
+        var db = Path.Combine(openCodeDir, "opencode.db");
+        CreateOpenCodeDatabase(db);
+        InsertOpenCodeAssistantRow(db, "oc-1", "oc-session", OpenCodeNextDayMs, ClaudeAgentRow("session-a", OpenCodeNextDayMs));
+
+        var source = CreateSource(store, claudeRoot, codexHome, opencodeDataDir: openCodeDir);
+
+        var rows = await source.GetDailyUsageAsync();
+
+        rows.Should().HaveCount(2);
+        rows.Single(row => row.Date == "2026-05-25").TotalTokens.Should().Be(30);
+        rows.Single(row => row.Date == "2026-05-26").TotalTokens.Should().Be(150);
+    }
+
+    [Fact]
+    public async Task Keeps_opencode_claude_agent_turns_when_the_native_session_is_unknown()
+    {
+        // 原生会话没有被 Claude 源计账（转录没了 / 目录不存在）→ OpenCode 行保留（蓝本 keeps rows）。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
+            ClaudeLine("msg-1", "claude-test", costUsd: "0.05", inputTokens: 10, outputTokens: 20));
+        var openCodeDir = CreateOpenCodeDataDir(claudeRoot);
+        var db = Path.Combine(openCodeDir, "opencode.db");
+        CreateOpenCodeDatabase(db);
+        InsertOpenCodeAssistantRow(db, "oc-1", "oc-session", OpenCodeSameDayMs, ClaudeAgentRow("session-b", OpenCodeSameDayMs));
+
+        var source = CreateSource(store, claudeRoot, codexHome, opencodeDataDir: openCodeDir);
+
+        var rows = await source.GetDailyUsageAsync();
+
+        var day = rows.Should().ContainSingle().Subject;
+        day.Date.Should().Be("2026-05-25");
+        day.TotalTokens.Should().Be(30 + 150);
+    }
+
+    [Fact]
+    public async Task Keeps_opencode_claude_agent_turns_when_claude_only_recorded_sidechain()
+    {
+        // Claude 当天只记了 sidechain（子代理）用量不算"计过账"：OpenCode 只记主线程 turn，
+        // 丢行会凭空丢用量（蓝本 main-thread 规则——sidechain 不进计账集合）。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl", SidechainClaudeLine());
+        var openCodeDir = CreateOpenCodeDataDir(claudeRoot);
+        var db = Path.Combine(openCodeDir, "opencode.db");
+        CreateOpenCodeDatabase(db);
+        InsertOpenCodeAssistantRow(db, "oc-1", "oc-session", OpenCodeSameDayMs, ClaudeAgentRow("session-a", OpenCodeSameDayMs));
+
+        var source = CreateSource(store, claudeRoot, codexHome, opencodeDataDir: openCodeDir);
+
+        var rows = await source.GetDailyUsageAsync();
+
+        var day = rows.Should().ContainSingle().Subject;
+        day.Date.Should().Be("2026-05-25");
+        day.TotalTokens.Should().Be(30 + 150, "sidechain 用量不算主线程计账，OpenCode 行保留");
+    }
+
+    [Fact]
+    public async Task Keeps_plain_opencode_rows_without_a_native_link()
+    {
+        // 无原生链接的普通 OpenCode 行（anthropic 等 provider）永不参与跨源去重。
+        var store = new InMemoryUsageStore();
+        var (claudeRoot, codexHome) = CreateLogDirs();
+        WriteClaudeSession(claudeRoot, "projects/project-a/session-a.jsonl",
+            ClaudeLine("msg-1", "claude-test", costUsd: "0.05", inputTokens: 10, outputTokens: 20));
+        var openCodeDir = CreateOpenCodeDataDir(claudeRoot);
+        var db = Path.Combine(openCodeDir, "opencode.db");
+        CreateOpenCodeDatabase(db);
+        InsertOpenCodeAssistantRow(db, "oc-1", "oc-session", OpenCodeSameDayMs, PlainAssistantRow(OpenCodeSameDayMs));
+
+        var source = CreateSource(store, claudeRoot, codexHome, opencodeDataDir: openCodeDir);
+
+        var rows = await source.GetDailyUsageAsync();
+
+        var day = rows.Should().ContainSingle().Subject;
+        day.Date.Should().Be("2026-05-25");
+        day.TotalTokens.Should().Be(30 + 150);
     }
 
     [Fact]
@@ -492,7 +607,7 @@ public class LocalIngestionDataSourceTests : IDisposable
 
     // ---- helpers ----
 
-    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null, string? dshHome = null, IZCodeSqliteAdapter? zcodeAdapter = null, IClaudeCodeJsonlAdapter? claudeAdapter = null, string? piDir = null, string? cindyUserDataRoot = null)
+    private LocalIngestionDataSource CreateSource(InMemoryUsageStore store, string claudeRoot, string codexHome, PricingEngine? pricingEngine = null, IngestionScanRegistry? registry = null, string? dshHome = null, IZCodeSqliteAdapter? zcodeAdapter = null, IClaudeCodeJsonlAdapter? claudeAdapter = null, string? piDir = null, string? cindyUserDataRoot = null, string? opencodeDataDir = null)
     {
         pricingEngine ??= new PricingEngine(overrides: new[]
         {
@@ -506,7 +621,7 @@ public class LocalIngestionDataSourceTests : IDisposable
             zcodeAdapter ?? new ZCodeSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "zcode-missing")),
             new DshSessionAdapter(configuredHome: dshHome ?? Path.Combine(Path.GetDirectoryName(claudeRoot)!, "dsh-missing")),
             new CopilotSessionAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "copilot-missing")),
-            new OpenCodeSqliteAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "opencode-missing")),
+            new OpenCodeSqliteAdapter(configuredDataDir: opencodeDataDir ?? Path.Combine(Path.GetDirectoryName(claudeRoot)!, "opencode-missing")),
             new GooseSqliteAdapter(configuredRoot: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "goose-missing")),
             new HermesSqliteAdapter(configuredHome: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "hermes-missing")),
             new KiloSqliteAdapter(configuredDataDir: Path.Combine(Path.GetDirectoryName(claudeRoot)!, "kilo-missing")),
@@ -573,6 +688,60 @@ public class LocalIngestionDataSourceTests : IDisposable
     private static string CodexTokenCountLine(string timestamp, long inputTokens, long cached, long outputTokens)
     {
         return $"{{\"timestamp\":\"{timestamp}\",\"type\":\"event_msg\",\"payload\":{{\"type\":\"token_count\",\"info\":{{\"last_token_usage\":{{\"input_tokens\":{inputTokens},\"cached_input_tokens\":{cached},\"output_tokens\":{outputTokens},\"reasoning_output_tokens\":0,\"total_tokens\":{inputTokens + outputTokens}}}}}}}}}";
+    }
+
+    // OpenCode fixture 时间：与 ClaudeLine 的 2026-05-25T10:00:00.000Z 同 UTC 日 / 次日。
+    private const long OpenCodeSameDayMs = 1_779_703_200_000; // 2026-05-25T10:00:00Z
+    private const long OpenCodeNextDayMs = 1_779_789_600_000; // 2026-05-26T10:00:00Z
+
+    private string CreateOpenCodeDataDir(string claudeRoot)
+    {
+        var dir = Path.Combine(Path.GetDirectoryName(claudeRoot)!, "opencode");
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
+
+    private static void CreateOpenCodeDatabase(string db)
+    {
+        ExecuteSqlite(db,
+            "CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT, type TEXT, seq INTEGER NOT NULL DEFAULT 0, time_created INTEGER, data TEXT)");
+    }
+
+    private static void InsertOpenCodeAssistantRow(string db, string id, string sessionId, long createdMilliseconds, string data)
+    {
+        ExecuteSqlite(db,
+            "INSERT INTO session_message (id, session_id, type, seq, time_created, data) VALUES ($id, $sessionId, 'assistant', 1, $created, $data)",
+            ("$id", id), ("$sessionId", sessionId), ("$created", createdMilliseconds), ("$data", data));
+    }
+
+    private static void ExecuteSqlite(string db, string sql, params (string Name, object Value)[] parameters)
+    {
+        using var connection = new SqliteConnection($"Data Source={db}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        foreach (var (name, value) in parameters)
+        {
+            command.Parameters.AddWithValue(name, value);
+        }
+
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>claude-agent 行载荷：OpenCode 只存别名 opus，原生会话指向 Claude 转录（蓝本 #2004 形态）。</summary>
+    private static string ClaudeAgentRow(string nativeSessionId, long createdMilliseconds)
+    {
+        return $"{{\"model\":{{\"id\":\"opus\",\"providerID\":\"claude-agent\"}},\"time\":{{\"created\":{createdMilliseconds}}},\"tokens\":{{\"input\":100,\"output\":50}},\"content\":[{{\"type\":\"text\",\"native\":{{\"sessionID\":\"{nativeSessionId}\"}}}}]}}";
+    }
+
+    private static string PlainAssistantRow(long createdMilliseconds)
+    {
+        return $"{{\"model\":{{\"id\":\"claude-sonnet-4-20250514\",\"providerID\":\"anthropic\"}},\"time\":{{\"created\":{createdMilliseconds}}},\"tokens\":{{\"input\":100,\"output\":50}}}}";
+    }
+
+    private static string SidechainClaudeLine()
+    {
+        return $"{{\"sessionId\":\"session-a\",\"timestamp\":\"2026-05-25T10:00:00.000Z\",\"isSidechain\":true,\"message\":{{\"id\":\"msg-side\",\"model\":\"claude-test\",\"usage\":{{\"input_tokens\":10,\"output_tokens\":20,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0}}}},\"costUSD\":0.05,\"requestId\":\"req-side\"}}";
     }
 
     public void Dispose()

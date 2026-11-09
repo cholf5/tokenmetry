@@ -182,6 +182,60 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
     }
 
     /// <summary>
+    /// 跨源去重（不双算）：OpenCode 的 claude-agent provider 内跑 Claude Code，Claude 会另写转录，
+    /// 同一批主线程 turn 两边各记一次账。OpenCode 行携带原生会话链接（<see cref="UsageRecord.NativeSessionId"/>），
+    /// 当 Claude 源本轮真的把该会话在同一个 UTC 日计了账时丢弃该 OpenCode 行——计账集合只取 Claude 的
+    /// 主线程记录（sidechain 不算计账：OpenCode 只记主线程 turn，拿子代理用量丢行会凭空丢用量，蓝本
+    /// main-thread 规则）；Claude 源缺席 / 零记录 / 原生会话未知 / 日期不同 → 保留。
+    /// 对齐 ccusage 20.0.48 统一报表的 Claude Agent 去重（fix(all): count OpenCode Claude Agent turns
+    /// once，#2007）；日界按本仓固定 UTC 分桶（蓝本按 Claude 源时区，属登记口径差异），午夜跨界 turn
+    /// 可能双计，蓝本同样如此（文档化限制）。已知残留：被整行丢弃的 OpenCode 桶不再进 facts，而
+    /// facts 落库是 upsert——升级前已双计入库的 (日 × OpenCode × 模型) 行不会自动清退（与日志删除后的
+    /// 残留同性质，存储层无"消失桶"清理语义）。
+    /// </summary>
+    internal static List<UsageRecord> ApplyClaudeAgentDedup(List<UsageRecord> records)
+    {
+        // 计账集合：(Claude 会话 id, 该记录被计入的 UTC 日)。Claude 适配器产出的记录即"本轮真的计了账"。
+        // 元组默认相等即元素逐项 ordinal 比较，无需显式比较器。
+        var countedSessions = new HashSet<(string SessionId, string Day)>();
+        foreach (var record in records)
+        {
+            if (!string.Equals(record.Agent, ClaudeCodeJsonlLineParser.AgentName, StringComparison.Ordinal)
+                || record.IsSidechain
+                || record.SessionId.Length == 0)
+            {
+                continue;
+            }
+
+            countedSessions.Add((record.SessionId, FormatUtcDay(record.Timestamp)));
+        }
+
+        if (countedSessions.Count == 0)
+        {
+            return records;
+        }
+
+        var kept = new List<UsageRecord>(records.Count);
+        foreach (var record in records)
+        {
+            if (string.Equals(record.Agent, OpenCodeMessageParser.AgentName, StringComparison.Ordinal)
+                && record.NativeSessionId is { } nativeSessionId
+                && countedSessions.Contains((nativeSessionId, FormatUtcDay(record.Timestamp))))
+            {
+                continue;
+            }
+
+            kept.Add(record);
+        }
+
+        return kept;
+    }
+
+    /// <summary>统一记录的 UTC 日键（facts 分桶同款 "yyyy-MM-dd"，不变式见对账文档：全部按 UTC）。</summary>
+    private static string FormatUtcDay(DateTimeOffset timestamp)
+        => timestamp.UtcDateTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
     /// 管道扫描清单（S-002 数据源表的"已识别数据源"即此清单，经 <see cref="IngestionScanRegistry"/>
     /// 注册，UI 不手写）：(源名, 扫描委托) 对，顺序即 <see cref="GetDailyUsageAsync"/> 的扫描与
     /// 记录拼接顺序。源名 = 各适配器解析器声明的 <c>AgentName</c>（= facts agent 维度出账名）；
@@ -365,7 +419,15 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             // 归属仲裁（不双算）：Cindy 的会话文件由 Cindy 独占，其它源读到同一物理文件时整份丢弃。
             // 典型场景 = 用户把 PI_AGENT_DIR 指到 <Cindy>/pi-agent-home/sessions（pi 适配器与 Cindy 适配器
             // 会各出一通账）；按 SourceFile 归一判等，不靠路径前缀猜归属。
-            var records = ApplyFileOwnership(scanResults);
+            var ownershipArbitrated = ApplyFileOwnership(scanResults);
+            // 跨源去重（不双算）：OpenCode claude-agent 行的原生会话当天已被 Claude 计账时整行丢弃
+            // （ccusage #2007 同语义），否则同一 turn 双计。
+            var records = ApplyClaudeAgentDedup(ownershipArbitrated);
+            if (records.Count != ownershipArbitrated.Count)
+            {
+                _fileLog?.WriteLine(
+                    $"cross-source dedup: dropped {ownershipArbitrated.Count - records.Count} OpenCode claude-agent rows already counted by Claude (session × UTC day)");
+            }
             if (records.Count == 0)
             {
                 // 无记录（日志目录不存在 / 全空）时不动存储：保留既有数据（含旧 CLI 行），

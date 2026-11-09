@@ -93,6 +93,13 @@ public static class OpenCodeMessageParser
         var createdFromPayload = GetTimeCreated(root);
         var effectiveCreated = createdFromPayload ?? created;
 
+        // 原生会话链接只对 claude-agent 行读取（蓝本 parser.rs native_session_id 同口径，
+        // ccusage 20.0.48 #2007）：OpenCode 的 claude-agent provider 内跑 Claude Code，
+        // 链接指向真正记了同一批 turn 的 Claude 转录会话。
+        var nativeSessionId = string.Equals(providerId, "claude-agent", StringComparison.Ordinal)
+            ? FindNativeSessionId(root)
+            : null;
+
         return MapCore(
             tokens: LenientJson.GetObject(root, "tokens"),
             modelId: modelId,
@@ -100,7 +107,8 @@ public static class OpenCodeMessageParser
             messageId: columnId,
             sessionId: columnSessionId,
             storedCost: LenientJson.GetF64(root, "cost"),
-            created: effectiveCreated);
+            created: effectiveCreated,
+            nativeSessionId: nativeSessionId);
     }
 
     private static (UsageRecord? Record, OpenCodeRowRejection Rejection) MapMessage(
@@ -113,7 +121,8 @@ public static class OpenCodeMessageParser
             messageId: columnId ?? LenientJson.GetNonEmptyString(payload, "id"),
             sessionId: columnSessionId ?? LenientJson.GetNonEmptyString(payload, "sessionID"),
             storedCost: LenientJson.GetF64(payload, "cost"),
-            created: GetTimeCreated(payload) ?? 0);
+            created: GetTimeCreated(payload) ?? 0,
+            nativeSessionId: null);
     }
 
     /// <summary>载荷 time.created（lenient_i64）；缺失或非整数返回 null（蓝本 open_code_timestamp 的 None 分支）。</summary>
@@ -124,9 +133,44 @@ public static class OpenCodeMessageParser
             : null;
     }
 
+    /// <summary>
+    /// 读取 content[].native.sessionID（蓝本 native_session_id 的 lenient 语义）：只认对象 part 里的
+    /// native.sessionID 字符串；part / native / sessionID 形态不符读作缺失（一个畸形 part 不能把整行
+    /// 去链接），跨 part 取首个去空白后非空的值。content 非数组 / 缺失返回 null。
+    /// </summary>
+    private static string? FindNativeSessionId(JsonElement payload)
+    {
+        if (!payload.TryGetProperty("content", out var content)
+            || content.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        foreach (var part in content.EnumerateArray())
+        {
+            if (part.ValueKind != JsonValueKind.Object
+                || !part.TryGetProperty("native", out var native)
+                || native.ValueKind != JsonValueKind.Object
+                || !native.TryGetProperty("sessionID", out var sessionId)
+                || sessionId.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var trimmed = sessionId.GetString()?.Trim();
+            if (!string.IsNullOrEmpty(trimmed))
+            {
+                return trimmed;
+            }
+        }
+
+        return null;
+    }
+
     private static (UsageRecord? Record, OpenCodeRowRejection Rejection) MapCore(
         JsonElement? tokens, string? modelId, string? providerId,
-        string? messageId, string? sessionId, double? storedCost, long created)
+        string? messageId, string? sessionId, double? storedCost, long created,
+        string? nativeSessionId)
     {
         if (tokens is not { } tokensElement)
         {
@@ -183,6 +227,7 @@ public static class OpenCodeMessageParser
             Agent = AgentName,
             ProjectPath = ProjectPath,
             SessionId = string.IsNullOrEmpty(sessionId) ? FallbackSessionId : sessionId,
+            NativeSessionId = nativeSessionId,
             Model = modelId,
             Pricing = new UsagePricingPlan(BuildModelCandidates(modelId, providerId!)),
             // 消息自带正 cost 直接采用（蓝本 cost_usd.filter(> 0)），否则交定价引擎（null）。
