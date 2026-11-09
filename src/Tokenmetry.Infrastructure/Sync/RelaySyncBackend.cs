@@ -81,6 +81,26 @@ public sealed class RelaySyncBackend : ISyncBackend
         await EnsureSuccessAsync(response);
     }
 
+    public async Task<LeaderboardPreferenceResponse> GetLeaderboardPreferenceAsync(CancellationToken ct = default)
+    {
+        using var response = await _http.GetAsync($"{_baseUrl}/api/me/leaderboard", ct);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync(SyncJsonContext.Default.LeaderboardPreferenceResponse, ct)
+            ?? throw new InvalidOperationException("Relay returned an empty leaderboard preference.");
+    }
+
+    public async Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Put, $"{_baseUrl}/api/me/leaderboard")
+        {
+            Content = JsonContent.Create(request, SyncJsonContext.Default.LeaderboardPreferenceRequest),
+        };
+        using var response = await _http.SendAsync(message, ct);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync(SyncJsonContext.Default.LeaderboardPreferenceResponse, ct)
+            ?? throw new InvalidOperationException("Relay returned an empty leaderboard preference.");
+    }
+
     /// <summary>官方模式登录（中继专属）：GitHub OAuth code 换账号 token。匿名端点。</summary>
     public async Task<SyncTokenResponse> ExchangeGitHubCodeAsync(string code, CancellationToken ct = default)
     {

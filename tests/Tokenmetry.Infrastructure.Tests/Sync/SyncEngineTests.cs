@@ -85,6 +85,12 @@ public sealed class SyncEngineTests : IAsyncLifetime
         public Task RemoveDeviceAsync(string deviceId, CancellationToken ct = default) => Task.CompletedTask;
 
         public Task DeleteAccountAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task<LeaderboardPreferenceResponse> GetLeaderboardPreferenceAsync(CancellationToken ct = default) =>
+            Task.FromResult(new LeaderboardPreferenceResponse(false, null));
+
+        public Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default) =>
+            Task.FromResult(new LeaderboardPreferenceResponse(request.OptIn, request.DisplayName));
     }
 
     private static SyncDeviceInfo Device(string id, string name = "Device") =>

@@ -23,4 +23,10 @@ public interface ISyncBackend
 
     /// <summary>删除账号（服务端全清，A11；后续请求 401 即本地回未登录态）。</summary>
     Task DeleteAccountAsync(CancellationToken ct = default);
+
+    /// <summary>读本账号排行榜偏好（displayName = 生效名：自定义 ?? 默认，leaderboard 设计 §4.3）。</summary>
+    Task<LeaderboardPreferenceResponse> GetLeaderboardPreferenceAsync(CancellationToken ct = default);
+
+    /// <summary>提交排行榜偏好（opt-in/off 即时生效；返回服务端回显的生效名供 UI 回填）。</summary>
+    Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default);
 }
