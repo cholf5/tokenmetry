@@ -139,6 +139,12 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ThisDevice)] = "本机",
         [nameof(SyncRemoveConfirmMessage)] = "移除后该设备的用量行将从账号删除，其他设备会在下一次同步时清退其本地副本。",
         [nameof(SyncDisabledHint)] = "默认不上传、不登录。启用后各设备的聚合用量在所选中继上汇合，任何一台机器都能看到账号下全部设备的并集（只同步聚合事实，不含提示词与代码）。",
+        [nameof(LeaderboardSection)] = "排行榜",
+        [nameof(LeaderboardOptIn)] = "在榜单中展示我的账号",
+        [nameof(LeaderboardOptInHint)] = "仅上报账号级 token 与成本聚合；关闭即从榜单移除并删除服务端聚合记录。",
+        [nameof(LeaderboardDisplayName)] = "展示名",
+        [nameof(LeaderboardSave)] = "保存",
+        [nameof(LeaderboardViewOnWeb)] = "在网页查看",
         [nameof(AllModels)] = "全部模型",
         [nameof(AllProjects)] = "全部项目",
 
@@ -733,6 +739,12 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ThisDevice)] = "This device",
         [nameof(SyncRemoveConfirmMessage)] = "Removing a device deletes its usage rows from the account; other devices purge its local copy on their next sync.",
         [nameof(SyncDisabledHint)] = "Nothing is uploaded and no sign-in happens by default. Once enabled, aggregated usage from your devices converges on the relay you choose, and every machine sees the union of the whole account (aggregated facts only — never prompts or code).",
+        [nameof(LeaderboardSection)] = "Leaderboard",
+        [nameof(LeaderboardOptIn)] = "Show my account on the leaderboard",
+        [nameof(LeaderboardOptInHint)] = "Only account-level token and cost aggregates are shared; turning off removes you and deletes the server-side aggregates.",
+        [nameof(LeaderboardDisplayName)] = "Display name",
+        [nameof(LeaderboardSave)] = "Save",
+        [nameof(LeaderboardViewOnWeb)] = "View on the web",
         [nameof(AllModels)] = "All models",
         [nameof(AllProjects)] = "All projects",
 
@@ -1469,6 +1481,12 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SyncStatusSyncing => Get();
     public string SyncStatusError => Get();
     public string SyncDisabledHint => Get();
+    public string LeaderboardSection => Get();
+    public string LeaderboardOptIn => Get();
+    public string LeaderboardOptInHint => Get();
+    public string LeaderboardDisplayName => Get();
+    public string LeaderboardSave => Get();
+    public string LeaderboardViewOnWeb => Get();
     public string ThisDevice => Get();
     public string AllModels => Get();
     public string AllProjects => Get();
