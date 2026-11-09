@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -86,6 +87,9 @@ public static class AppServices
         services.AddSingleton<FilterStatePersistence>();
         // D-020 用户自定义相对时间预设：单点装载/增删/落盘，依赖上面三个单例
         services.AddSingleton<TimeRangePresetService>();
+        // 跨设备同步（relay 设计 §4.6）：开关即时生效、定时轮询 + 失败指数退避；
+        // 未开启时后端不建、定时器不启（G3 零出站）。筛选面接线（强制本机/设备清单）见 FilterStateService。
+        services.AddSingleton<SyncStateService>();
 
         // Core services
         services.AddSingleton<DateRangeService>();
@@ -259,6 +263,40 @@ public static class AppServices
         // 时间范围持久化接线：先于外壳 VM 解析应用上次的档位/自定义起止（各页 VM 构造时读到的
         // 已是恢复后的筛选），此后顶部栏变更即存。设置必须已加载（上方 LoadAsync）。
         _provider.GetRequiredService<FilterStatePersistence>().Apply();
+
+        // 同步状态 → 筛选面接线（relay 设计 A12/U5）：SyncStateService.Changed（启动装载/每轮收尾/
+        // 开关与设备清单变化）时，把开关与本机 id 投影进全局筛选，并按设备清单（全部 + 本机 + 远端）
+        // 重建设备下拉。关闭同步时只投影状态（设备下拉由 IsSyncEnabled 控制不渲染）。
+        // headless 测试宿主不走 App 启动序列 → 不接线（同 BackgroundRefreshWiring 的语义），
+        // 其筛选测试直接对 FilterStateService 赋值驱动。
+        var syncStateService = _provider.GetRequiredService<SyncStateService>();
+        var filterState = _provider.GetRequiredService<FilterStateService>();
+        syncStateService.Changed += () => _ = WireSyncStateToFiltersAsync(syncStateService, filterState, store);
+    }
+
+    /// <summary>把同步状态与设备清单注入全局筛选（Changed 回调；store 读可离线程，写入侧自行 marshal UI）。</summary>
+    private static async Task WireSyncStateToFiltersAsync(SyncStateService syncState, FilterStateService filters, IUsageStore store)
+    {
+        try
+        {
+            filters.IsSyncEnabled = syncState.IsEnabled;
+            filters.LocalDeviceId = syncState.LocalDeviceId;
+            if (!syncState.IsEnabled)
+            {
+                filters.UpdateDeviceOptions([DeviceFilterOption.All]);
+                return;
+            }
+
+            var localName = await store.GetLocalDeviceNameAsync();
+            var remotes = await store.GetRemoteDevicesAsync();
+            var options = new List<DeviceFilterOption> { DeviceFilterOption.All, new(syncState.LocalDeviceId, localName) };
+            options.AddRange(remotes.Select(device => new DeviceFilterOption(device.DeviceId, device.Name)));
+            filters.UpdateDeviceOptions(options);
+        }
+        catch
+        {
+            // 接线失败不冒泡进 Changed 触发方（采集/同步管线）；下一轮 Changed 重试。
+        }
     }
 
     public static T Get<T>() where T : notnull

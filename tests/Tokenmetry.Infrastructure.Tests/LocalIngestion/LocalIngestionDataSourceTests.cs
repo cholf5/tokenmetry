@@ -604,6 +604,19 @@ public class LocalIngestionDataSourceTests : IDisposable
         /// <summary>模拟库被外部清空（I-042 自愈测试用）。</summary>
         public void ClearFacts() => _facts.Clear();
 
+        public Task<string> GetLocalDeviceIdAsync(CancellationToken ct = default) => Task.FromResult(string.Empty);
+
+        public Task<string> GetLocalDeviceNameAsync(CancellationToken ct = default) => Task.FromResult(string.Empty);
+        public Task SetLocalDeviceNameAsync(string name, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpsertRemoteUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpsertRemoteSessionFactsAsync(IReadOnlyList<SessionFact> facts, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<UsageFact>> GetLocalUsageFactsSinceAsync(DateTimeOffset since, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<UsageFact>>(Array.Empty<UsageFact>());
+        public Task<IReadOnlyList<SessionFact>> GetLocalSessionFactsSinceAsync(DateTimeOffset since, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<SessionFact>>(Array.Empty<SessionFact>());
+        public Task<(DateTimeOffset? LastPushedAt, long LastPullSeq)> GetSyncCursorAsync(CancellationToken ct = default) => Task.FromResult<(DateTimeOffset?, long)>((null, 0L));
+        public Task SetSyncCursorAsync(DateTimeOffset? lastPushedAt, long? lastPullSeq, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Tokenmetry.Core.Sync.SyncDeviceInfo>> GetRemoteDevicesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Tokenmetry.Core.Sync.SyncDeviceInfo>>(Array.Empty<Tokenmetry.Core.Sync.SyncDeviceInfo>());
+        public Task UpsertRemoteDevicesAsync(IReadOnlyList<Tokenmetry.Core.Sync.SyncDeviceInfo> devices, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteRemoteDeviceDataAsync(string deviceId, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default)
         {
             foreach (var fact in facts)
