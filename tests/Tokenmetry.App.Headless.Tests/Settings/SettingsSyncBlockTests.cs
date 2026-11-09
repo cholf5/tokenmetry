@@ -63,6 +63,12 @@ public sealed class SettingsSyncBlockTests
         }
 
         public Task DeleteAccountAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task<LeaderboardPreferenceResponse> GetLeaderboardPreferenceAsync(CancellationToken ct = default) =>
+            Task.FromResult(new LeaderboardPreferenceResponse(false, null));
+
+        public Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default) =>
+            Task.FromResult(new LeaderboardPreferenceResponse(request.OptIn, request.DisplayName));
     }
 
     private sealed class SyncFixture : IDisposable

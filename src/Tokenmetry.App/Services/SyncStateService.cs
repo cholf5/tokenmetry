@@ -167,6 +167,18 @@ public sealed class SyncStateService : IDisposable
         Changed?.Invoke();
     }
 
+    /// <summary>读本账号排行榜偏好（透传后端；displayName = 生效名：自定义 ?? 默认）。同步未连接时抛 InvalidOperationException。</summary>
+    public Task<LeaderboardPreferenceResponse> GetLeaderboardPreferenceAsync(CancellationToken ct = default) =>
+        RequireBackend().GetLeaderboardPreferenceAsync(ct);
+
+    /// <summary>提交排行榜偏好（透传后端；返回服务端回显的生效名供 UI 回填）。同步未连接时抛 InvalidOperationException。</summary>
+    public async Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default) =>
+        await RequireBackend().SetLeaderboardPreferenceAsync(request, ct);
+
+    /// <summary>排行榜偏好唯一事实源在中继（不落本地 settings.json）——无后端即无意义，直接失败。</summary>
+    private ISyncBackend RequireBackend() =>
+        _backend ?? throw new InvalidOperationException("Sync is not enabled.");
+
     /// <summary>立即同步（设置页按钮；未开启时无操作）。</summary>
     public async Task RunNowAsync(CancellationToken ct = default)
     {

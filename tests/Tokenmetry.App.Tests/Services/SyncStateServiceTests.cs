@@ -82,6 +82,17 @@ public sealed class SyncStateServiceTests : IAsyncLifetime
         public Task RemoveDeviceAsync(string deviceId, CancellationToken ct = default) => Task.CompletedTask;
 
         public Task DeleteAccountAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+        public LeaderboardPreferenceRequest? LeaderboardSaved { get; private set; }
+
+        public Task<LeaderboardPreferenceResponse> GetLeaderboardPreferenceAsync(CancellationToken ct = default) =>
+            Task.FromResult(new LeaderboardPreferenceResponse(true, "relay-alice"));
+
+        public Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default)
+        {
+            LeaderboardSaved = request;
+            return Task.FromResult(new LeaderboardPreferenceResponse(request.OptIn, request.DisplayName));
+        }
     }
 
     /// <summary>捕获保存调用的 settings 存储桩。</summary>
@@ -197,5 +208,39 @@ public sealed class SyncStateServiceTests : IAsyncLifetime
 
         (await _store.GetLocalDeviceNameAsync()).Should().Be("我的笔记本");
         backend.Renamed.Should().Be((service.LocalDeviceId, "我的笔记本"));
+    }
+
+    [Fact]
+    public async Task LeaderboardPreference_PassthroughReachesBackend()
+    {
+        var settings = new AppSettings();
+        var settingsStore = new FakeSettingsStore();
+        var backend = new FakeBackend();
+        var service = CreateService(_store, settings, settingsStore, backend);
+        await service.InitializeAsync();
+        await service.EnableAsync("http://relay.example:8080", "tok");
+
+        (await service.GetLeaderboardPreferenceAsync())
+            .Should().Be(new LeaderboardPreferenceResponse(true, "relay-alice"));
+
+        await service.SetLeaderboardPreferenceAsync(new LeaderboardPreferenceRequest(true, "alice"));
+
+        backend.LeaderboardSaved.Should().Be(new LeaderboardPreferenceRequest(true, "alice"));
+    }
+
+    [Fact]
+    public async Task LeaderboardPreference_WhenSyncDisabled_Throws()
+    {
+        var settings = new AppSettings();
+        var settingsStore = new FakeSettingsStore();
+        var backend = new FakeBackend();
+        var service = CreateService(_store, settings, settingsStore, backend);
+        await service.InitializeAsync(); // 未 Enable：_backend 为 null
+
+        var get = async () => await service.GetLeaderboardPreferenceAsync();
+        await get.Should().ThrowAsync<InvalidOperationException>();
+        var set = async () => await service.SetLeaderboardPreferenceAsync(new LeaderboardPreferenceRequest(false, null));
+        await set.Should().ThrowAsync<InvalidOperationException>();
+        backend.LeaderboardSaved.Should().BeNull("未启用时不得出站");
     }
 }
