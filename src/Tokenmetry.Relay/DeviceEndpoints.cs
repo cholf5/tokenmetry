@@ -6,8 +6,8 @@ namespace Tokenmetry.Relay;
 
 /// <summary>
 /// 设备与账号管理端点（relay 计划 Task 7 / 设计 A11、A16）：
-/// 注册（POST，含改名覆盖）、列表（GET）、改名（PATCH）、解绑（DELETE，级联清该设备全部行）、
-/// 删号（DELETE /api/me，级联清账号全部行/设备/账号行——隐私立场的服务端兑现）。
+/// 注册（POST，含改名覆盖）、列表（GET）、改名（PATCH）、解绑（DELETE，级联清该设备全部行 + opt-in 全量重建 rollup）、
+/// 删号（DELETE /api/me，级联清账号全部行/设备/账号行/榜单行——隐私立场的服务端兑现）。
 /// </summary>
 internal static class DeviceEndpoints
 {
@@ -98,11 +98,18 @@ internal static class DeviceEndpoints
                 await cmd.ExecuteNonQueryAsync(context.RequestAborted);
             }
 
+            // 排行榜触发点（leaderboard 设计 §4.2）：该设备 usage 行已删，opt-in 则全量重建 rollup——
+            // 只由已消失设备构成的历史 day 不重算就虚高。
+            if (await LeaderboardStore.IsOptedInAsync(connection, transaction, account.Id, context.RequestAborted))
+            {
+                await LeaderboardStore.RebuildAllDaysAsync(connection, transaction, account.Id, context.RequestAborted);
+            }
+
             await transaction.CommitAsync(context.RequestAborted);
             return Results.NoContent();
         });
 
-        // 删号（A11）：账号全部行/设备/账号行级联清；旧 token 随账号行消失 → 401。
+        // 删号（A11）：账号全部行/设备/账号行级联清（含排行榜 settings + rollup，设计 §4.2）；旧 token 随账号行消失 → 401。
         app.MapDelete("/api/me", async (HttpContext context, RelayDatabase database) =>
         {
             var account = (RelayAccount)context.Items[RelayAuth.AccountItemKey]!;
@@ -112,6 +119,8 @@ internal static class DeviceEndpoints
                      {
                          "DELETE FROM usage_rows WHERE account_id = $accountId",
                          "DELETE FROM session_rows WHERE account_id = $accountId",
+                         "DELETE FROM leaderboard_settings WHERE account_id = $accountId",
+                         "DELETE FROM leaderboard_rollup WHERE account_id = $accountId",
                          "DELETE FROM devices WHERE account_id = $accountId",
                          "DELETE FROM account_tokens WHERE account_id = $accountId",
                          "DELETE FROM accounts WHERE id = $accountId",
