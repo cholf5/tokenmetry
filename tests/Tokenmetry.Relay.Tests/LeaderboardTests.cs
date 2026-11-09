@@ -615,8 +615,14 @@ public sealed class LeaderboardHttpTests
         var body = await board.Content.ReadFromJsonAsync(SyncJsonContext.Default.LeaderboardResponse);
         body!.Participants.Should().Be(0, "空库空榜");
 
-        using var preference = await anonymous.GetAsync("/api/me/leaderboard");
+        // 401 响应必须不带 CORS 头（设计 §6「CORS 头只在公开端点」测试项）：即使请求带 Origin，
+        // 未挂 RequireCors 元数据的端点直通、不加任何头——豁免只限公开段前缀。
+        using var preferenceRequest = new HttpRequestMessage(HttpMethod.Get, "/api/me/leaderboard");
+        preferenceRequest.Headers.Add("Origin", "https://tokenmetry.example");
+        using var preference = await anonymous.SendAsync(preferenceRequest);
         preference.StatusCode.Should().Be(HttpStatusCode.Unauthorized, "豁免只限公开段前缀，偏好端点仍走 Bearer");
+        preference.Headers.Contains("Access-Control-Allow-Origin").Should().BeFalse(
+            "CORS 头只在公开端点：401 的偏好端点即使带 Origin 也不得回 Access-Control-Allow-Origin");
     }
 
     [Fact]
@@ -678,6 +684,18 @@ public sealed class LeaderboardHttpTests
             .StatusCode.Should().Be(HttpStatusCode.BadRequest, "月份格式非法");
         (await anonymous.GetAsync("/api/leaderboard?limit=nope"))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest, "limit 非整数");
+    }
+
+    [Fact]
+    public async Task Board_MaxMonth_Overflow_400()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var anonymous = factory.CreateClient();
+
+        // 9999-12 格式合法但月窗口端点（monthStart.AddMonths(1)）越出 DateOnly 可表示范围——
+        // 必须在校验边界 400，而不是查询里 ArgumentOutOfRangeException 变 500（匿名公开端点）。
+        (await anonymous.GetAsync("/api/leaderboard?month=9999-12"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest, "窗口端点不可表示的月份在校验边界拒收为 400（不许 500）");
     }
 
     [Fact]

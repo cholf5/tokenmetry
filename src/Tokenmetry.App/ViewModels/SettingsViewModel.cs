@@ -1123,14 +1123,17 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
-    /// <summary>服务端偏好 → 本地投影（守卫抑制开关副作用；displayName = 生效名，null → 空输入）。</summary>
+    /// <summary>服务端偏好 → 本地投影（守卫抑制开关副作用）。opt-in 时生效名回写输入框；opt-out 时
+    /// 清空输入：服务端对 opt-out 的响应一律携带生效名回落（settings 自定义名已删 → 账号默认名，
+    /// 永非 null），那是「不参与榜单时对外显示什么」的服务端口径，不是要回填输入框的值——
+    /// 清展示是客户端语义（设计 §4.4「拨关 = 立即退出榜单并清展示」；测试 fake 已镜像服务端回落）。</summary>
     private void ApplyLeaderboardPreference(LeaderboardPreferenceResponse response)
     {
         _suppressLeaderboardToggle = true;
         try
         {
             LeaderboardOptIn = response.OptIn;
-            LeaderboardDisplayNameInput = response.DisplayName ?? string.Empty;
+            LeaderboardDisplayNameInput = response.OptIn ? response.DisplayName ?? string.Empty : string.Empty;
         }
         finally
         {
