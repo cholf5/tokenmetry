@@ -35,9 +35,17 @@ internal static class LeaderboardEndpoints
             var month = request.Query["month"].FirstOrDefault() is { Length: > 0 } rawMonth
                 ? rawMonth
                 : DateTime.UtcNow.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-            if (!DateTime.TryParseExact(month, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+            if (!DateTime.TryParseExact(month, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedMonth))
             {
                 return Results.BadRequest(new { error = "month must be a valid YYYY-MM." });
+            }
+
+            // QueryBoardAsync 的月窗口端点 = monthStart.AddMonths(1)：parsedMonth 为 DateOnly 可表示的
+            // 最后一个月（9999-12）时下一个月越界，会在查询内抛 ArgumentOutOfRangeException 变 500——
+            // 在校验边界拒收，守住匿名公开端点的 400 契约（设计 §4.3）。
+            if (parsedMonth.Year == DateOnly.MaxValue.Year && parsedMonth.Month == DateOnly.MaxValue.Month)
+            {
+                return Results.BadRequest(new { error = "month must be within the representable range." });
             }
 
             var limit = DefaultLimit;

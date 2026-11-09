@@ -37,9 +37,16 @@ public sealed class LeaderboardSettingsTests
         }
     }
 
-    /// <summary>同步出站 fake：仅记录排行榜偏好往返（协议语义 Task 4 已覆盖）。</summary>
+    /// <summary>同步出站 fake：仅记录排行榜偏好往返（协议语义 Task 4 已覆盖）。PUT 响应镜像真实
+    /// 服务端语义（Relay LeaderboardEndpoints）：响应携带生效名回落、永非 null——opt-in =
+    /// 修整后的自定义名 ?? 账号默认名；opt-out = 关闭即删（不留自定义名）→ 账号默认名。
+    /// 账号默认名取 "self-hosted"，与中继 shared 账号的 accounts.display_name 默认同值。
+    /// 诚实性关键：opt-out 回落名 ≠ null，客户端若把响应名无条件回填输入框（违背设计 §4.4
+    /// 「拨关清展示」），ToggleOff 用例即红。</summary>
     private sealed class FakeSyncBackend : ISyncBackend
     {
+        public const string AccountDefaultDisplayName = "self-hosted";
+
         public LeaderboardPreferenceResponse Preference { get; set; } = new(false, null);
 
         public List<LeaderboardPreferenceRequest> PreferenceRequests { get; } = new();
@@ -68,7 +75,12 @@ public sealed class LeaderboardSettingsTests
         public Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default)
         {
             PreferenceRequests.Add(request);
-            Preference = new LeaderboardPreferenceResponse(request.OptIn, request.DisplayName);
+            // 镜像服务端 PUT（LeaderboardEndpoints）：生效名 = opt-in 自定义名（trim） ?? 账号默认名；
+            // opt-out 关闭即删 → 只有账号默认名回落。响应 DisplayName 永非 null，同真服务端。
+            var custom = request.OptIn && !string.IsNullOrWhiteSpace(request.DisplayName)
+                ? request.DisplayName!.Trim()
+                : null;
+            Preference = new LeaderboardPreferenceResponse(request.OptIn, custom ?? AccountDefaultDisplayName);
             return Task.FromResult(Preference);
         }
     }
@@ -201,7 +213,8 @@ public sealed class LeaderboardSettingsTests
         Assert.False(request.OptIn);
         Assert.Null(request.DisplayName);
 
-        // 清展示：响应回填（optIn=false → 名字空）+ 防抖结束
+        // 清展示（设计 §4.4）：fake 响应已镜像服务端回落（optIn=false → 生效名 = 账号默认名
+        // "self-hosted"，永非 null）——客户端语义是清空输入框而非回填回落名；防抖结束。
         Assert.Equal(string.Empty, fixture.ViewModel.LeaderboardDisplayNameInput);
         Assert.False(fixture.ViewModel.LeaderboardOptIn);
         Assert.False(fixture.ViewModel.LeaderboardBusy);
