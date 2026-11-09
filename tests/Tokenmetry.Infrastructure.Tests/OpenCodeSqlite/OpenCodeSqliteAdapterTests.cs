@@ -246,6 +246,94 @@ public class OpenCodeSqliteAdapterTests : IDisposable
             .Should().Be(new DateTimeOffset(2026, 1, 2, 0, 0, 0, TimeSpan.Zero));
     }
 
+    // ---- claude-agent 行的原生会话链接（蓝本 v2_native_session 系列，ccusage 20.0.48 #2007）----
+
+    /// <summary>providerID=claude-agent 的行携带其 Claude Code 会话（content[].native.sessionID）——
+    /// 统一入账跨源去重的对账键；行本身照常映射（蓝本 keeps row paired with native session）。</summary>
+    [Fact]
+    public async Task Carries_the_native_claude_session_on_claude_agent_rows()
+    {
+        var directory = CreateTempDir();
+        var db = Path.Combine(directory, "opencode.db");
+        CreateSessionMessageTable(db, withTimeCreated: true);
+        InsertSessionMessage(db, "v2-agent", "oc-session", "assistant", NoonUtc20260101, """
+            {"model":{"id":"opus","providerID":"claude-agent"},"time":{"created":1767312000000},"tokens":{"input":100},"content":[{"type":"reasoning","text":"…"},{"type":"text","native":{"sessionID":"claude-session-1","messageID":"m"}}]}
+            """, seq: 1);
+
+        var result = await CreateAdapter(directory).ScanAsync();
+
+        var record = result.Records.Should().ContainSingle().Subject;
+        record.NativeSessionId.Should().Be("claude-session-1");
+        record.Model.Should().Be("opus");
+        record.InputTokens.Should().Be(100);
+    }
+
+    /// <summary>蓝本 ignores_native_links_from_other_providers：非 claude-agent 行不读链接。</summary>
+    [Fact]
+    public async Task Ignores_native_links_from_other_providers()
+    {
+        var directory = CreateTempDir();
+        var db = Path.Combine(directory, "opencode.db");
+        CreateSessionMessageTable(db, withTimeCreated: true);
+        InsertSessionMessage(db, "v2-openai", "session-e", "assistant", NoonUtc20260101, """
+            {"model":{"id":"gpt-test","providerID":"openai"},"tokens":{"input":100},"content":[{"native":{"sessionID":"other-session"}}]}
+            """, seq: 1);
+
+        var result = await CreateAdapter(directory).ScanAsync();
+
+        result.Records.Should().ContainSingle().Subject.NativeSessionId.Should().BeNull();
+    }
+
+    /// <summary>蓝本 leaves_claude_agent_rows_without_a_native_link_unlinked：空 sessionID / 非对象 part
+    /// 都读作缺失，行保留且不带链接。</summary>
+    [Fact]
+    public async Task Leaves_claude_agent_rows_without_a_usable_native_link_unlinked()
+    {
+        var directory = CreateTempDir();
+        var db = Path.Combine(directory, "opencode.db");
+        CreateSessionMessageTable(db, withTimeCreated: true);
+        InsertSessionMessage(db, "v2-blank", "session-f", "assistant", NoonUtc20260101, """
+            {"model":{"id":"opus","providerID":"claude-agent"},"tokens":{"input":100},"content":[{"type":"text","native":{"sessionID":""}},"not a part"]}
+            """, seq: 1);
+
+        var result = await CreateAdapter(directory).ScanAsync();
+
+        result.Records.Should().ContainSingle().Subject.NativeSessionId.Should().BeNull();
+    }
+
+    /// <summary>蓝本 keeps_the_native_link_when_other_parts_are_malformed：畸形 part / 重复字段读作缺失，
+    /// 不能把整行去链接；第一个非空 sessionID 生效。</summary>
+    [Fact]
+    public async Task Keeps_the_native_link_when_other_parts_are_malformed()
+    {
+        var directory = CreateTempDir();
+        var db = Path.Combine(directory, "opencode.db");
+        CreateSessionMessageTable(db, withTimeCreated: true);
+        InsertSessionMessage(db, "v2-junk", "session-g", "assistant", NoonUtc20260101, """
+            {"model":{"id":"opus","providerID":"claude-agent"},"tokens":{"input":100},"content":[{"native":5},{"native":{"sessionID":7}},[1,{"a":2}],null,{"native":{"sessionID":"s"}}]}
+            """, seq: 1);
+
+        var result = await CreateAdapter(directory).ScanAsync();
+
+        result.Records.Should().ContainSingle().Subject.NativeSessionId.Should().Be("s");
+    }
+
+    /// <summary>蓝本 skips_blank_native_session_ids：纯空白 sessionID 视为缺失，向后继续找。</summary>
+    [Fact]
+    public async Task Skips_blank_native_session_ids()
+    {
+        var directory = CreateTempDir();
+        var db = Path.Combine(directory, "opencode.db");
+        CreateSessionMessageTable(db, withTimeCreated: true);
+        InsertSessionMessage(db, "v2-ws", "session-h", "assistant", NoonUtc20260101, """
+            {"model":{"id":"opus","providerID":"claude-agent"},"tokens":{"input":100},"content":[{"native":{"sessionID":"   "}},{"native":{"sessionID":"s"}}]}
+            """, seq: 1);
+
+        var result = await CreateAdapter(directory).ScanAsync();
+
+        result.Records.Should().ContainSingle().Subject.NativeSessionId.Should().Be("s");
+    }
+
     /// <summary>
     /// 独立审查 P2-1：畸形 v1 message 表缺核心列时**静默**跳过 v1（不标 problems），v2 照常扫描——
     /// 蓝本 prepare 失败口径（跳过该表、继续其它表），不因 schema 异常把整库降级。
