@@ -344,6 +344,36 @@
                                     Command="{Binding DisableSyncCommand}"/>
                         </StackPanel>
 
+                        <!-- 排行榜子区（leaderboard 设计 §4.4）：随「已启用」分支显隐——同步未连接即不渲染。
+                             拨开仅解锁名字输入与保存按钮（PUT 在保存）；拨关立即 PUT optIn=false 并清展示
+                             （VM 内投影守卫防回环）。展示名预填 GET 回来的生效名。 -->
+                        <StackPanel Spacing="10">
+                            <TextBlock Classes="panel-title"
+                                       Text="{Binding LeaderboardSection, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                       Text="{Binding LeaderboardOptInHint, Source={x:Static loc:Translations.Instance}}"/>
+                            <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                                <TextBlock Grid.Column="0" Classes="setting-label"
+                                           Text="{Binding LeaderboardOptIn, Source={x:Static loc:Translations.Instance}}"/>
+                                <ToggleSwitch Grid.Column="1" HorizontalAlignment="Left"
+                                              IsChecked="{Binding LeaderboardOptIn}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="132,Auto,*" ColumnSpacing="16">
+                                <TextBlock Grid.Column="0" Classes="setting-label"
+                                           Text="{Binding LeaderboardDisplayName, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBox Grid.Column="1" Width="220" Text="{Binding LeaderboardDisplayNameInput}"
+                                         IsEnabled="{Binding LeaderboardOptIn}"/>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <Button Classes="app-btn"
+                                            Content="{Binding LeaderboardSave, Source={x:Static loc:Translations.Instance}}"
+                                            Command="{Binding SaveLeaderboardCommand}"/>
+                                    <Button Classes="link-btn"
+                                            Content="{Binding LeaderboardViewOnWeb, Source={x:Static loc:Translations.Instance}}"
+                                            Command="{Binding OpenLeaderboardCommand}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+
                         <Grid ColumnDefinitions="132,Auto,*" ColumnSpacing="16">
                             <TextBlock Grid.Column="0" Classes="setting-label"
                                        Text="{Binding SyncDeviceName, Source={x:Static loc:Translations.Instance}}"/>

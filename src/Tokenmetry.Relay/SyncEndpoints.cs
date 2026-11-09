@@ -90,6 +90,20 @@ internal static class SyncEndpoints
         }
 
         await TouchDeviceAsync(connection, transaction, account.Id, deviceId, ct);
+
+        // 排行榜触发点（leaderboard 设计 §4.2）：batch 含 usage 行且账号 opt-in → 按 batch 涉及的
+        // 去重 day 集合在既有写事务内增量重算 rollup；未 opt-in 直接跳过。session 行不进总量，不触发。
+        if (payload.UsageFacts.Count > 0
+            && await LeaderboardStore.IsOptedInAsync(connection, transaction, account.Id, ct))
+        {
+            await LeaderboardStore.RecomputeDaysAsync(
+                connection,
+                transaction,
+                account.Id,
+                payload.UsageFacts.Select(fact => fact.Day).Distinct().ToList(),
+                ct);
+        }
+
         await transaction.CommitAsync(ct);
         return Results.Ok();
     }

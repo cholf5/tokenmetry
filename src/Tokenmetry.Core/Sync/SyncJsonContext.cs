@@ -15,4 +15,8 @@ namespace Tokenmetry.Core.Sync;
 [JsonSerializable(typeof(UsageFact))]
 [JsonSerializable(typeof(SessionFact))]
 [JsonSerializable(typeof(SyncDeviceInfo))]
+[JsonSerializable(typeof(LeaderboardPreferenceRequest))]
+[JsonSerializable(typeof(LeaderboardPreferenceResponse))]
+[JsonSerializable(typeof(LeaderboardEntry))]
+[JsonSerializable(typeof(LeaderboardResponse))]
 public sealed partial class SyncJsonContext : JsonSerializerContext;

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -15,6 +16,7 @@ using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.Update;
 using Tokenmetry.Core.Abstractions;
+using Tokenmetry.Core.Sync;
 using Tokenmetry.Infrastructure.Sync;
 using Tokenmetry.Core.Models;
 
@@ -842,6 +844,35 @@ public partial class SettingsViewModel : ViewModelBase
             }
 
             DeviceRows = rows;
+
+            // 排行榜子区装载（leaderboard 设计 §4.4）：启用时 GET 偏好回填（异常吞掉置错误文案，
+            // 与区块现状一致）；关闭时清空输入——偏好唯一事实源在中继（不落 settings.json），
+            // 无后端即无意义，子区随「已启用」分支整体隐藏。
+            if (syncState.IsEnabled)
+            {
+                try
+                {
+                    ApplyLeaderboardPreference(await syncState.GetLeaderboardPreferenceAsync());
+                }
+                catch (Exception ex)
+                {
+                    SetSyncError(ex);
+                }
+            }
+            else
+            {
+                _suppressLeaderboardToggle = true;
+                try
+                {
+                    LeaderboardOptIn = false;
+                }
+                finally
+                {
+                    _suppressLeaderboardToggle = false;
+                }
+
+                LeaderboardDisplayNameInput = string.Empty;
+            }
         }
         finally
         {
@@ -994,6 +1025,120 @@ public partial class SettingsViewModel : ViewModelBase
     {
         _pendingRemoveRow = null;
         IsRemoveConfirmVisible = false;
+    }
+
+    // ── 排行榜子区（leaderboard 设计 §4.4 / Task 5：同步区块内的 opt-in 开关 + 展示名 + 网页链接）──
+
+    /// <summary>官网榜单页（「在网页查看」的目标；站点仓库 Task 6 的落地页同一路径）。</summary>
+    internal const string LeaderboardUrl = "https://tokenmetry.app/leaderboard";
+
+    /// <summary>RefreshSyncStateAsync / 保存回填投影时抑制 OnLeaderboardOptInChanged 的开关副作用
+    /// （防误恢复，同 _suppressSyncToggle 的投影守卫）。</summary>
+    private bool _suppressLeaderboardToggle;
+
+    /// <summary>排行榜 opt-in（投影 = 服务端偏好）。拨开仅解锁名字输入与保存按钮（PUT 在保存）；
+    /// 拨关 = 立即 PUT optIn=false 并清展示（服务端「关闭即删」语义的入口）。</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveLeaderboardCommand))]
+    private bool _leaderboardOptIn;
+
+    /// <summary>展示名输入（预填 GET 回来的生效名；保存时 trim，空 = null 用默认名）。</summary>
+    [ObservableProperty]
+    private string _leaderboardDisplayNameInput = string.Empty;
+
+    /// <summary>偏好提交进行中（保存/拨关出站期间的防抖位；消费者 = SaveLeaderboardCommand.CanExecute）。</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveLeaderboardCommand))]
+    private bool _leaderboardBusy;
+
+    partial void OnLeaderboardOptInChanged(bool value)
+    {
+        // 投影回写（RefreshSyncStateAsync / 保存回填）不触发动作；用户拨动才走。
+        if (_suppressLeaderboardToggle || _syncState is null)
+        {
+            return;
+        }
+
+        // 拨开 = 仅解锁名字输入与保存按钮（真正 PUT 在保存）；拨关 = 立即退出榜单。
+        if (!value)
+        {
+            _ = SubmitLeaderboardPreferenceAsync(
+                new LeaderboardPreferenceRequest(OptIn: false, DisplayName: null));
+        }
+    }
+
+    /// <summary>保存排行榜偏好：PUT {OptIn=当前开关, DisplayName=输入 trim 或 null}；成功后用
+    /// 响应生效名回写输入框并把状态行复位到就绪（失败经 SetSyncError 与区块同款）。</summary>
+    [RelayCommand(CanExecute = nameof(CanSaveLeaderboard))]
+    private async Task SaveLeaderboardAsync(CancellationToken ct = default)
+    {
+        await SubmitLeaderboardPreferenceAsync(
+            new LeaderboardPreferenceRequest(
+                LeaderboardOptIn,
+                DisplayName: string.IsNullOrWhiteSpace(LeaderboardDisplayNameInput)
+                    ? null
+                    : LeaderboardDisplayNameInput.Trim()),
+            ct);
+    }
+
+    private bool CanSaveLeaderboard() => LeaderboardOptIn && !LeaderboardBusy && _syncState is not null;
+
+    /// <summary>「在网页查看」：系统浏览器打开官网榜单页（best-effort——链接失败不打断设置页，
+    /// 打最小诊断；Process.Start + UseShellExecute 模式同 GitHubSyncLogin.OpenBrowser）。</summary>
+    [RelayCommand]
+    private void OpenLeaderboard()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(LeaderboardUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 打开排行榜网页失败（{LeaderboardUrl}）：{ex.Message}");
+        }
+    }
+
+    /// <summary>偏好出站共用体：PUT 后按服务端回显投影（生效名回写输入框）并复位状态行。</summary>
+    private async Task SubmitLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default)
+    {
+        var syncState = _syncState;
+        if (syncState is null)
+        {
+            return;
+        }
+
+        LeaderboardBusy = true;
+        try
+        {
+            ApplyLeaderboardPreference(await syncState.SetLeaderboardPreferenceAsync(request, ct));
+            SyncStatusText = Translations.Instance.SyncStatusIdle;
+        }
+        catch (Exception ex)
+        {
+            SetSyncError(ex);
+        }
+        finally
+        {
+            LeaderboardBusy = false;
+        }
+    }
+
+    /// <summary>服务端偏好 → 本地投影（守卫抑制开关副作用）。opt-in 时生效名回写输入框；opt-out 时
+    /// 清空输入：服务端对 opt-out 的响应一律携带生效名回落（settings 自定义名已删 → 账号默认名，
+    /// 永非 null），那是「不参与榜单时对外显示什么」的服务端口径，不是要回填输入框的值——
+    /// 清展示是客户端语义（设计 §4.4「拨关 = 立即退出榜单并清展示」；测试 fake 已镜像服务端回落）。</summary>
+    private void ApplyLeaderboardPreference(LeaderboardPreferenceResponse response)
+    {
+        _suppressLeaderboardToggle = true;
+        try
+        {
+            LeaderboardOptIn = response.OptIn;
+            LeaderboardDisplayNameInput = response.OptIn ? response.DisplayName ?? string.Empty : string.Empty;
+        }
+        finally
+        {
+            _suppressLeaderboardToggle = false;
+        }
     }
 
     private void SetSyncError(Exception ex) =>

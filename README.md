@@ -79,7 +79,7 @@ rate tracking, and a badge when spend looks abnormal:
   <tr><td><strong>Three-tier pricing</strong></td><td>Your overrides → a models.dev refresh in the background (24 h TTL, never blocks the UI) → a price snapshot bundled with the app.</td></tr>
   <tr><td><strong>Tray-resident</strong></td><td>Today's tokens, spend and live rate in the popover; abnormal spend raises a badge.</td></tr>
   <tr><td><strong>CSV export + global filters</strong></td><td>Time range, agent, model and project filters carry across every view.</td></tr>
-  <tr><td><strong>Cross-device sync (opt-in)</strong></td><td>Optional relay sync unions every machine's aggregated usage into one account view — nothing leaves the machine until you enable it, and closing it drops back to local-only (<a href="docs/selfhost.md">self-host in one docker run</a>).</td></tr>
+  <tr><td><strong>Cross-device sync (opt-in)</strong></td><td>Optional relay sync unions every machine's aggregated usage into one account view — nothing leaves the machine until you enable it, and closing it drops back to local-only (<a href="docs/selfhost.md">self-host in one docker run</a>). An additional opt-in lists your account on the monthly community leaderboards — separate token and cost boards — <a href="https://tokenmetry.app/leaderboard">viewable on the web</a>.</td></tr>
   <tr><td><strong>Light & dark, 10 languages</strong></td><td>English, Simplified/Traditional Chinese, Japanese, Korean, Portuguese (BR), Russian, Spanish, German, French — switchable at runtime, follow-system by default.</td></tr>
   <tr><td><strong>An honest empty state</strong></td><td>With no data, the app shows the supported-agent list and a rescan button, not a stack trace.</td></tr>
 </table>
