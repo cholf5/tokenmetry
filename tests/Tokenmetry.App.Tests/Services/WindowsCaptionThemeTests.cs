@@ -16,7 +16,8 @@ public class WindowsCaptionThemeTests
         List<(IntPtr Hwnd, int Attribute, int Value)> calls,
         Func<int, bool>? accepted = null,
         bool isWindows = true,
-        string? headless = null)
+        string? headless = null,
+        List<IntPtr>? frameRecomputes = null)
     {
         accepted ??= _ => true;
         return new WindowsCaptionTheme(
@@ -24,6 +25,11 @@ public class WindowsCaptionThemeTests
             {
                 calls.Add((hwnd, attribute, value));
                 return accepted(attribute);
+            },
+            hwnd =>
+            {
+                frameRecomputes?.Add(hwnd);
+                return true;
             },
             () => isWindows,
             _ => headless);
@@ -54,36 +60,70 @@ public class WindowsCaptionThemeTests
     }
 
     [Fact]
+    public void Successful_write_requests_frame_recompute()
+    {
+        // 根因修复：DWM 把 caption 重组合成推迟到下一次 frame 事件（真机症状：启动白标题，
+        // 拖动半程、最大化才变黑）。属性写入成功后必须显式请求一次 frame 重算即时落地。
+        var calls = new List<(IntPtr Hwnd, int Attribute, int Value)>();
+        var recomputes = new List<IntPtr>();
+        var theme = Create(calls, frameRecomputes: recomputes);
+
+        theme.Apply(new IntPtr(0x1234), ThemeVariant.Dark);
+
+        recomputes.Should().Equal(new IntPtr(0x1234));
+    }
+
+    [Fact]
+    public void Rejected_write_skips_frame_recompute()
+    {
+        // 属性 20/19 都被拒（极旧系统 / 无 DWM）= 什么都没改成，不再扰动窗口 frame。
+        var calls = new List<(IntPtr Hwnd, int Attribute, int Value)>();
+        var recomputes = new List<IntPtr>();
+        var theme = Create(calls, accepted: _ => false, frameRecomputes: recomputes);
+
+        theme.Apply(new IntPtr(0x1234), ThemeVariant.Dark);
+
+        calls.Select(c => c.Attribute).Should().Equal(ImmersiveDarkMode, ImmersiveDarkModeLegacy);
+        recomputes.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Zero_handle_is_skipped()
     {
         var calls = new List<(IntPtr Hwnd, int Attribute, int Value)>();
-        var theme = Create(calls);
+        var recomputes = new List<IntPtr>();
+        var theme = Create(calls, frameRecomputes: recomputes);
 
         theme.Apply(IntPtr.Zero, ThemeVariant.Dark);
 
         calls.Should().BeEmpty();
+        recomputes.Should().BeEmpty();
     }
 
     [Fact]
     public void Non_windows_host_is_skipped()
     {
         var calls = new List<(IntPtr Hwnd, int Attribute, int Value)>();
-        var theme = Create(calls, isWindows: false);
+        var recomputes = new List<IntPtr>();
+        var theme = Create(calls, isWindows: false, frameRecomputes: recomputes);
 
         theme.Apply(new IntPtr(0x1234), ThemeVariant.Dark);
 
         calls.Should().BeEmpty();
+        recomputes.Should().BeEmpty();
     }
 
     [Fact]
     public void Headless_host_is_skipped()
     {
         var calls = new List<(IntPtr Hwnd, int Attribute, int Value)>();
-        var theme = Create(calls, headless: "1");
+        var recomputes = new List<IntPtr>();
+        var theme = Create(calls, headless: "1", frameRecomputes: recomputes);
 
         theme.Apply(new IntPtr(0x1234), ThemeVariant.Dark);
 
         calls.Should().BeEmpty();
+        recomputes.Should().BeEmpty();
     }
 
     [Fact]
