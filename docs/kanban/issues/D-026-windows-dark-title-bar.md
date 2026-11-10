@@ -6,7 +6,7 @@ priority: P2
 size: S
 status: done
 created: 2026-10-27
-updated: 2026-10-28
+updated: 2026-11-10
 blocked: none
 ---
 
@@ -50,3 +50,4 @@ Windows 上主窗、首关提示窗、启动错误窗的原生标题栏跟随应
 - **计划偏差登记（两处）**：① 计划测试代码把局部 `calls` 声明为无名元组 `(IntPtr, int, int)` 而末例断言用具名成员 `.Attribute/.Value`（CS1061 编译错），六处声明补具名 `(IntPtr Hwnd, int Attribute, int Value)` 对齐工厂签名；② 计划实现注释称「ThemeVariant 没有 == 运算符重载」不实——`ThemeVariant` 是 `sealed record`，编译器合成 `==`/`!=`（按 Key 值比较，与 `Equals` 同语义），实现注释改为陈述真实约束（非 Dark 变体一律写 0），代码路径（`Equals` 比较）与计划一致。
 - **移交用户目检**：运行期深→浅→深双向切换、边框原生行为（拖动 / 双击最大化 / Aero Snap / 最小化最大化关闭动画）、首关提示窗 caption。git 提交不在本卡范围（计划约定），变更留工作区待审。
 - **代码审查（2026-10-28）**：com-requesting-code-review 通过——无 P0/P1；一处 P2 观察（DwmSetWindowAttribute 两处声明）确认非问题不合并；文档 `docs/plans/2026-10-28-d026-windows-dark-title-bar-review.md`。
+- **遗留回归与修复（2026-11-10）**：夜间模式下退出进程再重开，标题栏纯白；按住拖动才半程变色（白底 + 标题字黑底白字的中间态），最大化才全量变黑（真机 HLPC01550-ZY，Win10 19045）。根因：DWM 把 caption 重组合成推迟到下一次 frame 事件，属性写入不保证立即生效；原实现唯一一次写入在 `Opened`（ShowWindow 之后），且启动链路里主题先于建窗定死、`ActualThemeVariantChanged` 不会再触发——上面 2026-10-28 的真机验证通过属 DWM 即时合成的偶然状态，「赌 DWM 时机」即缺陷本身；Win10 上 Avalonia 平台层不代写该属性（`SetFrameThemeVariant` 仅 build≥22000）。修复 fa6f184：`Attach` 构造期立即首写（Avalonia 建窗即有 HWND，Show 前声明到位）+ 写入成功后 `SetWindowPos(SWP_FRAMECHANGED)` 强制 frame 重算（属性 20/19 都被拒则不动 frame）；测试 6→8 用例锁 nudge 语义与跳过路径，headless 666 全绿。真机验收（2026-11-10，同机）：夜间模式重启直接深色，通过。
