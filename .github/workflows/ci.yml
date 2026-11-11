@@ -25,6 +25,15 @@
 # and picking the wrong one for installed copies breaks silent upgrades.
 # The sidecars are mandatory, not optional: self-update refuses to replace
 # files it cannot verify (the download mirrors are third-party proxies).
+#
+# Stable-name aliases (website only, outside the contract above):
+# the release job also uploads unversioned copies
+# Tokenmetry-{windows-x64-setup.exe,windows-x64.zip,macos-arm64.zip,
+# macos-x64.zip,linux-x64.zip}. GitHub's /releases/latest/download/<name>
+# endpoint requires a fixed file name, which versioned assets cannot match, so
+# tokenmetry.app links straight to the latest build instead of the releases
+# page. The updater never reads these aliases — they exist for human clicks
+# and therefore carry no sha256 sidecar.
 name: CI
 
 on:
@@ -334,6 +343,21 @@ jobs:
             sha256sum "$f" > "$f.sha256"
           done
           ls -l *.sha256
+      # 官网直链副本：tokenmetry.app 用 /releases/latest/download/<固定名> 直接下发安装包，
+      # 该端点要求文件名字面固定，带版本号的原名匹配不上。故额外 cp 一份固定名副本；
+      # 原名与 sidecar 一律不动（应用内自更新的硬契约，见文件头）。
+      # 放在 sidecar 之后，避免给副本生成多余的 .sha256；
+      # 下一步的 gh release upload dist/* 会把它们一并上传。
+      - name: Generate stable-name aliases for tokenmetry.app
+        run: |
+          cd dist
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp "Tokenmetry-${VERSION}-win-x64-setup.exe" Tokenmetry-windows-x64-setup.exe
+          cp "Tokenmetry-${VERSION}-win-x64.zip"       Tokenmetry-windows-x64.zip
+          cp "Tokenmetry-${VERSION}-osx-arm64.zip"     Tokenmetry-macos-arm64.zip
+          cp "Tokenmetry-${VERSION}-osx-x64.zip"       Tokenmetry-macos-x64.zip
+          cp "Tokenmetry-${VERSION}-linux-x64.zip"     Tokenmetry-linux-x64.zip
+          ls -l Tokenmetry-windows-* Tokenmetry-macos-* Tokenmetry-linux-*
       - name: Create release and upload assets
         env:
           GH_TOKEN: ${{ github.token }}
