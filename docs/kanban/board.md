@@ -5,6 +5,12 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 > 2026-10-11 迁移说明：按 markdown-kanban 规程，旧 7 列看板收敛为 Todo | Done。原 In Review 的 7 张 v0.1/v0.2 卡片经 git 记录核实（功能均已提交、卡片内有测试通过记录）后记为 Done，卡片文件移入 `issues/archive/`（保留旧格式）。产品定位转向见 `docs/plans/2026-10-11-opinionated-usage-stats-pivot.md`。
 
+> 2026-11-13：**SQLite 源采集成本一次性调研完成 + 建卡 I-048～I-053（用户指示「调研清楚后开一批看板卡，另派智能体执行」）**。
+> **调研结论（已对照源码 + 本机实测）**：①五个 SQLite 源里**只有 Antigravity 的指纹只取主库、漏了 `-wal`**（`AntigravityAdapter.cs:44` vs 另外四源的 `CaptureWithOptional(SqliteFingerprintFiles(...))`）——WAL 模式写入先落边车、主库 mtime 在 checkpoint 前不变，故它是本批唯一的**正确性**口径不一致（I-048，P2）；②真正有「活跃期全量重读」成本的只有**带载荷表**的两个源：OpenCode（`session_message.data`）与 Kilo（`message.data`）——本机 OpenCode 实测 43.7 MB 库 / 1094 行（assistant 1016）/ 载荷 28.9 MB / CLI 全量导出 53 ms / SmokeScan 首轮 132 ms，空闲轮 0 ms（I-049 / I-050，P3）；③Goose / Hermes 读的是 `FROM sessions` 的**每会话一行聚合表**，全量重读是毫秒级，不值得引入持久连接（I-051 用合成 5k 会话坐实后落档，防反复调研）；④ZCode 已是两级探针 + 持久只读连接的参照实现，不动。
+> **本批分层**：正确性 1 张（I-048）、性能 2 张（I-049 / I-050，同型但独立成卡＝可并行且各自回滚）、落档 1 张（I-051）、量尺 1 张（I-052，`SmokeScan` 报进程 IO，供 I-049/I-050 验证收益）、顺带 1 张（I-053 JSONL 缓冲）。**并行安全**：六张卡的文件面互不重叠（分别为 `Antigravity/`、`OpenCodeSqlite/`、`KiloSqlite/`、`docs/`、`tools/Tokenmetry.SmokeScan/`、JSONL reader 四处），可直接并行派单；I-051 建议在各卡落地后复测补「改造前/后」两组数字。
+> **公共边界（写进各卡）**：不做行级增量（只读新增 rowid）——去重口径会从整轮 first-wins 变跨轮拼接，与 I-043 被否同源（信任锚）；`-shm` 永进不了指纹（读端也触碰，自激重扫）；不抽共享探针组件（撞并行卡文件）。
+> **同期已落地（本轮会话，前置修正，追认为 I-054）**：Cindy / pi-agent / Amp / Codebuff / Droid / Gemini CLI 六源从「整批戳集全等才复用」改为**逐文件记账**（`_fileStates/_recordsByFile` 同口径；新增共用 `JsonSource/PerFileParseCache.cs`，`FileStampMemo.TryCapture` 单文件取戳），并补「只改一个文件时其余文件不重解析」回归锁 ×6。真机验证：Cindy 源首轮 `11/11/11` 58 ms → 第 2、3 轮 `11/0/0` 0 ms（改前每轮整批重读）。全量 Core 271 / Relay 50 / Reconciliation 49 / Infra 828（3 跳过）/ App 506 / Headless 666，0 失败。
+
 > 2026-10-30：**D-027 收口（Overview 单日窗口趋势图切小时形态）——今天/昨天不再单点死图**。单日窗口（`FromDay == ToDay`，内置今天/昨天与自定义单日档同命中）两张趋势图切小时形态：`TrendChart` 新增 `HourlyCost`（分段规则同 `BuildCostLine`：已知成本小时与无会话小时成线、有用量无价的小时断线，未知成本绝不折 0）+ `HourlyCutoffHour` 已发生边界（今天的未来小时只留淡化小点、不进曲线/面积填充，tooltip 写「尚未到达」而非 0；昨天档 0..23 全真实故为 null）。口径差异做成可见（路线 A）：工具提示与面板标注「按会话开始时间归集」，unknown 占比与时间分析页**共享同一实现**（`SumKnownSessions`/`BuildUnknownNote` 从 `TimeViewModel` 抽到 `App/Services/HourlyAttribution.cs`，两处 VM 共同调用）。单日窗口与复合快照**并行**发小时查询（不并入快照，卡内已明确不做那步优化）；两日及多日窗口零变化（形态、`DateTimeTicksBottom`、代码路径全部原样），多日窗口一次小时查询都不发（回归锁 `HourlyCalls == 0`）。测试 +17 headless（cutoff 夹回 Theory、曲线止于边界/未来只留淡点、单已发生小时不成线、小时成本未知断线、两种小时 tooltip 文案、今天档切形态含 cutoff=当前小时、切回 7 天档全复位、昨天档 cutoff null、cutoff/单日判定纯函数边界、真实 `OverviewView` 编译绑定渲染锁 + 截图）；全量 Core 222 / Reconciliation 49（19 跳过）/ App 325 / Infra 761（3 跳过）/ Headless 509，0 失败。已登记边界：未来小时淡点贴零轴可见度低（与补零日刻意同语言）、小时曲线加总 ≠ KPI（会话开始归因 vs facts 按日归日，路线 B 仍不做）、单日多一次 sessions 读。
 
 > 2026-10-30：**D-027 建卡（Overview 单日窗口趋势图切小时形态）**。用户提案：切"今天/昨天"后 Token/成本两张趋势图只剩单点，建议单日时 X 轴换成当天小时刻度。评估：值得做，基础设施大半现成——TrendChart 已有 `HourlyTokens` 形态（时间页在用）、`GetHourlyDistributionAsync` 同吃 `UsageQueryFilter`、`HourlyUsageBucket` 连 `Cost` 都有（成本趋势只需新增 `HourlyCost` 形态）。核心口径坑：I-029 小时分布按会话 `first_seen_at` 归桶（整会话量记到开始小时；粗粒度剔 unknown；跨天会话不在窗口），与日序列 facts 按 `Day` 归日不一致——小时曲线加总 ≠ KPI 总量。拍板路线 A：复用会话开始归因、差异做成可见（tooltip 标注 + unknown 占比，对齐时间页）；路线 B（usage_facts 加小时维度，存量不可回填、需源文件重采）明确不做，将来要精确"用量发生时间"归因再另开卡。触发条件定为 `FromDay == ToDay`（自定义单日档一并覆盖）；两日窗口不动。
@@ -67,6 +73,12 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
+| I-048 | Antigravity 指纹补 `-wal`——活跃写入期不再读到陈旧账（先把 journal_mode 取证，非 WAL 则按「不做」收口） | P2 | S | none | none |
+| I-049 | OpenCode 活跃写端期全库重读——移植 ZCode 两级探针 + 持久只读连接（本机实测 43.7 MB 库 / 1016 行 / 29 MB 载荷 / 132 ms） | P3 | M | none | none |
+| I-050 | Kilo 活跃写端期全库重读——同 I-049 形态，**先取证规模**（本机无 Kilo 数据），低于门槛按「不做」收口 | P3 | M | none | none |
+| I-051 | SQLite 源采集成本审计落档——五源实测矩阵 + Goose/Hermes「不改」判定用合成 5k 会话坐实 | P3 | S | none | none |
+| I-052 | 采集 IO 量尺——SmokeScan 每轮报进程读取字节/次数，让「每轮读了多少」可量化 | P3 | S | none | none |
+| I-053 | JSONL 读取缓冲 4 KB → 64 KB——先量后改，差值 < 噪声则回滚关掉 | P3 | S | none | none |
 | I-044 | 上架 Homebrew cask——**前提已修正**：brew 不免疫 Gatekeeper，收益降为「放行一次后 `brew upgrade` 不再弹」 | P3 | M | none | none |
 
 > 2026-11-01（晚）：**I-045 / I-046 / I-047 同日收口（issue #1 的诊断面与防线三项，用户指示实现）**。
@@ -198,6 +210,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-054 | 文件型源逐文件记账——六个源（Cindy / pi-agent / Amp / Codebuff / Droid / Gemini CLI）从「整批戳集全等才复用」改为逐文件缓存（共用 `JsonSource/PerFileParseCache<T>`，零变更轮直接复用折叠产物） | P1 | 2026-11-13 |
 | I-045 | 采集管线文件日志——`logs/app.log` 可开关（默认开）、轮/源/写库三级埋点、解析失败含堆栈、5 MB × 3 份轮转；设置页开关 + 「打开日志文件夹」入口 | P1 | 2026-11-01 |
 | I-046 | 源内进度上报——`IncrementalJsonlScanner` 按 500 文件/2 秒（取大者）节流回调进 `IngestionScanRegistry`，数据源表显示「正在处理 3,200/16,403」 | P2 | 2026-11-01 |
 | I-047 | 采集 gate 等待加超时——`WaitAsync(30 min, ct)`，挂死轮存在时等待方超时放弃本轮（不强杀持锁轮），后续刷新可重新进入 | P2 | 2026-11-01 |
