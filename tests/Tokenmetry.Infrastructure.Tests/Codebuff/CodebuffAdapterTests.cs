@@ -730,6 +730,29 @@ public class CodebuffAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task ChangeProbe_OnlyChangedChatFileIsReread()
+    {
+        // 回归护栏：chat-messages.json（尤其当前会话）每回合都在长，整批戳集全等才复用会把整批历史
+        // 拉回全量重读。
+        var fixture = CreateFixtureRoot();
+        WriteChatFile(fixture, "projects/project-a/chats/2026-01-02T03-04-05.000Z/chat-messages.json", CodebuffOneAssistant);
+        WriteChatFile(fixture, "projects/project-a/chats/2026-01-02T04-04-05.000Z/chat-messages.json", CodebuffOneAssistant);
+        var adapter = CreateAdapter(fixture);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(2);
+        first.Diagnostics.FilesChanged.Should().Be(2, "首轮相对空记忆，两个文件都是新账");
+
+        WriteChatFile(fixture, "projects/project-a/chats/2026-01-02T03-04-05.000Z/chat-messages.json", CodebuffTwoAssistants);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesRead.Should().Be(1, "只有变了的聊天文件重解析，其余取用上轮产出");
+        second.Diagnostics.FilesChanged.Should().Be(1);
+        second.Records.Should().HaveCount(3, "未变文件的上轮记录仍在");
+    }
+
+    [Fact]
     public async Task ChangeProbe_RemovedAndAddedChats_TriggerFullRescan()
     {
         var fixture = CreateFixtureRoot();
@@ -744,7 +767,7 @@ public class CodebuffAdapterTests : IDisposable
         var second = await adapter.ScanAsync();
 
         second.Diagnostics.FilesDiscovered.Should().Be(2);
-        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Diagnostics.FilesChanged.Should().Be(2, "一个消失 + 一个新增 = 两个文件的账面变了（计数口径与共享扫描器一致）");
         second.Records.Should().HaveCount(2);
     }
 

@@ -10,21 +10,39 @@ namespace Tokenmetry.Infrastructure.PiAgent;
 /// crates/ccusage-adapter-all 的命名存储装配；蓝本许可：MIT License，Copyright (c) 2025 ryoppippi）：
 /// 目录发现（<see cref="PiLogLocator"/>，PI_AGENT_DIR → ~/.pi/agent/sessions；ccusage.json 的
 /// pi.stores[] 附加命名存储）→ 汇总全部作用域文件清单（递归收集 .jsonl，剔除含 "subagent-artifacts"
-/// 路径段的派生转录）→ 文件戳探针（<see cref="FileStampMemo"/>，路径 + mtime + 大小，只 stat 不读内容）→
-/// 账面未动复用上轮记录（零读取零解析）→ 否则逐作用域装载数据：逐文件解析（<see cref="PiSessionParser"/>）→
-/// 重放抑制计划（<see cref="PiReplayPlan"/>，跳过子会话与父文件一致的前缀）→ 跨文件复合 entry id
-/// first-wins 去重 → 时间戳稳定排序。命名存储<b>作为独立 agent</b> 出账（Agent = store 名，蓝本
-/// adapter-all loader 同语义），与默认存储的作用域隔离（各自的重放计划与去重集）。
-/// 以 I-042 文件戳记忆化替代每轮全量重读（与共享扫描器的零变更缓存同口径）；记忆化准入：
-/// 全部发现文件都成功读取才落账，有文件打不开的轮次清空记忆下一轮重试（见 <see cref="FileStampMemo"/>）。
-/// 实例持有扫描记忆，非线程安全；以单例接入 App DI（并发由 LocalIngestionDataSource 串行化）。
+/// 路径段的派生转录）→ <b>逐文件</b>文件戳记账（<see cref="FileStampMemo.TryCapture"/>，路径 + mtime +
+/// 大小，只 stat 不读内容）：戳与解析期配置（store 名 / 作用域根）都没变的文件不重读不重解析，直接取用上轮
+/// <see cref="PiFileOutcome"/>；本轮零变化即复用上轮记录（零读取零解析）→ 否则逐作用域装载数据：重放抑制
+/// 计划（<see cref="PiReplayPlan"/>，跳过子会话与父文件一致的前缀）→ 跨文件复合 entry id first-wins
+/// 去重 → 时间戳稳定排序。命名存储<b>作为独立 agent</b> 出账（Agent = store 名，蓝本 adapter-all loader
+/// 同语义），与默认存储的作用域隔离（各自的重放计划与去重集）。
+/// <para>
+/// 记账必须逐文件而非整批：pi 的活跃会话文件每个回合都在长，「整批戳集全等才复用」会让一份活跃会话
+/// 的存在把整批历史拉回全量重读（Cindy 源同病灶，本机实测 399 MB/轮）。记账准入：打不开 / stat 失败的
+/// 文件不落账，下次扫描重试整个文件。实例持有扫描记忆，非线程安全；以单例接入 App DI（并发由
+/// LocalIngestionDataSource 串行化）。
+/// </para>
 /// </summary>
 public class PiAgentAdapter : IPiAgentAdapter
 {
     private readonly string? _configuredDataDir;
     private readonly PiLogLocator _locator;
     private readonly PiSessionParser _parser;
-    private readonly FileStampMemo _memo = new();
+
+    /// <summary>逐文件扫描记忆：路径 → (文件戳, 解析期配置, 解析产出)。文件戳与解析期配置都没变才复用。</summary>
+    private readonly Dictionary<string, (FileStamp Stamp, PiStoreContext Context, PiFileOutcome Outcome)> _fileCache =
+        new(StringComparer.Ordinal);
+
+    /// <summary>按文件记「存在解析错误」：状态聚合要纳入未重解析的历史文件，否则坏文件在第二轮之后
+    /// 会被误报为 Ok（与共享扫描器同款）。</summary>
+    private readonly HashSet<string> _filesWithParseErrors = new(StringComparer.Ordinal);
+
+    /// <summary>零变更轮缓存：全历史重建的产物与上轮逐位相同，直接复用（同实例，消费方视为只读）。</summary>
+    private List<UsageRecord>? _lastRecords;
+    private (JsonlScanStatus Status, int Duplicates, int MissingCost, int UnknownModel)? _lastAggregate;
+
+    /// <summary>解析期配置签名（<see cref="ScopeSignature"/>）：变了即清空逐文件记忆。</summary>
+    private string? _scopeSignature;
 
     public PiAgentAdapter(
         string? configuredDataDir = null,
@@ -82,35 +100,78 @@ public class PiAgentAdapter : IPiAgentAdapter
         }
 
         var allFiles = scopes.SelectMany(scope => scope.Files).Select(entry => entry.File).ToList();
-        // 文件戳 + 解析期配置签名：文件集不变而 store 改名 / 重叠根迁移时，记录归属（Agent /
-        // Model / ProjectPath）会变而文件戳一字不变——签名折进指纹才不会复用旧归属。
-        var stamps = FileStampMemo.WithConfig(FileStampMemo.Capture(allFiles), ScopeSignature(scopes));
-
-        if (_memo.TryReuse(stamps, allFiles.Count, roots, out var reused))
+        // 解析期配置签名：文件集不变而 store 改名 / 重叠根迁移时，记录归属（Agent / Model /
+        // ProjectPath）会变而文件戳一字不变——签名变化即清空记忆，绝不复用旧归属。
+        var scopeSignature = ScopeSignature(scopes);
+        if (_scopeSignature != scopeSignature)
         {
-            return Task.FromResult(reused);
+            _scopeSignature = scopeSignature;
+            ResetMemory();
         }
 
-        var diagnostics = new JsonlScanDiagnostics();
+        var diagnostics = new JsonlScanDiagnostics { FilesDiscovered = allFiles.Count };
+        // 本轮账面变化文件数（消失 + 新增/变更 / 解析期配置变化）；stat / 读取失败的轮次不落账。
+        var filesChanged = 0;
+
+        // 先清理已消失文件的记账，与全量重扫语义一致。
+        var currentFiles = new HashSet<string>(allFiles, StringComparer.Ordinal);
+        foreach (var gone in _fileCache.Keys.Where(file => !currentFiles.Contains(file)).ToList())
+        {
+            _fileCache.Remove(gone);
+            _filesWithParseErrors.Remove(gone);
+            filesChanged++;
+        }
+
+        // 逐作用域对齐解析产出（只有文件戳或解析期配置变了的文件才重读重解析）。
+        foreach (var scope in scopes)
+        {
+            RefreshScope(scope.StoreName, scope.Files, diagnostics, ref filesChanged, ct);
+        }
+
+        if (filesChanged == 0 && _lastRecords is { } cachedRecords && _lastAggregate is { } aggregate)
+        {
+            // 零变更轮：复用上一次的重建产物（同实例），本轮诊断只反映本次扫描事件
+            // （FilesRead / Malformed / Invalid 恒 0，stat 失败的 LinesSkipped 如实保留）。
+            return Task.FromResult(new JsonlScanResult
+            {
+                Roots = roots,
+                Records = cachedRecords,
+                Diagnostics = new JsonlScanDiagnostics
+                {
+                    Status = aggregate.Status,
+                    FilesDiscovered = allFiles.Count,
+                    FilesRead = 0,
+                    LinesSkipped = diagnostics.LinesSkipped,
+                    MalformedLines = 0,
+                    InvalidRecords = 0,
+                    DuplicateRecords = aggregate.Duplicates,
+                    MissingCostRecords = aggregate.MissingCost,
+                    UnknownModelRecords = aggregate.UnknownModel,
+                    FilesChanged = allFiles.Count > 0 ? 0 : null,
+                },
+            });
+        }
+
         var records = new List<UsageRecord>();
         foreach (var scope in scopes)
         {
-            LoadScope(scope.StoreName, scope.Files, records, diagnostics, ct);
+            BuildScopeRecords(scope.Files, records, diagnostics);
         }
 
         diagnostics.MissingCostRecords = records.Count(static record => record.CostUsd is null);
         diagnostics.UnknownModelRecords = records.Count(static record => record.Model is null);
         diagnostics.Status = records.Count == 0
             ? JsonlScanStatus.NoData
-            : diagnostics.MalformedLines > 0 || diagnostics.InvalidRecords > 0
+            : diagnostics.MalformedLines > 0 || diagnostics.InvalidRecords > 0 || _filesWithParseErrors.Count > 0
                 ? JsonlScanStatus.Partial
                 : JsonlScanStatus.Ok;
-        // FilesChanged：走到全量读取即本轮账面有变化（有文件填 1）；无文件不设值，
-        // 由管道按"本轮发现即空"规则处理（与 ZCode 探针同口径）。
-        diagnostics.FilesChanged = allFiles.Count > 0 ? 1 : null;
+        // FilesChanged：本轮账面变化的文件数；无文件不设值，由管道按「本轮发现即空」规则处理
+        // （与 ZCode 探针同口径）。
+        diagnostics.FilesChanged = allFiles.Count > 0 ? filesChanged : null;
 
-        // 记忆化准入：全部发现文件都成功读取才落账（有文件打不开 → null 戳清空记忆，下轮重试）。
-        _memo.Update(diagnostics.FilesRead == allFiles.Count ? stamps : null, records, diagnostics);
+        _lastRecords = records;
+        _lastAggregate = (diagnostics.Status, diagnostics.DuplicateRecords, diagnostics.MissingCostRecords,
+            diagnostics.UnknownModelRecords);
 
         return Task.FromResult(new JsonlScanResult
         {
@@ -118,6 +179,15 @@ public class PiAgentAdapter : IPiAgentAdapter
             Records = records,
             Diagnostics = diagnostics,
         });
+    }
+
+    /// <summary>清空全部扫描记忆（解析期配置变化时：文件可以一字未动，归属却变了）。</summary>
+    private void ResetMemory()
+    {
+        _fileCache.Clear();
+        _filesWithParseErrors.Clear();
+        _lastRecords = null;
+        _lastAggregate = null;
     }
 
     /// <summary>
@@ -165,39 +235,90 @@ public class PiAgentAdapter : IPiAgentAdapter
         return files;
     }
 
-    /// <summary>单作用域装载（蓝本 load_entries_from_paths）：单次重放计划 + 单个去重集；
-    /// 文件清单由 <see cref="CollectScopeFiles"/> 预先收集（探针指纹的输入）。</summary>
-    private void LoadScope(
+    /// <summary>
+    /// 单作用域文件清单对齐（蓝本逐文件解析）：只有文件戳或解析期配置（store 名 / 作用域根）变了的文件
+    /// 才重读重解析，未变的直接取用上轮产出。打不开 / stat 失败的文件不落账（下次重试整个文件）。
+    /// </summary>
+    private void RefreshScope(
         string storeName,
         List<(string File, string? StoreRoot)> files,
-        List<UsageRecord> records,
         JsonlScanDiagnostics diagnostics,
+        ref int filesChanged,
         CancellationToken ct)
     {
-        var loaded = new List<PiFileOutcome>(files.Count);
         foreach (var (file, storeRoot) in files)
         {
             ct.ThrowIfCancellationRequested();
-            var outcome = _parser.ParseSessionFile(file, new PiStoreContext(storeName, storeRoot));
-            loaded.Add(outcome);
+
+            // 文件作用域根是解析期配置的一部分（影响 ProjectPath），随缓存条目一起校验。
+            var context = new PiStoreContext(storeName, storeRoot);
+            var stamped = FileStampMemo.TryCapture(file, out var stamp);
+            if (stamped
+                && _fileCache.TryGetValue(file, out var cached)
+                && cached.Stamp == stamp
+                && cached.Context == context)
+            {
+                // 未变更：不重读不重解析（本轮无解析事件，内容诊断不累加）。
+                continue;
+            }
+
+            if (!stamped)
+            {
+                // 戳取不到（stat 失败）：保守重读，且无论成败都不落账。
+                diagnostics.LinesSkipped++;
+            }
+
+            var outcome = _parser.ParseSessionFile(file, context);
             diagnostics.FilesRead += outcome.FilesRead;
             diagnostics.LinesSkipped += outcome.LinesSkipped;
             diagnostics.MalformedLines += outcome.MalformedLines;
             diagnostics.InvalidRecords += outcome.InvalidRecords;
+
+            if (!stamped || outcome.FilesRead == 0)
+            {
+                // 打不开 / stat 失败：不落账，下次扫描重试整个文件（共享扫描器同口径）。
+                _fileCache.Remove(file);
+                _filesWithParseErrors.Remove(file);
+                continue;
+            }
+
+            _fileCache[file] = (stamp, context, outcome);
+            filesChanged++;
+            if (outcome.MalformedLines > 0 || outcome.InvalidRecords > 0)
+            {
+                _filesWithParseErrors.Add(file);
+            }
+            else
+            {
+                _filesWithParseErrors.Remove(file);
+            }
+        }
+    }
+
+    /// <summary>单作用域重建记录（蓝本 load_entries_from_paths：单次重放计划 + 单个去重集）。
+    /// 逐个文件的数据均从逐文件记忆取（本轮的或上轮的），不重新读盘。</summary>
+    private void BuildScopeRecords(
+        List<(string File, string? StoreRoot)> files,
+        List<UsageRecord> records,
+        JsonlScanDiagnostics diagnostics)
+    {
+        var filePaths = new List<string>(files.Count);
+        var loaded = new List<PiSessionData?>(files.Count);
+        foreach (var (file, _) in files)
+        {
+            filePaths.Add(file);
+            // 未落账的文件（本次打不开）本轮不贡献记录，下轮会重试。
+            loaded.Add(_fileCache.TryGetValue(file, out var cached) ? cached.Outcome.Data : null);
         }
 
-        var plan = PiReplayPlan.Build(files.Select(entry => entry.File).ToList(),
-            loaded.Select(outcome => outcome.Data).ToList());
-
-        // 蓝本 discovered_files 为 subagent-artifacts 剔除后的清单（剔除文件不计数）。
-        diagnostics.FilesDiscovered += files.Count;
+        var plan = PiReplayPlan.Build(filePaths, loaded);
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var scopeRecords = new List<UsageRecord>();
         var totalEntries = 0;
         for (var index = 0; index < files.Count; index++)
         {
-            var data = loaded[index].Data;
+            var data = loaded[index];
             if (data is null)
             {
                 continue;

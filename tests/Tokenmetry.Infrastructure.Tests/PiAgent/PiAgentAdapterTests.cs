@@ -661,6 +661,61 @@ public class PiAgentAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task ChangeProbe_OnlyChangedFileIsReread()
+    {
+        // 回归护栏：记账必须逐文件。若退回「整批戳集全等才复用」的全有全无口径，一份活跃会话的
+        // 存在就会把整批历史拉回全量重读（Cindy 源同病灶，本机实测 399 MB/轮）。
+        var root = CreateSessionsRoot();
+        var fileA = WriteLines(root, "project-a/session-a.jsonl",
+            SessionLine("session-a", "2026-01-02T10:00:00.000Z", null),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3));
+        WriteLines(root, "project-a/session-b.jsonl",
+            SessionLine("session-b", "2026-01-02T11:00:00.000Z", null),
+            UsageLine("2026-01-02T11:00:05.000Z", 100, 10, 20, 3));
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(2);
+        first.Diagnostics.FilesChanged.Should().Be(2, "首轮相对空记忆，两个文件都是新账");
+        first.Records.Should().HaveCount(2);
+
+        // 只让 session-a 长一行（末尾追加，大小必变）——session-b 一字未动。
+        File.AppendAllText(fileA, UsageLine("2026-01-02T10:01:05.000Z", 10, 1, 2, 0) + "\n");
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesRead.Should().Be(1, "只有变了的那个文件重解析，其余取用上轮产出");
+        second.Diagnostics.FilesChanged.Should().Be(1);
+        second.Records.Should().HaveCount(3, "未变文件的上轮记录仍在，变了的文件补上新行");
+    }
+
+    [Fact]
+    public async Task ChangeProbe_MalformedFile_KeepsPartialStatusOnLaterRounds()
+    {
+        // 累计口径护栏：坏行文件在未被重解析的轮次里也要让状态保持 Partial（不能被误报 Ok）。
+        var root = CreateSessionsRoot();
+        var good = WriteLines(root, "project-a/session-a.jsonl",
+            SessionLine("session-a", "2026-01-02T10:00:00.000Z", null),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3));
+        WriteLines(root, "project-a/session-bad.jsonl",
+            SessionLine("session-bad", "2026-01-02T11:00:00.000Z", null),
+            // 行预过滤要求同时含 "usage" 与 "message" 片段；两片段齐备但 JSON 不完整 → 计 Malformed。
+            "{\"type\":\"message\",\"message\":{\"role\":\"assistant\",\"usage\":{\"input\":1");
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.MalformedLines.Should().Be(1);
+        first.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial);
+
+        File.AppendAllText(good, UsageLine("2026-01-02T10:01:05.000Z", 10, 1, 2, 0) + "\n");
+
+        var second = await adapter.ScanAsync();
+        second.Diagnostics.FilesRead.Should().Be(1);
+        second.Diagnostics.MalformedLines.Should().Be(0, "本轮没有解析事件，就没有新的坏行");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial, "坏行文件仍在账上");
+    }
+
+    [Fact]
     public async Task ChangeProbe_RemovedAndAddedSessions_TriggerFullRescan()
     {
         var root = CreateSessionsRoot();
@@ -681,7 +736,7 @@ public class PiAgentAdapterTests : IDisposable
         var second = await adapter.ScanAsync();
 
         second.Diagnostics.FilesDiscovered.Should().Be(2);
-        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Diagnostics.FilesChanged.Should().Be(2, "一个消失 + 一个新增 = 两个文件的账面变了（计数口径与共享扫描器一致）");
         second.Records.Select(record => record.SessionId).Should().BeEquivalentTo("session-a", "session-c");
     }
 

@@ -130,6 +130,74 @@ public class CindyPiAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task Only_changed_file_is_reread_and_appended_usage_is_picked_up()
+    {
+        // 回归护栏：缓存必须逐文件记账。Cindy 的活跃会话文件每回合都在长，若退回「整批戳集全等才复用」
+        // 的全有全无口径，用 Cindy 时每个刷新周期都会重读整个 sessions 目录（本机实测 399 MB/轮）。
+        var userData = CreateUserDataRoot();
+        WriteSession(userData, "2026-01-02T10-00-00-000Z_session-a.jsonl",
+            SessionLine("session-a", "2026-01-02T10:00:00.000Z", parent: null, cwd: "E:/dev/demo"),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3));
+        WriteSession(userData, "2026-01-02T11-00-00-000Z_session-b.jsonl",
+            SessionLine("session-b", "2026-01-02T11:00:00.000Z", parent: null, cwd: "E:/dev/demo"),
+            UsageLine("2026-01-02T11:00:05.000Z", 200, 20, 30, 4));
+        var adapter = new CindyPiAdapter(configuredUserDataRoot: userData);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesDiscovered.Should().Be(2);
+        first.Diagnostics.FilesRead.Should().Be(2);
+        first.Diagnostics.FilesChanged.Should().Be(2, "首轮相对空记忆，两个文件都是新账");
+        first.Records.Should().HaveCount(2);
+
+        // 只让 session-a 长一行（末尾追加，大小必变）——session-b 一字未动。
+        AppendSession(userData, "2026-01-02T10-00-00-000Z_session-a.jsonl",
+            UsageLine("2026-01-02T10:05:00.000Z", 300, 30, 40, 5));
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesRead.Should().Be(1, "只有变了的那个文件重解析，其余取用上轮产出");
+        second.Diagnostics.FilesChanged.Should().Be(1);
+        second.Records.Should().HaveCount(3, "未变文件的上轮记录仍在，变了的文件补上新行");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+
+        File.Delete(Path.Combine(userData, "pi-agent-home", "sessions", "2026-01-02T11-00-00-000Z_session-b.jsonl"));
+
+        var third = await adapter.ScanAsync();
+        third.Diagnostics.FilesChanged.Should().Be(1, "文件消失 = 账面变化");
+        third.Diagnostics.FilesRead.Should().Be(0, "消失的文件不必读，剩下的文件戳未动");
+        third.Records.Should().HaveCount(2, "session-a 的两行都还在")
+            .And.OnlyContain(record => record.SessionId == "session-a");
+    }
+
+    [Fact]
+    public async Task Malformed_line_keeps_partial_status_on_later_rounds()
+    {
+        // 累计口径护栏：坏行的文件在「未被重解析」的轮次里也要让状态保持 Partial，不能被误报 Ok。
+        var userData = CreateUserDataRoot();
+        WriteSession(userData, "2026-01-02T10-00-00-000Z_session-a.jsonl",
+            SessionLine("session-a", "2026-01-02T10:00:00.000Z", parent: null, cwd: "E:/dev/demo"),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3));
+        WriteSession(userData, "2026-01-02T11-00-00-000Z_session-bad.jsonl",
+            SessionLine("session-bad", "2026-01-02T11:00:00.000Z", parent: null, cwd: "E:/dev/demo"),
+            // 行预过滤要求同时含 "usage" 与 "message" 片段；两片段齐备但 JSON 不完整 → 计 Malformed。
+            "{\"type\":\"message\",\"message\":{\"role\":\"assistant\",\"usage\":{\"input\":1",
+            UsageLine("2026-01-02T11:00:05.000Z", 200, 20, 30, 4));
+        var adapter = new CindyPiAdapter(configuredUserDataRoot: userData);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.MalformedLines.Should().Be(1);
+        first.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial);
+
+        AppendSession(userData, "2026-01-02T10-00-00-000Z_session-a.jsonl",
+            UsageLine("2026-01-02T10:05:00.000Z", 300, 30, 40, 5));
+
+        var second = await adapter.ScanAsync();
+        second.Diagnostics.FilesRead.Should().Be(1);
+        second.Diagnostics.MalformedLines.Should().Be(0, "本轮没有解析事件，就没有新的坏行");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial, "坏行文件仍在账上");
+    }
+
+    [Fact]
     public async Task Zero_stored_cost_is_treated_as_unknown_so_pricing_engine_can_apply()
     {
         // Cindy 网关回的 cost.total 恒为 0（= 没报成本）：留着 0 会让主管道直接采用，
@@ -181,6 +249,12 @@ public class CindyPiAdapterTests : IDisposable
         var path = Path.Combine(userDataRoot, "pi-agent-home", "sessions", fileName);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, string.Join("\n", lines) + "\n");
+    }
+
+    private static void AppendSession(string userDataRoot, string fileName, params string[] lines)
+    {
+        var path = Path.Combine(userDataRoot, "pi-agent-home", "sessions", fileName);
+        File.AppendAllText(path, string.Join("\n", lines) + "\n");
     }
 
     private static string SessionLine(string id, string timestamp, string? parent, string? cwd)
