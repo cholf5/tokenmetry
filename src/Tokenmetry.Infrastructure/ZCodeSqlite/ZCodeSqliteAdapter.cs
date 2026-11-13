@@ -1,14 +1,13 @@
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
-using Tokenmetry.Infrastructure.SqliteSource;
 using Microsoft.Data.Sqlite;
 
 namespace Tokenmetry.Infrastructure.ZCodeSqlite;
 
 /// <summary>
 /// ZCode SQLite 账本直读适配器（I-006，蓝本 ../ccusage/rust/adapters/zcode/）：
-/// 库定位（<see cref="ZCodeLogLocator"/>）→ 逐库探针（completed 行 count + max(id)）→ 账面未动
-/// 直接复用上轮记录（零读取零映射）→ 否则逐库只读打开 → schema 检查（<see cref="ZCodeSchemaInspector"/>，
+/// 库定位（<see cref="ZCodeLogLocator"/>）→ 逐库探针（文件指纹快路径 → completed 行 count + max(id)）
+/// → 账面未动直接复用上轮记录（零读取零映射）→ 否则逐库只读打开 → schema 检查（<see cref="ZCodeSchemaInspector"/>，
 /// 按可选列拼查询）→ 读 completed 行 → 行映射（<see cref="ZCodeRecordMapper"/>）→ 按 usage id 去重 →
 /// 按时间排序 → 统一记录 + 诊断计数。
 /// 账本是随使用持续变化的单一库文件，mtime 增量不适用；以 I-042 轻量探针 + 零变更轮结果记忆化
@@ -16,6 +15,23 @@ namespace Tokenmetry.Infrastructure.ZCodeSqlite;
 /// 重读重映射：探针快照 = 上轮<b>成功读取</b>时各库的 (count, max(id))，本轮逐库探针与库集完全一致
 /// 才复用；探针失败 / 库集变化（新增、消失）→ 保守全量读取。已知边界：行原地改值（token 修正且
 /// count 与 max(id) 不动）不会被发现——usage 行实务上只增不改（账本写入方语义）。
+/// <para>
+/// <b>探针成本两级（IOPS 修复）</b>：探针查询 <c>WHERE status='completed'</c> 在 ZCode 账本上无索引
+/// 可走（status 不在其二级索引内），每轮全表 SCAN model_usage——生产实测 b-tree ~25MB，OS 页缓存
+/// 被逐出后每轮重读盘（app.log 5087 轮 p50=1415ms / max=63s；刷新间隔 1 分钟时 ≈ 每天 34 分钟盘上扫，
+/// 即用户观测到的持续高 IOPS）。两级缓解：
+/// ① <b>文件指纹快路径</b>——db 与 -wal 的 (size, mtime) 与上轮记录的"干净指纹"一致即账面必然未动
+/// （WAL 追加写必动 -wal，检查点/改值必动库文件），探针值直接复用记忆、连 SQL 都不发（空闲轮 IO
+/// 降为两次 stat）；② <b>持久只读连接 + 连接级 32MB 页缓存</b>（PRAGMA 是连接设置，不动库文件）——
+/// b-tree 常驻进程内存，writer 活跃期（指纹必变、探针必跑）暖态探针实测 3-10ms。
+/// </para>
+/// <para>
+/// <b>持久连接的身份校验</b>：每轮 stat db 文件的 (size, mtime) 与建连时不符（检查点回写 / 被替换 /
+/// 被删除）即弃旧开新——否则在旧 inode 的句柄上会"永远探针成功"（POSIX 未链接文件的 fd 仍可读），
+/// 删除库的贡献将永驻零变更短路。已知残留边界：mtime 粒度粗的文件系统（FAT32 2s / exFAT 10ms）上
+/// 落在同粒度时间桶且长度不变的写可能延后一轮拾取（下轮任何写即带回）；桌面数据目录（APFS /
+/// NTFS / ext4，粒度 ≤100ns）不受影响。
+/// </para>
 /// 只读模式打开且不改 journal mode，兼容 ZCode 运行中的 WAL。
 /// 读取层的类型容错与蓝本 read_token_column / read_timestamp_ms 一致：token 列 i64 钳 0 →
 /// f64 兜底（有限正数四舍五入）→ 其余按 0，行永保留；身份列读取失败才整行静默跳过；
@@ -25,7 +41,7 @@ namespace Tokenmetry.Infrastructure.ZCodeSqlite;
 /// FilesRead = 成功打开且 schema 支持并完成查询的库数（零变更轮为 0）、InvalidRecords =
 /// 语义校验拒绝的行数（身份无效 / 时间无效 / 全零，经 <see cref="ZCodeRecordMapper.Map"/>）、
 /// DuplicateRecords = 按 id 折叠的重复记录；行级 malformed 概念不存在（Malformed/LinesSkipped 恒 0）。
-/// 实例持有探针与记录记忆（单例接入 App DI），并发由 LocalIngestionDataSource 串行化。
+/// 实例持有探针/记录记忆与持久只读连接（单例接入 App DI），并发由 LocalIngestionDataSource 串行化。
 /// </summary>
 public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
 {
@@ -45,6 +61,33 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
     private IReadOnlyList<UsageRecord>? _lastRecords;
     private JsonlScanDiagnostics? _lastDiagnostics;
 
+    /// <summary>与 <see cref="_lastCompletedProbe"/> 同生命周期的"干净文件指纹"账（键集恒等）：
+    /// 记录 = 上轮成功读取时（或本轮探针前抓取、探针确认与记忆一致时）各库的文件状态。指纹未动
+    /// ⇒ 账面未动，是探针快路径的信任依据；方向性约束：只记"早于或等于探针所见数据态"的指纹，
+    /// 绝不把晚于探针数据的指纹记成干净（否则下轮快路径会发出陈旧探针值）。</summary>
+    private Dictionary<string, FileFingerprint> _cleanFileFingerprints = new(StringComparer.Ordinal);
+
+    /// <summary>持久只读连接缓存（库路径 → 连接，IOPS 修复）：连接级 32MB 页缓存使 model_usage
+    /// b-tree 常驻进程内存，免于每轮探针被 OS 页缓存逐出后重读盘。与身份账
+    /// <see cref="_connectionIdentities"/> 同步增删，并发由 LocalIngestionDataSource 串行化。</summary>
+    private readonly Dictionary<string, SqliteConnection> _readOnlyConnections = new(StringComparer.Ordinal);
+
+    /// <summary>持久连接建连时的 db 文件身份（size, mtime）：每轮复用前校验，不符（检查点回写 /
+    /// 被替换 / 被删除）即弃旧开新，杜绝旧 inode 句柄上的陈旧读。</summary>
+    private readonly Dictionary<string, ConnectionIdentity> _connectionIdentities = new(StringComparer.Ordinal);
+
+    /// <summary>IOPS 修复验证计数（Infrastructure.Tests 经 InternalsVisibleTo）：SQL 探针实跑次数，
+    /// 用于断言文件指纹快路径确实把空闲轮的探针查询省掉了。</summary>
+    internal int ProbeQueryCountForTests { get; private set; }
+
+    /// <summary>db 文件身份：持久连接复用的最小同一性证据（size + mtime）。</summary>
+    private readonly record struct ConnectionIdentity(long DbLength, DateTime DbWriteUtc);
+
+    /// <summary>账本文件指纹：库文件 + 其 -wal 的 (size, mtime)。WAL 追加写必动 -wal，
+    /// 检点/改值/重写必动库文件——四元组未动 ⇒ 账面未动。-wal 不存在（写端干净关闭或
+    /// 回滚日志模式）以零值参与比较，同为"未动"。</summary>
+    private readonly record struct FileFingerprint(long DbLength, DateTime DbWriteUtc, long WalLength, DateTime WalWriteUtc);
+
     public ZCodeSqliteAdapter(string? configuredHome = null, ZCodeLogLocator? locator = null)
     {
         _configuredHome = configuredHome;
@@ -59,10 +102,33 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
             FilesDiscovered = resolved.Databases.Count,
         };
 
-        // 探针前置：逐库轻量聚合查询（打不开 / 表缺失 / 查询失败按未探到，保守有变化）。
+        // 探针前置（两级）：先文件指纹快路径——四元组与"干净指纹"一致即账面必然未动，探针值
+        // 直接复用记忆，连 SQL 都不发（空闲轮 IO 降为两次 stat）；未命中（文件动过 / 首轮 /
+        // stat 失败）才做轻量聚合查询。stat 先于探针抓取：本轮要记的指纹只可能早于或等于探针
+        // 所见的数据态（见 _cleanFileFingerprints 方向性约束）。stat 失败（文件消失 / 不可读）
+        // 同时弃用持久连接——连接可能指向已解除链接的旧 inode（POSIX 未链接文件的 fd 仍可读），
+        // 不弃会让删除的库在陈旧句柄上"永远探针成功"。
         var probes = new Dictionary<string, (int Count, string MaxId)>(StringComparer.Ordinal);
+        var roundFingerprints = new Dictionary<string, FileFingerprint>(StringComparer.Ordinal);
         foreach (var database in resolved.Databases)
         {
+            if (TryGetFileFingerprint(database, out var fingerprint))
+            {
+                if (_cleanFileFingerprints.TryGetValue(database, out var clean)
+                    && clean == fingerprint
+                    && _lastCompletedProbe.TryGetValue(database, out var memoProbe))
+                {
+                    probes[database] = memoProbe;
+                    continue;
+                }
+
+                roundFingerprints[database] = fingerprint;
+            }
+            else
+            {
+                DropReadOnlyConnection(database);
+            }
+
             if (TryProbe(database) is { } probe)
             {
                 probes[database] = probe;
@@ -75,6 +141,13 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         // 沿用上轮——与"重建后必然得到的结果"一致（IncrementalJsonlScanner 零变更缓存同款）。
         if (_lastRecords is { } cachedRecords && _lastDiagnostics is { } lastDiagnostics && ProbesUnchanged(probes))
         {
+            // 本轮重新探针过的库：把探针前抓的文件指纹升为"干净指纹"（探针已确认数据与记忆一致，
+            // 指纹态对应的就是记忆记录）。快路径命中的库指纹本来就在账且本轮刚验证一致，不动。
+            foreach (var (database, fingerprint) in roundFingerprints)
+            {
+                _cleanFileFingerprints[database] = fingerprint;
+            }
+
             return Task.FromResult(new JsonlScanResult
             {
                 Roots = resolved.Roots,
@@ -98,13 +171,19 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         var problems = false;
         // 记忆只收"本轮成功读取且探针成功"的库：读取失败的库不进记忆，下一轮库集比对必然
         // 判为变化、重新读取（保守自愈，与探针后置时代"只在成功读取后落账"一致）。
+        // 干净指纹与探针记忆同生命周期（键集恒等）：只记探针前抓取、且读取成功确认的指纹。
         var readMemory = new Dictionary<string, (int Count, string MaxId)>(StringComparer.Ordinal);
+        var cleanFingerprints = new Dictionary<string, FileFingerprint>(StringComparer.Ordinal);
         foreach (var database in resolved.Databases)
         {
             var rows = ReadDatabase(database, diagnostics, ref problems, ct, out var readSucceeded);
             if (readSucceeded && probes.TryGetValue(database, out var probe))
             {
                 readMemory[database] = probe;
+                if (roundFingerprints.TryGetValue(database, out var fingerprint))
+                {
+                    cleanFingerprints[database] = fingerprint;
+                }
             }
 
             foreach (var row in rows)
@@ -143,6 +222,7 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         diagnostics.FilesChanged = resolved.Databases.Count > 0 ? 1 : null;
 
         _lastCompletedProbe = readMemory;
+        _cleanFileFingerprints = cleanFingerprints;
         _lastRecords = sorted;
         _lastDiagnostics = diagnostics;
 
@@ -170,9 +250,19 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
     {
         var rows = new List<ZCodeUsageRow>();
         readSucceeded = false;
+        SqliteConnection connection;
         try
         {
-            using var connection = OpenReadOnly(databasePath);
+            connection = GetReadOnlyConnection(databasePath);
+        }
+        catch (Exception exception) when (exception is SqliteException or IOException)
+        {
+            problems = true;
+            return rows;
+        }
+
+        try
+        {
             var schema = ZCodeSchemaInspector.Inspect(connection);
             if (!schema.IsSupported)
             {
@@ -198,6 +288,9 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         catch (Exception exception) when (exception is SqliteException or IOException)
         {
             problems = true;
+            // 查询中途失败即弃连：连接可能处于坏状态，下轮重开自愈（不弃会让坏连接的
+            // 缓存页继续参与后续轮次）。
+            DropReadOnlyConnection(databasePath);
         }
 
         return rows;
@@ -206,22 +299,143 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
     /// <summary>
     /// I-042 探针（前置）：completed 行 count + max(id)。打不开 / 表缺失 / 查询失败返回 null
     /// （调用方保守按"有变化"全量读取）——探针是优化信号，绝不影响扫描结果的正确性。
+    /// 连接经 <see cref="GetReadOnlyConnection"/> 复用持久只读连接（页缓存常驻，IOPS 修复）；
+    /// 失败即弃连，下轮重开自愈。
     /// </summary>
-    private static (int Count, string MaxId)? TryProbe(string databasePath)
+    private (int Count, string MaxId)? TryProbe(string databasePath)
     {
         try
         {
-            using var connection = SqliteReadonly.Open(databasePath);
+            var connection = GetReadOnlyConnection(databasePath);
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT COUNT(*), COALESCE(MAX(id), '') FROM model_usage WHERE status = 'completed'";
             using var reader = command.ExecuteReader();
+            ProbeQueryCountForTests++;
             return reader.Read()
                 ? (reader.GetInt32(0), reader.GetString(1))
                 : null;
         }
         catch (Exception exception) when (exception is SqliteException or IOException)
         {
+            DropReadOnlyConnection(databasePath);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// 取库的持久只读连接：命中缓存且 db 文件身份（size, mtime）与建连时一致才复用；
+    /// 否则弃旧开新。身份校验是删除/替换库不被陈旧句柄掩盖的守门员——POSIX 上未链接文件的
+    /// fd 仍可读，没有这一步，被删库的贡献会在旧 inode 上"永远探针成功"。
+    /// 打开即设连接级页缓存 32MB（<see cref="_readOnlyConnections"/> 注释：IOPS 修复的依据与实测）。
+    /// </summary>
+    private SqliteConnection GetReadOnlyConnection(string databasePath)
+    {
+        if (_readOnlyConnections.TryGetValue(databasePath, out var existing))
+        {
+            if (TryGetDatabaseIdentity(databasePath, out var identity)
+                && _connectionIdentities.TryGetValue(databasePath, out var known)
+                && identity == known)
+            {
+                return existing;
+            }
+
+            DropReadOnlyConnection(databasePath);
+        }
+
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false, // 句柄由适配器自持（单例生命周期），不走连接池重复持有
+        }.ToString());
+        connection.Open();
+        if (!TryGetDatabaseIdentity(databasePath, out var openedIdentity))
+        {
+            connection.Dispose();
+            throw new IOException($"ZCode 账本库身份读取失败（建连后文件即不可达）：{databasePath}");
+        }
+
+        ExecutePragma(connection, "PRAGMA cache_size=-32768");
+        _readOnlyConnections[databasePath] = connection;
+        _connectionIdentities[databasePath] = openedIdentity;
+        return connection;
+    }
+
+    /// <summary>弃用持久连接并同步清身份账；释放失败不冒泡（下轮重开自愈）。</summary>
+    private void DropReadOnlyConnection(string databasePath)
+    {
+        if (_readOnlyConnections.Remove(databasePath, out var connection))
+        {
+            _connectionIdentities.Remove(databasePath);
+            try
+            {
+                connection.Dispose();
+            }
+            catch (Exception exception) when (exception is SqliteException or IOException)
+            {
+                // 释放失败不影响保守路径（本轮按打不开处理 / 下轮重开）。
+            }
+        }
+    }
+
+    private static void ExecutePragma(SqliteConnection connection, string pragma)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = pragma;
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>db 文件身份（size + mtime）；文件消失 / stat 失败返回 false（身份校验必不过 → 弃连）。</summary>
+    private static bool TryGetDatabaseIdentity(string databasePath, out ConnectionIdentity identity)
+    {
+        try
+        {
+            var database = new FileInfo(databasePath);
+            if (!database.Exists)
+            {
+                identity = default;
+                return false;
+            }
+
+            identity = new ConnectionIdentity(database.Length, database.LastWriteTimeUtc);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                           or System.Security.SecurityException)
+        {
+            identity = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 账本文件指纹（db + -wal 的 size/mtime）。-wal 不存在按零值参与比较（写端干净关闭或
+    /// 回滚日志模式都是稳定态）；new FileInfo 每次现查（FileSystemInfo 实例有缓存，不可复用）。
+    /// </summary>
+    private static bool TryGetFileFingerprint(string databasePath, out FileFingerprint fingerprint)
+    {
+        try
+        {
+            var database = new FileInfo(databasePath);
+            if (!database.Exists)
+            {
+                fingerprint = default;
+                return false;
+            }
+
+            var wal = new FileInfo(databasePath + "-wal");
+            fingerprint = new FileFingerprint(
+                database.Length,
+                database.LastWriteTimeUtc,
+                wal.Exists ? wal.Length : 0,
+                wal.Exists ? wal.LastWriteTimeUtc : DateTime.MinValue);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                           or System.Security.SecurityException)
+        {
+            fingerprint = default;
+            return false;
         }
     }
 
@@ -244,9 +458,6 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
 
         return true;
     }
-
-    /// <summary>只读打开（共享原语 <see cref="SqliteReadonly"/>，I-009 起与 OpenCode 适配器共用）。</summary>
-    private static SqliteConnection OpenReadOnly(string databasePath) => SqliteReadonly.Open(databasePath);
 
     /// <summary>
     /// 查询语句与蓝本 loader.rs 完全同构：completed 过滤 + LEFT JOIN session 取项目目录，

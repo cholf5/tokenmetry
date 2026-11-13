@@ -173,6 +173,69 @@ public class ZCodeSqliteAdapterTests : IDisposable
     }
 
     /// <summary>
+    /// IOPS 修复（文件指纹快路径）：文件账面未动的二次扫描连 SQL 探针都不发——探针值复用记忆，
+    /// 扫描结果语义与既有零变更轮逐位一致（FilesChanged=0 / FilesRead=0 / 记录复用 / 状态累计照旧）。
+    /// 修复前每轮至少一次全表 SCAN（status 无索引，生产账本 b-tree ~25MB）。
+    /// </summary>
+    [Fact]
+    public async Task FileFingerprint_UnchangedSecondScan_SkipsProbeQueryEntirely()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(home, legacy: false);
+        InsertRow(db, new ZCodeRow(
+            "usage-1", "s1", 1_786_909_042_666, "GLM-5.3", null,
+            "completed", 40, 5, 0, 0, 45, "/w"));
+        var adapter = CreateAdapter(home);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取（探针必跑一次）");
+        adapter.ProbeQueryCountForTests.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        adapter.ProbeQueryCountForTests.Should().Be(1, "文件指纹未动 = 账面必然未动，探针快路径直接复用记忆，零 SQL");
+        second.Diagnostics.FilesChanged.Should().Be(0);
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取，与探针后置时代的语义一致");
+        second.Records.Should().ContainSingle();
+        second.Records[0].MessageId.Should().Be("usage-1");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+    }
+
+    /// <summary>
+    /// IOPS 修复（快路径回退）：文件被动过（mtime 变化、数据语义未动，如 writer 纯 touch /
+    /// running 行写入但 completed 集不变）→ 快路径不命中、SQL 探针照跑并确认与记忆一致 →
+    /// 结果仍复用，且本轮把新指纹升为干净指纹（下轮快路径恢复）。探针是最终裁决者，指纹只是免查通道。
+    /// </summary>
+    [Fact]
+    public async Task FileFingerprint_TouchedFile_FallsBackToProbeAndRefreshesFingerprint()
+    {
+        var home = CreateTempHome();
+        var db = CreateDatabase(home, legacy: false);
+        InsertRow(db, new ZCodeRow(
+            "usage-1", "s1", 1_786_909_042_666, "GLM-5.3", null,
+            "completed", 40, 5, 0, 0, 45, "/w"));
+        var adapter = CreateAdapter(home);
+
+        var first = await adapter.ScanAsync();
+        adapter.ProbeQueryCountForTests.Should().Be(1);
+
+        // 模拟 writer 纯 touch：mtime 前跳 5 秒，数据语义（completed count + max(id)）未动。
+        File.SetLastWriteTimeUtc(db, File.GetLastWriteTimeUtc(db).AddSeconds(5));
+
+        var second = await adapter.ScanAsync();
+
+        adapter.ProbeQueryCountForTests.Should().Be(2, "指纹未命中 → SQL 探针必须实跑一次");
+        second.Diagnostics.FilesChanged.Should().Be(0, "探针确认 count + max(id) 未动 = 账面未动");
+        second.Records.Should().ContainSingle();
+
+        // 新指纹已升为干净指纹：下轮不再发 SQL。
+        var third = await adapter.ScanAsync();
+        adapter.ProbeQueryCountForTests.Should().Be(2);
+        third.Diagnostics.FilesChanged.Should().Be(0);
+        third.Records.Should().ContainSingle();
+    }
+
+    /// <summary>
     /// 库文件消失 = 账面变化：即使剩余库探针未动，也必须按有变化重新读取——
     /// 不得让消失库的贡献静默滞留在零变更短路里（既有缺口：探针只比对残留库，
     /// 库集收缩检测不到）。修复后库集变化必然触发全量重扫。
