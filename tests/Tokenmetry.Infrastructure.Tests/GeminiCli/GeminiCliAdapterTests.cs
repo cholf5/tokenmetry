@@ -515,6 +515,32 @@ public class GeminiCliAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task ChangeProbe_OnlyChangedLogFileIsReread()
+    {
+        // 回归护栏：活跃会话日志每回合都在长，逐文件记账才能只重读那一份。
+        var root = CreateTempDir();
+        WriteFile(root, "project/chats/session-a.jsonl", SessionAOneEvent);
+        WriteFile(root, "project/chats/session-b.jsonl",
+            """
+            {"sessionId":"session-b","projectHash":"project-a","startTime":"2026-05-17T12:00:00.000Z"}
+            {"id":"msg-b","timestamp":"2026-05-17T12:00:32.000Z","type":"gemini","model":"gemini-3-flash-preview","tokens":{"input":10,"output":20,"total":30}}
+            """);
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(2);
+        first.Diagnostics.FilesChanged.Should().Be(2, "首轮相对空记忆，两个文件都是新账");
+
+        WriteFile(root, "project/chats/session-a.jsonl", SessionATwoEvents);
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesRead.Should().Be(1, "只有变了的日志文件重解析，其余取用上轮产出");
+        second.Diagnostics.FilesChanged.Should().Be(1);
+        second.Records.Should().HaveCount(3, "未变文件的上轮记录仍在");
+    }
+
+    [Fact]
     public async Task ChangeProbe_RemovedAndAddedLogs_TriggerFullRescan()
     {
         var root = CreateTempDir();
@@ -537,7 +563,7 @@ public class GeminiCliAdapterTests : IDisposable
         var second = await adapter.ScanAsync();
 
         second.Diagnostics.FilesDiscovered.Should().Be(2);
-        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Diagnostics.FilesChanged.Should().Be(2, "一个消失 + 一个新增 = 两个文件的账面变了（计数口径与共享扫描器一致）");
         second.Records.Select(record => record.SessionId).Should().BeEquivalentTo("session-a", "session-c");
     }
 

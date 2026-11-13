@@ -351,6 +351,37 @@ public class DroidAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task ChangeProbe_OnlyChangedSettingsFileIsReread()
+    {
+        // 回归护栏：快照文件随会话推进持续重写，逐文件记账才能只重读活跃会话那一份。
+        var root = CreateTempDataDir();
+        var adapter = CreateAdapter(root);
+        WriteSettings(root, "session-a.settings.json",
+            Model: "gpt-5", Provider: "openai",
+            Timestamp: "2026-05-01T01:02:03.000Z", TokenUsage: """{"inputTokens":10,"outputTokens":5}""");
+        WriteSettings(root, "session-b.settings.json",
+            Model: "gpt-5", Provider: "openai",
+            Timestamp: "2026-05-01T01:02:04.000Z", TokenUsage: """{"inputTokens":10,"outputTokens":5}""");
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(2);
+        first.Diagnostics.FilesChanged.Should().Be(2, "首轮相对空记忆，两个文件都是新账");
+        first.Records.Should().HaveCount(2);
+
+        WriteSettings(root, "session-a.settings.json",
+            Model: "gpt-5", Provider: "openai",
+            Timestamp: "2026-05-01T01:02:03.000Z", TokenUsage: """{"inputTokens":100,"outputTokens":50}""");
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesRead.Should().Be(1, "只有重写过的快照文件重解析，其余取用上轮产出");
+        second.Diagnostics.FilesChanged.Should().Be(1);
+        second.Records.Should().HaveCount(2, "未变文件的上轮快照仍在");
+        second.Records.Single(record => record.SessionId == "session-a").InputTokens
+            .Should().Be(100, "变了的文件用新值");
+    }
+
+    [Fact]
     public async Task ChangeProbe_RemovedAndAddedSettings_TriggerFullRescan()
     {
         var root = CreateTempDataDir();
@@ -371,7 +402,7 @@ public class DroidAdapterTests : IDisposable
         var second = await adapter.ScanAsync();
 
         second.Diagnostics.FilesDiscovered.Should().Be(2);
-        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Diagnostics.FilesChanged.Should().Be(2, "一个消失 + 一个新增 = 两个文件的账面变了（计数口径与共享扫描器一致）");
         second.Records.Select(record => record.SessionId).Should().BeEquivalentTo("session-a", "session-c");
     }
 

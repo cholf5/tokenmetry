@@ -432,6 +432,33 @@ public class AmpAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task ChangeProbe_OnlyChangedThreadFileIsReread()
+    {
+        // 回归护栏：记账必须逐文件。若退回「整批戳集全等才复用」的全有全无口径，一份活跃线程的
+        // 存在就会把整批历史拉回全量重读（Cindy / pi-agent 源同病灶）。
+        var root = CreateTempDataDir();
+        var adapter = CreateAdapter(root);
+        WriteThread(root, "T-a.json",
+            """{"id":"a","usageLedger":{"events":[{"id":"e-a","timestamp":"2026-01-02T00:00:00.000Z","model":"gpt-5","tokens":{"input":1,"output":1}}]}}""");
+        WriteThread(root, "T-b.json",
+            """{"id":"b","usageLedger":{"events":[{"id":"e-b","timestamp":"2026-01-02T00:00:01.000Z","model":"gpt-5","tokens":{"input":1,"output":1}}]}}""");
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(2);
+        first.Diagnostics.FilesChanged.Should().Be(2, "首轮相对空记忆，两个文件都是新账");
+
+        // 只让 T-a 多一个事件——T-b 一字未动。
+        WriteThread(root, "T-a.json",
+            """{"id":"a","usageLedger":{"events":[{"id":"e-a","timestamp":"2026-01-02T00:00:00.000Z","model":"gpt-5","tokens":{"input":1,"output":1}},{"id":"e-a2","timestamp":"2026-01-02T00:00:02.000Z","model":"gpt-5","tokens":{"input":2,"output":2}}]}}""");
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesRead.Should().Be(1, "只有变了的线程文件重解析，其余取用上轮产出");
+        second.Diagnostics.FilesChanged.Should().Be(1);
+        second.Records.Should().HaveCount(3, "未变文件的上轮记录仍在，变了的文件补上新事件");
+    }
+
+    [Fact]
     public async Task ChangeProbe_RemovedAndAddedFiles_TriggerFullRescan()
     {
         var root = CreateTempDataDir();
@@ -450,7 +477,7 @@ public class AmpAdapterTests : IDisposable
         var second = await adapter.ScanAsync();
 
         second.Diagnostics.FilesDiscovered.Should().Be(2);
-        second.Diagnostics.FilesChanged.Should().Be(1, "文件集变化 = 账面变化");
+        second.Diagnostics.FilesChanged.Should().Be(2, "一个消失 + 一个新增 = 两个文件的账面变了（计数口径与共享扫描器一致）");
         second.Records.Select(record => record.SessionId).Should().BeEquivalentTo("a", "c");
     }
 

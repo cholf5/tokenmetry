@@ -65,6 +65,30 @@ public sealed class FileStampMemo
     }
 
     /// <summary>
+    /// 单文件取戳（路径 + UTC 修改时刻 + 长度）：只 stat，不读内容。文件不存在或 stat 失败返回 false
+    /// ——调用方据此走「保守重读且不落账」分支（逐文件记账的适配器用）。
+    /// </summary>
+    public static bool TryCapture(string path, out FileStamp stamp)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            if (info.Exists)
+            {
+                stamp = new FileStamp(path, info.LastWriteTimeUtc, info.Length);
+                return true;
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 落到下面的 default 戳：调用方不看该值，只走失败分支。
+        }
+
+        stamp = default;
+        return false;
+    }
+
+    /// <summary>
     /// 对文件清单取戳（按路径排序，枚举序不影响复用判定）；任一文件不存在或 stat 失败返回 null
     /// （本轮保守按有变化处理）。
     /// </summary>
@@ -73,18 +97,7 @@ public sealed class FileStampMemo
         var stamps = new FileStamp[files.Count];
         for (var index = 0; index < files.Count; index++)
         {
-            var path = files[index];
-            try
-            {
-                var info = new FileInfo(path);
-                if (!info.Exists)
-                {
-                    return null;
-                }
-
-                stamps[index] = new FileStamp(path, info.LastWriteTimeUtc, info.Length);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            if (!TryCapture(files[index], out stamps[index]))
             {
                 return null;
             }
