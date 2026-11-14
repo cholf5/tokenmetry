@@ -4,6 +4,15 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <!-- 本地 AOT 预检（scripts/aot-check.sh）要 restore AOT 编译器包 Microsoft.DotNet.ILCompiler，
+       它的版本跟随本机运行时补丁号。旧补丁（< 10.0.14）撞 CVE-2026-111497 的 NuGet 审计，在
+       TreatWarningsAsErrors 下变成 NU1903 **错误**，把“能不能 AOT 打包”的检查挡在 restore 阶段。
+       该包是编译期工具链、不进发布产物；发布路径（CI）用的是 runner 自带的新补丁，从不触发。
+       补丁到位（≥ 10.0.14）后此条自动失效，届时删掉即可。 -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-p3jp-9v83-76w9" />
+  </ItemGroup>
+
   <!-- 许可证元数据唯一出处：全解决方案（src + tests）统一继承，勿在各 csproj 重复声明。
        LICENSE 全文在仓库根目录；README「License」一节有条款摘要与品牌标识声明。 -->
   <PropertyGroup>

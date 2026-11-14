@@ -114,11 +114,30 @@ ad-hoc 封签让下载副本走标准的「未验证开发者」提示（右键�
 Windows 发布在 CI 的 windows job 内联完成（publish + Compress-Archive）；package.sh 也接受
 win-* rid 供本地交叉发布实验。
 
+## 发版前预检（AOT）
+
+```bash
+scripts/aot-check.sh                # 四个发布 RID（osx-arm64 osx-x64 linux-x64 win-x64）
+scripts/aot-check.sh "win-x64"      # 只查一个
+```
+
+**为什么必须单独查一遍**：AOT 分析器只在 `PublishAot=true` 时跑，日常 `dotnet build` /
+`dotnet test` 看不到，CI 的 `test` job（ubuntu 普通构建）也看不到——只有打完 tag、macOS 与
+Windows 两个打包 job 才会撞。v0.6.0 就是这么踩的：`RelaySyncBackend` 里四处反射 JSON 序列化
+在打包时变成 16 条 `IL2026`/`IL3050`，`TreatWarningsAsErrors` 直接挡死，release job 被跳过，
+只能删 tag 重跑。脚本只做 `build`（跨平台能做，IL 诊断已全部产出），不做 `publish`
+（需要目标平台原生工具链）。
+
+本地 `PublishAot=true` 会 restore 编译期工具链包 `Microsoft.DotNet.ILCompiler`，它跟随本机
+运行时补丁号；旧补丁（< 10.0.14）撞 CVE-2026-111497 的 NuGet 审计，在 `TreatWarningsAsErrors`
+下变成 `NU1903` 错误。`Directory.Build.props` 里对此单条 advisory 做了 `NuGetAuditSuppress`
+（编译期工具、不进产物，发布路径用 runner 新补丁从不触发），补丁到位后可删。
+
 ## 发版步骤
 
 ```bash
 scripts/release.sh 0.3.0            # 本地先跑全量测试，再 bump + tag + push
-scripts/release.sh 0.3.0 --watch    # 追加：盯 CI 到完成并核对四资产齐全
+scripts/release.sh 0.3.0 --watch    # 追加：盯 CI 到完成并核对五资产齐全（自带 45 分钟上限）
 ```
 
 前提：main 分支、工作树干净、与远端同步。失败恢复（tag 已推、CI 挂）：
