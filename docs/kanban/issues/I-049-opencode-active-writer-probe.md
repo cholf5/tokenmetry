@@ -167,8 +167,8 @@ OpenCode 在**被用户使用期间**（写端活跃）不再每轮把整个会�
   异常"需物理页破坏，实测 writable_schema rootpage 改指向会让整个库 schema 加载失败、无法产生半截
   行，故取探针失败构造——两者在准入分支同属部分轮），删库轮断言 FilesChanged=1 / FilesRead=1 /
   B 残行不出现。**已实证修复前该测试失败**（临时恒真模拟准入：删库轮判零变更 FilesChanged=0）。
-  **ZCodeSqliteAdapter 有同款漏洞（本卡移植源头），登记待另卡处理、本卡不越界顺手修（是否开卡由
-  用户决定）。**
+  **ZCodeSqliteAdapter 有同款漏洞（本卡移植源头），本卡不越界顺手修——后续经用户拍板未开卡
+  直接修（f6f0218，全或无准入 + 覆盖率守卫），留档见 I-055。**
 - **P2-1**：`PersistentConnection_ReplacedDatabaseFile_IsReopenedAndReread` 与上述 P1 回归测试加
   Windows 跳过（适配器持有未关闭持久句柄时 File.Delete 撞共享锁；POSIX unlink 允许带 fd 删除）。
   既有 `ChangeProbe_RemovedDatabase_DoesNotServeStaleCache` 在 Windows 下有同款暴露（与 ZCode
