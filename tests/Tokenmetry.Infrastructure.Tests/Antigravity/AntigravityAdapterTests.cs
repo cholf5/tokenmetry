@@ -1029,6 +1029,92 @@ public class AntigravityAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task ChangeProbe_WalSidecarTouched_DetectedAsChange()
+    {
+        // I-048 回归锁：Antigravity 会话库是 WAL 模式（antigravity-cli#1486 / Google AI Dev Forum
+        // WAL-level breakdown），写入先落 -wal 边车、主库 mtime 在 checkpoint 前不动——仅 -wal 变化
+        // 也必须重读，否则活跃期一直复用陈旧账。改回 Capture（只看主库）本条必 RED。
+        var root = CreateTempDir();
+        var dbPath = Path.Combine(root, "conversations", "session.db");
+        CreateDatabase(dbPath,
+            [(1, MetadataBlob("gemini-3-pro", new UsageFixture
+            {
+                InputTokens = 10,
+                TotalOutputTokens = 5,
+                VisibleOutputTokens = 5,
+                ResponseId = "probe-response",
+            }, (1_778_000_000, 0), []))],
+            [],
+            []);
+        var adapter = CreateAdapter(root);
+        using (OpenWalSidecarWriter(dbPath))
+        {
+            // 基线取在 WAL 切换之后：journal_mode=WAL 本身会写主库头部，之后到断言为止主库不得再动。
+            var mainStamp = (ModifiedUtc: File.GetLastWriteTimeUtc(dbPath), Length: new FileInfo(dbPath).Length);
+            var first = await adapter.ScanAsync();
+            first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+
+            File.SetLastWriteTimeUtc(dbPath + "-wal", File.GetLastWriteTimeUtc(dbPath + "-wal").AddMinutes(1));
+
+            var second = await adapter.ScanAsync();
+
+            (File.GetLastWriteTimeUtc(dbPath), new FileInfo(dbPath).Length).Should().Be(mainStamp,
+                "主库一字未动：重读只能由 -wal 戳变化触发（旧 Capture 口径在此场景必复用）");
+            second.Diagnostics.FilesChanged.Should().Be(1, "仅 -wal 变化也是账面变化");
+            second.Diagnostics.FilesRead.Should().Be(1, "指纹未命中 → 重读");
+            second.Records.Should().ContainSingle().Which.MessageId.Should().Be("probe-response",
+                "库内容一字未动，重读结果不变");
+        }
+    }
+
+    [Fact]
+    public async Task ChangeProbe_WalSidecarRemoved_TriggersFullRescan()
+    {
+        // I-048：checkpoint 收尾后 -wal 消失。CaptureWithOptional 的哨兵戳语义要求"边车消失"本身
+        // 触发重读（存在→缺失戳必不同），不能因为主库也没动就复用；改回 Capture 必 RED。
+        var root = CreateTempDir();
+        var dbPath = Path.Combine(root, "conversations", "session.db");
+        CreateDatabase(dbPath,
+            [(1, MetadataBlob("gemini-3-pro", new UsageFixture
+            {
+                InputTokens = 10,
+                TotalOutputTokens = 5,
+                VisibleOutputTokens = 5,
+                ResponseId = "probe-response",
+            }, (1_778_000_000, 0), []))],
+            [],
+            []);
+        var adapter = CreateAdapter(root);
+        // 基线取在 WAL 切换之后（journal_mode=WAL 本身会写主库头部）；此后到断言为止主库不得再动。
+        using var writer = OpenWalSidecarWriter(dbPath);
+        var mainStamp = (ModifiedUtc: File.GetLastWriteTimeUtc(dbPath), Length: new FileInfo(dbPath).Length);
+        (await adapter.ScanAsync()).Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取");
+        writer.Dispose();
+        SqliteConnection.ClearAllPools();
+
+        // 收尾形态：连接真正关闭（防池内句柄钉住边车），边车消失、主库内容与戳不动。
+        // 依赖说明：删边车后以 ReadOnly 重开 WAL 库依赖 SQLite ≥3.22（-wal/-shm 缺失或为空时
+        // 只读连接可打开）；依赖不满足时是响亮失败（库打不开 → 该库 FilesRead=0 → 下方断言挂），
+        // 不会假绿。
+        SqliteConnection.ClearAllPools();
+        File.Delete(dbPath + "-wal");
+        if (File.Exists(dbPath + "-shm"))
+        {
+            File.Delete(dbPath + "-shm");
+        }
+
+        File.Exists(dbPath + "-wal").Should().BeFalse("前置：-wal 已消失（checkpoint 收尾）");
+        (File.GetLastWriteTimeUtc(dbPath), new FileInfo(dbPath).Length).Should().Be(mainStamp,
+            "主库一字未动：重读只能由边车消失（哨兵戳）触发");
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "边车消失也是账面变化");
+        second.Diagnostics.FilesRead.Should().Be(1, "不能因为主库也没动就复用上轮记录");
+        second.Records.Should().ContainSingle().Which.MessageId.Should().Be("probe-response");
+    }
+
+    [Fact]
     public async Task Files_without_extension_db_are_not_discovered()
     {
         var root = CreateTempDir();
@@ -1121,6 +1207,26 @@ public class AntigravityAdapterTests : IDisposable
 
     private AntigravityAdapter CreateAdapter(string configuredRoot)
         => new(configuredDataDir: configuredRoot);
+
+    /// <summary>
+    /// I-048 fixture：把合成库切到 WAL 模式并落出一个真实存在的空 <c>-wal</c> 边车。
+    /// BEGIN IMMEDIATE 起写事务让 SQLite 创建 <c>-wal</c>/<c>-shm</c>，回滚不留任何已提交帧——
+    /// 主库内容与戳保持不动，还原"边车在、主库不动"的活跃 WAL 形态（antigravity-cli#1486 的
+    /// 主库静默形态）。返回的写连接由调用方持有：连接真关闭会跑收尾 checkpoint 把空边车删掉。
+    /// </summary>
+    private static SqliteConnection OpenWalSidecarWriter(string databasePath)
+    {
+        var writer = new SqliteConnection($"Data Source={databasePath}");
+        writer.Open();
+        Execute(writer, "PRAGMA journal_mode = WAL;");
+        using var transaction = writer.BeginTransaction();
+        using var command = writer.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "UPDATE gen_metadata SET data = data";
+        command.ExecuteNonQuery();
+        transaction.Rollback();
+        return writer;
+    }
 
     private static Func<string, string?> NoEnvAccessor() => _ => null;
 
