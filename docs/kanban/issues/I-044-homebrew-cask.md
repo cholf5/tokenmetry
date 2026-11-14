@@ -4,10 +4,11 @@ title: 上架 Homebrew cask——给 brew 用户版本管理与升级便利（Ga
 type: infra
 priority: P3
 size: M
-status: todo
+status: wontfix
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-14（wontfix）
 blocked: none
+resolution: 2026-11-14 用户在看板 I-044 行直接留言拍板「Homebrew 不上」，并授权删除该行；卡片作废留档不退库（沿 I-043 惯例）。卡内的 Homebrew quarantine 取证（三条例证 + upgrade 继承 approval 的结论）仍有参考价值，若将来重启分发渠道讨论再取用。
 ---
 
 ## Goal
@@ -127,3 +128,9 @@ ghcr.io 下载反复失败重试，已中止并清理，未污染 cask 清单。
   已中止；未安装任何东西、未污染 cask 清单。因此上面的结论是**代码级证据**，实现时仍需在一台干净机器
   上用 `xattr -p com.apple.quarantine` 亲眼确认，并把“upgrade 不再弹窗”作为唯一的硬验收。
 - 优先级建议降为 P3（收益面变窄）；**2026-10-30 用户确认降为 P3**。
+
+### 2026-11-14 作废收口（用户拍板）
+
+- 用户在 `docs/kanban/board.md` 的 I-044 行直接留言：「human message: Homebrew 不上，Agent 看到后可以把此条删除」（14:21 写入工作区，PM 核实为工作区 diff 中唯一非本会话产生的人类变更）。
+- 处置：看板行删除；卡片作废留档（`status: wontfix` + 本 resolution），零代码改动、未实施任何 tap/cask/文档改动。
+- 留档价值：Background 里 2026-10-30 的 Homebrew 7.x quarantine 三条例证（`cask/download.rb:255` 主动打 quarantine、`release!` 零调用、upgrade 继承 approval）是代码级取证，未来讨论分发渠道（公证证书、dmg 重议、官方 cask 提交）时可直接引用，不必重新验证。
