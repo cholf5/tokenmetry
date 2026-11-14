@@ -130,12 +130,24 @@ for (var round = 1; round <= rounds; round++)
 Console.WriteLine();
 Console.WriteLine($"--- 逐源明细（生产同款 {IngestionFileLogger.LogFileName}）---");
 var logPath = Path.Combine(logDirectory, IngestionFileLogger.LogFileName);
-if (File.Exists(logPath))
+// 生产 logger 以 FileShare.Read 持有写句柄（只允许他人读、不允许他人写），因此这里必须显式带上
+// FileShare.ReadWrite 才打得开——File.ReadLines 默认 share=Read，在 Windows 上会因共享冲突抛
+// IOException（macOS/Linux 的 Unix 语义不校验共享，本卡 macOS 首验时没暴露）。回显失败不构成冒烟失败。
+try
 {
-    foreach (var line in File.ReadLines(logPath))
+    if (File.Exists(logPath))
     {
-        Console.WriteLine(line);
+        using var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        while (reader.ReadLine() is { } line)
+        {
+            Console.WriteLine(line);
+        }
     }
+}
+catch (IOException ex)
+{
+    Console.Error.WriteLine($"[SmokeScan] 逐源明细回显失败（不影响冒烟结论）：{ex.Message}");
 }
 
 try
