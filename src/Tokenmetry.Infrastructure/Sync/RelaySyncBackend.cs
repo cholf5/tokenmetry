@@ -1,7 +1,5 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
-using System.Text.Json;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Sync;
 
@@ -9,13 +7,12 @@ namespace Tokenmetry.Infrastructure.Sync;
 
 /// <summary>
 /// 官方/自建中继的 ISyncBackend HTTP 实现（relay 设计 §4.6）：Bearer token 认证 +
-/// X-Tokenmetry-Device 标识 caller 设备；协议编解码走 SyncJsonContext（source-gen）。
+/// X-Tokenmetry-Device 标识 caller 设备；协议编解码全走 SyncJsonContext（source-gen）——
+/// 反射序列化在 AOT 发布下是 IL2026/IL3050 编译错误（v0.6.0 首次 AOT 打包即被这条挡下）。
 /// 注册/换 token 是中继专属流程（不在抽象接口，A5）。
 /// </summary>
 public sealed class RelaySyncBackend : ISyncBackend
 {
-    private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);
-
     private readonly HttpClient _http;
     private readonly string _baseUrl;
     private readonly string _deviceId;
@@ -63,7 +60,7 @@ public sealed class RelaySyncBackend : ISyncBackend
     {
         using var message = new HttpRequestMessage(HttpMethod.Patch, $"{_baseUrl}/api/devices/{Uri.EscapeDataString(deviceId)}")
         {
-            Content = new StringContent(JsonSerializer.Serialize(new { name }, WebJson), Encoding.UTF8, "application/json"),
+            Content = JsonContent.Create(new RenameDeviceRequest(name), SyncJsonContext.Default.RenameDeviceRequest),
         };
         using var response = await _http.SendAsync(message, ct);
         await EnsureSuccessAsync(response);
@@ -106,7 +103,7 @@ public sealed class RelaySyncBackend : ISyncBackend
     {
         using var message = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/auth/github")
         {
-            Content = new StringContent(JsonSerializer.Serialize(new { code }, WebJson), Encoding.UTF8, "application/json"),
+            Content = JsonContent.Create(new GitHubCodeRequest(code), SyncJsonContext.Default.GitHubCodeRequest),
         };
         using var response = await _http.SendAsync(message, ct);
         await EnsureSuccessAsync(response);
@@ -119,15 +116,14 @@ public sealed class RelaySyncBackend : ISyncBackend
     {
         using var message = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/devices")
         {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new { deviceId, name }, WebJson), Encoding.UTF8, "application/json"),
+            Content = JsonContent.Create(
+                new RegisterDeviceRequest(deviceId, name), SyncJsonContext.Default.RegisterDeviceRequest),
         };
         message.Headers.Add("X-Tokenmetry-Device", _deviceId);
         using var response = await _http.SendAsync(message, ct);
         await EnsureSuccessAsync(response);
-        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
-        var registeredDeviceId = payload.TryGetProperty("deviceId", out var idElement) ? idElement.GetString() : null;
-        return new SyncTokenResponse(Token: string.Empty, DeviceId: registeredDeviceId ?? deviceId);
+        var registered = await response.Content.ReadFromJsonAsync(SyncJsonContext.Default.RegisterDeviceResponse, ct);
+        return new SyncTokenResponse(Token: string.Empty, DeviceId: registered?.DeviceId ?? deviceId);
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response)

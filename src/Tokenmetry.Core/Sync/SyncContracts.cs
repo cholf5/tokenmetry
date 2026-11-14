@@ -27,3 +27,15 @@ public sealed record SyncDeviceListResponse(IReadOnlyList<SyncDeviceInfo> Device
 
 /// <summary>登录/注册换发的账号 token 与本机设备 id。</summary>
 public sealed record SyncTokenResponse(string Token, string DeviceId);
+
+/// <summary>改设备名请求体（PATCH /api/devices/{id}）。</summary>
+public sealed record RenameDeviceRequest(string Name);
+
+/// <summary>官方模式登录的 code 交换请求体（POST /api/auth/github，G3：客户端不持 secret）。</summary>
+public sealed record GitHubCodeRequest(string Code);
+
+/// <summary>注册本机设备请求体（POST /api/devices）。</summary>
+public sealed record RegisterDeviceRequest(string DeviceId, string Name);
+
+/// <summary>注册本机设备响应：回显服务端登记后的设备 id 与名字。</summary>
+public sealed record RegisterDeviceResponse(string DeviceId, string Name);
