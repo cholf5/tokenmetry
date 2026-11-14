@@ -8,8 +8,12 @@ namespace Tokenmetry.Infrastructure.Antigravity;
 /// <summary>
 /// Antigravity 本地会话 SQLite 直读适配器（I-021，移植蓝本 ../ccusage/rust/adapters/antigravity/src/loader.rs
 /// 主线；蓝本许可：MIT License，Copyright (c) 2025 ryoppippi）：库发现（<see cref="AntigravityLogLocator"/>，
-/// ANTIGRAVITY_DATA_DIR 多根 / 六默认根）→ 文件戳探针（<see cref="FileStampMemo"/>，库路径 + mtime + 大小，
-/// 只 stat 不读内容）→ 账面未动复用上轮记录（零读取零解析）→ 否则逐库只读解析
+/// ANTIGRAVITY_DATA_DIR 多根 / 六默认根）→ 文件戳探针（<see cref="FileStampMemo"/>，主库 + <c>-wal</c>
+/// 各取 mtime + 大小，只 stat 不读内容；I-048：Antigravity 会话库是 WAL 模式——写入先落 <c>-wal</c>
+/// 边车、主库 mtime 在 checkpoint 前不动，只看主库会在活跃期复用到陈旧账（antigravity-cli#1486：
+/// <c>wal_autocheckpoint</c>=1000 页 × 32 KB 页 → 主库可长达 32 MB 累计写入不动一次）；<c>-shm</c>
+/// 是读写共享的派生索引、读端也会触碰，进指纹等于自激重扫，故不进）→ 账面未动复用上轮记录
+/// （零读取零解析）→ 否则逐库只读解析
 /// （<see cref="AntigravityParser.ParseSqliteFile"/>，gen_metadata 必需表 + steps / trajectory_metadata_blob
 /// 可选表）→ 身份键跨库去重合并（<see cref="AntigravityParser.DeduplicateEvents"/>，蓝本 loader.rs
 /// deduplicate_events 同构）→ 按时间戳稳定排序（蓝本 events.sort_by_key(timestamp)）→ 统一记录
@@ -39,7 +43,10 @@ public class AntigravityAdapter : IAntigravityAdapter
     public Task<JsonlScanResult> ScanAsync(CancellationToken ct = default)
     {
         var databases = _locator.CollectConversationDatabasePaths(_configuredDataDir);
-        var stamps = FileStampMemo.Capture(databases);
+        // I-048：主库 + -wal 一起进指纹（CaptureWithOptional 的哨兵戳让"边车消失（checkpoint 收尾）"
+        // 也是账面变化）；与其余三个 FileStampMemo 系 SQLite 源（Goose/Hermes/Kilo）逐字同口径，
+        // OpenCode（I-049）为语义同口径的逐库两级探针。
+        var stamps = FileStampMemo.CaptureWithOptional(FileStampMemo.SqliteFingerprintFiles(databases));
 
         if (_memo.TryReuse(stamps, databases.Count, databases, out var reused))
         {
