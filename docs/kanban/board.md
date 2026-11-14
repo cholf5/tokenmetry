@@ -8,7 +8,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
 | I-051 | SQLite 源采集成本审计落档——五源实测矩阵 + Goose/Hermes「不改」判定用合成 5k 会话坐实 | P3 | S | none | none |
-| I-044 | 上架 Homebrew cask——**前提已修正**：brew 不免疫 Gatekeeper，收益降为「放行一次后 `brew upgrade` 不再弹」 | P3 | M | none | none |
 
 ## Done
 
