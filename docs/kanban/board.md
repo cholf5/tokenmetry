@@ -7,12 +7,12 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
-| I-051 | SQLite 源采集成本审计落档——五源实测矩阵 + Goose/Hermes「不改」判定用合成 5k 会话坐实 | P3 | S | none | none |
 
 ## Done
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-051 | SQLite 源采集成本审计落档——六源矩阵 + 实测落档（`docs/perf-investigation-2026-11-14-sqlite-sources.md`）：Goose/Hermes 合成 5k 会话 ≈20 ms 判不改；OpenCode 改前/后双记；ZCode 生产 app.log 5,087 轮回填（修复前空闲 p50 1.4 s/max 63 s）；审查补「写端风暴期探针退化 ~1.4 s」适用条件 | P3 | 2026-11-14 |
 | I-053 | JSONL 读取缓冲 4 KB → 64 KB——**作废（不做，留档）**：先量后改的既定退出条件触发——端到端中位数改善 8.8% < 10%，真实收益 ~4% 且噪声 ±25%+，DSH（占整轮 ~55%、逐帧解压流）0% 改善；改动已回滚，数字留卡，重开应跳过 DSH 只做直读源 | P3 | 2026-11-14（作废） |
 | I-052 | 采集 IO 量尺——SmokeScan 每轮报进程读取字节/次数（Windows GetProcessIoCounters / Linux /proc/self/io / macOS n/a 降级；零行为影响零副作用；Windows 实机验证待补，AC 2 留未勾） | P3 | 2026-11-14 |
 | I-048 | Antigravity 指纹补 `-wal`——活跃写入期不再读到陈旧账（取证等级 A：公开一手实测两源互证 WAL + 32 MB autocheckpoint 阈值，活跃期主库可长期不动；指纹与 Goose/Hermes/Kilo 逐字同口径，OpenCode 为语义同口径两级探针） | P2 | 2026-11-14 |

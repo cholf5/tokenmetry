@@ -42,6 +42,8 @@ namespace Tokenmetry.Infrastructure.ZCodeSqlite;
 /// 语义校验拒绝的行数（身份无效 / 时间无效 / 全零，经 <see cref="ZCodeRecordMapper.Map"/>）、
 /// DuplicateRecords = 按 id 折叠的重复记录；行级 malformed 概念不存在（Malformed/LinesSkipped 恒 0）。
 /// 实例持有探针/记录记忆与持久只读连接（单例接入 App DI），并发由 LocalIngestionDataSource 串行化。
+/// 采集成本审计：本源判定（两级探针为何是当前最优、为何不做行级增量）与六源矩阵的唯一出处见
+/// docs/perf-investigation-2026-11-14-sqlite-sources.md（I-051，数字留在文档、注释不复制防漂移）。
 /// </summary>
 public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
 {

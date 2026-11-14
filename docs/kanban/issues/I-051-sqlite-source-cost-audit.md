@@ -4,9 +4,9 @@ title: SQLite 源采集成本审计落档——五源实测矩阵 + Goose/Hermes
 type: infra
 priority: P3
 size: S
-status: todo
+status: done
 created: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-14（done）
 blocked: none
 ---
 
@@ -65,12 +65,21 @@ ZCode 参照实现 `ZCodeSqliteAdapter.cs:115-160 / :305 / :331 / :358 / :415`�
 
 ## Acceptance Criteria
 
-- [ ] `docs/perf-investigation-<日期>-sqlite-sources.md` 入库，含上面矩阵、实测方法（命令级可复现）、
+- [x] `docs/perf-investigation-<日期>-sqlite-sources.md` 入库，含上面矩阵、实测方法（命令级可复现）、
       每源判定与理由、未取证项清单
-- [ ] Goose / Hermes 的"不改"有实测数字支撑（合成 5k 会话 fixture 或真机数据，注明来源）
-- [ ] ZCode 的现状数字回填（它的两级探针是否仍是当前最优，顺手确认 `app.log` 里该源耗时量级）
-- [ ] 五个适配器类注释各加一行指向该文档（只加一行，不复制数字）
-- [ ] `dotnet test Tokenmetry.sln` 全绿（本卡不改生产行为；若写了一次性测量代码，已删除或已标注）
+      （`docs/perf-investigation-2026-11-14-sqlite-sources.md`，与 2026-10-28 范本同构：方法 → 数据 → 判定 → 明确不做）
+- [x] Goose / Hermes 的"不改"有实测数字支撑（合成 5k 会话 fixture 或真机数据，注明来源）
+      （合成 fixture：真 SQLite/WAL、按两源真实读取路径；Goose 中位 ≈18–20 ms / Hermes ≈20–21 ms，
+      载荷 0.45 / 0.42 MB，空闲轮 0.1–0.5 ms——数字与量法在文档 3.4/4.1 节；测量代码已删，
+      选择"一次性测量"路线，理由见 Development Log）
+- [x] ZCode 的现状数字回填（它的两级探针是否仍是当前最优，顺手确认 `app.log` 里该源耗时量级）
+      （app.log 修复前 5,087 轮：空闲轮 p50 1,401 ms / max 63 s——正是两级探针的动机数字；修复后
+      生产样本本机没有，SmokeScan 代表 1,575 → 13 → 0 ms；两级探针仍是当前最优，判定不改。
+      文档 4.3 节）
+- [x] 五个适配器类注释各加一行指向该文档（只加一行，不复制数字）
+      （勘误：矩阵实为六源——六个适配器类注释各加一行，含参照实现 ZCodeSqliteAdapter）
+- [x] `dotnet test Tokenmetry.sln` 全绿（本卡不改生产行为；若写了一次性测量代码，已删除或已标注）
+      （一次性测量工程已删除；全量测试见 Development Log）
 
 ## 开放问题
 
@@ -102,3 +111,69 @@ ZCode 参照实现 `ZCodeSqliteAdapter.cs:115-160 / :305 / :331 / :358 / :415`�
 - 之所以要一张独立卡而不是把结论散在各改动卡里：将来唯一会被反复问到的问题是
   "Goose/Hermes 那么小的表为什么也要定期重读"，如果没有一份写着实测数字的文档，
   下一批智能体会再调研一遍——这已经在本次会话里发生过一次。
+
+### 2026-11-14 落档
+
+- **计数勘误**：卡标题写"五源"、Goal 与矩阵列了六个源（建卡时把 ZCode 当参照实现没算进改动面）。
+  按六源落档（ZCode / OpenCode / Kilo / Goose / Hermes / Antigravity），文档头部与 AC-4 均已注明。
+- **审计文档入库**：`docs/perf-investigation-2026-11-14-sqlite-sources.md`（与
+  `perf-investigation-2026-10-28.md` 同目录同构：结论摘要矩阵 → 本机规模取证 → 测量方法 →
+  实测结果 → 每源判定与理由 → 未取证项与重开条件 → 判定边界 → 数字速查）。矩阵全部六源用
+  **现在时**描述（按今日代码），同批四张卡的结论以"改前/改后"两组数字呈现。
+- **Goose / Hermes 合成 5k 会话实测**（判定"不改"的核心证据）：
+  - 量法：真 SQLite（WAL）fixture × 5,000 会话行，schema 照抄两源 `SessionQuery` 固定列、行全部
+    合法（实测 records == 5000、status Ok）；每轮**新建适配器实例**走真实 `ScanAsync` 全管线，
+    Stopwatch 7 轮取中位，整个程序连跑 3 次验证稳定；载荷 = SELECT 固定列 `SUM(LENGTH(列))`；
+    同实例第二扫作空闲轮对照。
+  - 数字：Goose 全量重读中位 20.4 / 17.8 / 19.4 ms（≈18–20 ms，单轮 12–31 ms，前两轮 JIT 暖机）；
+    Hermes 20.7 / 20.4 / 20.9 ms（≈20–21 ms）；载荷 Goose 446,900 B（≈89 B/行）、Hermes 417,200 B
+    （≈83 B/行）；库文件 598,016 B；空闲轮 Goose 0.40–0.54 ms、Hermes 0.08–0.10 ms。
+    条件：macOS 25.5 arm64 / .NET 10.0.14 / Release / 页缓存热态。
+  - 与卡内"< 10 ms 量级"预期的关系：实测 ≈20 ms（≈4 µs/行、随会话数线性），**不在 10 ms 以内
+    但同一量级**；判定仍为不改，依据不只是绝对耗时——载荷比 OpenCode 小 60 倍、空闲轮近零、
+    活跃轮收益上限 = 每 5 分钟省一次 20 ms，撑不起持久连接 + 探针状态机。措辞如实写进文档 4.1。
+  - **二选一的选择：一次性测量，测量代码已删除**（scratch 工程在 gitignore 的 `dist/bench/` 下，
+    取完数字即删）。理由：单轮波动 ±50%（12–31 ms）正是 perf 断言 flaky 的典型形态，留成普通
+    单测只能写"上限护栏"式断言（如 < 500 ms），护栏一松就失去意义、一紧就 CI 抖；数字与量法
+    （fixture schema、轮数、口径）已完整留在文档 3.4/4.1 节，需要时可按节复建。
+- **ZCode 现状回填**：本机库今日 1,367,371,776 B（1.27 GiB）/ `model_usage` 35,872 行
+  （completed 35,684）/ `dbstat` 表页 26.3 MB（建卡日 1.24 GiB / 34,578 行，账本在涨，引用须带日期）。
+  `app.log`（`~/Library/Application Support/Tokenmetry/logs/`，覆盖 2026-11-01 → 11-11，5,087 轮
+  ZCode 记录，**全部为 `45f1ff1` 修复前版本**，此后 app 未再运行）：空闲轮（changed=0，3,729 轮）
+  p50 1,401 ms / max 63.1 s，活跃轮（1,358 轮）p50 1,588 ms / max 61.2 s——正是两级探针修复的
+  动机数字（无索引探针每轮全表 SCAN ≈26 MB）。修复后生产样本本机没有，SmokeScan 代表：
+  首轮 1,575 ms（全量 35,690 记录）→ 活跃轮 13 ms（指纹变、探针 1 次、零读取）→ 空闲 0 ms
+  （零 SQL）。结论：两级探针仍是当前最优，判定不改；正确性面（"部分读取 × 下轮删库"漏洞）由
+  I-049 审查发现、已登记待另卡，不在本审计范围。
+- **OpenCode 改后今日复测**：`dotnet run --project tools/Tokenmetry.SmokeScan -- 3`——首轮
+  86 ms / 1013 记录（卡内审查后复测为 124 ms，JIT/页缓存轮间波动，行为一致），空闲轮 0–1 ms；
+  文档 4.2 以"改前 132 ms / 每活跃轮 29 MB 载荷 → 改后零读取"呈现两组数字。
+- **六个适配器类注释各加一行交叉引用**（指向审计文档、不复制数字）：
+  `ZCodeSqliteAdapter` / `OpenCodeSqliteAdapter` / `KiloSqliteAdapter` / `GooseSqliteAdapter` /
+  `HermesSqliteAdapter` / `AntigravityAdapter`。
+- **全量验证**：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln`
+  2,378 passed / 0 failed（Core 271 / Reconciliation 49+19 skipped / App 506 / Relay 50 /
+  Infrastructure 836+3 skipped / App.Headless 666）——本卡零生产行为改动，注释行不影响任何断言。
+- 不 commit；`status:` 不动（交 PM 收口）；`docs/plans/` 未碰；文档未新造目录层级。
+
+### 2026-11-14 审查修复（PASS-with-notes 落地）
+
+- **P1（必修，发现本身值得留档）**：§4.3 的 SmokeScan"修复后代表数字"（13/0 ms）缺**写入端状态
+  条件**。审查者实测发现：ZCode CLI **持续提交期间**（`-wal` 钉在 ~4 MB autocheckpoint 阈值、
+  mtime 不停跳、completed 行数在涨），`dotnet run --project tools/Tokenmetry.SmokeScan -- 3` 行为
+  标记逐位一致（1/1/1 → 1/0/0）但量级完全不同——空闲轮 **1,263–1,522 ms** 而非 13/0 ms；机理 =
+  写端风暴不断重置 WAL、使连接级 32 MB 页缓存失效，探针退化为 ~1.4 s 全表扫描（与修复前空闲
+  p50 1,401 ms 统计上无差别）；审查者隔离连接三次计时 1.377 s → 0.788 s → 0.012 s 证明暖连接
+  探针 ~12 ms 为真、但只在写端停歇窗成立。**修复**：§4.3 代表数字块后补"适用条件"段 +
+  §6 未取证项第 7 行同款补注；判定结论补一句"以行为而非耗时为锚点"（行为锚点 changed=0 /
+  零读取不变——修复保证"账面没动就不重读数据"，不保证"探针恒快"）。
+- **P2**：① §3.4 波动幅度自相矛盾（±25% vs 实际 12–31 ms ≈ ±50%）→ 统一为 ±50%；② §6 第 6 行
+  首轮 4,109 ms 无出处 → 补"2026-11-14 本机 SmokeScan 自跑（I-052 卡内自跑 4,274 ms）"标注。
+- **P3**：① §5.2 "注释互相指向"实为单向（OpenCode 指向 ZCode，无回指）→ 改"OpenCode 注释指向
+  ZCode 蓝本、无回指"，未给 ZCode 加回指（保持最小改动面）；② Goose/Hermes 适配器注释行
+  "合成 5k 会话实测坐实"→"合成规模实测坐实"（fixture 规模数字不进注释，与"注释不复制数字"
+  同源；ZCode 注释行无同类措辞）。P3-3（"各加一行" vs 每文件 2 物理折行）审查判不修。
+- **验证**：`dotnet test Tokenmetry.sln` 0 失败（Core 271 / Reconciliation 49 / Relay 50 / App 506 /
+  Infrastructure 836 与修复前逐位一致；Headless 一轮被超时转入后台后计数显示 615——**同代码
+  单独复跑 666/666、0 失败、时长恢复正常（4m04s vs 异常轮 15m12s）**，判定为后台迁移干扰的
+  计数异常而非测试丢失；全部改动仍仅 `///` 注释行与文档）。不 commit。

@@ -29,6 +29,8 @@ namespace Tokenmetry.Infrastructure.KiloSqlite;
 /// 时间戳不可用或越界的行、DuplicateRecords = 按 message id 折叠的重复记录。
 /// 打开 / prepare / 查询失败按"该库本轮 0 条 + 问题标记"处理（蓝本返回空列表同语义，状态降级 Partial）。
 /// 实例持有扫描记忆，非线程安全；以单例接入 App DI（并发由 LocalIngestionDataSource 串行化）。
+/// 采集成本审计：本源判定（本机无数据、按「不做」留证待重开，I-050）见
+/// docs/perf-investigation-2026-11-14-sqlite-sources.md（I-051）。
 /// </summary>
 public class KiloSqliteAdapter : IKiloSqliteAdapter
 {

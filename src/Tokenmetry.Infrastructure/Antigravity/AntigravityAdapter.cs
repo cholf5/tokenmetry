@@ -27,6 +27,8 @@ namespace Tokenmetry.Infrastructure.Antigravity;
 /// 此处按库显式计数 + Partial——fail-loud 程度差异见卡片偏差清单）、库打开/查询失败仅记问题标记
 /// （Kilo/Goose 同款），DuplicateRecords = 身份键合并折叠的事件数。实例持有扫描记忆，非线程安全；
 /// 以单例接入 App DI（并发由 LocalIngestionDataSource 串行化）。
+/// 采集成本审计：本源判定（WAL 取证、指纹补 -wal 的动机与现状）见
+/// docs/perf-investigation-2026-11-14-sqlite-sources.md（I-051）。
 /// </summary>
 public class AntigravityAdapter : IAntigravityAdapter
 {
