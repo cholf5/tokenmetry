@@ -26,6 +26,8 @@ namespace Tokenmetry.Infrastructure.HermesSqlite;
 /// MalformedLines 恒 0、InvalidRecords = 身份列不可读 / 时间戳不可用或越界（蓝本静默跳过的行显式计数）、
 /// DuplicateRecords = 跨库 session 折叠；状态 Ok/Partial/NoData 同 I-006。
 /// 实例持有扫描记忆，非线程安全；以单例接入 App DI（并发由 LocalIngestionDataSource 串行化）。
+/// 采集成本审计：本源判定（每会话一行的聚合表、活跃期全量重读毫秒级——合成规模实测坐实，
+/// 不改）见 docs/perf-investigation-2026-11-14-sqlite-sources.md（I-051）。
 /// </summary>
 public class HermesSqliteAdapter : IHermesSqliteAdapter
 {

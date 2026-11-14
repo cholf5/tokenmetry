@@ -28,6 +28,8 @@ namespace Tokenmetry.Infrastructure.GooseSqlite;
 /// DuplicateRecords = (库, session id) 折叠。蓝本单库读失败（打开/prepare/查询异常）按"该库本轮 0 条"
 /// 处理不中断其它库（状态降级 Partial）。实例持有扫描记忆，非线程安全；以单例接入 App DI
 /// （并发由 LocalIngestionDataSource 串行化）。
+/// 采集成本审计：本源判定（每会话一行的聚合表、活跃期全量重读毫秒级——合成规模实测坐实，
+/// 不改）见 docs/perf-investigation-2026-11-14-sqlite-sources.md（I-051）。
 /// </summary>
 public class GooseSqliteAdapter : IGooseSqliteAdapter
 {

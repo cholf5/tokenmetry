@@ -53,6 +53,8 @@ namespace Tokenmetry.Infrastructure.OpenCodeSqlite;
 /// 蓝本的 storage/message legacy JSON 回退、会话累计表（session/session_v2）聚合回退（仅 session 报表
 /// 使用）、since/until 窗口与 SQL pushdown 不在本卡范围（统一记录全量出账，见卡片偏差清单）。
 /// 实例持有探针/记录记忆与持久只读连接（单例接入 App DI），并发由 LocalIngestionDataSource 串行化。
+/// 采集成本审计：本源判定（活跃写端期全量重读 → 两级探针的改前/改后量级与重开条件）见
+/// docs/perf-investigation-2026-11-14-sqlite-sources.md（I-051）。
 /// </summary>
 public class OpenCodeSqliteAdapter : IOpenCodeSqliteAdapter
 {
