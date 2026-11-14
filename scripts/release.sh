@@ -114,6 +114,23 @@ fi
 
 command -v gh >/dev/null 2>&1 || { echo "未安装 gh，无法 watch，手动看 $RUN_URL" >&2; exit 1; }
 
+# gh 调用一律包超时。脚本声明"最长 45 分钟"，但 gh 自己没有超时：网络卡住、代理挂死或凭据
+# 失效时 `gh run view` 会无限期挂着，watch 就永远不返回——v0.6.0 发版实测过（两条 --watch
+# 进程过了 30 分钟还在，只能手 kill）。这里用后台看门狗杀，不用 coreutils 的 timeout：
+# macOS 自带 sh/bash 3.2 环境没有它，与脚本已有的"macOS 可移植"约束一致。
+gh_with_timeout() {
+  _gh_secs=$1
+  shift
+  "$@" &
+  _gh_pid=$!
+  ( sleep "$_gh_secs"; kill -9 "$_gh_pid" 2>/dev/null ) &
+  _gh_watchdog=$!
+  if wait "$_gh_pid"; then _gh_rc=0; else _gh_rc=$?; fi
+  kill -9 "$_gh_watchdog" 2>/dev/null || true
+  wait "$_gh_watchdog" 2>/dev/null || true
+  return "$_gh_rc"
+}
+
 # Find the run triggered by the tag (registration takes a few seconds after
 # push). Filter by the commit the tag points at: re-releasing the same
 # version has an older run matching --branch's tag name, and taking the first
@@ -122,7 +139,7 @@ TAG_SHA=$(git rev-parse "$TAG^{commit}")
 RUN_ID=
 i=0
 while [ $i -lt 12 ]; do
-  RUN_ID=$(gh run list --branch "$TAG" --limit 10 --json databaseId,headSha \
+  RUN_ID=$(gh_with_timeout 25 gh run list --branch "$TAG" --limit 10 --json databaseId,headSha \
     --jq "[.[] | select(.headSha == \"$TAG_SHA\")][0].databaseId" 2>/dev/null || true)
   [ -n "$RUN_ID" ] && [ "$RUN_ID" != null ] && break
   i=$((i + 1)); sleep 5
@@ -133,9 +150,10 @@ if [ -z "$RUN_ID" ] || [ "$RUN_ID" = null ]; then
 fi
 echo "等待 CI（run ${RUN_ID}，最长 45 分钟）..."
 
-i=0
-while [ $i -lt 90 ]; do
-  STATE=$(gh run view "$RUN_ID" --json status,conclusion --jq '.status+"/"+(.conclusion // "-")' 2>/dev/null || echo unknown)
+# 截止时间驱动（不是计数驱动）：每次轮询的 gh 调用有 25 秒上限，按次数算会把总时长乘胖。
+DEADLINE=$(( $(date +%s) + 45 * 60 ))
+while :; do
+  STATE=$(gh_with_timeout 25 gh run view "$RUN_ID" --json status,conclusion --jq '.status+"/"+(.conclusion // "-")' 2>/dev/null || echo unknown)
   case "$STATE" in
     completed/success) break ;;
     completed/*)
@@ -144,9 +162,12 @@ while [ $i -lt 90 ]; do
       exit 1
       ;;
   esac
-  i=$((i + 1)); sleep 30
+  if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+    echo "等待超时（45 分钟，最后状态 ${STATE}），手动看 $RUN_URL/$RUN_ID" >&2
+    exit 1
+  fi
+  sleep 20
 done
-[ $i -lt 90 ] || { echo "等待超时（45 分钟），手动看 $RUN_URL/$RUN_ID" >&2; exit 1; }
 
 # Verify the platform builds are present. Asset names are a cross-component
 # contract with src/Tokenmetry.App/Update/UpdateAssets.cs (the in-app
@@ -159,7 +180,7 @@ done
 ASSETS=
 i=0
 while [ "$i" -lt 3 ]; do
-  if ASSETS=$(gh release view "$TAG" --json assets --jq '[.assets[].name] | join(",")' 2>/dev/null); then
+  if ASSETS=$(gh_with_timeout 25 gh release view "$TAG" --json assets --jq '[.assets[].name] | join(",")' 2>/dev/null); then
     break
   fi
   i=$((i + 1)); [ "$i" -lt 3 ] && sleep 5
