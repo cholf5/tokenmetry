@@ -8,8 +8,9 @@
 
 Tokenmetry is a desktop app for Windows, macOS and Linux that reads the local logs your coding
 agents already write — Claude Code, Codex, ZCode and 17 more — indexes them incrementally into a
-local SQLite store, and lays usage and cost out in a fixed set of views. Nothing is uploaded, and
-every cost figure can be checked against ccusage.
+local SQLite store, and lays usage and cost out in a fixed set of views. It stays offline by default —
+nothing is uploaded unless you turn on opt-in cross-device sync — and every cost figure can be
+checked against ccusage.
 
 [![CI](https://github.com/cholf5/tokenmetry/actions/workflows/ci.yml/badge.svg)](https://github.com/cholf5/tokenmetry/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/cholf5/tokenmetry)](https://github.com/cholf5/tokenmetry/releases/latest)
@@ -79,7 +80,7 @@ rate tracking, and a badge when spend looks abnormal:
   <tr><td><strong>Three-tier pricing</strong></td><td>Your overrides → a models.dev refresh in the background (24 h TTL, never blocks the UI) → a price snapshot bundled with the app.</td></tr>
   <tr><td><strong>Tray-resident</strong></td><td>Today's tokens, spend and live rate in the popover; abnormal spend raises a badge.</td></tr>
   <tr><td><strong>CSV export + global filters</strong></td><td>Time range, agent, model and project filters carry across every view.</td></tr>
-  <tr><td><strong>Cross-device sync (opt-in)</strong></td><td>Optional relay sync unions every machine's aggregated usage into one account view — nothing leaves the machine until you enable it, and closing it drops back to local-only (<a href="docs/selfhost.md">self-host in one docker run</a>). An additional opt-in lists your account on the monthly community leaderboards — separate token and cost boards — <a href="https://tokenmetry.app/leaderboard">viewable on the web</a>.</td></tr>
+  <tr><td><strong>Cross-device sync (opt-in)</strong></td><td>Optional relay sync unions every machine's aggregated usage into one account view — nothing leaves the machine until you enable it, and closing it drops back to local-only (<a href="docs/selfhost.md">self-host in one docker run</a>). An additional opt-in lists your account on the monthly community leaderboards — separate token and cost boards (the web boards and the official relay are not live yet, so this release keeps leaderboard data inside your own self-hosted relay; see <a href="docs/release/known-limitations.md">known limitations</a>).</td></tr>
   <tr><td><strong>Light & dark, 10 languages</strong></td><td>English, Simplified/Traditional Chinese, Japanese, Korean, Portuguese (BR), Russian, Spanish, German, French — switchable at runtime, follow-system by default.</td></tr>
   <tr><td><strong>An honest empty state</strong></td><td>With no data, the app shows the supported-agent list and a rescan button, not a stack trace.</td></tr>
 </table>
