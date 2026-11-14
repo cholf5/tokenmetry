@@ -12,6 +12,10 @@
 // 首轮全量读取秒级；随后 writer 活跃期应在 10ms 量级（持久只读连接暖页缓存），
 // 空闲期（账本无写入）应在 0-1ms 量级（文件指纹快路径，连 SQL 探针都不发）。
 // 若持续出现秒级轮次，说明探针快路径/持久连接回归，查 ZCodeSqliteAdapter。
+//
+// I-052 读取量尺：每轮行尾追加进程级 read_bytes/read_ops 及该轮增量（Windows GetProcessIoCounters /
+// Linux /proc/self/io；平台不可得或读取失败记 n/a，不影响扫描与退出码），用于回答
+// "这个刷新轮到底从盘上读了多少"——详见 docs/kanban/issues/I-052-ingestion-io-ruler.md。
 
 using System.Diagnostics;
 using Tokenmetry.Core.Models;
@@ -39,6 +43,7 @@ using Tokenmetry.Infrastructure.OpenCodeSqlite;
 using Tokenmetry.Infrastructure.PiAgent;
 using Tokenmetry.Infrastructure.QwenCode;
 using Tokenmetry.Infrastructure.ZCodeSqlite;
+using Tokenmetry.SmokeScan;
 
 var rounds = args.Length > 0 && int.TryParse(args[0], out var parsed) && parsed > 0 ? parsed : 3;
 
@@ -102,10 +107,24 @@ Console.WriteLine();
 
 for (var round = 1; round <= rounds; round++)
 {
+    // I-052 读取量尺：每轮前后各取一次进程读取计数，差值即该轮从盘上请求的字节/次数。
+    // 平台不可得（macOS）或读取失败时记 n/a，绝不影响扫描本身。
+    var ioBefore = ProcessIo.TryRead(out var before) ? before : (ProcessIoCounters?)null;
     var stopwatch = Stopwatch.StartNew();
     var summaries = await dataSource.GetDailyUsageAsync();
     stopwatch.Stop();
-    Console.WriteLine($"round {round}: total {stopwatch.ElapsedMilliseconds} ms, daily summaries {summaries.Count}");
+    var line = $"round {round}: total {stopwatch.ElapsedMilliseconds} ms, daily summaries {summaries.Count}";
+    if (ioBefore is { } start && ProcessIo.TryRead(out var end))
+    {
+        line += $" | read_bytes {end.ReadBytes} (Δ +{end.ReadBytes - start.ReadBytes})"
+            + $" | read_ops {end.ReadOps} (Δ +{end.ReadOps - start.ReadOps})";
+    }
+    else
+    {
+        line += " | read_bytes n/a | read_ops n/a";
+    }
+
+    Console.WriteLine(line);
 }
 
 Console.WriteLine();

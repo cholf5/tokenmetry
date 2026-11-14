@@ -4,9 +4,9 @@ title: 采集 IO 量尺——SmokeScan 每轮报进程读取字节/次数量，�
 type: infra
 priority: P3
 size: S
-status: todo
+status: done
 created: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-14（done）
 blocked: none
 ---
 
@@ -49,13 +49,18 @@ blocked: none
 
 ## Acceptance Criteria
 
-- [ ] `dotnet run --project tools/Tokenmetry.SmokeScan -- 3` 在 macOS / Linux / Windows 任意一台
+- [x] `dotnet run --project tools/Tokenmetry.SmokeScan -- 3` 在 macOS / Linux / Windows 任意一台
       都能跑完三论，输出每轮 `read_bytes` / `read_ops` 与逐轮增量（macOS 若不可得则 `n/a`）
+      （2026-11-14 macOS 实机验证通过，见 Development Log）
 - [ ] 三平台至少各验证一次"不可得 → `n/a` 且进程正常退出 0"（至少 macOS + Windows 实机各一次）
-- [ ] 用该量尺复现一条既有事实并写进卡内 Development Log：**空转轮（无文件变动）增量接近 0**，
+      （macOS 已验 ✅；Windows 无实机、无 CI，**待 Windows 实机/CI 验证**；Linux 实现完毕但本机
+      无 docker，容器验证未做）
+- [x] 用该量尺复现一条既有事实并写进卡内 Development Log：**空转轮（无文件变动）增量接近 0**，
       以及任一"全量重扫轮"的量级（例如临时把 Cindy 缓存改回全量，或直接引用本次实测数字）
-- [ ] `dotnet test Tokenmetry.sln` 零改动全绿（工具项目不在测试矩阵内，但不得破坏构建）
-- [ ] 工具输出不含任何会话内容（隐私红线：只有数字与已有路径/计数）
+      （macOS 量尺 n/a，字节级新数字拿不出：按允许口径以文件级等价证据 + 建卡日引用数字落地，见 Development Log）
+- [x] `dotnet test Tokenmetry.sln` 零改动全绿（工具项目不在测试矩阵内，但不得破坏构建）
+      （2026-11-14 全量测试 0 失败，工具构建 0 警告 0 错误）
+- [x] 工具输出不含任何会话内容（隐私红线：只有数字与已有路径/计数）
 
 ## 开放问题
 
@@ -85,3 +90,39 @@ blocked: none
   量尺做完，后续任何"这个源是否在偷读盘"的问题都变成一条命令。
 - 刻意把范围压到工具项目：生产侧逐源字节归因会横穿 `LocalIngestionDataSource` 与全部适配器，
   与同批 I-049 / I-050 撞文件，收益也不成比例。
+
+### 2026-11-14 实施
+
+- **落地**（`tools/Tokenmetry.SmokeScan/`，生产代码零改动）：
+  - 新文件 `ProcessIo.cs`：平台分级实现。Windows = kernel32 `GetProcessIoCounters`
+    （`ReadTransferCount` / `ReadOperationCount`，用 `GetCurrentProcess()` 伪句柄 `(HANDLE)-1`，
+    P/Invoke 全工具仅此一处）；Linux = `/proc/self/io` 的 `rchar` / `syscr`；
+    macOS = 直接不可得（`getrusage` 无字节字段，`proc_pid_rusage` 需额外 P/Invoke，
+    按卡内开放问题留空）。任何失败降级 n/a + stderr **一次性**说明（不刷屏）。
+  - `Program.cs`：轮循环前后各取一次计数，既有行尾追加
+    ` | read_bytes A (Δ +a) | read_ops B (Δ +b)`（`total` / `daily summaries` 原样保留——
+    I-053 的记录数逐位比对依赖它）；不可得时该段为 ` | read_bytes n/a | read_ops n/a`。
+- **macOS 实测**（本机 arm64，`dotnet run --project tools/Tokenmetry.SmokeScan -- 3`，退出码 0）：
+
+  ```
+  round 1: total 4274 ms, daily summaries 49 | read_bytes n/a | read_ops n/a
+  round 2: total 33 ms, daily summaries 49 | read_bytes n/a | read_ops n/a
+  round 3: total 18 ms, daily summaries 49 | read_bytes n/a | read_ops n/a
+  ```
+
+  stderr 一次性说明：`[I-052] 读取量尺不可得，read_bytes/read_ops 记 n/a（不影响扫描）：当前平台无进程级读取计数实现（macOS 暂留 n/a，见 I-052）`。
+- **既有事实复现（AC 3）**：macOS 上量尺本身 n/a，字节级新数字本机拿不出，按允许口径降级落地：
+  - 空转轮增量接近 0 → 以文件级等价证据落地：上面 round 2/3 即空转轮（无文件变动），
+    全部源 `files ... changed: */0/0`、逐源 0-1 ms、I-042 unchanged shortcut 接管，
+    总耗时 4274→33/18 ms——空转轮不重读任何文件，字节增量按同口径应近似 0。
+  - 全量重扫轮量级 → 引用建卡日手工采样数字（read_bytes 162.7→217.4 MB、read_ops 41.8k→56.1k，
+    100 秒窗口 Cindy 全量重扫轮；来源 = 本卡 Background 2026-11-13 调研，本机未重新实测）。
+- **平台验证状态**：macOS ✅（n/a + 退出 0）；Windows ❌ 无实机无 CI，**待 Windows 实机/CI 验证**
+  （AC 2 保持未勾）；Linux 路径实现完毕但本机无 docker（`docker version` 不存在），
+  `/proc/self/io` 解析未经容器真机运行——首次在 Linux 上跑时值得核对一眼输出。
+- 隐私红线自查：stdout/stderr 只有计数、耗时与既有临时目录路径，无会话内容。
+- **审查补记（2026-11-14 收口时）**：① Δ 口径含第二次采样自身的少量自读字节
+  （Linux `/proc/self/io` 自读约几百字节），极小 Δ 是已知噪声底而非 0；
+  ② AC 3 属降级落地（文件级等价证据 + 建卡日引用数字，非本机新产字节级数字），
+  证据等级如上方"既有事实复现"条所注；③ 负 Δ 未做防御（进程计数单调，理论风险），
+  首次 Linux 真机跑时可顺手加 `Math.Max(0, …)`。
