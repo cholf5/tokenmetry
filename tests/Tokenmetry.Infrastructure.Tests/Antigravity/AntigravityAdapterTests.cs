@@ -962,10 +962,11 @@ public class AntigravityAdapterTests : IDisposable
         var adapter = CreateAdapter(root);
         (await adapter.ScanAsync()).Records.Should().ContainSingle();
 
-        File.Delete(dbPath);
-        // Microsoft.Data.Sqlite 默认连接池：扫描的只读连接仍指向已 unlink 的旧 inode，
-        // 不清池则同名新建库的建表语句会落在旧文件内容上（table already exists）。
+        // Microsoft.Data.Sqlite 默认连接池：扫描返回后池里仍握着文件句柄——Windows 下不先清池
+        // 则 File.Delete 撞共享锁；POSIX 侧不先清池则同名新建库的建表语句会落在已 unlink 的旧
+        // inode 内容上（table already exists）。两边都需要，顺序改成"先清池再删"。
         SqliteConnection.ClearAllPools();
+        File.Delete(dbPath);
         CreateDatabase(dbPath,
             [(1, MetadataBlob("gemini-3-pro", new UsageFixture
             {
@@ -1020,6 +1021,8 @@ public class AntigravityAdapterTests : IDisposable
         var adapter = CreateAdapter($"{rootA},{rootB}");
         (await adapter.ScanAsync()).Records.Should().HaveCount(2);
 
+        // 同 ChangeProbe_RecreatedDatabase：Windows 上必须先清池才删得掉（POSIX 不需要但无害）。
+        SqliteConnection.ClearAllPools();
         File.Delete(dbB);
         var second = await adapter.ScanAsync();
 

@@ -443,10 +443,7 @@ public sealed class LeaderboardTests
     {
         try
         {
-            if (File.Exists(dbPath))
-            {
-                File.Delete(dbPath);
-            }
+            TempDbCleanup.DeleteWithSidecars(dbPath);
         }
         catch (IOException)
         {

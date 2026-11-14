@@ -234,10 +234,7 @@ public sealed class SyncEndpointsTests
         }
         finally
         {
-            if (File.Exists(dbPath))
-            {
-                File.Delete(dbPath);
-            }
+            TempDbCleanup.DeleteWithSidecars(dbPath);
         }
     }
 

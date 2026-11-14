@@ -30,16 +30,7 @@ internal sealed class RelayFactory : WebApplicationFactory<Program>
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        try
-        {
-            if (File.Exists(_dbPath))
-            {
-                File.Delete(_dbPath);
-            }
-        }
-        catch (IOException)
-        {
-            // 文件句柄晚释放：留到临时目录自清理，测试不因此失败。
-        }
+        // 连接池归还后才轮得到删文件（Windows 上不清池必撞共享锁），收尾口径见 TempDbCleanup。
+        TempDbCleanup.DeleteWithSidecars(_dbPath);
     }
 }
