@@ -4,9 +4,9 @@ title: OpenCode 活跃写端期全库重读——移植 ZCode 两级探针 + 持
 type: infra
 priority: P3
 size: M
-status: todo
+status: done
 created: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-14（done）
 blocked: none
 ---
 
@@ -64,18 +64,22 @@ OpenCode 在**被用户使用期间**（写端活跃）不再每轮把整个会�
 
 ## Acceptance Criteria
 
-- [ ] 空闲轮（文件指纹未动）：`ProbeQueryCountForTests` 不增、`FilesRead == 0`、`FilesChanged == 0`、
+- [x] 空闲轮（文件指纹未动）：`ProbeQueryCountForTests` 不增、`FilesRead == 0`、`FilesChanged == 0`、
       记录与上轮同实例复用（现有 `ChangeProbe_Unchanged*` 用例继续绿）
-- [ ] **关键收益锁**：只写与 usage 无关的表（fixture 里 `INSERT INTO kv ...` 或等价方式，使 `-wal`
+- [x] **关键收益锁**：只写与 usage 无关的表（fixture 里 `INSERT INTO kv ...` 或等价方式，使 `-wal`
       变化但 `session_message` 的行数与 rowid 不变）→ SQL 探针实跑 1 次、探针值与本轮记忆一致 →
       `FilesChanged == 0`、`FilesRead == 0`（今日行为是全库重读，本卡后为零读取）
-- [ ] 活跃轮（仅 `-wal` 变化，数据未变）：SQL 探针实跑 1 次，探针值与本轮记忆一致 →
+- [x] 活跃轮（仅 `-wal` 变化，数据未变）：SQL 探针实跑 1 次，探针值与本轮记忆一致 →
       `FilesChanged == 0`、`FilesRead == 0`（**和 ZCode 一样：探针说没变就不读**）——
       这条是本卡的核心收益锁，必须配"仅 touch `-wal`"的测试
-- [ ] 真有新消息（`session_message` 行数变化）→ 全量重读，记录数增加，`status` 口径不变
-- [ ] 持久连接身份校验：库文件被替换 / 删除 → 弃连重开，删除库的贡献不残留（测试见 ZCode 同款）
-- [ ] 探针失败（表缺失 / 打不开）→ 保守全量，`status` 按既有降级口径（`Partial`），不抛异常
-- [ ] 全量 `dotnet test Tokenmetry.sln` 0 失败；`dotnet run --project tools/Tokenmetry.SmokeScan -- 3`
+- [x] 真有新消息（`session_message` 行数变化）→ 全量重读，记录数增加，`status` 口径不变
+- [x] 持久连接身份校验：库文件被替换 / 删除 → 弃连重开，删除库的贡献不残留（测试见 ZCode 同款）
+- [x] 探针失败两分支（2026-11-14 审查后改写为与实现一致的口径）：**表缺失 ≠ 探针失败**——缺失表
+      按 0/0 参与元组、优雅降级（本机库是 v2 形态，v1 `message` 不存在是常态）；**"打不开 / 查询
+      失败"才是探针失败** → 保守全量、不抛异常，`status` 由既有读取面降级口径决定（读取也失败 →
+      Partial/NoData；读取本身成功 → Ok，`ChangeProbe_ProbeFailureWithoutRowid` 断言 Ok——探针失败
+      本身从不标 problems）
+- [x] 全量 `dotnet test Tokenmetry.sln` 0 失败；`dotnet run --project tools/Tokenmetry.SmokeScan -- 3`
       该源首轮/空闲轮行为与今日一致
 
 ## 开放问题
@@ -111,3 +115,74 @@ OpenCode 在**被用户使用期间**（写端活跃）不再每轮把整个会�
   用户可感知度低；本卡的价值是"让增长曲线不回来"（会话数线性增长）与顺手补上读取量可观测。
 - 明确划了三条边界进卡：不做行级增量（I-043 同源风险）、不抽公共件（并行卡撞文件）、
   `-shm` 不进指纹（自激重扫）。
+
+### 2026-11-14 实现
+
+- 代码（`src/Tokenmetry.Infrastructure/OpenCodeSqlite/OpenCodeSqliteAdapter.cs`）：照抄
+  `ZCodeSqliteAdapter` 的两级探针 + 持久只读连接（卡内定案 1-3，注释互相指向、未抽公共件）。
+  ① 一级文件指纹快路径：db + `-wal` 的 (size, mtime) 与"干净指纹"一致 → 复用记忆探针值，零 SQL；
+  ② 二级 SQL 探针 `SELECT COUNT(*), COALESCE(MAX(rowid), 0)`：v2 `session_message` 恒探、
+  v1 `message` 表存在才探，缺失表按 0/0 参与探针元组（`DatabaseProbe` record struct）——本机库
+  v2 形态下 v1 不存在是稳定态而非探针失败（开放问题落地）；探针失败（打不开 / 查询抛错，如
+  WITHOUT ROWID 表无 rowid 列）返回 null → 保守全量。持久只读连接 + `PRAGMA cache_size=-32768`，
+  每轮复用前校验 db 文件身份 (size, mtime)，不符弃旧开新；读取面（v1/v2 扫描、fork 剔除、
+  按 message id 去重、稳定排序、status 判定、FilesChanged 口径、零变更轮诊断）逐位未动。
+- **与 ZCode 的唯一刻意差异（正确性 > 优化）**：`ProbesUnchanged` 加覆盖率守卫——探针集 ≠ 本轮
+  库集即判变化、保守全量。ZCode 无此守卫仍正确，因其探针失败 ⇒ 同库读取必失败 ⇒ 不产出记录；
+  OpenCode 存在"探针失败但读取成功"的形态（WITHOUT ROWID 表），无守卫会让这类库首轮之后永驻
+  缓存、新增行永远不可见。fixture 测试锁定该路径：探针失败每轮 → 每轮保守全量（与 FileStampMemo
+  时代"打不开的库不落账"同口径）。
+- 测试（`tests/Tokenmetry.Infrastructure.Tests/OpenCodeSqlite/OpenCodeSqliteAdapterTests.cs`）新增 5 例，
+  全部临时目录 fixture、未触碰真实 `~/.local/share/opencode`：
+  `FileFingerprint_UnchangedSecondScan_SkipsProbeQueryEntirely`（空闲轮零 SQL + 记录同实例）、
+  `FileFingerprint_WalTouchedByUnrelatedTable_RunsProbeOnceAndSkipsReread`（核心收益锁：WAL 模式
+  真实 -wal，写端保持连接 + 写与 usage 无关的 kv 表 → 探针实跑 1 次 → 零读取，下轮快路径恢复）、
+  `ChangeProbe_InsertedSessionMessageRow_TriggersFullReread`（新 assistant 行 → 全量、status 不变）、
+  `PersistentConnection_ReplacedDatabaseFile_IsReopenedAndReread`（同路径替换库 → 身份校验弃连重开、
+  旧库贡献不残留；显式错开 mtime 防粗粒度文件系统）、
+  `ChangeProbe_ProbeFailureWithoutRowid_FallsBackToFullRereadEveryRound`（探针失败 → 每轮保守全量、
+  不抛异常、status 不标问题）。
+- 实测：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` 0 失败
+  （Infrastructure 833 passed / 3 skipped 均为既有跳过；Core 271、App 506、Headless 666、
+  Reconciliation 49、Relay 50 全绿）。
+- SmokeScan 真机三轮（`dotnet run --project tools/Tokenmetry.SmokeScan -- 3`，零副作用）：
+  首轮 `[OpenCode] done in 47 ms — files discovered/read/changed: 1/1/1, records: 1013, status: Ok`；
+  空闲轮 `1/0/0, records: 1013`（0–1 ms，零读取零 SQL，记录复用）——首轮记录数 1013 与卡内
+  Background 基线一致，空闲轮行为与今日逐位一致。
+
+### 2026-11-14 审查修复（PASS-with-notes 落地）
+
+- **P1（部分读取 × 下轮删库漏洞，必修）**：审查者推演确认——轮 k+1 某库探针失败/值变化 → 全量
+  读取 → 该库读取中途抛异常 → records 留下半截行、readMemory 只收健康库 → 轮 k+2 用户删掉坏库 →
+  库集收缩后 `probes.Count == discoveredCount == _lastProbes.Count` 且逐值相等 → 判零变更，复用
+  混有已删库残行的记录集——违反 `ProbesUnchanged` 声明的"库集收缩必判变化"不变式（HEAD
+  FileStampMemo 全或无准入在同序列下必然全量重读，本卡初版的逐库准入引入保守性回退）。
+  **修复（按审查建议落地）**：记忆落账改回**全或无准入**——仅当 readMemory 覆盖本轮库集（全部库
+  探针成功且读取成功）才整体落账四件套（`_lastProbes` / `_cleanFileFingerprints` / `_lastRecords` /
+  `_lastDiagnostics`）；部分读取轮（readMemory.Count < 库集，读失败与探针失败同属部分轮）整体作废
+  记忆，下轮必全量重读；健康路径（全库读成功）行为不变。覆盖率守卫保留（新增库探针失败时库集
+  增长的场景仍靠它拦截）。回归测试
+  `ChangeProbe_PartialRound_ThenFailingDatabaseRemoved_DoesNotServeStaleCache`：fixture 用"探针失败
+  （WITHOUT ROWID）但读取成功"的库 B 构造部分轮（B 的行全进 records、B 不进记忆；真"读取中途抛
+  异常"需物理页破坏，实测 writable_schema rootpage 改指向会让整个库 schema 加载失败、无法产生半截
+  行，故取探针失败构造——两者在准入分支同属部分轮），删库轮断言 FilesChanged=1 / FilesRead=1 /
+  B 残行不出现。**已实证修复前该测试失败**（临时恒真模拟准入：删库轮判零变更 FilesChanged=0）。
+  **ZCodeSqliteAdapter 有同款漏洞（本卡移植源头），登记待另卡处理、本卡不越界顺手修（是否开卡由
+  用户决定）。**
+- **P2-1**：`PersistentConnection_ReplacedDatabaseFile_IsReopenedAndReread` 与上述 P1 回归测试加
+  Windows 跳过（适配器持有未关闭持久句柄时 File.Delete 撞共享锁；POSIX unlink 允许带 fd 删除）。
+  既有 `ChangeProbe_RemovedDatabase_DoesNotServeStaleCache` 在 Windows 下有同款暴露（与 ZCode
+  `ChangeProbe_RemovedDatabase_DetectedAsChangeAndRescanned` 的既有暴露一致），未顺手改。
+- **P2-2**：`_readOnlyConnections` 字段注释补生命周期说明：被删库的缓存连接不主动清理（库从发现
+  清单除名无 Drop 路径），依赖同路径重现（身份不符弃连）或进程退出回收；DI 单例语义下句柄数
+  ≤ 历史库路径数，可接受；不补 IDisposable（ZCode 同款缺口，审查登记不修）。
+- **P2-3a**：AC-6 改写为两分支口径（表缺失 ≠ 探针失败；打不开/查询失败才是探针失败，status 由
+  既有读取面降级口径决定）。
+- **P2-3b**：登记——**"usage 行只增不改"对 OpenCode 是假设而非取证**：探针对行原地改值（count 与
+  max(rowid) 不动，如 fork 边界元数据原地修正且无新拷贝行）失明，与 ZCodeSqliteAdapter 登记的
+  同款边界；存量数据口径已由 Reconciliation.Tests 的 golden JSON 隐式覆盖。验证途径：真机对账
+  （`npx ccusage@20.0.29`，tokens 精确、cost ≤0.5%）+ I-052 读取量可观测落地后的日志核对；若日后
+  发现 OpenCode 存在行原地覆盖写行为，重开卡评估探针表达式。
+- 实测：`dotnet test Tokenmetry.sln` 2376 passed / 0 failed（Infrastructure 834 = 审查前 833 + 本
+  回归测试）；SmokeScan 三轮 OpenCode：首轮 124 ms `1/1/1, records: 1013, status Ok`、空闲轮 0–1 ms
+  `1/0/0, records: 1013`，与审查前行为一致。
