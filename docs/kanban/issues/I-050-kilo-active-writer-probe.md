@@ -4,10 +4,11 @@ title: Kilo 活跃写端期全库重读——同 I-049 的探针 + 持久只读�
 type: infra
 priority: P3
 size: M
-status: todo
+status: wontfix
 created: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-14（wontfix）
 blocked: none
+resolution: 2026-11-14 按「不做」收口——本机从未安装/使用 Kilo，无任何真实数据可测（取证见下），载荷 = 0 低于卡内任何门槛；无可测对象，探针与持久连接无从验证收益，留证待 Kilo 数据出现后重开。
 ---
 
 ## Goal
@@ -37,6 +38,26 @@ Kilo 源的活跃期（写端持续提交）不再每轮重读重映射整张 `m
    `SELECT SUM(LENGTH(data)) FROM message`（载荷总量）、以及 SmokeScan 该源首轮耗时。
 2. 把三四个数字写进本卡 Background 后再动手。若实测载荷 < 2 MB 且首轮 < 20 ms，**按"不做"收口**
    并留证（在 I-051 的审计矩阵里补一行），不必为一个毫秒级优化引入持久连接。
+
+### 取证复核（2026-11-14，执行者独立复核）
+
+PM 于 2026-11-14 口头核实本机无 Kilo 数据；执行者当日 03:30 UTC 独立复核一遍，命令与结果：
+
+| 检查项 | 命令 | 结果 |
+| --- | --- | --- |
+| 环境变量 | `env \| grep -i kilo` | 无 `KILO_DATA_DIR`，无任何 Kilo 相关变量 |
+| 默认数据目录 | `ls ~/.local/share/kilo` | 不存在（No such file or directory） |
+| 数据根全查 | `ls ~/.local/share/ \| grep -i kilo` | 无匹配；该目录仅有 CMakeTools / NuGet / emmylua_ls / opencode / powershell / uv |
+| 应用安装 | `ls /Applications \| grep -i kilo`、`ls ~/Applications \| grep -i kilo`、`mdfind "kMDItemKind == 'Application' && kMDItemDisplayName == '*Kilo*'cd"` | 均无结果 |
+| 库文件全盘 | `mdfind -name kilo.db` | 仅命中仓库自带对账 fixture（`tests/Tokenmetry.Reconciliation.Tests/fixtures/kilo/kilo.db`，8 KB 合成数据，非用户数据） |
+| CLI | `which kilo` | 未安装 |
+| 配置残留 | `ls ~/.kilo ~/.config/kilo ~/Library/Application Support/{Kilo,kilo}` | 均不存在 |
+| SmokeScan 该源 | `dotnet run --project tools/Tokenmetry.SmokeScan -- 3` | `[Kilo] done in 0 ms — files discovered/read/changed: 0/0/0, records: 0, status: NoData` |
+
+结论：本机从未安装/使用过 Kilo，**卡内要求的取证数字（库大小 / 行数 / 载荷字节 / 首轮耗时）无从
+取得——载荷 = 0，低于"载荷 < 2 MB 且首轮 < 20 ms"门槛的极限情形**。按卡内门槛逻辑按「不做」收口，
+证据留档如上；若日后该机出现真实 Kilo 数据（或拿到装过 Kilo 的机器），携带上述数字按卡内
+定案方向重开（实现蓝本届时以 I-049 的 OpenCodeSqliteAdapter 为准样）。
 
 ## 定案方向
 
@@ -97,3 +118,16 @@ Kilo 源的活跃期（写端持续提交）不再每轮重读重映射整张 `m
 - 与 I-049 唯一实质差异是**取证门槛**：OpenCode 在本机有真实数据（43.7 MB / 1016 行 / 132 ms），
   Kilo 没有任何本机数据，所以卡内写死"先取证、低于门槛就不做"，不允许凭"同型所以一样慢"下结论。
 - 把"原地覆盖"这个开放问题显式留在卡里：它决定探针是否可信，是本卡唯一的真风险点。
+
+### 2026-11-14 按「不做」收口
+
+- **收口理由**：取证复核（见上方"取证复核"小节，2026-11-14 03:30 UTC）确认本机从未安装/使用
+  Kilo——数据目录、环境变量、应用、CLI、配置残留全空，全盘仅有仓库自带的对账 fixture。载荷 = 0，
+  低于卡内"载荷 < 2 MB 且首轮 < 20 ms"门槛的极限情形；**无可测对象**，探针正确性（原地覆盖开放
+  问题）与收益（活跃轮省多少）都无从验证，为一个零载荷源引入持久连接不符合成本收益。
+- **不做的事**：本卡零代码改动（`KiloSqliteAdapter` 未动）。
+- **留证与重开条件**：取证命令与结果已固化在"取证复核"小节；待本机出现真实 Kilo 数据或拿到
+  装过 Kilo 的机器后，按卡内定案方向重开，实现蓝本参照 I-049 落地后的 `OpenCodeSqliteAdapter`
+  （两级探针 + 持久只读连接同构移植）。
+- I-051 审计矩阵：本卡收口条件是"无数据"而非"实测低于门槛"，无需补实测数字行；I-051 Background
+  已登记"Kilo 本机无安装（SmokeScan 0/0/n/a）"，与本卡取证一致。

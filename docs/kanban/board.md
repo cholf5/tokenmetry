@@ -8,7 +8,6 @@ Moving a card means updating its row here and `status` in the issue file in the 
 | ID | Title | Priority | Size | Blocked | Dependencies |
 |---|---|---|---|---|---|
 | I-048 | Antigravity 指纹补 `-wal`——活跃写入期不再读到陈旧账（先把 journal_mode 取证，非 WAL 则按「不做」收口） | P2 | S | none | none |
-| I-050 | Kilo 活跃写端期全库重读——同 I-049 形态，**先取证规模**（本机无 Kilo 数据），低于门槛按「不做」收口 | P3 | M | none | none |
 | I-051 | SQLite 源采集成本审计落档——五源实测矩阵 + Goose/Hermes「不改」判定用合成 5k 会话坐实 | P3 | S | none | none |
 | I-052 | 采集 IO 量尺——SmokeScan 每轮报进程读取字节/次数，让「每轮读了多少」可量化 | P3 | S | none | none |
 | I-053 | JSONL 读取缓冲 4 KB → 64 KB——先量后改，差值 < 噪声则回滚关掉 | P3 | S | none | none |
@@ -18,6 +17,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| I-050 | Kilo 活跃写端期全库重读——**作废（不做，留档）**：本机从未安装/使用 Kilo，无任何真实数据可测（载荷 0 低于门槛极限情形），取证留证待数据出现后重开 | P3 | 2026-11-14（作废） |
 | I-049 | OpenCode 活跃写端期全库重读——移植 ZCode 两级探针 + 持久只读连接（空闲轮零 SQL；`-wal` 变但 `session_message` 未增行时探针一次即零读取；审查补「部分读取轮整体不落账」防删库后复用残行） | P3 | 2026-11-14 |
 | I-054 | 文件型源逐文件记账——六个源（Cindy / pi-agent / Amp / Codebuff / Droid / Gemini CLI）从「整批戳集全等才复用」改为逐文件缓存（共用 `JsonSource/PerFileParseCache<T>`，零变更轮直接复用折叠产物） | P1 | 2026-11-13 |
 | I-045 | 采集管线文件日志——`logs/app.log` 可开关（默认开）、轮/源/写库三级埋点、解析失败含堆栈、5 MB × 3 份轮转；设置页开关 + 「打开日志文件夹」入口 | P1 | 2026-11-01 |
