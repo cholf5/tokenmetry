@@ -133,7 +133,7 @@ public sealed class SingleInstanceGuard : IDisposable
                 client.Connect(connectTimeoutMs);
                 using var writer = new StreamWriter(client) { AutoFlush = true };
                 writer.WriteLine(ActivationRequest);
-                if (ReadActivationAck(client, connectTimeoutMs))
+                if (ReadActivationAck(client))
                 {
                     return true;
                 }
@@ -142,7 +142,7 @@ public sealed class SingleInstanceGuard : IDisposable
                 or UnauthorizedAccessException or OperationCanceledException)
             {
                 // 首实例监听未就绪 / 管道忙（服务器实例数 1 且被占）/ 名字被异物占用 /
-                // 回执超时（连上了将死实例、写入被吞）：退避重试，落到新实例上。
+                // 回执缺失（连上了将死实例、写入被吞）：退避重试，落到新实例上。
             }
 
             Thread.Sleep(200);
@@ -152,18 +152,29 @@ public sealed class SingleInstanceGuard : IDisposable
     }
 
     /// <summary>
-    /// 读服务器送达回执（阻塞，超时预算与连接相同）：服务器读到请求即回执，正常亚毫秒；
-    /// EOF（连上了将死的旧实例）、半截回执、超时都返回 false 交由重试——真回执只会来自
-    /// 仍活着并真正读到请求的服务器实例。
+    /// 读服务器送达回执（同步阻塞）：服务器读到请求即回执，正常亚毫秒；EOF（连上了将死的旧实例）、
+    /// 半截回执都返回 false 交由重试——真回执只会来自仍活着并真正读到请求的服务器实例。
+    /// <para>
+    /// <b>为何是同步 Read 而不是带取消的 ReadAsync</b>（Windows 实机取证，CI 只跑 ubuntu 看不见）：
+    /// 命名管道开了 <see cref="PipeOptions.Asynchronous"/> 时异步读走 IO 完成端口；回执超时路径上
+    /// 取消 token 与随后的 <c>using</c> 释放会让完成回调落在已关闭的句柄上，在线程池 IO 线程抛
+    /// <c>InvalidOperationException: Handle is not initialized</c> —— 进程级未捕获异常，catch 不住，
+    /// 测试宿/应用直接死（<c>SingleInstanceGuardTests</c> 全类 12/12 复现，单独跑也复现）。同步 Read
+    /// 不开 overlapped，没有完成回调就没有这个竞争。
+    /// </para>
+    /// <para>
+    /// 没有单独的读超时：连上就说明对方已 accept，我们的服务器读完请求立即回执；对方若在回执前死亡，
+    /// 句柄关闭会让阻塞读返回 EOF（0 字节）——真正会拖在大的是路由的"连上将死实例写入被吞"，
+    /// 那种情形下服务端一并消失，同样落到 EOF。
+    /// </para>
     /// </summary>
-    private static bool ReadActivationAck(NamedPipeClientStream client, int connectTimeoutMs)
+    private static bool ReadActivationAck(NamedPipeClientStream client)
     {
         var buffer = new byte[ActivationAckBytes.Length];
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(connectTimeoutMs));
         var read = 0;
         while (read < buffer.Length)
         {
-            var n = client.ReadAsync(buffer.AsMemory(read), timeout.Token).GetAwaiter().GetResult();
+            var n = client.Read(buffer, read, buffer.Length - read);
             if (n <= 0)
             {
                 return false;
