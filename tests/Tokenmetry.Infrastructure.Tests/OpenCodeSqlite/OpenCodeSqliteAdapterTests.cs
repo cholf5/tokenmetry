@@ -861,6 +861,229 @@ public class OpenCodeSqliteAdapterTests : IDisposable
         second.Diagnostics.Status.Should().Be(JsonlScanStatus.NoData);
     }
 
+    // ---- I-049：两级探针（文件指纹快路径 → SQL 探针）+ 持久只读连接 ----
+
+    /// <summary>
+    /// I-049 两级探针（一级快路径）：文件账面未动的二次扫描连 SQL 探针都不发——探针值复用记忆，
+    /// 扫描结果语义与既有零变更轮逐位一致（FilesChanged=0 / FilesRead=0 / 记录同实例复用 / 状态照旧）。
+    /// </summary>
+    [Fact]
+    public async Task FileFingerprint_UnchangedSecondScan_SkipsProbeQueryEntirely()
+    {
+        var root = CreateTempDir();
+        var db = Path.Combine(root, "opencode.db");
+        CreateSessionMessageTable(db, withTimeCreated: true);
+        InsertSessionMessage(db, "v2-1", "session-a", "assistant", NoonUtc20260101, AssistantPayload(100, 10), 1);
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Diagnostics.FilesRead.Should().Be(1, "首轮无记忆，全量读取（探针必跑一次）");
+        adapter.ProbeQueryCountForTests.Should().Be(1);
+
+        var second = await adapter.ScanAsync();
+
+        adapter.ProbeQueryCountForTests.Should().Be(1, "文件指纹未动 = 账面必然未动，快路径直接复用记忆探针值，零 SQL");
+        second.Diagnostics.FilesChanged.Should().Be(0);
+        second.Diagnostics.FilesRead.Should().Be(0, "零变更轮零读取：记录复用上轮结果");
+        second.Records.Should().ContainSingle();
+        second.Records[0].MessageId.Should().Be("v2-1");
+        second.Records.Should().BeSameAs(first.Records, "记录与上轮同实例复用");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        second.Diagnostics.FilesDiscovered.Should().Be(1);
+    }
+
+    /// <summary>
+    /// I-049 核心收益锁：活跃轮只动了与 usage 无关的表（kv），-wal 变了但 session_message 的行数与
+    /// rowid 未变 → 快路径不命中、SQL 探针实跑 1 次并确认与记忆一致 → 复用上轮记录，零读取
+    /// （修复前每轮全库重读重映射）。探针确认后新指纹升为干净指纹：写端不再提交时下轮快路径恢复、零 SQL。
+    /// </summary>
+    [Fact]
+    public async Task FileFingerprint_WalTouchedByUnrelatedTable_RunsProbeOnceAndSkipsReread()
+    {
+        var root = CreateTempDir();
+        var db = Path.Combine(root, "opencode.db");
+        Execute(db, "PRAGMA journal_mode = WAL;");
+        Execute(db, "CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT, type TEXT, seq INTEGER NOT NULL DEFAULT 0, time_created INTEGER, data TEXT)");
+        Execute(db, "CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT)");
+        InsertSessionMessage(db, "v2-1", "session-a", "assistant", NoonUtc20260101, AssistantPayload(100, 10), 1);
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+        first.Records.Should().ContainSingle();
+        adapter.ProbeQueryCountForTests.Should().Be(1);
+
+        // 模拟活跃写端：保持写连接（-wal 存续），写一张与 usage 无关的 kv 表 → -wal 变化、数据未变。
+        var writer = new SqliteConnection($"Data Source={db}");
+        writer.Open();
+        try
+        {
+            using (var insert = writer.CreateCommand())
+            {
+                insert.CommandText = "INSERT INTO kv (key, value) VALUES ('probe', 'tick')";
+                insert.ExecuteNonQuery();
+            }
+
+            var second = await adapter.ScanAsync();
+
+            adapter.ProbeQueryCountForTests.Should().Be(2, "指纹未命中（-wal 变化）→ SQL 探针实跑一次");
+            second.Diagnostics.FilesChanged.Should().Be(0, "探针确认 session_message 行数与 rowid 未动 = 账面未动");
+            second.Diagnostics.FilesRead.Should().Be(0, "探针说没变就不读（与 ZCodeSqliteAdapter 同款核心收益）");
+            second.Records.Should().ContainSingle();
+            second.Records.Should().BeSameAs(first.Records, "记录同实例复用");
+
+            // 新指纹已升为干净指纹：写端不再提交时下轮快路径恢复，零 SQL。
+            var third = await adapter.ScanAsync();
+            adapter.ProbeQueryCountForTests.Should().Be(2);
+            third.Diagnostics.FilesChanged.Should().Be(0);
+            third.Diagnostics.FilesRead.Should().Be(0);
+        }
+        finally
+        {
+            writer.Dispose();
+        }
+    }
+
+    /// <summary>两级探针（二级 SQL 裁决）：真有新 assistant 消息（session_message 行数变化）→
+    /// 探针值与记忆不一致 → 全量重读，记录数增加，status 口径不变。</summary>
+    [Fact]
+    public async Task ChangeProbe_InsertedSessionMessageRow_TriggersFullReread()
+    {
+        var root = CreateTempDir();
+        var db = Path.Combine(root, "opencode.db");
+        CreateSessionMessageTable(db, withTimeCreated: true);
+        InsertSessionMessage(db, "v2-1", "session-a", "assistant", NoonUtc20260101, AssistantPayload(100, 10), 1);
+        var adapter = CreateAdapter(root);
+        (await adapter.ScanAsync()).Records.Should().ContainSingle();
+        adapter.ProbeQueryCountForTests.Should().Be(1);
+
+        InsertSessionMessage(db, "v2-2", "session-a", "assistant", NoonUtc20260101 + 1, AssistantPayload(50, 5), 2);
+
+        var second = await adapter.ScanAsync();
+
+        adapter.ProbeQueryCountForTests.Should().Be(2, "指纹变化 → 探针实跑，发现行数变化");
+        second.Diagnostics.FilesChanged.Should().Be(1, "新 assistant 行 = 账面变化");
+        second.Diagnostics.FilesRead.Should().Be(1, "探针值与记忆不一致 → 全量重读");
+        second.Records.Should().HaveCount(2);
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok, "status 口径不变");
+    }
+
+    /// <summary>
+    /// I-049 持久连接身份校验：库文件被替换（同路径新 inode）→ stat 身份（size, mtime）与建连时不符
+    /// → 弃旧开新，探针读取的是新库。没有身份校验时，旧 inode 的句柄在 POSIX 下仍可读，探针会在
+    /// 幽灵文件上"永远探针成功"，被替换库的记录将永驻零变更短路。
+    /// </summary>
+    [Fact]
+    public async Task PersistentConnection_ReplacedDatabaseFile_IsReopenedAndReread()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // Windows 跳过（I-049 审查 P2-1）：适配器持有未关闭的持久句柄，File.Delete / 同路径重建
+            // 会撞共享锁；POSIX unlink 允许带打开 fd 删除文件。身份校验逻辑本身跨平台一致。
+            return;
+        }
+
+        var root = CreateTempDir();
+        var db = Path.Combine(root, "opencode.db");
+        CreateSessionMessageTable(db, withTimeCreated: true);
+        InsertSessionMessage(db, "old-1", "session-old", "assistant", NoonUtc20260101, AssistantPayload(100, 10), 1);
+        var adapter = CreateAdapter(root);
+        var first = await adapter.ScanAsync();
+        first.Records.Should().ContainSingle().Which.MessageId.Should().Be("old-1");
+
+        // 释放 fixture 侧池化连接后，删除旧库并在同路径放一个内容不同的新库（行数不同）。
+        SqliteConnection.ClearAllPools();
+        File.Delete(db);
+        CreateSessionMessageTable(db, withTimeCreated: true);
+        InsertSessionMessage(db, "new-1", "session-new", "assistant", NoonUtc20260101 + 1, AssistantPayload(30, 3), 1);
+        InsertSessionMessage(db, "new-2", "session-new", "assistant", NoonUtc20260101 + 2, AssistantPayload(40, 4), 2);
+        // 显式错开 mtime：粗粒度文件系统上新建文件可能落进旧文件同一时间桶，身份校验必须可判。
+        File.SetLastWriteTimeUtc(db, File.GetLastWriteTimeUtc(db).AddSeconds(5));
+
+        var second = await adapter.ScanAsync();
+
+        second.Records.Should().HaveCount(2, "身份不符 → 弃旧连重开 → 探针读新库（行数不同）→ 判变化 → 全量重读");
+        second.Records.Select(record => record.MessageId)
+            .Should().BeEquivalentTo(["new-1", "new-2"], "旧库贡献不残留");
+        second.Diagnostics.FilesChanged.Should().Be(1);
+        second.Diagnostics.FilesRead.Should().Be(1);
+    }
+
+    /// <summary>
+    /// P1 审查修复回归：部分读取轮（本轮库集未全部"探针成功 + 读取成功"）不得记账——否则下轮删掉
+    /// 失败库、库集收缩后 探针集 == 库集 == 记忆集，零变更短路会把混有已删库残行的部分记录集当缓存
+    /// 继续服务（违反"库集收缩必判变化"不变式；HEAD FileStampMemo 全或无准入在同序列下必然全量重读）。
+    /// fixture 用"探针失败（WITHOUT ROWID，无 rowid）但读取成功"的库 B 构造部分轮——B 的行全部进入
+    /// records、B 不进探针记忆；读失败与探针失败在修法的准入分支（readMemory.Count &lt; 库集）里
+    /// 同属部分轮，本构造避免了物理页破坏式 corruption fixture 的跨 SQLite 版本脆弱性。
+    /// </summary>
+    [Fact]
+    public async Task ChangeProbe_PartialRound_ThenFailingDatabaseRemoved_DoesNotServeStaleCache()
+    {
+        var directoryA = CreateTempDir();
+        var directoryB = CreateTempDir();
+        CreateSessionMessageTable(Path.Combine(directoryA, "opencode.db"), withTimeCreated: true);
+        InsertSessionMessage(Path.Combine(directoryA, "opencode.db"), "a-1", "session-a", "assistant", NoonUtc20260101, AssistantPayload(100, 10), 1);
+        var dbB = Path.Combine(directoryB, "opencode.db");
+        Execute(dbB, "CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT, type TEXT, data TEXT) WITHOUT ROWID");
+        InsertSessionMessage(dbB, "b-1", "session-b", "assistant", null, AssistantPayload(30, 3), seq: null);
+        InsertSessionMessage(dbB, "b-2", "session-b", "assistant", null, AssistantPayload(40, 4), seq: null);
+        var adapter = new OpenCodeSqliteAdapter(configuredDataDir: $"{directoryA},{directoryB}");
+
+        var first = await adapter.ScanAsync();
+        first.Records.Should().HaveCount(3, "A 的 1 行 + B 的 2 行（B 读取成功、行全进记录集）");
+        first.Diagnostics.FilesRead.Should().Be(2, "B 本轮读取成功（探针失败只影响记忆准入）");
+        first.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+        first.Diagnostics.FilesChanged.Should().Be(1);
+
+        if (OperatingSystem.IsWindows())
+        {
+            // Windows 跳过删库断言（I-049 审查 P2-1）：适配器持有 B 的持久句柄（本轮读取成功未弃连），
+            // File.Delete 会撞共享锁；POSIX unlink 允许带打开 fd 删除文件。准入逻辑本身跨平台一致。
+            return;
+        }
+
+        // 下一轮删掉 B：库集收缩。修复前：探针集 {A} == 记忆集 {A} → 零变更复用含 B 残行的缓存。
+        SqliteConnection.ClearAllPools();
+        File.Delete(dbB);
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "部分读取轮不记账 → 删库轮必判变化（零变更复用被禁止）");
+        second.Diagnostics.FilesRead.Should().Be(1, "全量重读");
+        second.Records.Should().ContainSingle().Which.MessageId.Should().Be("a-1", "B 已删除，残行不得残留");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+    }
+
+    /// <summary>
+    /// I-049 降级路径：探针表达式对库形态不合法（session_message 为 WITHOUT ROWID，无 rowid 列，
+    /// MAX(rowid) 抛 SqliteException）→ 探针失败返回 null → 覆盖率守卫判有变化 → 保守全量重读，
+    /// 记录照常产出、不抛异常、status 不标问题（探针失败不是读取失败）。每轮都保守全量——
+    /// 探针失败的库不进记忆，绝不出现"首轮之后永驻缓存"。
+    /// </summary>
+    [Fact]
+    public async Task ChangeProbe_ProbeFailureWithoutRowid_FallsBackToFullRereadEveryRound()
+    {
+        var root = CreateTempDir();
+        var db = Path.Combine(root, "opencode.db");
+        Execute(db, "CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT, type TEXT, data TEXT) WITHOUT ROWID");
+        InsertSessionMessage(db, "v2-nr", "session-a", "assistant", null, AssistantPayload(80, 8), seq: null);
+        var adapter = CreateAdapter(root);
+
+        var first = await adapter.ScanAsync();
+
+        adapter.ProbeQueryCountForTests.Should().Be(0, "探针中途失败不计入实跑计数");
+        first.Diagnostics.FilesRead.Should().Be(1, "探针失败 → 保守全量");
+        first.Records.Should().ContainSingle().Which.InputTokens.Should().Be(80);
+        first.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok, "读取本身成功，探针失败不标问题");
+        first.Diagnostics.FilesChanged.Should().Be(1);
+
+        // 账面未动的第二轮仍保守全量：探针失败的库不进探针集，覆盖率守卫不放行零变更短路。
+        var second = await adapter.ScanAsync();
+        adapter.ProbeQueryCountForTests.Should().Be(0);
+        second.Diagnostics.FilesRead.Should().Be(1, "探针持续失败 → 每轮保守全量，绝不永驻缓存");
+        second.Diagnostics.FilesChanged.Should().Be(1);
+        second.Records.Should().ContainSingle();
+    }
+
     private OpenCodeSqliteAdapter CreateAdapter(string configuredDataDir) => new(configuredDataDir: configuredDataDir);
 
     private string CreateTempDir()
