@@ -76,10 +76,7 @@ public sealed class RelaySkeletonTests
         }
         finally
         {
-            if (File.Exists(dbPath))
-            {
-                File.Delete(dbPath);
-            }
+            TempDbCleanup.DeleteWithSidecars(dbPath);
         }
     }
 }

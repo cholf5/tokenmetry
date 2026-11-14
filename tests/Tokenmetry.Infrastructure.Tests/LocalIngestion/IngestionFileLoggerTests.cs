@@ -11,6 +11,25 @@ public class IngestionFileLoggerTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), $"ccusage-logger-{Guid.NewGuid():N}");
 
+    /// <summary>
+    /// 读一份"logger 还活着"的日志文件。生产 logger 以 <c>FileShare.Read</c> 持有写句柄（只允许
+    /// 他人读），而 <c>File.ReadAllText</c>/<c>File.ReadAllLines</c> 默认 share=Read——不允许与写句柄
+    /// 共存，Windows 严格执行共享模式会直接抛 <see cref="IOException"/>（POSIX 不校验共享，
+    /// 所以 macOS/Linux 上无感）。这里按 Windows 可读的口径自己开流。
+    /// </summary>
+    private static string[] ReadWhileLoggerAlive(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        var lines = new List<string>();
+        while (reader.ReadLine() is { } line)
+        {
+            lines.Add(line);
+        }
+
+        return [.. lines];
+    }
+
     public void Dispose()
     {
         try
@@ -40,8 +59,7 @@ public class IngestionFileLoggerTests : IDisposable
         logger.WriteLine("hello");
         logger.WriteLine("again");
 
-        var text = File.ReadAllText(logger.CurrentFilePath!);
-        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var lines = ReadWhileLoggerAlive(logger.CurrentFilePath!);
         lines.Should().HaveCount(2);
         lines[0].Should().EndWith("hello");
         lines[1].Should().EndWith("again");
@@ -65,7 +83,7 @@ public class IngestionFileLoggerTests : IDisposable
 
         logger.WriteLine("ctx", ex);
 
-        var text = File.ReadAllText(logger.CurrentFilePath!);
+        var text = string.Join("\n", ReadWhileLoggerAlive(logger.CurrentFilePath!));
         text.Should().Contain("InvalidOperationException").And.Contain("boom-marker").And.Contain("at ");
     }
 
@@ -76,7 +94,7 @@ public class IngestionFileLoggerTests : IDisposable
 
         Parallel.For(0, 64, i => logger.WriteLine($"line-{i}"));
 
-        var lines = File.ReadAllLines(logger.CurrentFilePath!);
+        var lines = ReadWhileLoggerAlive(logger.CurrentFilePath!);
         lines.Should().HaveCount(64);
         lines.Should().OnlyContain(l => l.EndsWith("Z") || l.Split("Z ", 2).Length == 2);
         foreach (var line in lines)

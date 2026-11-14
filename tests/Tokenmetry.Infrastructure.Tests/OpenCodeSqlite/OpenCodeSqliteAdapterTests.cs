@@ -842,6 +842,14 @@ public class OpenCodeSqliteAdapterTests : IDisposable
     [Fact]
     public async Task ChangeProbe_RemovedDatabase_DoesNotServeStaleCache()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            // Windows 跳过（同 I-049 审查 P2-1 口径）：扫描轮结束后适配器仍持有该库的持久只读连接，
+            // File.Delete 撞共享锁（ClearAllPools 关不到持久句柄）；POSIX unlink 允许带打开 fd 删除文件。
+            // 库集收缩检测逻辑本身跨平台一致，CI 的 test job（ubuntu）会跑全这段。
+            return;
+        }
+
         // OpenCode 按目录发现库（v1 默认名 / channel 库）：库文件消失后记忆必须失效——
         // 不得把已删除库的记录当零变更缓存继续返回（诚实空态）。
         var root = CreateTempDir();

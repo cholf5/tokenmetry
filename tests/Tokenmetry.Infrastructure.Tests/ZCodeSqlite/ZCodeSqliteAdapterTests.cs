@@ -287,6 +287,14 @@ public class ZCodeSqliteAdapterTests : IDisposable
     [Fact]
     public async Task ChangeProbe_PartialRound_ThenFailingDatabaseRemoved_DoesNotServeStaleCache()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            // Windows 跳过（同 I-049 审查 P2-1 口径）：轮 1 全部健康时适配器手持库 B 的持久只读连接，
+            // 轮 2 的"截断 + 补写 header"需要写句柄，Windows 共享锁直接拒（POSIX 允许）。
+            // 准入逻辑本身跨平台一致，CI 的 test job（ubuntu）会跑全这段；只影响 Windows 本地跑。
+            return;
+        }
+
         var homeA = CreateTempHome();
         var homeB = CreateTempHome();
         var dbA = CreateDatabase(homeA, legacy: false);
