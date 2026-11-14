@@ -254,6 +254,14 @@ public class ZCodeSqliteAdapterTests : IDisposable
         var first = await adapter.ScanAsync();
         first.Records.Should().HaveCount(2);
 
+        if (OperatingSystem.IsWindows())
+        {
+            // Windows 跳过（I-049 审查 P2-1，与 OpenCodeSqlite 同款暴露）：适配器持有 B 的未关闭
+            // 持久句柄，File.Delete 撞共享锁；POSIX unlink 允许带打开 fd 删除文件。
+            // 库集收缩检测逻辑本身跨平台一致。
+            return;
+        }
+
         File.Delete(dbB);
         var second = await adapter.ScanAsync();
 
@@ -261,6 +269,85 @@ public class ZCodeSqliteAdapterTests : IDisposable
         second.Diagnostics.FilesChanged.Should().Be(1, "库集变化 = 账面变化");
         second.Records.Should().ContainSingle();
         second.Records[0].MessageId.Should().Be("usage-a");
+    }
+
+    /// <summary>
+    /// P1 审查修复回归（I-049 同款漏洞移植源）：部分读取轮（本轮库集未全部"探针成功 + 读取成功"）
+    /// 不得记账——否则下轮删掉失败库、库集收缩后 探针集 == 库集 == 记忆集，零变更短路会把混有
+    /// 已删库残行的部分记录集当缓存继续服务（违反"库集收缩必判变化"不变式）。
+    /// fixture 用真实的"读取中途抛异常"构造部分轮（I-049 卡 P1 原始序列）：截断库 B 文件尾部 3 页
+    /// 并补写 header 页数字段——schema 页在前完好，表叶与索引叶交错分配在尾部、两棵 b-tree 的
+    /// 末端叶子被打掉 → B 探针（COUNT/MAX(id)）在 stepping 阶段抛 SqliteException（探针失败），
+    /// SELECT 从最左叶走到截断叶时抛 SqliteException → 已读到的行保留进 records、
+    /// readSucceeded=false、B 不进记忆。只截断不补 header 时页数对不上，SQLite 会在 prepare 阶段
+    /// （读连接无法回写修正）整体判 CORRUPT、永远零行，构造不出"中途"失败。ZCode 探针用 MAX(id)
+    /// （业务列），OpenCode 的 WITHOUT ROWID 构造不适用、未知 COLLATE 已被 SQLite 在 DDL/prepare
+    /// 即拒绝，物理截断是本适配器唯一可构造"部分轮"的形态。
+    /// </summary>
+    [Fact]
+    public async Task ChangeProbe_PartialRound_ThenFailingDatabaseRemoved_DoesNotServeStaleCache()
+    {
+        var homeA = CreateTempHome();
+        var homeB = CreateTempHome();
+        var dbA = CreateDatabase(homeA, legacy: false);
+        var dbB = CreateDatabase(homeB, legacy: false);
+        InsertRow(dbA, new ZCodeRow("usage-a", "s-a", 1_786_909_042_666, "m", null, "completed", 10, 1, 0, 0, 11, "/a"));
+        // 500 行小载荷 → model_usage 表叶 + id 主键索引叶各若干页（交错分配），截断尾部必打掉两棵
+        // b-tree 的末端叶子且前方叶子大量存活（行存活性由轮 2 断言的上下界锁定，不依赖页数推算）。
+        var bValues = string.Join(",", Enumerable.Range(1, 500).Select(i =>
+            $"('usage-b{i}', 's-b', {1_786_909_042_667 + i}, 'm', 'completed', 20, 2)"));
+        InsertRaw(dbB, $"INSERT INTO model_usage (id, session_id, started_at, model_id, status, input_tokens, output_tokens) VALUES {bValues};");
+        var adapter = new ZCodeSqliteAdapter(configuredHome: $"{homeA},{homeB}");
+
+        var first = await adapter.ScanAsync();
+        first.Records.Should().HaveCount(501, "健康基线：A 的 1 行 + B 的 500 行");
+        first.Diagnostics.FilesRead.Should().Be(2);
+        first.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
+
+        // 轮 2：截断 B 的库文件尾部 3 页 + 补写 header 页数 → 部分读取轮（B 探针失败 + 读取中途失败）。
+        // 修复前：B 不进记忆但残行留在记录集，记忆缩水成 {A}；修复后：部分轮整体作废记忆。
+        int pageSize;
+        using (var connection = new SqliteConnection($"Data Source={dbB}"))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA page_size;";
+            pageSize = Convert.ToInt32(command.ExecuteScalar());
+        }
+
+        using (var stream = new FileStream(dbB, FileMode.Open, FileAccess.Write))
+        {
+            var newSize = stream.Length - 3 * pageSize;
+            stream.SetLength(newSize);
+            uint pageCount = (uint)(newSize / pageSize);
+            stream.Seek(28, SeekOrigin.Begin); // header"页数"字段，大端 u32
+            stream.WriteByte((byte)(pageCount >> 24));
+            stream.WriteByte((byte)(pageCount >> 16));
+            stream.WriteByte((byte)(pageCount >> 8));
+            stream.WriteByte((byte)pageCount);
+        }
+
+        var second = await adapter.ScanAsync();
+
+        second.Diagnostics.FilesChanged.Should().Be(1, "B 探针失败 → 覆盖率守卫判有变化 → 全量重读");
+        second.Diagnostics.FilesRead.Should().Be(1, "A 读取成功计入；B 读取中途失败不计入 FilesRead");
+        second.Records.Should().Contain(record => record.MessageId == "usage-a", "A 照常产出");
+        second.Records.Should().Contain(record => record.MessageId!.StartsWith("usage-b"), "B 已读到的行保留在记录集（残行）");
+        second.Records.Should().HaveCountGreaterThan(1).And.HaveCountLessThan(501, "B 中途失败：只留前段叶子上的行");
+        second.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial, "读取失败标问题（探针失败从不标，这里是读取失败）");
+
+        // 轮 3：删掉 B，库集收缩。修复前：探针集 {A} == 记忆集 {A} → 零变更复用含 B 残行的缓存；
+        // 修复后：部分读取轮不记账 → 必判变化全量重读。
+        // Windows 无需跳过：轮 2 里 B 的探针失败与读取失败都走了弃连路径，适配器不再持有 B 的句柄；
+        // ClearAllPools 释放的是 fixture 侧池化写连接。
+        SqliteConnection.ClearAllPools();
+        File.Delete(dbB);
+        var third = await adapter.ScanAsync();
+
+        third.Diagnostics.FilesChanged.Should().Be(1, "部分读取轮不记账 → 删库轮必判变化（零变更复用被禁止）");
+        third.Diagnostics.FilesRead.Should().Be(1, "全量重读");
+        third.Records.Should().ContainSingle().Which.MessageId.Should().Be("usage-a", "B 已删除，残行不得残留");
+        third.Diagnostics.Status.Should().Be(JsonlScanStatus.Ok);
     }
 
     /// <summary>缓存桶截断到 input、computed_total 余量并入 output（对照蓝本 clamp 与 extra tokens 测试）。</summary>

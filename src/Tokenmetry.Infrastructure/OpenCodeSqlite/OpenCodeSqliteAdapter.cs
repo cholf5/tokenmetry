@@ -38,9 +38,10 @@ namespace Tokenmetry.Infrastructure.OpenCodeSqlite;
 /// 库集全部"探针成功 + 读取成功"才整体落账（探针/干净指纹/记录/诊断四件套）；部分读取轮（有库读失败
 /// 或探针失败）整体作废记忆——否则下轮删掉失败库、库集收缩后 探针集 == 库集 == 记忆集，零变更短路会
 /// 把混有已删库残行的部分记录集当缓存继续服务（违反"库集收缩必判变化"不变式）。探针失败的库不进
-/// 探针集，覆盖率守卫（探针集 ≠ 本轮库集即判变化）使下一轮必然全量重读（保守自愈——ZCode 无此守卫
-/// 仍正确，因其探针失败 ⇒ 同库读取必失败；OpenCode 存在"探针失败但读取成功"的形态如 WITHOUT ROWID
-/// 表）；频道库集变化（选中的库路径清单变化）时探针集合随之收缩，不复用陈旧记录。
+/// 探针集，覆盖率守卫（探针集 ≠ 本轮库集即判变化）使下一轮必然全量重读（保守自愈——与
+/// ZCodeSqliteAdapter 同款守卫；"探针失败 ⇒ 同库读取必失败"只是假设而非取证，WITHOUT ROWID /
+/// 未知 COLLATE 等库形态都可以"探针失败但读取成功"，不能拿假设当正确性依据）；频道库集变化
+/// （选中的库路径清单变化）时探针集合随之收缩，不复用陈旧记录。
 /// 只读打开不改 journal mode，兼容 OpenCode 运行中的 WAL。
 /// 零变更轮诊断与 FileStampMemo 时代逐位一致：FilesRead=0、内容诊断（LinesSkipped / Malformed /
 /// Invalid）归零（本轮没有解析事件就没有新的坏行）、累计四项（Duplicate / Missing / Unknown）与
@@ -527,11 +528,11 @@ public class OpenCodeSqliteAdapter : IOpenCodeSqliteAdapter
     }
 
     /// <summary>
-    /// 零变更判定：本轮探针集必须覆盖本轮库集（覆盖率守卫，与 ZCodeSqliteAdapter 的已知差异——
-    /// 探针失败的库不进探针集，探针集小于库集即有库账面未确认，保守按有变化全量读取；ZCode 无此
-    /// 守卫仍正确，因其探针失败 ⇒ 同库读取必失败 ⇒ 不产出记录；OpenCode 的 WITHOUT ROWID 等形态
-    /// 可以"探针失败但读取成功"，无守卫会让这类库首轮之后永驻缓存），且逐库探针与上轮成功读取的
-    /// 记忆完全一致（含库集收缩——消失的库不进本轮探针，集合比对必然判为变化）。
+    /// 零变更判定：本轮探针集必须覆盖本轮库集（覆盖率守卫，与 ZCodeSqliteAdapter 同款——
+    /// 探针失败的库不进探针集，探针集小于库集即有库账面未确认，保守按有变化全量读取；
+    /// "探针失败但读取成功"的库形态（WITHOUT ROWID / 未知 COLLATE）若无守卫会让新增库首轮之后
+    /// 永驻缓存），且逐库探针与上轮成功读取的记忆完全一致（含库集收缩——消失的库不进本轮探针，
+    /// 集合比对必然判为变化）。
     /// </summary>
     private bool ProbesUnchanged(Dictionary<string, DatabaseProbe> probes, int discoveredCount)
     {

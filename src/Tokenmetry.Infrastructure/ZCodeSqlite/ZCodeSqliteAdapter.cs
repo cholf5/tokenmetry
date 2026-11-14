@@ -16,6 +16,16 @@ namespace Tokenmetry.Infrastructure.ZCodeSqlite;
 /// 才复用；探针失败 / 库集变化（新增、消失）→ 保守全量读取。已知边界：行原地改值（token 修正且
 /// count 与 max(id) 不动）不会被发现——usage 行实务上只增不改（账本写入方语义）。
 /// <para>
+/// <b>记忆化准入（P1 审查修复，与 <see cref="OpenCodeSqlite.OpenCodeSqliteAdapter"/> 同款、与 HEAD
+/// FileStampMemo 的"全部库读成功才落账"全或无准入等价）</b>：仅当本轮库集全部"探针成功 + 读取成功"
+/// 才整体落账（探针/干净指纹/记录/诊断四件套）；部分读取轮（有库读失败或探针失败）整体作废记忆——
+/// 否则下轮删掉失败库、库集收缩后 探针集 == 库集 == 记忆集，零变更短路会把混有已删库残行的部分记录集
+/// 当缓存继续服务（违反"库集收缩必判变化"不变式）。探针失败的库不进探针集，覆盖率守卫（探针集 ≠
+/// 本轮库集即判变化）使下一轮必然全量重读——保守自愈不靠"探针失败 ⇒ 同库读取必失败"的假设：
+/// 该假设并非取证（未知 COLLATE 等库形态可"探针失败但读取成功"，fixture 已证实），守卫让正确性
+/// 不依赖它。
+/// </para>
+/// <para>
 /// <b>探针成本两级（IOPS 修复）</b>：探针查询 <c>WHERE status='completed'</c> 在 ZCode 账本上无索引
 /// 可走（status 不在其二级索引内），每轮全表 SCAN model_usage——生产实测 b-tree ~25MB，OS 页缓存
 /// 被逐出后每轮重读盘（app.log 5087 轮 p50=1415ms / max=63s；刷新间隔 1 分钟时 ≈ 每天 34 分钟盘上扫，
@@ -71,7 +81,10 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
 
     /// <summary>持久只读连接缓存（库路径 → 连接，IOPS 修复）：连接级 32MB 页缓存使 model_usage
     /// b-tree 常驻进程内存，免于每轮探针被 OS 页缓存逐出后重读盘。与身份账
-    /// <see cref="_connectionIdentities"/> 同步增删，并发由 LocalIngestionDataSource 串行化。</summary>
+    /// <see cref="_connectionIdentities"/> 同步增删，并发由 LocalIngestionDataSource 串行化。
+    /// 生命周期：随适配器单例自持，<b>不实现 IDisposable</b>——被删库的缓存连接不主动清理
+    /// （库从发现清单除名后没有 Drop 路径），依赖同路径重现（身份不符弃旧开新）或进程退出回收；
+    /// DI 单例语义下句柄数 ≤ 历史库路径数，可接受（OpenCodeSqliteAdapter 同款缺口，I-049 审查登记不修）。</summary>
     private readonly Dictionary<string, SqliteConnection> _readOnlyConnections = new(StringComparer.Ordinal);
 
     /// <summary>持久连接建连时的 db 文件身份（size, mtime）：每轮复用前校验，不符（检查点回写 /
@@ -137,11 +150,13 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
             }
         }
 
-        // 零变更轮（库集与逐库探针与上轮成功读取完全一致）：复用上轮记录（同实例列表，消费方
+        // 零变更轮（探针集覆盖本轮库集且逐库探针与上轮成功读取完全一致）：复用上轮记录（同实例列表，消费方
         // 视为只读），零读取零映射；FilesChanged=0 驱动采集管道短路。本轮诊断只反映"未读取"
         // （FilesRead=0、无解析事件），累计口径（Status / Invalid / Duplicate / Missing / Unknown）
         // 沿用上轮——与"重建后必然得到的结果"一致（IncrementalJsonlScanner 零变更缓存同款）。
-        if (_lastRecords is { } cachedRecords && _lastDiagnostics is { } lastDiagnostics && ProbesUnchanged(probes))
+        if (_lastRecords is { } cachedRecords
+            && _lastDiagnostics is { } lastDiagnostics
+            && ProbesUnchanged(probes, resolved.Databases.Count))
         {
             // 本轮重新探针过的库：把探针前抓的文件指纹升为"干净指纹"（探针已确认数据与记忆一致，
             // 指纹态对应的就是记忆记录）。快路径命中的库指纹本来就在账且本轮刚验证一致，不动。
@@ -171,9 +186,9 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         var records = new List<UsageRecord>();
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
         var problems = false;
-        // 记忆只收"本轮成功读取且探针成功"的库：读取失败的库不进记忆，下一轮库集比对必然
-        // 判为变化、重新读取（保守自愈，与探针后置时代"只在成功读取后落账"一致）。
-        // 干净指纹与探针记忆同生命周期（键集恒等）：只记探针前抓取、且读取成功确认的指纹。
+        // 记忆按库收集"本轮探针成功且读取成功"的库（探针失败的库不进 readMemory）；是否落账由
+        // 末尾的全或无准入判定（readMemory 覆盖本轮库集才落账，见落账处 P1 审查修复注释）。
+        // 干净指纹与探针记忆同生命周期：只记探针前抓取、且读取成功确认的指纹。
         var readMemory = new Dictionary<string, (int Count, string MaxId)>(StringComparer.Ordinal);
         var cleanFingerprints = new Dictionary<string, FileFingerprint>(StringComparer.Ordinal);
         foreach (var database in resolved.Databases)
@@ -223,10 +238,26 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         // 无库不设值，由管道按"本轮发现即空"规则处理（与既有口径一致）。
         diagnostics.FilesChanged = resolved.Databases.Count > 0 ? 1 : null;
 
-        _lastCompletedProbe = readMemory;
-        _cleanFileFingerprints = cleanFingerprints;
-        _lastRecords = sorted;
-        _lastDiagnostics = diagnostics;
+        // 记忆落账（P1 审查修复）：仅当本轮库集全部"探针成功 + 读取成功"（readMemory 覆盖本轮库集）
+        // 才整体落账——与 HEAD FileStampMemo 的"全部库读成功才落账"（FilesRead == FilesDiscovered）
+        // 全或无准入等价。部分读取轮（有库读失败 / 探针失败）整体作废记忆（探针、干净指纹、记录、
+        // 诊断全清）：否则下轮删掉失败库、库集收缩后 探针集 == 库集 == 记忆集，零变更短路会把
+        // 混有已删库残行的部分记录集当缓存继续服务（违反"库集收缩必判变化"不变式，HEAD 全或无
+        // 准入在同序列下必然全量重读）。健康路径（全库读成功）行为不变。
+        if (readMemory.Count == resolved.Databases.Count)
+        {
+            _lastCompletedProbe = readMemory;
+            _cleanFileFingerprints = cleanFingerprints;
+            _lastRecords = sorted;
+            _lastDiagnostics = diagnostics;
+        }
+        else
+        {
+            _lastCompletedProbe = new Dictionary<string, (int Count, string MaxId)>(StringComparer.Ordinal);
+            _cleanFileFingerprints = new Dictionary<string, FileFingerprint>(StringComparer.Ordinal);
+            _lastRecords = null;
+            _lastDiagnostics = null;
+        }
 
         return Task.FromResult(new JsonlScanResult
         {
@@ -441,10 +472,19 @@ public class ZCodeSqliteAdapter : IZCodeSqliteAdapter
         }
     }
 
-    /// <summary>零变更判定：本轮探针的库集与逐库指纹与上轮成功读取的记忆完全一致
-    /// （含库集收缩——消失的库不进本轮探针，集合比对必然判为变化）。</summary>
-    private bool ProbesUnchanged(Dictionary<string, (int Count, string MaxId)> probes)
+    /// <summary>
+    /// 零变更判定：本轮探针集必须覆盖本轮库集（覆盖率守卫，与 <see cref="OpenCodeSqlite.OpenCodeSqliteAdapter"/>
+    /// 同款——探针失败的库不进探针集，探针集小于库集即有库账面未确认，保守按有变化全量读取；否则
+    /// 新增的"探针失败但读取成功"形态库会让首轮之后的零变更短路永驻缓存），且逐库探针与上轮成功读取
+    /// 的记忆完全一致（含库集收缩——消失的库不进本轮探针，集合比对必然判为变化）。
+    /// </summary>
+    private bool ProbesUnchanged(Dictionary<string, (int Count, string MaxId)> probes, int discoveredCount)
     {
+        if (probes.Count != discoveredCount)
+        {
+            return false;
+        }
+
         if (probes.Count != _lastCompletedProbe.Count)
         {
             return false;
