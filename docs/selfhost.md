@@ -18,6 +18,40 @@ docker run -d --name tokenmetry-relay \
   ghcr.io/cholf5/tokenmetry-relay:latest
 ```
 
+## 快速开始（一键部署脚本，本仓库开发者）
+
+仓库里有 `scripts/deploy-relay.sh`：本地交叉发布 linux-x64 单文件 → scp 上传 → 装成 systemd
+服务 → 远端 `/health` 冒烟，一条命令完成首次部署与后续重部署。不想在服务器上装 Docker 的裸机
+路线走这条：
+
+```bash
+scripts/deploy-relay.sh user@your-server                    # 自包含单文件（默认，远端零依赖）
+scripts/deploy-relay.sh user@your-server --mode framework   # 复用远端 ASP.NET Core Runtime 10
+```
+
+脚本在服务器上落了什么：系统用户 `tokenmetry`（nologin）；安装目录 `/opt/tokenmetry-relay`
+（整目录发布产物：`Tokenmetry.Relay` + `libe_sqlite3.so` 等原生库）；令牌
+`/etc/tokenmetry-relay/token.env`（600，root 属主，systemd 以 EnvironmentFile 注入）；
+数据目录 `/var/lib/tokenmetry-relay`（`relay.db`，WAL）；
+`/etc/systemd/system/tokenmetry-relay.service`（`Restart=on-failure` + 常规加固）。
+端口/地址/目录用 `--port` / `--bind` / `--install-dir` / `--data-dir` 覆盖；连接参数用
+`--ssh-port` / `--ssh-opt` / `--scp-opt`（sudo 需要输密码时加 `--ssh-opt -t`）；`--dry-run`
+只打印计划不动服务器。
+
+令牌语义与 Docker 路线一致：
+
+- 首次部署自动生成长随机令牌，写入 `/etc/tokenmetry-relay/token.env`（600，root 属主）
+  并在脚本输出里回显；客户端填同一值。
+- **重部署永远保留已有令牌**——换 token = 退役旧账号（行/设备/榜单随重签清除，见下文
+  「Token 丢失 / 重签」），所以重跑脚本只换二进制并重启，绝不静默轮换；确要更换用
+  `--rotate-token` 显式轮换。
+- 重部署幂等：数据目录独立于安装目录，重跑不碰 `relay.db`。
+
+主流发行版（Debian/RHEL/Arch/SUSE）开箱即用；Alpine 需先 `apk add shadow`（提供 useradd）。
+公网可达通常隔两层防火墙：云安全组 + 服务器本机防火墙（如 ufw）——脚本会检测 ufw 并在部署
+末尾从开发机做一次端到端探测，缺哪层它会提示。限流与 TLS 仍遵循本文「安全须知」：公网部署
+请配反代终结 TLS。
+
 客户端侧（设置页 →「跨设备同步」→ 自建中继）：
 
 - 服务器地址：`http://<你的主机>:8080`
