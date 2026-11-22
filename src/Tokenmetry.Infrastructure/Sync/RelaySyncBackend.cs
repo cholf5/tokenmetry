@@ -1,5 +1,8 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Sync;
 
@@ -33,7 +36,7 @@ public sealed class RelaySyncBackend : ISyncBackend
     {
         using var message = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/sync/push");
         message.Headers.Add("X-Tokenmetry-Device", _deviceId);
-        message.Content = JsonContent.Create(request, SyncJsonContext.Default.SyncPushRequest);
+        message.Content = JsonBody(request, SyncJsonContext.Default.SyncPushRequest);
         using var response = await _http.SendAsync(message, ct);
         await EnsureSuccessAsync(response);
     }
@@ -56,11 +59,22 @@ public sealed class RelaySyncBackend : ISyncBackend
             ?? throw new InvalidOperationException("Relay returned an empty device list.");
     }
 
+    /// <summary>
+    /// 请求体 = source-gen 序列化后经 ByteArrayContent（显式 Content-Length）发送。
+    /// 不能用 JsonContent：它不声明长度、以 Transfer-Encoding: chunked 发送，而系统代理
+    /// （V2Ray 家族本地 inbound，127.0.0.1:10808 一类）对超过 ~8KB 的 chunked 请求体会直接
+    /// 断连——真机 macOS/Windows 系统代理上 push 全量批次即死于 "response ended prematurely"，
+    /// 同字节 Content-Length 载荷则正常通行（chunked 语义在代理侧普遍不比 Content-Length 可靠，
+    /// 小载荷的注册/改名/登录/榜单偏好同修，一律走缓冲分帧）。
+    /// </summary>
+    private static ByteArrayContent JsonBody<T>(T payload, JsonTypeInfo<T> typeInfo) =>
+        new(JsonSerializer.SerializeToUtf8Bytes(payload, typeInfo));
+
     public async Task RenameDeviceAsync(string deviceId, string name, CancellationToken ct = default)
     {
         using var message = new HttpRequestMessage(HttpMethod.Patch, $"{_baseUrl}/api/devices/{Uri.EscapeDataString(deviceId)}")
         {
-            Content = JsonContent.Create(new RenameDeviceRequest(name), SyncJsonContext.Default.RenameDeviceRequest),
+            Content = JsonBody(new RenameDeviceRequest(name), SyncJsonContext.Default.RenameDeviceRequest),
         };
         using var response = await _http.SendAsync(message, ct);
         await EnsureSuccessAsync(response);
@@ -90,7 +104,7 @@ public sealed class RelaySyncBackend : ISyncBackend
     {
         using var message = new HttpRequestMessage(HttpMethod.Put, $"{_baseUrl}/api/me/leaderboard")
         {
-            Content = JsonContent.Create(request, SyncJsonContext.Default.LeaderboardPreferenceRequest),
+            Content = JsonBody(request, SyncJsonContext.Default.LeaderboardPreferenceRequest),
         };
         using var response = await _http.SendAsync(message, ct);
         await EnsureSuccessAsync(response);
@@ -103,7 +117,7 @@ public sealed class RelaySyncBackend : ISyncBackend
     {
         using var message = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/auth/github")
         {
-            Content = JsonContent.Create(new GitHubCodeRequest(code), SyncJsonContext.Default.GitHubCodeRequest),
+            Content = JsonBody(new GitHubCodeRequest(code), SyncJsonContext.Default.GitHubCodeRequest),
         };
         using var response = await _http.SendAsync(message, ct);
         await EnsureSuccessAsync(response);
@@ -116,7 +130,7 @@ public sealed class RelaySyncBackend : ISyncBackend
     {
         using var message = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/devices")
         {
-            Content = JsonContent.Create(
+            Content = JsonBody(
                 new RegisterDeviceRequest(deviceId, name), SyncJsonContext.Default.RegisterDeviceRequest),
         };
         message.Headers.Add("X-Tokenmetry-Device", _deviceId);
