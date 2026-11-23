@@ -23,6 +23,29 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tokenmetry.Plugin.Abstractions\Tokenmetry.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Tokenmetry.PluginHost\Tokenmetry.PluginHost.csproj" />
+    <ProjectReference Include="..\fixtures\Tokenmetry.TestPlugin\Tokenmetry.TestPlugin.csproj" />
   </ItemGroup>
+
+  <!-- 宿主集成测试用 `dotnet <host.dll>` 起真实子进程。ProjectReference 不保证把
+       runtimeconfig/deps.json 复制到测试输出，所以这里把宿主与 fixture 的构建产物
+       显式复制到测试输出下固定子目录（plugin-host/、test-plugin/），路径确定、可重复。 -->
+  <Target Name="CopyPluginArtifactsForTests" AfterTargets="Build">
+    <PropertyGroup>
+      <_PluginHostOutputDir>$(MSBuildThisFileDirectory)..\..\src\Tokenmetry.PluginHost\bin\$(Configuration)\$(TargetFramework)</_PluginHostOutputDir>
+      <_PluginFixtureOutputDir>$(MSBuildThisFileDirectory)..\fixtures\Tokenmetry.TestPlugin\bin\$(Configuration)\$(TargetFramework)</_PluginFixtureOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_PluginHostArtifact Include="$(_PluginHostOutputDir)\Tokenmetry.PluginHost.dll" />
+      <_PluginHostArtifact Include="$(_PluginHostOutputDir)\Tokenmetry.PluginHost.deps.json" />
+      <_PluginHostArtifact Include="$(_PluginHostOutputDir)\Tokenmetry.PluginHost.runtimeconfig.json" />
+      <_PluginHostArtifact Include="$(_PluginHostOutputDir)\Tokenmetry.Plugin.Abstractions.dll" />
+      <_PluginFixtureArtifact Include="$(_PluginFixtureOutputDir)\Tokenmetry.TestPlugin.dll" />
+      <_PluginFixtureArtifact Include="$(_PluginFixtureOutputDir)\Tokenmetry.TestPlugin.deps.json" />
+      <_PluginFixtureArtifact Include="$(_PluginFixtureOutputDir)\plugin.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PluginHostArtifact)" DestinationFolder="$(OutDir)plugin-host" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_PluginFixtureArtifact)" DestinationFolder="$(OutDir)test-plugin" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

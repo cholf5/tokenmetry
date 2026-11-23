@@ -20,6 +20,18 @@ public static class PluginJson
 
     public static PluginUsageRecord? DeserializeRecord(string json) =>
         JsonSerializer.Deserialize(json, PluginJsonContext.Default.PluginUsageRecord);
+
+    public static string SerializeHostRequest(PluginHostRequest request) =>
+        JsonSerializer.Serialize(request, PluginJsonContext.Default.PluginHostRequest);
+
+    public static PluginHostRequest? DeserializeHostRequest(string json) =>
+        JsonSerializer.Deserialize(json, PluginJsonContext.Default.PluginHostRequest);
+
+    public static string SerializeHostMessage(PluginHostMessage message) =>
+        JsonSerializer.Serialize(message, PluginJsonContext.Default.PluginHostMessage);
+
+    public static PluginHostMessage? DeserializeHostMessage(string json) =>
+        JsonSerializer.Deserialize(json, PluginJsonContext.Default.PluginHostMessage);
 }
 
 [JsonSourceGenerationOptions(
@@ -27,4 +39,6 @@ public static class PluginJson
     WriteIndented = false)]
 [JsonSerializable(typeof(PluginManifest))]
 [JsonSerializable(typeof(PluginUsageRecord))]
+[JsonSerializable(typeof(PluginHostRequest))]
+[JsonSerializable(typeof(PluginHostMessage))]
 internal sealed partial class PluginJsonContext : JsonSerializerContext;

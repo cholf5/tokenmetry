@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "com.tokenmetry.test.fixture",
+  "agentId": "com.tokenmetry.test.fixture",
+  "displayName": "Fixture",
+  "version": "1.0.0",
+  "apiVersion": "1",
+  "entryAssembly": "Tokenmetry.TestPlugin.dll",
+  "entryType": "Tokenmetry.TestPlugin.TestPlugin",
+  "icon": "icon.png",
+  "author": "Tokenmetry",
+  "description": "Host integration test fixture plugin."
+}

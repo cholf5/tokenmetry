@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 宿主只依赖契约程序集与 BCL：不得引用 Core / Infrastructure / App（主应用保持 AOT）。 -->
+    <ProjectReference Include="..\Tokenmetry.Plugin.Abstractions\Tokenmetry.Plugin.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
