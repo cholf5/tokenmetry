@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using Tokenmetry.Core.Sync;
 
 /// <summary>
@@ -96,15 +97,46 @@ public sealed class SettingsEndpointsTests
     }
 
     [Fact]
-    public async Task DeleteAccount_InvalidatesSettingsAccess()
+    public async Task DeleteAccount_InvalidatesSettingsAccess_AndClearsRows()
     {
-        using var factory = new RelayFactory(token: "abc");
-        var client = RelayTestSync.Client(factory);
+        // 只断言 401 抓不到孤儿行（账号本身没了，任何 401 都成立）；必须直接看表（审查 #6）。
+        var dbPath = Path.Combine(Path.GetTempPath(), $"tokenmetry-settings-delete-{Guid.NewGuid():N}.db");
+        var factory = new RelayFactory(token: "abc", dbPath: dbPath);
+        try
+        {
+            var client = RelayTestSync.Client(factory);
 
-        (await PutAsync(client, new SyncedSettingUpdate("theme", "dark"))).EnsureSuccessStatusCode();
-        (await client.DeleteAsync("/api/me")).EnsureSuccessStatusCode();
+            (await PutAsync(client, new SyncedSettingUpdate("theme", "dark"))).EnsureSuccessStatusCode();
 
-        (await client.GetAsync("/api/me/settings")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            var database = new RelayDatabase(dbPath);
+            await database.EnsureCreatedAsync();
+            string accountId;
+            await using (var before = database.OpenConnection())
+            {
+                accountId = (await RelayAuth.MapAccountAsync(before, "abc"))!.Id;
+                (await CountRowsAsync(before, accountId)).Should().Be(1, "PUT 已落库，删号前有可清的行");
+            }
+
+            (await client.DeleteAsync("/api/me")).EnsureSuccessStatusCode();
+
+            (await client.GetAsync("/api/me/settings")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+            await using var after = database.OpenConnection();
+            (await CountRowsAsync(after, accountId)).Should().Be(0, "删号必须级联清空 account_settings");
+        }
+        finally
+        {
+            factory.Dispose();
+            TempDbCleanup.DeleteWithSidecars(dbPath);
+        }
+    }
+
+    private static async Task<long> CountRowsAsync(SqliteConnection connection, string accountId)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM account_settings WHERE account_id = $accountId";
+        cmd.Parameters.AddWithValue("$accountId", accountId);
+        return (long)(await cmd.ExecuteScalarAsync())!;
     }
 
     /// <summary>测试内常量（避免测试工程依赖 App 层的 SettingsSyncKeys）。</summary>

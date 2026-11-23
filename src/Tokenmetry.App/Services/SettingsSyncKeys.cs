@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text.Json;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Sync;
@@ -59,7 +58,9 @@ public static class SettingsSyncKeys
 
     /// <summary>
     /// 写回一个远端值。编码坏了（非法数字/坏 JSON）如实拒绝、保留本机值；未知 key 返回 false。
-    /// 值语义不在这里校验（主题/语言的未知值由消费处既有回落链兜住）——中继只搬运，不做业务判断。
+    /// 主题/语言等字符串档的未知值仍交给消费处既有回落链；预设清单是唯一的复合值，远端是不可信输入，
+    /// 必须按与添加预设相同的封闭词表逐条过滤——否则 null 元素/越界天数会在启动装载时抛 NRE
+    /// 或放大物化窗口（审查 #1）。
     /// </summary>
     public static bool TryWrite(AppSettings settings, string key, string value)
     {
@@ -119,8 +120,58 @@ public static class SettingsSyncKeys
                     return false;
                 }
 
-                // 上限由既有服务定义（6 条）；整表替换（S7/S2）。
-                settings.CustomTimePresets = presets.Take(6).ToList();
+                // 与 TimeRangePresetService.TryAdd 同一封闭词表：Id 前缀 + 已知 Kind + 域内 + 去重 + 上限。
+                // 坏条目逐条丢弃（中继只搬运，但消费处（启动装载）不做防御）；整值一条都站不住时
+                // 如实拒绝，不拿空清单覆盖本机预设。
+                var accepted = new List<RelativeRangePresetSetting>();
+                var seen = new HashSet<(RelativeRangeKind Kind, int Offset, int Days)>();
+                foreach (var preset in presets)
+                {
+                    if (preset is null
+                        || string.IsNullOrEmpty(preset.Id)
+                        || !preset.Id.StartsWith(TimeRangeOption.PresetPrefix, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var kind = preset.Kind switch
+                    {
+                        nameof(RelativeRangeKind.RollingDays) => RelativeRangeKind.RollingDays,
+                        nameof(RelativeRangeKind.SingleDay) => RelativeRangeKind.SingleDay,
+                        nameof(RelativeRangeKind.Week) => RelativeRangeKind.Week,
+                        nameof(RelativeRangeKind.Month) => RelativeRangeKind.Month,
+                        _ => (RelativeRangeKind?)null,
+                    };
+                    if (kind is not { } parsed)
+                    {
+                        continue;
+                    }
+
+                    var spec = new RelativeRangeSpec(parsed, preset.Offset, preset.Days);
+                    if (!spec.IsValid || !seen.Add(spec.DedupKey))
+                    {
+                        continue;
+                    }
+
+                    accepted.Add(new RelativeRangePresetSetting
+                    {
+                        Id = preset.Id,
+                        Kind = parsed.ToString(),
+                        Offset = spec.Offset,
+                        Days = spec.Days,
+                    });
+                    if (accepted.Count == TimeRangePresetService.MaxPresets)
+                    {
+                        break;
+                    }
+                }
+
+                if (accepted.Count == 0 && presets.Count > 0)
+                {
+                    return false;
+                }
+
+                settings.CustomTimePresets = accepted;
                 return true;
 
             default:

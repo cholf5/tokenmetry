@@ -164,6 +164,10 @@ public sealed class RelayTokenCommandsTests
                              VALUES ($accountId, '2026-06-19', 100, '1.00', '2026-06-19T10:00:00.0000000Z')
                              """,
                              """
+                             INSERT INTO account_settings (account_id, key, value, updated_at)
+                             VALUES ($accountId, 'theme', 'dark', '2026-06-19T10:00:00.0000000Z')
+                             """,
+                             """
                              INSERT INTO account_tokens (account_id, credential_hash, created_at)
                              VALUES ($accountId, 'legacy-hash', '2026-06-19T10:00:00.0000000Z')
                              """,
@@ -184,7 +188,8 @@ public sealed class RelayTokenCommandsTests
             (await RelayAuth.MapAccountAsync(after, alice.Token)).Should().BeNull("吊销后 token 立即 401");
             foreach (var table in new[]
                      {
-                         "usage_rows", "session_rows", "devices", "account_tokens", "leaderboard_settings", "leaderboard_rollup",
+                         "usage_rows", "session_rows", "devices", "account_tokens", "leaderboard_settings",
+                         "leaderboard_rollup", "account_settings",
                      })
             {
                 (await CountRowsAsync(after, table, alice.AccountId)).Should().Be(0, $"{table} 必须级联清空");

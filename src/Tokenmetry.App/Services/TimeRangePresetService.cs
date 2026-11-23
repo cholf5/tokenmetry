@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,6 +33,8 @@ public sealed class TimeRangePresetService
         _filters = filters ?? throw new ArgumentNullException(nameof(filters));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        // settings.json 可被手改成 "customTimePresets": null——本类型与启动装载都假定非空清单。
+        _settings.CustomTimePresets ??= new List<RelativeRangePresetSetting>();
     }
 
     /// <summary>启动装载：settings 里的预设投影 → 选项实例，组装「内置档 + 预设 + 自定义哨兵」清单。
@@ -102,10 +105,12 @@ public sealed class TimeRangePresetService
         _filters.UpdateTimeRangeOptions([.. TimeRangeOption.BuiltIns, .. presets, TimeRangeOption.Custom]);
     }
 
-    /// <summary>投影 → 选项实例；未知 Kind（settings.json 手改/旧版本）如实跳过返回 null。</summary>
-    private static TimeRangeOption? ToOption(RelativeRangePresetSetting preset)
+    /// <summary>投影 → 选项实例；null 条目与未知 Kind（settings.json 手改/旧版本）如实跳过返回 null。</summary>
+    private static TimeRangeOption? ToOption(RelativeRangePresetSetting? preset)
     {
-        if (string.IsNullOrEmpty(preset.Id) || !preset.Id.StartsWith(TimeRangeOption.PresetPrefix, StringComparison.Ordinal))
+        if (preset is null
+            || string.IsNullOrEmpty(preset.Id)
+            || !preset.Id.StartsWith(TimeRangeOption.PresetPrefix, StringComparison.Ordinal))
         {
             return null;
         }

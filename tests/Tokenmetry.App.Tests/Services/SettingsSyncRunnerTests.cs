@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +29,8 @@ public sealed class SettingsSyncRunnerTests
 
         public int PutCount;
 
+        public bool ThrowOnPut;
+
         private DateTimeOffset _clock = new(2026, 11, 23, 12, 0, 0, TimeSpan.Zero);
 
         public Task<IReadOnlyList<SyncedSetting>> GetSettingsAsync(CancellationToken ct = default)
@@ -40,6 +43,10 @@ public sealed class SettingsSyncRunnerTests
         public Task<IReadOnlyList<SyncedSetting>> PutSettingsAsync(IReadOnlyList<SyncedSettingUpdate> settings, CancellationToken ct = default)
         {
             PutCount++;
+            if (ThrowOnPut)
+            {
+                throw new HttpRequestException("relay unavailable");
+            }
             _clock = _clock.AddSeconds(1);
             var written = settings.Select(update => new SyncedSetting(update.Key, update.Value, _clock)).ToList();
             foreach (var row in written)
@@ -94,10 +101,17 @@ public sealed class SettingsSyncRunnerTests
     {
         public int SaveCount;
 
+        public bool ThrowOnSave;
+
         public Task<AppSettings> LoadAsync(CancellationToken ct = default) => Task.FromResult(new AppSettings());
 
         public Task SaveAsync(AppSettings settings, CancellationToken ct = default)
         {
+            if (ThrowOnSave)
+            {
+                throw new IOException("disk unavailable");
+            }
+
             SaveCount++;
             return Task.CompletedTask;
         }
@@ -201,6 +215,38 @@ public sealed class SettingsSyncRunnerTests
         applied.Should().BeEmpty("本地未推变更不被远端覆盖");
         fixture.Settings.Theme.Should().Be("dark");
         fixture.Backend.LastPut.Should().ContainSingle().Which.Value.Should().Be("dark");
+    }
+
+    [Fact]
+    public async Task AppliedRemote_IsPersistedBeforeLedgerAdvances()
+    {
+        // 审查 #2：账面若先于磁盘推进，落盘失败后重启会把本机旧值当「本地变更」反推，覆盖更新的远端。
+        var fixture = new Fixture();
+        fixture.SettingsStore.ThrowOnSave = true;
+        fixture.Backend.Remote.Add(new SyncedSetting(
+            SettingsSyncKeys.Theme, "dark", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero)));
+
+        var run = async () => await fixture.Runner.RunOnceAsync();
+        await run.Should().ThrowAsync<IOException>();
+
+        fixture.State.Rows.Should().NotContainKey(SettingsSyncKeys.Theme, "落盘失败时账面不得领先");
+        fixture.Backend.PutCount.Should().Be(0, "落盘失败即中止本轮，不再推送");
+    }
+
+    [Fact]
+    public async Task PushFailure_StillPersistsAppliedRemoteValues()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.ThrowOnPut = true;
+        fixture.Backend.Remote.Add(new SyncedSetting(
+            SettingsSyncKeys.Theme, "dark", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero)));
+
+        var run = async () => await fixture.Runner.RunOnceAsync();
+        await run.Should().ThrowAsync<HttpRequestException>();
+
+        fixture.Settings.Theme.Should().Be("dark");
+        fixture.SettingsStore.SaveCount.Should().Be(1, "采纳的远端值在推送之前就已落盘");
+        fixture.State.Rows.Should().ContainKey(SettingsSyncKeys.Theme);
     }
 
     [Fact]

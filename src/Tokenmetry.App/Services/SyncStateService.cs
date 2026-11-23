@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Tokenmetry.App.Localization;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Sync;
@@ -89,8 +90,28 @@ public sealed class SyncStateService : IDisposable
         LocalDeviceId = await _store.GetLocalDeviceIdAsync(ct);
         LocalDeviceName = await _store.GetLocalDeviceNameAsync(ct);
 
-        if (_settings.SyncEnabled && !string.IsNullOrEmpty(_settings.SyncEndpoint))
+        if (_settings.SyncEnabled)
         {
+            if (string.IsNullOrEmpty(_settings.SyncEndpoint) || string.IsNullOrEmpty(_settings.SyncToken))
+            {
+                // 自我修复（审查 #4）：历史 bug 会把持久化 token 覆盖成空串，此后每轮 401；而
+                // 「已启用」还会把配置区藏起来，用户无从发现、无从修复。空凭据的启用态不可能成功，
+                // 就地降为关闭并写明原因——配置区随关闭态重新可见，用户重填凭据再开启。
+                _settings.SyncEnabled = false;
+                try
+                {
+                    await _settingsStore.SaveAsync(_settings, ct);
+                }
+                catch (Exception)
+                {
+                    // 落盘失败不影响降级在本进程生效；下次任一设置保存会带上它（调用方是启动期 fire-and-forget）。
+                }
+
+                LastError = Translations.Instance.SyncCredentialsRequired;
+                Changed?.Invoke();
+                return;
+            }
+
             BuildBackend(_settings.SyncEndpoint, _settings.SyncToken);
             StartTimer();
             _ = RunCoreAsync(ct); // 首轮后台跑，不阻塞启动序列
@@ -102,6 +123,13 @@ public sealed class SyncStateService : IDisposable
     /// <summary>开启同步：持久化配置、建后端、注册本机设备、立即跑一轮并启动定时器。</summary>
     public async Task EnableAsync(string endpoint, string token, CancellationToken ct = default)
     {
+        // 服务层同样拒绝空凭据（设置页 VM 只是第一道闸）：空 token 落盘 = 此后每轮 401，
+        // 且再没有人提示。非 UI 调用方（官方登录流程之外）也必须走这条拒绝。
+        if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(token))
+        {
+            throw new ArgumentException(Translations.Instance.SyncCredentialsRequired, nameof(token));
+        }
+
         // 换账号/换中继的判定必须在覆盖配置之前：设置同步账面只在真的换了桶时清空——
         // 关闭→再开启（同账号）保留账面，否则断网期间的本地改动会在首同步被远端旧值覆盖。
         var accountChanged = !string.Equals(_settings.SyncEndpoint, endpoint, StringComparison.Ordinal)

@@ -1,3 +1,4 @@
+using System.Text;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Sync;
 
@@ -60,6 +61,18 @@ public sealed class RelaySkeletonTests
                 (await RelayTestSync.PushAsync(oldClient, "devA", new SyncPushRequest(
                     new List<UsageFact> { RelayTestSync.UsageRow("devA", "2026-06-19", 100, 1.00m, T1) },
                     new List<SessionFact>()))).EnsureSuccessStatusCode();
+
+                // 种一行设置同步数据：轮换级联必须连它一起清（审查 #6）。
+                using var put = new HttpRequestMessage(HttpMethod.Put, "/api/me/settings")
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(
+                            new SettingsSyncPutRequest([new SyncedSettingUpdate("theme", "dark")]),
+                            SyncJsonContext.Default.SettingsSyncPutRequest),
+                        Encoding.UTF8,
+                        "application/json"),
+                };
+                (await oldClient.SendAsync(put)).EnsureSuccessStatusCode();
             }
 
             await using (var second = new RelayFactory(token: "new-token", dbPath: dbPath))
@@ -72,6 +85,13 @@ public sealed class RelaySkeletonTests
 
                 var pulled = await RelayTestSync.PullAsync(newClient, "devX", since: 0);
                 pulled.UsageFacts.Should().BeEmpty("轮换退役旧账号及其数据，新账号是干净的桶");
+
+                var database = new RelayDatabase(dbPath);
+                await using var connection = database.OpenConnection();
+                using var count = connection.CreateCommand();
+                count.CommandText = "SELECT COUNT(*) FROM account_settings";
+                ((long)(await count.ExecuteScalarAsync())!).Should().Be(0,
+                    "旧账号的设置行必须随账号一起退役");
             }
         }
         finally

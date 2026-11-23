@@ -86,6 +86,14 @@ public sealed class SettingsSyncRunner(
             }
         }
 
+        // 先落盘、后记账（审查 #2）：账面若领先于磁盘（落盘失败/进程在两步之间中断），重启后
+        // 本机旧值会被当成「本地未推变更」反推上去，覆盖更新的远端。反过来（磁盘新、账面旧）
+        // 只是幂等重推一次，服务端 LWW 消化。推失败也保留已落盘的采纳值。
+        if (applied.Count > 0)
+        {
+            await settingsStore.SaveAsync(settings, ct);
+        }
+
         foreach (var row in touched)
         {
             state[row.Key] = row;
@@ -117,11 +125,6 @@ public sealed class SettingsSyncRunner(
             var written = await backend.PutSettingsAsync(push, ct);
             await stateStore.UpsertSettingsSyncStateAsync(
                 written.Select(row => new SyncedSettingState(row.Key, row.Value, row.UpdatedAt)).ToList(), ct);
-        }
-
-        if (applied.Count > 0)
-        {
-            await settingsStore.SaveAsync(settings, ct);
         }
 
         return applied;

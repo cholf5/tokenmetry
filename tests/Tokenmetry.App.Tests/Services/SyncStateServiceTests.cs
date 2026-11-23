@@ -1,6 +1,7 @@
 namespace Tokenmetry.App.Tests.Services;
 
 using Microsoft.Data.Sqlite;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Infrastructure.Cache;
@@ -276,6 +277,57 @@ public sealed class SyncStateServiceTests : IAsyncLifetime
 
         (await _store.GetLocalDeviceNameAsync()).Should().Be("我的笔记本");
         backend.Renamed.Should().Be((service.LocalDeviceId, "我的笔记本"));
+    }
+
+    [Fact]
+    public async Task Enable_BlankCredentials_ThrowsAndLeavesStateUntouched()
+    {
+        // 审查 #4：设置页 VM 只是第一道闸，服务层也必须拒绝空凭据（否则每轮 401 且无人提示）。
+        var settings = new AppSettings();
+        var backend = new FakeBackend();
+        var service = CreateService(_store, settings, new FakeSettingsStore(), backend);
+        await service.InitializeAsync();
+
+        var enable = async () => await service.EnableAsync("http://relay.example:8080", "   ");
+        await enable.Should().ThrowAsync<ArgumentException>();
+
+        settings.SyncEnabled.Should().BeFalse();
+        settings.SyncToken.Should().BeEmpty("拒绝必须发生在覆盖配置之前");
+        backend.PullSequences.Should().BeEmpty("没有建后端、没有出站");
+    }
+
+    [Fact]
+    public async Task Initialize_EnabledWithEmptyToken_SelfHealsToDisabled()
+    {
+        // 审查 #4：历史 bug 会把持久化 token 覆盖成空串；已启用态会把配置区藏起来，用户无从修复。
+        var settings = new AppSettings
+        {
+            SyncEnabled = true,
+            SyncEndpoint = "http://relay.example:8080",
+            SyncToken = string.Empty,
+        };
+        var settingsStore = new FakeSettingsStore();
+        var backend = new FakeBackend();
+        var built = 0;
+        var service = new SyncStateService(
+            _store,
+            settings,
+            settingsStore,
+            backendFactory: (_, _) =>
+            {
+                built++;
+                return backend;
+            },
+            clock: Clock,
+            timerPeriod: Timeout.InfiniteTimeSpan);
+
+        await service.InitializeAsync();
+
+        built.Should().Be(0, "空 token 不建后端、不出站");
+        service.IsEnabled.Should().BeFalse("坏掉的启用态就地降为关闭");
+        settings.SyncEnabled.Should().BeFalse("降级要持久化，重启后不再假装已启用");
+        settingsStore.SaveCount.Should().Be(1);
+        service.LastError.Should().Be(Translations.Instance.SyncCredentialsRequired, "状态行要写明原因");
     }
 
     [Fact]
