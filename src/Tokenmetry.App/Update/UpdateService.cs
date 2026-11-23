@@ -316,21 +316,34 @@ public sealed class UpdateService
             return;
         }
 
+        DeletePath(backupPath);
+
+        // 便携 zip / Linux 的插件宿主与主程序成对备份（UpdateStager.Apply 写入同级的
+        // plugin-host.old）。成功启动后随主程序备份一并清掉，避免每次更新留下旧宿主目录。
+        var directory = Path.GetDirectoryName(backupPath);
+        if (directory is not null)
+        {
+            DeletePath(Path.Combine(directory, UpdateStager.PluginHostDirectoryName + ".old"));
+        }
+    }
+
+    private static void DeletePath(string path)
+    {
         try
         {
-            if (Directory.Exists(backupPath))
+            if (Directory.Exists(path))
             {
-                Directory.Delete(backupPath, recursive: true);
+                Directory.Delete(path, recursive: true);
             }
-            else if (File.Exists(backupPath))
+            else if (File.Exists(path))
             {
-                File.Delete(backupPath);
+                File.Delete(path);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // 备份删不掉只是占磁盘（同目录的 .old），下次更新会再试；不影响任何功能。
-            Console.Error.WriteLine($"[Tokenmetry] 删除更新备份失败（{backupPath}）：{ex.Message}");
+            Console.Error.WriteLine($"[Tokenmetry] 删除更新备份失败（{path}）：{ex.Message}");
         }
     }
 

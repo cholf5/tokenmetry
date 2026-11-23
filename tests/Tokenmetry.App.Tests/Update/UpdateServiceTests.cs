@@ -257,6 +257,10 @@ public class UpdateServiceTests
             TargetPath = fixture.Target,
         });
         File.WriteAllText(fixture.Backup, "old");
+        // 便携 / Linux 的插件宿主备份与主程序备份成对；成功启动后一并清理。
+        var hostBackup = Path.Combine(Path.GetDirectoryName(fixture.Backup)!, "plugin-host.old");
+        Directory.CreateDirectory(hostBackup);
+        File.WriteAllText(Path.Combine(hostBackup, "old-host.txt"), "old-host");
 
         var service = fixture.CreateService(currentVersion: "v0.3.0");
 
@@ -264,6 +268,7 @@ public class UpdateServiceTests
         service.StartupNotice.Version.Should().Be("v0.3.0");
         journal.Load().Should().BeNull();
         File.Exists(fixture.Backup).Should().BeFalse();
+        Directory.Exists(hostBackup).Should().BeFalse();
     }
 
     [Fact]

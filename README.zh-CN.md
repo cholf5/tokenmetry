@@ -115,14 +115,15 @@ Cindy 只接 Pi runtime：用它启动的 Claude Code / Codex 会话仍计入各
 | 平台 | 安装包 | 体积（v0.3.2） | 说明 |
 |---|---|---|---|
 | Windows x64 | `Tokenmetry-0.3.2-win-x64-setup.exe` | 17.3 MB | 推荐——按用户安装，带快捷方式与卸载器；应用内静默升级 |
-| Windows x64 | `Tokenmetry-0.3.2-win-x64.zip` | 70.8 MB | 便携版，单 exe |
-| macOS Apple Silicon | `Tokenmetry-0.3.2-osx-arm64.zip` | 23.1 MB | `.app`，Native AOT |
-| macOS Intel | `Tokenmetry-0.3.2-osx-x64.zip` | 24.6 MB | `.app`，Native AOT |
-| Linux x64 | `Tokenmetry-0.3.2-linux-x64.zip` | 66.4 MB | 单文件 |
+| Windows x64 | `Tokenmetry-0.3.2-win-x64.zip` | 70.8 MB | 便携版：单文件 exe + `plugin-host/` |
+| macOS Apple Silicon | `Tokenmetry-0.3.2-osx-arm64.zip` | 23.1 MB | `.app`，Native AOT（含插件宿主） |
+| macOS Intel | `Tokenmetry-0.3.2-osx-x64.zip` | 24.6 MB | `.app`，Native AOT（含插件宿主） |
+| Linux x64 | `Tokenmetry-0.3.2-linux-x64.zip` | 66.4 MB | 单文件 + `plugin-host/` |
 
 所有形态都支持应用内一键更新：发现新版本后主窗顶部出横幅，点「立即更新」走下载进度条并按
-SHA-256 校验，再点「重启并更新」——安装版走静默安装，便携版与 macOS / Linux 就地原子替换文件并自动
-重开。目标目录不可写时退回「下载 + 在文件管理器中显示」，不会把「装不动」变成「更不了」。
+SHA-256 校验，再点「重启并更新」——安装版走静默安装；便携版与 Linux 就地把主程序与
+`plugin-host/` 作为整体替换（任一失败整套回滚），macOS 替换整个 `.app` 后自动重开。目标目录
+不可写时退回「下载 + 在文件管理器中显示」，不会把「装不动」变成「更不了」。
 
 **macOS 首次打开需放行一次**（应用未签名，且 macOS 26 上右键「打开」已经不管用了）：要么在
 「系统设置 → 隐私与安全性 → 仍要打开」里放行，要么一行命令省掉全部麻烦：

@@ -126,14 +126,15 @@ all three platforms on every tag:
 | Platform | Package | Size (v0.3.2) | Notes |
 |---|---|---|---|
 | Windows x64 | `Tokenmetry-0.3.2-win-x64-setup.exe` | 17.3 MB | Recommended — per-user install with shortcuts and an uninstaller; in-app updates are silent |
-| Windows x64 | `Tokenmetry-0.3.2-win-x64.zip` | 70.8 MB | Portable, single exe |
-| macOS Apple Silicon | `Tokenmetry-0.3.2-osx-arm64.zip` | 23.1 MB | `.app`, Native AOT |
-| macOS Intel | `Tokenmetry-0.3.2-osx-x64.zip` | 24.6 MB | `.app`, Native AOT |
-| Linux x64 | `Tokenmetry-0.3.2-linux-x64.zip` | 66.4 MB | Single-file binary |
+| Windows x64 | `Tokenmetry-0.3.2-win-x64.zip` | 70.8 MB | Portable: single-file exe + `plugin-host/` |
+| macOS Apple Silicon | `Tokenmetry-0.3.2-osx-arm64.zip` | 23.1 MB | `.app`, Native AOT (plugin host included) |
+| macOS Intel | `Tokenmetry-0.3.2-osx-x64.zip` | 24.6 MB | `.app`, Native AOT (plugin host included) |
+| Linux x64 | `Tokenmetry-0.3.2-linux-x64.zip` | 66.4 MB | Single-file binary + `plugin-host/` |
 
 Every form updates in place: a new version shows a banner in the main window, "Update now" downloads
 with a progress bar and a SHA-256 check, and "Restart and update" swaps the files and reopens the app
-(silent install for the Windows installer, atomic replace for the portable/macOS/Linux builds).
+(silent install for the Windows installer; on portable/Linux the executable and its sibling
+`plugin-host/` are swapped as one unit, macOS replaces the whole `.app`).
 If the target folder is read-only the app falls back to downloading the package and revealing it.
 
 **macOS needs one Gatekeeper allowance on first launch** (the app is unsigned, and on macOS 26 the

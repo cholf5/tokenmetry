@@ -69,6 +69,139 @@ public class UpdateStagerTests : IDisposable
     }
 
     [Fact]
+    public void LocatePayload_accepts_the_executable_plus_the_plugin_host_directory()
+    {
+        var extracted = Path.Combine(_directory, "payload");
+        Directory.CreateDirectory(Path.Combine(extracted, "plugin-host"));
+        var executable = Path.Combine(extracted, "Tokenmetry");
+        File.WriteAllBytes(executable, [0x7F, 0x45, 0x4C, 0x46, 1]);
+        File.WriteAllText(Path.Combine(extracted, "plugin-host", "Tokenmetry.PluginHost"), "host");
+
+        var payload = UpdateStager.LocatePayload(extracted, targetIsDirectory: false);
+
+        payload.Should().Be(executable);
+    }
+
+    [Fact]
+    public void LocatePayload_rejects_an_unknown_top_level_entry_beside_the_executable()
+    {
+        var extracted = Path.Combine(_directory, "payload");
+        Directory.CreateDirectory(extracted);
+        File.WriteAllBytes(Path.Combine(extracted, "Tokenmetry"), [0x7F, 0x45, 0x4C, 0x46, 1]);
+        File.WriteAllText(Path.Combine(extracted, "extra.txt"), "nope");
+
+        var act = () => UpdateStager.LocatePayload(extracted, targetIsDirectory: false);
+
+        act.Should().Throw<InvalidDataException>().WithMessage("*plus optional plugin-host/*");
+    }
+
+    [Fact]
+    public void LocatePayload_rejects_an_unknown_top_level_directory_beside_the_executable()
+    {
+        var extracted = Path.Combine(_directory, "payload");
+        Directory.CreateDirectory(Path.Combine(extracted, "other-dir"));
+        File.WriteAllBytes(Path.Combine(extracted, "Tokenmetry"), [0x7F, 0x45, 0x4C, 0x46, 1]);
+
+        var act = () => UpdateStager.LocatePayload(extracted, targetIsDirectory: false);
+
+        act.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
+    public void PreparePortable_captures_the_sibling_plugin_host_directory()
+    {
+        var target = Path.Combine(_directory, "Tokenmetry");
+        File.WriteAllText(target, "old-binary");
+        var archive = WriteArchive(
+            ("Tokenmetry", [0x7F, 0x45, 0x4C, 0x46, 1]),
+            ("plugin-host/Tokenmetry.PluginHost", "host"u8.ToArray()));
+        var stager = new UpdateStager(os: "Linux", processId: 1);
+
+        var prepared = stager.PreparePortable("v0.6.0", archive, target);
+
+        prepared.StagedHostDirectory.Should()
+            .Be(Path.Combine(prepared.StagingDirectory!, "payload", "plugin-host"));
+        prepared.TargetHostDirectory.Should().Be(Path.Combine(_directory, "plugin-host"));
+    }
+
+    [Fact]
+    public void Apply_swaps_the_executable_and_the_sibling_plugin_host()
+    {
+        var target = Path.Combine(_directory, "Tokenmetry");
+        File.WriteAllText(target, "old-binary");
+        var oldHost = Path.Combine(_directory, "plugin-host");
+        Directory.CreateDirectory(oldHost);
+        File.WriteAllText(Path.Combine(oldHost, "old-host.txt"), "old-host");
+
+        var archive = WriteArchive(
+            ("Tokenmetry", [0x7F, 0x45, 0x4C, 0x46, 9]),
+            ("plugin-host/new-host.txt", "new-host"u8.ToArray()));
+        var stager = new UpdateStager(os: "Linux", processId: 1);
+        var prepared = stager.PreparePortable("v0.6.0", archive, target);
+
+        stager.Apply(prepared);
+
+        File.ReadAllBytes(target).Should().Equal([0x7F, 0x45, 0x4C, 0x46, 9]);
+        Directory.EnumerateFiles(oldHost).Select(Path.GetFileName)
+            .Should().Equal("new-host.txt");
+        File.ReadAllText(Path.Combine(oldHost, "new-host.txt")).Should().Be("new-host");
+        File.ReadAllText(Path.Combine(oldHost + ".old", "old-host.txt")).Should().Be("old-host");
+        File.ReadAllText(target + ".old").Should().Be("old-binary");
+    }
+
+    [Fact]
+    public void Apply_restores_both_the_old_binary_and_host_when_the_new_executable_cannot_be_moved()
+    {
+        var target = Path.Combine(_directory, "Tokenmetry");
+        File.WriteAllText(target, "old-binary");
+        var oldHost = Path.Combine(_directory, "plugin-host");
+        Directory.CreateDirectory(oldHost);
+        File.WriteAllText(Path.Combine(oldHost, "old-host.txt"), "old-host");
+
+        var archive = WriteArchive(
+            ("Tokenmetry", [0x7F, 0x45, 0x4C, 0x46, 1]),
+            ("plugin-host/new-host.txt", "new-host"u8.ToArray()));
+        var stager = new UpdateStager(os: "Linux", processId: 1);
+        var prepared = stager.PreparePortable("v0.6.0", archive, target);
+
+        // 模拟载荷在两次 rename 之间消失：新 exe 放不进去，宿主已被让位，必须一起回滚。
+        File.Delete(prepared.StagedPayloadPath!);
+
+        var act = () => stager.Apply(prepared);
+
+        act.Should().Throw<IOException>();
+        File.ReadAllText(target).Should().Be("old-binary");
+        File.ReadAllText(Path.Combine(oldHost, "old-host.txt")).Should().Be("old-host");
+        Directory.Exists(oldHost + ".old").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Apply_restores_both_the_old_binary_and_host_when_the_new_host_cannot_be_moved()
+    {
+        var target = Path.Combine(_directory, "Tokenmetry");
+        File.WriteAllText(target, "old-binary");
+        var oldHost = Path.Combine(_directory, "plugin-host");
+        Directory.CreateDirectory(oldHost);
+        File.WriteAllText(Path.Combine(oldHost, "old-host.txt"), "old-host");
+
+        var archive = WriteArchive(
+            ("Tokenmetry", [0x7F, 0x45, 0x4C, 0x46, 1]),
+            ("plugin-host/new-host.txt", "new-host"u8.ToArray()));
+        var stager = new UpdateStager(os: "Linux", processId: 1);
+        var prepared = stager.PreparePortable("v0.6.0", archive, target);
+
+        // 新 exe 已就位、轮到宿主时暂存目录不见了：必须把旧 exe 与旧宿主一起放回去。
+        Directory.Delete(prepared.StagedHostDirectory!, recursive: true);
+
+        var act = () => stager.Apply(prepared);
+
+        act.Should().Throw<IOException>();
+        File.ReadAllText(target).Should().Be("old-binary");
+        File.ReadAllText(Path.Combine(oldHost, "old-host.txt")).Should().Be("old-host");
+        Directory.Exists(oldHost + ".old").Should().BeFalse();
+    }
+
+    [Fact]
     public void PreparePortable_stages_the_payload_beside_the_target_and_Apply_swaps_it()
     {
         var target = Path.Combine(_directory, "Tokenmetry");
@@ -120,18 +253,29 @@ public class UpdateStagerTests : IDisposable
         var archive = Path.Combine(_directory, "mac.zip");
         using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))
         {
-            var entry = zip.CreateEntry("Tokenmetry.app/Contents/MacOS/Tokenmetry");
-            using var stream = entry.Open();
-            stream.Write("new"u8);
+            using (var stream = zip.CreateEntry("Tokenmetry.app/Contents/MacOS/Tokenmetry").Open())
+            {
+                stream.Write("new"u8);
+            }
+
+            // 插件宿主在 .app 内，随整包一起换——不需要单独的宿主交换路径。
+            using (var hostStream = zip.CreateEntry("Tokenmetry.app/Contents/MacOS/plugin-host/host.txt").Open())
+            {
+                hostStream.Write("new-host"u8);
+            }
         }
 
         var stager = new UpdateStager(os: "OSX", processId: 1);
         var prepared = stager.PreparePortable("v0.4.0", archive, binary);
         prepared.TargetPath.Should().Be(bundle);
+        prepared.StagedHostDirectory.Should().BeNull();
+        prepared.TargetHostDirectory.Should().BeNull();
 
         stager.Apply(prepared);
 
         File.ReadAllText(binary).Should().Be("new");
+        File.ReadAllText(Path.Combine(bundle, "Contents", "MacOS", "plugin-host", "host.txt"))
+            .Should().Be("new-host");
         Directory.Exists(bundle + ".old").Should().BeTrue();
     }
 
@@ -153,6 +297,20 @@ public class UpdateStagerTests : IDisposable
         var entry = archive.CreateEntry(entryName);
         using var stream = entry.Open();
         stream.Write(content);
+        return path;
+    }
+
+    private string WriteArchive(params (string Name, byte[] Content)[] entries)
+    {
+        var path = Path.Combine(_directory, $"pkg-{Guid.NewGuid():N}.zip");
+        using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
+        foreach (var (name, content) in entries)
+        {
+            var entry = archive.CreateEntry(name);
+            using var stream = entry.Open();
+            stream.Write(content);
+        }
+
         return path;
     }
 }
