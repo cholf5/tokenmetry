@@ -244,11 +244,13 @@ public sealed class PluginCatalog : IPluginCatalog
         return string.Compare(left, right, StringComparison.Ordinal);
     }
 
-    private static IEnumerable<string> EnumerateDirectoriesSafe(string path)
+    private static string[] EnumerateDirectoriesSafe(string path)
     {
         try
         {
-            return Directory.Exists(path) ? Directory.EnumerateDirectories(path) : [];
+            // 必须在此处物化：EnumerateDirectories 是惰性的，异常会在 foreach 期间才抛出，
+            // 无法被本方法的 catch 覆盖（锁定/ACL 限制的目录会让 ReloadAsync 在启动时崩掉）。
+            return Directory.Exists(path) ? Directory.GetDirectories(path) : [];
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

@@ -197,4 +197,34 @@ public class PluginInstallerTests
 
         Assert.True(File.Exists(Path.Combine(dataDirectory, "cache.json")));
     }
+
+    [Fact]
+    public async Task State_write_failure_aborts_before_touching_existing_installation()
+    {
+        using var paths = new TestPluginPaths();
+        var catalog = new PluginCatalog(paths.Paths);
+        var installer = new PluginInstaller(catalog, paths.Paths, reservedAgentNames: []);
+
+        using (var v1 = TestPackage.CreateValid(version: "1.0.0"))
+        {
+            await installer.InstallAsync(v1.Path, CancellationToken.None);
+        }
+
+        var v1Directory = Path.Combine(paths.Paths.PluginsDirectory, "com.acme.foo", "1.0.0");
+        var v1Entry = Path.Combine(v1Directory, "Foo.Plugin.dll");
+        var v1EntryBytes = File.ReadAllBytes(v1Entry);
+
+        // 让状态写入必定失败：注册表路径先被同名目录占据，原子 File.Move 覆盖目录会抛 IO 异常。
+        File.Delete(paths.Paths.RegistryFilePath);
+        Directory.CreateDirectory(paths.Paths.RegistryFilePath);
+
+        using var v2 = TestPackage.CreateValid(version: "2.0.0");
+        await Assert.ThrowsAsync<PluginInstallException>(
+            () => installer.InstallAsync(v2.Path, CancellationToken.None));
+
+        Assert.True(Directory.Exists(v1Directory));
+        Assert.Equal(v1EntryBytes, File.ReadAllBytes(v1Entry));
+        Assert.False(Directory.Exists(
+            Path.Combine(paths.Paths.PluginsDirectory, "com.acme.foo", "2.0.0")));
+    }
 }

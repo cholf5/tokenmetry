@@ -104,6 +104,11 @@ public sealed class PluginInstaller : IPluginInstaller
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+
+            // 设计 §6.3：先写状态、后动文件。状态写失败时直接中止，旧安装完全不受影响；
+            // 状态已写但随后移动失败时，旧版本目录仍在，catalog 忽略不存在的目录，残留条目无害。
+            await _catalog.SetEnabledAsync(manifest.Id, true, cancellationToken).ConfigureAwait(false);
+
             Commit(staging, manifest);
             committed = true;
         }
@@ -125,7 +130,6 @@ public sealed class PluginInstaller : IPluginInstaller
             }
         }
 
-        await _catalog.SetEnabledAsync(manifest.Id, true, cancellationToken).ConfigureAwait(false);
         await _catalog.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         foreach (var installation in _catalog.Installed)
