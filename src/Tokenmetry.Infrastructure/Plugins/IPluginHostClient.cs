@@ -27,4 +27,11 @@ public interface IPluginHostClient : IAsyncDisposable
 
     /// <summary>停用/卸载时释放并遗忘该插件的宿主进程；未知 id 幂等。</summary>
     void Remove(string pluginId);
+
+    /// <summary>
+    /// 停掉并遗忘所有常驻宿主进程，但不把客户端标记为已释放：下一次 <see cref="ScanAsync"/>
+    /// 会重建进程。更新替换文件前调用（Windows 上运行中的宿主会锁住 <c>plugin-host/</c> 目录，
+    /// 让 rename 失败）；与永久关停的 <see cref="IAsyncDisposable.DisposeAsync"/> 不同。
+    /// </summary>
+    void StopAll();
 }

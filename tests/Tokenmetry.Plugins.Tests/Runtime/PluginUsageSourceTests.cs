@@ -404,6 +404,10 @@ internal sealed class FakeHostClient : IPluginHostClient
     {
     }
 
+    public void StopAll()
+    {
+    }
+
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
@@ -421,6 +425,10 @@ internal sealed class ThrowingHostClient : IPluginHostClient
         => Task.FromException<PluginScanOutcome>(_exception);
 
     public void Remove(string pluginId)
+    {
+    }
+
+    public void StopAll()
     {
     }
 

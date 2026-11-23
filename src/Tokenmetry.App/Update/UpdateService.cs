@@ -78,11 +78,13 @@ public sealed class UpdateService
     private readonly string _processPath;
     private readonly Action<string> _openUrl;
     private readonly bool _windowsInstalledCopy;
+    private readonly Action? _beforeApply;
 
     public UpdateService(UpdateChecker checker, AppSettings settings, IAppSettingsStore store,
         UpdateDownloadService? downloader = null, Action<string>? openUrl = null,
         UpdateInstaller? installer = null, bool? windowsInstalledCopy = null,
-        UpdateStager? stager = null, UpdateJournal? journal = null, string? processPath = null)
+        UpdateStager? stager = null, UpdateJournal? journal = null, string? processPath = null,
+        Action? beforeApply = null)
     {
         _checker = checker;
         _settings = settings;
@@ -95,6 +97,9 @@ public sealed class UpdateService
         // 升级方式在构造时定一次：进程的可执行文件位置整个生命周期不变，没必要每次下载重算；
         // 测试可注入（否则用例会跟着构建机是否恰好装在安装目录而飘）。
         _windowsInstalledCopy = windowsInstalledCopy ?? UpdateAssets.IsInstalledCopy();
+        // 更新落地前的清理钩子（生产环境接插件宿主 StopAll）：Windows 上运行中的宿主会锁住
+        // plugin-host/，安装器与便携 rename 都要求文件先让开。
+        _beforeApply = beforeApply;
         // 默认经 shell 打 URL（跨平台 Process.Start + UseShellExecute）；测试注入记录器。
         _openUrl = openUrl ?? (url =>
         {
@@ -208,6 +213,9 @@ public sealed class UpdateService
             StagedUtc = DateTime.UtcNow,
         });
 
+        // 任何文件操作之前先让插件宿主让开（安装器与便携 rename 共用这一条路径）。
+        InvokeBeforeApply();
+
         if (prepared.Mode == UpdateApplyMode.Installer)
         {
             try
@@ -250,6 +258,22 @@ public sealed class UpdateService
         }
 
         RestartRequested?.Invoke();
+    }
+
+    /// <summary>
+    /// 文件替换前的尽力清理（生产接 <c>IPluginHostClient.StopAll</c>）：停宿主失败不阻塞更新——
+    /// 若文件真被占用，替换会走原有失败与回滚路径，用户仍留在完整旧版本。
+    /// </summary>
+    private void InvokeBeforeApply()
+    {
+        try
+        {
+            _beforeApply?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 更新前停止插件宿主失败：{ex.Message}");
+        }
     }
 
     private string? AvailableTag() => LastResult?.LatestVersion;

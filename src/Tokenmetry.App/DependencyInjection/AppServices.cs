@@ -78,6 +78,9 @@ public static class AppServices
             new UpdateChecker(),
             sp.GetRequiredService<AppSettings>(),
             sp.GetRequiredService<IAppSettingsStore>(),
+            // 更新替换文件前停掉常驻插件宿主（Windows 上会锁住 plugin-host/）。惰性解析：
+            // 宿主不可用时 GetService 返回 null，更新照常进行。
+            beforeApply: () => sp.GetService<IPluginHostClient>()?.StopAll(),
             journal: new UpdateJournal(Path.Combine(
                 sp.GetRequiredService<AppPaths>().AppDataDirectory, "update-state.json"))));
         // S-006 开机自启动注册（设置页开关的 OS 出口；headless 测试宿主禁止真实调用，见管理器注释）

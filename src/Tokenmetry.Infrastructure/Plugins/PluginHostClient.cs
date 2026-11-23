@@ -106,6 +106,34 @@ public sealed class PluginHostClient : IPluginHostClient
         DisposeInBackground(entry.Process);
     }
 
+    /// <summary>
+    /// 停掉所有缓存宿主并清空映射，但<b>不</b>设置 <c>_disposed</c>：失败的更新回滚后，
+    /// 下一次扫描必须还能重建进程。门闩保留（按 plugin id 常驻，与进程生命周期无关）。
+    /// </summary>
+    public void StopAll()
+    {
+        HostEntry[] entries;
+        lock (_sync)
+        {
+            entries = _processes.Values.ToArray();
+            _processes.Clear();
+        }
+
+        foreach (var entry in entries)
+        {
+            try
+            {
+                // 真实进程的 DisposeAsync 在这里同步 Kill(entireProcessTree)；等到它完成再返回，
+                // 避免 Windows 上紧接着的目录 rename 仍撞到尚未完全退出的进程。
+                entry.Process.DisposeAsync().GetAwaiter().GetResult();
+            }
+            catch
+            {
+                // 停止是更新前的尽力打扫：单个进程清理异常不阻塞文件替换（替换失败会走回滚）。
+            }
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         HostEntry[] entries;

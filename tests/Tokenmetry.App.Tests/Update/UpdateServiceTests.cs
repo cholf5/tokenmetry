@@ -214,6 +214,44 @@ public class UpdateServiceTests
     }
 
     [Fact]
+    public async Task RestartAndApply_stops_plugin_hosts_before_portable_apply()
+    {
+        using var fixture = new SwapFixture();
+        var order = new List<string>();
+        var stager = new RecordingStager(onApply: () => order.Add("apply"));
+        var service = fixture.CreateService(
+            stager: stager,
+            beforeApply: () => order.Add("stop"));
+
+        await service.CheckNowAsync();
+        await service.DownloadAsync();
+        service.RestartAndApply();
+
+        order.Should().Equal("stop", "apply");
+    }
+
+    [Fact]
+    public async Task RestartAndApply_stops_plugin_hosts_before_starting_the_installer()
+    {
+        using var fixture = new SwapFixture();
+        var order = new List<string>();
+        var service = fixture.CreateService(
+            windowsInstalledCopy: true,
+            installer: new UpdateInstaller((_, _) =>
+            {
+                order.Add("installer");
+                return true;
+            }),
+            beforeApply: () => order.Add("stop"));
+
+        await service.CheckNowAsync();
+        await service.DownloadAsync();
+        service.RestartAndApply();
+
+        order.Should().Equal("stop", "installer");
+    }
+
+    [Fact]
     public async Task RestartAndApply_failure_keeps_the_old_binary_and_the_ready_state()
     {
         using var fixture = new SwapFixture();
@@ -370,7 +408,8 @@ public class UpdateServiceTests
             bool? windowsInstalledCopy = null,
             UpdateInstaller? installer = null,
             RecordingStager? stager = null,
-            string currentVersion = "v0.2.0")
+            string currentVersion = "v0.2.0",
+            Action? beforeApply = null)
         {
             var payload = windowsInstalledCopy == true ? PePayload() : ValidZipBytes();
             var service = new UpdateService(
@@ -386,7 +425,8 @@ public class UpdateServiceTests
                 windowsInstalledCopy ?? false,
                 stager ?? new RecordingStager(),
                 Journal,
-                Target);
+                Target,
+                beforeApply);
             return service;
         }
 
@@ -434,7 +474,8 @@ public class UpdateServiceTests
     }
 
     /// <summary>真替换、假重启：测试里绝不能真去启动一个进程。</summary>
-    private sealed class RecordingStager(bool failApply = false) : UpdateStager(os: "Linux", processId: 1)
+    private sealed class RecordingStager(bool failApply = false, Action? onApply = null)
+        : UpdateStager(os: "Linux", processId: 1)
     {
         public bool Applied { get; private set; }
 
@@ -442,6 +483,8 @@ public class UpdateServiceTests
 
         public override void Apply(PreparedUpdate update)
         {
+            onApply?.Invoke();
+
             if (failApply)
             {
                 throw new IOException("swap failed");

@@ -303,6 +303,10 @@ public class PluginPipelineIntegrationTests : IDisposable
 
         public void Remove(string pluginId) => RemovedPluginIds.Add(pluginId);
 
+        public void StopAll()
+        {
+        }
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 

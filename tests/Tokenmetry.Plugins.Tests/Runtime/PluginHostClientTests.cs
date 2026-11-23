@@ -74,6 +74,29 @@ public class PluginHostClientTests
     }
 
     [Fact]
+    public async Task StopAll_kills_processes_but_allows_a_subsequent_scan()
+    {
+        var factory = new FakeHostProcessFactory(() => new FakeHostProcess(OkOutcome()));
+        var client = new PluginHostClient(factory, TimeSpan.FromMinutes(1));
+
+        await client.ScanAsync(Installation("com.acme.foo"), forceFull: true, CancellationToken.None);
+        await client.ScanAsync(Installation("com.acme.bar"), forceFull: true, CancellationToken.None);
+        var first = factory.Created[0];
+
+        client.StopAll();
+
+        Assert.True(first.Killed);
+
+        // 停掉不是永久关停：失败的更新回滚后，下一次扫描必须还能重建宿主。
+        var outcome = await client.ScanAsync(
+            Installation("com.acme.foo"), forceFull: false, CancellationToken.None);
+
+        Assert.Equal(3, factory.CreateCount);
+        Assert.True(factory.Created[^1].LastForceFull);
+        Assert.True(outcome.HasChanges);
+    }
+
+    [Fact]
     public async Task Remove_disposes_process_and_next_scan_recreates_full()
     {
         var factory = new FakeHostProcessFactory(() => new FakeHostProcess(OkOutcome()));
