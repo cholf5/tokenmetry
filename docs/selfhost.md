@@ -6,7 +6,8 @@ prompt、代码、会话内容——隐私红线与客户端一致。**默认不
 客户端才会发出任何网络请求。
 
 排行榜（全球榜单）自 v1.1 内置：`leaderboard_settings` / `leaderboard_rollup` 两张表随建库幂等创建
-（`CREATE TABLE IF NOT EXISTS`），旧部署重启即自动补表，详见[下文](#排行榜v11)。
+（`CREATE TABLE IF NOT EXISTS`），旧部署重启即自动补表；自建实例还自带一个只读网页
+`/leaderboard`，详见[下文](#排行榜v11)。
 
 ## 快速开始（Docker）
 
@@ -16,6 +17,9 @@ docker run -d --name tokenmetry-relay \
   -v tokenmetry-relay-data:/data \
   -e TOKENMETRY_RELAY_TOKEN=<换成你自己的长随机串> \
   ghcr.io/cholf5/tokenmetry-relay:latest
+
+# 多用户（可选）：给朋友签发独立账号
+docker exec -it tokenmetry-relay /app/Tokenmetry.Relay token add --name Alice
 ```
 
 ## 快速开始（一键部署脚本，本仓库开发者）
@@ -62,6 +66,51 @@ scripts/deploy-relay.sh user@your-server --mode framework   # 复用远端 ASP.N
 
 > 官方实例当前未开放：设置页里该选项置灰，客户端同步一律走「自建中继」。
 
+## 多用户：把中继分享给朋友
+
+`TOKENMETRY_RELAY_TOKEN` 是**运营者自己的单租户账号**：多台设备共用它 = 同一份数据。要让朋友各自
+拥有独立数据，用中继自带的成员管理命令签发独立账号——每个成员一个 token，按 `account_id` 与你的
+账号完全隔离；客户端不需要改，朋友仍然走「设置 → 跨设备同步 → 自建中继」。也可以用下文的
+[Web 管理页面](#web-管理页面可选)完成同样的操作。
+
+Docker：
+
+```bash
+docker exec -it tokenmetry-relay /app/Tokenmetry.Relay token add --name Alice
+docker exec -it tokenmetry-relay /app/Tokenmetry.Relay token list
+docker exec -it tokenmetry-relay /app/Tokenmetry.Relay token revoke --name Alice
+```
+
+systemd 裸机（CLI 直接读写同一个库，不需要停服务）：
+
+```bash
+sudo -u tokenmetry /opt/tokenmetry-relay/Tokenmetry.Relay \
+  token add --name Alice --db /var/lib/tokenmetry-relay/relay.db
+```
+
+- `add` 输出一次性明文 token（库里只存 SHA-256），把**中继地址 + 该 token**一起发给朋友。
+- 成员 token 丢失无法找回：先 `revoke` 再重新 `add`（旧 token 立即失效）。
+- `list` 看成员、设备数与最后活跃时间；`revoke` 按展示名或 `--id` 吊销，级联删除该成员的同步行、
+  设备与榜单记录（吊销后其 token 立即 401）。
+- 展示名在成员中不区分大小写唯一，上限 64 字符。
+- 运营者 token 轮换（`TOKENMETRY_RELAY_TOKEN` / 部署脚本 `--rotate-token`）只退役旧的 shared 账号，
+  **不会**影响成员账号与他们的 token；成员用 `token revoke` 单独吊销。
+- 成员之间互相看不见对方的数据；但中继运营者（你）能读库——这是「中继可读」信任模型的一致延伸。
+
+## Web 管理页面（可选）
+
+自建中继自带一个运营者管理页：`http://<你的主机>:8080/admin`（反代后就是你的 https 地址）。
+
+- 用 `TOKENMETRY_RELAY_TOKEN`（运营者 token）登录；成员 token 会被拒绝（403）。
+- 功能与 CLI 等价：查看成员（设备数、最后活跃、创建时间）、添加成员（token 只显示一次）、
+  吊销成员（级联删除该成员的同步行、设备与榜单记录）。
+- 页面本体是公开空壳，不含任何数据；所有管理 API 都要求
+  `Authorization: Bearer <运营者 token>`。不开 Cookie 会话、不开 CORS，因此不会被跨站表单直接驱动。
+- 登录后的 token 只放在当前标签页的 `sessionStorage`，关标签页即清除；公共机器上用完点「退出」。
+- 页面标记 `noindex`；仍建议 HTTPS（token 会过线），且与 CLI 一样没有内建限流——公网部署请在反代层
+  限流或加访问白名单。
+- 不想开网页管理面时可以不用它：CLI 仍是最小面积的管理方式；页面与 CLI 读写同一套成员账号。
+
 ## 环境变量
 
 | 变量 | 作用 | 默认 |
@@ -72,11 +121,15 @@ scripts/deploy-relay.sh user@your-server --mode framework   # 复用远端 ASP.N
 
 ## 端点一览
 
-除 `/health`（匿名存活检查）、`/api/auth/github`（认证前身份交换）与 `GET /api/leaderboard`（公开
-榜单读）外，全部要求 Bearer 访问令牌：
+除 `/health`（匿名存活检查）、`/leaderboard`（自建只读榜单网页）、`/admin`（管理页空壳）、
+`/api/auth/github`（认证前身份交换）与 `GET /api/leaderboard`（公开榜单读）外，全部要求 Bearer 访问令牌：
 
 | 端点 | 方法 | 说明 |
 |---|---|---|
+| `/leaderboard` | GET | 自建实例自带的只读排行榜网页（匿名；同源读 `/api/leaderboard`） |
+| `/admin` | GET | 运营者管理页面（公开 HTML 空壳；数据 API 需运营者 token） |
+| `/api/admin/members` | GET / POST | 成员列表 / 添加成员（Bearer + 运营者 `kind=shared`；POST 返回一次性 token） |
+| `/api/admin/members/{accountId}` | DELETE | 吊销成员（Bearer + 运营者；级联清该成员全部数据） |
 | `/api/auth/github` | POST | GitHub OAuth 交换（官方模式；自建未配 Client ID/Secret 时 404） |
 | `/api/me` | GET / DELETE | 账号信息 / 删除账号（级联清全部行、设备与榜单数据） |
 | `/api/sync/push` | POST | 推送本地聚合事实行（按 (device, PK) LWW 落库；仅收**已注册**设备的行，未注册设备 400） |
@@ -98,18 +151,25 @@ scripts/deploy-relay.sh user@your-server --mode framework   # 复用远端 ASP.N
   这些列。
 - 维护零后台任务：opt-in 账号的 rollup 在 push 事务内按受影响日期增量重算；设备解绑触发全量重建，
   删号与换 token（旧账号退役）级联清理榜单数据。未 opt-in 的账号不写榜单表，push 路径零新增开销。
-- 自建实例的榜单范围 = 你服务器上的账号集合：纯 token 单租户自建即只有你自己（榜单对单账号自建是
-  自娱但无害）；配了 GitHub OAuth 则为该实例的全部 GitHub 账号。
-- tokenmetry.app 的榜单页只读官方实例：官网 `apiBase` 与官方中继 URL 一样是**上线前的所有者配置项**
-  （部署期覆盖，不硬编码进站点或客户端）。自建的榜单数据在你自己服务器的 `GET /api/leaderboard`。
+- 自建实例的榜单范围 = 你服务器上的账号集合：纯 token 单租户自建即只有你自己；用 `token add`
+  加了成员、或配了 GitHub OAuth，则为该实例的全部账号。
+- 自建实例自带只读网页：打开 `http://<你的主机>:8080/leaderboard`（反代后就是你的 https 地址）即可看
+  当月 Token 榜 / 金额榜与历史月份。页面匿名、只读，数据来自同源 `GET /api/leaderboard`；只有显式
+  opt-in 的账号会出现。App 设置页的「在网页查看」在自建连接下会直接打开这个页面。
+- 成员账号没有 GitHub 头像与昵称，榜单展示名走「自定义名 → 账号展示名 → `"anonymous"`」回落；
+  每个成员需要在客户端设置页自己打开排行榜 opt-in 才会出现在榜上。
+- tokenmetry.app 的官网榜单页只读官方实例：官网 `apiBase` 与官方中继 URL 一样是**上线前的所有者配置项**
+  （部署期覆盖，不硬编码进站点或客户端）。自建实例请用你自己的 `/leaderboard`。
 
 ## Token 丢失 / 重签
 
 - **换 token**：改 `TOKENMETRY_RELAY_TOKEN` 环境变量并重启容器。注意：换 token = 退役旧账号并生成
   一个**新的空账号**——旧账号的行、设备与榜单数据随重签清除，各设备会在下一轮同步全量重推；客户端需
-  回到设置页用新 token 重新开启。
+  回到设置页用新 token 重新开启。**成员账号不受影响**，他们的 token 独立有效。
 - **删库重建**：`docker volume rm tokenmetry-relay-data`（或删除 `relay.db`）后重启。各设备会在
-  下一轮同步把本地数据全量重推，无需迁移。
+  下一轮同步把本地数据全量重推，无需迁移；库里的成员账号也一并消失，需要重新 `token add` 签发。
+- **成员 token**：用 `token revoke --name <展示名>` 或 `--id <account-id>` 吊销，或在 `/admin`
+  管理页点「吊销」；吊销即删该成员的同步行、设备、榜单设置与 rollup，无法恢复。
 - 官方实例模式（GitHub 登录）每个账号可同时持有多台设备 token，重复登录互不踢线。
 
 ## 安全须知（务必阅读）
@@ -118,10 +178,11 @@ scripts/deploy-relay.sh user@your-server --mode framework   # 复用远端 ASP.N
   Cloudflare Tunnel）终结 TLS，让客户端填 `https://` 地址——token 与用量数据都会过线。
 - **限流未内建**：v1 没有请求频率 / 行数 / 存储配额限制（服务端留了 TODO）。事实上的单请求载荷上限
   是 Kestrel 默认 30 MB 请求体上限（约可容纳数万行事实/批），可在反代层进一步收紧。自建在公网时请用
-  反代层（nginx `limit_req`、Cloudflare）或防火墙白名单兜住；单租户 token 泄露的最大影响面 =
-  你的用量数据被读写。
+  反代层（nginx `limit_req`、Cloudflare）或防火墙白名单兜住。**多用户时**每个成员 token 只影响该成员
+  自己的账号数据（不能读写其他成员），但运营者 token 泄露 = 你的 shared 账号被读写；给朋友用之前
+  务必上 HTTPS，并考虑按 token/账号在反代层加频率限制。
 - **中继可读**：信任模型是不做 E2EE（U2）——运营者（或拿到服务器的人）能读到聚合事实行。介意就
-  自建，不要用别人的实例。
+  自建，不要用别人的实例。把中继分享给朋友时，对方也应知道这一点。
 - **榜单公开读**：`GET /api/leaderboard` 对全网匿名开放（CORS 仅放行 GET、无凭据），上面只会出现
   显式 opt-in 账号的账号级聚合数字；不想暴露就保持设置页 opt-in 关闭。公开端点对限流的需求比同步
   端点更直接——反代层兜底同样适用。
@@ -132,4 +193,5 @@ scripts/deploy-relay.sh user@your-server --mode framework   # 复用远端 ASP.N
 
 - 整个状态就是 `/data/relay.db`（WAL 模式，另有 `-wal`/`-shm` 辅助文件）——冷备份停容器后拷贝即可。
 - 删除某台设备：客户端设置页「移除」（级联清该设备全部行），或客户端关同步（保留数据、查询回落本机）。
-- 删除账号：客户端 `DELETE /api/me` 语义在官方模式可用；自建单租户直接删库最干净。
+- 删除账号：客户端 `DELETE /api/me` 语义在官方模式可用；自建单租户直接删库最干净；成员账号用
+  `Tokenmetry.Relay token revoke` 或 `/admin` 管理页吊销（级联清该成员全部数据）。

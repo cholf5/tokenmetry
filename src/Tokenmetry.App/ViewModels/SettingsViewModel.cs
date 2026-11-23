@@ -1277,8 +1277,26 @@ public partial class SettingsViewModel : ViewModelBase
 
     // ── 排行榜子区（leaderboard 设计 §4.4 / Task 5：同步区块内的 opt-in 开关 + 展示名 + 网页链接）──
 
-    /// <summary>官网榜单页（「在网页查看」的目标；站点仓库 Task 6 的落地页同一路径）。</summary>
+    /// <summary>官方站点榜单页（官方实例连接、或自建端点不可解析时的回退目标）。</summary>
     internal const string LeaderboardUrl = "https://tokenmetry.app/leaderboard";
+
+    /// <summary>
+    /// 「在网页查看」的实际目标：自建连接打开该中继自带的 /leaderboard 页面
+    /// （LeaderboardPageEndpoints 同源读取公开榜单 API），官方实例或端点不可解析时回落到官网榜单页。
+    /// 用 Uri 保留反代子路径（如 https://host/relay → https://host/relay/leaderboard）。
+    /// </summary>
+    internal static string ResolveLeaderboardUrl(string endpoint, bool isOfficialConnection)
+    {
+        if (!isOfficialConnection
+            && !string.IsNullOrWhiteSpace(endpoint)
+            && Uri.TryCreate(endpoint.Trim(), UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            return uri.GetLeftPart(UriPartial.Path).TrimEnd('/') + "/leaderboard";
+        }
+
+        return LeaderboardUrl;
+    }
 
     /// <summary>RefreshSyncStateAsync / 保存回填投影时抑制 OnLeaderboardOptInChanged 的开关副作用
     /// （防误恢复，同 _suppressSyncToggle 的投影守卫）。</summary>
@@ -1331,18 +1349,20 @@ public partial class SettingsViewModel : ViewModelBase
 
     private bool CanSaveLeaderboard() => LeaderboardOptIn && !LeaderboardBusy && _syncState is not null;
 
-    /// <summary>「在网页查看」：系统浏览器打开官网榜单页（best-effort——链接失败不打断设置页，
-    /// 打最小诊断；Process.Start + UseShellExecute 模式同 GitHubSyncLogin.OpenBrowser）。</summary>
+    /// <summary>「在网页查看」：系统浏览器打开当前连接的榜单页（自建 = 该中继自带页面；
+    /// best-effort——链接失败不打断设置页，打最小诊断；Process.Start + UseShellExecute 模式同
+    /// GitHubSyncLogin.OpenBrowser）。</summary>
     [RelayCommand]
     private void OpenLeaderboard()
     {
+        var url = ResolveLeaderboardUrl(SyncEndpointDisplay, IsOfficialConnection);
         try
         {
-            Process.Start(new ProcessStartInfo(LeaderboardUrl) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[Tokenmetry] 打开排行榜网页失败（{LeaderboardUrl}）：{ex.Message}");
+            Console.Error.WriteLine($"[Tokenmetry] 打开排行榜网页失败（{url}）：{ex.Message}");
         }
     }
 

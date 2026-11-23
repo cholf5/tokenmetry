@@ -1,5 +1,19 @@
 using Tokenmetry.Relay;
 
+// 自建多用户成员管理（docs/selfhost.md「多用户」）：`Tokenmetry.Relay token ...`
+// 是离线运维命令，在启动 Web 主机之前分流——同一二进制，Docker 里 docker exec、裸机直接跑。
+if (args.Length > 0 && string.Equals(args[0], "token", StringComparison.OrdinalIgnoreCase))
+{
+    Environment.ExitCode = await RelayTokenCli.RunAsync(args[1..], Console.Out, Console.Error);
+    return;
+}
+
+if (args.Length == 1 && args[0] is "--help" or "-h")
+{
+    Console.Out.WriteLine(RelayTokenCli.Usage);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient(); // GitHub OAuth 交换的出站 HttpClient（Task 8）
 builder.Services.AddCors(options => options.AddPolicy(
@@ -66,6 +80,9 @@ app.MapSyncEndpoints();
 app.MapDeviceEndpoints();
 app.MapGitHubAuthEndpoints();
 app.MapLeaderboardEndpoints();
+app.MapLeaderboardPage();
+app.MapAdminEndpoints();
+app.MapAdminPage();
 
 // TODO(v1 上线项)：HTTPS 不在此强制（自建允许 http://，设计 A15；文档警示明文风险，
 // 反代终结 TLS 是部署责任）。

@@ -177,6 +177,26 @@ public sealed class LeaderboardSettingsTests
         Assert.Equal("https://tokenmetry.app/leaderboard", SettingsViewModel.LeaderboardUrl);
     }
 
+    [Fact]
+    public void ResolveLeaderboardUrl_SelfHostedUsesRelayPage_OfficialFallsBackToSite()
+    {
+        // 自建连接：打开该中继自带的 /leaderboard（LeaderboardPageEndpoints），不跳出到官网。
+        Assert.Equal(
+            "https://relay.example:8443/leaderboard",
+            SettingsViewModel.ResolveLeaderboardUrl("https://relay.example:8443/", isOfficialConnection: false));
+        Assert.Equal(
+            "https://relay.example/relay/leaderboard",
+            SettingsViewModel.ResolveLeaderboardUrl("https://relay.example/relay", isOfficialConnection: false));
+
+        // 官方连接 / 端点不可解析：回落到官网榜单页。
+        Assert.Equal(
+            SettingsViewModel.LeaderboardUrl,
+            SettingsViewModel.ResolveLeaderboardUrl("https://relay.example", isOfficialConnection: true));
+        Assert.Equal(
+            SettingsViewModel.LeaderboardUrl,
+            SettingsViewModel.ResolveLeaderboardUrl("not a url", isOfficialConnection: false));
+    }
+
     [AvaloniaFact]
     public async Task SyncNotEnabled_SectionHiddenAndInputCleared()
     {

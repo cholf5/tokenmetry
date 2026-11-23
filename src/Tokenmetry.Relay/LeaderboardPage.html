@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>Tokenmetry 排行榜</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --text: #171a21;
+    --muted: #6b7280;
+    --border: #e3e6eb;
+    --accent: #2f5fe0;
+    --accent-soft: #eef3ff;
+    --row-hover: #f8f9fb;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 10px 30px rgba(16, 24, 40, .05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1014;
+      --panel: #161920;
+      --text: #e9ebf0;
+      --muted: #9aa1ad;
+      --border: #262b35;
+      --accent: #82a6ff;
+      --accent-soft: #1a2335;
+      --row-hover: #1a1e27;
+      --shadow: 0 1px 0 rgba(255, 255, 255, .03);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 44px 20px 64px;
+  }
+
+  .eyebrow {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.15;
+    letter-spacing: -.02em;
+  }
+
+  .muted { color: var(--muted); }
+
+  #subtitle {
+    max-width: 640px;
+    margin: 8px 0 0;
+    font-size: 14px;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin: 28px 0 8px;
+  }
+
+  .tabs {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+  }
+
+  .tabs button,
+  .month button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 999px;
+    transition: background-color .15s ease, color .15s ease;
+  }
+
+  .tabs button {
+    padding: 7px 16px;
+  }
+
+  .tabs button:hover { color: var(--text); }
+
+  .tabs button[aria-pressed="true"] {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .month {
+    display: inline-flex;
+    gap: 2px;
+    align-items: center;
+    padding: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+  }
+
+  .month button {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .month button:hover:not(:disabled) {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .month button:disabled {
+    opacity: .35;
+    cursor: default;
+  }
+
+  #month-label {
+    min-width: 104px;
+    padding: 0 6px;
+    text-align: center;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  #status {
+    min-height: 22px;
+    margin: 12px 2px;
+    font-size: 13px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+
+  th {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tbody tr:first-child td { border-top: 0; }
+  tbody tr:hover { background: var(--row-hover); }
+
+  .rank {
+    width: 58px;
+    color: var(--muted);
+  }
+
+  .rank.top {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .who {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    overflow: hidden;
+    background: var(--accent-soft);
+    border-radius: 50%;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .name {
+    overflow: hidden;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .empty {
+    margin: 16px 0 0;
+    padding: 24px;
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  footer {
+    margin-top: 28px;
+    font-size: 12px;
+  }
+
+  footer p { margin: 4px 0; }
+
+  @media (max-width: 560px) {
+    main { padding: 30px 14px 48px; }
+    h1 { font-size: 25px; }
+    .toolbar { margin-top: 22px; }
+    th, td { padding: 10px 10px; }
+    .rank { width: 38px; }
+    .avatar { width: 24px; height: 24px; font-size: 12px; }
+    .who { gap: 8px; }
+    #month-label { min-width: 88px; font-size: 13px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Tokenmetry Relay</p>
+  <h1 id="title">Tokenmetry 排行榜</h1>
+  <p id="subtitle" class="muted">只显示已 opt-in 的账号；数据来自本中继的账号级聚合。</p>
+
+  <section class="toolbar" aria-label="榜单筛选">
+    <div class="tabs" role="group" aria-label="榜单">
+      <button type="button" data-board="cost" aria-pressed="true">金额榜</button>
+      <button type="button" data-board="tokens" aria-pressed="false">Token 榜</button>
+    </div>
+    <div class="month">
+      <button type="button" id="prev-month" aria-label="上个月">‹</button>
+      <span id="month-label"></span>
+      <button type="button" id="next-month" aria-label="下个月">›</button>
+    </div>
+  </section>
+
+  <p id="status" class="muted" role="status" aria-live="polite"></p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="rank" scope="col">#</th>
+          <th id="col-account" scope="col">账号</th>
+          <th id="col-tokens" class="num" scope="col">Token</th>
+          <th id="col-cost" class="num" scope="col">金额 (USD)</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <p id="empty" class="empty" hidden>这个月还没有人 opt-in 上榜。</p>
+
+  <noscript>
+    <p class="empty">排行榜页面需要 JavaScript；也可以直接读取 / This page needs JavaScript; you can also
+      read <code>api/leaderboard</code>。</p>
+  </noscript>
+
+  <footer class="muted">
+    <p id="footer-privacy">只有显式开启排行榜的账号会出现；公开数据只有账号级 token / 成本合计，不含项目或会话明细。</p>
+    <p><span id="footer-source">数据来自</span> <span id="origin"></span>。</p>
+  </footer>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const zh = (navigator.language || 'en').toLowerCase().startsWith('zh');
+  const locale = zh ? 'zh-CN' : (navigator.language || 'en-US');
+  const text = zh
+    ? {
+        title: 'Tokenmetry 排行榜',
+        subtitle: '只显示已 opt-in 的账号；数据来自本中继的账号级聚合。',
+        cost: '金额榜',
+        tokens: 'Token 榜',
+        account: '账号',
+        tokenColumn: 'Token',
+        costColumn: '金额 (USD)',
+        prev: '上个月',
+        next: '下个月',
+        loading: '加载中…',
+        error: '加载失败：',
+        empty: '这个月还没有人 opt-in 上榜。',
+        participant: '人参与',
+        participants: '人参与',
+        privacy: '只有显式开启排行榜的账号会出现；公开数据只有账号级 token / 成本合计，不含项目或会话明细。',
+        source: '数据来自'
+      }
+    : {
+        title: 'Tokenmetry Leaderboard',
+        subtitle: 'Only accounts that explicitly opted in; account-level aggregates from this relay.',
+        cost: 'Cost',
+        tokens: 'Tokens',
+        account: 'Account',
+        tokenColumn: 'Tokens',
+        costColumn: 'Cost (USD)',
+        prev: 'Previous month',
+        next: 'Next month',
+        loading: 'Loading…',
+        error: 'Failed to load:',
+        empty: 'No one has opted in for this month yet.',
+        participant: 'participant',
+        participants: 'participants',
+        privacy: 'Only accounts that explicitly opted in appear here; public data is limited to account-level token and cost totals — no projects or sessions.',
+        source: 'Data from'
+      };
+
+  document.documentElement.lang = zh ? 'zh-CN' : 'en';
+  document.title = text.title;
+
+  const byId = (id) => document.getElementById(id);
+  byId('title').textContent = text.title;
+  byId('subtitle').textContent = text.subtitle;
+  byId('col-account').textContent = text.account;
+  byId('col-tokens').textContent = text.tokenColumn;
+  byId('col-cost').textContent = text.costColumn;
+  byId('empty').textContent = text.empty;
+  byId('footer-privacy').textContent = text.privacy;
+  byId('footer-source').textContent = text.source;
+  byId('origin').textContent = location.host;
+
+  const tabs = Array.from(document.querySelectorAll('[data-board]'));
+  tabs[0].textContent = text.cost;
+  tabs[1].textContent = text.tokens;
+
+  const rowsBody = byId('rows');
+  const status = byId('status');
+  const empty = byId('empty');
+  const monthLabel = byId('month-label');
+  const nextButton = byId('next-month');
+  const prevButton = byId('prev-month');
+  prevButton.setAttribute('aria-label', text.prev);
+  nextButton.setAttribute('aria-label', text.next);
+  const numberFormat = new Intl.NumberFormat(locale);
+  const moneyFormat = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2
+  });
+
+  const monthPattern = /^\d{4}-(0[1-9]|1[0-2])$/;
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const params = new URLSearchParams(location.search);
+
+  const state = {
+    board: params.get('board') === 'tokens' ? 'tokens' : 'cost',
+    month: monthPattern.test(params.get('month') || '') ? params.get('month') : thisMonth
+  };
+
+  function monthText(month) {
+    const parts = month.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, 1).toLocaleDateString(locale, {
+      year: 'numeric',
+      month: 'long'
+    });
+  }
+
+  function initial(name) {
+    const chars = Array.from((name || '').trim());
+    return chars.length > 0 ? chars[0].toUpperCase() : '?';
+  }
+
+  function updateUrl() {
+    try {
+      const url = new URL(location.href);
+      url.searchParams.set('board', state.board);
+      url.searchParams.set('month', state.month);
+      history.replaceState(null, '', url);
+    } catch {
+      // 沙箱/只读环境下 URL 同步失败不影响榜单读取。
+    }
+  }
+
+  function apiEndpoint() {
+    // 相对页面路径解析：反代挂在 /relay 下时页面与 API 一起走前缀；
+    // 先去尾部斜杠，避免 /leaderboard/ 被解析成 /leaderboard/api/leaderboard。
+    const base = new URL(location.href);
+    base.search = '';
+    base.hash = '';
+    if (base.pathname.endsWith('/')) {
+      base.pathname = base.pathname.slice(0, -1) || '/';
+    }
+
+    return new URL('api/leaderboard', base);
+  }
+
+  function syncChrome() {
+    monthLabel.textContent = monthText(state.month);
+    nextButton.disabled = state.month >= thisMonth;
+    for (const tab of tabs) {
+      const active = tab.dataset.board === state.board;
+      tab.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+  }
+
+  function cell(className, value) {
+    const td = document.createElement('td');
+    if (className) {
+      td.className = className;
+    }
+
+    td.textContent = value;
+    return td;
+  }
+
+  function render(data) {
+    rowsBody.replaceChildren();
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    empty.hidden = entries.length !== 0;
+
+    const participants = Number.isFinite(data.participants) ? data.participants : entries.length;
+    status.textContent = `${numberFormat.format(participants)} ${
+      participants === 1 ? text.participant : text.participants
+    } · ${monthText(data.month || state.month)}`;
+
+    for (const entry of entries) {
+      const row = document.createElement('tr');
+
+      const rank = cell('rank', String(entry.rank ?? ''));
+      if ((entry.rank ?? 99) <= 3) {
+        rank.classList.add('top');
+      }
+
+      const who = document.createElement('td');
+      const wrap = document.createElement('div');
+      wrap.className = 'who';
+
+      const name = String(entry.displayName ?? 'anonymous');
+      const avatar = document.createElement('span');
+      avatar.className = 'avatar';
+      if (typeof entry.avatarUrl === 'string' && /^https?:\/\//i.test(entry.avatarUrl)) {
+        const image = document.createElement('img');
+        image.src = entry.avatarUrl;
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.referrerPolicy = 'no-referrer';
+        image.addEventListener('error', () => {
+          image.remove();
+          avatar.textContent = initial(name);
+        });
+        avatar.appendChild(image);
+      } else {
+        avatar.textContent = initial(name);
+      }
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'name';
+      nameSpan.textContent = name;
+      nameSpan.title = name;
+      wrap.append(avatar, nameSpan);
+      who.appendChild(wrap);
+
+      row.append(
+        rank,
+        who,
+        cell('num', numberFormat.format(Number(entry.totalTokens) || 0)),
+        cell('num', moneyFormat.format(Number(entry.totalCostUsd) || 0))
+      );
+      rowsBody.appendChild(row);
+    }
+  }
+
+  async function load() {
+    syncChrome();
+    updateUrl();
+    empty.hidden = true;
+    rowsBody.replaceChildren();
+    status.textContent = text.loading;
+
+    try {
+      const query = new URLSearchParams({
+        board: state.board,
+        month: state.month,
+        limit: '100'
+      });
+      // 相对于页面路径解析：反代挂在 /relay 下时页面与 API 一起走前缀。
+      const endpoint = apiEndpoint();
+      endpoint.search = query.toString();
+      const response = await fetch(endpoint, {
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      render(await response.json());
+    } catch (error) {
+      status.textContent = `${text.error} ${error && error.message ? error.message : ''}`.trim();
+    }
+  }
+
+  function shiftMonth(delta) {
+    const parts = state.month.split('-').map(Number);
+    const date = new Date(parts[0], parts[1] - 1 + delta, 1);
+    state.month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    load();
+  }
+
+  for (const tab of tabs) {
+    tab.addEventListener('click', () => {
+      state.board = tab.dataset.board;
+      load();
+    });
+  }
+
+  prevButton.addEventListener('click', () => shiftMonth(-1));
+  nextButton.addEventListener('click', () => {
+    if (state.month < thisMonth) {
+      shiftMonth(1);
+    }
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

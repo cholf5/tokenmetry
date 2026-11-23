@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Tokenmetry Relay 管理</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --text: #171a21;
+    --muted: #6b7280;
+    --border: #e3e6eb;
+    --accent: #2f5fe0;
+    --accent-soft: #eef3ff;
+    --danger: #b42318;
+    --danger-soft: #fef3f2;
+    --row-hover: #f8f9fb;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 10px 30px rgba(16, 24, 40, .05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1014;
+      --panel: #161920;
+      --text: #e9ebf0;
+      --muted: #9aa1ad;
+      --border: #262b35;
+      --accent: #82a6ff;
+      --accent-soft: #1a2335;
+      --danger: #ff8a80;
+      --danger-soft: #2a1a1a;
+      --row-hover: #1a1e27;
+      --shadow: 0 1px 0 rgba(255, 255, 255, .03);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 20px 64px;
+  }
+
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .eyebrow {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.15;
+    letter-spacing: -.02em;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: -.01em;
+  }
+
+  .muted { color: var(--muted); }
+
+  .card {
+    margin-top: 16px;
+    padding: 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+
+  .login {
+    max-width: 520px;
+    margin-top: 32px;
+  }
+
+  .login p {
+    margin: 8px 0 0;
+    font-size: 14px;
+  }
+
+  form {
+    margin: 18px 0 0;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  input,
+  button {
+    font: inherit;
+  }
+
+  input {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  input:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  input[readonly] {
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+
+  button {
+    padding: 9px 16px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s ease, background-color .15s ease;
+  }
+
+  button:hover:not(:disabled) { opacity: .9; }
+  button:disabled { opacity: .5; cursor: default; }
+
+  button.ghost {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  button.ghost:hover:not(:disabled) { background: var(--row-hover); }
+
+  button.danger {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--danger);
+    font-weight: 500;
+  }
+
+  button.danger:hover:not(:disabled) {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+  }
+
+  .login button[type="submit"] {
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0 0 4px;
+  }
+
+  .stat {
+    padding: 16px 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+
+  .stat span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .stat strong {
+    display: block;
+    margin-top: 2px;
+    font-size: 28px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+
+  .card-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .card-head p {
+    max-width: 640px;
+    margin: 6px 0 0;
+    font-size: 13px;
+  }
+
+  .inline-form {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    margin-top: 16px;
+  }
+
+  .inline-form input { flex: 1; }
+
+  .token-panel {
+    margin-top: 16px;
+    padding: 14px;
+    background: var(--accent-soft);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+  }
+
+  .token-panel p { margin: 0 0 10px; font-size: 13px; }
+
+  .token-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .token-row input { flex: 1 1 320px; }
+
+  .status {
+    min-height: 20px;
+    margin: 10px 0 0;
+    font-size: 13px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+
+  th {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tbody tr:first-child td { border-top: 0; }
+  tbody tr:hover { background: var(--row-hover); }
+
+  .num { text-align: right; white-space: nowrap; }
+  .actions { text-align: right; white-space: nowrap; }
+
+  .member-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 160px;
+  }
+
+  .member-name strong {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .member-name code {
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+
+  .empty {
+    margin: 16px 0 0;
+    padding: 22px;
+    border: 1px dashed var(--border);
+    border-radius: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  footer {
+    margin-top: 28px;
+    font-size: 12px;
+  }
+
+  footer p { margin: 4px 0; }
+
+  footer a { color: var(--accent); }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 560px) {
+    main { padding: 28px 14px 48px; }
+    h1 { font-size: 25px; }
+    .stats { gap: 8px; }
+    .stat { padding: 13px 14px; }
+    .stat strong { font-size: 23px; }
+    .card { padding: 16px; }
+    .inline-form { flex-wrap: wrap; }
+    .inline-form button { width: 100%; }
+    th, td { padding: 10px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <p class="eyebrow">Tokenmetry Relay</p>
+      <h1 id="title">中继管理</h1>
+    </div>
+    <button type="button" id="logout" class="ghost" hidden>退出</button>
+  </header>
+
+  <section id="login-view" class="card login">
+    <h2 id="login-title">管理登录</h2>
+    <p id="login-hint" class="muted">输入运营者的 TOKENMETRY_RELAY_TOKEN。成员 token 会被拒绝。</p>
+    <form id="login-form" autocomplete="off">
+      <label for="token-input" id="token-label">运营者 token</label>
+      <input id="token-input" type="password" autocomplete="off" spellcheck="false" required>
+      <button type="submit" id="login-button">进入</button>
+    </form>
+    <p id="login-status" class="status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="app-view" hidden>
+    <div class="stats">
+      <div class="stat">
+        <span id="stat-members-label">成员</span>
+        <strong id="stat-members">0</strong>
+      </div>
+      <div class="stat">
+        <span id="stat-devices-label">设备</span>
+        <strong id="stat-devices">0</strong>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2 id="add-title">添加成员</h2>
+          <p id="add-hint" class="muted">创建后 token 只显示一次；把中继地址和 token 一起发给对方。</p>
+        </div>
+      </div>
+      <form id="add-form" class="inline-form" autocomplete="off">
+        <label class="sr-only" for="member-name" id="member-name-label">展示名</label>
+        <input id="member-name" type="text" maxlength="64" placeholder="例如 Alice" required>
+        <button type="submit" id="add-button">添加</button>
+      </form>
+      <div id="new-token" class="token-panel" hidden>
+        <p><strong id="new-token-title">成员已创建</strong> <span id="new-token-hint" class="muted">token 只显示这一次，请立即保存。</span></p>
+        <div class="token-row">
+          <label class="sr-only" for="new-token-value" id="new-token-label">成员 token</label>
+          <input id="new-token-value" type="text" readonly spellcheck="false">
+          <button type="button" id="copy-token">复制</button>
+          <button type="button" id="dismiss-token" class="ghost">我已保存</button>
+        </div>
+      </div>
+      <p id="add-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 id="members-title">成员</h2>
+        <button type="button" id="refresh" class="ghost">刷新</button>
+      </div>
+      <p id="members-status" class="status muted" role="status" aria-live="polite"></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th id="col-name" scope="col">成员</th>
+              <th id="col-devices" class="num" scope="col">设备</th>
+              <th id="col-last-seen" scope="col">最后活跃</th>
+              <th id="col-created" scope="col">创建时间</th>
+              <th id="col-actions" scope="col"></th>
+            </tr>
+          </thead>
+          <tbody id="member-rows"></tbody>
+        </table>
+      </div>
+      <p id="members-empty" class="empty" hidden>还没有成员。</p>
+    </section>
+
+    <footer class="muted">
+      <p><a id="leaderboard-link" href="leaderboard">查看排行榜</a></p>
+      <p id="footer-note">管理页面只使用运营者 token；成员 token 不能访问。登录 token 只保存在当前标签页。</p>
+    </footer>
+  </section>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const zh = (navigator.language || 'en').toLowerCase().startsWith('zh');
+  const locale = zh ? 'zh-CN' : (navigator.language || 'en-US');
+  const text = zh
+    ? {
+        title: '中继管理',
+        logout: '退出',
+        loginTitle: '管理登录',
+        loginHint: '输入运营者的 TOKENMETRY_RELAY_TOKEN。成员 token 会被拒绝。',
+        tokenLabel: '运营者 token',
+        enter: '进入',
+        badToken: 'token 不正确，或该中继没有设置 TOKENMETRY_RELAY_TOKEN。',
+        memberTokenRejected: '成员 token 不能进入管理页；请使用运营者 token。',
+        sessionExpired: '登录已失效，请重新输入运营者 token。',
+        loading: '加载中…',
+        error: '操作失败：',
+        members: '成员',
+        devices: '设备',
+        addTitle: '添加成员',
+        addHint: '创建后 token 只显示一次；把中继地址和 token 一起发给对方。',
+        memberName: '展示名',
+        memberNamePlaceholder: '例如 Alice',
+        add: '添加',
+        creating: '创建中…',
+        created: '成员已创建',
+        createdHint: 'token 只显示这一次，请立即保存。',
+        copy: '复制',
+        copied: '已复制',
+        copyManual: '已选中，请手动复制',
+        saved: '我已保存',
+        membersTitle: '成员',
+        refresh: '刷新',
+        colName: '成员',
+        colDevices: '设备',
+        colLastSeen: '最后活跃',
+        colCreated: '创建时间',
+        revoke: '吊销',
+        confirmRevoke: '确定吊销成员「{name}」？其同步数据、设备与榜单记录会一并删除，无法恢复。',
+        empty: '还没有成员。',
+        footer: '管理页面只使用运营者 token；成员 token 不能访问。登录 token 只保存在当前标签页。',
+        leaderboard: '查看排行榜'
+      }
+    : {
+        title: 'Relay Admin',
+        logout: 'Sign out',
+        loginTitle: 'Admin sign-in',
+        loginHint: 'Enter the operator TOKENMETRY_RELAY_TOKEN. Member tokens are rejected.',
+        tokenLabel: 'Operator token',
+        enter: 'Sign in',
+        badToken: 'The token is wrong, or this relay has no TOKENMETRY_RELAY_TOKEN configured.',
+        memberTokenRejected: 'A member token cannot access the admin page. Use the operator token.',
+        sessionExpired: 'Session expired. Enter the operator token again.',
+        loading: 'Loading…',
+        error: 'Request failed:',
+        members: 'Members',
+        devices: 'Devices',
+        addTitle: 'Add member',
+        addHint: 'The token is shown once; send it to your friend together with the relay URL.',
+        memberName: 'Display name',
+        memberNamePlaceholder: 'e.g. Alice',
+        add: 'Add',
+        creating: 'Creating…',
+        created: 'Member created',
+        createdHint: 'The token is shown only once. Save it now.',
+        copy: 'Copy',
+        copied: 'Copied',
+        copyManual: 'Selected — copy manually',
+        saved: 'I saved it',
+        membersTitle: 'Members',
+        refresh: 'Refresh',
+        colName: 'Member',
+        colDevices: 'Devices',
+        colLastSeen: 'Last seen',
+        colCreated: 'Created',
+        revoke: 'Revoke',
+        confirmRevoke: 'Revoke member "{name}"? Their synced rows, devices and leaderboard records will be deleted permanently.',
+        empty: 'No members yet.',
+        footer: 'The admin page accepts only the operator token; member tokens are rejected. The token is kept in this tab only.',
+        leaderboard: 'View leaderboard'
+      };
+
+  document.documentElement.lang = zh ? 'zh-CN' : 'en';
+  document.title = text.title;
+
+  const byId = (id) => document.getElementById(id);
+  const tokenKey = 'tokenmetry.admin.token';
+
+  function normalizedBase() {
+    const base = new URL(location.href);
+    base.search = '';
+    base.hash = '';
+    if (base.pathname.endsWith('/')) {
+      base.pathname = base.pathname.slice(0, -1) || '/';
+    }
+
+    return base;
+  }
+
+  function apiUrl(path) {
+    // 相对页面路径解析：反代挂在 /relay 下时页面与 API 一起走前缀。
+    return new URL(path, normalizedBase()).toString();
+  }
+
+  function readSavedToken() {
+    try {
+      return sessionStorage.getItem(tokenKey) || '';
+    } catch {
+      return '';
+    }
+  }
+
+  function saveToken(value) {
+    try {
+      sessionStorage.setItem(tokenKey, value);
+    } catch {
+      // 隐私模式/禁用存储：token 只留在当前页面内存里。
+    }
+  }
+
+  function forgetToken() {
+    try {
+      sessionStorage.removeItem(tokenKey);
+    } catch {
+      // 忽略：内存里的 token 已清。
+    }
+  }
+
+  let token = '';
+
+  class ApiError extends Error {
+    constructor(status, message) {
+      super(message);
+      this.status = status;
+    }
+  }
+
+  async function api(path, options = {}) {
+    const headers = new Headers(options.headers || {});
+    headers.set('Authorization', `Bearer ${token}`);
+    if (options.body) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    const response = await fetch(apiUrl(path), { ...options, headers });
+    if (response.status === 204) {
+      return null;
+    }
+
+    const body = await response.text();
+    let data = null;
+    try {
+      data = body ? JSON.parse(body) : null;
+    } catch {
+      // 非 JSON 错误体：保留状态码信息。
+    }
+
+    if (!response.ok) {
+      throw new ApiError(response.status, (data && data.error) || `HTTP ${response.status}`);
+    }
+
+    return data;
+  }
+
+  // ---- DOM ----
+  const title = byId('title');
+  const logoutButton = byId('logout');
+  const loginView = byId('login-view');
+  const appView = byId('app-view');
+  const loginForm = byId('login-form');
+  const loginStatus = byId('login-status');
+  const tokenInput = byId('token-input');
+  const addForm = byId('add-form');
+  const memberName = byId('member-name');
+  const addButton = byId('add-button');
+  const addStatus = byId('add-status');
+  const newTokenPanel = byId('new-token');
+  const newTokenTitle = byId('new-token-title');
+  const newTokenValue = byId('new-token-value');
+  const copyButton = byId('copy-token');
+  const dismissButton = byId('dismiss-token');
+  const membersStatus = byId('members-status');
+  const memberRows = byId('member-rows');
+  const membersEmpty = byId('members-empty');
+  const statMembers = byId('stat-members');
+  const statDevices = byId('stat-devices');
+  const refreshButton = byId('refresh');
+  const leaderboardLink = byId('leaderboard-link');
+
+  const members = [];
+
+  // ---- 文案 ----
+  title.textContent = text.title;
+  logoutButton.textContent = text.logout;
+  byId('login-title').textContent = text.loginTitle;
+  byId('login-hint').textContent = text.loginHint;
+  byId('token-label').textContent = text.tokenLabel;
+  byId('login-button').textContent = text.enter;
+  byId('stat-members-label').textContent = text.members;
+  byId('stat-devices-label').textContent = text.devices;
+  byId('add-title').textContent = text.addTitle;
+  byId('add-hint').textContent = text.addHint;
+  byId('member-name-label').textContent = text.memberName;
+  memberName.placeholder = text.memberNamePlaceholder;
+  addButton.textContent = text.add;
+  byId('new-token-title').textContent = text.created;
+  byId('new-token-hint').textContent = text.createdHint;
+  byId('new-token-label').textContent = text.tokenLabel;
+  copyButton.textContent = text.copy;
+  dismissButton.textContent = text.saved;
+  byId('members-title').textContent = text.membersTitle;
+  refreshButton.textContent = text.refresh;
+  byId('col-name').textContent = text.colName;
+  byId('col-devices').textContent = text.colDevices;
+  byId('col-last-seen').textContent = text.colLastSeen;
+  byId('col-created').textContent = text.colCreated;
+  membersEmpty.textContent = text.empty;
+  byId('footer-note').textContent = text.footer;
+  leaderboardLink.textContent = text.leaderboard;
+  leaderboardLink.href = new URL('leaderboard', normalizedBase()).toString();
+
+  // ---- 视图 ----
+  function showLogin(message) {
+    loginView.hidden = false;
+    appView.hidden = true;
+    logoutButton.hidden = true;
+    loginStatus.textContent = message || '';
+    tokenInput.value = '';
+    tokenInput.focus();
+  }
+
+  function showApp() {
+    loginView.hidden = true;
+    appView.hidden = false;
+    logoutButton.hidden = false;
+    loginStatus.textContent = '';
+  }
+
+  function signOut(message) {
+    token = '';
+    forgetToken();
+    members.length = 0;
+    renderMembers();
+    newTokenPanel.hidden = true;
+    newTokenValue.value = '';
+    addStatus.textContent = '';
+    membersStatus.textContent = '';
+    showLogin(message || '');
+  }
+
+  function formatDate(value) {
+    if (!value) {
+      return '—';
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(locale);
+  }
+
+  function renderMembers() {
+    memberRows.replaceChildren();
+    let deviceCount = 0;
+
+    for (const member of members) {
+      deviceCount += Number(member.deviceCount) || 0;
+
+      const row = document.createElement('tr');
+
+      const nameCell = document.createElement('td');
+      const nameWrap = document.createElement('div');
+      nameWrap.className = 'member-name';
+      const name = document.createElement('strong');
+      name.textContent = member.displayName || 'anonymous';
+      const accountId = document.createElement('code');
+      accountId.textContent = member.accountId;
+      nameWrap.append(name, accountId);
+      nameCell.append(nameWrap);
+
+      const devicesCell = document.createElement('td');
+      devicesCell.className = 'num';
+      devicesCell.textContent = String(Number(member.deviceCount) || 0);
+
+      const lastSeenCell = document.createElement('td');
+      lastSeenCell.textContent = formatDate(member.lastSeenAt);
+
+      const createdCell = document.createElement('td');
+      createdCell.textContent = formatDate(member.createdAt);
+
+      const actionsCell = document.createElement('td');
+      actionsCell.className = 'actions';
+      const revokeButton = document.createElement('button');
+      revokeButton.type = 'button';
+      revokeButton.className = 'danger';
+      revokeButton.textContent = text.revoke;
+      revokeButton.addEventListener('click', () => revokeMember(member, revokeButton));
+      actionsCell.append(revokeButton);
+
+      row.append(nameCell, devicesCell, lastSeenCell, createdCell, actionsCell);
+      memberRows.append(row);
+    }
+
+    statMembers.textContent = String(members.length);
+    statDevices.textContent = String(deviceCount);
+    membersEmpty.hidden = members.length !== 0;
+  }
+
+  function applyMembers(data) {
+    members.length = 0;
+    if (data && Array.isArray(data.members)) {
+      members.push(...data.members);
+    }
+
+    renderMembers();
+  }
+
+  async function refreshMembers() {
+    membersStatus.textContent = text.loading;
+    try {
+      const data = await api('api/admin/members');
+      applyMembers(data);
+      membersStatus.textContent = '';
+      showApp();
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        signOut(error.status === 403 ? text.memberTokenRejected : text.sessionExpired);
+        return;
+      }
+
+      membersStatus.textContent = `${text.error} ${error.message}`;
+      showApp();
+    }
+  }
+
+  async function signIn() {
+    const candidate = tokenInput.value.trim();
+    if (!candidate) {
+      return;
+    }
+
+    token = candidate;
+    loginStatus.textContent = text.loading;
+    try {
+      const data = await api('api/admin/members');
+      saveToken(token);
+      applyMembers(data);
+      tokenInput.value = '';
+      loginStatus.textContent = '';
+      membersStatus.textContent = '';
+      showApp();
+    } catch (error) {
+      token = '';
+      loginStatus.textContent = error.status === 403
+        ? text.memberTokenRejected
+        : error.status === 401
+          ? text.badToken
+          : `${text.error} ${error.message}`;
+    }
+  }
+
+  async function addMember() {
+    const name = memberName.value.trim();
+    if (!name) {
+      return;
+    }
+
+    addButton.disabled = true;
+    addStatus.textContent = text.creating;
+    try {
+      const added = await api('api/admin/members', {
+        method: 'POST',
+        body: JSON.stringify({ name })
+      });
+
+      newTokenTitle.textContent = `${text.created} · ${added.displayName}`;
+      newTokenValue.value = added.token;
+      newTokenPanel.hidden = false;
+      memberName.value = '';
+      addStatus.textContent = '';
+      await refreshMembers();
+    } catch (error) {
+      addStatus.textContent = `${text.error} ${error.message}`;
+    } finally {
+      addButton.disabled = false;
+    }
+  }
+
+  async function revokeMember(member, button) {
+    const name = member.displayName || member.accountId;
+    if (!window.confirm(text.confirmRevoke.replace('{name}', () => name))) {
+      return;
+    }
+
+    button.disabled = true;
+    membersStatus.textContent = text.loading;
+    try {
+      await api(`api/admin/members/${encodeURIComponent(member.accountId)}`, { method: 'DELETE' });
+      await refreshMembers();
+    } catch (error) {
+      membersStatus.textContent = `${text.error} ${error.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function copyToken() {
+    try {
+      await navigator.clipboard.writeText(newTokenValue.value);
+      copyButton.textContent = text.copied;
+      setTimeout(() => { copyButton.textContent = text.copy; }, 1500);
+    } catch {
+      newTokenValue.select();
+      copyButton.textContent = text.copyManual;
+    }
+  }
+
+  loginForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    signIn();
+  });
+
+  addForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    addMember();
+  });
+
+  logoutButton.addEventListener('click', () => signOut(''));
+  refreshButton.addEventListener('click', refreshMembers);
+  copyButton.addEventListener('click', copyToken);
+  dismissButton.addEventListener('click', () => {
+    newTokenPanel.hidden = true;
+    newTokenValue.value = '';
+  });
+
+  const saved = readSavedToken();
+  if (saved) {
+    token = saved;
+    showApp();
+    refreshMembers();
+  } else {
+    showLogin('');
+  }
+})();
+</script>
+</body>
+</html>
