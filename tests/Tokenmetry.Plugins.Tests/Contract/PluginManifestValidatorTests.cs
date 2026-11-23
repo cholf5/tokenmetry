@@ -32,4 +32,26 @@ public class PluginManifestValidatorTests
         Assert.Contains(
             PluginManifestValidator.Validate(ValidManifest() with { ApiVersion = "2" }),
             error => error.Contains("apiVersion", StringComparison.Ordinal));
+
+    [Fact]
+    public void Valid_identifier_is_accepted() =>
+        Assert.Empty(PluginManifestValidator.Validate(ValidManifest() with { Id = "com.acme.foo" }));
+
+    [Theory]
+    [InlineData("a:b")]
+    [InlineData("a/b")]
+    [InlineData("a b")]
+    [InlineData(".foo")]
+    [InlineData("-foo")]
+    public void Invalid_identifier_is_rejected(string id) =>
+        Assert.Contains(
+            PluginManifestValidator.Validate(ValidManifest() with { Id = id }),
+            error => error.StartsWith("id must", StringComparison.Ordinal));
+
+    [Theory]
+    [InlineData("a:b")]
+    public void Invalid_agent_id_is_rejected(string agentId) =>
+        Assert.Contains(
+            PluginManifestValidator.Validate(ValidManifest() with { AgentId = agentId }),
+            error => error.StartsWith("agentId must", StringComparison.Ordinal));
 }
