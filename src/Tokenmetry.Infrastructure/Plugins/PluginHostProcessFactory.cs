@@ -39,10 +39,13 @@ public sealed class PluginHostProcessFactory : IPluginHostProcessFactory
     {
         ArgumentNullException.ThrowIfNull(installation);
 
+        // 插件 id 会拼进数据目录：必须是单段安全目录名，不能借 ../ 或绝对路径逃出数据根。
+        var dataDirectory = ResolveDataDirectory(installation.Manifest.Id);
+
         Process process;
         try
         {
-            process = Process.Start(BuildStartInfo(installation))
+            process = Process.Start(BuildStartInfo(installation, dataDirectory))
                 ?? throw new PluginHostException($"failed to start plugin host '{_hostPath}'");
         }
         catch (PluginHostException)
@@ -59,7 +62,37 @@ public sealed class PluginHostProcessFactory : IPluginHostProcessFactory
         return new PluginHostProcess(process, installation.Manifest.Id);
     }
 
-    private ProcessStartInfo BuildStartInfo(PluginInstallation installation)
+    private string ResolveDataDirectory(string pluginId)
+    {
+        var unsafeId = string.IsNullOrWhiteSpace(pluginId)
+            || pluginId is "." or ".."
+            || Path.IsPathRooted(pluginId)
+            || pluginId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || pluginId.Contains('/')
+            || pluginId.Contains('\\');
+
+        if (unsafeId)
+        {
+            throw new PluginHostException(
+                $"plugin id '{pluginId}' is not a safe directory name");
+        }
+
+        var dataDirectory = Path.Combine(_pluginDataRoot, pluginId);
+
+        // 纵深防御：解析后仍必须落在数据根之内。
+        var rootWithSeparator = Path.EndsInDirectorySeparator(_pluginDataRoot)
+            ? _pluginDataRoot
+            : _pluginDataRoot + Path.DirectorySeparatorChar;
+        if (!Path.GetFullPath(dataDirectory).StartsWith(rootWithSeparator, StringComparison.Ordinal))
+        {
+            throw new PluginHostException(
+                $"plugin id '{pluginId}' resolves outside the plugin data root");
+        }
+
+        return dataDirectory;
+    }
+
+    private ProcessStartInfo BuildStartInfo(PluginInstallation installation, string dataDirectory)
     {
         var runsAsAssembly = _hostPath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
         var startInfo = new ProcessStartInfo(runsAsAssembly ? "dotnet" : _hostPath)
@@ -78,7 +111,6 @@ public sealed class PluginHostProcessFactory : IPluginHostProcessFactory
             startInfo.ArgumentList.Add(_hostPath);
         }
 
-        var dataDirectory = Path.Combine(_pluginDataRoot, installation.Manifest.Id);
         Directory.CreateDirectory(dataDirectory);
 
         startInfo.ArgumentList.Add("--plugin-dir");
@@ -163,6 +195,31 @@ internal sealed class PluginHostProcess : IPluginHostProcess
             {
                 return true;
             }
+        }
+    }
+
+    public void Kill()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _communicationFailed = true;
+
+        try
+        {
+            if (!_process.HasExited)
+            {
+                _process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException
+                or NotSupportedException
+                or Win32Exception)
+        {
+            // 进程已退出或无法枚举进程树：已达成目标。
         }
     }
 

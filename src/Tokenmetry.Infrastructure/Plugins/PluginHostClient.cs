@@ -171,20 +171,52 @@ public sealed class PluginHostClient : IPluginHostClient
         bool forceFull,
         CancellationToken cancellationToken)
     {
-        using var timeout = new CancellationTokenSource(_scanTimeout);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+        using var deadline = new CancellationTokenSource();
+        using var combined = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
-            timeout.Token);
+            deadline.Token);
 
+        var scanTask = entry.Process.ScanAsync(forceFull, combined.Token);
+
+        // 硬截止独立于管道读：Windows 匿名管道底层是同步 FileStream，静默宿主上的
+        // ReadLineAsync(ct) 可能永远观察不到取消令牌，必须靠计时任务强制超时。
+        var delayTask = Task.Delay(_scanTimeout, combined.Token);
+        var completed = await Task.WhenAny(scanTask, delayTask).ConfigureAwait(false);
+
+        if (ReferenceEquals(completed, scanTask))
+        {
+            deadline.Cancel(); // 扫描已结束，停掉计时任务
+            return await scanTask.ConfigureAwait(false);
+        }
+
+        // 截止时间已到或调用方取消：先杀整个进程树，再收尾，绝不读半截协议。
+        combined.Cancel();
+        entry.Process.Kill();
+        await DisposeProcessAsync(entry).ConfigureAwait(false);
+        await ObserveFailureAsync(scanTask).ConfigureAwait(false);
+
+        // 调用方取消优先于超时语义。
+        cancellationToken.ThrowIfCancellationRequested();
+
+        throw new TimeoutException(
+            $"Plugin host for '{pluginId}' did not finish scanning within {_scanTimeout}.");
+    }
+
+    private static async Task ObserveFailureAsync(Task task)
+    {
         try
         {
-            return await entry.Process.ScanAsync(forceFull, linked.Token).ConfigureAwait(false);
+            // 进程被杀后管道关闭，一般会很快结束；给一个上限，避免收尾路径自身卡死。
+            await task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
-            when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        catch
         {
-            throw new TimeoutException(
-                $"Plugin host for '{pluginId}' did not finish scanning within {_scanTimeout}.");
+            // 包括观察超时：挂一个只观测异常的续体，避免未观测异常，但不再阻塞调用方。
+            _ = task.ContinueWith(
+                static faulted => _ = faulted.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
     }
 

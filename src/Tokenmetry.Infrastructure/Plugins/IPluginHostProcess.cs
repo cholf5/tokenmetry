@@ -8,6 +8,11 @@ public interface IPluginHostProcess : IAsyncDisposable
     /// </summary>
     bool HasExited { get; }
 
+    /// <summary>
+    /// 强制杀掉整个进程树。用于超时等无法靠协作取消中断的场景；不等待退出、可重复调用。
+    /// </summary>
+    void Kill();
+
     Task<PluginScanOutcome> ScanAsync(bool forceFull, CancellationToken cancellationToken);
 }
 

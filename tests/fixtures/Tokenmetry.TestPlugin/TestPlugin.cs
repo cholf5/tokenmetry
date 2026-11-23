@@ -24,6 +24,13 @@ public sealed class TestPlugin : IUsageSourcePlugin
         // 否则这行会混进 NDJSON 把协议打断（宿主集成测试覆盖这一点）。
         Console.WriteLine("Tokenmetry.TestPlugin: scan starting");
 
+        // 测试用挂起模式：模拟“插件卡死、宿主从不写 stdout”的静默宿主。
+        // 忽略取消令牌，直到客户端杀掉整个宿主进程。
+        if (File.Exists(Path.Combine(context.DataDirectory, "hang")))
+        {
+            await Task.Delay(Timeout.Infinite, CancellationToken.None);
+        }
+
         var usagePath = Path.Combine(context.DataDirectory, "usage.jsonl");
         if (!File.Exists(usagePath))
         {

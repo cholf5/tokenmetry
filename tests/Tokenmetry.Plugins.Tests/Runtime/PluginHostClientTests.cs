@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Tokenmetry.Infrastructure.Plugins;
 using Tokenmetry.Plugin.Abstractions;
 using Tokenmetry.Plugins.Tests.Host;
@@ -33,6 +34,7 @@ public class PluginHostClientTests
         await Assert.ThrowsAsync<TimeoutException>(() =>
             client.ScanAsync(Installation("com.acme.foo"), forceFull: true, CancellationToken.None));
 
+        Assert.True(process.KillCalled);
         Assert.True(process.Killed);
     }
 
@@ -256,6 +258,93 @@ public class PluginHostClientTests
         }
     }
 
+    [Theory]
+    [InlineData("../escape")]
+    [InlineData("..\\escape")]
+    [InlineData("nested/id")]
+    [InlineData("nested\\id")]
+    [InlineData("/absolute")]
+    [InlineData("..")]
+    [InlineData(".")]
+    [InlineData("")]
+    public void Factory_rejects_unsafe_plugin_id(string pluginId)
+    {
+        var pluginDataRoot = Directory.CreateTempSubdirectory("tokenmetry-plugin-data-").FullName;
+        try
+        {
+            var factory = new PluginHostProcessFactory(
+                Path.Combine(pluginDataRoot, "missing-host.dll"),
+                pluginDataRoot,
+                log: null);
+
+            Assert.Throws<PluginHostException>(() => factory.Create(Installation(pluginId)));
+
+            // 校验在起进程/建目录之前完成：数据根下不应留下任何条目。
+            Assert.Empty(Directory.EnumerateFileSystemEntries(pluginDataRoot));
+        }
+        finally
+        {
+            TryDelete(pluginDataRoot);
+        }
+    }
+
+    [Fact]
+    public async Task Real_host_timeout_kills_hung_process_and_next_scan_recreates()
+    {
+        var pluginDirectory = TestPluginDirectory.CopyToTemp();
+        var pluginDataRoot = Directory.CreateTempSubdirectory("tokenmetry-plugin-data-").FullName;
+        try
+        {
+            var manifest = PluginJson.DeserializeManifest(
+                File.ReadAllText(Path.Combine(pluginDirectory, "plugin.json")))
+                ?? throw new InvalidOperationException("fixture plugin.json was not valid JSON");
+            var dataDirectory = Directory.CreateDirectory(
+                Path.Combine(pluginDataRoot, manifest.Id)).FullName;
+
+            // 挂起模式：插件永不返回、宿主永不写 stdout——只能靠客户端硬超时杀进程，
+            // 走的是真实宿主进程与 Windows 匿名管道。
+            await File.WriteAllTextAsync(Path.Combine(dataDirectory, "hang"), "1");
+
+            var installation = new PluginInstallation(
+                manifest,
+                pluginDirectory,
+                Path.Combine(pluginDirectory, manifest.Icon),
+                Enabled: true);
+
+            var factory = new CountingProcessFactory(new PluginHostProcessFactory(
+                typeof(Tokenmetry.PluginHost.PluginHostServer).Assembly.Location,
+                pluginDataRoot,
+                log: null));
+            await using var client = new PluginHostClient(factory, TimeSpan.FromSeconds(3));
+
+            var stopwatch = Stopwatch.StartNew();
+            await Assert.ThrowsAsync<TimeoutException>(() =>
+                client.ScanAsync(installation, forceFull: true, CancellationToken.None));
+            stopwatch.Stop();
+
+            // 超时没有卡在永不返回的管道读上，旧宿主进程已被杀/释放。
+            Assert.Single(factory.Created);
+            Assert.True(factory.Created[0].HasExited);
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(30));
+
+            // 去掉挂起标记、放入数据：下一次扫描必须重建进程并成功。
+            File.Delete(Path.Combine(dataDirectory, "hang"));
+            await File.WriteAllTextAsync(
+                Path.Combine(dataDirectory, "usage.jsonl"),
+                """{"sessionId":"s1","projectPath":"/work/foo","model":"foo-large","inputTokens":10,"outputTokens":5}""");
+
+            var outcome = await client.ScanAsync(installation, forceFull: false, CancellationToken.None);
+
+            Assert.Equal(2, factory.CreateCount);
+            Assert.NotEmpty(outcome.Records);
+        }
+        finally
+        {
+            TryDelete(pluginDirectory);
+            TryDelete(pluginDataRoot);
+        }
+    }
+
     private static PluginScanOutcome OkOutcome() => new(
         HasChanges: true,
         Records:
@@ -334,6 +423,8 @@ internal sealed class FakeHostProcess : IPluginHostProcess
 
     public bool Killed { get; private set; }
 
+    public bool KillCalled { get; private set; }
+
     public bool HasExited { get; set; }
 
     public async Task<PluginScanOutcome> ScanAsync(bool forceFull, CancellationToken cancellationToken)
@@ -357,6 +448,12 @@ internal sealed class FakeHostProcess : IPluginHostProcess
         }
 
         return _outcome ?? throw new InvalidOperationException("fake host process was not given an outcome");
+    }
+
+    public void Kill()
+    {
+        KillCalled = true;
+        HasExited = true;
     }
 
     public ValueTask DisposeAsync()
@@ -395,6 +492,29 @@ internal sealed class FakeHostProcessFactory : IPluginHostProcessFactory
     {
         CreateCount++;
         var process = _create(installation);
+        Created.Add(process);
+        return process;
+    }
+}
+
+/// <summary>包住真实工厂，记录创建次数与实例，供超时/重建断言使用。</summary>
+internal sealed class CountingProcessFactory : IPluginHostProcessFactory
+{
+    private readonly IPluginHostProcessFactory _inner;
+
+    public CountingProcessFactory(IPluginHostProcessFactory inner)
+    {
+        _inner = inner;
+    }
+
+    public int CreateCount { get; private set; }
+
+    public List<IPluginHostProcess> Created { get; } = [];
+
+    public IPluginHostProcess Create(PluginInstallation installation)
+    {
+        CreateCount++;
+        var process = _inner.Create(installation);
         Created.Add(process);
         return process;
     }
