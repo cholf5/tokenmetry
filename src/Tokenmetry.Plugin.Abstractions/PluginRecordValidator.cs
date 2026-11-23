@@ -7,6 +7,15 @@ namespace Tokenmetry.Plugin.Abstractions;
 /// </summary>
 public static class PluginRecordValidator
 {
+    // 设计 §5.3「明确拒绝的输入」要求拒绝超出合理长度上限的字段，避免异常日志把
+    // 无限长字符串带进 facts/UI。
+    private const int RecordIdMaxLength = 512;
+    private const int SessionIdMaxLength = 512;
+    private const int ModelMaxLength = 512;
+    private const int ProjectDisplayNameMaxLength = 512;
+    private const int ProviderMaxLength = 128;
+    private const int ProjectPathMaxLength = 4096;
+
     public static IReadOnlyList<string> Validate(PluginUsageRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
@@ -37,6 +46,13 @@ public static class PluginRecordValidator
         {
             errors.Add("model is required");
         }
+
+        CheckMaxLength(errors, record.RecordId, RecordIdMaxLength, "recordId");
+        CheckMaxLength(errors, record.SessionId, SessionIdMaxLength, "sessionId");
+        CheckMaxLength(errors, record.ProjectPath, ProjectPathMaxLength, "projectPath");
+        CheckMaxLength(errors, record.ProjectDisplayName, ProjectDisplayNameMaxLength, "projectDisplayName");
+        CheckMaxLength(errors, record.Model, ModelMaxLength, "model");
+        CheckMaxLength(errors, record.Provider, ProviderMaxLength, "provider");
 
         if (record.InputTokens < 0)
         {
@@ -94,5 +110,13 @@ public static class PluginRecordValidator
         }
 
         return errors;
+    }
+
+    private static void CheckMaxLength(List<string> errors, string? value, int maxLength, string fieldName)
+    {
+        if (value is not null && value.Length > maxLength)
+        {
+            errors.Add($"{fieldName} must be at most {maxLength} characters");
+        }
     }
 }

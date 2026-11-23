@@ -45,4 +45,25 @@ public class PluginRecordValidatorTests
     public void Negative_cost_is_rejected() =>
         Assert.Contains(PluginRecordValidator.Validate(ValidRecord() with { CostUsd = -1m }),
             error => error.Contains("costUsd", StringComparison.Ordinal));
+
+    [Fact]
+    public void Over_limit_project_path_is_rejected() =>
+        Assert.Contains(
+            PluginRecordValidator.Validate(ValidRecord() with { ProjectPath = new string('a', 4097) }),
+            error => error.Contains("projectPath", StringComparison.Ordinal));
+
+    [Fact]
+    public void Over_limit_model_is_rejected() =>
+        Assert.Contains(
+            PluginRecordValidator.Validate(ValidRecord() with { Model = new string('a', 513) }),
+            error => error.Contains("model", StringComparison.Ordinal));
+
+    [Fact]
+    public void Cache_only_record_is_legal() =>
+        Assert.Empty(PluginRecordValidator.Validate(ValidRecord() with
+        {
+            InputTokens = 0,
+            OutputTokens = 0,
+            CacheReadTokens = 100,
+        }));
 }
