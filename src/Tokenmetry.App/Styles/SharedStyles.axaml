@@ -110,22 +110,10 @@
         <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
     </Style>
 
-    <!-- 设置项悬停说明（S-004 版面收口）：逐项常驻的小字解释退场，改由标签/控件旁的 ⓘ 悬停承载
-         （Controls/InfoHint）。状态、校验、隐私与法律告知仍走 setting-hint 常驻——那些不能藏。
-         命中区比图标大一圈（Padding 4，约 21×21），Cursor=Help 明示「可问」；ToolTip 底/边/字色
-         沿用 chart-tip 的令牌语汇（Semi 12.1 默认 ToolTip 明暗错配不可读），长句按 340 上限折行，
-         不横穿整屏。 -->
-    <Style Selector="Border.setting-info">
-        <Setter Property="Padding" Value="4"/>
-        <Setter Property="Cursor" Value="Help"/>
-        <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="PathIcon.setting-info-icon">
-        <Setter Property="Data" Value="{DynamicResource AppIconCircleHelp}"/>
-        <Setter Property="Width" Value="13"/>
-        <Setter Property="Height" Value="13"/>
-        <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
-    </Style>
+    <!-- 设置项悬停说明（S-004 版面收口）：逐项常驻的小字解释退场，改由悬停选项名/开关本身显示
+         （ToolTip 直挂标签，不加图标——图标比小字更扎眼，且解释本就是可选项）。状态、校验、
+         隐私与法律告知仍走 setting-hint 常驻——那些不能藏。ToolTip 底/边/字色沿用 chart-tip
+         的令牌语汇（Semi 12.1 默认 ToolTip 明暗错配不可读），长句按 340 上限折行，不横穿整屏。 -->
     <Style Selector="ToolTip.setting-tip">
         <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         <Setter Property="Background" Value="{DynamicResource AppChipBackgroundBrush}"/>

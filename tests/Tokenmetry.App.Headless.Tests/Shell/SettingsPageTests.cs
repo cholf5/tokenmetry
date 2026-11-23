@@ -179,8 +179,10 @@ public class SettingsPageTests
             Assert.Contains("Appearance & general", texts);
             Assert.Contains("Local paths", texts);
             Assert.Contains(Translations.Instance.SharePosterSettingsHint, texts);
-            // 逐项说明已收进 ⓘ 悬停：ToolTip 里的文案同样随语言实时重译（收益于同一条绑定链）
-            var tipTexts = window.GetVisualDescendants().OfType<InfoHint>().Select(TipText).ToList();
+            // 逐项说明已改为悬停选项名：ToolTip 里的文案同样随语言实时重译（收益于同一条绑定链）
+            var tipTexts = window.GetVisualDescendants().OfType<Control>()
+                .Select(ToolTip.GetTip).OfType<ToolTip>()
+                .Select(t => (t.Content as TextBlock)?.Text).ToList();
             Assert.Contains("Saved automatically; takes effect the next time the background refresh service starts.", tipTexts);
             // 页头 Page.Title 实时重译（多级绑定路径 Page.Title——叶子通知由 PageDescriptor 发，
             // 真机实测缺失时标题保持旧语言、导航切换回来才更新）
@@ -242,34 +244,46 @@ public class SettingsPageTests
     }
 
     [AvaloniaFact]
-    public void Per_item_explanations_are_hover_tips_instead_of_standing_small_text()
+    public void Per_item_explanations_hover_on_the_option_name_instead_of_standing_small_text()
     {
-        // S-004 版面收口：逐项说明从小字常驻改为控件旁 ⓘ 悬停。断言两件事——8 项说明都挂在
-        // InfoHint 的 ToolTip 上（悬停可读），且页面上不再有同文案的常驻 TextBlock（确实退场）。
+        // S-004 版面收口：逐项说明从小字常驻改为悬停选项名本身（无图标）。断言——每项说明都挂在
+        // 对应标签/开关的 ToolTip 上，且页面上不再有同文案的常驻 TextBlock（确实退场）。
         var vm = CreateViewModel();
         var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var expected = new[]
+        var labels = window.GetVisualDescendants().OfType<TextBlock>().ToList();
+        var checks = window.GetVisualDescendants().OfType<CheckBox>().ToList();
+
+        (string Label, string Hint)[] labelHints =
         {
-            Translations.Instance.ThemeHint,
-            Translations.Instance.ThemeModeHint,
-            Translations.Instance.LanguageHint,
-            Translations.Instance.RefreshHint,
-            Translations.Instance.CheckMinimizeToTrayOnCloseHint,
-            Translations.Instance.CheckAutoStartOnBootHint,
-            Translations.Instance.CheckFileLoggingHint,
-            Translations.Instance.SharePosterMaskHint,
+            (Translations.Instance.LabelTheme, Translations.Instance.ThemeHint),
+            (Translations.Instance.ThemeModeLabel, Translations.Instance.ThemeModeHint),
+            (Translations.Instance.LabelLanguage, Translations.Instance.LanguageHint),
+            (Translations.Instance.LabelRefreshInterval, Translations.Instance.RefreshHint),
+            (Translations.Instance.SharePosterDefaultMask, Translations.Instance.SharePosterMaskHint),
         };
+        foreach (var (label, hint) in labelHints)
+        {
+            var host = labels.Single(t => t.Classes.Contains("setting-label") && t.Text == label);
+            Assert.Equal(hint, TipText(host));
+        }
 
-        var hints = window.GetVisualDescendants().OfType<InfoHint>().ToList();
-        Assert.Equal(expected.Length, hints.Count);
-        Assert.Equal(expected.OrderBy(t => t), hints.Select(TipText).OrderBy(t => t));
+        (string Option, string Hint)[] checkHints =
+        {
+            (Translations.Instance.CheckMinimizeToTrayOnClose, Translations.Instance.CheckMinimizeToTrayOnCloseHint),
+            (Translations.Instance.CheckAutoStartOnBoot, Translations.Instance.CheckAutoStartOnBootHint),
+            (Translations.Instance.CheckFileLogging, Translations.Instance.CheckFileLoggingHint),
+        };
+        foreach (var (option, hint) in checkHints)
+        {
+            var host = checks.Single(c => c.Content as string == option);
+            Assert.Equal(hint, TipText(host));
+        }
 
-        var standingTexts = window.GetVisualDescendants().OfType<TextBlock>()
-            .Select(t => t.Text).ToHashSet();
-        foreach (var hint in expected)
+        var standingTexts = labels.Select(t => t.Text).ToHashSet();
+        foreach (var hint in labelHints.Select(x => x.Hint).Concat(checkHints.Select(x => x.Hint)))
         {
             Assert.DoesNotContain(hint, standingTexts);
         }
@@ -317,11 +331,9 @@ public class SettingsPageTests
         }
     }
 
-    /// <summary>取设置项 ⓘ 悬停说明的文案（InfoHint → 命中区 Border → ToolTip 里的 TextBlock）。</summary>
-    private static string TipText(InfoHint hint)
+    /// <summary>取控件上挂的悬停说明文案（设置项说明直挂标签/开关的 ToolTip 内 TextBlock）。</summary>
+    private static string TipText(Control host)
     {
-        var host = hint.GetVisualDescendants().OfType<Border>()
-            .First(b => b.Classes.Contains("setting-info"));
         var tip = Assert.IsType<ToolTip>(ToolTip.GetTip(host));
         return Assert.IsType<TextBlock>(tip.Content).Text ?? string.Empty;
     }
