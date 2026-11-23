@@ -327,8 +327,8 @@ public static class AppServices
 
         _provider = services.BuildServiceProvider();
 
-        // 插件装载先于采集源物化：重扫已安装插件与启用状态（宿主可执行文件缺失时 provider
-        // 为空提供者，Refresh 空操作）。
+        // 先重扫插件目录（只读已安装/启用状态；宿主可执行文件缺失时 provider 为空提供者）。
+        // 采集源在下一步物化（内置源先登记），插件源 Refresh 放在其后，顺序说明见下。
         _provider.GetRequiredService<IPluginCatalog>()
             .ReloadAsync(System.Threading.CancellationToken.None)
             .GetAwaiter()

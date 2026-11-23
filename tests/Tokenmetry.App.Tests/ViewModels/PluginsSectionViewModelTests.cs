@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -214,6 +215,59 @@ public sealed class PluginsSectionViewModelTests
     }
 
     [Fact]
+    public async Task Install_failure_after_stop_re_registers_the_source()
+    {
+        var catalog = new FakePluginCatalog();
+        catalog.InstalledList.Add(Installation("com.acme.foo", "Foo", enabled: true));
+        var registry = new IngestionScanRegistry();
+        var provider = new PluginSourceProvider(catalog, new NoopHostClient(), registry);
+        provider.Refresh();
+        registry.RegisteredSources.Should().Contain("Foo");
+
+        var installer = new FakePluginInstaller
+        {
+            InstallFailure = new PluginInstallException(["simulated install failure"]),
+        };
+        var vm = CreateVm(
+            catalog: catalog,
+            installer: installer,
+            sourceProvider: provider,
+            registry: registry);
+
+        await vm.InstallCommand.ExecuteAsync(null);
+
+        vm.InstallError.Should().NotBeNullOrEmpty();
+        // StopPlugin 已注销旧源；安装失败但插件仍安装/启用，必须重新登记，否则直到重启都不再扫描。
+        registry.RegisteredSources.Should().Contain("Foo");
+        Assert.Single(provider.GetEnabledSources()).Agent.Should().Be("Foo");
+    }
+
+    [Fact]
+    public async Task Uninstall_failure_after_stop_re_registers_the_source()
+    {
+        var catalog = new FakePluginCatalog
+        {
+            UninstallFailure = new IOException("simulated locked plugin directory"),
+        };
+        catalog.InstalledList.Add(Installation("com.acme.foo", "Foo", enabled: true));
+        var registry = new IngestionScanRegistry();
+        var provider = new PluginSourceProvider(catalog, new NoopHostClient(), registry);
+        provider.Refresh();
+        registry.RegisteredSources.Should().Contain("Foo");
+
+        var vm = CreateVm(catalog: catalog, sourceProvider: provider, registry: registry);
+        await vm.RefreshAsync();
+
+        await vm.UninstallCommand.ExecuteAsync(vm.Rows.Single());
+
+        vm.InstallError.Should().NotBeNullOrEmpty();
+        catalog.Uninstalled.Should().BeFalse();
+        // 删除失败 = 插件仍在磁盘上：源必须重新登记，不能因为 StopPlugin 而永久停扫。
+        registry.RegisteredSources.Should().Contain("Foo");
+        Assert.Single(provider.GetEnabledSources()).Agent.Should().Be("Foo");
+    }
+
+    [Fact]
     public async Task Empty_section_is_inert()
     {
         var empty = PluginsSectionViewModel.Empty;
@@ -230,7 +284,7 @@ public sealed class PluginsSectionViewModelTests
     private static PluginsSectionViewModel CreateVm(
         FakePluginCatalog? catalog = null,
         FakePluginInstaller? installer = null,
-        FakeSourceProvider? sourceProvider = null,
+        IPluginSourceProvider? sourceProvider = null,
         IPluginFilePicker? picker = null,
         FakeConfirmation? confirmation = null,
         Func<Task>? rescan = null,
@@ -282,6 +336,8 @@ public sealed class PluginsSectionViewModelTests
 
         public Action? OnUninstallStarting { get; set; }
 
+        public Exception? UninstallFailure { get; set; }
+
         public Task ReloadAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task SetEnabledAsync(string pluginId, bool enabled, CancellationToken cancellationToken)
@@ -293,6 +349,11 @@ public sealed class PluginsSectionViewModelTests
         public Task UninstallAsync(string pluginId, CancellationToken cancellationToken)
         {
             OnUninstallStarting?.Invoke();
+            if (UninstallFailure is not null)
+            {
+                throw UninstallFailure;
+            }
+
             Uninstalled = true;
             return Task.CompletedTask;
         }
@@ -308,6 +369,8 @@ public sealed class PluginsSectionViewModelTests
 
         public Action? OnInstallStarting { get; set; }
 
+        public Exception? InstallFailure { get; set; }
+
         public PluginInstallPreview Preview(string packagePath)
         {
             if (PreviewException is not null)
@@ -321,6 +384,11 @@ public sealed class PluginsSectionViewModelTests
         public Task<PluginInstallation> InstallAsync(string packagePath, CancellationToken cancellationToken)
         {
             OnInstallStarting?.Invoke();
+            if (InstallFailure is not null)
+            {
+                throw InstallFailure;
+            }
+
             Installed = true;
             InstalledPath = packagePath;
             return Task.FromResult(new PluginInstallation(Manifest(), "/plugins/foo", "/plugins/foo/icon.png", true));
@@ -351,6 +419,29 @@ public sealed class PluginsSectionViewModelTests
         public void Refresh() => RefreshCount++;
 
         public void StopPlugin(string pluginId) => StoppedIds.Add(pluginId);
+    }
+
+    /// <summary>真实 <see cref="PluginSourceProvider"/> 的宿主桩：这些用例只验证源的注册/注销。</summary>
+    private sealed class NoopHostClient : IPluginHostClient
+    {
+        public Task<PluginScanOutcome> ScanAsync(
+            PluginInstallation installation,
+            bool forceFull,
+            CancellationToken cancellationToken)
+            => Task.FromResult(new PluginScanOutcome(
+                HasChanges: false,
+                Records: [],
+                Diagnostics: new PluginDiagnostics { Status = PluginScanStatus.Ok }));
+
+        public void Remove(string pluginId)
+        {
+        }
+
+        public void StopAll()
+        {
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class FakeFilePicker(string? path) : IPluginFilePicker

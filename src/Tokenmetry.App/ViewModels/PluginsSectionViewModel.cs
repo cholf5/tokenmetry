@@ -180,11 +180,14 @@ public sealed partial class PluginsSectionViewModel : ObservableObject
         {
             InstallError = string.Format(
                 Translations.Instance.PluginInstallFailedFormat, string.Join("; ", ex.Errors));
+            // StopPlugin 已注销旧源；失败后目录仍列出该插件，必须重新登记，否则直到重启都不再扫描。
+            _sourceProvider.Refresh();
             await RefreshAsync();
         }
         catch (Exception ex)
         {
             InstallError = string.Format(Translations.Instance.PluginInstallFailedFormat, ex.Message);
+            _sourceProvider.Refresh();
             await RefreshAsync();
         }
     }
@@ -240,6 +243,8 @@ public sealed partial class PluginsSectionViewModel : ObservableObject
         catch (Exception ex)
         {
             InstallError = string.Format(Translations.Instance.PluginInstallFailedFormat, ex.Message);
+            // StopPlugin 已注销源但删除失败、插件仍在：重新登记，避免它直到重启都不再扫描。
+            _sourceProvider.Refresh();
         }
     }
 
