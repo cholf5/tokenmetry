@@ -143,7 +143,65 @@ public class PluginUsageSourceTests
         var record = Assert.Single(result.Records);
         Assert.Equal("plugin:com.acme.foo:good-session", record.SessionId);
         Assert.Equal(1, result.Diagnostics.InvalidRecords);
-        Assert.Equal(1, result.Diagnostics.LinesSkipped);
+        Assert.Equal(0, result.Diagnostics.LinesSkipped); // 无效记录只计 InvalidRecords，不混入 LinesSkipped
+    }
+
+    [Fact]
+    public async Task Null_record_in_batch_is_counted_invalid_and_siblings_still_map()
+    {
+        // 宿主流由 source-gen JSON 反序列化，批量里可能出现 null：不得抛，按无效记录丢弃。
+        PluginUsageRecord? nullRecord = null;
+        var host = new FakeHostClient(OkOutcome(nullRecord!, ValidDto("ok", "good-session")));
+
+        var result = await new PluginUsageSource(Installation(), host).ScanAsync(CancellationToken.None);
+
+        var record = Assert.Single(result.Records);
+        Assert.Equal("plugin:com.acme.foo:good-session", record.SessionId);
+        Assert.Equal(1, result.Diagnostics.InvalidRecords);
+    }
+
+    [Fact]
+    public async Task Host_reported_error_outcome_retains_last_good()
+    {
+        var host = new FakeHostClient(
+            OkOutcome(ValidDto()),
+            new PluginScanOutcome(true, [], new PluginDiagnostics { Status = PluginScanStatus.Error }));
+        var source = new PluginUsageSource(Installation(), host);
+
+        var first = await source.ScanAsync(CancellationToken.None);
+        var second = await source.ScanAsync(CancellationToken.None);
+
+        Assert.Single(first.Records);
+        Assert.Single(second.Records);
+        Assert.Equal(JsonlScanStatus.Error, second.Diagnostics.Status);
+        Assert.Equal(0, second.Diagnostics.FilesChanged);
+    }
+
+    [Fact]
+    public async Task Null_records_batch_is_contained_as_error()
+    {
+        var host = new FakeHostClient(new PluginScanOutcome(true, null!, OkDiagnostics()));
+
+        var result = await new PluginUsageSource(Installation(), host).ScanAsync(CancellationToken.None);
+
+        Assert.Empty(result.Records);
+        Assert.Equal(JsonlScanStatus.Error, result.Diagnostics.Status);
+    }
+
+    [Fact]
+    public async Task Mapping_failure_retains_last_good()
+    {
+        var host = new FakeHostClient(
+            OkOutcome(ValidDto()),
+            new PluginScanOutcome(true, null!, OkDiagnostics()));
+        var source = new PluginUsageSource(Installation(), host);
+        await source.ScanAsync(CancellationToken.None);
+
+        var second = await source.ScanAsync(CancellationToken.None);
+
+        Assert.Single(second.Records);
+        Assert.Equal(JsonlScanStatus.Error, second.Diagnostics.Status);
+        Assert.Equal(0, second.Diagnostics.FilesChanged);
     }
 
     [Fact]

@@ -62,8 +62,17 @@ public sealed class PluginUsageSource
             return BuildFailureResult();
         }
 
-        var mapped = MapRecords(outcome.Records);
-        return StoreAndBuild(outcome.Diagnostics, mapped);
+        try
+        {
+            var mapped = MapRecords(outcome.Records);
+            return StoreAndBuild(outcome.Diagnostics, mapped);
+        }
+        catch (Exception)
+        {
+            // 映射/落快照阶段不应抛（含宿主流里混入 null 记录等畸形输入）：
+            // 兜底走故障路径，绝不向采集管道泄漏异常。
+            return BuildFailureResult();
+        }
     }
 
     private JsonlScanResult StoreAndBuild(PluginDiagnostics host, MappedRecords mapped)
@@ -77,8 +86,9 @@ public sealed class PluginUsageSource
             FilesDiscovered = host.FilesDiscovered,
             FilesRead = host.FilesRead,
             FilesChanged = 1,
-            // 被校验拒绝的记录同时计入 InvalidRecords 与 LinesSkipped（口径同本地解析器）。
-            LinesSkipped = invalid,
+            // LinesSkipped 是"不含 usage 标记而被跳过"的行数，宿主不透传该计数，置 0；
+            // 被校验拒绝的记录只计 InvalidRecords，两者不混用。
+            LinesSkipped = 0,
             MalformedLines = 0,
             InvalidRecords = invalid,
             DuplicateRecords = host.DuplicateRecords + mapped.DuplicateRecords,
@@ -161,6 +171,13 @@ public sealed class PluginUsageSource
 
         foreach (var dto in dtos)
         {
+            // 宿主流由 source-gen JSON 反序列化，不保证元素非 null；null 记录视为不合规丢弃。
+            if (dto is null)
+            {
+                invalid++;
+                continue;
+            }
+
             if (PluginRecordValidator.Validate(dto).Count > 0)
             {
                 invalid++;
