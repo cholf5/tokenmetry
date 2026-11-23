@@ -91,7 +91,7 @@ public class PluginHostClientTests
     }
 
     [Fact]
-    public async Task Failed_process_is_discarded_and_recreated_on_next_scan()
+    public async Task Dead_process_during_scan_is_recreated_and_retried_once()
     {
         var processes = new Queue<FakeHostProcess>(
         [
@@ -101,9 +101,7 @@ public class PluginHostClientTests
         var factory = new FakeHostProcessFactory(_ => processes.Dequeue());
         var client = new PluginHostClient(factory, TimeSpan.FromMinutes(1));
 
-        await Assert.ThrowsAsync<PluginHostException>(() =>
-            client.ScanAsync(Installation("com.acme.foo"), forceFull: true, CancellationToken.None));
-
+        // 一次调用内就恢复：进程死掉 → 重建 → 重试，不把失败抛给调用方。
         var outcome = await client.ScanAsync(
             Installation("com.acme.foo"), forceFull: false, CancellationToken.None);
 
@@ -111,6 +109,62 @@ public class PluginHostClientTests
         Assert.True(factory.Created[0].Killed);
         Assert.True(factory.Created[1].LastForceFull);
         Assert.True(outcome.HasChanges);
+    }
+
+    [Fact]
+    public async Task Cached_dead_process_is_recreated_before_scanning()
+    {
+        var factory = new FakeHostProcessFactory(() => new FakeHostProcess(OkOutcome()));
+        var client = new PluginHostClient(factory, TimeSpan.FromMinutes(1));
+
+        await client.ScanAsync(Installation("com.acme.foo"), forceFull: true, CancellationToken.None);
+        var first = factory.Created[0];
+        first.HasExited = true;
+
+        var outcome = await client.ScanAsync(
+            Installation("com.acme.foo"), forceFull: false, CancellationToken.None);
+
+        Assert.Equal(2, factory.CreateCount);
+        Assert.True(first.Killed);
+        Assert.Equal(1, first.ScanCount); // 已死进程上不再写请求
+        Assert.True(factory.Created[1].LastForceFull);
+        Assert.True(outcome.HasChanges);
+    }
+
+    [Fact]
+    public async Task Recovery_retries_at_most_once()
+    {
+        var processes = new Queue<FakeHostProcess>(
+        [
+            new FakeHostProcess(OkOutcome(), failure: new PluginHostException("first")),
+            new FakeHostProcess(OkOutcome(), failure: new PluginHostException("second")),
+        ]);
+        var factory = new FakeHostProcessFactory(_ => processes.Dequeue());
+        var client = new PluginHostClient(factory, TimeSpan.FromMinutes(1));
+
+        await Assert.ThrowsAsync<PluginHostException>(() =>
+            client.ScanAsync(Installation("com.acme.foo"), forceFull: true, CancellationToken.None));
+
+        Assert.Equal(2, factory.CreateCount);
+    }
+
+    [Fact]
+    public async Task Host_reported_error_is_not_retried()
+    {
+        // 宿主 self-report 的 error（插件抛异常）不是进程死亡：不重建、不重试。
+        var process = new FakeHostProcess(
+            OkOutcome(),
+            failure: new PluginHostException("plugin threw"),
+            markExitedOnFailure: false);
+        var factory = new FakeHostProcessFactory(process);
+        var client = new PluginHostClient(factory, TimeSpan.FromMinutes(1));
+
+        await Assert.ThrowsAsync<PluginHostException>(() =>
+            client.ScanAsync(Installation("com.acme.foo"), forceFull: true, CancellationToken.None));
+
+        Assert.Equal(1, factory.CreateCount);
+        Assert.Equal(1, process.ScanCount);
+        Assert.True(process.Killed);
     }
 
     [Fact]
@@ -161,16 +215,20 @@ public class PluginHostClientTests
     public async Task Real_host_end_to_end_with_fixture_plugin()
     {
         var pluginDirectory = TestPluginDirectory.CopyToTemp();
+        var pluginDataRoot = Directory.CreateTempSubdirectory("tokenmetry-plugin-data-").FullName;
         try
         {
-            // 宿主协议里 --data-dir 由安装目录充当：fixture 从这里读 usage.jsonl。
-            await File.WriteAllTextAsync(
-                Path.Combine(pluginDirectory, "usage.jsonl"),
-                """{"sessionId":"s1","projectPath":"/work/foo","model":"foo-large","inputTokens":10,"outputTokens":5}""");
-
             var manifest = PluginJson.DeserializeManifest(
                 File.ReadAllText(Path.Combine(pluginDirectory, "plugin.json")))
                 ?? throw new InvalidOperationException("fixture plugin.json was not valid JSON");
+
+            // 宿主把 --data-dir 固定为 <root>/<pluginId>；fixture 从这里读 usage.jsonl。
+            var dataDirectory = Directory.CreateDirectory(
+                Path.Combine(pluginDataRoot, manifest.Id)).FullName;
+            await File.WriteAllTextAsync(
+                Path.Combine(dataDirectory, "usage.jsonl"),
+                """{"sessionId":"s1","projectPath":"/work/foo","model":"foo-large","inputTokens":10,"outputTokens":5}""");
+
             var installation = new PluginInstallation(
                 manifest,
                 pluginDirectory,
@@ -179,6 +237,7 @@ public class PluginHostClientTests
 
             var factory = new PluginHostProcessFactory(
                 typeof(Tokenmetry.PluginHost.PluginHostServer).Assembly.Location,
+                pluginDataRoot,
                 log: null);
             await using var client = new PluginHostClient(factory, TimeSpan.FromMinutes(1));
 
@@ -193,6 +252,7 @@ public class PluginHostClientTests
         finally
         {
             TryDelete(pluginDirectory);
+            TryDelete(pluginDataRoot);
         }
     }
 
@@ -254,15 +314,18 @@ internal sealed class FakeHostProcess : IPluginHostProcess
     private readonly PluginScanOutcome? _outcome;
     private readonly TimeSpan _delay;
     private readonly Exception? _failure;
+    private readonly bool _markExitedOnFailure;
 
     public FakeHostProcess(
         PluginScanOutcome? outcome = null,
         TimeSpan delay = default,
-        Exception? failure = null)
+        Exception? failure = null,
+        bool markExitedOnFailure = true)
     {
         _outcome = outcome;
         _delay = delay;
         _failure = failure;
+        _markExitedOnFailure = markExitedOnFailure;
     }
 
     public int ScanCount { get; private set; }
@@ -270,6 +333,8 @@ internal sealed class FakeHostProcess : IPluginHostProcess
     public bool LastForceFull { get; private set; }
 
     public bool Killed { get; private set; }
+
+    public bool HasExited { get; set; }
 
     public async Task<PluginScanOutcome> ScanAsync(bool forceFull, CancellationToken cancellationToken)
     {
@@ -283,6 +348,11 @@ internal sealed class FakeHostProcess : IPluginHostProcess
 
         if (_failure is not null)
         {
+            if (_markExitedOnFailure)
+            {
+                HasExited = true;
+            }
+
             throw _failure;
         }
 
@@ -292,6 +362,7 @@ internal sealed class FakeHostProcess : IPluginHostProcess
     public ValueTask DisposeAsync()
     {
         Killed = true;
+        HasExited = true;
         return ValueTask.CompletedTask;
     }
 }

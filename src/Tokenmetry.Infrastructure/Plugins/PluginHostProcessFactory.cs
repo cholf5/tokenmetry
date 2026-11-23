@@ -9,20 +9,29 @@ namespace Tokenmetry.Infrastructure.Plugins;
 /// <summary>
 /// 启动真实宿主进程（<c>dotnet Tokenmetry.PluginHost.dll</c> 或直接执行 apphost）。
 /// stdout 是 NDJSON 协议；stderr 逐行交给 <c>log</c> 回调（应用日志），持续排空避免管道死锁。
+/// 每个插件的 <c>--data-dir</c> 固定为 <c>&lt;pluginDataRoot&gt;/&lt;pluginId&gt;</c>，与安装目录分离，
+/// 升级/卸载插件文件不会误删该插件的解析缓存。
 /// </summary>
 public sealed class PluginHostProcessFactory : IPluginHostProcessFactory
 {
     private readonly string _hostPath;
+    private readonly string _pluginDataRoot;
     private readonly Action<string>? _log;
 
-    public PluginHostProcessFactory(string hostPath, Action<string>? log)
+    public PluginHostProcessFactory(string hostPath, string pluginDataRoot, Action<string>? log)
     {
         if (string.IsNullOrWhiteSpace(hostPath))
         {
             throw new ArgumentException("host path must be provided", nameof(hostPath));
         }
 
+        if (string.IsNullOrWhiteSpace(pluginDataRoot))
+        {
+            throw new ArgumentException("plugin data root must be provided", nameof(pluginDataRoot));
+        }
+
         _hostPath = hostPath;
+        _pluginDataRoot = Path.GetFullPath(pluginDataRoot);
         _log = log;
     }
 
@@ -69,11 +78,13 @@ public sealed class PluginHostProcessFactory : IPluginHostProcessFactory
             startInfo.ArgumentList.Add(_hostPath);
         }
 
-        // 插件包目录；本轮没有独立的 plugin-data 根，安装目录同时充当插件可丢弃缓存目录。
+        var dataDirectory = Path.Combine(_pluginDataRoot, installation.Manifest.Id);
+        Directory.CreateDirectory(dataDirectory);
+
         startInfo.ArgumentList.Add("--plugin-dir");
         startInfo.ArgumentList.Add(installation.Directory);
         startInfo.ArgumentList.Add("--data-dir");
-        startInfo.ArgumentList.Add(installation.Directory);
+        startInfo.ArgumentList.Add(dataDirectory);
         startInfo.ArgumentList.Add("--host-version");
         startInfo.ArgumentList.Add(
             typeof(PluginHostProcessFactory).Assembly.GetName().Version?.ToString() ?? "0.0.0");
@@ -123,11 +134,36 @@ internal sealed class PluginHostProcess : IPluginHostProcess
     private readonly Process _process;
     private readonly string _pluginId;
     private bool _disposed;
+    private volatile bool _communicationFailed;
 
     public PluginHostProcess(Process process, string pluginId)
     {
         _process = process;
         _pluginId = pluginId;
+    }
+
+    /// <summary>
+    /// 已释放、通信已失败（EOF / IO 异常）或操作系统报告进程已退出。通信失败时立即返回 true，
+    /// 不依赖 <see cref="Process.HasExited"/> 的时序，保证客户端能确定性地在本次调用内重建。
+    /// </summary>
+    public bool HasExited
+    {
+        get
+        {
+            if (_disposed || _communicationFailed)
+            {
+                return true;
+            }
+
+            try
+            {
+                return _process.HasExited;
+            }
+            catch (InvalidOperationException)
+            {
+                return true;
+            }
+        }
     }
 
     public async Task<PluginScanOutcome> ScanAsync(bool forceFull, CancellationToken cancellationToken)
@@ -154,6 +190,7 @@ internal sealed class PluginHostProcess : IPluginHostProcess
         catch (Exception exception) when (
             exception is IOException or ObjectDisposedException or InvalidOperationException)
         {
+            _communicationFailed = true;
             throw new PluginHostException(
                 $"failed to send scan request to plugin host for '{_pluginId}': {exception.Message}",
                 exception);
@@ -177,6 +214,7 @@ internal sealed class PluginHostProcess : IPluginHostProcess
             catch (Exception exception) when (
                 exception is IOException or ObjectDisposedException or InvalidOperationException)
             {
+                _communicationFailed = true;
                 throw new PluginHostException(
                     $"failed to read from plugin host for '{_pluginId}': {exception.Message}",
                     exception);
@@ -184,6 +222,7 @@ internal sealed class PluginHostProcess : IPluginHostProcess
 
             if (line is null)
             {
+                _communicationFailed = true;
                 throw new PluginHostException(
                     $"plugin host for '{_pluginId}' exited before completing the scan");
             }
