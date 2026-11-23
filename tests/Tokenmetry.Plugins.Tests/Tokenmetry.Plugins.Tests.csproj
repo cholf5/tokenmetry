@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\Tokenmetry.PluginHost\Tokenmetry.PluginHost.csproj" />
     <ProjectReference Include="..\..\src\Tokenmetry.Infrastructure\Tokenmetry.Infrastructure.csproj" />
     <ProjectReference Include="..\fixtures\Tokenmetry.TestPlugin\Tokenmetry.TestPlugin.csproj" />
+    <ProjectReference Include="..\..\tools\Tokenmetry.PluginValidator\Tokenmetry.PluginValidator.csproj" />
   </ItemGroup>
 
   <!-- 宿主集成测试用 `dotnet <host.dll>` 起真实子进程。ProjectReference 不保证把

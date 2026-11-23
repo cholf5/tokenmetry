@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "com.example.plugin-template",
+  "agentId": "com.example.plugin-template",
+  "displayName": "Plugin Template",
+  "version": "1.0.0",
+  "apiVersion": "1",
+  "entryAssembly": "PluginTemplate.dll",
+  "entryType": "PluginTemplate.UsagePlugin",
+  "icon": "icon.png",
+  "author": "Your Company",
+  "description": "Replace with your private agent usage source."
+}

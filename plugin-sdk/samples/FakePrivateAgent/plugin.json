@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "com.example.fake-private-agent",
+  "agentId": "com.example.fake-private-agent",
+  "displayName": "Fake Private Agent",
+  "version": "1.0.0",
+  "apiVersion": "1",
+  "entryAssembly": "FakePrivateAgent.dll",
+  "entryType": "FakePrivateAgent.FakeUsagePlugin",
+  "icon": "icon.png",
+  "author": "Example Corp",
+  "description": "Synthetic private agent used by the Tokenmetry plugin SDK sample."
+}

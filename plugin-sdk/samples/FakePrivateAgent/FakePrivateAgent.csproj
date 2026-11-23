@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+
+    <!-- 宿主用 AssemblyDependencyResolver 解析依赖，插件必须带 .deps.json。 -->
+    <GenerateDependencyFile>true</GenerateDependencyFile>
+
+    <!-- 类库默认不把 NuGet 依赖复制到输出；插件包需要带上第三方依赖，显式打开。
+         注意：Tokenmetry.Plugin.Abstractions.dll 也会出现在输出里，打包时必须排除。 -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 契约包由 plugin-sdk/contract/ 下的本地 NuGet.config 提供。 -->
+    <PackageReference Include="Tokenmetry.Plugin.Abstractions" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="icon.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
