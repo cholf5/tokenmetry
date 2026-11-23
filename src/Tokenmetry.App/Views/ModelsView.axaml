@@ -105,6 +105,7 @@
                                                 VerticalAlignment="Center">
                                         <Border Classes="agent-chip"
                                                 c:AgentChip.Logo="{Binding AssociatedAgentVendor}"
+                                                c:AgentChip.CustomIcon="{Binding CustomIcon}"
                                                 IsVisible="{Binding HasAssociatedAgentIcon}">
                                             <Panel>
                                                 <TextBlock Text="{Binding AssociatedAgentGlyph}"/>

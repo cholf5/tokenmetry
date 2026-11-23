@@ -93,7 +93,8 @@
                                          让名字列拿到剩余宽度并由 TextTrimming 收缩。 -->
                                     <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="6"
                                           VerticalAlignment="Center">
-                                        <Border Grid.Column="0" Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}">
+                                        <Border Grid.Column="0" Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
+                                                c:AgentChip.CustomIcon="{Binding CustomIcon}">
                                             <Panel>
                                                 <TextBlock Text="{Binding IconGlyph}"/>
                                                 <Image Classes="agent-logo"/>
@@ -178,7 +179,8 @@
                                     <TextBlock Grid.Row="0" Grid.Column="0" Classes="page-subtitle" VerticalAlignment="Center"
                                                Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
                                     <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="6">
-                                        <Border Grid.Column="0" Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}">
+                                        <Border Grid.Column="0" Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
+                                                c:AgentChip.CustomIcon="{Binding CustomIcon}">
                                             <Panel>
                                                 <TextBlock Text="{Binding IconGlyph}"/>
                                                 <Image Classes="agent-logo"/>

@@ -57,6 +57,9 @@ public sealed class StatusPopoverController
     private readonly DateRangeService? _dateService;
     private readonly ModelAvatarResolver? _modelAvatars;
 
+    /// <summary>Agent 图标解析（插件自定义图标，Task 7）；null = 纯内置映射。</summary>
+    private readonly AgentIconService? _agentIcons;
+
     private StatusPopoverWindow? _window;
     private StatusPopoverViewModel? _viewModel;
     private DateTimeOffset _lastFocusLostUtc = DateTimeOffset.MinValue;
@@ -71,7 +74,8 @@ public sealed class StatusPopoverController
         IUsageQueryService? query,
         DashboardViewModel? dashboard,
         DateRangeService? dateService,
-        ModelAvatarResolver? modelAvatars = null)
+        ModelAvatarResolver? modelAvatars = null,
+        AgentIconService? agentIcons = null)
     {
         _mainWindow = mainWindow;
         _shell = shell;
@@ -79,6 +83,7 @@ public sealed class StatusPopoverController
         _dashboard = dashboard;
         _dateService = dateService;
         _modelAvatars = modelAvatars;
+        _agentIcons = agentIcons;
     }
 
     /// <summary>内容层 VM（懒建；App 启动接线后由托盘点击首次触发；测试可经它直接装配）。</summary>
@@ -95,7 +100,8 @@ public sealed class StatusPopoverController
                     navigateToPage: NavigateTo,
                     openAgentSessions: OpenAgentSessions,
                     openSettings: OpenSettings,
-                    modelAvatars: _modelAvatars);
+                    modelAvatars: _modelAvatars,
+                    agentIcons: _agentIcons);
             }
 
             return _viewModel;

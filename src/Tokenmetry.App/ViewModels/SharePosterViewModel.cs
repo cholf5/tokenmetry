@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Avalonia.Media;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
@@ -15,9 +16,13 @@ namespace Tokenmetry.App.ViewModels;
 /// </summary>
 public sealed class SharePosterViewModel
 {
-    public SharePosterViewModel(SharePosterData data, Func<string, ModelAvatarVisual?>? modelIconResolver = null)
+    public SharePosterViewModel(
+        SharePosterData data,
+        Func<string, ModelAvatarVisual?>? modelIconResolver = null,
+        AgentIconService? agentIcons = null)
     {
         Data = data;
+        var icons = agentIcons ?? AgentIconService.BuiltInOnly;
         var totals = data.Totals;
 
         var range = data.Request.RangeStart.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture)
@@ -41,8 +46,8 @@ public sealed class SharePosterViewModel
         // 类型构成走输入/输出/缓存（缓存 = 读取 + 写入）与固定三色令牌。
         AgentSegments = CreateAgentSegments(data.Agents);
         TypeSegments = OverviewViewModel.CreateTokenTypeSegments(data.Daily);
-        TrayAgentRows = BuildTrayRows(data.Agents, 4);
-        TrayModelRows = BuildTrayRows(data.Models, 3, modelIconResolver ?? ModelAvatarVisual.FromName);
+        TrayAgentRows = BuildTrayRows(data.Agents, 4, agentIcons: icons);
+        TrayModelRows = BuildTrayRows(data.Models, 3, modelIcons: modelIconResolver ?? ModelAvatarVisual.FromName);
         TrayTypes = BuildTrayTypes(TypeSegments);
         // 打卡热力图（样式 A）：窗口/格子/色阶是纯函数，构造时算好（视图 code-behind 只负责摆格子）
         Heat = SharePosterHeatmap.Build(data.Request.RangeStart, data.Request.RangeEnd, data.Daily);
@@ -355,8 +360,10 @@ public sealed class SharePosterViewModel
     private static IReadOnlyList<SharePosterTrayRow> BuildTrayRows(
         IReadOnlyList<SharePosterRanking> rankings,
         int take,
-        Func<string, ModelAvatarVisual?>? modelIcons = null)
+        Func<string, ModelAvatarVisual?>? modelIcons = null,
+        AgentIconService? agentIcons = null)
     {
+        var icons = agentIcons ?? AgentIconService.BuiltInOnly;
         var rows = rankings
             .Where(r => r.Tokens > 0)
             .OrderByDescending(r => r.Tokens)
@@ -367,7 +374,7 @@ public sealed class SharePosterViewModel
         return rows.Select(r =>
         {
             var avatar = modelIcons?.Invoke(r.Name);
-            var agent = modelIcons is null ? AgentVisualMap.Resolve(r.Name) : null;
+            var agent = modelIcons is null ? icons.Resolve(r.Name) : null;
             return new SharePosterTrayRow(
                 r.Name,
                 TrendChart.FormatCompactTokens(r.Tokens),
@@ -375,7 +382,8 @@ public sealed class SharePosterViewModel
                 max == 0 ? 0 : (double)r.Tokens / max * 100,
                 agent?.LogoVendor,
                 agent?.Glyph.ToString() ?? string.Empty,
-                avatar);
+                avatar,
+                agent?.CustomIcon);
         }).ToArray();
     }
 
@@ -428,6 +436,7 @@ public sealed class SharePosterViewModel
 /// <param name="AgentVendor">Agent 品牌变体名（模型行为 null；驱动 AgentChip 伪类）。</param>
 /// <param name="AgentGlyph">Agent 字形兜底（无 lobe 标的 Agent）。</param>
 /// <param name="Avatar">模型头像视觉（Agent 行为 null）。</param>
+/// <param name="CustomIcon">Agent 的插件自定义图标（非 null 时经 AgentChip.CustomIcon 显示；内置 Agent 恒 null）。</param>
 public sealed record SharePosterTrayRow(
     string Name,
     string TokensText,
@@ -435,7 +444,8 @@ public sealed record SharePosterTrayRow(
     double BarValue,
     string? AgentVendor = null,
     string AgentGlyph = "",
-    ModelAvatarVisual? Avatar = null)
+    ModelAvatarVisual? Avatar = null,
+    IImage? CustomIcon = null)
 {
     public bool IsAgent => AgentVendor is not null;
 

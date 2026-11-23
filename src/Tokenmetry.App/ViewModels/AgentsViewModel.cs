@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Localization;
@@ -21,12 +22,13 @@ namespace Tokenmetry.App.ViewModels;
 /// </summary>
 public sealed class AgentKpiCardViewModel
 {
-    public AgentKpiCardViewModel(DimensionUsageRow row)
+    public AgentKpiCardViewModel(DimensionUsageRow row, AgentIconService? agentIcons = null)
     {
         Name = row.Key;
-        var icon = AgentVisualMap.Resolve(row.Key);
+        var icon = (agentIcons ?? AgentIconService.BuiltInOnly).Resolve(row.Key);
         Glyph = icon.Glyph.ToString();
         LogoVendor = icon.LogoVendor;
+        CustomIcon = icon.CustomIcon;
         TokensText = TrendChart.FormatCompactTokens(row.TotalTokens);
         FootText = string.Format(
             Translations.Instance.AgentKpiFootFormat,
@@ -42,6 +44,9 @@ public sealed class AgentKpiCardViewModel
 
     /// <summary>品牌 logo 变体名（经 AgentChip.Logo 附加属性 → agent-* 伪类 DynamicResource 取 AppAgentLogo*）。</summary>
     public string LogoVendor { get; }
+
+    /// <summary>插件自定义图标（非 null 时经 AgentChip.CustomIcon 显示；内置 Agent 恒 null）。</summary>
+    public IImage? CustomIcon { get; }
 
     /// <summary>主数值：总 Token 紧凑格式（同总览 KPI 卡口径）。</summary>
     public string TokensText { get; }
@@ -60,12 +65,13 @@ public sealed class AgentKpiCardViewModel
 /// </summary>
 public sealed class AgentRankRowViewModel
 {
-    public AgentRankRowViewModel(DimensionUsageRow row)
+    public AgentRankRowViewModel(DimensionUsageRow row, AgentIconService? agentIcons = null)
     {
         Name = row.Key;
-        var icon = AgentVisualMap.Resolve(row.Key);
+        var icon = (agentIcons ?? AgentIconService.BuiltInOnly).Resolve(row.Key);
         Glyph = icon.Glyph.ToString();
         LogoVendor = icon.LogoVendor;
+        CustomIcon = icon.CustomIcon;
         SessionCountText = row.SessionCount.ToString("N0", CultureInfo.InvariantCulture);
         InputTokensText = TrendChart.FormatCompactTokens(row.InputTokens);
         OutputTokensText = TrendChart.FormatCompactTokens(row.OutputTokens);
@@ -81,6 +87,9 @@ public sealed class AgentRankRowViewModel
 
     /// <summary>品牌 logo 变体名（经 AgentChip.Logo 附加属性 → agent-* 伪类 DynamicResource 取 AppAgentLogo*）。</summary>
     public string LogoVendor { get; }
+
+    /// <summary>插件自定义图标（非 null 时经 AgentChip.CustomIcon 显示；内置 Agent 恒 null）。</summary>
+    public IImage? CustomIcon { get; }
 
     public string SessionCountText { get; }
 
@@ -119,6 +128,9 @@ public partial class AgentsViewModel : ViewModelBase, IDisposable, IDataRefreshA
 
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
+
+    /// <summary>Agent 图标解析（插件自定义图标，Task 7）；未注入（测试/预览）时纯内置映射。</summary>
+    private readonly AgentIconService _agentIcons;
 
     /// <summary>行点击跳转会话页的外壳回调（Agent 名为参）；null（测试/预览）时 no-op。</summary>
     private readonly Action<string>? _openSessionsForAgent;
@@ -164,12 +176,14 @@ public partial class AgentsViewModel : ViewModelBase, IDisposable, IDataRefreshA
         PageDescriptor page,
         FilterStateService filters,
         IUsageQueryService query,
-        Action<string>? openSessionsForAgent = null)
+        Action<string>? openSessionsForAgent = null,
+        AgentIconService? agentIcons = null)
     {
         Page = page;
         _filters = filters;
         _query = query;
         _openSessionsForAgent = openSessionsForAgent;
+        _agentIcons = agentIcons ?? AgentIconService.BuiltInOnly;
         filters.PropertyChanged += OnFilterPropertyChanged;
         _ = LoadAsync();
     }
@@ -219,13 +233,13 @@ public partial class AgentsViewModel : ViewModelBase, IDisposable, IDataRefreshA
             .OrderByDescending(row => row.TotalTokens)
             .ThenBy(row => row.Key, StringComparer.Ordinal)
             .ToList();
-        Rows = ordered.Select(row => new AgentRankRowViewModel(row)).ToList();
+        Rows = ordered.Select(row => new AgentRankRowViewModel(row, _agentIcons)).ToList();
 
         // Top4 KPI：token 降序前 4（不足补 null 槽位隐藏；零 token Agent 排序自然靠后）
-        Kpi1 = ordered.Count > 0 ? new AgentKpiCardViewModel(ordered[0]) : null;
-        Kpi2 = ordered.Count > 1 ? new AgentKpiCardViewModel(ordered[1]) : null;
-        Kpi3 = ordered.Count > 2 ? new AgentKpiCardViewModel(ordered[2]) : null;
-        Kpi4 = ordered.Count > 3 ? new AgentKpiCardViewModel(ordered[3]) : null;
+        Kpi1 = ordered.Count > 0 ? new AgentKpiCardViewModel(ordered[0], _agentIcons) : null;
+        Kpi2 = ordered.Count > 1 ? new AgentKpiCardViewModel(ordered[1], _agentIcons) : null;
+        Kpi3 = ordered.Count > 2 ? new AgentKpiCardViewModel(ordered[2], _agentIcons) : null;
+        Kpi4 = ordered.Count > 3 ? new AgentKpiCardViewModel(ordered[3], _agentIcons) : null;
     }
 
     partial void OnSelectedAgentChanged(AgentRankRowViewModel? value)

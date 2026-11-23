@@ -63,6 +63,7 @@
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
                                                     VerticalAlignment="Top">
                                             <Border Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
+                                                    c:AgentChip.CustomIcon="{Binding CustomIcon}"
                                                     VerticalAlignment="Center">
                                                 <Panel>
                                                     <TextBlock Text="{Binding Glyph}"/>

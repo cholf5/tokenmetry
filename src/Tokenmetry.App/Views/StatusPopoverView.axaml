@@ -306,7 +306,8 @@
                                     CommandParameter="{Binding AgentId}">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                     <Border Grid.Column="0" Classes="agent-chip-lg"
-                                            c:AgentChip.Logo="{Binding LogoVendor}">
+                                            c:AgentChip.Logo="{Binding LogoVendor}"
+                                            c:AgentChip.CustomIcon="{Binding CustomIcon}">
                                         <Panel>
                                             <TextBlock Text="{Binding Glyph}"/>
                                             <Image Classes="agent-logo"/>

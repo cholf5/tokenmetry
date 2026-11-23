@@ -35,14 +35,20 @@ public sealed class SessionDetailViewModel
     /// <summary>主文本：项目展示名（与列表行同口径，空则原始路径再空会话标识）。</summary>
     public string TitleText => Row.TitleText;
 
-    /// <summary>完整会话标识（SelectableTextBlock 呈现，可划选复制）。</summary>
-    public string SessionId => Source.SessionId;
+    /// <summary>完整会话标识（SelectableTextBlock 呈现，可划选复制）。插件会话剥掉
+    /// <c>plugin:&lt;id&gt;:</c> 命名空间前缀后显示原文（身份仍是完整串）。</summary>
+    public string SessionId => PluginSessionId.TryStrip(Source.SessionId, out var rawSessionId)
+        ? rawSessionId
+        : Source.SessionId;
 
     public string Agent => Source.Agent;
 
     public string IconGlyph => Row.IconGlyph;
 
     public string LogoVendor => Row.LogoVendor;
+
+    /// <summary>插件自定义图标（经 AgentChip.CustomIcon 显示；内置 Agent 恒 null）。</summary>
+    public IImage? CustomIcon => Row.CustomIcon;
 
     public string ModelText => Row.ModelText;
 

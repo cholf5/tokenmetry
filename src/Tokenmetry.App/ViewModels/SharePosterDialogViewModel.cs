@@ -30,6 +30,9 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     private readonly Func<CancellationToken, Task<SharePosterDataBundle>>? _reload;
     private readonly Action<Func<Task>> _reloadScheduler;
     private readonly Func<string, ModelAvatarVisual?>? _modelIcons;
+
+    /// <summary>Agent 图标解析（插件自定义图标，Task 7）；未注入（测试/预览）时纯内置映射。</summary>
+    private readonly AgentIconService _agentIcons;
     private readonly Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask, double>? _onChoiceChanged;
 
     /// <summary>当前数据轮（范围 + 快照输入的唯一真相）；重查成功后整轮替换。</summary>
@@ -71,7 +74,8 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         Func<CancellationToken, Task<SharePosterDataBundle>>? reload = null,
         Func<string, ModelAvatarVisual?>? modelIconResolver = null,
         Action<SharePosterStyle, SharePosterLayout, SharePosterTheme, SharePosterProjectMask, double>? onChoiceChanged = null,
-        Action<Func<Task>>? reloadScheduler = null)
+        Action<Func<Task>>? reloadScheduler = null,
+        AgentIconService? agentIcons = null)
     {
         ArgumentNullException.ThrowIfNull(initialData);
         _data = initialData;
@@ -87,6 +91,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
         _filters = filters;
         _timePicker = timePicker;
         _modelIcons = modelIconResolver;
+        _agentIcons = agentIcons ?? AgentIconService.BuiltInOnly;
         _onChoiceChanged = onChoiceChanged;
         if (filters is not null)
         {
@@ -383,7 +388,7 @@ public sealed class SharePosterDialogViewModel : ViewModelBase
     public SharePosterRequest CurrentRequest =>
         new(_layout, _theme, _mask, _data.RangeStart, _data.RangeEnd, _style, _margin);
 
-    private SharePosterViewModel Build() => new(_data.Compose(CurrentRequest), _modelIcons);
+    private SharePosterViewModel Build() => new(_data.Compose(CurrentRequest), _modelIcons, _agentIcons);
 
     /// <summary>选项任一实际变化后通知持有方（真实路径回写 settings.json——上次使用即下次默认）。
     /// 每组各报一次（样式切换连带版式收口时报两条）是可接受的幂等冗余；收口不改值时不报。</summary>

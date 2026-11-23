@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Controls;
@@ -27,7 +28,10 @@ namespace Tokenmetry.App.ViewModels;
 /// </summary>
 public sealed class ModelDetailRowViewModel
 {
-    public ModelDetailRowViewModel(DimensionUsageRow row, ModelAvatarResolver? avatars = null)
+    public ModelDetailRowViewModel(
+        DimensionUsageRow row,
+        ModelAvatarResolver? avatars = null,
+        AgentIconService? agentIcons = null)
     {
         Name = row.Key;
         // 头像（ModelAvatarResolver）：目录里该模型有用户自定义头像（图标选择器四模式）则跟随，
@@ -56,9 +60,10 @@ public sealed class ModelDetailRowViewModel
         // 才给图标（无会话数据 → "—" 时整槽隐藏，不猜）；多 Agent 共用时给主用 Agent 的标。
         var displayedAgent = row.AgentCount is >= 1 ? row.DominantAgent : null;
         HasAssociatedAgentIcon = !string.IsNullOrWhiteSpace(displayedAgent);
-        var agentIcon = AgentVisualMap.Resolve(displayedAgent ?? string.Empty);
+        var agentIcon = (agentIcons ?? AgentIconService.BuiltInOnly).Resolve(displayedAgent ?? string.Empty);
         AssociatedAgentGlyph = agentIcon.Glyph.ToString();
         AssociatedAgentVendor = agentIcon.LogoVendor;
+        CustomIcon = agentIcon.CustomIcon;
         // 数字口径政策（2026-10-29 定稿，出处 docs/plans/2026-10-29-ui-review-p0p1-fixes.md）：
         // 明细表（会话 / 模型，含合计行）精确 N0 千分位——逐 token 可读，对齐 ccusage 对账锚点；
         // 汇总面（KPI 卡 / 环心 / 图例 / 总览预览表）紧凑随语言；Agent 统计表与项目排行表是
@@ -88,6 +93,9 @@ public sealed class ModelDetailRowViewModel
 
     /// <summary>关联 Agent 的品牌 logo 变体名（AgentChip.Logo → agent-* 伪类取 AppAgentLogo*）。</summary>
     public string AssociatedAgentVendor { get; }
+
+    /// <summary>关联 Agent 的插件自定义图标（非 null 时经 AgentChip.CustomIcon 显示；内置 Agent 恒 null）。</summary>
+    public IImage? CustomIcon { get; }
 
     /// <summary>多 Agent 共用（视图可加聚合提示；单 Agent / 无数据为 false）。</summary>
     public bool IsMultiAgent { get; }
@@ -192,6 +200,10 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
     private readonly ModelAvatarResolver? _avatars;
+
+    /// <summary>Agent 图标解析（插件自定义图标，Task 7）；未注入（测试/预览）时纯内置映射。</summary>
+    private readonly AgentIconService _agentIcons;
+
     private readonly Action<string>? _addModelRequested;
     private readonly Action<string>? _addMappingRequested;
 
@@ -227,7 +239,8 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
         IUsageQueryService query,
         ModelAvatarResolver? avatars = null,
         Action<string>? addModelRequested = null,
-        Action<string>? addMappingRequested = null)
+        Action<string>? addMappingRequested = null,
+        AgentIconService? agentIcons = null)
     {
         Page = page;
         _filters = filters;
@@ -235,6 +248,7 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
         _avatars = avatars;
         _addModelRequested = addModelRequested;
         _addMappingRequested = addMappingRequested;
+        _agentIcons = agentIcons ?? AgentIconService.BuiltInOnly;
         filters.PropertyChanged += OnFilterPropertyChanged;
         _ = LoadAsync();
     }
@@ -268,7 +282,7 @@ public partial class ModelsViewModel : ViewModelBase, IDisposable, IDataRefreshA
                 .OrderByDescending(row => row.TotalTokens)
                 .ThenBy(row => row.Key, StringComparer.Ordinal)
                 .ToList();
-            Rows = ordered.Select(row => new ModelDetailRowViewModel(row, _avatars)).ToList();
+            Rows = ordered.Select(row => new ModelDetailRowViewModel(row, _avatars, _agentIcons)).ToList();
             Totals = ordered.Count > 0 ? new ModelsTotalViewModel(ordered) : null;
             LoadError = null;
         }

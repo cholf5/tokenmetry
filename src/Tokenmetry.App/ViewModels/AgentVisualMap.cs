@@ -1,4 +1,5 @@
 using System;
+using Avalonia.Media;
 
 namespace Tokenmetry.App.ViewModels;
 
@@ -6,7 +7,9 @@ namespace Tokenmetry.App.ViewModels;
 /// 翻译成 agent-* 伪类，选中 SharedStyles 里的行内官方 logo）+ 兜底字形。不可变，行 VM 持有。</summary>
 /// <param name="LogoVendor">品牌变体名（claudecode/codex/…/dsh；未识别落 generic）。</param>
 /// <param name="Glyph">无 lobe 对应 Agent（未识别 / 命名存储）的字形兜底；有 logo 的变体由样式隐藏该字形。</param>
-public sealed record AgentVisual(string LogoVendor, char Glyph);
+/// <param name="CustomIcon">插件自定义图标（Task 7，PNG 位图）；内置 Agent 恒为 null——非 null 时
+/// SharedStyles 的 agent-custom 规则以它替换品牌 logo，内置品牌样式不受影响。</param>
+public sealed record AgentVisual(string LogoVendor, char Glyph, IImage? CustomIcon = null);
 
 /// <summary>
 /// Agent 名 → 图标的稳定映射（I-034，Agent 统计页 KPI 卡 / 会话明细 Agent 列 / 右栏最近会话行共用）。

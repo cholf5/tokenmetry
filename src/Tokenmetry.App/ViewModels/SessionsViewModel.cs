@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -88,18 +89,23 @@ public sealed class SessionSortOption : INotifyPropertyChanged, IEquatable<Sessi
 /// </summary>
 public sealed class SessionRowViewModel
 {
-    public SessionRowViewModel(SessionListRow row)
+    public SessionRowViewModel(SessionListRow row, AgentIconService? agentIcons = null)
     {
         Row = row;
         SessionId = row.SessionId;
         Agent = row.Agent;
+        // 插件会话 id 落库前编码为 plugin:<pluginId>:<raw>（跨源防撞）；展示时剥回原文，
+        // 存储/身份仍用完整串（SessionId 不改）。
+        SessionIdText = PluginSessionId.TryStrip(row.SessionId, out var rawSessionId)
+            ? rawSessionId
+            : row.SessionId;
         // facts 无标题字段（I-002/I-029，隐私红线不存会话内容）：主文本升级为项目展示名
         // （"这是哪个项目的活"），会话标识降为副文本 + tooltip——诚实且比 UUID 有信息量
-        TitleText = FirstNotEmpty(row.ProjectDisplayName, row.Project, row.SessionId);
-        SessionIdText = row.SessionId;
-        var icon = AgentVisualMap.Resolve(row.Agent);
+        TitleText = FirstNotEmpty(row.ProjectDisplayName, row.Project, SessionIdText);
+        var icon = (agentIcons ?? AgentIconService.BuiltInOnly).Resolve(row.Agent);
         IconGlyph = icon.Glyph.ToString();
         LogoVendor = icon.LogoVendor;
+        CustomIcon = icon.CustomIcon;
         ModelText = FirstNotEmpty(row.DominantModel, "—");
         // 数字口径：明细表保留逐条精确值（千分位，便于对账单条会话）；聚合/排行表与 KPI
         // 走紧凑格式（万/亿或 K/M），避免同一屏里混用三种写法。
@@ -126,6 +132,9 @@ public sealed class SessionRowViewModel
 
     /// <summary>品牌 logo 变体名（颜色/图形经 SharedStyles agent-* 伪类 DynamicResource 呈现，VM 不持画刷）。</summary>
     public string LogoVendor { get; }
+
+    /// <summary>插件自定义图标（非 null 时经 AgentChip.CustomIcon 显示；内置 Agent 恒 null）。</summary>
+    public IImage? CustomIcon { get; }
 
     public string ModelText { get; }
 
@@ -169,6 +178,9 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
 
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _query;
+
+    /// <summary>Agent 图标解析（插件自定义图标，Task 7）；未注入（测试/预览）时纯内置映射。</summary>
+    private readonly AgentIconService _agentIcons;
 
     /// <summary>加载序号：重置型加载自增；跨 await 序号不一致的响应/异常直接丢弃（同 OverviewViewModel）。</summary>
     private int _loadSequence;
@@ -214,11 +226,13 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
     public SessionsViewModel(
         PageDescriptor page,
         FilterStateService filters,
-        IUsageQueryService query)
+        IUsageQueryService query,
+        AgentIconService? agentIcons = null)
     {
         Page = page;
         _filters = filters;
         _query = query;
+        _agentIcons = agentIcons ?? AgentIconService.BuiltInOnly;
 
         filters.PropertyChanged += OnFilterPropertyChanged;
         _ = LoadAsync();
@@ -423,7 +437,7 @@ public partial class SessionsViewModel : ViewModelBase, IDisposable, IDataRefres
         }
     }
 
-    private static SessionRowViewModel MapRow(SessionListRow row) => new(row);
+    private SessionRowViewModel MapRow(SessionListRow row) => new(row, _agentIcons);
 
     // ── 展示格式（internal 供测试对账）──
 

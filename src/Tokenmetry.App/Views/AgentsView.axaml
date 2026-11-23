@@ -38,7 +38,8 @@
                     IsVisible="{Binding Kpi1, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <StackPanel x:DataType="vm:AgentKpiCardViewModel" DataContext="{Binding Kpi1}">
                     <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}">
+                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}"
+                                c:AgentChip.CustomIcon="{Binding CustomIcon}">
                             <Panel>
                                 <TextBlock Text="{Binding Glyph}"/>
                                 <Image Classes="agent-logo"/>
@@ -57,7 +58,8 @@
                     IsVisible="{Binding Kpi2, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <StackPanel x:DataType="vm:AgentKpiCardViewModel" DataContext="{Binding Kpi2}">
                     <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}">
+                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}"
+                                c:AgentChip.CustomIcon="{Binding CustomIcon}">
                             <Panel>
                                 <TextBlock Text="{Binding Glyph}"/>
                                 <Image Classes="agent-logo"/>
@@ -76,7 +78,8 @@
                     IsVisible="{Binding Kpi3, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <StackPanel x:DataType="vm:AgentKpiCardViewModel" DataContext="{Binding Kpi3}">
                     <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}">
+                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}"
+                                c:AgentChip.CustomIcon="{Binding CustomIcon}">
                             <Panel>
                                 <TextBlock Text="{Binding Glyph}"/>
                                 <Image Classes="agent-logo"/>
@@ -95,7 +98,8 @@
                     IsVisible="{Binding Kpi4, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <StackPanel x:DataType="vm:AgentKpiCardViewModel" DataContext="{Binding Kpi4}">
                     <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}">
+                        <Border Classes="agent-chip-lg" c:AgentChip.Logo="{Binding LogoVendor}"
+                                c:AgentChip.CustomIcon="{Binding CustomIcon}">
                             <Panel>
                                 <TextBlock Text="{Binding Glyph}"/>
                                 <Image Classes="agent-logo"/>
@@ -151,6 +155,7 @@
                                     <Grid Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="7"
                                           VerticalAlignment="Center">
                                         <Border Grid.Column="0" Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
+                                                c:AgentChip.CustomIcon="{Binding CustomIcon}"
                                                 ToolTip.Tip="{Binding Name}">
                                             <Panel>
                                                 <TextBlock Text="{Binding Glyph}"/>

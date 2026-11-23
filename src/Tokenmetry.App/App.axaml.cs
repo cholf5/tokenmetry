@@ -128,7 +128,8 @@ public partial class App : Application
                 DependencyInjection.AppServices.Get<IUsageQueryService>(),
                 dashboard,
                 DependencyInjection.AppServices.Get<DateRangeService>(),
-                DependencyInjection.AppServices.Get<ModelAvatarResolver>());
+                DependencyInjection.AppServices.Get<ModelAvatarResolver>(),
+                DependencyInjection.AppServices.Get<Services.AgentIconService>());
             var updateService = DependencyInjection.AppServices.Get<Update.UpdateService>();
             // I-CALC 计价器入口：托盘菜单（全平台）+ macOS Tools 菜单共用同一启动器单例。
             var priceCalculatorLauncher = DependencyInjection.AppServices.Get<Services.PriceCalculatorLauncher>();

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Media;
 
 namespace Tokenmetry.App.Controls;
 
@@ -22,14 +23,31 @@ public static class AgentChip
     public static readonly AttachedProperty<string?> LogoProperty =
         AvaloniaProperty.RegisterAttached<Control, string?>("Logo", typeof(AgentChip));
 
+    /// <summary>
+    /// 插件自定义图标（Task 7）：非 null 时给 chip 挂 <c>agent-custom</c> 伪类，SharedStyles 随之把
+    /// 内层 <c>Image.agent-logo</c> 的 Source 绑到本属性并隐藏字形。null（内置 Agent 全部如此）时
+    /// 伪类清除，brand 的 agent-* 样式照常生效——本属性绝不覆盖内置 logo。
+    /// </summary>
+    public static readonly AttachedProperty<IImage?> CustomIconProperty =
+        AvaloniaProperty.RegisterAttached<Control, IImage?>("CustomIcon", typeof(AgentChip));
+
     static AgentChip()
     {
         LogoProperty.Changed.AddClassHandler<Control>(OnLogoChanged);
+        CustomIconProperty.Changed.AddClassHandler<Control>(OnCustomIconChanged);
     }
 
     public static string? GetLogo(Control control) => control.GetValue(LogoProperty);
 
     public static void SetLogo(Control control, string? value) => control.SetValue(LogoProperty, value);
+
+    public static IImage? GetCustomIcon(Control control) => control.GetValue(CustomIconProperty);
+
+    public static void SetCustomIcon(Control control, IImage? value) =>
+        control.SetValue(CustomIconProperty, value);
+
+    private static void OnCustomIconChanged(Control control, AvaloniaPropertyChangedEventArgs e) =>
+        ((IPseudoClasses)control.Classes).Set("agent-custom", e.NewValue is IImage);
 
     private static void OnLogoChanged(Control control, AvaloniaPropertyChangedEventArgs e)
     {

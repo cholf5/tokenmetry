@@ -136,6 +136,11 @@ public static class AppServices
             paths.PluginRegistryFilePath);
         services.AddSingleton(pluginPaths);
         services.AddSingleton<IPluginCatalog>(sp => new PluginCatalog(sp.GetRequiredService<PluginPaths>()));
+        // Task 7：插件 Agent 图标——PNG 解码器（按路径缓存）+ 显示名 → 图标解析（未命中委托内置映射）。
+        services.AddSingleton<IPluginIconLoader, AvaloniaPluginIconLoader>();
+        services.AddSingleton(sp => new AgentIconService(
+            sp.GetRequiredService<IPluginCatalog>(),
+            sp.GetRequiredService<IPluginIconLoader>()));
         // 保留名 = 内置 Agent 名（单一出处：LocalIngestionDataSource.BuiltInAgentNames）+ 已安装插件显示名。
         services.AddSingleton<IPluginInstaller>(sp => new PluginInstaller(
             sp.GetRequiredService<IPluginCatalog>(),

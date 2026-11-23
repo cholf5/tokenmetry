@@ -25,6 +25,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _usageQuery;
     private readonly ModelAvatarResolver? _avatars;
+
+    /// <summary>Agent 图标解析（插件自定义图标，Task 7）：页面 VM 与分享海报共用；默认纯内置映射。</summary>
+    private readonly AgentIconService _agentIcons;
     private readonly AgentCatalogService _agentCatalog;
     private readonly IToastService _toastService;
     private readonly PricingEngine _pricingEngine;
@@ -123,13 +126,15 @@ public partial class MainWindowViewModel : ViewModelBase
         ModelAvatarResolver? avatars = null,
         BackgroundRefreshService? refreshService = null,
         TimeRangePresetService? timePresets = null,
-        UpdateService? updateService = null)
+        UpdateService? updateService = null,
+        AgentIconService? agentIcons = null)
     {
         _filters = filters;
         Settings = settings;
         DataPricing = dataPricing;
         _usageQuery = usageQuery;
         _avatars = avatars;
+        _agentIcons = agentIcons ?? AgentIconService.BuiltInOnly;
         _agentCatalog = agentCatalog;
         _toastService = toastService;
         _pricingEngine = pricingEngine;
@@ -228,13 +233,14 @@ public partial class MainWindowViewModel : ViewModelBase
         // 经 OpenSessionsForProject 跳会话页（全局 Project 筛选途径——右栏撤除定案，见 ProjectsViewModel 定案）；
         // D-010 无行点击下钻，行右键（未知成本行）经 OpenAddModelFor / OpenAddMappingFor 跳数据与计价页
         // 补身份 / 补价。页面 VM 不反向引用本类型（回调单向注入，同 D-007 选型）。
-        PageId.Agents => new AgentsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForAgent),
+        PageId.Agents => new AgentsViewModel(
+            ShellPages.For(id), _filters, _usageQuery, OpenSessionsForAgent, _agentIcons),
         PageId.Models => new ModelsViewModel(ShellPages.For(id), _filters, _usageQuery, _avatars,
-            OpenAddModelFor, OpenAddMappingFor),
+            OpenAddModelFor, OpenAddMappingFor, _agentIcons),
         PageId.Projects => new ProjectsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForProject),
         // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；筛选全部来自
         // 顶栏全局四维（FilterStateService），页内只留搜索/排序（右栏撤除定案见类型说明）。
-        PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery),
+        PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery, _agentIcons),
         // D-012：时间分析为真实页（小时分布 + 活跃日历热力图 + 观察项表），随全局筛选刷新。
         PageId.Time => new TimeViewModel(ShellPages.For(id), _filters, _usageQuery),
         // D-013：成本分析为真实页（KPI 四卡 + 口径说明表）；待确认价格卡与定价引擎同一单例
@@ -346,7 +352,8 @@ public partial class MainWindowViewModel : ViewModelBase
             TimePicker,
             ct => LoadPosterBundleAsync(ct),
             _avatars is null ? null : _avatars.Resolve,
-            (style, layout, theme, mask, margin) => Settings.ApplySharePosterLastUsed(style, layout, theme, mask, margin));
+            (style, layout, theme, mask, margin) => Settings.ApplySharePosterLastUsed(style, layout, theme, mask, margin),
+            agentIcons: _agentIcons);
     }
 
     /// <summary>

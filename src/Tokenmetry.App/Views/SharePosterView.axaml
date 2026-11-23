@@ -893,6 +893,7 @@
                                     <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="16">
                                         <Border Grid.Column="0" Classes="agent-chip agent-chip-lg tray-chip"
                                                 c:AgentChip.Logo="{Binding AgentVendor}"
+                                                c:AgentChip.CustomIcon="{Binding CustomIcon}"
                                                 IsVisible="{Binding IsAgent}"
                                                 VerticalAlignment="Center">
                                             <Panel>

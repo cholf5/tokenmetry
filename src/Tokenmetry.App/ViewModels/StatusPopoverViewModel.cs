@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -107,16 +108,17 @@ public sealed class StatusPopoverAgentRowViewModel
         AggregatedCost cost,
         decimal? tokenShare,
         string subtitle,
-        Func<string, (string Vendor, string Glyph)> visualResolver)
+        AgentIconService? agentIcons = null)
     {
         AgentId = agentId;
         Name = name;
         TokensCostText = TrendChart.FormatCompactTokens(tokens) + " / " + OverviewViewModel.FormatCost(cost);
         BarValue = tokenShare is { } share ? Math.Clamp((double)(share * 100m), 0d, 100d) : 0d;
         Subtitle = subtitle;
-        var visual = visualResolver(name);
-        LogoVendor = visual.Vendor;
+        var visual = (agentIcons ?? AgentIconService.BuiltInOnly).Resolve(name);
+        LogoVendor = visual.LogoVendor;
         Glyph = visual.Glyph.ToString();
+        CustomIcon = visual.CustomIcon;
     }
 
     /// <summary>Agent 键（采集来源名，Agent 行点击带它跳会话页——D-009 既有路由）。</summary>
@@ -128,6 +130,9 @@ public sealed class StatusPopoverAgentRowViewModel
     public string LogoVendor { get; }
 
     public string Glyph { get; }
+
+    /// <summary>插件自定义图标（非 null 时经 AgentChip.CustomIcon 显示；内置 Agent 恒 null）。</summary>
+    public IImage? CustomIcon { get; }
 
     /// <summary>右列单行文案「紧凑 tokens / 价格」（修正项 2 用户拍板格式；无成本数据为 "… / —"）。</summary>
     public string TokensCostText { get; }
@@ -207,6 +212,9 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
     private readonly DashboardViewModel? _dashboard;
     private readonly DateRangeService? _dateService;
     private readonly ModelAvatarResolver? _modelAvatars;
+
+    /// <summary>Agent 图标解析（插件自定义图标，Task 7）；未注入（测试/预览）时纯内置映射。</summary>
+    private readonly AgentIconService _agentIcons;
     private readonly Action<PageId>? _navigateToPage;
     private readonly Action<string>? _openAgentSessions;
     private readonly Action? _openSettings;
@@ -306,12 +314,14 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
         Action<PageId>? navigateToPage = null,
         Action<string>? openAgentSessions = null,
         Action? openSettings = null,
-        ModelAvatarResolver? modelAvatars = null)
+        ModelAvatarResolver? modelAvatars = null,
+        AgentIconService? agentIcons = null)
     {
         _query = query;
         _dashboard = dashboard;
         _dateService = dateService;
         _modelAvatars = modelAvatars;
+        _agentIcons = agentIcons ?? AgentIconService.BuiltInOnly;
         _navigateToPage = navigateToPage;
         _openAgentSessions = openAgentSessions;
         _openSettings = openSettings;
@@ -485,11 +495,7 @@ public partial class StatusPopoverViewModel : ViewModelBase, IDisposable
                 a.Cost,
                 a.TokenShare,
                 BuildRowSubtitle(t, a.Key, agentRates, lastActiveByAgent, snapshotAt),
-                name =>
-                {
-                    var visual = AgentVisualMap.Resolve(name);
-                    return (visual.LogoVendor, visual.Glyph.ToString());
-                }))
+                _agentIcons))
             .ToList();
 
         IsNoData = kpi.TotalTokens == 0 && total == 0 && TopAgents.Count == 0;

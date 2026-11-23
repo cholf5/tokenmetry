@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Localization;
@@ -44,14 +45,21 @@ public sealed record DataSourceRowViewModel(
     string LastScanText,
     string RecordCountText)
 {
-    /// <summary>Agent 图标（与统计页/会话页同一 AgentVisualMap 判定；未覆盖的源回退散列字形）。</summary>
-    private AgentVisual Icon => AgentVisualMap.Resolve(Agent);
+    /// <summary>Agent 图标（与统计页/会话页同一 AgentVisualMap 判定；未覆盖的源回退散列字形）。
+    /// Task 7：可经 <see cref="IconOverride"/> 注入插件图标解析结果（含自定义 PNG）。</summary>
+    private AgentVisual Icon => IconOverride ?? AgentVisualMap.Resolve(Agent);
+
+    /// <summary>图标解析覆盖（插件显示名 → CustomIcon）；null = 内置映射（record 相等性不含它）。</summary>
+    public AgentVisual? IconOverride { get; init; }
 
     /// <summary>品牌 logo 变体名（经 AgentChip.Logo 附加属性 → agent-* 伪类 DynamicResource 取 AppAgentLogo*）。</summary>
     public string LogoVendor => Icon.LogoVendor;
 
     /// <summary>散列兜底字形（lobe 无对应标的 Agent 才显示）。</summary>
     public string Glyph => Icon.Glyph.ToString();
+
+    /// <summary>插件自定义图标（非 null 时经 AgentChip.CustomIcon 显示；内置源恒 null）。</summary>
+    public IImage? CustomIcon => Icon.CustomIcon;
 
     public static DataSourceRowViewModel NotScannedYet(string agent) =>
         new(agent, Translations.Instance.StatusNotScanned, IsOk: false, IsPartial: false, IsNoData: false, IsError: false, IsPending: true, "—", "—");
@@ -216,6 +224,9 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     /// 如实降级——重算请求仍发，但无变化轮可能短路跳过计价（测试宿主不装配采集管道，无实际影响）。</summary>
     private readonly IAggregationInvalidator? _aggregationInvalidator;
 
+    /// <summary>Agent 图标解析（插件自定义图标，Task 7）；未注入（测试/预览）时纯内置映射。</summary>
+    private readonly AgentIconService _agentIcons;
+
     /// <summary>自动保存串行化 gate：改条目 / 改规则触发的高频保存不并发写同一 settings.json（原子写语义不被破坏）。</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
 
@@ -294,7 +305,8 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         IToastService toastService,
         IUsageQueryService? query = null,
         ModelCatalog? catalog = null,
-        IAggregationInvalidator? aggregationInvalidator = null)
+        IAggregationInvalidator? aggregationInvalidator = null,
+        AgentIconService? agentIcons = null)
     {
         _settings = settings;
         _store = store;
@@ -303,6 +315,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         _toastService = toastService;
         _query = query;
         _aggregationInvalidator = aggregationInvalidator;
+        _agentIcons = agentIcons ?? AgentIconService.BuiltInOnly;
         // 目录由 DI 以单例注入（与计价引擎 / 查询服务同一实例）；无注入时兜底新建（测试 / 预览）。
         // 用户层必须走共享合并口径（含旧 PricingOverrides 折算）——只传新字段会把 AppServices
         // 装配进去的旧配置从目录里冲掉，用户旧价格覆盖启动即静默失效。
@@ -451,7 +464,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
             .OrderBy(source => source.Progress is not null ? -1 : ConnectionTier(source.Snapshot))
             .ThenByDescending(source => source.Snapshot?.RecordCount ?? 0)
             .ThenBy(source => source.Index)
-            .Select(source => source.Progress is { } progress
+            .Select(source => (source.Progress is { } progress
                 ? DataSourceRowViewModel.InProgress(progress)
                 : source.Snapshot is { } snapshot
                     ? new DataSourceRowViewModel(
@@ -465,6 +478,8 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
                         FormatLastScan(snapshot.ScannedAt),
                         snapshot.RecordCount.ToString("N0", CultureInfo.InvariantCulture))
                     : DataSourceRowViewModel.NotScannedYet(source.Agent))
+                // Task 7：插件显示名 → 自定义图标（含进行中/尚未扫描行）；内置源结果为既有映射。
+                with { IconOverride = _agentIcons.Resolve(source.Agent) })
             .ToList();
 
         SourceRows.Clear();
