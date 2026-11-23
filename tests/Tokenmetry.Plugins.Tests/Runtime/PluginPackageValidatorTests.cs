@@ -114,6 +114,36 @@ public class PluginPackageValidatorTests
     }
 
     [Fact]
+    public void Dot_slash_prefixed_root_entries_are_accepted()
+    {
+        // 某些 zip 工具会把包根条目写成 "./plugin.json"；这是同一个文件，不该判成缺失。
+        using var package = TestPackage.CreateRaw(
+            ("./plugin.json", Utf8(ValidManifest.Json()), 0),
+            ("./Foo.Plugin.dll", Utf8("x"), 0),
+            ("./icon.png", ValidManifest.PngBytes, 0));
+
+        var result = PluginPackageValidator.Validate(package.Path);
+
+        Assert.Empty(result.Errors);
+        Assert.NotNull(result.Manifest);
+        Assert.Equal("com.acme.foo", result.Manifest!.Id);
+    }
+
+    [Fact]
+    public void Dot_slash_prefixed_path_traversal_is_still_rejected()
+    {
+        using var package = TestPackage.CreateRaw(
+            ("plugin.json", Utf8(ValidManifest.Json()), 0),
+            ("Foo.Plugin.dll", Utf8("x"), 0),
+            ("icon.png", ValidManifest.PngBytes, 0),
+            ("./../evil.dll", Utf8("x"), 0));
+
+        var result = PluginPackageValidator.Validate(package.Path);
+
+        Assert.Contains(result.Errors, e => e.Contains("path", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Package_with_colliding_display_name_is_rejected()
     {
         using var package = TestPackage.CreateValid(displayName: "Claude Code");

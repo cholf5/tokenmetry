@@ -475,7 +475,20 @@ public static class PluginPackageValidator
         return Path.GetFullPath(Path.Combine(root, normalized));
     }
 
-    internal static string NormalizeEntryName(string name) => name.Replace('\\', '/');
+    /// <summary>
+    /// zip 条目名的规范形式：反斜杠换正斜杠，并剥掉开头的 <c>./</c>（zip 工具常见前缀）。
+    /// 只剥开头，<c>../</c> 仍然留给安全检查处理。
+    /// </summary>
+    internal static string NormalizeEntryName(string name)
+    {
+        var normalized = name.Replace('\\', '/');
+        while (normalized.StartsWith("./", StringComparison.Ordinal))
+        {
+            normalized = normalized[2..];
+        }
+
+        return normalized;
+    }
 
     internal static bool IsUnsafeEntryName(string name)
     {

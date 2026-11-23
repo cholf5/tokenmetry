@@ -327,18 +327,21 @@ public static class AppServices
 
         _provider = services.BuildServiceProvider();
 
-        // 插件装载先于采集源物化：重扫已安装插件与启用状态，再刷新采集源提供者，
-        // 保证首轮管道与"已识别数据源"清单包含已启用插件（两方法均为同步目录扫描；
-        // 宿主可执行文件缺失时 provider 为空提供者，Refresh 空操作）。
+        // 插件装载先于采集源物化：重扫已安装插件与启用状态（宿主可执行文件缺失时 provider
+        // 为空提供者，Refresh 空操作）。
         _provider.GetRequiredService<IPluginCatalog>()
             .ReloadAsync(System.Threading.CancellationToken.None)
             .GetAwaiter()
             .GetResult();
-        _provider.GetRequiredService<IPluginSourceProvider>().Refresh();
 
         // S-002：启动即物化本地采集源（构造侧向扫描注册表登记管道组合——"已识别的数据源"清单），
         // 不依赖 DashboardViewModel 的解析时机；真正的扫描仍只在刷新时发生。
+        // 顺序有意在插件源 Refresh 之前：内置源的注册序因此稳定排在插件行前面
+        //（管道每轮重读 provider 快照，首轮扫描照样包含已启用插件）。
         _provider.GetRequiredService<LocalIngestionDataSource>();
+
+        // 再刷新插件采集源提供者，登记已启用插件（注册到内置源之后）。
+        _provider.GetRequiredService<IPluginSourceProvider>().Refresh();
 
         // 时间预设装载：先于 FilterStatePersistence.Apply——持久化的选中 Id 可指向用户预设，
         // 未装载时 "preset:<id>" 解析不到清单条目会误回落默认档。

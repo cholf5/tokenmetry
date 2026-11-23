@@ -27,8 +27,9 @@ namespace Tokenmetry.App.ViewModels;
 /// 不新增导航页、不改信息架构。
 /// </para>
 /// <para>
-/// 三条敏感操作流的固定顺序（Task 6 carry-forward）：先改目录/状态，再
-/// <see cref="IPluginSourceProvider.Refresh"/> 让采集管线同步，再重建行、最后触发一轮重扫——
+/// 三条敏感操作流的固定顺序（Task 6 carry-forward）：安装/卸载前先
+/// <see cref="IPluginSourceProvider.StopPlugin"/> 停掉常驻宿主（它会锁住插件文件与缓存），再改目录/状态，
+/// 再 <see cref="IPluginSourceProvider.Refresh"/> 让采集管线同步，再重建行、最后触发一轮重扫——
 /// 否则运行中的进程会一直握着旧插件源直到重启。任何失败都只报错，不伪造成功。
 /// </para>
 /// </summary>
@@ -168,6 +169,8 @@ public sealed partial class PluginsSectionViewModel : ObservableObject
 
         try
         {
+            // 升级会替换 plugins/<id>：先停掉常驻宿主（Windows 上它会锁住插件文件）。
+            _sourceProvider.StopPlugin(preview.Manifest.Id);
             await _installer.InstallAsync(packagePath, CancellationToken.None);
             _sourceProvider.Refresh();
             await RefreshAsync();
@@ -227,6 +230,8 @@ public sealed partial class PluginsSectionViewModel : ObservableObject
         InstallError = null;
         try
         {
+            // 卸载会删除 plugins/<id> 与 plugin-data/<id>：先停宿主，否则 Windows 上删除失败。
+            _sourceProvider.StopPlugin(row.Id);
             await _catalog.UninstallAsync(row.Id, CancellationToken.None);
             _sourceProvider.Refresh();
             await RefreshAsync();

@@ -280,6 +280,77 @@ public class UpdateStagerTests : IDisposable
     }
 
     [Fact]
+    public void Apply_makes_the_nested_plugin_host_executable_on_macos()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // Unix 文件模式 API 在 Windows 上不支持；该断言只在 macOS / Linux CI 上有意义。
+            return;
+        }
+
+        var bundle = Path.Combine(_directory, "Tokenmetry.app");
+        var binary = Path.Combine(bundle, "Contents", "MacOS", "Tokenmetry");
+        Directory.CreateDirectory(Path.GetDirectoryName(binary)!);
+        File.WriteAllText(binary, "old");
+
+        var archive = Path.Combine(_directory, "mac-host.zip");
+        using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))
+        {
+            using (var stream = zip.CreateEntry("Tokenmetry.app/Contents/MacOS/Tokenmetry").Open())
+            {
+                stream.Write("new"u8);
+            }
+
+            using (var hostStream = zip.CreateEntry(
+                "Tokenmetry.app/Contents/MacOS/plugin-host/Tokenmetry.PluginHost").Open())
+            {
+                hostStream.Write("host"u8);
+            }
+        }
+
+        var stager = new UpdateStager(os: "OSX", processId: 1);
+        var prepared = stager.PreparePortable("v0.6.0", archive, binary);
+
+        stager.Apply(prepared);
+
+        // 宿主在 .app 内随整包替换；zip 解包丢了 +x，更新后必须补回来，否则宿主起不来。
+        var nestedHost = Path.Combine(
+            bundle, "Contents", "MacOS", "plugin-host", "Tokenmetry.PluginHost");
+        File.Exists(nestedHost).Should().BeTrue();
+        (File.GetUnixFileMode(nestedHost) & UnixFileMode.UserExecute)
+            .Should().NotBe((UnixFileMode)0, "嵌套插件宿主必须可执行");
+    }
+
+    [Fact]
+    public void Apply_rollback_preserves_the_original_error_when_cleanup_and_restore_fail()
+    {
+        var target = Path.Combine(_directory, "Tokenmetry");
+        File.WriteAllText(target, "old-binary");
+        var oldHost = Path.Combine(_directory, "plugin-host");
+        Directory.CreateDirectory(oldHost);
+        File.WriteAllText(Path.Combine(oldHost, "old-host.txt"), "old-host");
+
+        var archive = WriteArchive(
+            ("Tokenmetry", [0x7F, 0x45, 0x4C, 0x46, 1]),
+            ("plugin-host/new-host.txt", "new-host"u8.ToArray()));
+        var stager = new FaultInjectingStager(target)
+        {
+            FailTargetDelete = true,
+            FailHostRestore = true,
+        };
+        var prepared = stager.PreparePortable("v0.6.0", archive, target);
+
+        // 主失败：新宿主搬不进来（暂存目录消失）→ DirectoryNotFoundException。
+        Directory.Delete(prepared.StagedHostDirectory!, recursive: true);
+
+        var act = () => stager.Apply(prepared);
+
+        // 清理新 exe 的 Delete 抛 UnauthorizedAccessException、宿主恢复也失败：
+        // 两者都不得替换原始异常（旧代码分别会让 AV 逃逸 / 让恢复异常盖住原因）。
+        act.Should().Throw<DirectoryNotFoundException>();
+    }
+
+    [Fact]
     public void Relaunch_reports_failure_when_the_process_cannot_start()
     {
         var stager = new UpdateStager(os: "Linux", processId: 1, relaunchOverride: _ => false);
@@ -288,6 +359,36 @@ public class UpdateStagerTests : IDisposable
             Path.Combine(_directory, "payload"), null);
 
         stager.Relaunch(prepared).Should().BeFalse();
+    }
+
+    /// <summary>回滚路径的故障注入：模拟杀软锁住新 exe（Delete 抛 AV）与宿主恢复失败。</summary>
+    private sealed class FaultInjectingStager(string targetPath) : UpdateStager(os: "Linux", processId: 1)
+    {
+        public bool FailTargetDelete { get; init; }
+
+        public bool FailHostRestore { get; init; }
+
+        protected override void Delete(string path, bool isDirectory)
+        {
+            if (FailTargetDelete && !isDirectory
+                && string.Equals(path, targetPath, StringComparison.Ordinal))
+            {
+                throw new UnauthorizedAccessException("simulated AV lock");
+            }
+
+            base.Delete(path, isDirectory);
+        }
+
+        protected override void Move(string source, string destination, bool isDirectory)
+        {
+            if (FailHostRestore && isDirectory
+                && string.Equals(Path.GetFileName(source), "plugin-host.old", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("simulated host restore failure");
+            }
+
+            base.Move(source, destination, isDirectory);
+        }
     }
 
     private string WriteZip(string entryName, byte[] content)

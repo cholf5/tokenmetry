@@ -10,6 +10,45 @@ namespace Tokenmetry.Plugins.Tests.Runtime;
 public class PluginInstallerTests
 {
     [Fact]
+    public async Task Installer_init_sweeps_stale_staging_without_touching_installed_versions()
+    {
+        using var paths = new TestPluginPaths();
+        var installedDir = paths.WriteInstalledPlugin("com.acme.foo", "1.0.0");
+
+        // 上次安装中途退出/删除失败留下的暂存物：解压残留与 .backup。
+        var stagingRoot = Path.Combine(paths.Paths.PluginsDirectory, ".staging");
+        var leftover = Path.Combine(stagingRoot, "leftover");
+        Directory.CreateDirectory(leftover);
+        await File.WriteAllTextAsync(Path.Combine(leftover, "junk.txt"), "junk");
+        var backup = Path.Combine(stagingRoot, "deadbeef.backup");
+        Directory.CreateDirectory(backup);
+        await File.WriteAllTextAsync(Path.Combine(backup, "Foo.Plugin.dll"), "old");
+
+        var catalog = new PluginCatalog(paths.Paths);
+        _ = new PluginInstaller(catalog, paths.Paths, reservedAgentNames: []);
+
+        Assert.False(Directory.Exists(leftover));
+        Assert.False(Directory.Exists(backup));
+        Assert.True(Directory.Exists(stagingRoot), "只清内容，不删 .staging 本身");
+        Assert.True(File.Exists(Path.Combine(installedDir, "Foo.Plugin.dll")), "已安装版本不受影响");
+    }
+
+    [Fact]
+    public void Installer_init_tolerates_an_unreadable_staging_directory()
+    {
+        using var paths = new TestPluginPaths();
+
+        // .staging 被同名文件占据：清理必须静默跳过，不能把启动/安装器构造炸掉。
+        Directory.CreateDirectory(paths.Paths.PluginsDirectory);
+        File.WriteAllText(Path.Combine(paths.Paths.PluginsDirectory, ".staging"), "not a directory");
+
+        var catalog = new PluginCatalog(paths.Paths);
+        var installer = new PluginInstaller(catalog, paths.Paths, reservedAgentNames: []);
+
+        Assert.NotNull(installer);
+    }
+
+    [Fact]
     public async Task Install_extracts_plugin_and_enables_it()
     {
         using var paths = new TestPluginPaths();

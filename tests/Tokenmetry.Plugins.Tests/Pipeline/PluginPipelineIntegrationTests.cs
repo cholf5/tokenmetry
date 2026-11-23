@@ -143,6 +143,40 @@ public class PluginPipelineIntegrationTests : IDisposable
     }
 
     [Fact]
+    public void StopPlugin_unregisters_the_source_and_releases_the_host()
+    {
+        var host = new RecordingHostClient(OkOutcome(ValidDto()));
+        var catalog = new FakePluginCatalog([Installation()]);
+        var registry = new IngestionScanRegistry();
+        var provider = new PluginSourceProvider(catalog, host, registry);
+
+        provider.Refresh();
+        Assert.Contains("Foo", registry.RegisteredSources);
+        Assert.Single(provider.GetEnabledSources());
+
+        // 卸载/升级前先停宿主：数据源行注销、快照清空、宿主进程释放（Windows 文件锁随之消失）。
+        provider.StopPlugin("com.acme.foo");
+
+        Assert.DoesNotContain("Foo", registry.RegisteredSources);
+        Assert.Empty(provider.GetEnabledSources());
+        Assert.Contains("com.acme.foo", host.RemovedPluginIds);
+    }
+
+    [Fact]
+    public void StopPlugin_is_idempotent_for_unknown_ids()
+    {
+        var host = new RecordingHostClient(OkOutcome(ValidDto()));
+        var provider = new PluginSourceProvider(new FakePluginCatalog([]), host, new IngestionScanRegistry());
+
+        provider.StopPlugin("com.acme.missing");
+        provider.StopPlugin("com.acme.missing");
+
+        // 未注册的 id 也尝试释放宿主（幂等），但不影响快照。
+        Assert.Empty(provider.GetEnabledSources());
+        Assert.Equal(2, host.RemovedPluginIds.Count);
+    }
+
+    [Fact]
     public void Plugin_session_ids_do_not_collide_across_agents()
     {
         // 两个插件各自有原始会话 id "1"：编码为 plugin:<id>:1 后成为两条独立会话行。

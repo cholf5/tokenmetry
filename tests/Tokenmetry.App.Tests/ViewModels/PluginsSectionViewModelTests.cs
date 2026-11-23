@@ -36,10 +36,16 @@ public sealed class PluginsSectionViewModelTests
             confirmation: new FakeConfirmation(confirm: true),
             rescan: () => { rescanCalls++; return Task.CompletedTask; });
 
+        var stoppedBeforeInstall = false;
+        installer.OnInstallStarting = () => stoppedBeforeInstall = sourceProvider.StoppedIds.Count > 0;
+
         await vm.InstallCommand.ExecuteAsync(null);
 
         installer.Installed.Should().BeTrue("确认后执行安装");
         installer.InstalledPath.Should().Be("/tmp/foo.tkmplugin");
+        sourceProvider.StoppedIds.Should().ContainSingle()
+            .Which.Should().Be("com.acme.foo", "升级前先停掉预览 manifest 对应的插件宿主");
+        stoppedBeforeInstall.Should().BeTrue("停止宿主必须发生在替换插件文件之前");
         sourceProvider.RefreshCount.Should().Be(1, "安装后刷新插件源提供者");
         rescanCalls.Should().Be(1, "安装后触发一轮重扫");
         vm.InstallError.Should().BeNull();
@@ -178,10 +184,17 @@ public sealed class PluginsSectionViewModelTests
             rescan: () => { rescanCalls++; return Task.CompletedTask; });
 
         await vm.RefreshAsync();
+
+        var stoppedBeforeUninstall = false;
+        catalog.OnUninstallStarting = () => stoppedBeforeUninstall = sourceProvider.StoppedIds.Count > 0;
+
         await vm.UninstallCommand.ExecuteAsync(vm.Rows.Single());
 
         confirmation.UninstallConfirmCalls.Should().Be(1);
         catalog.Uninstalled.Should().BeTrue();
+        sourceProvider.StoppedIds.Should().ContainSingle()
+            .Which.Should().Be("com.acme.foo", "卸载前先停掉宿主以释放文件");
+        stoppedBeforeUninstall.Should().BeTrue("停止宿主必须发生在删除插件文件之前");
         sourceProvider.RefreshCount.Should().Be(1);
         rescanCalls.Should().Be(1);
     }
@@ -267,6 +280,8 @@ public sealed class PluginsSectionViewModelTests
 
         public bool Uninstalled { get; private set; }
 
+        public Action? OnUninstallStarting { get; set; }
+
         public Task ReloadAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task SetEnabledAsync(string pluginId, bool enabled, CancellationToken cancellationToken)
@@ -277,6 +292,7 @@ public sealed class PluginsSectionViewModelTests
 
         public Task UninstallAsync(string pluginId, CancellationToken cancellationToken)
         {
+            OnUninstallStarting?.Invoke();
             Uninstalled = true;
             return Task.CompletedTask;
         }
@@ -290,6 +306,8 @@ public sealed class PluginsSectionViewModelTests
 
         public string? InstalledPath { get; private set; }
 
+        public Action? OnInstallStarting { get; set; }
+
         public PluginInstallPreview Preview(string packagePath)
         {
             if (PreviewException is not null)
@@ -302,6 +320,7 @@ public sealed class PluginsSectionViewModelTests
 
         public Task<PluginInstallation> InstallAsync(string packagePath, CancellationToken cancellationToken)
         {
+            OnInstallStarting?.Invoke();
             Installed = true;
             InstalledPath = packagePath;
             return Task.FromResult(new PluginInstallation(Manifest(), "/plugins/foo", "/plugins/foo/icon.png", true));
@@ -325,9 +344,13 @@ public sealed class PluginsSectionViewModelTests
     {
         public int RefreshCount { get; private set; }
 
+        public List<string> StoppedIds { get; } = [];
+
         public IReadOnlyList<PluginUsageSource> GetEnabledSources() => [];
 
         public void Refresh() => RefreshCount++;
+
+        public void StopPlugin(string pluginId) => StoppedIds.Add(pluginId);
     }
 
     private sealed class FakeFilePicker(string? path) : IPluginFilePicker

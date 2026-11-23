@@ -15,6 +15,13 @@ public interface IPluginSourceProvider
     /// 未变化的插件复用既有实例（保留 last-known-good 快照）。
     /// </summary>
     void Refresh();
+
+    /// <summary>
+    /// 立即注销某个插件源并释放其宿主进程。卸载/升级会删改 <c>plugins/&lt;id&gt;</c> 与
+    /// <c>plugin-data/&lt;id&gt;</c>，必须先停掉常驻宿主，否则 Windows 上文件仍被占用、删除/替换失败。
+    /// 未知 id 幂等（仍会尝试释放宿主）。
+    /// </summary>
+    void StopPlugin(string pluginId);
 }
 
 /// <summary>
@@ -28,6 +35,10 @@ public sealed class UnavailablePluginSourceProvider : IPluginSourceProvider
     public IReadOnlyList<PluginUsageSource> GetEnabledSources() => [];
 
     public void Refresh()
+    {
+    }
+
+    public void StopPlugin(string pluginId)
     {
     }
 }

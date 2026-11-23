@@ -184,22 +184,47 @@ public class UpdateStager
                 : File.Exists(update.TargetPath);
             if (targetExists)
             {
+                // 尽力删除半装的新版本：IOException（共享冲突）与 UnauthorizedAccessException
+                // （杀软 / ACL）都不该让下面的旧版本恢复被跳过。
                 try { Delete(update.TargetPath, targetIsDirectory); }
-                catch (IOException) { }
+                catch (Exception) { }
             }
 
+            // 恢复同样尽力而为：任何一步失败都不能替换/吞掉原始异常——用户至少要看到真正的原因。
             if (hostBackedUp && targetHost is not null && backupHost is not null)
             {
-                Move(backupHost, targetHost, isDirectory: true);
+                try { Move(backupHost, targetHost, isDirectory: true); }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[Tokenmetry] 回滚恢复插件宿主失败（{targetHost}）：{ex.Message}");
+                }
             }
 
-            Move(update.BackupPath, update.TargetPath, targetIsDirectory);
+            try { Move(update.BackupPath, update.TargetPath, targetIsDirectory); }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Tokenmetry] 回滚恢复旧版本失败（{update.TargetPath}）：{ex.Message}");
+            }
+
             throw;
         }
 
         if (!OperatingSystem.IsWindows())
         {
             MakeExecutable(update.TargetPath, targetIsDirectory);
+
+            if (targetIsDirectory)
+            {
+                // macOS：插件宿主在 .app 内（Contents/MacOS/plugin-host/），随整包替换。
+                // zip 解包同样不保证保留 Unix 可执行位，宿主丢了 +x 就起不来。
+                var nestedHost = Path.Combine(
+                    update.TargetPath, "Contents", "MacOS", PluginHostDirectoryName,
+                    "Tokenmetry.PluginHost");
+                if (File.Exists(nestedHost))
+                {
+                    EnsureUserExecute(nestedHost);
+                }
+            }
 
             // zip 解包不保证保留 Unix 可执行位；宿主是独立进程，丢了 +x 就起不来。
             if (swapHost && targetHost is not null)
@@ -361,7 +386,8 @@ public class UpdateStager
         }
     }
 
-    private static void Move(string source, string destination, bool isDirectory)
+    /// <summary>同卷 rename。virtual 只是给回滚路径的故障注入留缝（测试用），生产实现不变。</summary>
+    protected virtual void Move(string source, string destination, bool isDirectory)
     {
         if (isDirectory)
         {
@@ -373,7 +399,8 @@ public class UpdateStager
         }
     }
 
-    private static void Delete(string path, bool isDirectory)
+    /// <summary>删除文件/目录。virtual 只是给回滚路径的故障注入留缝（测试用）。</summary>
+    protected virtual void Delete(string path, bool isDirectory)
     {
         if (isDirectory)
         {

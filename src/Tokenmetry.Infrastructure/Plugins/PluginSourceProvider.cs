@@ -108,5 +108,33 @@ public sealed class PluginSourceProvider : IPluginSourceProvider
         }
     }
 
+    public void StopPlugin(string pluginId)
+    {
+        if (string.IsNullOrEmpty(pluginId))
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            // 未启用（没有源）也可能残留宿主进程：先释放，再按需移除条目。
+            _hostClient.Remove(pluginId);
+
+            if (!_entries.TryGetValue(pluginId, out var existing))
+            {
+                return;
+            }
+
+            _registry.UnregisterSource(existing.Source.Agent);
+
+            var next = new Dictionary<string, Entry>(_entries, StringComparer.Ordinal);
+            next.Remove(pluginId);
+            _entries = next;
+            _snapshot = _snapshot
+                .Where(source => !ReferenceEquals(source, existing.Source))
+                .ToArray();
+        }
+    }
+
     private sealed record Entry(PluginInstallation Installation, PluginUsageSource Source);
 }

@@ -34,6 +34,10 @@ public sealed class PluginInstaller : IPluginInstaller
         _catalog = catalog;
         _paths = paths;
         _reservedAgentNames = reservedAgentNames?.ToArray() ?? [];
+
+        // 上次安装中途退出/删除失败会在 plugins/.staging 留下解压目录或 .backup；
+        // 启动装配时（构造即初始化）尽力清掉，避免无限堆积。已安装版本不在 .staging 内，不受影响。
+        SweepStaleStaging(paths);
     }
 
     public PluginInstallPreview Preview(string packagePath)
@@ -262,6 +266,45 @@ public sealed class PluginInstaller : IPluginInstaller
         if (backup is not null)
         {
             TryDeleteDirectory(backup);
+        }
+    }
+
+    /// <summary>
+    /// 清理 <c>plugins/.staging</c> 下的遗留内容（上次安装中途退出 / 删除失败留下的解压目录与 .backup）。
+    /// 只动点目录内的暂存物；任何 I/O / 权限失败都静默跳过，绝不影响启动，也不会触碰已安装版本。
+    /// </summary>
+    internal static void SweepStaleStaging(PluginPaths paths)
+    {
+        var staging = Path.Combine(paths.PluginsDirectory, StagingFolderName);
+        try
+        {
+            if (!Directory.Exists(staging))
+            {
+                return;
+            }
+
+            foreach (var entry in Directory.EnumerateFileSystemEntries(staging))
+            {
+                try
+                {
+                    if (Directory.Exists(entry))
+                    {
+                        Directory.Delete(entry, recursive: true);
+                    }
+                    else
+                    {
+                        File.Delete(entry);
+                    }
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    // 残留不影响使用，下次启动再清。
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // staging 目录不可读就当没有残留。
         }
     }
 

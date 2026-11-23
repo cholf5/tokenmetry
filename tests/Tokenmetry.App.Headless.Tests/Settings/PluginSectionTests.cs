@@ -208,6 +208,10 @@ public sealed class PluginSectionTests
         public void Refresh()
         {
         }
+
+        public void StopPlugin(string pluginId)
+        {
+        }
     }
 
     private sealed class FakeFilePicker : IPluginFilePicker
