@@ -17,15 +17,18 @@ public sealed class LeaderboardPageTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType!.MediaType.Should().Be("text/html");
         response.Headers.CacheControl!.NoStore.Should().BeTrue();
-        response.Headers.GetValues("Content-Security-Policy").Should().ContainSingle()
-            .Which.Should().Contain("connect-src 'self'");
+        var csp = response.Headers.GetValues("Content-Security-Policy").Should().ContainSingle().Subject;
+        csp.Should().Contain("connect-src 'self'");
+        csp.Should().Contain("script-src 'self'");
+        csp.Should().NotContain("script-src 'unsafe-inline'", "页面脚本一律同源外部资源");
         response.Headers.GetValues("X-Content-Type-Options").Should().ContainSingle()
             .Which.Should().Be("nosniff");
 
         var html = await response.Content.ReadAsStringAsync();
         html.Should().Contain("Tokenmetry");
-        html.Should().Contain("api/leaderboard");
-        html.Should().Contain("fetch(");
+        html.Should().Contain("src=\"assets/relay-common.js\"");
+        html.Should().Contain("src=\"assets/leaderboard.js\"");
+        html.Should().NotContain("<script>", "CSP 不允许内联脚本——页面里不能有裸 <script> 块");
     }
 
     [Fact]

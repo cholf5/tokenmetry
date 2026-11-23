@@ -81,6 +81,7 @@ app.MapDeviceEndpoints();
 app.MapGitHubAuthEndpoints();
 app.MapLeaderboardEndpoints();
 app.MapLeaderboardPage();
+app.MapRelayAssets();
 app.MapAdminEndpoints();
 app.MapAdminPage();
 

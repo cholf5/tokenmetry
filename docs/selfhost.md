@@ -107,6 +107,7 @@ sudo -u tokenmetry /opt/tokenmetry-relay/Tokenmetry.Relay \
 - 页面本体是公开空壳，不含任何数据；所有管理 API 都要求
   `Authorization: Bearer <运营者 token>`。不开 Cookie 会话、不开 CORS，因此不会被跨站表单直接驱动。
 - 登录后的 token 只放在当前标签页的 `sessionStorage`，关标签页即清除；公共机器上用完点「退出」。
+- 页面与榜单页的脚本都是同源外部资源（`/assets/*.js`），CSP 为 `script-src 'self'`——不放行内联脚本。
 - 页面标记 `noindex`；仍建议 HTTPS（token 会过线），且与 CLI 一样没有内建限流——公网部署请在反代层
   限流或加访问白名单。
 - 不想开网页管理面时可以不用它：CLI 仍是最小面积的管理方式；页面与 CLI 读写同一套成员账号。

@@ -3,14 +3,16 @@ namespace Tokenmetry.Relay;
 /// <summary>
 /// 自建中继的运营者管理页（docs/selfhost.md「Web 管理页面」）：
 /// 页面本体是公开空壳，不含任何数据；登录后页面用 Authorization 头调用
-/// <see cref="AdminEndpoints"/> 的管理 API。页面代码在 <c>AdminPage.html</c>（嵌入资源）。
+/// <see cref="AdminEndpoints"/> 的管理 API。页面代码在 <c>AdminPage.html</c> 与
+/// <c>Assets/admin.js</c>（嵌入资源，脚本经 <see cref="RelayAssetEndpoints"/> 提供，
+/// CSP 只有 <c>script-src 'self'</c>）。
 /// </summary>
 internal static class AdminPageEndpoints
 {
     private const string ResourceName = "Tokenmetry.Relay.AdminPage.html";
 
     private const string ContentSecurityPolicy =
-        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
+        "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; " +
         "img-src 'none'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
     private static readonly Lazy<string> PageHtml = new(LoadHtml);

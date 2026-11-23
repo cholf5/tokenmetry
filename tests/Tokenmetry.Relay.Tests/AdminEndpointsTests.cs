@@ -122,15 +122,18 @@ public sealed class AdminEndpointsTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType!.MediaType.Should().Be("text/html");
         response.Headers.CacheControl!.NoStore.Should().BeTrue();
-        response.Headers.GetValues("Content-Security-Policy").Should().ContainSingle()
-            .Which.Should().Contain("connect-src 'self'");
+        var csp = response.Headers.GetValues("Content-Security-Policy").Should().ContainSingle().Subject;
+        csp.Should().Contain("connect-src 'self'");
+        csp.Should().Contain("script-src 'self'");
+        csp.Should().NotContain("script-src 'unsafe-inline'", "页面脚本一律同源外部资源");
         response.Headers.GetValues("X-Robots-Tag").Should().ContainSingle()
             .Which.Should().Contain("noindex");
 
         var html = await response.Content.ReadAsStringAsync();
-        html.Should().Contain("api/admin/members");
+        html.Should().Contain("src=\"assets/relay-common.js\"");
+        html.Should().Contain("src=\"assets/admin.js\"");
+        html.Should().NotContain("<script>", "CSP 不允许内联脚本——页面里不能有裸 <script> 块");
         html.Should().Contain("TOKENMETRY_RELAY_TOKEN");
-        html.Should().Contain("sessionStorage");
     }
 
     [Fact]

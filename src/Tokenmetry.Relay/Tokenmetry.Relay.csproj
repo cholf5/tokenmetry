@@ -19,6 +19,13 @@
     <EmbeddedResource Include="LeaderboardPage.html" />
     <None Remove="AdminPage.html" />
     <EmbeddedResource Include="AdminPage.html" />
+    <!-- 页面脚本（RelayAssetEndpoints 读取）：CSP 只有 script-src 'self'，不允许内联脚本。 -->
+    <None Remove="Assets/relay-common.js" />
+    <EmbeddedResource Include="Assets/relay-common.js" />
+    <None Remove="Assets/admin.js" />
+    <EmbeddedResource Include="Assets/admin.js" />
+    <None Remove="Assets/leaderboard.js" />
+    <EmbeddedResource Include="Assets/leaderboard.js" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2,16 +2,17 @@ namespace Tokenmetry.Relay;
 
 /// <summary>
 /// 自建中继自带的公开排行榜网页（docs/selfhost.md「排行榜」）：
-/// 纯静态 HTML + 页面内脚本，读同源匿名 <c>GET /api/leaderboard</c>。
-/// 页面本体在 <c>LeaderboardPage.html</c>（嵌入资源），服务端只负责发字节与安全头——
-/// 不改公开 API 形状，也不引入任何管理面。
+/// 纯静态 HTML + 同源脚本，读同源匿名 <c>GET /api/leaderboard</c>。
+/// 页面本体在 <c>LeaderboardPage.html</c>，脚本在 <c>Assets/leaderboard.js</c> 与
+/// <c>Assets/relay-common.js</c>（嵌入资源，经 <see cref="RelayAssetEndpoints"/> 提供）；
+/// 服务端只负责发字节与安全头——不改公开 API 形状，也不引入任何管理面。
 /// </summary>
 internal static class LeaderboardPageEndpoints
 {
     private const string ResourceName = "Tokenmetry.Relay.LeaderboardPage.html";
 
     private const string ContentSecurityPolicy =
-        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
+        "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; " +
         "img-src https: data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
     private static readonly Lazy<string> PageHtml = new(LoadHtml);
