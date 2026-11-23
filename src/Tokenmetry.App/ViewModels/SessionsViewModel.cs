@@ -124,7 +124,7 @@ public sealed class SessionRowViewModel
     /// <summary>主文本 = 项目展示名（空则原始路径，再空则会话标识），见构造。</summary>
     public string TitleText { get; }
 
-    /// <summary>副文本 = 会话标识（tooltip 挂完整 SessionId 可复制）。</summary>
+    /// <summary>副文本 = 会话标识展示文本（插件会话已剥 plugin:&lt;id&gt;: 前缀；tooltip 挂同一文本可复制）。</summary>
     public string SessionIdText { get; }
 
     /// <summary>散列兜底字形（lobe 无对应标的 Agent 才显示）。</summary>
