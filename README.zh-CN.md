@@ -97,6 +97,16 @@ Tokenmetry 按文件 mtime 与大小记账，变更才重扫，增量落进本�
 Cindy 只接 Pi runtime：用它启动的 Claude Code / Codex 会话仍计入各自 Agent；网关回填的 0 成本按
 「未知」处理，不折零；同一份会话文件只出一份账，不双算。
 
+## 私有 Agent / 插件
+
+官方支持列表之外的 Agent，可以用随仓库分发的本地 SDK 接入。插件是一个 `.tkmplugin` 包（C#
+程序集 + `plugin.json`），在「**数据与计价 → 插件**」里手动安装后，其用量会像内置 Agent 一样
+出现在现有视图里。插件是本地第三方代码，权限与 Tokenmetry 相同——只安装来自可信来源的包。
+用户侧说明见 [插件指南](docs/plugins.md)。
+
+- 作者指南：[`plugin-sdk/README.md`](plugin-sdk/README.md)
+- 交给工程师或 AI 的完整工作流：[`plugin-sdk/SKILL.md`](plugin-sdk/SKILL.md)
+
 ## 安装
 
 从 [Releases](https://github.com/cholf5/tokenmetry/releases/latest) 下载。每次打 tag，CI 都会

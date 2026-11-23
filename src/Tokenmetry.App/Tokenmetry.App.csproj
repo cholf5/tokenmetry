@@ -36,6 +36,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Tokenmetry.Core\Tokenmetry.Core.csproj" />
     <ProjectReference Include="..\Tokenmetry.Infrastructure\Tokenmetry.Infrastructure.csproj" />
+    <!-- 插件契约（DTO / 接口 / source-gen JSON），主应用只消费契约、保持 AOT。
+         绝不引用插件宿主项目：宿主是独立 CoreCLR 可执行文件，主应用不加载插件程序集。 -->
+    <ProjectReference Include="..\Tokenmetry.Plugin.Abstractions\Tokenmetry.Plugin.Abstractions.csproj" />
   </ItemGroup>
 
   <!-- A-0：托盘图标资产（彩色版通用；-template 单色版 macOS 状态栏模板图标，跟随明暗自动反色） -->

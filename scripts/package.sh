@@ -15,6 +15,10 @@
 # .github/workflows/ci.yml uploads them verbatim. Renaming here breaks
 # "下载更新包" for every installed client.
 #
+# 每个 zip / 安装器都额外带 plugin-host/：插件宿主是独立 self-contained CoreCLR
+# 可执行文件（主应用保持 AOT）。三平台落点一致——PluginHostLocator 只认
+# <app>/plugin-host/Tokenmetry.PluginHost[.exe]。
+#
 # Windows from CI runs the equivalent publish inline (workflow windows job);
 # this script still accepts win-* rids for local cross-publish experiments.
 # macOS .app 的 Info.plist 由本脚本组装；应用内不含任何需要外部布局的数据资产，
@@ -62,6 +66,12 @@ APP_VERSION=${APP_VERSION:-1.0}
 #
 # AOT 产物是「exe + 若干 dylib」的散开形态（AOT 不支持 PublishSingleFile），
 # 所以嵌套的原生库必须逐个先封，否则整包验签不过。
+#
+# 插件宿主（Contents/MacOS/plugin-host/）是一整棵 self-contained CoreCLR 目录：
+# 可执行文件、多个 dylib、约两百个 .NET PE 程序集（codesign 同样视其为嵌套代码），
+# 外加 createdump 等 Mach-O。codesign 会把该子目录当作嵌套组件，要求内部代码全部封签；
+# 逐个手工封签不够（它会继续报未签名子组件），必须用 --deep 递归封整棵树。宿主是纯本地
+# 随包运行的可执行文件，不需公证；--deep 在这里负责把嵌套树一并封进外层 bundle 的封条。
 sign_app() {
   local app="$1"
   if command -v codesign >/dev/null 2>&1; then
@@ -70,8 +80,9 @@ sign_app() {
       [[ -f "$nested" ]] || continue
       codesign --force -s - "$nested" || { echo "ad-hoc 签名失败: ${nested}" >&2; exit 1; }
     done
-    codesign --force -s - "$app" || { echo "ad-hoc 签名失败: ${app}" >&2; exit 1; }
-    codesign --verify --strict "$app" || { echo "签名校验失败（封签不完整）: ${app}" >&2; exit 1; }
+    # --deep 递归处理 plugin-host/（dylib + PE 程序集 + 可执行文件），再封外层 bundle。
+    codesign --force --deep -s - "$app" || { echo "ad-hoc 签名失败: ${app}" >&2; exit 1; }
+    codesign --verify --strict --deep "$app" || { echo "签名校验失败（封签不完整）: ${app}" >&2; exit 1; }
   else
     echo "警告: 本机无 codesign（Linux 交叉构建 osx 产物），${app} 未封签——本机可直接运行，但从网络下载分发会被 Gatekeeper 判 damaged" >&2
   fi
@@ -114,6 +125,28 @@ publish_windows_aot() {
   rm -f "$stage"/*.pdb "$stage"/*.xml
   mv "$stage/Tokenmetry.App.exe" "$stage/Tokenmetry.exe"
   [[ -f "$stage/Tokenmetry.exe" ]] || { echo "AOT 产物缺失: $stage/Tokenmetry.exe" >&2; return 1; }
+}
+
+# 插件宿主是独立 self-contained CoreCLR 进程（主应用保持 AOT——Native AOT 不能动态加载
+# 插件程序集）。R2R 缩短冷启动；不用单文件：宿主目录整体随包分发，多文件就多文件。
+# 产物落 dist/publish/<rid>-host/，由各平台 stage 复制到 plugin-host/ 子目录——
+# PluginHostLocator 先查的就是 <app>/plugin-host/Tokenmetry.PluginHost[.exe]。
+publish_plugin_host() {
+  local rid="$1"
+  echo "==> publish plugin host $rid (self-contained CoreCLR)"
+  dotnet publish src/Tokenmetry.PluginHost -c Release -r "$rid" --self-contained true \
+    -p:PublishSingleFile=false -p:PublishReadyToRun=true \
+    -o "dist/publish/$rid-host"
+
+  # 宿主不是诊断对象，pdb/xml 只会让三个平台的包各胖一截。
+  rm -f "dist/publish/$rid-host"/*.pdb "dist/publish/$rid-host"/*.xml
+
+  local exe="Tokenmetry.PluginHost"
+  [[ "$rid" == win-* ]] && exe="Tokenmetry.PluginHost.exe"
+  [[ -f "dist/publish/$rid-host/$exe" ]] || {
+    echo "插件宿主产物缺失: dist/publish/$rid-host/$exe" >&2
+    return 1
+  }
 }
 
 # Windows 安装器（Inno Setup）。ISCC 是 Windows 程序：只有 Windows 主机或显式给
@@ -173,6 +206,9 @@ for rid in $RID_LIST; do
     [[ -f "$PUBLISHED" ]] || { echo "发布产物缺失: $PUBLISHED" >&2; exit 1; }
   fi
 
+  # 三平台共同的第二个可执行文件：插件宿主。必须在组装 stage 之前产好。
+  publish_plugin_host "$rid"
+
   STAGE="dist/stage/$rid"
   rm -rf "$STAGE"; mkdir -p "$STAGE"
 
@@ -182,7 +218,13 @@ for rid in $RID_LIST; do
     mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
     cp "$PUBLISHED" "$APP/Contents/MacOS/Tokenmetry"
     cp "dist/publish/$rid"/*.dylib "$APP/Contents/MacOS/"
-    chmod +x "$APP/Contents/MacOS/Tokenmetry"
+    # 插件宿主进 Contents/MacOS/plugin-host/：与主可执行一起签名，并使用相对主程序的位置，
+    # PluginHostLocator 按 <app>/plugin-host/ 查找。
+    cp -R "dist/publish/$rid-host" "$APP/Contents/MacOS/plugin-host"
+    chmod +x "$APP/Contents/MacOS/Tokenmetry" "$APP/Contents/MacOS/plugin-host/Tokenmetry.PluginHost"
+    [[ -f "$APP/Contents/MacOS/plugin-host/Tokenmetry.PluginHost" ]] || {
+      echo "插件宿主未进入 .app: $APP/Contents/MacOS/plugin-host" >&2; exit 1
+    }
     make_icns "$REPO_ROOT/src/Tokenmetry.App/Assets/app-icon.png" "$APP/Contents/Resources/app-icon.icns" || true
     cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -205,10 +247,23 @@ PLIST
     # win/linux：单文件可执行，zip 内即产品名（Tokenmetry.exe / Tokenmetry）。
     if [[ "$rid" == win-* ]]; then
       cp "$PUBLISHED" "$STAGE/Tokenmetry.exe"
+      cp -R "dist/publish/$rid-host" "$STAGE/plugin-host"
+      [[ -f "$STAGE/plugin-host/Tokenmetry.PluginHost.exe" ]] || {
+        echo "插件宿主未进入便携 zip stage: $STAGE/plugin-host" >&2; exit 1
+      }
       # 安装器另用一份 AOT 散开产物：zip 保「一个 exe」，安装器保「无解包、启动最快」。
       publish_windows_aot "$rid"
+      # 安装器的 [Files] 用 SourceDir\* + recursesubdirs，plugin-host/ 会被整体装进 {app}。
+      cp -R "dist/publish/$rid-host" "dist/stage/$rid-aot/plugin-host"
+      [[ -f "dist/stage/$rid-aot/plugin-host/Tokenmetry.PluginHost.exe" ]] || {
+        echo "插件宿主未进入安装器 stage: dist/stage/$rid-aot/plugin-host" >&2; exit 1
+      }
     else
       cp "$PUBLISHED" "$STAGE/Tokenmetry"
+      cp -R "dist/publish/$rid-host" "$STAGE/plugin-host"
+      [[ -f "$STAGE/plugin-host/Tokenmetry.PluginHost" ]] || {
+        echo "插件宿主未进入 zip stage: $STAGE/plugin-host" >&2; exit 1
+      }
     fi
   fi
 
@@ -217,7 +272,18 @@ PLIST
   # an earlier run would survive (stale layout mixed with new). Always start
   # from a fresh archive.
   rm -f "$APP_ZIP"
-  (cd "$STAGE" && zip -q -r -X "$APP_ZIP" .)
+  if [[ "$rid" == osx-* ]] && command -v ditto >/dev/null 2>&1; then
+    # .NET PE 程序集的 codesign 签名存放在扩展属性（com.apple.cs.*）里；Info-ZIP
+    # （含 zip -X）会丢弃 xattr，解压后嵌套插件宿主验签失败、Gatekeeper 判 damaged。
+    # ditto 与 Finder / Archive Utility 同源，保留 xattr 与权限，是让解压后的 .app
+    # 仍能通过 codesign --verify 的可靠归档方式。
+    # --sequesterRsrc：把 AppleDouble 放进行政目录 __MACOSX/，不把 ._ 文件塞进 .app。
+    # 应用内更新用 ZipFile 解包时只会挑根目录里唯一的 .app，__MACOSX 落在暂存区不影响载荷
+    # （但 ZipFile 不解 xattr，自更新后的嵌套宿主签名不再有效——见 known-limitations）。
+    ditto -c -k --sequesterRsrc --keepParent "$APP" "$APP_ZIP"
+  else
+    (cd "$STAGE" && zip -q -r -X "$APP_ZIP" .)
+  fi
   echo "    $APP_ZIP"
 
   if [[ "$rid" == win-* ]]; then

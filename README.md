@@ -107,6 +107,17 @@ Cindy covers the Pi runtime only: sessions it starts for Claude Code / Codex sti
 those agents; zero-cost entries backfilled by its gateway count as unknown, never zero; and one
 session file is billed once, never twice.
 
+## Private agents / plugins
+
+For agents outside that list, Tokenmetry ships a small local SDK. A plugin is a `.tkmplugin`
+package (a C# assembly + `plugin.json`) that you install by hand from **Data & pricing →
+Plugins**; its usage then appears in the existing views just like a built-in agent. Plugins are
+local third-party code with the same permissions as Tokenmetry — install only from sources you
+trust. See [the user guide](docs/plugins.md).
+
+- Authoring guide: [`plugin-sdk/README.md`](plugin-sdk/README.md)
+- End-to-end workflow for you or your AI: [`plugin-sdk/SKILL.md`](plugin-sdk/SKILL.md)
+
 ## Install
 
 Grab a package from [Releases](https://github.com/cholf5/tokenmetry/releases/latest). CI builds

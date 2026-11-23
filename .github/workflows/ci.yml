@@ -102,6 +102,29 @@ jobs:
         # (a silent App.Tests phase is indistinguishable from a hang) and to
         # pin down slow tests; local runs stay on default verbosity.
         run: dotnet test Tokenmetry.sln --logger "console;verbosity=normal"
+      # The plugin host is a second, self-contained CoreCLR executable shipped
+      # next to the AOT app (which must never load plugin assemblies). Building
+      # it here mirrors the local smoke and catches a broken host project before
+      # any packaging job runs.
+      - name: Build plugin host
+        run: |
+          dotnet publish src/Tokenmetry.PluginHost/Tokenmetry.PluginHost.csproj -c Release -r linux-x64 \
+            --self-contained true -p:PublishSingleFile=false -p:PublishReadyToRun=true \
+            -o "$RUNNER_TEMP/plugin-host"
+          test -f "$RUNNER_TEMP/plugin-host/Tokenmetry.PluginHost" || {
+            echo "::error::plugin host executable missing"; ls -la "$RUNNER_TEMP/plugin-host" || true; exit 1; }
+      # The validator spawns the host from its own output's plugin-host/ dir.
+      # That copy target is otherwise unlocked by tests, so assert it here: a
+      # validator that cannot find the host would pass validate but fail scan.
+      - name: Build validator and assert bundled plugin host
+        run: |
+          dotnet build tools/Tokenmetry.PluginValidator/Tokenmetry.PluginValidator.csproj -c Release
+          HOST_DIR="tools/Tokenmetry.PluginValidator/bin/Release/net10.0/plugin-host"
+          for f in Tokenmetry.PluginHost.dll Tokenmetry.PluginHost.deps.json \
+                   Tokenmetry.PluginHost.runtimeconfig.json Tokenmetry.Plugin.Abstractions.dll; do
+            test -f "$HOST_DIR/$f" || {
+              echo "::error::validator plugin-host missing $f"; ls -la "$HOST_DIR" || true; exit 1; }
+          done
 
   # Packaging jobs run only on tag / manual triggers. The version comes from
   # the csproj <Version> as the single source, read once in the test job.
@@ -125,6 +148,13 @@ jobs:
         run: scripts/package.sh --rids "osx-${{ matrix.arch }}"
       - name: Check asset exists
         run: test -f "dist/Tokenmetry-${VERSION}-osx-${{ matrix.arch }}.zip"
+      # The plugin host must ride inside the .app (Contents/MacOS/plugin-host/),
+      # signed with the bundle. A missing host silently disables plugins.
+      - name: Check plugin host is packaged
+        run: |
+          unzip -l "dist/Tokenmetry-${VERSION}-osx-${{ matrix.arch }}.zip" \
+            | grep -q "Tokenmetry.app/Contents/MacOS/plugin-host/Tokenmetry.PluginHost" \
+            || { echo "::error::plugin host missing from macOS package"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: package-macos-${{ matrix.arch }}
@@ -161,12 +191,23 @@ jobs:
           --self-contained true -p:PublishSingleFile=true
           -p:PublishReadyToRun=true
           -p:IncludeNativeLibrariesForSelfExtract=true -o "dist/publish/win-x64"
+      # Plugin host: a second self-contained CoreCLR executable. The main app is
+      # AOT and never loads plugin assemblies; the host does. It must reach both
+      # the portable zip and the installer as plugin-host/.
+      - name: Publish plugin host
+        shell: pwsh
+        run: >
+          dotnet publish src/Tokenmetry.PluginHost/Tokenmetry.PluginHost.csproj
+          -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false
+          -p:PublishReadyToRun=true -o "dist/publish/win-x64-host"
       - name: Stage portable zip with product-name binary
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "dist/stage/win-x64" | Out-Null
+          New-Item -ItemType Directory -Force -Path "dist/stage/win-x64/plugin-host" | Out-Null
           Copy-Item "dist/publish/win-x64/Tokenmetry.App.exe" "dist/stage/win-x64/Tokenmetry.exe"
-          Compress-Archive -Path "dist/stage/win-x64/Tokenmetry.exe" -DestinationPath "dist/Tokenmetry-$env:VERSION-win-x64.zip"
+          Copy-Item "dist/publish/win-x64-host/*" "dist/stage/win-x64/plugin-host" -Recurse
+          if (-not (Test-Path "dist/stage/win-x64/plugin-host/Tokenmetry.PluginHost.exe")) { throw "plugin host missing from portable stage" }
+          Compress-Archive -Path "dist/stage/win-x64/*" -DestinationPath "dist/Tokenmetry-$env:VERSION-win-x64.zip" -Force
       # The installer gets a separate AOT build, not the portable single file:
       # Native AOT cannot be bundled into one file, and once the payload lives in
       # a fixed install directory the single-file form has no upside — AOT drops
@@ -187,6 +228,11 @@ jobs:
           Copy-Item "dist/publish/win-x64-aot/*" "dist/stage/win-x64-aot" -Recurse
           Remove-Item "dist/stage/win-x64-aot/*.pdb", "dist/stage/win-x64-aot/*.xml" -ErrorAction SilentlyContinue
           Rename-Item "dist/stage/win-x64-aot/Tokenmetry.App.exe" "Tokenmetry.exe"
+          # plugin-host/ rides along: the installer's [Files] uses SourceDir\*
+          # with recursesubdirs, so the host lands in {app}\plugin-host\.
+          New-Item -ItemType Directory -Force -Path "dist/stage/win-x64-aot/plugin-host" | Out-Null
+          Copy-Item "dist/publish/win-x64-host/*" "dist/stage/win-x64-aot/plugin-host" -Recurse
+          if (-not (Test-Path "dist/stage/win-x64-aot/plugin-host/Tokenmetry.PluginHost.exe")) { throw "plugin host missing from installer stage" }
       # Installer is the primary Windows artifact: the zip stays for portable use,
       # but only the installer gives an uninstaller, Start-menu entry and a fixed
       # install path (which is what keeps HKCU\...\Run autostart valid).
@@ -227,7 +273,10 @@ jobs:
           Invoke-Bounded $setup @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/NOCANCEL") 300000
           if (-not (Test-Path $exe)) { throw "installed exe missing: $exe" }
           if (-not (Test-Path (Join-Path $dir "unins000.exe"))) { throw "uninstaller missing" }
+          $hostExe = Join-Path $dir "plugin-host/Tokenmetry.PluginHost.exe"
+          if (-not (Test-Path $hostExe)) { throw "plugin host missing after install: $hostExe" }
           Write-Host "installed: $exe"
+          Write-Host "plugin host: $hostExe"
 
           # [Run] postinstall must fire under /SILENT too — an in-app upgrade
           # has to bring the app back on its own, not leave the user staring at
@@ -271,6 +320,10 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       - name: Package binary
         run: scripts/package.sh --rids linux-x64
+      - name: Check plugin host is packaged
+        run: |
+          unzip -l dist/Tokenmetry-*-linux-x64.zip | grep -q "plugin-host/Tokenmetry.PluginHost" \
+            || { echo "::error::plugin host missing from Linux package"; exit 1; }
       # Boot smoke under a virtual X server: no human ever double-clicked the
       # Linux build, so this is the closest thing to a launch test CI can do.
       # It catches "dies during host/Avalonia/SQLite init" — the class of failure
