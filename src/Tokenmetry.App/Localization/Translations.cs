@@ -242,6 +242,10 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ThemePaletteDefault)] = "默认",
         [nameof(ThemeModeLabel)] = "模式",
         [nameof(ThemeModeHint)] = "日间 / 夜间 / 跟随系统；仅提供夜间模式的画板会固定为夜间。",
+        [nameof(ThemeOnlyLightBadge)] = "仅浅色",
+        [nameof(ThemeOnlyDarkBadge)] = "仅深色",
+        [nameof(ThemeOnlyLightNote)] = "{0} 仅提供浅色配色",
+        [nameof(ThemeOnlyDarkNote)] = "{0} 仅提供深色配色",
         [nameof(LabelLanguage)] = "界面语言",
         [nameof(LanguageSystem)] = "跟随系统",
         [nameof(LanguageZh)] = "简体中文",
@@ -842,6 +846,10 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ThemePaletteDefault)] = "Default",
         [nameof(ThemeModeLabel)] = "Mode",
         [nameof(ThemeModeHint)] = "Light, dark, or follow system; dark-only palettes stay in dark mode.",
+        [nameof(ThemeOnlyLightBadge)] = "Light only",
+        [nameof(ThemeOnlyDarkBadge)] = "Dark only",
+        [nameof(ThemeOnlyLightNote)] = "{0} comes in light only",
+        [nameof(ThemeOnlyDarkNote)] = "{0} comes in dark only",
         [nameof(LabelLanguage)] = "Language",
         [nameof(LanguageSystem)] = "Follow system",
         [nameof(LanguageZh)] = "简体中文",
@@ -1591,6 +1599,10 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string ThemePaletteDefault => Get();
     public string ThemeModeLabel => Get();
     public string ThemeModeHint => Get();
+    public string ThemeOnlyLightBadge => Get();
+    public string ThemeOnlyDarkBadge => Get();
+    public string ThemeOnlyLightNote => Get();
+    public string ThemeOnlyDarkNote => Get();
     public string LabelLanguage => Get();
     public string LanguageSystem => Get();
     public string LanguageZh => Get();

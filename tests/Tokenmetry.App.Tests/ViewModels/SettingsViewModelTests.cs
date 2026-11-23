@@ -356,9 +356,13 @@ public class SettingsViewModelTests
         var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
 
         viewModel.SelectedPalette.Value.Should().Be("nord");
-        // 单档画板（Nord 只有夜间）：模式显示强制唯一档，选择器置灰，但不回写存储的模式偏好
+        // 单档画板（Nord 只有夜间）：模式显示强制唯一档，日间/系统档不可用，但不回写存储的模式偏好
         viewModel.SelectedTheme.Value.Should().Be("dark");
-        viewModel.IsModeSelectionEnabled.Should().BeFalse();
+        viewModel.IsLightModeAvailable.Should().BeFalse();
+        viewModel.IsDarkModeAvailable.Should().BeTrue();
+        viewModel.IsSystemModeAvailable.Should().BeFalse();
+        viewModel.HasSingleModeNote.Should().BeTrue();
+        viewModel.SingleModeNote.Should().Contain("Nord");
         viewModel.EffectiveThemeOptions.Should().ContainSingle().Which.Value.Should().Be("dark");
         settings.Theme.Should().Be("light");
     }
@@ -371,7 +375,10 @@ public class SettingsViewModelTests
         var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
 
         viewModel.SelectedPalette.Value.Should().Be("default");
-        viewModel.IsModeSelectionEnabled.Should().BeTrue();
+        viewModel.IsLightModeAvailable.Should().BeTrue();
+        viewModel.IsDarkModeAvailable.Should().BeTrue();
+        viewModel.IsSystemModeAvailable.Should().BeTrue();
+        viewModel.HasSingleModeNote.Should().BeFalse();
     }
 
     [Fact]
@@ -389,13 +396,56 @@ public class SettingsViewModelTests
         store.SaveCalls.Should().Be(1);                      // 即落盘
         viewModel.SelectedTheme.Value.Should().Be("dark");   // 模式显示按画板归口
         settings.Theme.Should().Be("light");                 // 存储的模式偏好不被归口值覆盖
-        viewModel.IsModeSelectionEnabled.Should().BeFalse();
+        viewModel.IsLightModeAvailable.Should().BeFalse();
+        viewModel.IsDarkModeAvailable.Should().BeTrue();
+        viewModel.IsSystemModeAvailable.Should().BeFalse();
 
         // 切回多档画板：模式显示恢复用户原日间偏好
         viewModel.SelectedPalette = SettingsViewModel.PaletteOptions.First(o => o.Value == "solarized");
         viewModel.SelectedTheme.Value.Should().Be("light");
-        viewModel.IsModeSelectionEnabled.Should().BeTrue();
+        viewModel.IsLightModeAvailable.Should().BeTrue();
+        viewModel.IsDarkModeAvailable.Should().BeTrue();
+        viewModel.IsSystemModeAvailable.Should().BeTrue();
+        viewModel.HasSingleModeNote.Should().BeFalse();
         themeService.LastAppliedPalette.Should().Be("solarized");
+    }
+
+    [Fact]
+    public void EffectiveThemeOptions_FollowDeclaredModes_NotAHardCodedDarkSlot()
+    {
+        // 回归：旧实现把「单档画板」硬编码成 ThemeOptions[1]（夜间）。目录里目前没有只有日间的
+        // 画板，用合成画板守住这条语义——否则将来补一套只有日间的画板，界面会显示「夜间」
+        // 而实际应用的是日间。
+        var lightOnly = new ThemePaletteInfo("light-only", ["light"], null, [], []);
+        SettingsViewModel.OptionsFor(lightOnly)
+            .Should().ContainSingle().Which.Value.Should().Be("light");
+
+        SettingsViewModel.OptionsFor(ThemePaletteCatalog.Default).Select(option => option.Value)
+            .Should().Equal("light", "dark", "system");
+    }
+
+    [Fact]
+    public void ModeCardSelection_ChangesModeOnlyWhenChecked()
+    {
+        var settings = new AppSettings { Theme = "light" };
+        var store = new FakeSettingsStore();
+        var themeService = new FakeThemeService();
+        var viewModel = CreateViewModel(settings, new AppPaths("C:\\tokenmetry"), store, themeService);
+
+        viewModel.IsLightModeSelected.Should().BeTrue();
+        viewModel.IsDarkModeSelected.Should().BeFalse();
+
+        viewModel.IsSystemModeSelected = true; // 点「跟随系统」卡 = 选中并落盘
+        viewModel.SelectedTheme.Value.Should().Be("system");
+        settings.Theme.Should().Be("system");
+        themeService.LastAppliedMode.Should().Be("system");
+        viewModel.IsLightModeSelected.Should().BeFalse();
+        viewModel.IsSystemModeSelected.Should().BeTrue();
+
+        // 组内互斥会自动把其它卡置为未选中（TwoWay 回调 false）：不得因此改模式
+        viewModel.IsDarkModeSelected = false;
+        viewModel.SelectedTheme.Value.Should().Be("system");
+        settings.Theme.Should().Be("system");
     }
 
     // ---- 界面语言（system / zh / zh-hant / en / ja / ko / pt-br / ru，机制与 Theme 全链路同构）----

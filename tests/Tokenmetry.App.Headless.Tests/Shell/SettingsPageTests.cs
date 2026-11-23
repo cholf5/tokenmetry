@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -27,7 +29,8 @@ namespace Tokenmetry.App.Headless.Tests.Shell;
 /// 设置页（应用偏好）的自动化验证（headless，真实 App.axaml + Semi；S-004 起收缩为
 /// 主题 / 语言 / 刷新间隔 / ccusage 命令 / 本地路径——数据源 / 口径 / 目录 / 别名在
 /// DataPricingPageTests）：
-/// 1. 主题三态组合框迁移：选项与选中绑定（持久化语义在 SettingsViewModelTests / ThemeService 测试）；
+/// 1. 主题两维选择器：画板项的档位徽标（仅深色/仅浅色）+ 模式三张预览卡
+///    （选中环、单档压暗、原因说明；持久化语义在 SettingsViewModelTests / ThemeService 测试）；
 /// 2. 界面语言三选项 + 切换不重启实时重译；
 /// 3. 真实 DI 单例冒烟（真实 AppPaths 的路径面板）；
 /// 4. 明暗两套离屏截图留档（docs/design/settings-*.png）。
@@ -104,7 +107,7 @@ public class SettingsPageTests
     }
 
     [AvaloniaFact]
-    public void Theme_combos_offer_palette_and_mode_with_single_mode_graying()
+    public void Theme_picker_shows_palette_mode_badges_and_mode_cards()
     {
         var vm = CreateViewModel();
         var appThemeService = new ThemeService(); // 复原专用：测试里切画板会污染共享 Application 状态
@@ -122,28 +125,79 @@ public class SettingsPageTests
             Assert.All(SettingsViewModel.PaletteOptions, option => Assert.Equal(5, option.Swatches.Count));
             Assert.Same(SettingsViewModel.PaletteOptions[0], paletteCombo.SelectedItem); // 默认画板
 
-            // 模式下拉（ThemeOption，唯一）：默认画板三档齐全且可用
-            var modeCombo = window.GetVisualDescendants().OfType<ComboBox>()
-                .First(c => c.ItemsSource is IReadOnlyList<ThemeOption>);
-            Assert.Equal(3, modeCombo.ItemCount);
-            Assert.Same(SettingsViewModel.ThemeOptions.Single(o => o.Value == "dark"), modeCombo.SelectedItem);
-            Assert.True(modeCombo.IsEnabled);
+            // 档位徽标提前说明缺口：只有夜间的画板带「仅深色」，多档画板没有徽标
+            var nordOption = SettingsViewModel.PaletteOptions.First(o => o.Value == "nord");
+            Assert.True(nordOption.HasModeBadge);
+            Assert.Equal(Translations.Instance.ThemeOnlyDarkBadge, nordOption.ModeBadgeText);
+            Assert.False(SettingsViewModel.PaletteOptions[0].HasModeBadge);
 
-            // 单档画板（Nord）：模式档收成唯一档 + 置灰；切回多档画板恢复三档
-            vm.SelectedPalette = SettingsViewModel.PaletteOptions.First(o => o.Value == "nord");
+            // 模式是三张常驻图卡（不再是下拉）：默认画板三张都可用，当前模式对应卡被选中
+            var modeCards = window.GetVisualDescendants().OfType<RadioButton>()
+                .Where(card => card.Classes.Contains("theme-mode-card")).ToList();
+            Assert.Equal(3, modeCards.Count);
+            Assert.All(modeCards, card => Assert.True(card.IsEnabled));
+            Assert.Single(modeCards, card => card.IsChecked == true);
+            Assert.Null(window.GetVisualDescendants().OfType<ComboBox>()
+                .FirstOrDefault(c => c.ItemsSource is IReadOnlyList<ThemeOption>));
+
+            // 卡片行与画板下拉同宽同左缘（三张卡曾经合计 360px，越出 300px 的下拉）
+            var comboRight = paletteCombo.TranslatePoint(
+                new Point(paletteCombo.Bounds.Width, 0), window)!.Value.X;
+            var cardsRight = modeCards.Max(card => card.TranslatePoint(
+                new Point(card.Bounds.Width, 0), window)!.Value.X);
+            Assert.True(cardsRight <= comboRight + 1,
+                $"模式卡行右缘 {cardsRight:F1}px 超出了画板下拉右缘 {comboRight:F1}px");
+            var cardWidths = modeCards.Select(card => card.Bounds.Width).ToArray();
+            Assert.True(cardWidths.All(width => width >= 80),
+                $"模式卡宽度 {string.Join(", ", cardWidths.Select(width => width.ToString("F1")))}（三张应等宽铺满所在列）");
+
+            // 选中卡的描边是强调色环，未选中卡透明（:checked 后代选择器确实生效）
+            var cardByCaption = modeCards.ToDictionary(
+                card => card.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(text => text.Classes.Contains("mode-caption")).Text!);
+            Border FrameOf(string caption) => cardByCaption[caption]
+                .GetVisualDescendants().OfType<Border>()
+                .Single(border => border.Classes.Contains("mode-frame"));
+            Assert.True(Assert.IsAssignableFrom<ISolidColorBrush>(FrameOf(Translations.Instance.ThemeDark).BorderBrush).Color.A > 0);
+            Assert.Equal(0, Assert.IsAssignableFrom<ISolidColorBrush>(FrameOf(Translations.Instance.ThemeLight).BorderBrush).Color.A);
+
+            // 单档画板（Nord）：不可用的日间/系统卡压暗但仍在原位，原因写在卡下方
+            vm.SelectedPalette = nordOption;
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(1, modeCombo.ItemCount);
-            Assert.False(modeCombo.IsEnabled);
-            Assert.Same(SettingsViewModel.ThemeOptions.Single(o => o.Value == "dark"), modeCombo.SelectedItem);
 
+            // 收起后的画板下拉用同一模板：选中单档画板时徽标直接可见，不用展开
+            var closedBadge = window.GetVisualDescendants().OfType<Border>()
+                .FirstOrDefault(border => border.Classes.Contains("chip")
+                    && (border.Child as TextBlock)?.Text == Translations.Instance.ThemeOnlyDarkBadge);
+            Assert.NotNull(closedBadge);
+            Assert.True(closedBadge!.IsVisible);
+            Assert.False(cardByCaption[Translations.Instance.ThemeLight].IsEnabled);
+            Assert.True(cardByCaption[Translations.Instance.ThemeDark].IsEnabled);
+            Assert.False(cardByCaption[Translations.Instance.ThemeSystem].IsEnabled);
+            Assert.True(vm.HasSingleModeNote);
+            var note = window.GetVisualDescendants().OfType<TextBlock>()
+                .Single(text => text.Text == vm.SingleModeNote);
+            Assert.True(note.IsVisible);
+            Assert.Contains("Nord", note.Text!);
+
+            // 切回多档画板：三张卡恢复可用，说明行消失
             vm.SelectedPalette = SettingsViewModel.PaletteOptions.First(o => o.Value == "solarized");
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(3, modeCombo.ItemCount);
-            Assert.True(modeCombo.IsEnabled);
+            Assert.All(modeCards, card => Assert.True(card.IsEnabled));
+            Assert.False(note.IsVisible);
 
-            // 模式三态选项文案（迁移自旧视图，标签不变）
-            var optionTexts = SettingsViewModel.ThemeOptions.Select(o => o.Label).ToList();
-            Assert.Equal(new[] { "日间", "夜间", "跟随系统" }, optionTexts);
+            // 模式三态文案（经 Translations 引用，语言无关）
+            var captions = modeCards.Select(card =>
+                card.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(text => text.Classes.Contains("mode-caption")).Text).ToList();
+            Assert.Equal(
+                new[]
+                {
+                    Translations.Instance.ThemeLight,
+                    Translations.Instance.ThemeDark,
+                    Translations.Instance.ThemeSystem,
+                },
+                captions);
 
             window.Close();
             Dispatcher.UIThread.RunJobs();

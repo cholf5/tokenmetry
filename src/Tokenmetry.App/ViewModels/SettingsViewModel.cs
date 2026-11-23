@@ -66,6 +66,26 @@ public sealed class PaletteOption : ObservableObject
     /// <summary>下拉项前的色带（页面底 / 面板 / 强调蓝 / 强调紫 / 强调橙），取自画板 Dark 档。</summary>
     public IReadOnlyList<PaletteSwatch> Swatches { get; }
 
+    /// <summary>单档画板的档位徽标（「仅浅色」/「仅深色」）；多档画板为 null。
+    /// 显示在画板项右侧：选中前就知道这套画板缺哪一档，不靠悬停。</summary>
+    public string? ModeBadgeText
+    {
+        get
+        {
+            var modes = ThemePaletteCatalog.Resolve(Value).Modes;
+            if (modes.Count != 1)
+            {
+                return null;
+            }
+
+            return modes[0] == "light"
+                ? Translations.Instance.ThemeOnlyLightBadge
+                : Translations.Instance.ThemeOnlyDarkBadge;
+        }
+    }
+
+    public bool HasModeBadge => ModeBadgeText is not null;
+
     public string Label => Value switch
     {
         ThemePaletteCatalog.DefaultPaletteId => Translations.Instance.ThemePaletteDefault,
@@ -81,8 +101,13 @@ public sealed class PaletteOption : ObservableObject
         _ => Value,
     };
 
-    /// <summary>语言切换后由 SettingsViewModel 统一触发（默认画板名随语言重译）。</summary>
-    public void RefreshLabel() => OnPropertyChanged(nameof(Label));
+    /// <summary>语言切换后由 SettingsViewModel 统一触发（默认画板名与档位徽标随语言重译）。</summary>
+    public void RefreshLabel()
+    {
+        OnPropertyChanged(nameof(Label));
+        OnPropertyChanged(nameof(ModeBadgeText));
+        OnPropertyChanged(nameof(HasModeBadge));
+    }
 }
 
 /// <summary>
@@ -95,6 +120,34 @@ public sealed class PaletteSwatch
     public PaletteSwatch(string color) => Brush = new SolidColorBrush(Color.Parse(color));
 
     public IBrush Brush { get; }
+}
+
+/// <summary>
+/// 模式预览卡的取色（页面底 / 面板 / 强调蓝 / 强调紫），来自画板本色的某一亮暗档——
+/// 图卡画的是「这套画板在这个模式下长什么样」，不是当前主题的通用示意窗，所以色值是画板数据、
+/// 不随当前主题翻转（规则同 <see cref="PaletteSwatch"/>）。
+/// </summary>
+public sealed class ThemeModePreview
+{
+    public ThemeModePreview(IReadOnlyList<string> colors)
+    {
+        Page = new SolidColorBrush(Color.Parse(colors[0]));
+        Panel = new SolidColorBrush(Color.Parse(colors[1]));
+        Accent = new SolidColorBrush(Color.Parse(colors[2]));
+        AccentAlt = new SolidColorBrush(Color.Parse(colors[3]));
+    }
+
+    /// <summary>页面底（迷你窗口的底色）。</summary>
+    public IBrush Page { get; }
+
+    /// <summary>面板（迷你窗口里的卡片面）。</summary>
+    public IBrush Panel { get; }
+
+    /// <summary>强调色（标题条与正文条）。</summary>
+    public IBrush Accent { get; }
+
+    /// <summary>第二强调色（窗口右上角的状态点）。</summary>
+    public IBrush AccentAlt { get; }
 }
 
 /// <summary>界面语言选项（Value 对应 AppSettings.Language 的取值，统一小写：system / zh / zh-hant /
@@ -262,6 +315,7 @@ public partial class SettingsViewModel : ViewModelBase
         _autoStartOnBoot = settings.AutoStartOnBoot;
         _fileLoggingEnabled = settings.FileLoggingEnabled;
         _selectedPalette = ResolvePaletteOption(settings.ThemePalette);
+        (_lightModePreview, _darkModePreview) = BuildPreviews(_selectedPalette);
         // 模式显示按画板归口（单档画板强制唯一档显示，不回写存储偏好）；字段直赋不走
         // OnSelectedThemeChanged 的「应用 + 落盘」，与既有构造纪律一致。
         _selectedTheme = ResolveThemeOption(CoerceMode(ThemePaletteCatalog.Resolve(_selectedPalette.Value), settings.Theme));
@@ -561,12 +615,110 @@ public partial class SettingsViewModel : ViewModelBase
     /// <summary>当前画板信息（选项与目录按 Id 对应）。</summary>
     private ThemePaletteInfo SelectedPaletteInfo => ThemePaletteCatalog.Resolve(SelectedPalette?.Value);
 
-    /// <summary>模式档位列表：单档画板（Nord/Dracula 只有夜间）只给唯一档，多档画板齐全。</summary>
-    public IReadOnlyList<ThemeOption> EffectiveThemeOptions =>
-        SelectedPaletteInfo.Modes.Count == 1 ? [ThemeOptions[1]] : ThemeOptions;
+    private ThemeModePreview _lightModePreview;
+    private ThemeModePreview _darkModePreview;
 
-    /// <summary>模式选择是否可用（单档画板置灰——模式随画板固定，无选择意义）。</summary>
-    public bool IsModeSelectionEnabled => SelectedPaletteInfo.Modes.Count > 1;
+    /// <summary>日间卡预览（该画板 Light 档本色；无浅色档的画板回落深色档，卡本身置灰）。</summary>
+    public ThemeModePreview LightModePreview => _lightModePreview;
+
+    /// <summary>夜间卡预览（该画板 Dark 档本色）。</summary>
+    public ThemeModePreview DarkModePreview => _darkModePreview;
+
+    /// <summary>模式档位列表：按画板声明的档位取（单档画板只给唯一档，多档画板齐全）。
+    /// 一律从 <see cref="ThemePaletteInfo.Modes"/> 派生而不是写死下标——单档画板未必是夜间
+    /// （补齐浅色姊妹画板后会出现只有日间的画板）。</summary>
+    public IReadOnlyList<ThemeOption> EffectiveThemeOptions => OptionsFor(SelectedPaletteInfo);
+
+    /// <summary>画板声明的档位 → 选项（顺序随 <see cref="ThemePaletteInfo.Modes"/>）。
+    /// 静态入口便于用合成画板单测（目录里目前没有只有日间的画板）。</summary>
+    public static IReadOnlyList<ThemeOption> OptionsFor(ThemePaletteInfo palette) =>
+        palette.Modes.Select(mode => ThemeOptions.Single(option => option.Value == mode)).ToArray();
+
+    // 三个档位卡：可用性看画板声明，选中态看当前模式（RadioButton 双向绑定的落点）。
+
+    public bool IsLightModeAvailable => SelectedPaletteInfo.Modes.Contains("light");
+
+    public bool IsDarkModeAvailable => SelectedPaletteInfo.Modes.Contains("dark");
+
+    public bool IsSystemModeAvailable => SelectedPaletteInfo.Modes.Contains("system");
+
+    public bool IsLightModeSelected
+    {
+        get => SelectedTheme?.Value == "light";
+        set => SelectModeFromCard("light", value);
+    }
+
+    public bool IsDarkModeSelected
+    {
+        get => SelectedTheme?.Value == "dark";
+        set => SelectModeFromCard("dark", value);
+    }
+
+    public bool IsSystemModeSelected
+    {
+        get => SelectedTheme?.Value == "system";
+        set => SelectModeFromCard("system", value);
+    }
+
+    /// <summary>单档画板的原因说明（「Nord 仅提供深色配色」）；多档画板为 null。
+    /// 理由写在卡旁边而不是悬停里——置灰的控件不说话，而三张卡会一直摊在页面上。</summary>
+    public string? SingleModeNote
+    {
+        get
+        {
+            var info = SelectedPaletteInfo;
+            if (info.Modes.Count != 1)
+            {
+                return null;
+            }
+
+            var paletteName = SelectedPalette?.Label ?? info.Id;
+            return string.Format(
+                CultureInfo.CurrentCulture,
+                info.Modes[0] == "light"
+                    ? Translations.Instance.ThemeOnlyLightNote
+                    : Translations.Instance.ThemeOnlyDarkNote,
+                paletteName);
+        }
+    }
+
+    public bool HasSingleModeNote => SingleModeNote is not null;
+
+    /// <summary>RadioButton 组内只有「被选中」这一路会回调；取消选中（组内互斥自动置 false）忽略。</summary>
+    private void SelectModeFromCard(string value, bool selected)
+    {
+        if (!selected || SelectedTheme?.Value == value)
+        {
+            return;
+        }
+
+        SelectedTheme = ThemeOptions.Single(option => option.Value == value);
+    }
+
+    private static (ThemeModePreview Light, ThemeModePreview Dark) BuildPreviews(PaletteOption palette)
+    {
+        var info = ThemePaletteCatalog.Resolve(palette.Value);
+        return (new ThemeModePreview(info.LightFace), new ThemeModePreview(info.Swatches));
+    }
+
+    private void NotifyThemePresentation()
+    {
+        OnPropertyChanged(nameof(LightModePreview));
+        OnPropertyChanged(nameof(DarkModePreview));
+        OnPropertyChanged(nameof(IsLightModeAvailable));
+        OnPropertyChanged(nameof(IsDarkModeAvailable));
+        OnPropertyChanged(nameof(IsSystemModeAvailable));
+        OnPropertyChanged(nameof(SingleModeNote));
+        OnPropertyChanged(nameof(HasSingleModeNote));
+        NotifyModeSelection();
+    }
+
+    private void NotifyModeSelection()
+    {
+        OnPropertyChanged(nameof(IsLightModeSelected));
+        OnPropertyChanged(nameof(IsDarkModeSelected));
+        OnPropertyChanged(nameof(IsSystemModeSelected));
+    }
 
     /// <summary>画板切换：换字典应用并落盘；模式显示归口到新画板的档位但不回写存储的模式偏好
     /// （切回多档画板时用户原日间/夜间选择仍在）。字段直赋 + 手动通知，绕开
@@ -588,8 +740,10 @@ public partial class SettingsViewModel : ViewModelBase
             _selectedTheme = modeOption;
             OnPropertyChanged(nameof(SelectedTheme));
         }
+
+        (_lightModePreview, _darkModePreview) = BuildPreviews(value);
         OnPropertyChanged(nameof(EffectiveThemeOptions));
-        OnPropertyChanged(nameof(IsModeSelectionEnabled));
+        NotifyThemePresentation();
 
         _themeService.Apply(palette.Id, _settings.Theme);
         PersistSettings();
@@ -606,6 +760,7 @@ public partial class SettingsViewModel : ViewModelBase
         _themeService.Apply(_settings.ThemePalette, value.Value);
         _settings.Theme = value.Value;
         PersistSettings();
+        NotifyModeSelection();
     }
 
     /// <summary>语言切换：立即全局应用（含本页与外壳重译）并即时落盘——对齐 stupid-dict
@@ -733,6 +888,10 @@ public partial class SettingsViewModel : ViewModelBase
         {
             option.RefreshLabel();
         }
+
+        // 单档说明里含画板名，随语言重算（徽标由 PaletteOption.RefreshLabel 自己通知）。
+        OnPropertyChanged(nameof(SingleModeNote));
+        OnPropertyChanged(nameof(HasSingleModeNote));
 
         SharePosterOptions.RefreshLabels();
     }

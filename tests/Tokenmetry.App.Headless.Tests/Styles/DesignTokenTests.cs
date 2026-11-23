@@ -572,6 +572,13 @@ public class DesignTokenTests
         }
     }
 
+    /// <summary>设置页色带与模式预览卡取色的 5 个令牌（底 / 面板 / 蓝 / 紫 / 橙）。</summary>
+    private static readonly string[] PaletteSwatchKeys =
+    [
+        "AppBackgroundBrush", "AppPanelBrush",
+        "AppAccentBlueBrush", "AppAccentPurpleBrush", "AppAccentOrangeBrush",
+    ];
+
     /// <summary>
     /// 设置页下拉色带与画板实值同源：ThemePaletteCatalog.Swatches 是纯展示数据（VM 不解析 XAML，
     /// 非 headless 单测进程里解析不可靠），这里把每个画板 Dark 档的底/面板/三个强调色与登记值逐项
@@ -580,28 +587,56 @@ public class DesignTokenTests
     [AvaloniaFact]
     public void Palette_catalog_swatches_match_dark_tokens()
     {
-        string[] swatchKeys =
-        [
-            "AppBackgroundBrush", "AppPanelBrush",
-            "AppAccentBlueBrush", "AppAccentPurpleBrush", "AppAccentOrangeBrush",
-        ];
-
         var tokens = Assert.IsAssignableFrom<ResourceDictionary>(AvaloniaXamlLoader.Load(
             new Uri("avares://Tokenmetry.App/Styles/Tokens.axaml")));
 
         foreach (var palette in ThemePaletteCatalog.All)
         {
             var dict = palette.CreateDictionary?.Invoke() ?? tokens;
-            Assert.Equal(swatchKeys.Length, palette.Swatches.Count);
+            Assert.Equal(PaletteSwatchKeys.Length, palette.Swatches.Count);
             Assert.True(dict.ThemeDictionaries.TryGetValue(ThemeVariant.Dark, out var mode),
                 $"{palette.Id} 缺少 Dark 变体（色点取 Dark 档）");
             var dark = (ResourceDictionary)mode!;
-            for (var i = 0; i < swatchKeys.Length; i++)
+            for (var i = 0; i < PaletteSwatchKeys.Length; i++)
             {
-                Assert.True(dark.TryGetResource(swatchKeys[i], ThemeVariant.Dark, out var value),
-                    $"{palette.Id} 缺少色点令牌 {swatchKeys[i]}");
+                Assert.True(dark.TryGetResource(PaletteSwatchKeys[i], ThemeVariant.Dark, out var value),
+                    $"{palette.Id} 缺少色点令牌 {PaletteSwatchKeys[i]}");
                 Assert.Equal(Assert.IsAssignableFrom<ISolidColorBrush>(value!).Color,
                     Color.Parse(palette.Swatches[i]));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 模式预览卡的浅色档取色同源：<see cref="ThemePaletteInfo.LightSwatches"/> 必须与该画板
+    /// Light 变体的底/面板/三强调色逐项一致；只有夜间档的画板必须为空列表（卡回落深色档且置灰）。
+    /// </summary>
+    [AvaloniaFact]
+    public void Palette_catalog_light_swatches_match_light_tokens()
+    {
+        var tokens = Assert.IsAssignableFrom<ResourceDictionary>(AvaloniaXamlLoader.Load(
+            new Uri("avares://Tokenmetry.App/Styles/Tokens.axaml")));
+
+        foreach (var palette in ThemePaletteCatalog.All)
+        {
+            var dict = palette.CreateDictionary?.Invoke() ?? tokens;
+            if (!palette.Modes.Contains("light"))
+            {
+                Assert.Empty(palette.LightSwatches);
+                Assert.Equal(palette.Swatches, palette.LightFace); // 无浅色档 → 预览回落深色
+                continue;
+            }
+
+            Assert.Equal(PaletteSwatchKeys.Length, palette.LightSwatches.Count);
+            Assert.True(dict.ThemeDictionaries.TryGetValue(ThemeVariant.Light, out var mode),
+                $"{palette.Id} 声明了 light 却没有 Light 变体");
+            var light = (ResourceDictionary)mode!;
+            for (var i = 0; i < PaletteSwatchKeys.Length; i++)
+            {
+                Assert.True(light.TryGetResource(PaletteSwatchKeys[i], ThemeVariant.Light, out var value),
+                    $"{palette.Id} 缺少浅色档色带令牌 {PaletteSwatchKeys[i]}");
+                Assert.Equal(Assert.IsAssignableFrom<ISolidColorBrush>(value!).Color,
+                    Color.Parse(palette.LightSwatches[i]));
             }
         }
     }

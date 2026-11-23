@@ -21,6 +21,89 @@
         （刷新间隔校验）、隐私同意（排行榜上报）、法律告知（无担保）与升级说明仍用 setting-hint
         常驻——那些不是装饰性说明，藏进悬停会丢掉可见性。
     -->
+    <UserControl.Resources>
+        <!-- 模式卡里的迷你窗口：用画板本色画「这套皮肤在这个模式下长什么样」——
+             底 / 面板 / 强调色都来自 ThemeModePreview（画板数据，不随当前主题翻转）；
+             1px 描边用当前主题的线色，让浅色预览在深色页面上、深色预览在浅色页面上都分得开。 -->
+        <DataTemplate x:Key="ThemeModePreviewTemplate" x:DataType="vm:ThemeModePreview">
+            <Border CornerRadius="7" BorderThickness="1"
+                    Background="{Binding Page}"
+                    BorderBrush="{DynamicResource AppLineBrush}">
+                <Grid Margin="7,6" RowDefinitions="Auto,*" RowSpacing="5">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Border Width="26" Height="3" CornerRadius="1.5"
+                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                Background="{Binding Accent}"/>
+                        <Border Grid.Column="1" Width="6" Height="6" CornerRadius="3"
+                                VerticalAlignment="Center" Background="{Binding AccentAlt}"/>
+                    </Grid>
+                    <Border Grid.Row="1" CornerRadius="4" Padding="6,6"
+                            Background="{Binding Panel}">
+                        <StackPanel Spacing="4">
+                            <Border Height="3" CornerRadius="1.5" Opacity="0.9"
+                                    Background="{Binding Accent}"/>
+                            <Border Width="30" Height="3" CornerRadius="1.5" Opacity="0.35"
+                                    HorizontalAlignment="Left" Background="{Binding Accent}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- 模式卡：RadioButton 去掉圆点，图卡 + 文字标签；不可用档保持可见但整体压暗
+             （位置不跳动，理由由卡下方的说明行给出）。选中态 = 外圈强调描边 + 标签加粗。 -->
+        <Style Selector="RadioButton.theme-mode-card">
+            <Setter Property="Padding" Value="3"/>
+            <Setter Property="CornerRadius" Value="11"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter x:Name="PART_ContentPresenter"
+                                      Background="{TemplateBinding Background}"
+                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                      Padding="{TemplateBinding Padding}"
+                                      Content="{TemplateBinding Content}"
+                                      HorizontalContentAlignment="Stretch"
+                                      VerticalContentAlignment="Top"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.theme-mode-card:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppNavHoverBackgroundBrush}"/>
+        </Style>
+        <Style Selector="RadioButton.theme-mode-card:disabled">
+            <Setter Property="Opacity" Value="0.38"/>
+        </Style>
+        <Style Selector="Border.mode-frame">
+            <!-- 宽度不写死：三张卡由 Grid 三等分 300px（与画板下拉同宽），每张卡面随列宽拉伸 -->
+            <Setter Property="Height" Value="58"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="RadioButton.theme-mode-card:checked Border.mode-frame">
+            <Setter Property="BorderBrush" Value="{DynamicResource AppLinkBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.mode-caption">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <!-- 德语/法语/西语等「跟随系统」较长，卡宽收紧到与下拉同宽后允许折两行，
+                 卡面顶对齐所以三张卡的上沿仍然齐平 -->
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}"/>
+        </Style>
+        <Style Selector="RadioButton.theme-mode-card:checked TextBlock.mode-caption">
+            <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </UserControl.Styles>
+
     <ScrollViewer Classes="page-root">
         <StackPanel Spacing="13" Margin="0,0,0,4" MaxWidth="760" HorizontalAlignment="Left">
 
@@ -48,14 +131,16 @@
                             </ToolTip.Tip>
                         </TextBlock>
                         <!-- 画板下拉：每项前带该画板本色的 5 条色带（底 / 面板 / 蓝 / 紫 / 橙）。
-                             十个画板只读名字分不出气质，色带让选择回到「看颜色」。 -->
+                             十个画板只读名字分不出气质，色带让选择回到「看颜色」；右侧档位徽标
+                             （仅深色 / 仅浅色）把「这套画板缺哪一档」提前到选中之前，
+                             且收起后的选中框用同一模板，所以不展开也能看到。 -->
                         <ComboBox Grid.Row="0" Grid.Column="1"
                                   ItemsSource="{Binding PaletteOptions}" SelectedItem="{Binding SelectedPalette}"
                                   Width="300" HorizontalAlignment="Left"
                                   HorizontalContentAlignment="Stretch">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:PaletteOption">
-                                    <StackPanel Orientation="Horizontal" Spacing="9">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
                                         <!-- 色带：画板本色 5 条竖条（底 / 面板 / 蓝 / 紫 / 橙），
                                              外框让深色画板的底与面板不至于融进下拉底。 -->
                                         <Border VerticalAlignment="Center" CornerRadius="3"
@@ -75,13 +160,19 @@
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                         </Border>
-                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
-                                    </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center"/>
+                                        <Border Grid.Column="2" Classes="chip muted" VerticalAlignment="Center"
+                                                Margin="12,0,0,0" IsVisible="{Binding HasModeBadge}">
+                                            <TextBlock Text="{Binding ModeBadgeText}"/>
+                                        </Border>
+                                    </Grid>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
 
-                        <!-- 模式（画板 × 模式两维的模式维；单档画板置灰——模式随画板固定） -->
+                        <!-- 模式（画板 × 模式两维的模式维）：三张常驻图卡，卡面用所选画板的真色。
+                             单档画板（Nord/Dracula/Tokyo Night/Kanagawa 只有夜间）不可用的卡压暗而非隐藏
+                             （位置不跳动），原因由下方说明行给出——置灰的控件不说话，说明行一直在。 -->
                         <TextBlock Grid.Row="1" Grid.Column="0" Classes="setting-label"
                                    Text="{Binding ThemeModeLabel, Source={x:Static loc:Translations.Instance}}">
                             <ToolTip.Tip>
@@ -91,17 +182,81 @@
                                 </ToolTip>
                             </ToolTip.Tip>
                         </TextBlock>
-                        <ComboBox Grid.Row="1" Grid.Column="1"
-                                  ItemsSource="{Binding EffectiveThemeOptions}" SelectedItem="{Binding SelectedTheme}"
-                                  IsEnabled="{Binding IsModeSelectionEnabled}"
-                                  Width="300" HorizontalAlignment="Left"
-                                  HorizontalContentAlignment="Stretch">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ThemeOption">
-                                    <TextBlock Text="{Binding Label}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="8" HorizontalAlignment="Left">
+                            <!-- 三张卡三等分 300px = 画板下拉宽度：卡片行与上方下拉左右对齐、不越界 -->
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Width="300"
+                                  HorizontalAlignment="Left">
+                                <RadioButton Grid.Column="0" Classes="theme-mode-card" GroupName="theme-mode"
+                                             HorizontalAlignment="Stretch"
+                                             IsChecked="{Binding IsLightModeSelected, Mode=TwoWay}"
+                                             IsEnabled="{Binding IsLightModeAvailable}">
+                                    <StackPanel Spacing="7">
+                                        <Border Classes="mode-frame">
+                                            <ContentControl Content="{Binding LightModePreview}"
+                                                            ContentTemplate="{StaticResource ThemeModePreviewTemplate}"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            VerticalContentAlignment="Stretch"/>
+                                        </Border>
+                                        <TextBlock Classes="mode-caption"
+                                                   Text="{Binding ThemeLight, Source={x:Static loc:Translations.Instance}}"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton Grid.Column="1" Classes="theme-mode-card" GroupName="theme-mode"
+                                             HorizontalAlignment="Stretch"
+                                             IsChecked="{Binding IsDarkModeSelected, Mode=TwoWay}"
+                                             IsEnabled="{Binding IsDarkModeAvailable}">
+                                    <StackPanel Spacing="7">
+                                        <Border Classes="mode-frame">
+                                            <ContentControl Content="{Binding DarkModePreview}"
+                                                            ContentTemplate="{StaticResource ThemeModePreviewTemplate}"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            VerticalContentAlignment="Stretch"/>
+                                        </Border>
+                                        <TextBlock Classes="mode-caption"
+                                                   Text="{Binding ThemeDark, Source={x:Static loc:Translations.Instance}}"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton Grid.Column="2" Classes="theme-mode-card" GroupName="theme-mode"
+                                             HorizontalAlignment="Stretch"
+                                             IsChecked="{Binding IsSystemModeSelected, Mode=TwoWay}"
+                                             IsEnabled="{Binding IsSystemModeAvailable}">
+                                    <StackPanel Spacing="7">
+                                        <!-- 跟随系统：左半日间卡面 / 右半夜间卡面，一眼看出这一档会跟着系统切换 -->
+                                        <Border Classes="mode-frame">
+                                            <Grid ColumnDefinitions="*,*">
+                                                <Border CornerRadius="7,0,0,7" ClipToBounds="True"
+                                                        Background="{Binding LightModePreview.Page}">
+                                                    <Grid>
+                                                        <Border Margin="6,8" CornerRadius="4"
+                                                                Background="{Binding LightModePreview.Panel}"/>
+                                                        <Border Width="18" Height="3" CornerRadius="1.5"
+                                                                Margin="9,0,0,9" HorizontalAlignment="Left"
+                                                                VerticalAlignment="Bottom"
+                                                                Background="{Binding LightModePreview.Accent}"/>
+                                                    </Grid>
+                                                </Border>
+                                                <Border Grid.Column="1" CornerRadius="0,7,7,0" ClipToBounds="True"
+                                                        Background="{Binding DarkModePreview.Page}">
+                                                    <Grid>
+                                                        <Border Margin="6,8" CornerRadius="4"
+                                                                Background="{Binding DarkModePreview.Panel}"/>
+                                                        <Border Width="18" Height="3" CornerRadius="1.5"
+                                                                Margin="9,0,0,9" HorizontalAlignment="Left"
+                                                                VerticalAlignment="Bottom"
+                                                                Background="{Binding DarkModePreview.Accent}"/>
+                                                    </Grid>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <TextBlock Classes="mode-caption"
+                                                   Text="{Binding ThemeSystem, Source={x:Static loc:Translations.Instance}}"/>
+                                    </StackPanel>
+                                </RadioButton>
+                            </Grid>
+                            <TextBlock Classes="setting-hint" Margin="2,0,0,0"
+                                       Text="{Binding SingleModeNote}"
+                                       IsVisible="{Binding HasSingleModeNote}"/>
+                        </StackPanel>
 
                         <!-- 界面语言（切换即时全局生效并落盘） -->
                         <TextBlock Grid.Row="2" Grid.Column="0" Classes="setting-label"
