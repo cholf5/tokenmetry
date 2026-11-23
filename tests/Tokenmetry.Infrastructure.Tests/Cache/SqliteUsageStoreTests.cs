@@ -49,8 +49,9 @@ public class SqliteUsageStoreTests : IAsyncLifetime
         var facts = await _store.GetUsageFactsAsync();
         facts.Should().ContainSingle();
         facts[0].CostUsd.Should().Be(1.23m);
-        // 重复 Initialize 不重跑迁移：全部已注册版本各落账一次、顺序完整（迁移 3 起含设备维度）。
-        MigrationVersions().Should().Equal(1L, 2L, 3L);
+        // 重复 Initialize 不重跑迁移：全部已注册版本各落账一次、顺序完整（迁移 3 起含设备维度，
+        // 迁移 4 起含设置同步账面）。
+        MigrationVersions().Should().Equal(1L, 2L, 3L, 4L);
     }
 
     /// <summary>I-036：provider 进入维度（三元组 agent × model × provider）——同模型不同 provider 分行的往返。</summary>
@@ -108,7 +109,7 @@ public class SqliteUsageStoreTests : IAsyncLifetime
             Grain = UsageFactGrain.Full,
             Agent = "Claude Code",
             Model = "claude-sonnet-4-20250514-fast",
-            Project = "/Users/dev/project-a",
+            Project = "C:/workspace/dev/project-a",
             ProjectDisplayName = "project-a",
             InputTokens = 1234,
             OutputTokens = 567,
@@ -235,7 +236,7 @@ public class SqliteUsageStoreTests : IAsyncLifetime
         {
             SessionId = "session-1",
             Agent = "Claude Code",
-            Project = "/Users/dev/project-a",
+            Project = "C:/workspace/dev/project-a",
             DominantModel = "claude-opus-4",
             FirstSeenAt = new DateTimeOffset(2026, 6, 19, 8, 0, 0, TimeSpan.FromHours(8)),
             LastSeenAt = new DateTimeOffset(2026, 6, 19, 9, 30, 0, TimeSpan.FromHours(8)),
@@ -315,7 +316,7 @@ public class SqliteUsageStoreTests : IAsyncLifetime
             Grain = UsageFactGrain.Full,
             Agent = "Claude Code",
             Model = "claude-sonnet-4-20250514",
-            Project = "/Users/dev/project-a",
+            Project = "C:/workspace/dev/project-a",
             InputTokens = inputTokens,
             OutputTokens = 50,
             CacheCreationTokens = 10,

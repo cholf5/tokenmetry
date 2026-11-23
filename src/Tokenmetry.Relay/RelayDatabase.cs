@@ -4,7 +4,8 @@ namespace Tokenmetry.Relay;
 
 /// <summary>
 /// 中继 SQLite 存储（A4/A15）：刻意笨的"桶"——accounts / devices / usage_rows / session_rows +
-/// leaderboard_settings / leaderboard_rollup（排行榜读模型，leaderboard 设计 §4.1）六表，
+/// leaderboard_settings / leaderboard_rollup（排行榜读模型，leaderboard 设计 §4.1）+
+/// account_settings（应用设置同步，settings-sync 设计 §4.1）七表，
 /// 幂等建表，无版本化迁移（自建部署可随时删库重建，客户端全量可重推）。
 /// 账号级单调 seq 计数器住在 accounts.seq（行级变更账本的发号源，Task 6 消费）。
 /// </summary>
@@ -126,6 +127,16 @@ internal sealed class RelayDatabase(string dbPath)
                 PRIMARY KEY (account_id, day)
             );
             CREATE INDEX IF NOT EXISTS idx_leaderboard_rollup_day ON leaderboard_rollup (day);
+
+            -- 应用设置跨设备同步（settings-sync 设计 §4.1；幂等补表即用）。
+            -- 逐 key 的纯偏好文本；updated_at 由服务端在写入时赋值（S3：不用设备时钟）。
+            CREATE TABLE IF NOT EXISTS account_settings (
+                account_id TEXT NOT NULL,
+                key        TEXT NOT NULL,
+                value      TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (account_id, key)
+            );
             """, ct);
     }
 
@@ -159,6 +170,7 @@ internal sealed class RelayDatabase(string dbPath)
                      "DELETE FROM session_rows WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
                      "DELETE FROM leaderboard_settings WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
                      "DELETE FROM leaderboard_rollup WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
+                     "DELETE FROM account_settings WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
                      "DELETE FROM devices WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
                      "DELETE FROM account_tokens WHERE account_id IN (SELECT id FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash)",
                      "DELETE FROM accounts WHERE kind = 'shared' AND credential_hash <> $hash",

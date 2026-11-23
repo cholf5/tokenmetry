@@ -23,7 +23,7 @@ internal sealed record Migration(int Version, string Name, Func<SqliteConnection
 /// 旧版 JSON 快照库（dashboard_cache / daily_rows_cache）由迁移 1 直接重建为 facts schema：
 /// 缓存可由采集重建，丢失可接受；用户设置在独立的 settings.json，不受影响。
 /// </summary>
-public class SqliteUsageStore : IUsageStore
+public class SqliteUsageStore : IUsageStore, ISettingsSyncStateStore
 {
     // 迁移纪律（2026-10-16 定稿，新迁移动手前必读）：
     // 1. 改表 = 在末尾追加新版本迁移，不修改既有条目；全局版本就是 schema_migrations 账本，
@@ -230,6 +230,21 @@ public class SqliteUsageStore : IUsageStore
                     await cmd.ExecuteNonQueryAsync(ct);
                 }
                 await ExecuteAsync(connection, "CREATE INDEX IF NOT EXISTS idx_session_facts_device ON session_facts (device)", ct);
+            }),
+        new(
+            Version: 4,
+            Name: "settings-sync-state",
+            ApplyAsync: async (connection, ct) =>
+            {
+                // 设置同步本机账面（settings-sync 设计 §5.1）：只存上次与服务端对齐的值与其服务端时间戳，
+                // 用于「本地是否改过 / 远端是否更新」两类判定。新表，无旧行可迁。
+                await ExecuteAsync(connection, """
+                    CREATE TABLE IF NOT EXISTS settings_sync_state (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL,
+                        synced_at TEXT NOT NULL
+                    )
+                    """, ct);
             }),
     };
 
@@ -958,6 +973,63 @@ public class SqliteUsageStore : IUsageStore
         }
 
         await transaction.CommitAsync(ct);
+    }
+
+    // ---- 设置同步本机账面（settings-sync 设计 §5.1，迁移 4）----
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SyncedSettingState>> GetSettingsSyncStateAsync(CancellationToken ct = default)
+    {
+        await InitializeAsync(ct);
+        using var connection = await OpenAsync(ct);
+        var rows = new List<SyncedSettingState>();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT key, value, synced_at FROM settings_sync_state ORDER BY key";
+        using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            rows.Add(new SyncedSettingState(reader.GetString(0), reader.GetString(1), ReadTimestamp(reader, 2)));
+        }
+
+        return rows;
+    }
+
+    /// <inheritdoc />
+    public async Task UpsertSettingsSyncStateAsync(IReadOnlyList<SyncedSettingState> rows, CancellationToken ct = default)
+    {
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        await InitializeAsync(ct);
+        using var connection = await OpenAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
+        foreach (var row in rows)
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.Transaction = (SqliteTransaction)transaction;
+            cmd.CommandText = """
+                INSERT INTO settings_sync_state (key, value, synced_at) VALUES ($key, $value, $syncedAt)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value, synced_at = excluded.synced_at
+                """;
+            cmd.Parameters.AddWithValue("$key", row.Key);
+            cmd.Parameters.AddWithValue("$value", row.Value);
+            cmd.Parameters.AddWithValue("$syncedAt", FormatTimestamp(row.SyncedAt));
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        await transaction.CommitAsync(ct);
+    }
+
+    /// <inheritdoc />
+    public async Task ClearSettingsSyncStateAsync(CancellationToken ct = default)
+    {
+        await InitializeAsync(ct);
+        using var connection = await OpenAsync(ct);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM settings_sync_state";
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     private async Task<SqliteConnection> OpenAsync(CancellationToken ct)

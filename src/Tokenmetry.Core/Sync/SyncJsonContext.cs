@@ -23,4 +23,9 @@ namespace Tokenmetry.Core.Sync;
 [JsonSerializable(typeof(LeaderboardPreferenceResponse))]
 [JsonSerializable(typeof(LeaderboardEntry))]
 [JsonSerializable(typeof(LeaderboardResponse))]
+[JsonSerializable(typeof(SyncedSetting))]
+[JsonSerializable(typeof(SyncedSettingUpdate))]
+[JsonSerializable(typeof(SettingsSyncPutRequest))]
+[JsonSerializable(typeof(SettingsSyncResponse))]
+[JsonSerializable(typeof(List<RelativeRangePresetSetting>))]
 public sealed partial class SyncJsonContext : JsonSerializerContext;

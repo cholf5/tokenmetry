@@ -174,6 +174,13 @@ public class AppSettings
     /// </summary>
     public bool SyncEnabled { get; set; }
 
+    /// <summary>
+    /// 应用设置跨设备同步开关（settings-sync 设计 S1，默认关）：独立于用量同步的纯偏好开关。
+    /// 只同步外观（画板/模式）、语言、海报默认值与自定义时间预设；设备级设置与计价语义永不过线。
+    /// 消费者 = SyncStateService（每轮同步后跑 SettingsSyncRunner）；UI 出口 = 同步区块内开关。
+    /// </summary>
+    public bool SettingsSyncEnabled { get; set; }
+
     /// <summary>同步中继根地址（官方实例或自建 http(s)://host:port）。消费者 = SyncStateService 建 RelaySyncBackend。</summary>
     public string SyncEndpoint { get; set; } = string.Empty;
 

@@ -1,0 +1,217 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Tokenmetry.App.Services;
+using Tokenmetry.Core.Abstractions;
+using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Sync;
+using Xunit;
+
+namespace Tokenmetry.App.Tests.Services;
+
+/// <summary>
+/// SettingsSyncRunner（settings-sync 设计 §5.2）：首同步采纳远端、本地变更只推差异、
+/// 远端更新才应用、本地未推变更不被旧远端覆盖、关开关零出站。
+/// </summary>
+public sealed class SettingsSyncRunnerTests
+{
+    private sealed class FakeBackend : ISyncBackend
+    {
+        public List<SyncedSetting> Remote { get; } = new();
+
+        public List<SyncedSettingUpdate> LastPut { get; } = new();
+
+        public int GetCount;
+
+        public int PutCount;
+
+        private DateTimeOffset _clock = new(2026, 11, 23, 12, 0, 0, TimeSpan.Zero);
+
+        public Task<IReadOnlyList<SyncedSetting>> GetSettingsAsync(CancellationToken ct = default)
+        {
+            GetCount++;
+            return Task.FromResult<IReadOnlyList<SyncedSetting>>(
+                Remote.OrderBy(row => row.Key, StringComparer.Ordinal).ToList());
+        }
+
+        public Task<IReadOnlyList<SyncedSetting>> PutSettingsAsync(IReadOnlyList<SyncedSettingUpdate> settings, CancellationToken ct = default)
+        {
+            PutCount++;
+            _clock = _clock.AddSeconds(1);
+            var written = settings.Select(update => new SyncedSetting(update.Key, update.Value, _clock)).ToList();
+            foreach (var row in written)
+            {
+                Remote.RemoveAll(existing => existing.Key == row.Key);
+                Remote.Add(row);
+            }
+
+            LastPut.AddRange(settings);
+            return Task.FromResult<IReadOnlyList<SyncedSetting>>(written);
+        }
+
+        public Task PushAsync(SyncPushRequest request, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<SyncPullResponse> PullAsync(long sinceSeq, CancellationToken ct = default) =>
+            Task.FromResult(new SyncPullResponse(0, new List<UsageFact>(), new List<SessionFact>(), new List<SyncDeviceInfo>(), false));
+        public Task<SyncDeviceListResponse> GetDevicesAsync(CancellationToken ct = default) =>
+            Task.FromResult(new SyncDeviceListResponse(new List<SyncDeviceInfo>()));
+        public Task RenameDeviceAsync(string deviceId, string name, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RemoveDeviceAsync(string deviceId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteAccountAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task<LeaderboardPreferenceResponse> GetLeaderboardPreferenceAsync(CancellationToken ct = default) =>
+            Task.FromResult(new LeaderboardPreferenceResponse(false, null));
+        public Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default) =>
+            Task.FromResult(new LeaderboardPreferenceResponse(request.OptIn, request.DisplayName));
+    }
+
+    private sealed class MemoryStateStore : ISettingsSyncStateStore
+    {
+        public Dictionary<string, SyncedSettingState> Rows { get; } = new(StringComparer.Ordinal);
+
+        public Task<IReadOnlyList<SyncedSettingState>> GetSettingsSyncStateAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SyncedSettingState>>(Rows.Values.ToList());
+
+        public Task UpsertSettingsSyncStateAsync(IReadOnlyList<SyncedSettingState> rows, CancellationToken ct = default)
+        {
+            foreach (var row in rows)
+            {
+                Rows[row.Key] = row;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task ClearSettingsSyncStateAsync(CancellationToken ct = default)
+        {
+            Rows.Clear();
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeSettingsStore : IAppSettingsStore
+    {
+        public int SaveCount;
+
+        public Task<AppSettings> LoadAsync(CancellationToken ct = default) => Task.FromResult(new AppSettings());
+
+        public Task SaveAsync(AppSettings settings, CancellationToken ct = default)
+        {
+            SaveCount++;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class Fixture
+    {
+        public AppSettings Settings { get; } = new();
+
+        public FakeBackend Backend { get; } = new();
+
+        public MemoryStateStore State { get; } = new();
+
+        public FakeSettingsStore SettingsStore { get; } = new();
+
+        public SettingsSyncRunner Runner => new(Settings, State, SettingsStore, () => Backend);
+
+        public Fixture(bool enabled = true) => Settings.SettingsSyncEnabled = enabled;
+    }
+
+    [Fact]
+    public async Task FirstSync_EmptyRemote_PushesAllKeys()
+    {
+        var fixture = new Fixture();
+
+        var applied = await fixture.Runner.RunOnceAsync();
+
+        applied.Should().BeEmpty("远端为空时没有可应用的值");
+        fixture.Backend.LastPut.Should().HaveCount(SettingsSyncKeys.All.Count, "首同步把本机全部偏好推上去");
+        fixture.State.Rows.Should().HaveCount(SettingsSyncKeys.All.Count);
+        fixture.SettingsStore.SaveCount.Should().Be(0, "没有远端值写回就不需要落盘");
+    }
+
+    [Fact]
+    public async Task FirstSync_AdoptsRemoteValues_AndDoesNotPushThemBack()
+    {
+        var fixture = new Fixture();
+        var at = new DateTimeOffset(2026, 11, 23, 12, 0, 0, TimeSpan.Zero);
+        fixture.Backend.Remote.Add(new SyncedSetting(SettingsSyncKeys.Theme, "dark", at));
+        fixture.Backend.Remote.Add(new SyncedSetting(SettingsSyncKeys.SharePosterMargin, "42", at));
+
+        var applied = await fixture.Runner.RunOnceAsync();
+
+        applied.Should().BeEquivalentTo([SettingsSyncKeys.Theme, SettingsSyncKeys.SharePosterMargin]);
+        fixture.Settings.Theme.Should().Be("dark");
+        fixture.Settings.SharePosterMargin.Should().Be(42);
+        fixture.Backend.LastPut.Should().NotContain(update => update.Key == SettingsSyncKeys.Theme, "采纳的远端值不回推");
+        fixture.Backend.LastPut.Should().NotContain(update => update.Key == SettingsSyncKeys.SharePosterMargin);
+        fixture.SettingsStore.SaveCount.Should().Be(1, "远端值写回后落盘一次");
+    }
+
+    [Fact]
+    public async Task LocalChange_PushesOnlyThatKey()
+    {
+        var fixture = new Fixture();
+        await fixture.Runner.RunOnceAsync(); // 首同步：全量推
+        fixture.Backend.LastPut.Clear();
+        fixture.Settings.Theme = "light";
+
+        var applied = await fixture.Runner.RunOnceAsync();
+
+        applied.Should().BeEmpty();
+        fixture.Backend.LastPut.Should().ContainSingle().Which.Key.Should().Be(SettingsSyncKeys.Theme);
+    }
+
+    [Fact]
+    public async Task RemoteChange_WithNewerTimestamp_IsAppliedAndPersisted()
+    {
+        var fixture = new Fixture();
+        fixture.Settings.Theme = "light";
+        await fixture.Runner.RunOnceAsync();
+        fixture.Backend.LastPut.Clear();
+
+        fixture.Backend.Remote.RemoveAll(row => row.Key == SettingsSyncKeys.Theme);
+        fixture.Backend.Remote.Add(new SyncedSetting(
+            SettingsSyncKeys.Theme, "dark", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero)));
+
+        var applied = await fixture.Runner.RunOnceAsync();
+
+        applied.Should().ContainSingle().Which.Should().Be(SettingsSyncKeys.Theme);
+        fixture.Settings.Theme.Should().Be("dark");
+        fixture.SettingsStore.SaveCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task LocalPendingChange_IsNotOverwrittenByOlderRemote()
+    {
+        var fixture = new Fixture();
+        fixture.Settings.Theme = "light";
+        await fixture.Runner.RunOnceAsync();
+        fixture.Backend.LastPut.Clear();
+
+        // 本机改了、还没推；远端来了一条更新的时间戳但值仍是旧档——本地变更必须优先。
+        fixture.Settings.Theme = "dark";
+        fixture.Backend.Remote.RemoveAll(row => row.Key == SettingsSyncKeys.Theme);
+        fixture.Backend.Remote.Add(new SyncedSetting(
+            SettingsSyncKeys.Theme, "light", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero)));
+
+        var applied = await fixture.Runner.RunOnceAsync();
+
+        applied.Should().BeEmpty("本地未推变更不被远端覆盖");
+        fixture.Settings.Theme.Should().Be("dark");
+        fixture.Backend.LastPut.Should().ContainSingle().Which.Value.Should().Be("dark");
+    }
+
+    [Fact]
+    public async Task Disabled_DoesNothing()
+    {
+        var fixture = new Fixture(enabled: false);
+
+        var applied = await fixture.Runner.RunOnceAsync();
+
+        applied.Should().BeEmpty();
+        fixture.Backend.GetCount.Should().Be(0);
+        fixture.Backend.PutCount.Should().Be(0);
+    }
+}

@@ -29,4 +29,10 @@ public interface ISyncBackend
 
     /// <summary>提交排行榜偏好（opt-in/off 即时生效；返回服务端回显的生效名供 UI 回填）。</summary>
     Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default);
+
+    /// <summary>读账号设置键值（settings-sync 设计 §4.2；updatedAt = 服务端落库时间）。</summary>
+    Task<IReadOnlyList<SyncedSetting>> GetSettingsAsync(CancellationToken ct = default);
+
+    /// <summary>逐 key 写入账号设置（服务端赋 updatedAt 并 LWW；返回实际写入的行）。</summary>
+    Task<IReadOnlyList<SyncedSetting>> PutSettingsAsync(IReadOnlyList<SyncedSettingUpdate> settings, CancellationToken ct = default);
 }

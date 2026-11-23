@@ -24,6 +24,7 @@ public sealed class SyncStateService : IDisposable
     private readonly IUsageStore _store;
     private readonly AppSettings _settings;
     private readonly IAppSettingsStore _settingsStore;
+    private readonly ISettingsSyncStateStore? _settingsSyncStateStore;
     private readonly Func<string, string, ISyncBackend> _backendFactory;
     private readonly Func<DateTimeOffset> _clock;
     private readonly TimeSpan _timerPeriod;
@@ -37,17 +38,22 @@ public sealed class SyncStateService : IDisposable
     /// <summary>设备清单/同步状态变化（每轮收尾、开关、改名）后触发；订阅方自行调度 UI 线程。</summary>
     public event Action? Changed;
 
+    /// <summary>本轮从远端采纳的设置 key（settings-sync 设计 §5.3）；订阅方自行调度 UI 线程热应用。</summary>
+    public event Action<IReadOnlyList<string>>? SettingsApplied;
+
     public SyncStateService(
         IUsageStore store,
         AppSettings settings,
         IAppSettingsStore settingsStore,
         Func<string, string, ISyncBackend>? backendFactory = null,
         Func<DateTimeOffset>? clock = null,
-        TimeSpan? timerPeriod = null)
+        TimeSpan? timerPeriod = null,
+        ISettingsSyncStateStore? settingsSyncStateStore = null)
     {
         _store = store;
         _settings = settings;
         _settingsStore = settingsStore;
+        _settingsSyncStateStore = settingsSyncStateStore;
         // 默认工厂 = 真中继 HTTP 后端；测试注入 fake（EnableAsync 之后才调用，LocalDeviceId 已就绪）。
         _backendFactory = backendFactory ?? new Func<string, string, ISyncBackend>((endpoint, token) => new RelaySyncBackend(
             new HttpClient { Timeout = TimeSpan.FromSeconds(30) }, endpoint, token, LocalDeviceId));
@@ -96,6 +102,11 @@ public sealed class SyncStateService : IDisposable
     /// <summary>开启同步：持久化配置、建后端、注册本机设备、立即跑一轮并启动定时器。</summary>
     public async Task EnableAsync(string endpoint, string token, CancellationToken ct = default)
     {
+        // 换账号/换中继的判定必须在覆盖配置之前：设置同步账面只在真的换了桶时清空——
+        // 关闭→再开启（同账号）保留账面，否则断网期间的本地改动会在首同步被远端旧值覆盖。
+        var accountChanged = !string.Equals(_settings.SyncEndpoint, endpoint, StringComparison.Ordinal)
+            || !string.Equals(_settings.SyncToken, token, StringComparison.Ordinal);
+
         _settings.SyncEnabled = true;
         _settings.SyncEndpoint = endpoint;
         _settings.SyncToken = token;
@@ -108,6 +119,13 @@ public sealed class SyncStateService : IDisposable
         // 旧游标会让全量重推/重拉永不发生，新桶看不到历史。重置后首轮全量 push/pull，
         // 由两端 LWW 幂等消化（A14 值变化检测使重推天然只发有差异的行）。
         await _store.SetSyncCursorAsync(null, null, ct);
+
+        // 设置同步账面（settings-sync 设计 S8）：换账号时清空，新桶的首轮先采纳远端设置；
+        // 同账号重开（关→开）保留账面，本地未同步的改动按「本地优先」推上去。
+        if (accountChanged && _settingsSyncStateStore is not null)
+        {
+            await _settingsSyncStateStore.ClearSettingsSyncStateAsync(ct);
+        }
 
         // 注册本机设备（名字沿用本地注册表；A7：启用时刻抓一次，之后不随 hostname 漂移）。
         // 注册/换 token 是中继专属流程（A5）——fake 后端与社区实现无此成员时跳过。
@@ -277,6 +295,19 @@ public sealed class SyncStateService : IDisposable
         {
             var engine = new SyncEngine(_store, () => _backend);
             var result = await engine.RunOnceAsync(ct);
+
+            // 设置同步（settings-sync 设计 §5.2）：同一轮的事实同步完成后跑；独立开关默认关，
+            // 关 = 零新增出站。失败向上抛，与事实同步共享退避与 LastError。
+            if (_settings.SettingsSyncEnabled && _settingsSyncStateStore is not null)
+            {
+                var runner = new SettingsSyncRunner(_settings, _settingsSyncStateStore, _settingsStore, () => _backend);
+                var applied = await runner.RunOnceAsync(ct);
+                if (applied.Count > 0)
+                {
+                    SettingsApplied?.Invoke(applied);
+                }
+            }
+
             LastRun = result;
             LastRunAtUtc = _clock();
             LastError = null;

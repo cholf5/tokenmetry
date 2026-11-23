@@ -314,6 +314,7 @@ public partial class SettingsViewModel : ViewModelBase
         _minimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
         _autoStartOnBoot = settings.AutoStartOnBoot;
         _fileLoggingEnabled = settings.FileLoggingEnabled;
+        _settingsSyncEnabled = settings.SettingsSyncEnabled; // 字段直赋：构造不触发「拨开即跑一轮」
         _selectedPalette = ResolvePaletteOption(settings.ThemePalette);
         (_lightModePreview, _darkModePreview) = BuildPreviews(_selectedPalette);
         // 模式显示按画板归口（单档画板强制唯一档显示，不回写存储偏好）；字段直赋不走
@@ -347,6 +348,10 @@ public partial class SettingsViewModel : ViewModelBase
         {
             _syncState.Changed += OnSyncStateChanged;
             SyncEndpointInput = settings.SyncEndpoint;
+            // token 输入从已保存的凭据播种：关闭同步后配置区重现，若输入框为空，用户再拨开开关
+            // 就会把持久化的 token 覆盖成空串（EnableAsync 写入的是输入框值）——此后所有请求
+            // 401，表现即「改了不生效、别的设备也不同步」。播种后关→开原样保留。
+            SyncTokenInput = settings.SyncToken;
             IsSyncEnabled = _syncState.IsEnabled;
             _ = RefreshSyncStateAsync();
         }
@@ -945,6 +950,85 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isSyncEnabled;
 
+    /// <summary>
+    /// 应用设置同步开关（settings-sync 设计 S1：默认关，独立于用量同步）。拨动即存；
+    /// 拨开立即跑一轮（首次同步采纳远端、再把本机独有项推上去），无需等定时器。
+    /// </summary>
+    [ObservableProperty]
+    private bool _settingsSyncEnabled;
+
+    partial void OnSettingsSyncEnabledChanged(bool value)
+    {
+        _settings.SettingsSyncEnabled = value;
+        PersistSettings();
+        if (value && _syncState is not null)
+        {
+            _ = _syncState.RunNowAsync();
+        }
+    }
+
+    /// <summary>
+    /// 设置同步拉回值后的设置页重投影（UI 线程；settings-sync 设计 §5.3）。值已经由 runner 写回
+    /// AppSettings ——这里只同步选择项与只读默认值。模式走字段直赋 + 通知（与构造纪律一致）：
+    /// 不把单档画板归口后的模式回写进 settings.json（否则会反过来推给其他设备）。
+    /// </summary>
+    public void ApplySyncedSettings(IReadOnlyList<string> keys)
+    {
+        foreach (var key in keys)
+        {
+            switch (key)
+            {
+                case SettingsSyncKeys.ThemePalette:
+                case SettingsSyncKeys.Theme:
+                    var palette = ResolvePaletteOption(_settings.ThemePalette);
+                    if (!ReferenceEquals(palette, SelectedPalette))
+                    {
+                        SelectedPalette = palette; // 既有 setter：换字典 + 应用主题 + 落盘
+                    }
+
+                    var coerced = CoerceMode(ThemePaletteCatalog.Resolve(_settings.ThemePalette), _settings.Theme);
+                    var modeOption = EffectiveThemeOptions.FirstOrDefault(option => option.Value == coerced)
+                        ?? EffectiveThemeOptions[0];
+                    if (!ReferenceEquals(modeOption, SelectedTheme))
+                    {
+                        SelectedTheme = modeOption; // 既有 setter：应用 + 落盘（单档画板的归口值会如实写回）
+                    }
+
+                    NotifyModeSelection();
+                    break;
+
+                case SettingsSyncKeys.Language:
+                    var language = ResolveLanguageOption(_settings.Language);
+                    if (!ReferenceEquals(language, SelectedLanguage))
+                    {
+                        SelectedLanguage = language; // 既有 setter：全局重译 + 落盘
+                    }
+
+                    break;
+
+                case SettingsSyncKeys.SharePosterLayout:
+                    SharePosterLayoutOption = SharePosterOptions.ForLayout(ParseStoredLayout(_settings));
+                    break;
+
+                case SettingsSyncKeys.SharePosterTheme:
+                    SharePosterThemeOption = SharePosterOptions.ForTheme(ParseStoredTheme(_settings));
+                    break;
+
+                case SettingsSyncKeys.SharePosterProjectMask:
+                    SharePosterMaskOption = SharePosterOptions.ForMask(ParseStoredMask(_settings));
+                    break;
+
+                case SettingsSyncKeys.SharePosterStyle:
+                    OnPropertyChanged(nameof(DefaultSharePosterStyle));
+                    break;
+
+                case SettingsSyncKeys.SharePosterMargin:
+                    OnPropertyChanged(nameof(DefaultSharePosterMargin));
+                    break;
+            }
+        }
+    }
+
     [ObservableProperty]
     private string _syncEndpointInput = string.Empty;
 
@@ -1051,10 +1135,12 @@ public partial class SettingsViewModel : ViewModelBase
                 DeviceNameInput = syncState.LocalDeviceName;
             }
 
+            // 同步失败必须带原因（401/404/超时）：只显示笼统的「同步失败」时，用户无法区分
+            // 「设置没生效」和「中继连不上 / token 失效」。指向中继的请求错误最常见。
             SyncStatusText = syncState.IsSyncing
                 ? Translations.Instance.SyncStatusSyncing
                 : syncState.LastError is not null
-                    ? Translations.Instance.SyncStatusError
+                    ? $"{Translations.Instance.SyncStatusError}: {syncState.LastError}"
                     : Translations.Instance.SyncStatusIdle;
             LastSyncText = syncState.LastRunAtUtc == default
                 ? string.Empty
@@ -1138,15 +1224,35 @@ public partial class SettingsViewModel : ViewModelBase
             return;
         }
 
-        try
+        if (IsOfficialMode)
         {
-            if (IsOfficialMode)
+            await EnableViaGitHubAsync(ct);
+            return;
+        }
+
+        // 空凭据不得启用：EnableAsync 会把输入框的值写回 settings.json，空 token 落盘 =
+        // 之后每一轮请求 401（且界面只显示笼统的「同步失败」）。把开关弹回关闭态，凭据原样保留。
+        var endpoint = SyncEndpointInput.Trim();
+        var token = SyncTokenInput.Trim();
+        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(token))
+        {
+            _suppressSyncToggle = true;
+            try
             {
-                await EnableViaGitHubAsync(ct);
-                return;
+                IsSyncEnabled = false;
+            }
+            finally
+            {
+                _suppressSyncToggle = false;
             }
 
-            await _syncState.EnableAsync(SyncEndpointInput.Trim(), SyncTokenInput.Trim(), ct);
+            SyncStatusText = Translations.Instance.SyncCredentialsRequired;
+            return;
+        }
+
+        try
+        {
+            await _syncState.EnableAsync(endpoint, token, ct);
         }
         catch (Exception ex)
         {

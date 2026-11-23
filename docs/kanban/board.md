@@ -12,6 +12,7 @@ Moving a card means updating its row here and `status` in the issue file in the 
 
 | ID | Title | Priority | Done At |
 |---|---|---|---|
+| S-008 | 应用设置跨设备同步——外观/语言/海报默认值/自定义时间预设（逐 key LWW，独立开关默认关；另修 token 输入框未播种导致关→开清空凭据的 401 bug） | P2 | 2026-11-23 |
 | I-051 | SQLite 源采集成本审计落档——六源矩阵 + 实测落档（`docs/perf-investigation-2026-11-14-sqlite-sources.md`）：Goose/Hermes 合成 5k 会话 ≈20 ms 判不改；OpenCode 改前/后双记；ZCode 生产 app.log 5,087 轮回填（修复前空闲 p50 1.4 s/max 63 s）；审查补「写端风暴期探针退化 ~1.4 s」适用条件 | P3 | 2026-11-14 |
 | I-053 | JSONL 读取缓冲 4 KB → 64 KB——**作废（不做，留档）**：先量后改的既定退出条件触发——端到端中位数改善 8.8% < 10%，真实收益 ~4% 且噪声 ±25%+，DSH（占整轮 ~55%、逐帧解压流）0% 改善；改动已回滚，数字留卡，重开应跳过 DSH 只做直读源 | P3 | 2026-11-14（作废） |
 | I-052 | 采集 IO 量尺——SmokeScan 每轮报进程读取字节/次数（Windows GetProcessIoCounters / Linux /proc/self/io / macOS n/a 降级；零行为影响零副作用；三平台实机验证齐：Windows/Linux 真实计数、macOS n/a 降级；首验抓到 Windows 专属日志回显共享冲突并修） | P3 | 2026-11-14 |

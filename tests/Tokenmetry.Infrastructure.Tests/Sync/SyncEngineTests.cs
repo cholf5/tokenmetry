@@ -91,6 +91,12 @@ public sealed class SyncEngineTests : IAsyncLifetime
 
         public Task<LeaderboardPreferenceResponse> SetLeaderboardPreferenceAsync(LeaderboardPreferenceRequest request, CancellationToken ct = default) =>
             Task.FromResult(new LeaderboardPreferenceResponse(request.OptIn, request.DisplayName));
+
+        public Task<IReadOnlyList<SyncedSetting>> GetSettingsAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SyncedSetting>>(Array.Empty<SyncedSetting>());
+
+        public Task<IReadOnlyList<SyncedSetting>> PutSettingsAsync(IReadOnlyList<SyncedSettingUpdate> settings, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SyncedSetting>>(Array.Empty<SyncedSetting>());
     }
 
     private static SyncDeviceInfo Device(string id, string name = "Device") =>

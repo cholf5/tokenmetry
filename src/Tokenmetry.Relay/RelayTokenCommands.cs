@@ -26,6 +26,7 @@ internal static class RelayTokenCommands
         "DELETE FROM session_rows WHERE account_id = $accountId",
         "DELETE FROM leaderboard_settings WHERE account_id = $accountId",
         "DELETE FROM leaderboard_rollup WHERE account_id = $accountId",
+        "DELETE FROM account_settings WHERE account_id = $accountId",
         "DELETE FROM devices WHERE account_id = $accountId",
         "DELETE FROM account_tokens WHERE account_id = $accountId",
         "DELETE FROM accounts WHERE id = $accountId",

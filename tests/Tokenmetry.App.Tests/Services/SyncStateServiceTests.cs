@@ -93,6 +93,12 @@ public sealed class SyncStateServiceTests : IAsyncLifetime
             LeaderboardSaved = request;
             return Task.FromResult(new LeaderboardPreferenceResponse(request.OptIn, request.DisplayName));
         }
+
+        public Task<IReadOnlyList<SyncedSetting>> GetSettingsAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SyncedSetting>>(Array.Empty<SyncedSetting>());
+
+        public Task<IReadOnlyList<SyncedSetting>> PutSettingsAsync(IReadOnlyList<SyncedSettingUpdate> settings, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SyncedSetting>>(Array.Empty<SyncedSetting>());
     }
 
     /// <summary>捕获保存调用的 settings 存储桩。</summary>
@@ -111,12 +117,40 @@ public sealed class SyncStateServiceTests : IAsyncLifetime
 
     private static DateTimeOffset Clock() => new(2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
 
+    private sealed class FakeSettingsSyncStateStore : ISettingsSyncStateStore
+    {
+        public Dictionary<string, SyncedSettingState> Rows { get; } = new(StringComparer.Ordinal);
+
+        public int ClearCount;
+
+        public Task<IReadOnlyList<SyncedSettingState>> GetSettingsSyncStateAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SyncedSettingState>>(Rows.Values.ToList());
+
+        public Task UpsertSettingsSyncStateAsync(IReadOnlyList<SyncedSettingState> rows, CancellationToken ct = default)
+        {
+            foreach (var row in rows)
+            {
+                Rows[row.Key] = row;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task ClearSettingsSyncStateAsync(CancellationToken ct = default)
+        {
+            ClearCount++;
+            Rows.Clear();
+            return Task.CompletedTask;
+        }
+    }
+
     private static SyncStateService CreateService(
         IUsageStore store,
         AppSettings settings,
         FakeSettingsStore settingsStore,
         FakeBackend backend,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null,
+        ISettingsSyncStateStore? settingsSyncStateStore = null)
     {
         return new SyncStateService(
             store,
@@ -124,7 +158,41 @@ public sealed class SyncStateServiceTests : IAsyncLifetime
             settingsStore,
             backendFactory: (_, _) => backend,
             clock: clock ?? Clock,
-            timerPeriod: Timeout.InfiniteTimeSpan);
+            timerPeriod: Timeout.InfiniteTimeSpan,
+            settingsSyncStateStore: settingsSyncStateStore);
+    }
+
+    [Fact]
+    public async Task Enable_SameCredentials_KeepsSettingsSyncState()
+    {
+        var settings = new AppSettings();
+        var state = new FakeSettingsSyncStateStore();
+        var service = CreateService(_store, settings, new FakeSettingsStore(), new FakeBackend(), settingsSyncStateStore: state);
+
+        await service.InitializeAsync();
+        await service.EnableAsync("http://relay.example:8080", "tok"); // 首次启用：新账号 → 清一次
+        state.Rows["theme"] = new SyncedSettingState("theme", "dark", Clock().AddHours(1));
+        await service.DisableAsync();
+        await service.EnableAsync("http://relay.example:8080", "tok");
+
+        state.ClearCount.Should().Be(1, "同账号关闭→再开启保留设置同步账面");
+        state.Rows.Should().ContainKey("theme", "断网期间的本地改动仍按本地优先处理");
+    }
+
+    [Fact]
+    public async Task Enable_NewCredentials_ClearsSettingsSyncState()
+    {
+        var settings = new AppSettings();
+        var state = new FakeSettingsSyncStateStore();
+        state.Rows["theme"] = new SyncedSettingState("theme", "dark", Clock());
+        var service = CreateService(_store, settings, new FakeSettingsStore(), new FakeBackend(), settingsSyncStateStore: state);
+
+        await service.InitializeAsync();
+        await service.EnableAsync("http://relay.example:8080", "tok");
+        await service.EnableAsync("http://relay.example:8080", "other-token");
+
+        state.ClearCount.Should().Be(2, "换 token = 换账号，首同步采纳新桶");
+        state.Rows.Should().BeEmpty();
     }
 
     [Fact]

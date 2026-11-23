@@ -275,6 +275,8 @@ public static class AppServices
         var store = new SqliteUsageStore(paths.CacheDbPath);
         Task.Run(() => store.InitializeAsync()).GetAwaiter().GetResult();
         services.AddSingleton<IUsageStore>(store);
+        // 设置同步账面（settings-sync 设计 §5.1）：同一 SQLite 实例，独立接口只暴露设置同步面。
+        services.AddSingleton<ISettingsSyncStateStore>(store);
         services.AddSingleton<CacheService>();
 
         // 模型名归一解析（I-035 起由模型目录承担）：别名映射是目录的一层，查询服务与计价引擎
@@ -358,6 +360,45 @@ public static class AppServices
         var syncStateService = _provider.GetRequiredService<SyncStateService>();
         var filterState = _provider.GetRequiredService<FilterStateService>();
         syncStateService.Changed += () => _ = WireSyncStateToFiltersAsync(syncStateService, filterState, store);
+        // 应用设置同步回流（settings-sync 设计 §5.3）：runner 已在后台把值写回 AppSettings，
+        // 这里 marshal 到 UI 线程做热应用（主题字典/语言/预设清单）与设置页重投影。
+        syncStateService.SettingsApplied += keys =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => ApplySyncedSettings(keys));
+    }
+
+    /// <summary>设置同步拉回值的热应用（UI 线程）：先落效果（主题字典/全局语言/预设清单），再让设置页重投影。</summary>
+    private static void ApplySyncedSettings(IReadOnlyList<string> keys)
+    {
+        try
+        {
+            if (_provider is null)
+            {
+                return;
+            }
+
+            var settings = _provider.GetRequiredService<AppSettings>();
+            if (keys.Contains(SettingsSyncKeys.ThemePalette) || keys.Contains(SettingsSyncKeys.Theme))
+            {
+                _provider.GetRequiredService<IThemeService>().Apply(settings.ThemePalette, settings.Theme);
+            }
+
+            if (keys.Contains(SettingsSyncKeys.Language))
+            {
+                Localization.Translations.ApplyPreference(settings.Language);
+            }
+
+            if (keys.Contains(SettingsSyncKeys.CustomTimePresets))
+            {
+                _provider.GetRequiredService<TimeRangePresetService>().Load();
+            }
+
+            _provider.GetRequiredService<SettingsViewModel>().ApplySyncedSettings(keys);
+        }
+        catch (Exception ex)
+        {
+            // 热应用失败不打断同步管线；设置值已在 AppSettings 落盘，下次启动仍按新值生效。
+            Console.Error.WriteLine($"[Tokenmetry] 应用同步设置失败：{ex.Message}");
+        }
     }
 
     /// <summary>把同步状态与设备清单注入全局筛选（Changed 回调；store 读可离线程，写入侧自行 marshal UI）。</summary>

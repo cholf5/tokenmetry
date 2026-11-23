@@ -80,6 +80,7 @@ app.MapSyncEndpoints();
 app.MapDeviceEndpoints();
 app.MapGitHubAuthEndpoints();
 app.MapLeaderboardEndpoints();
+app.MapSettingsEndpoints();
 app.MapLeaderboardPage();
 app.MapRelayAssets();
 app.MapAdminEndpoints();

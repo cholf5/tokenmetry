@@ -143,6 +143,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ThisDevice)] = "本机",
         [nameof(SyncRemoveConfirmMessage)] = "移除后该设备的用量行将从账号删除，其他设备会在下一次同步时清退其本地副本。",
         [nameof(SyncDisabledHint)] = "默认不上传、不登录。启用后各设备的聚合用量在所选中继上汇合，任何一台机器都能看到账号下全部设备的并集（只同步聚合事实，不含提示词与代码）。",
+        [nameof(SyncCredentialsRequired)] = "请先填写服务器地址与访问令牌，再启用同步。",
+        [nameof(SettingsSyncSection)] = "同步应用设置",
+        [nameof(SettingsSyncHint)] = "仅同步外观（画板与明暗）、界面语言、海报默认值与自定义时间预设；开机自启、关窗行为、刷新间隔、日志与模型价格始终留在本机。",
         [nameof(LeaderboardSection)] = "排行榜",
         [nameof(LeaderboardOptIn)] = "在榜单中展示我的账号",
         [nameof(LeaderboardOptInHint)] = "仅上报账号级 token 与成本聚合；关闭即从榜单移除并删除服务端聚合记录。",
@@ -780,6 +783,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ThisDevice)] = "This device",
         [nameof(SyncRemoveConfirmMessage)] = "Removing a device deletes its usage rows from the account; other devices purge its local copy on their next sync.",
         [nameof(SyncDisabledHint)] = "Nothing is uploaded and no sign-in happens by default. Once enabled, aggregated usage from your devices converges on the relay you choose, and every machine sees the union of the whole account (aggregated facts only — never prompts or code).",
+        [nameof(SyncCredentialsRequired)] = "Enter both the server address and access token before enabling sync.",
+        [nameof(SettingsSyncSection)] = "Sync app settings",
+        [nameof(SettingsSyncHint)] = "Only appearance (palette and light/dark), interface language, poster defaults and custom time presets are synced. Autostart, close behavior, refresh interval, logging and model pricing always stay on this device.",
         [nameof(LeaderboardSection)] = "Leaderboard",
         [nameof(LeaderboardOptIn)] = "Show my account on the leaderboard",
         [nameof(LeaderboardOptInHint)] = "Only account-level token and cost aggregates are shared; turning off removes you and deletes the server-side aggregates.",
@@ -1559,6 +1565,9 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SyncStatusSyncing => Get();
     public string SyncStatusError => Get();
     public string SyncDisabledHint => Get();
+    public string SyncCredentialsRequired => Get();
+    public string SettingsSyncSection => Get();
+    public string SettingsSyncHint => Get();
     public string LeaderboardSection => Get();
     public string LeaderboardOptIn => Get();
     public string LeaderboardOptInHint => Get();

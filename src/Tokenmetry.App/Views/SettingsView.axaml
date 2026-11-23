@@ -646,6 +646,19 @@
                             </Grid>
                         </StackPanel>
 
+                        <!-- 应用设置同步（settings-sync 设计 §5.4）：独立开关、默认关；只同步纯偏好，
+                             设备级设置与计价语义永不过线。仅「已启用」分支可见。 -->
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                                <TextBlock Grid.Column="0" Classes="setting-label"
+                                           Text="{Binding SettingsSyncSection, Source={x:Static loc:Translations.Instance}}"/>
+                                <ToggleSwitch Grid.Column="1" HorizontalAlignment="Left"
+                                              IsChecked="{Binding SettingsSyncEnabled}"/>
+                            </Grid>
+                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                       Text="{Binding SettingsSyncHint, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+
                         <Grid ColumnDefinitions="132,Auto,*" ColumnSpacing="16">
                             <TextBlock Grid.Column="0" Classes="setting-label"
                                        Text="{Binding SyncDeviceName, Source={x:Static loc:Translations.Instance}}"/>

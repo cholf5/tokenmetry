@@ -83,6 +83,12 @@ public sealed class LeaderboardSettingsTests
             Preference = new LeaderboardPreferenceResponse(request.OptIn, custom ?? AccountDefaultDisplayName);
             return Task.FromResult(Preference);
         }
+
+        public Task<IReadOnlyList<SyncedSetting>> GetSettingsAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SyncedSetting>>(Array.Empty<SyncedSetting>());
+
+        public Task<IReadOnlyList<SyncedSetting>> PutSettingsAsync(IReadOnlyList<SyncedSettingUpdate> settings, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SyncedSetting>>(Array.Empty<SyncedSetting>());
     }
 
     private sealed class LeaderboardFixture : IDisposable
@@ -106,7 +112,8 @@ public sealed class LeaderboardSettingsTests
                 Settings,
                 new JsonAppSettingsStore(paths),
                 backendFactory: (_, _) => Backend,
-                timerPeriod: Timeout.InfiniteTimeSpan);
+                timerPeriod: Timeout.InfiniteTimeSpan,
+                settingsSyncStateStore: Store);
             ViewModel = new SettingsViewModel(
                 Settings,
                 paths,

@@ -9,6 +9,9 @@ prompt、代码、会话内容——隐私红线与客户端一致。**默认不
 （`CREATE TABLE IF NOT EXISTS`），旧部署重启即自动补表；自建实例还自带一个只读网页
 `/leaderboard`，详见[下文](#排行榜v11)。
 
+应用设置同步自 v1.2 内置：`account_settings` 一张逐 key 的偏好表，同样幂等补表；客户端默认关，
+详见[下文](#应用设置同步v12)。
+
 ## 快速开始（Docker）
 
 ```bash
@@ -139,6 +142,20 @@ sudo -u tokenmetry /opt/tokenmetry-relay/Tokenmetry.Relay \
 | `/api/devices/{deviceId}` | PATCH / DELETE | 设备改名 / 解绑（级联清该设备全部行；解绑设备的后续 push 一律 400 拒收，重新入网走 POST /api/devices 注册） |
 | `/api/leaderboard` | GET | 公开榜单读：`board=cost\|tokens`（默认 cost）、`month=YYYY-MM`（默认当月）、`limit`（默认 100，钳 [1,100]）；匿名 + CORS 放行（仅 GET） |
 | `/api/me/leaderboard` | GET / PUT | 排行榜偏好读/写（opt-in 与展示名；PUT 开启即全量重建 rollup，关闭即删） |
+| `/api/me/settings` | GET / PUT | 应用设置同步（逐 key 的纯偏好 TEXT；PUT 服务端赋时间戳并 upsert） |
+
+## 应用设置同步（v1.2）
+
+中继从 v1.2 起承载**一小块纯偏好**的跨设备同步：外观（画板 + 明暗模式）、界面语言、分享海报默认值、
+自定义时间预设。在客户端「跨设备同步」区块里由独立开关「同步应用设置」控制，**默认关**；关 = 零出站。
+
+- 存储是一张逐 key 的 `account_settings` 表，值统一为 TEXT（字符串原样、页边距 invariant 数字、
+  预设清单 JSON）；写入时间戳由**服务端**赋值，客户端按它判断新旧——设备时钟偏移不会让某台机器永远赢。
+- 设备级设置（开机自启、关窗行为、刷新间隔、文件日志、调试）与计价语义（模型目录/别名/价格覆盖）
+  **永不过线**；同步凭据本身也不走这条通道。
+- 表随建库幂等创建（`CREATE TABLE IF NOT EXISTS`），旧部署重启即自动补表；删除账号 / 更换 token /
+  吊销成员都会级联清空该账号的设置行。
+- 旧版中继没有这两个端点：客户端打开设置同步后会收到 404，请把中继升级到同一版本。
 
 ## 排行榜（v1.1）
 
