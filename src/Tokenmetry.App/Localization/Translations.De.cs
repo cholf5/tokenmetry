@@ -217,7 +217,7 @@ public sealed partial class Translations
         [nameof(ThemeHint)] = "Wird sofort übernommen und gespeichert (bleibt über Neustarts erhalten).",
         [nameof(ThemePaletteDefault)] = "Standard",
         [nameof(ThemeModeLabel)] = "Modus",
-        [nameof(ThemeModeHint)] = "Hell, dunkel oder systemgesteuert; die Paletten Nord und Dracula bieten nur Dunkel.",
+        [nameof(ThemeModeHint)] = "Hell, dunkel oder systemgesteuert; reine Dunkelpaletten bleiben im Dunkelmodus.",
         [nameof(LabelLanguage)] = "Sprache",
         [nameof(LanguageSystem)] = "Wie das System",
         [nameof(LanguageZh)] = "简体中文",

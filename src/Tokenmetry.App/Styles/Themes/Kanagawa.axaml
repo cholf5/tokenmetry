@@ -1,0 +1,271 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    x:Class="Tokenmetry.App.Styles.Themes.Kanagawa">
+
+<!--
+    Kanagawa 画板（Dark）：ThemeService 按 settings.ThemePalette 运行期换入。
+    Kanagawa 官方色板（github.com/rebelot/kanagawa.nvim）Wave：sumiInk3 #1f1f28、sumiInk4 #2a2a37、sumiInk5 #363646、sumiInk6 #54546d、fujiWhite #dcd7ba、oldWhite #c8c093 + 六强调色。
+    由 scripts/generate-theme-palettes.py 生成，勿手改；改色请改脚本内画板定义后重跑。
+    x:Class = 编译期 XAML + 同名 code-behind（ThemeService 类型化实例化）；不要去掉——
+    运行期 AvaloniaXamlLoader.Load(Uri) 带 RequiresUnreferencedCode，AOT 发布直接 IL2026。
+-->
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+            <!-- Kanagawa Dark：Kanagawa 官方色板（github.com/rebelot/kanagawa.nvim）Wave：sumiInk3 #1f1f28、sumiInk4 #2a2a37、sumiInk5 #363646、sumiInk6 #54546d、fujiWhite #dcd7ba、oldWhite #c8c093 + 六强调色。
+                 由 scripts/generate-theme-palettes.py 生成（对比度纪律已逐项断言），勿手改；
+                 重跑脚本再生。海报令牌（AppPoster*）与图表系列色刻意不在本画板——
+                 海报内容与数据语义色不吃应用画板，见 docs/design/design-tokens.md。 -->
+            <!-- 页面底 -->
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#1f1f28"/>
+            <!-- 面板 -->
+            <SolidColorBrush x:Key="AppPanelBrush" Color="#2a2a37"/>
+            <!-- 次面板 -->
+            <SolidColorBrush x:Key="AppPanelAltBrush" Color="#363646"/>
+            <!-- 描边 -->
+            <SolidColorBrush x:Key="AppLineBrush" Color="#54546d"/>
+            <!-- 正文 -->
+            <SolidColorBrush x:Key="AppTextBrush" Color="#dcd7ba"/>
+            <!-- 次要文字 -->
+            <SolidColorBrush x:Key="AppMutedTextBrush" Color="#c8c093"/>
+            <!-- 强调蓝 -->
+            <SolidColorBrush x:Key="AppAccentBlueBrush" Color="#7e9cd8"/>
+            <!-- 强调青 -->
+            <SolidColorBrush x:Key="AppAccentCyanBrush" Color="#7fb4ca"/>
+            <!-- 强调紫 -->
+            <SolidColorBrush x:Key="AppAccentPurpleBrush" Color="#a08cbf"/>
+            <!-- 强调绿 -->
+            <SolidColorBrush x:Key="AppAccentGreenBrush" Color="#98bb6c"/>
+            <!-- 强调橙 -->
+            <SolidColorBrush x:Key="AppAccentOrangeBrush" Color="#ffa066"/>
+            <!-- 强调红 -->
+            <SolidColorBrush x:Key="AppAccentRedBrush" Color="#e6717e"/>
+            <!-- 卡片表面（145° 渐变，与默认画板同构） -->
+            <LinearGradientBrush x:Key="AppCardBackgroundBrush" StartPoint="10.058%,-7.043%" EndPoint="89.942%,107.043%">
+                <GradientStop Color="#262632" Offset="0"/>
+                <GradientStop Color="#22222c" Offset="1"/>
+            </LinearGradientBrush>
+            <!-- 卡片描边 -->
+            <SolidColorBrush x:Key="AppCardLineBrush" Color="#363646"/>
+            <!-- 链接 -->
+            <SolidColorBrush x:Key="AppLinkBrush" Color="#7e9cd8"/>
+            <!-- chip 底 -->
+            <SolidColorBrush x:Key="AppChipBackgroundBrush" Color="#2c3041"/>
+            <!-- chip 文字 -->
+            <SolidColorBrush x:Key="AppChipTextBrush" Color="#7e9cd8"/>
+            <!-- mini 进度条轨道 -->
+            <SolidColorBrush x:Key="AppMiniTrackBrush" Color="#363646"/>
+            <!-- KPI 顶标签 -->
+            <SolidColorBrush x:Key="AppKpiTitleBrush" Color="#c8c093"/>
+            <SolidColorBrush x:Key="AppIconChipBlueBackgroundBrush" Color="#384056"/>
+            <SolidColorBrush x:Key="AppIconChipBlueForegroundBrush" Color="#95aedf"/>
+            <SolidColorBrush x:Key="AppIconChipAmberBackgroundBrush" Color="#594138"/>
+            <SolidColorBrush x:Key="AppIconChipAmberForegroundBrush" Color="#ffa066"/>
+            <SolidColorBrush x:Key="AppIconChipPurpleBackgroundBrush" Color="#413b4f"/>
+            <SolidColorBrush x:Key="AppIconChipPurpleForegroundBrush" Color="#b6a6ce"/>
+            <SolidColorBrush x:Key="AppIconChipGreenBackgroundBrush" Color="#3e483a"/>
+            <SolidColorBrush x:Key="AppIconChipGreenForegroundBrush" Color="#9dbe73"/>
+            <SolidColorBrush x:Key="AppIconChipNeutralBackgroundBrush" Color="#413f3d"/>
+            <SolidColorBrush x:Key="AppIconChipNeutralForegroundBrush" Color="#d6d0ae"/>
+            <!-- 侧栏 -->
+            <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#16161d"/>
+            <!-- 顶栏 -->
+            <SolidColorBrush x:Key="AppTopbarBackgroundBrush" Color="#1a1a22"/>
+            <!-- 导航前景（未选中） -->
+            <SolidColorBrush x:Key="AppNavForegroundBrush" Color="#c8c093"/>
+            <!-- 导航选中底 -->
+            <SolidColorBrush x:Key="AppNavActiveBackgroundBrush" Color="#2d4f67"/>
+            <!-- 导航选中字 -->
+            <SolidColorBrush x:Key="AppNavActiveForegroundBrush" Color="#adc0e6"/>
+            <!-- 导航指示条 -->
+            <SolidColorBrush x:Key="AppNavActiveIndicatorBrush" Color="#7e9cd8"/>
+            <!-- 导航悬停底 -->
+            <SolidColorBrush x:Key="AppNavHoverBackgroundBrush" Color="#2a2a37"/>
+            <!-- 导航静息（同 hover RGB 的 0 alpha，BrushTransition 起点） -->
+            <SolidColorBrush x:Key="AppNavRestBackgroundBrush" Color="#002a2a37"/>
+            <!-- 图表网格 -->
+            <SolidColorBrush x:Key="AppChartGridLineBrush" Color="#2a2a37"/>
+            <!-- 图表轴线 -->
+            <SolidColorBrush x:Key="AppChartAxisLineBrush" Color="#363646"/>
+            <!-- 首启遮罩（页面底 90% 不透明） -->
+            <SolidColorBrush x:Key="AppOverlayScrimBrush" Color="#e61f1f28"/>
+            <!-- banner 活动底 -->
+            <SolidColorBrush x:Key="AppBannerActiveBackgroundBrush" Color="#223249"/>
+            <!-- banner 活动线 -->
+            <SolidColorBrush x:Key="AppBannerActiveLineBrush" Color="#2d4f67"/>
+            <!-- banner 告警底 -->
+            <SolidColorBrush x:Key="AppBannerWarnBackgroundBrush" Color="#3a3025"/>
+            <!-- banner 告警线 -->
+            <SolidColorBrush x:Key="AppBannerWarnLineBrush" Color="#6e5637"/>
+            <!-- 滚动条滑块 -->
+            <SolidColorBrush x:Key="AppScrollBarThumbBrush" Color="#54546d"/>
+            <!-- 滚动条悬停 -->
+            <SolidColorBrush x:Key="AppScrollBarThumbHoverBrush" Color="#727169"/>
+            <!-- 品牌色表面文字（恒白） -->
+            <SolidColorBrush x:Key="AppOnBrandForegroundBrush" Color="#ffffff"/>
+            <!-- 弹窗毛玻璃面（panel 90% 不透明） -->
+            <SolidColorBrush x:Key="AppPopoverCardBackgroundBrush" Color="#e62a2a37"/>
+            <!-- 弹窗外投影色 -->
+            <Color x:Key="AppPopoverShadowColor">#000000</Color>
+            <!-- Semi 控件别名键覆盖：Semi.Avalonia v12.1 的控件 ControlTheme 只消费控件别名键（Themes/{Light,Dark}/{Control}.axaml 用 StaticResource 烤死的语义值），覆盖别名键是 Semi 原生控件跟随本画板的唯一通道；对 design-tokens.md §1「Semi* 禁止覆盖」的有意识例外（覆盖既有键、非新增键）。白名单 = 应用实际使用的控件族，逐键核对自 v12.1.0.1 源码；语义值由画板主值派生。 -->
+            <SolidColorBrush x:Key="WindowDefaultBackground" Color="#1f1f28"/>
+            <SolidColorBrush x:Key="WindowDefaultForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="DefaultForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="TextBoxTextCaretBrush" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="TextBoxDefaultBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="TextBoxPointeroverBackground" Color="#303035"/>
+            <SolidColorBrush x:Key="TextBoxPressedBackground" Color="#38373b"/>
+            <SolidColorBrush x:Key="TextBoxFocusBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="TextBoxForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="TextBoxPlaceholderForeground" Color="#c8c093"/>
+            <SolidColorBrush x:Key="TextBoxInnerForeground" Color="#c8c093"/>
+            <SolidColorBrush x:Key="TextBoxDisabledBackground" Color="#2c2c32"/>
+            <SolidColorBrush x:Key="TextBoxDisabledForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="TextBoxBorderedDefaultBorderBrush" Color="#28282f"/>
+            <SolidColorBrush x:Key="TextBoxBorderedPointeroverBorderBrush" Color="#a5bae4"/>
+            <SolidColorBrush x:Key="TextBoxSelectionForeground" Color="#ffffff"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorPlaceHolderForeground" Color="#c8c093"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorPointeroverBackground" Color="#303035"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorFocusBackground" Color="#303035"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorPressedBackground" Color="#38373b"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorDisabledBackground" Color="#2c2c32"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorDisabledBorderBrush" Color="#2c2c32"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorFocusBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorPressedBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="ComboBoxIconDefaultForeground" Color="#c8c093"/>
+            <SolidColorBrush x:Key="ComboBoxIconPointeroverForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ComboBoxIconPressedForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ComboBoxIconDisabledForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="ComboBoxDisabledForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="ComboBoxPopupBackground" Color="#2a2a37"/>
+            <SolidColorBrush x:Key="ComboBoxPopupBorderBrush" Color="#54546d"/>
+            <SolidColorBrush x:Key="ComboBoxItemForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ComboBoxItemPointeroverForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ComboBoxItemPointeroverBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="ComboBoxItemFocusForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ComboBoxItemFocusBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="ComboBoxItemPressedForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ComboBoxItemPressedBackground" Color="#303035"/>
+            <SolidColorBrush x:Key="ComboBoxItemSelectedForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ComboBoxItemSelectedBackground" Color="#3f465f"/>
+            <SolidColorBrush x:Key="ComboBoxItemSelectedPointeroverBackground" Color="#454d68"/>
+            <SolidColorBrush x:Key="ComboBoxItemSelectedDisabledBackground" Color="#2c2c32"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorBorderedBorderBrush" Color="#54546d"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorBorderedPointeroverBorderBrush" Color="#a5bae4"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorBorderedFocusBorderBrush" Color="#a5bae4"/>
+            <SolidColorBrush x:Key="ComboBoxSelectorBorderedPressedBorderBrush" Color="#ccd8f0"/>
+            <SolidColorBrush x:Key="AutoCompleteBoxPopupBackground" Color="#2a2a37"/>
+            <SolidColorBrush x:Key="AutoCompleteBoxPopupBorderBrush" Color="#54546d"/>
+            <SolidColorBrush x:Key="CheckBoxForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="CheckBoxDisabledForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="CheckBoxGlyphFill" Color="#ffffff"/>
+            <SolidColorBrush x:Key="CheckBoxDefaultBorderBrush" Color="#848068"/>
+            <SolidColorBrush x:Key="CheckBoxPointeroverBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="CheckBoxPointeroverBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="CheckBoxPressedBackground" Color="#303035"/>
+            <SolidColorBrush x:Key="CheckBoxPressedBorderBrush" Color="#ccd8f0"/>
+            <SolidColorBrush x:Key="CheckBoxCheckedDefaultBackground" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="CheckBoxCheckedDefaultBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="CheckBoxCheckedPointeroverBackground" Color="#a5bae4"/>
+            <SolidColorBrush x:Key="CheckBoxCheckedPointeroverBorderBrush" Color="#a5bae4"/>
+            <SolidColorBrush x:Key="CheckBoxCheckedPressedBackground" Color="#ccd8f0"/>
+            <SolidColorBrush x:Key="CheckBoxCheckedPressedBorderBrush" Color="#ccd8f0"/>
+            <SolidColorBrush x:Key="CheckBoxDefaultDisabledBackground" Color="#2c2c32"/>
+            <SolidColorBrush x:Key="CheckBoxDefaultDisabledBorderBrush" Color="#54546d"/>
+            <SolidColorBrush x:Key="CheckBoxCheckedDisabledBackground" Color="#4a5777"/>
+            <SolidColorBrush x:Key="CheckBoxCheckedDisabledBorderBrush" Color="#4a5777"/>
+            <SolidColorBrush x:Key="CheckBoxCardCheckedBackground" Color="#3f465f"/>
+            <SolidColorBrush x:Key="CheckBoxCardCheckedBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="CheckBoxCardCheckedDisabledBorderBrush" Color="#4a5777"/>
+            <SolidColorBrush x:Key="CheckBoxCardPointeroverBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="CheckBoxCardPressedBackground" Color="#303035"/>
+            <SolidColorBrush x:Key="CheckBoxCardCheckedPointeroverBorderBrush" Color="#a5bae4"/>
+            <SolidColorBrush x:Key="CheckBoxCardCheckedPressedBorderBrush" Color="#ccd8f0"/>
+            <SolidColorBrush x:Key="ToggleButtonPrimaryIndeterminateBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="ToggleButtonSecondaryIndeterminateBorderBrush" Color="#7fb4ca"/>
+            <SolidColorBrush x:Key="ToggleButtonTertiaryIndeterminateBorderBrush" Color="#d4ceaa"/>
+            <SolidColorBrush x:Key="ToolTipBackground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ToolTipForeground" Color="#1f1f28"/>
+            <SolidColorBrush x:Key="FlyoutBackground" Color="#2a2a37"/>
+            <SolidColorBrush x:Key="FlyoutForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="FlyoutBorderBrush" Color="#54546d"/>
+            <SolidColorBrush x:Key="ListBoxItemDisabledForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="ListBoxItemPointeroverForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ListBoxItemPointeroverBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="ListBoxItemPressedForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ListBoxItemPressedBackground" Color="#303035"/>
+            <SolidColorBrush x:Key="ListBoxItemSelectedForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="ListBoxItemSelectedBackground" Color="#3f465f"/>
+            <SolidColorBrush x:Key="ListBoxItemSelectedPointeroverBackground" Color="#454d68"/>
+            <SolidColorBrush x:Key="ListBoxItemSelectedDisabledBackground" Color="#2c2c32"/>
+            <SolidColorBrush x:Key="NotificationCardBorderBrush" Color="#54546d"/>
+            <SolidColorBrush x:Key="NotificationCardBackground" Color="#2a2a37"/>
+            <SolidColorBrush x:Key="NotificationCardInformationIconForeground" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="NotificationCardSuccessIconForeground" Color="#98bb6c"/>
+            <SolidColorBrush x:Key="NotificationCardWarningIconForeground" Color="#ffa066"/>
+            <SolidColorBrush x:Key="NotificationCardErrorIconForeground" Color="#e6717e"/>
+            <SolidColorBrush x:Key="NotificationCardTitleForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="NotificationCardMessageForeground" Color="#d4ceaa"/>
+            <SolidColorBrush x:Key="NotificationCardLightInformationBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="NotificationCardLightInformationBackground" Color="#3f465f"/>
+            <SolidColorBrush x:Key="NotificationCardLightSuccessBorderBrush" Color="#98bb6c"/>
+            <SolidColorBrush x:Key="NotificationCardLightSuccessBackground" Color="#464e44"/>
+            <SolidColorBrush x:Key="NotificationCardLightWarningBorderBrush" Color="#ffa066"/>
+            <SolidColorBrush x:Key="NotificationCardLightWarningBackground" Color="#5f4843"/>
+            <SolidColorBrush x:Key="NotificationCardLightErrorBorderBrush" Color="#e6717e"/>
+            <SolidColorBrush x:Key="NotificationCardLightErrorBackground" Color="#593c49"/>
+            <SolidColorBrush x:Key="DataValidationErrorsForeground" Color="#e6717e"/>
+            <SolidColorBrush x:Key="DataValidationErrorsBackground" Color="#593c49"/>
+            <SolidColorBrush x:Key="DataValidationErrorsBorderBrush" Color="#593c49"/>
+            <SolidColorBrush x:Key="DataValidationErrorsPointeroverBackground" Color="#624250"/>
+            <SolidColorBrush x:Key="DataValidationErrorsPointeroverBorderBrush" Color="#624250"/>
+            <SolidColorBrush x:Key="DataValidationErrorsPressedBackground" Color="#6b4858"/>
+            <SolidColorBrush x:Key="DataValidationErrorsPressedBorderBrush" Color="#6b4858"/>
+            <SolidColorBrush x:Key="DataValidationErrorsSelectedBackground" Color="#593c49"/>
+            <SolidColorBrush x:Key="DataValidationErrorsSelectedBorderBrush" Color="#e6717e"/>
+            <SolidColorBrush x:Key="DataValidationErrorsPointerOverBackground" Color="#624250"/>
+            <SolidColorBrush x:Key="DataValidationErrorsPointerOverBorderBrush" Color="#624250"/>
+            <SolidColorBrush x:Key="ButtonDefaultPrimaryForeground" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="ButtonDefaultSecondaryForeground" Color="#7fb4ca"/>
+            <SolidColorBrush x:Key="ButtonDefaultTertiaryForeground" Color="#d4ceaa"/>
+            <SolidColorBrush x:Key="ButtonDefaultSuccessForeground" Color="#98bb6c"/>
+            <SolidColorBrush x:Key="ButtonDefaultWarningForeground" Color="#ffa066"/>
+            <SolidColorBrush x:Key="ButtonDefaultDangerForeground" Color="#e6717e"/>
+            <SolidColorBrush x:Key="ButtonDefaultDisabledForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="ButtonDefaultBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="ButtonDefaultPointeroverBackground" Color="#303035"/>
+            <SolidColorBrush x:Key="ButtonDefaultPressedBackground" Color="#38373b"/>
+            <SolidColorBrush x:Key="ButtonSolidForeground" Color="#ffffff"/>
+            <SolidColorBrush x:Key="ButtonSolidPrimaryBackground" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBackground" Color="#a5bae4"/>
+            <SolidColorBrush x:Key="ButtonSolidPrimaryPressedBackground" Color="#ccd8f0"/>
+            <SolidColorBrush x:Key="ButtonSolidPrimaryBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBorderBrush" Color="#a5bae4"/>
+            <SolidColorBrush x:Key="ButtonSolidPrimaryPressedBorderBrush" Color="#ccd8f0"/>
+            <SolidColorBrush x:Key="MenuFlyoutBackground" Color="#2a2a37"/>
+            <SolidColorBrush x:Key="MenuFlyoutBorderBrush" Color="#54546d"/>
+            <SolidColorBrush x:Key="MenuItemForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="MenuItemSeparatorBackground" Color="#54546d"/>
+            <SolidColorBrush x:Key="MenuItemPointeroverForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="MenuItemPointeroverBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="MenuItemPressedBackground" Color="#303035"/>
+            <SolidColorBrush x:Key="MenuItemInputGestureTextForeground" Color="#c8c093"/>
+            <SolidColorBrush x:Key="MenuItemExpandIconForeground" Color="#c8c093"/>
+            <SolidColorBrush x:Key="MenuItemExpandIconOpenForeground" Color="#dcd7ba"/>
+            <SolidColorBrush x:Key="MenuItemDisabledForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="MenuItemDisabledInputGestureTextForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="MenuItemDisabledExpandIconForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="SliderTrackForeground" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="SliderTrackBackground" Color="#28282f"/>
+            <SolidColorBrush x:Key="SliderThumbBackground" Color="#ffffff"/>
+            <SolidColorBrush x:Key="SliderThumbBorderBrush" Color="#7e9cd8"/>
+            <SolidColorBrush x:Key="SliderThumbPointeroverBorderBrush" Color="#a5bae4"/>
+            <SolidColorBrush x:Key="SliderThumbPressedBorderBrush" Color="#ccd8f0"/>
+            <SolidColorBrush x:Key="SliderTickForeground" Color="#848068"/>
+            <SolidColorBrush x:Key="SliderTrackDisabledForeground" Color="#74726a"/>
+            <SolidColorBrush x:Key="SliderThumbDisabledBorderBrush" Color="#4a5777"/>
+            <SolidColorBrush x:Key="SliderTrackDisabledBackground" Color="#2c2c32"/>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

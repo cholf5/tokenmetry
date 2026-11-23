@@ -47,13 +47,36 @@
                                 </ToolTip>
                             </ToolTip.Tip>
                         </TextBlock>
+                        <!-- 画板下拉：每项前带该画板本色的 5 条色带（底 / 面板 / 蓝 / 紫 / 橙）。
+                             十个画板只读名字分不出气质，色带让选择回到「看颜色」。 -->
                         <ComboBox Grid.Row="0" Grid.Column="1"
                                   ItemsSource="{Binding PaletteOptions}" SelectedItem="{Binding SelectedPalette}"
                                   Width="300" HorizontalAlignment="Left"
                                   HorizontalContentAlignment="Stretch">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:PaletteOption">
-                                    <TextBlock Text="{Binding Label}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="9">
+                                        <!-- 色带：画板本色 5 条竖条（底 / 面板 / 蓝 / 紫 / 橙），
+                                             外框让深色画板的底与面板不至于融进下拉底。 -->
+                                        <Border VerticalAlignment="Center" CornerRadius="3"
+                                                ClipToBounds="True"
+                                                BorderBrush="{DynamicResource AppLineBrush}"
+                                                BorderThickness="1" IsHitTestVisible="False">
+                                            <ItemsControl ItemsSource="{Binding Swatches}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:PaletteSwatch">
+                                                        <Border Width="7" Height="14" Background="{Binding Brush}"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Border>
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>

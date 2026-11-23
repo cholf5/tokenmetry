@@ -8,7 +8,8 @@ namespace Tokenmetry.App.Services;
 public interface IThemeService
 {
     /// <summary>
-    /// 应用画板 × 模式两维主题：画板（ThemePaletteCatalog，default/nord/dracula/solarized/gruvbox）
+    /// 应用画板 × 模式两维主题：画板（ThemePaletteCatalog：默认 + nord/dracula/solarized/gruvbox/
+    /// catppuccin/tokyonight/one/ayu/kanagawa）
     /// 决定配色气质（运行期换 App 资源字典），模式（light/dark/system）决定亮暗档（RequestedThemeVariant）。
     /// </summary>
     void Apply(string? palettePreference, string? modePreference);

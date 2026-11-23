@@ -217,7 +217,7 @@ public sealed partial class Translations
         [nameof(ThemeHint)] = "Se aplica y se guarda automáticamente (se conserva tras reiniciar).",
         [nameof(ThemePaletteDefault)] = "Predeterminado",
         [nameof(ThemeModeLabel)] = "Modo",
-        [nameof(ThemeModeHint)] = "Claro, oscuro o según el sistema; las paletas Nord y Dracula solo ofrecen el oscuro.",
+        [nameof(ThemeModeHint)] = "Claro, oscuro o según el sistema; las paletas solo oscuras permanecen en oscuro.",
         [nameof(LabelLanguage)] = "Idioma",
         [nameof(LanguageSystem)] = "Según el sistema",
         [nameof(LanguageZh)] = "简体中文",

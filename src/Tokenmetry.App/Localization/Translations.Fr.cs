@@ -217,7 +217,7 @@ public sealed partial class Translations
         [nameof(ThemeHint)] = "S'applique et s'enregistre immédiatement (conservé après redémarrage).",
         [nameof(ThemePaletteDefault)] = "Par défaut",
         [nameof(ThemeModeLabel)] = "Mode",
-        [nameof(ThemeModeHint)] = "Clair, sombre ou suivre le système ; les palettes Nord et Dracula existent uniquement en sombre.",
+        [nameof(ThemeModeHint)] = "Clair, sombre ou suivre le système ; les palettes uniquement sombres restent en sombre.",
         [nameof(LabelLanguage)] = "Langue",
         [nameof(LanguageSystem)] = "Comme le système",
         [nameof(LanguageZh)] = "简体中文",

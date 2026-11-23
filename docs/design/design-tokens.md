@@ -198,7 +198,9 @@ circle/ellipse/rect/line/polyline 转 arc/H/V/A 路径）。**勿手改**；再�
 
 ## 11. 应用画板（可选主题皮肤，2026-11-08）
 
-默认画板 = 本文件 §2-§6 的 Tokens.axaml 明暗两档（原型蓝看板风）。在此之外，应用提供固定精选的四套整套画板：**Nord**（官方冷蓝灰，仅暗色）/ **Dracula**（紫黑霓虹，仅暗色）/ **Solarized**（官方暖纸亮色 + 暗青暗色）/ **Gruvbox**（复古暖棕，亮暗两档）。立场与默认画板一致：固定封闭集合，不做主题引擎、不开放自定义取色（Opinionated 立场不因画板而破）。
+默认画板 = 本文件 §2-§6 的 Tokens.axaml 明暗两档（原型蓝看板风）。在此之外，应用提供固定精选的九套整套画板：**Nord**（官方冷蓝灰，仅暗色）/ **Dracula**（紫黑霓虹，仅暗色）/ **Solarized**（官方暖纸亮色 + 暗青暗色）/ **Gruvbox**（复古暖棕，亮暗两档）/ **Catppuccin**（Latte 柔雾亮色 + Mocha 紫灰暗色）/ **Tokyo Night**（深靛霓虹，仅暗色）/ **One**（Atom One Light + One Dark）/ **Ayu**（暖灰亮色 + 墨蓝暗色）/ **Kanagawa**（水墨和风，仅暗色）。立场与默认画板一致：固定封闭集合，不做主题引擎、不开放自定义取色（Opinionated 立场不因画板而破）。
+
+- **色带预览**：设置页画板下拉每项前带 5 条本色竖条（页面底 / 面板 / 强调蓝 / 强调紫 / 强调橙），取自画板 Dark 档（全部画板都有暗色，深色档最能代表气质）。色值是 `ThemePaletteCatalog` 的纯展示数据——VM 不解析 XAML（非 headless 单测进程里不可靠），与生成画板实值的同步由 `DesignTokenTests.Palette_catalog_swatches_match_dark_tokens` 对账。
 
 - **单一事实来源**：`scripts/generate-theme-palettes.py`（画板定义 + WCAG 断言 + XAML 产出）。改色改脚本后重跑，产物 `Styles/Themes/{Nord,Dracula,Solarized,Gruvbox}.axaml` 勿手改。对比度纪律与 §2 同源但阈值带 +0.05 安全边距（正文 ≥7 / 次要与强调 ≥4.5）——双实现（python 生成器 / C# 测试）浮点尾数差曾让 4.5001 过、4.4999 挂，压线的值不算达标。测试侧 `DesignTokenTests` 独立重算复核。
 - **键位边界**：画板字典只覆盖 46 个随模式翻转的 App* 令牌 + Semi 别名白名单。**刻意不含** `AppPoster*`（海报内容不吃应用画板）、`AppSeries*`/`AppTokenType*`（数据语义色全画板恒定）、`AppMiniFill*`/`AppMotion*`（全局常量）。`DesignTokenTests.Palette_dictionaries_do_not_shadow_poster_series_or_motion_tokens` 固化此边界。

@@ -217,7 +217,7 @@ public sealed partial class Translations
         [nameof(ThemeHint)] = "변경 즉시 적용·자동 저장(재시작 후 유지).",
         [nameof(ThemePaletteDefault)] = "기본",
         [nameof(ThemeModeLabel)] = "모드",
-        [nameof(ThemeModeHint)] = "라이트 / 다크 / 시스템 설정 따르기; Nord와 Dracula 팔레트는 다크만 제공합니다.",
+        [nameof(ThemeModeHint)] = "라이트 / 다크 / 시스템 설정 따르기; 다크 전용 팔레트는 다크로 고정됩니다.",
         [nameof(LabelLanguage)] = "언어",
         [nameof(LanguageSystem)] = "시스템 설정 따르기",
         [nameof(LanguageZh)] = "简体中文",

@@ -56,7 +56,7 @@
             <!-- mini 进度条轨道 -->
             <SolidColorBrush x:Key="AppMiniTrackBrush" Color="#ded6c2"/>
             <!-- KPI 顶标签 -->
-            <SolidColorBrush x:Key="AppKpiTitleBrush" Color="#5b6b73"/>
+            <SolidColorBrush x:Key="AppKpiTitleBrush" Color="#56656e"/>
             <SolidColorBrush x:Key="AppIconChipBlueBackgroundBrush" Color="#dde8f0"/>
             <SolidColorBrush x:Key="AppIconChipBlueForegroundBrush" Color="#1d699e"/>
             <SolidColorBrush x:Key="AppIconChipAmberBackgroundBrush" Color="#f3e2dc"/>

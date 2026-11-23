@@ -217,7 +217,7 @@ public sealed partial class Translations
         [nameof(ThemeHint)] = "切換後立即生效並自動儲存（重啟後保持）。",
         [nameof(ThemePaletteDefault)] = "預設",
         [nameof(ThemeModeLabel)] = "模式",
-        [nameof(ThemeModeHint)] = "日間 / 夜間 / 跟隨系統；Nord 與 Dracula 畫板只提供夜間。",
+        [nameof(ThemeModeHint)] = "日間 / 夜間 / 跟隨系統；僅提供夜間模式的畫板會固定為夜間。",
         [nameof(LabelLanguage)] = "介面語言",
         [nameof(LanguageSystem)] = "跟隨系統",
         [nameof(LanguageZh)] = "简体中文",

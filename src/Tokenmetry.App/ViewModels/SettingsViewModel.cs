@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
@@ -47,13 +48,23 @@ public sealed class ThemeOption : ObservableObject
 /// <summary>
 /// 外观画板选项（Value 对应 AppSettings.ThemePalette / ThemePaletteCatalog.Id），机制同
 /// <see cref="ThemeOption"/>。默认画板名经 Translations 取串；其余是画板专名——各语种同值
-/// 不翻译（同语言名自名不翻译的惯例）。
+/// 不翻译（同语言名自名不翻译的惯例）。每项带 5 条画板本色色带：十个画板仅凭名字分不出气质，
+/// 色带是「挑画板」这件事真正的决策依据。
 /// </summary>
 public sealed class PaletteOption : ObservableObject
 {
-    public PaletteOption(string value) => Value = value;
+    public PaletteOption(string value)
+    {
+        Value = value;
+        Swatches = ThemePaletteCatalog.Resolve(value).Swatches
+            .Select(color => new PaletteSwatch(color))
+            .ToArray();
+    }
 
     public string Value { get; }
+
+    /// <summary>下拉项前的色带（页面底 / 面板 / 强调蓝 / 强调紫 / 强调橙），取自画板 Dark 档。</summary>
+    public IReadOnlyList<PaletteSwatch> Swatches { get; }
 
     public string Label => Value switch
     {
@@ -62,11 +73,28 @@ public sealed class PaletteOption : ObservableObject
         "dracula" => "Dracula",
         "solarized" => "Solarized",
         "gruvbox" => "Gruvbox",
+        "catppuccin" => "Catppuccin",
+        "tokyonight" => "Tokyo Night",
+        "one" => "One",
+        "ayu" => "Ayu",
+        "kanagawa" => "Kanagawa",
         _ => Value,
     };
 
     /// <summary>语言切换后由 SettingsViewModel 统一触发（默认画板名随语言重译）。</summary>
     public void RefreshLabel() => OnPropertyChanged(nameof(Label));
+}
+
+/// <summary>
+/// 画板下拉项的一个色点。色值是画板自身的颜色，不随当前主题翻转——它显示的就是被选中的那套皮肤。
+/// 纯展示数据（<see cref="ThemePaletteCatalog"/> 的 Swatches 字段），与生成画板的同步由
+/// DesignTokenTests 校验。
+/// </summary>
+public sealed class PaletteSwatch
+{
+    public PaletteSwatch(string color) => Brush = new SolidColorBrush(Color.Parse(color));
+
+    public IBrush Brush { get; }
 }
 
 /// <summary>界面语言选项（Value 对应 AppSettings.Language 的取值，统一小写：system / zh / zh-hant /

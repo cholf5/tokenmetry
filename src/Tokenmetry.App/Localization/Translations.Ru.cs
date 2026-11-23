@@ -219,7 +219,7 @@ public sealed partial class Translations
         [nameof(ThemeHint)] = "Применяется и сохраняется автоматически (сохраняется после перезапуска).",
         [nameof(ThemePaletteDefault)] = "По умолчанию",
         [nameof(ThemeModeLabel)] = "Режим",
-        [nameof(ThemeModeHint)] = "Светлая, тёмная или как в системе; палитры Nord и Dracula доступны только в тёмном виде.",
+        [nameof(ThemeModeHint)] = "Светлая, тёмная или как в системе; палитры только с тёмным вариантом остаются тёмными.",
         [nameof(LabelLanguage)] = "Язык",
         [nameof(LanguageSystem)] = "Как в системе",
         [nameof(LanguageZh)] = "简体中文",

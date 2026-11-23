@@ -524,6 +524,11 @@ public class DesignTokenTests
         ["Dracula"] = [ThemeVariant.Dark],
         ["Solarized"] = [ThemeVariant.Light, ThemeVariant.Dark],
         ["Gruvbox"] = [ThemeVariant.Light, ThemeVariant.Dark],
+        ["Catppuccin"] = [ThemeVariant.Light, ThemeVariant.Dark],
+        ["TokyoNight"] = [ThemeVariant.Dark],
+        ["One"] = [ThemeVariant.Light, ThemeVariant.Dark],
+        ["Ayu"] = [ThemeVariant.Light, ThemeVariant.Dark],
+        ["Kanagawa"] = [ThemeVariant.Dark],
     };
 
     /// <summary>画板必须覆盖的 Semi 控件别名键（每族至少钉住关键键，逐键核对自
@@ -563,6 +568,40 @@ public class DesignTokenTests
                 Assert.True(dict.ThemeDictionaries.TryGetValue(variant, out var mode),
                     $"{name}.axaml 缺少 {variant} 变体字典");
                 yield return (name, variant, (ResourceDictionary)mode!);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 设置页下拉色带与画板实值同源：ThemePaletteCatalog.Swatches 是纯展示数据（VM 不解析 XAML，
+    /// 非 headless 单测进程里解析不可靠），这里把每个画板 Dark 档的底/面板/三个强调色与登记值逐项
+    /// 对账——画板调色后忘了同步色带即红。默认画板的实值来自常驻 Tokens.axaml。
+    /// </summary>
+    [AvaloniaFact]
+    public void Palette_catalog_swatches_match_dark_tokens()
+    {
+        string[] swatchKeys =
+        [
+            "AppBackgroundBrush", "AppPanelBrush",
+            "AppAccentBlueBrush", "AppAccentPurpleBrush", "AppAccentOrangeBrush",
+        ];
+
+        var tokens = Assert.IsAssignableFrom<ResourceDictionary>(AvaloniaXamlLoader.Load(
+            new Uri("avares://Tokenmetry.App/Styles/Tokens.axaml")));
+
+        foreach (var palette in ThemePaletteCatalog.All)
+        {
+            var dict = palette.CreateDictionary?.Invoke() ?? tokens;
+            Assert.Equal(swatchKeys.Length, palette.Swatches.Count);
+            Assert.True(dict.ThemeDictionaries.TryGetValue(ThemeVariant.Dark, out var mode),
+                $"{palette.Id} 缺少 Dark 变体（色点取 Dark 档）");
+            var dark = (ResourceDictionary)mode!;
+            for (var i = 0; i < swatchKeys.Length; i++)
+            {
+                Assert.True(dark.TryGetResource(swatchKeys[i], ThemeVariant.Dark, out var value),
+                    $"{palette.Id} 缺少色点令牌 {swatchKeys[i]}");
+                Assert.Equal(Assert.IsAssignableFrom<ISolidColorBrush>(value!).Color,
+                    Color.Parse(palette.Swatches[i]));
             }
         }
     }

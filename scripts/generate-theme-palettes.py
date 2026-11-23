@@ -499,6 +499,210 @@ PALETTES = {
             "popover_shadow": "#a6000000",
         },
     },
+    "catppuccin": {
+        "file": "Catppuccin",
+        "modes": ["light", "dark"],
+        "source": "Catppuccin 官方色板（github.com/catppuccin/palette）：Latte（亮）base/mantle/crust/"
+                  "surface0-2 灰阶 + 十四强调色；Mocha（暗）同键位（base #1e1e2e / surface0-2 / "
+                  "mauve/blue/teal/green/peach/red）",
+        "light": {
+            # Latte：base 主底、mantle 面板、crust 次面板、surface0 线；正文 text、次要 subtext1
+            "bg": "#eff1f5", "panel": "#e6e9ef", "panel_alt": "#dce0e8", "line": "#ccd0da",
+            "text": "#4c4f69", "muted": "#5c5f77",
+            # 官方强调色直接落位（blue/mauve/teal/green/peach/red）；不足 4.5 的由脚本压暗
+            "accents": {
+                "blue": "#1e66f5", "cyan": "#179299", "purple": "#8839ef",
+                "green": "#40a02b", "orange": "#fe640b", "red": "#d20f39",
+            },
+            "card": ("#f7f8fb", "#f2f4f8"), "card_line": "#dce0e8",
+            "link": None,
+            "chip": None,
+            "mini_track": "#dce0e8",
+            "kpi_title": "#5c5f77",
+            "sidebar": "#e6e9ef", "topbar": "#eaeef4",
+            "nav": {"fg": None, "active_bg": None, "active_fg": None, "hover": "#dce0e8"},
+            "chart": {"grid": "#dce0e8", "axis": "#ccd0da"},
+            "scroll": {"thumb": "#bcc0cc", "hover": "#9ca0b0"},
+            "banner": {"active_bg": None, "active_line": None,
+                       "warn_bg": "#f6e3cf", "warn_line": "#e2c39a"},
+            "popover_shadow": "#40000000",
+        },
+        "dark": {
+            # Mocha：base 主底、surface0 面板、surface1 次面板、surface2 线；正文 text、次要 subtext0
+            "bg": "#1e1e2e", "panel": "#313244", "panel_alt": "#45475a", "line": "#585b70",
+            "text": "#cdd6f4", "muted": "#a6adc8",
+            "accents": {
+                "blue": "#89b4fa", "cyan": "#94e2d5", "purple": "#cba6f7",
+                "green": "#a6e3a1", "orange": "#fab387", "red": "#f38ba8",
+            },
+            # 卡片取 base 与 surface0 之间的同色相深档（原型 .kpi 渐变同构）
+            "card": ("#262638", "#222232"), "card_line": "#45475a",
+            "link": None,
+            "chip": None,
+            "mini_track": "#313244",
+            "kpi_title": "#bac2de",
+            # 外壳取 mantle（侧栏）/ 介于 mantle 与 base（顶栏）
+            "sidebar": "#181825", "topbar": "#1b1b2a",
+            "nav": {"fg": None, "active_bg": "#363a54", "active_fg": None, "hover": "#2a2a3e"},
+            "chart": {"grid": "#313244", "axis": "#45475a"},
+            "scroll": {"thumb": "#585b70", "hover": "#7f849c"},
+            "banner": {"active_bg": "#2b2c44", "active_line": "#45475a",
+                       "warn_bg": "#3e3527", "warn_line": "#6b5a35"},
+            "popover_shadow": "#a6000000",
+        },
+    },
+    "tokyonight": {
+        "file": "TokyoNight",
+        "modes": ["dark"],
+        "source": "Tokyo Night 官方色板（github.com/folke/tokyonight.nvim）：Night 主题 bg #1a1b26、"
+                  "bg_dark #16161e、bg_highlight #292e42、fg #c0caf5、fg_dark #a9b1d6 + 六强调色",
+        "dark": {
+            # bg 主底、bg_highlight 面板、次面板再进一档；line 取终端黑与 bg_highlight 之间
+            "bg": "#1a1b26", "panel": "#24283b", "panel_alt": "#292e42", "line": "#3b4261",
+            "text": "#c0caf5", "muted": "#a9b1d6",
+            "accents": {
+                "blue": "#7aa2f7", "cyan": "#7dcfff", "purple": "#bb9af7",
+                "green": "#9ece6a", "orange": "#ff9e64", "red": "#f7768e",
+            },
+            "card": ("#20222f", "#1c1e2a"), "card_line": "#2f334d",
+            "link": None,
+            "chip": None,
+            "mini_track": "#292e42",
+            "kpi_title": "#a9b1d6",
+            # 外壳取 bg_dark（侧栏）与 bg 略深一档（顶栏）
+            "sidebar": "#16161e", "topbar": "#171823",
+            "nav": {"fg": None, "active_bg": "#2e3450", "active_fg": None, "hover": "#222436"},
+            "chart": {"grid": "#252a3f", "axis": "#343b58"},
+            "scroll": {"thumb": "#3b4261", "hover": "#565f89"},
+            "banner": {"active_bg": "#232842", "active_line": "#3b4261",
+                       "warn_bg": "#3a3024", "warn_line": "#6b5836"},
+            "popover_shadow": "#a6000000",
+        },
+    },
+    "one": {
+        "file": "One",
+        "modes": ["light", "dark"],
+        "source": "Atom One 官方主题（github.com/atom/one-dark-syntax、one-light-syntax）："
+                  "One Dark bg #282c34 / One Light bg #fafafa + 六强调色（blue/cyan/purple/green/orange/red）",
+        "light": {
+            # One Light：bg 主底、panel/alt 两级灰面、line 描边；正文 #383a42、次要 #696c77
+            "bg": "#fafafa", "panel": "#f0f0f1", "panel_alt": "#e5e5e6", "line": "#d0d0d2",
+            "text": "#383a42", "muted": "#696c77",
+            "accents": {
+                "blue": "#4078f2", "cyan": "#0184bc", "purple": "#a626a4",
+                "green": "#50a14f", "orange": "#c18401", "red": "#e45649",
+            },
+            "card": ("#ffffff", "#f7f7f8"), "card_line": "#e0e0e2",
+            "link": None,
+            "chip": None,
+            "mini_track": "#e5e5e6",
+            "kpi_title": "#5c5f66",
+            "sidebar": "#f0f0f1", "topbar": "#f5f5f6",
+            "nav": {"fg": None, "active_bg": None, "active_fg": None, "hover": "#e5e5e6"},
+            "chart": {"grid": "#e5e5e6", "axis": "#d0d0d2"},
+            "scroll": {"thumb": "#c2c2c6", "hover": "#9a9a9f"},
+            "banner": {"active_bg": None, "active_line": None,
+                       "warn_bg": "#f6ecda", "warn_line": "#e0cfa9"},
+            "popover_shadow": "#40000000",
+        },
+        "dark": {
+            # One Dark：bg 主底、panel/alt 两级深灰、line #3e4451；正文 #abb2bf、次要 #9aa2b1
+            "bg": "#282c34", "panel": "#2c313a", "panel_alt": "#333842", "line": "#3e4451",
+            "text": "#abb2bf", "muted": "#9aa2b1",
+            "accents": {
+                "blue": "#61afef", "cyan": "#56b6c2", "purple": "#c678dd",
+                "green": "#98c379", "orange": "#d19a66", "red": "#e06c75",
+            },
+            "card": ("#2f343f", "#2b3038"), "card_line": "#3e4451",
+            "link": None,
+            "chip": None,
+            "mini_track": "#333842",
+            "kpi_title": "#9aa2b1",
+            "sidebar": "#21252b", "topbar": "#23272f",
+            "nav": {"fg": None, "active_bg": "#3a4150", "active_fg": None, "hover": "#2f343f"},
+            "chart": {"grid": "#333842", "axis": "#3e4451"},
+            "scroll": {"thumb": "#4b5263", "hover": "#636d83"},
+            "banner": {"active_bg": "#2c3548", "active_line": "#3e4b66",
+                       "warn_bg": "#3b3226", "warn_line": "#6a5637"},
+            "popover_shadow": "#a6000000",
+        },
+    },
+    "ayu": {
+        "file": "Ayu",
+        "modes": ["light", "dark"],
+        "source": "Ayu 官方主题（github.com/ayu-theme）：Light bg #fafafa / Dark bg #0b0e14 + "
+                  "六强调色（orange/green/blue/cyan/purple/red）",
+        "light": {
+            "bg": "#fafafa", "panel": "#f1f2f3", "panel_alt": "#e6e8ea", "line": "#d3d6da",
+            "text": "#5c6166", "muted": "#6f757b",
+            "accents": {
+                "blue": "#399ee6", "cyan": "#4cbf99", "purple": "#a37acc",
+                "green": "#86b300", "orange": "#fa8d3e", "red": "#f07171",
+            },
+            "card": ("#ffffff", "#f8f9fa"), "card_line": "#e3e5e8",
+            "link": None,
+            "chip": None,
+            "mini_track": "#e6e8ea",
+            "kpi_title": "#666b70",
+            "sidebar": "#f1f2f3", "topbar": "#f5f6f7",
+            "nav": {"fg": None, "active_bg": None, "active_fg": None, "hover": "#e6e8ea"},
+            "chart": {"grid": "#e6e8ea", "axis": "#d3d6da"},
+            "scroll": {"thumb": "#c6c9cd", "hover": "#9da2a6"},
+            "banner": {"active_bg": None, "active_line": None,
+                       "warn_bg": "#f7ecd5", "warn_line": "#e3d0a8"},
+            "popover_shadow": "#40000000",
+        },
+        "dark": {
+            # Ayu Dark：bg 主底、panel/alt 两级墨蓝深面；正文暖灰 #b3b1ad、次要 #7d8590
+            "bg": "#0b0e14", "panel": "#11151c", "panel_alt": "#141a22", "line": "#1f2733",
+            "text": "#b3b1ad", "muted": "#7d8590",
+            "accents": {
+                "blue": "#59c2ff", "cyan": "#95e6cb", "purple": "#d2a6ff",
+                "green": "#aad94c", "orange": "#ff8f40", "red": "#f07178",
+            },
+            "card": ("#0f141b", "#0c1017"), "card_line": "#1f2733",
+            "link": None,
+            "chip": None,
+            "mini_track": "#141a22",
+            "kpi_title": "#8b929a",
+            "sidebar": "#070a0f", "topbar": "#0a0d12",
+            "nav": {"fg": None, "active_bg": "#1a2330", "active_fg": None, "hover": "#10151d"},
+            "chart": {"grid": "#131a24", "axis": "#1f2a38"},
+            "scroll": {"thumb": "#26303c", "hover": "#3a4654"},
+            "banner": {"active_bg": "#101a26", "active_line": "#1f2f42",
+                       "warn_bg": "#2e2616", "warn_line": "#5c4a24"},
+            "popover_shadow": "#a6000000",
+        },
+    },
+    "kanagawa": {
+        "file": "Kanagawa",
+        "modes": ["dark"],
+        "source": "Kanagawa 官方色板（github.com/rebelot/kanagawa.nvim）Wave：sumiInk3 #1f1f28、"
+                  "sumiInk4 #2a2a37、sumiInk5 #363646、sumiInk6 #54546d、"
+                  "fujiWhite #dcd7ba、oldWhite #c8c093 + 六强调色",
+        "dark": {
+            # Wave：sumiInk3 主底、sumiInk4 面板、sumiInk5 次面板、sumiInk6 线
+            "bg": "#1f1f28", "panel": "#2a2a37", "panel_alt": "#363646", "line": "#54546d",
+            "text": "#dcd7ba", "muted": "#c8c093",
+            "accents": {
+                "blue": "#7e9cd8", "cyan": "#7fb4ca", "purple": "#957fb8",
+                "green": "#98bb6c", "orange": "#ffa066", "red": "#e46876",
+            },
+            "card": ("#262632", "#22222c"), "card_line": "#363646",
+            "link": None,
+            "chip": None,
+            "mini_track": "#363646",
+            "kpi_title": "#c8c093",
+            # 外壳取 sumiInk0/1（侧栏）/ sumiInk2（顶栏）
+            "sidebar": "#16161d", "topbar": "#1a1a22",
+            "nav": {"fg": None, "active_bg": "#2d4f67", "active_fg": None, "hover": "#2a2a37"},
+            "chart": {"grid": "#2a2a37", "axis": "#363646"},
+            "scroll": {"thumb": "#54546d", "hover": "#727169"},
+            "banner": {"active_bg": "#223249", "active_line": "#2d4f67",
+                       "warn_bg": "#3a3025", "warn_line": "#6e5637"},
+            "popover_shadow": "#a6000000",
+        },
+    },
 }
 
 # 派生目标对比度（带 +0.05 安全边距：WCAG 双实现浮点尾数差曾让 Solarized 暗色橙在
@@ -565,7 +769,12 @@ def build_mode(palette_name, mode):
     chip_text, _ = ensure_contrast(chip_text, chip_bg, TARGET_CHIP, dark)
 
     kpi_title = parse(p["kpi_title"])
-    kpi_title, _ = ensure_contrast(kpi_title, card_mid, TARGET_MUTED, dark)
+    # KPI 顶标签同时出现在卡片表面与面板上（测试两侧都查）——脚本按两底校准，
+    # 别只校卡片：Ayu 亮色 #6b7075 对卡片过、对面板 4.46 压线的教训。
+    for against_name, against in (("card", card_mid), ("panel", panel)):
+        kpi_title, changed = ensure_contrast(kpi_title, against, TARGET_MUTED, dark)
+        if changed:
+            note(f"  {palette_name}/{mode}: kpi_title 调整到 {fmt(kpi_title)} 以满足 {TARGET_MUTED} 于 {against_name}")
 
     nav = p["nav"]
     nav_fg = parse(nav["fg"]) if nav["fg"] else muted

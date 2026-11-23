@@ -115,10 +115,11 @@ public class SettingsPageTests
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            // 画板下拉（PaletteOption）：默认 + 四套生成画板
+            // 画板下拉（PaletteOption）：默认 + 九套生成画板，每项带 5 条画板本色色带
             var paletteCombo = window.GetVisualDescendants().OfType<ComboBox>()
                 .First(c => c.ItemsSource is IReadOnlyList<PaletteOption>);
             Assert.Equal(ThemePaletteCatalog.All.Count, paletteCombo.ItemCount);
+            Assert.All(SettingsViewModel.PaletteOptions, option => Assert.Equal(5, option.Swatches.Count));
             Assert.Same(SettingsViewModel.PaletteOptions[0], paletteCombo.SelectedItem); // 默认画板
 
             // 模式下拉（ThemeOption，唯一）：默认画板三档齐全且可用

@@ -217,7 +217,7 @@ public sealed partial class Translations
         [nameof(ThemeHint)] = "変更は即時反映・自動保存（再起動後も保持）。",
         [nameof(ThemePaletteDefault)] = "デフォルト",
         [nameof(ThemeModeLabel)] = "モード",
-        [nameof(ThemeModeHint)] = "ライト / ダーク / システムに従う。Nord と Dracula はダークのみ。",
+        [nameof(ThemeModeHint)] = "ライト / ダーク / システムに従う。ダークのみのパレットはダークに固定されます。",
         [nameof(LabelLanguage)] = "言語",
         [nameof(LanguageSystem)] = "システムに従う",
         [nameof(LanguageZh)] = "简体中文",

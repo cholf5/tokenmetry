@@ -217,7 +217,7 @@ public sealed partial class Translations
         [nameof(ThemeHint)] = "Aplica e salva automaticamente (mantido entre reinícios).",
         [nameof(ThemePaletteDefault)] = "Padrão",
         [nameof(ThemeModeLabel)] = "Modo",
-        [nameof(ThemeModeHint)] = "Claro, escuro ou seguir o sistema; os temas Nord e Dracula oferecem apenas o escuro.",
+        [nameof(ThemeModeHint)] = "Claro, escuro ou seguir o sistema; os temas somente escuros permanecem no escuro.",
         [nameof(LabelLanguage)] = "Idioma",
         [nameof(LanguageSystem)] = "Seguir o sistema",
         [nameof(LanguageZh)] = "简体中文",

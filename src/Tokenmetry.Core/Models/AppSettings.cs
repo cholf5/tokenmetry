@@ -24,7 +24,8 @@ public class AppSettings
 
     /// <summary>
     /// 外观画板偏好（整套配色皮肤，画板 × 模式两维中的画板维）：default（默认画板，原型蓝）/
-    /// nord / dracula / solarized / gruvbox。画板字典在 App 的 Styles/Themes/（由
+    /// nord / dracula / solarized / gruvbox / catppuccin / tokyonight / one / ayu / kanagawa。
+    /// 画板字典在 App 的 Styles/Themes/（由
     /// scripts/generate-theme-palettes.py 生成，逐令牌过对比度纪律），ThemeService 运行期换入；
     /// 未知值在解析处如实回落 default。旧 settings.json 无此键 = 默认画板，零迁移。
     /// 消费者 = ThemeService.Apply（换字典 + 变体归口）与设置页画板选择器。
