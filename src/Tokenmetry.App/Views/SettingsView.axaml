@@ -554,16 +554,25 @@
 
                     <!-- 已启用：状态 + 设备管理 -->
                     <StackPanel Spacing="14" IsVisible="{Binding IsSyncEnabled}">
-                        <StackPanel Orientation="Horizontal" Spacing="16">
-                            <TextBlock Classes="setting-hint" Text="{Binding SyncStatusText}"/>
-                            <TextBlock Classes="setting-hint"
-                                       Text="{Binding LastSyncText}"
-                                       IsVisible="{Binding LastSyncText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                            <Button Classes="app-btn" Content="{Binding SyncNow, Source={x:Static loc:Translations.Instance}}"
-                                    Command="{Binding SyncNowCommand}"/>
-                            <Button Classes="app-btn" Content="{Binding SyncDisable, Source={x:Static loc:Translations.Instance}}"
-                                    Command="{Binding DisableSyncCommand}"/>
-                        </StackPanel>
+                        <!-- 状态行：左侧状态/上次时间，右侧动作。状态文本承载异常消息（SetSyncError 拼入
+                             ex.Message，含中继地址与 HTTP 文案，长度不可控），必须是可折行的 * 列——
+                             横排 StackPanel 不折行，长错误会把两个按钮整个挤出面板右缘。 -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                           Text="{Binding SyncStatusText}"/>
+                                <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                           Text="{Binding LastSyncText}"
+                                           IsVisible="{Binding LastSyncText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                        VerticalAlignment="Center">
+                                <Button Classes="app-btn" Content="{Binding SyncNow, Source={x:Static loc:Translations.Instance}}"
+                                        Command="{Binding SyncNowCommand}"/>
+                                <Button Classes="app-btn" Content="{Binding SyncDisable, Source={x:Static loc:Translations.Instance}}"
+                                        Command="{Binding DisableSyncCommand}"/>
+                            </StackPanel>
+                        </Grid>
 
                         <!-- 已连接通道回显：启用后上方配置区整体隐藏，这里回答「连到哪个实例、
                              自建时的地址与令牌是什么」（令牌默认掩码，显式展开）。 -->

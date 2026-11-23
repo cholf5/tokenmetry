@@ -7,6 +7,7 @@ using System.Linq;
 using Microsoft.Data.Sqlite;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -283,6 +284,56 @@ public sealed class SettingsSyncBlockTests
         Assert.Equal(1, fixture.Backend.RemoveCount);
         Assert.False(fixture.ViewModel.IsRemoveConfirmVisible);
         Assert.DoesNotContain("devB", fixture.ViewModel.DeviceRows.Select(r => r.DeviceId));
+    }
+
+    /// <summary>
+    /// 状态行承载异常消息（SetSyncError 拼入 ex.Message，含中继地址与 HTTP 栈文案，长度不可控）：
+    /// 长错误必须折行并把 Sync now / Disable sync 留在面板内——此前整行是横排 StackPanel，
+    /// 状态文本不折行，宽度超出面板后两个按钮被整个挤出面板右缘（真机 401 截图即此）。
+    /// </summary>
+    [AvaloniaFact]
+    public async Task SyncStatusRow_LongErrorMessage_KeepsActionButtonsInsidePanel()
+    {
+        using var fixture = new SyncFixture();
+        await fixture.SyncState.EnableAsync("http://127.0.0.1:8080", "relay-token");
+        var window = Show(fixture.ViewModel);
+        await fixture.ViewModel.RefreshSyncStateAsync();
+
+        fixture.ViewModel.SyncStatusText =
+            $"{Translations.Instance.SyncStatusError}: " +
+            string.Join(" ", Enumerable.Repeat(
+                "Relay request failed: 401 Unauthorized http://192.168.1.10:8080/api/me/leaderboard", 3));
+        fixture.ViewModel.LastSyncText = "2026-11-23 17:55";
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var title = window.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Text == Translations.Instance.SyncTitle);
+        var panel = title.GetVisualAncestors().OfType<Border>()
+            .First(b => b.Classes.Contains("panel"));
+        Assert.True(panel.Bounds.Width > 0, "同步面板已布局");
+
+        var status = window.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Text == fixture.ViewModel.SyncStatusText);
+        var statusRight = status.TranslatePoint(new Point(status.Bounds.Width, 0), panel)!.Value.X;
+
+        Button[] actions = window.GetVisualDescendants().OfType<Button>()
+            .Where(b => Equals(b.Content, Translations.Instance.SyncNow)
+                        || Equals(b.Content, Translations.Instance.SyncDisable))
+            .ToArray();
+        Assert.Equal(2, actions.Length);
+        var actionsLeft = actions.Min(b => b.TranslatePoint(new Point(0, 0), panel)!.Value.X);
+        Assert.True(
+            statusRight <= actionsLeft + 0.5,
+            $"状态文本压到动作按钮：{statusRight:F1} > {actionsLeft:F1}");
+        foreach (var button in actions)
+        {
+            Assert.True(ChartTestHelpers.IsEffectivelyVisible(button), $"「{button.Content}」可见");
+            var right = button.TranslatePoint(new Point(button.Bounds.Width, 0), panel)!.Value.X;
+            Assert.True(
+                right <= panel.Bounds.Width + 0.5,
+                $"「{button.Content}」越出同步面板右缘：{right:F1} > {panel.Bounds.Width:F1}");
+        }
     }
 
     public void Dispose()
