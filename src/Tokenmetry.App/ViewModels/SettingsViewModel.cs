@@ -957,10 +957,19 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _settingsSyncEnabled;
 
+    /// <summary>首同步冲突面板显隐（设置同步审查 #3：runner 停下等用户三选一时显示）。</summary>
+    [ObservableProperty]
+    private bool _isSettingsSyncConflictVisible;
+
     partial void OnSettingsSyncEnabledChanged(bool value)
     {
         _settings.SettingsSyncEnabled = value;
         PersistSettings();
+        if (!value)
+        {
+            IsSettingsSyncConflictVisible = false;
+        }
+
         if (value && _syncState is not null)
         {
             _ = _syncState.RunNowAsync();
@@ -1135,13 +1144,21 @@ public partial class SettingsViewModel : ViewModelBase
                 DeviceNameInput = syncState.LocalDeviceName;
             }
 
+            // 首同步冲突面板只在「同步已启用 + 设置同步开关打开 + 服务端已有待裁决项」时出现。
+            // 未裁决时 runner 停住（既不上传也不写回），状态行必须说清楚，不能显示「已就绪」。
+            IsSettingsSyncConflictVisible = syncState.HasPendingFirstSyncConflict
+                && _settings.SettingsSyncEnabled
+                && syncState.IsEnabled;
+
             // 同步失败必须带原因（401/404/超时）：只显示笼统的「同步失败」时，用户无法区分
             // 「设置没生效」和「中继连不上 / token 失效」。指向中继的请求错误最常见。
             SyncStatusText = syncState.IsSyncing
                 ? Translations.Instance.SyncStatusSyncing
                 : syncState.LastError is not null
                     ? $"{Translations.Instance.SyncStatusError}: {syncState.LastError}"
-                    : Translations.Instance.SyncStatusIdle;
+                    : IsSettingsSyncConflictVisible
+                        ? Translations.Instance.SettingsSyncConflictTitle
+                        : Translations.Instance.SyncStatusIdle;
             LastSyncText = syncState.LastRunAtUtc == default
                 ? string.Empty
                 : syncState.LastRunAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
@@ -1293,6 +1310,41 @@ public partial class SettingsViewModel : ViewModelBase
         try
         {
             await _syncState.DisableAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            SetSyncError(ex);
+        }
+    }
+
+    /// <summary>首同步冲突 · 采用云端设置（覆盖本机）。</summary>
+    [RelayCommand]
+    private Task UseRemoteSyncedSettingsAsync(CancellationToken ct = default) =>
+        ResolveFirstSyncConflictAsync(SettingsSyncFirstSyncPolicies.UseRemote, ct);
+
+    /// <summary>首同步冲突 · 保留本机设置（覆盖云端）。</summary>
+    [RelayCommand]
+    private Task UseLocalSyncedSettingsAsync(CancellationToken ct = default) =>
+        ResolveFirstSyncConflictAsync(SettingsSyncFirstSyncPolicies.UseLocal, ct);
+
+    /// <summary>首同步冲突 · 本机配置不同步：只关「同步应用设置」，用量同步与设备管理照常。</summary>
+    [RelayCommand]
+    private void KeepLocalSettingsOutOfSync()
+    {
+        SettingsSyncEnabled = false;
+        IsSettingsSyncConflictVisible = false;
+    }
+
+    private async Task ResolveFirstSyncConflictAsync(string policy, CancellationToken ct)
+    {
+        if (_syncState is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _syncState.ResolveFirstSyncConflictAsync(policy, ct);
         }
         catch (Exception ex)
         {

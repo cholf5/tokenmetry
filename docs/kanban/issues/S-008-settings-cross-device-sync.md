@@ -6,7 +6,7 @@ priority: P2
 size: L
 status: done
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 blocked: none
 ---
 
@@ -29,7 +29,8 @@ blocked: none
 - [x] 中继 `account_settings` 表 + `GET/PUT /api/me/settings`（服务端时间戳 LWW）；删号/换 token/吊销级联清
 - [x] Core DTO + source-gen 往返测试；`ISyncBackend` 增设置读写；四个测试 fake 补齐
 - [x] 本地 `settings_sync_state`（迁移 4）+ `ISettingsSyncStateStore`
-- [x] `SettingsSyncRunner`：拉后推、本地未推变更不被旧远端覆盖、首同步采纳远端、关闭零出站
+- [x] `SettingsSyncRunner`：拉后推、本地未推变更不被旧远端覆盖、首同步冲突三选一（未裁决不动两边）、
+      中继重建后全量重推、关闭零出站
 - [x] 设置页「同步应用设置」开关（仅同步已启用可见、默认关）+ 十语种文案
 - [x] 热应用：主题字典、语言、预设清单 + 设置页选择项重投影
 - [x] 测试：Relay 端点/校验/级联、Runner 四条语义、Headless 开关可见性与首轮推送
@@ -55,3 +56,19 @@ blocked: none
 - 测试账：Core 282、Relay 81、Infrastructure 845、App 552、Headless 688、Reconciliation 68 全绿。
 - 明确不做：模型目录/别名/价格覆盖（计价语义，另案）；当前时间范围档位（视图状态）；逐项开关
   （v1 只有总开关）；E2EE 与设置历史。
+
+### 2026-11-24 审查收口
+
+- 远端 `customTimePresets` 是不可信复合值：`TryWrite` 按添加预设的封闭词表逐条校验（`preset:` 前缀、
+  已知 Kind、`IsValid`、去重、上限 6），坏条目丢弃、整值无效拒绝；`ToOption` 接受 null、构造归一空清单，
+  `[null]` 不再打崩启动装载。
+- `SettingsSyncRunner` 改为「应用 → 先落盘 → 再记账 → 再推送」；落盘失败不推进账面，避免重启后把旧
+  磁盘值当本地变更反推覆盖更新的远端；推送失败仍保留已采纳值。
+- 空凭据拒绝下沉到服务层；`InitializeAsync` 遇到「已启用但凭据为空」的历史坏状态就地降为关闭并写明
+  原因（状态行带出 `SyncCredentialsRequired`），配置区随关闭态恢复可见。
+- 首同步冲突不再静默 adopt（审查 #3）：runner 发现远端与本机不同且用户未裁决时停下，设置页显示
+  三选一面板（采用云端 / 保留本机 / 本机配置不同步）；裁决值 `SettingsSyncFirstSyncPolicy` 只存本机，
+  换账号时复位。选择「本机配置不同步」只关设置同步，用量同步照常。
+- 中继删库重建（同凭据、远端全空）按新桶处理：清空设置账面并全量重推本机偏好（审查 #5）。
+- 测试补实：三处级联直接断言表行清空、Runner 冲突/新桶/落盘顺序用例、服务层凭据与冲突用例、
+  Headless「远端语言到达后设置页选择项跟随」与冲突面板用例。

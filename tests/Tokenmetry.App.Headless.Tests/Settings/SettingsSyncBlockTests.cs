@@ -216,6 +216,90 @@ public sealed class SettingsSyncBlockTests
         Assert.Contains(SettingsSyncKeys.Language, fixture.Backend.Settings.Keys);
     }
 
+    /// <summary>settings-sync 设计 §6：远端语言到达后被采纳，设置页选择项跟随（热应用回流）。</summary>
+    [AvaloniaFact]
+    public async Task RemoteLanguage_AppliedAfterPull_SettingsPageSelectionFollows()
+    {
+        using var fixture = new SyncFixture();
+        await fixture.SyncState.InitializeAsync();
+        // 与生产一致（AppServices 里那行接线在 headless 宿主不执行）：runner 采纳后回流设置页重投影。
+        fixture.SyncState.SettingsApplied += keys =>
+            Dispatcher.UIThread.Post(() => fixture.ViewModel.ApplySyncedSettings(keys));
+
+        fixture.Backend.Settings[SettingsSyncKeys.Language] =
+            new SyncedSetting(SettingsSyncKeys.Language, "ja", DateTimeOffset.UtcNow);
+
+        fixture.ViewModel.SyncEndpointInput = "http://127.0.0.1:8080";
+        fixture.ViewModel.SyncTokenInput = "relay-token";
+        await fixture.ViewModel.EnableSyncCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+
+        // EnableSync 换账号会把首同步裁决复位为 unresolved；本用例验证「采用远端」路径，先裁决再开开关。
+        fixture.Settings.SettingsSyncFirstSyncPolicy = SettingsSyncFirstSyncPolicies.UseRemote;
+
+        try
+        {
+            fixture.ViewModel.SettingsSyncEnabled = true;
+
+            await WaitForAsync(() => fixture.ViewModel.SelectedLanguage.Value == "ja");
+
+            Assert.Equal("ja", fixture.Settings.Language);
+            Assert.True(fixture.ViewModel.SelectedLanguage.Value == "ja", "远端语言到达后设置页选择项跟随");
+        }
+        finally
+        {
+            // 语言是进程级单例：用例自行恢复基线（TestCulture 固定 zh-Hans）。
+            fixture.ViewModel.SelectedLanguage = SettingsViewModel.LanguageOptions.Single(o => o.Value == "system");
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    /// <summary>settings-sync 审查 #3：首同步远端与本机不同 → 显示三选一面板；选「云端」后应用并消失。</summary>
+    [AvaloniaFact]
+    public async Task FirstSyncConflict_ShowsChoicePanel_AndUseRemoteResolves()
+    {
+        using var fixture = new SyncFixture();
+        await fixture.SyncState.InitializeAsync();
+        fixture.Backend.Settings[SettingsSyncKeys.Theme] =
+            new SyncedSetting(SettingsSyncKeys.Theme, "dark", DateTimeOffset.UtcNow);
+
+        fixture.ViewModel.SyncEndpointInput = "http://127.0.0.1:8080";
+        fixture.ViewModel.SyncTokenInput = "relay-token";
+        await fixture.ViewModel.EnableSyncCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+
+        var window = Show(fixture.ViewModel);
+        fixture.ViewModel.SettingsSyncEnabled = true;
+
+        await WaitForAsync(() => fixture.ViewModel.IsSettingsSyncConflictVisible);
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.Equal(Translations.Instance.SettingsSyncConflictTitle, fixture.ViewModel.SyncStatusText);
+        // 状态行也会显示同一句，取面板标题（panel-title）这一处。
+        var title = window.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Text == Translations.Instance.SettingsSyncConflictTitle
+                && t.Classes.Contains("panel-title"));
+        Assert.True(ChartTestHelpers.IsEffectivelyVisible(title), "首同步冲突显示三选一面板");
+        Assert.True(fixture.Settings.Theme == "system", "裁决前不应用远端");
+
+        await fixture.ViewModel.UseRemoteSyncedSettingsCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(fixture.Settings.Theme == "dark", "采用云端设置");
+        Assert.False(fixture.ViewModel.IsSettingsSyncConflictVisible, "裁决后面板消失");
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition, int timeoutMs = 5000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (!condition() && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
     [AvaloniaFact]
     public async Task OfficialInstance_IsShownAsNotOpen_SelfHostRemainsDefault()
     {

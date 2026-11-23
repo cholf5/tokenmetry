@@ -657,6 +657,28 @@
                             </Grid>
                             <TextBlock Classes="setting-hint" TextWrapping="Wrap"
                                        Text="{Binding SettingsSyncHint, Source={x:Static loc:Translations.Instance}}"/>
+
+                            <!-- 首同步冲突（settings-sync 审查 #3）：远端与本机不同且尚未裁决——runner
+                                 已停下（未应用未推送），这里给出三选一；第三项只关设置同步。 -->
+                            <Border Classes="panel" IsVisible="{Binding IsSettingsSyncConflictVisible}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Classes="panel-title" TextWrapping="Wrap"
+                                               Text="{Binding SettingsSyncConflictTitle, Source={x:Static loc:Translations.Instance}}"/>
+                                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                               Text="{Binding SettingsSyncConflictBody, Source={x:Static loc:Translations.Instance}}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Classes="app-btn primary"
+                                                Content="{Binding SettingsSyncConflictUseRemote, Source={x:Static loc:Translations.Instance}}"
+                                                Command="{Binding UseRemoteSyncedSettingsCommand}"/>
+                                        <Button Classes="app-btn"
+                                                Content="{Binding SettingsSyncConflictUseLocal, Source={x:Static loc:Translations.Instance}}"
+                                                Command="{Binding UseLocalSyncedSettingsCommand}"/>
+                                        <Button Classes="link-btn"
+                                                Content="{Binding SettingsSyncConflictKeepLocal, Source={x:Static loc:Translations.Instance}}"
+                                                Command="{Binding KeepLocalSettingsOutOfSyncCommand}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
 
                         <Grid ColumnDefinitions="132,Auto,*" ColumnSpacing="16">

@@ -42,6 +42,15 @@ public sealed class SyncStateService : IDisposable
     /// <summary>本轮从远端采纳的设置 key（settings-sync 设计 §5.3）；订阅方自行调度 UI 线程热应用。</summary>
     public event Action<IReadOnlyList<string>>? SettingsApplied;
 
+    /// <summary>
+    /// 首同步待用户裁决的冲突 key（settings-sync 审查 #3；空 = 无冲突）。
+    /// 非空期间 runner 不应用、不推送——设置页据此显示三选一面板。
+    /// </summary>
+    public IReadOnlyList<string> PendingFirstSyncConflictKeys { get; private set; } = Array.Empty<string>();
+
+    /// <summary>是否有首同步冲突待裁决（设置页面板显隐）。</summary>
+    public bool HasPendingFirstSyncConflict => PendingFirstSyncConflictKeys.Count > 0;
+
     public SyncStateService(
         IUsageStore store,
         AppSettings settings,
@@ -138,6 +147,12 @@ public sealed class SyncStateService : IDisposable
         _settings.SyncEnabled = true;
         _settings.SyncEndpoint = endpoint;
         _settings.SyncToken = token;
+        if (accountChanged)
+        {
+            // 换账号 = 新桶：首同步冲突需要重新裁决（与下方账面清空同一时机）。
+            _settings.SettingsSyncFirstSyncPolicy = SettingsSyncFirstSyncPolicies.Unresolved;
+        }
+
         await _settingsStore.SaveAsync(_settings, ct);
 
         BuildBackend(endpoint, token);
@@ -238,6 +253,24 @@ public sealed class SyncStateService : IDisposable
     }
 
     /// <summary>
+    /// 裁决首同步冲突并立即跑一轮：<see cref="SettingsSyncFirstSyncPolicies.UseRemote"/> = 采纳远端、
+    /// <see cref="SettingsSyncFirstSyncPolicies.UseLocal"/> = 把本机值推到远端。第三个选项（本机配置
+    /// 不同步）由 UI 直接关闭「同步应用设置」，不经过这里。
+    /// </summary>
+    public async Task ResolveFirstSyncConflictAsync(string policy, CancellationToken ct = default)
+    {
+        if (policy is not (SettingsSyncFirstSyncPolicies.UseRemote or SettingsSyncFirstSyncPolicies.UseLocal))
+        {
+            throw new ArgumentException("Unknown first-sync policy.", nameof(policy));
+        }
+
+        _settings.SettingsSyncFirstSyncPolicy = policy;
+        await _settingsStore.SaveAsync(_settings, ct);
+        await RunCoreAsync(ct);
+        Changed?.Invoke();
+    }
+
+    /// <summary>
     /// 账号设备清单（本机在首 + 远端）：设置页设备管理与顶栏设备下拉共用（单一真相源）。
     /// 本机 LastSeenAt 取 default（"本机"不参与最后活跃排序，UI 以名字标记本机）。
     /// </summary>
@@ -329,10 +362,19 @@ public sealed class SyncStateService : IDisposable
             if (_settings.SettingsSyncEnabled && _settingsSyncStateStore is not null)
             {
                 var runner = new SettingsSyncRunner(_settings, _settingsSyncStateStore, _settingsStore, () => _backend);
-                var applied = await runner.RunOnceAsync(ct);
-                if (applied.Count > 0)
+                var outcome = await runner.RunOnceAsync(ct);
+                if (outcome.HasConflict)
                 {
-                    SettingsApplied?.Invoke(applied);
+                    // 首同步冲突：本轮未应用未推送，等设置页三选一（Changed 在 finally 里发出）。
+                    PendingFirstSyncConflictKeys = outcome.ConflictKeys;
+                }
+                else
+                {
+                    PendingFirstSyncConflictKeys = Array.Empty<string>();
+                    if (outcome.Applied.Count > 0)
+                    {
+                        SettingsApplied?.Invoke(outcome.Applied);
+                    }
                 }
             }
 

@@ -181,6 +181,13 @@ public class AppSettings
     /// </summary>
     public bool SettingsSyncEnabled { get; set; }
 
+    /// <summary>
+    /// 首次设置同步的冲突裁决（settings-sync 审查 #3，取值为 <see cref="SettingsSyncFirstSyncPolicies"/>）。
+    /// 只存本机、不参与同步；换账号（设置同步账面清空）时由 SyncStateService 复位为 unresolved。
+    /// 消费者 = SettingsSyncRunner（决定首同步是采纳远端、覆盖远端还是等用户选择）。
+    /// </summary>
+    public string SettingsSyncFirstSyncPolicy { get; set; } = SettingsSyncFirstSyncPolicies.Unresolved;
+
     /// <summary>同步中继根地址（官方实例或自建 http(s)://host:port）。消费者 = SyncStateService 建 RelaySyncBackend。</summary>
     public string SyncEndpoint { get; set; } = string.Empty;
 

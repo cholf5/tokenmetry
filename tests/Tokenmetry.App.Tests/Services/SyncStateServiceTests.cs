@@ -96,10 +96,23 @@ public sealed class SyncStateServiceTests : IAsyncLifetime
         }
 
         public Task<IReadOnlyList<SyncedSetting>> GetSettingsAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<SyncedSetting>>(Array.Empty<SyncedSetting>());
+            Task.FromResult<IReadOnlyList<SyncedSetting>>(Settings.ToList());
 
-        public Task<IReadOnlyList<SyncedSetting>> PutSettingsAsync(IReadOnlyList<SyncedSettingUpdate> settings, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<SyncedSetting>>(Array.Empty<SyncedSetting>());
+        public Task<IReadOnlyList<SyncedSetting>> PutSettingsAsync(IReadOnlyList<SyncedSettingUpdate> settings, CancellationToken ct = default)
+        {
+            var written = settings
+                .Select(update => new SyncedSetting(update.Key, update.Value, Clock().AddSeconds(1)))
+                .ToList();
+            foreach (var row in written)
+            {
+                Settings.RemoveAll(existing => existing.Key == row.Key);
+                Settings.Add(row);
+            }
+
+            return Task.FromResult<IReadOnlyList<SyncedSetting>>(written);
+        }
+
+        public List<SyncedSetting> Settings { get; } = new();
     }
 
     /// <summary>捕获保存调用的 settings 存储桩。</summary>
@@ -328,6 +341,45 @@ public sealed class SyncStateServiceTests : IAsyncLifetime
         settings.SyncEnabled.Should().BeFalse("降级要持久化，重启后不再假装已启用");
         settingsStore.SaveCount.Should().Be(1);
         service.LastError.Should().Be(Translations.Instance.SyncCredentialsRequired, "状态行要写明原因");
+    }
+
+    [Fact]
+    public async Task FirstSyncConflict_IsSurfacedAndResolvedByChoosingLocal()
+    {
+        // 审查 #3：首同步远端与本机不同 → 服务暴露待裁决项、不应用；用户选「保留本机」后推上去。
+        var settings = new AppSettings { SettingsSyncEnabled = true, Theme = "light" };
+        var settingsStore = new FakeSettingsStore();
+        var backend = new FakeBackend();
+        backend.Settings.Add(new SyncedSetting(SettingsSyncKeys.Theme, "dark", Clock().AddHours(1)));
+        var state = new FakeSettingsSyncStateStore();
+        var service = CreateService(_store, settings, settingsStore, backend, settingsSyncStateStore: state);
+        await service.InitializeAsync();
+
+        await service.EnableAsync("http://relay.example:8080", "tok");
+
+        service.HasPendingFirstSyncConflict.Should().BeTrue("首同步冲突停下等裁决");
+        settings.Theme.Should().Be("light", "未裁决前不应用远端");
+
+        await service.ResolveFirstSyncConflictAsync(SettingsSyncFirstSyncPolicies.UseLocal);
+
+        settings.SettingsSyncFirstSyncPolicy.Should().Be(SettingsSyncFirstSyncPolicies.UseLocal);
+        backend.Settings.Single(row => row.Key == SettingsSyncKeys.Theme).Value
+            .Should().Be("light", "保留本机 = 覆盖云端");
+        service.HasPendingFirstSyncConflict.Should().BeFalse("裁决后冲突消失");
+    }
+
+    [Fact]
+    public async Task Enable_NewCredentials_ResetsFirstSyncPolicy()
+    {
+        var settings = new AppSettings { SettingsSyncFirstSyncPolicy = SettingsSyncFirstSyncPolicies.UseRemote };
+        var backend = new FakeBackend();
+        var service = CreateService(_store, settings, new FakeSettingsStore(), backend);
+        await service.InitializeAsync();
+
+        await service.EnableAsync("http://relay.example:8080", "tok");
+
+        settings.SettingsSyncFirstSyncPolicy.Should().Be(
+            SettingsSyncFirstSyncPolicies.Unresolved, "换账号 = 新桶，首同步冲突要重新裁决");
     }
 
     [Fact]

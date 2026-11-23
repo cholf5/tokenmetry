@@ -146,6 +146,11 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SyncCredentialsRequired)] = "请先填写服务器地址与访问令牌，再启用同步。",
         [nameof(SettingsSyncSection)] = "同步应用设置",
         [nameof(SettingsSyncHint)] = "仅同步外观（画板与明暗）、界面语言、海报默认值与自定义时间预设；开机自启、关窗行为、刷新间隔、日志与模型价格始终留在本机。",
+        [nameof(SettingsSyncConflictTitle)] = "首次同步需要确认",
+        [nameof(SettingsSyncConflictBody)] = "云端已有其他设备的设置，且与本机不同。请选择以哪一种为准；也可以让本机配置不参与设置同步。",
+        [nameof(SettingsSyncConflictUseRemote)] = "采用云端设置",
+        [nameof(SettingsSyncConflictUseLocal)] = "保留本机设置",
+        [nameof(SettingsSyncConflictKeepLocal)] = "本机配置不同步",
         [nameof(LeaderboardSection)] = "排行榜",
         [nameof(LeaderboardOptIn)] = "在榜单中展示我的账号",
         [nameof(LeaderboardOptInHint)] = "仅上报账号级 token 与成本聚合；关闭即从榜单移除并删除服务端聚合记录。",
@@ -786,6 +791,11 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SyncCredentialsRequired)] = "Enter both the server address and access token before enabling sync.",
         [nameof(SettingsSyncSection)] = "Sync app settings",
         [nameof(SettingsSyncHint)] = "Only appearance (palette and light/dark), interface language, poster defaults and custom time presets are synced. Autostart, close behavior, refresh interval, logging and model pricing always stay on this device.",
+        [nameof(SettingsSyncConflictTitle)] = "Confirm the first sync",
+        [nameof(SettingsSyncConflictBody)] = "Another device's settings are already in the cloud and differ from this device. Choose which one wins; you can also keep this device's settings out of sync.",
+        [nameof(SettingsSyncConflictUseRemote)] = "Use cloud settings",
+        [nameof(SettingsSyncConflictUseLocal)] = "Keep this device's settings",
+        [nameof(SettingsSyncConflictKeepLocal)] = "Don't sync this device",
         [nameof(LeaderboardSection)] = "Leaderboard",
         [nameof(LeaderboardOptIn)] = "Show my account on the leaderboard",
         [nameof(LeaderboardOptInHint)] = "Only account-level token and cost aggregates are shared; turning off removes you and deletes the server-side aggregates.",
@@ -1568,6 +1578,11 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SyncCredentialsRequired => Get();
     public string SettingsSyncSection => Get();
     public string SettingsSyncHint => Get();
+    public string SettingsSyncConflictTitle => Get();
+    public string SettingsSyncConflictBody => Get();
+    public string SettingsSyncConflictUseRemote => Get();
+    public string SettingsSyncConflictUseLocal => Get();
+    public string SettingsSyncConflictKeepLocal => Get();
     public string LeaderboardSection => Get();
     public string LeaderboardOptIn => Get();
     public string LeaderboardOptInHint => Get();

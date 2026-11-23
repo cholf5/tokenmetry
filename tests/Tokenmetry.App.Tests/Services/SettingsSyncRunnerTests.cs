@@ -137,9 +137,10 @@ public sealed class SettingsSyncRunnerTests
     {
         var fixture = new Fixture();
 
-        var applied = await fixture.Runner.RunOnceAsync();
+        var outcome = await fixture.Runner.RunOnceAsync();
 
-        applied.Should().BeEmpty("远端为空时没有可应用的值");
+        outcome.Applied.Should().BeEmpty("远端为空时没有可应用的值");
+        outcome.HasConflict.Should().BeFalse("远端为空没有冲突可问");
         fixture.Backend.LastPut.Should().HaveCount(SettingsSyncKeys.All.Count, "首同步把本机全部偏好推上去");
         fixture.State.Rows.Should().HaveCount(SettingsSyncKeys.All.Count);
         fixture.SettingsStore.SaveCount.Should().Be(0, "没有远端值写回就不需要落盘");
@@ -149,13 +150,14 @@ public sealed class SettingsSyncRunnerTests
     public async Task FirstSync_AdoptsRemoteValues_AndDoesNotPushThemBack()
     {
         var fixture = new Fixture();
+        fixture.Settings.SettingsSyncFirstSyncPolicy = SettingsSyncFirstSyncPolicies.UseRemote;
         var at = new DateTimeOffset(2026, 11, 23, 12, 0, 0, TimeSpan.Zero);
         fixture.Backend.Remote.Add(new SyncedSetting(SettingsSyncKeys.Theme, "dark", at));
         fixture.Backend.Remote.Add(new SyncedSetting(SettingsSyncKeys.SharePosterMargin, "42", at));
 
-        var applied = await fixture.Runner.RunOnceAsync();
+        var outcome = await fixture.Runner.RunOnceAsync();
 
-        applied.Should().BeEquivalentTo([SettingsSyncKeys.Theme, SettingsSyncKeys.SharePosterMargin]);
+        outcome.Applied.Should().BeEquivalentTo([SettingsSyncKeys.Theme, SettingsSyncKeys.SharePosterMargin]);
         fixture.Settings.Theme.Should().Be("dark");
         fixture.Settings.SharePosterMargin.Should().Be(42);
         fixture.Backend.LastPut.Should().NotContain(update => update.Key == SettingsSyncKeys.Theme, "采纳的远端值不回推");
@@ -171,9 +173,9 @@ public sealed class SettingsSyncRunnerTests
         fixture.Backend.LastPut.Clear();
         fixture.Settings.Theme = "light";
 
-        var applied = await fixture.Runner.RunOnceAsync();
+        var outcome = await fixture.Runner.RunOnceAsync();
 
-        applied.Should().BeEmpty();
+        outcome.Applied.Should().BeEmpty();
         fixture.Backend.LastPut.Should().ContainSingle().Which.Key.Should().Be(SettingsSyncKeys.Theme);
     }
 
@@ -189,9 +191,9 @@ public sealed class SettingsSyncRunnerTests
         fixture.Backend.Remote.Add(new SyncedSetting(
             SettingsSyncKeys.Theme, "dark", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero)));
 
-        var applied = await fixture.Runner.RunOnceAsync();
+        var outcome = await fixture.Runner.RunOnceAsync();
 
-        applied.Should().ContainSingle().Which.Should().Be(SettingsSyncKeys.Theme);
+        outcome.Applied.Should().ContainSingle().Which.Should().Be(SettingsSyncKeys.Theme);
         fixture.Settings.Theme.Should().Be("dark");
         fixture.SettingsStore.SaveCount.Should().BeGreaterThan(0);
     }
@@ -210,9 +212,9 @@ public sealed class SettingsSyncRunnerTests
         fixture.Backend.Remote.Add(new SyncedSetting(
             SettingsSyncKeys.Theme, "light", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero)));
 
-        var applied = await fixture.Runner.RunOnceAsync();
+        var outcome = await fixture.Runner.RunOnceAsync();
 
-        applied.Should().BeEmpty("本地未推变更不被远端覆盖");
+        outcome.Applied.Should().BeEmpty("本地未推变更不被远端覆盖");
         fixture.Settings.Theme.Should().Be("dark");
         fixture.Backend.LastPut.Should().ContainSingle().Which.Value.Should().Be("dark");
     }
@@ -222,6 +224,7 @@ public sealed class SettingsSyncRunnerTests
     {
         // 审查 #2：账面若先于磁盘推进，落盘失败后重启会把本机旧值当「本地变更」反推，覆盖更新的远端。
         var fixture = new Fixture();
+        fixture.Settings.SettingsSyncFirstSyncPolicy = SettingsSyncFirstSyncPolicies.UseRemote;
         fixture.SettingsStore.ThrowOnSave = true;
         fixture.Backend.Remote.Add(new SyncedSetting(
             SettingsSyncKeys.Theme, "dark", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero)));
@@ -237,6 +240,7 @@ public sealed class SettingsSyncRunnerTests
     public async Task PushFailure_StillPersistsAppliedRemoteValues()
     {
         var fixture = new Fixture();
+        fixture.Settings.SettingsSyncFirstSyncPolicy = SettingsSyncFirstSyncPolicies.UseRemote;
         fixture.Backend.ThrowOnPut = true;
         fixture.Backend.Remote.Add(new SyncedSetting(
             SettingsSyncKeys.Theme, "dark", new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero)));
@@ -250,13 +254,75 @@ public sealed class SettingsSyncRunnerTests
     }
 
     [Fact]
+    public async Task FirstSync_RemoteDiffers_Unresolved_ReportsConflictWithoutApplyingOrPushing()
+    {
+        // 审查 #3：首同步远端与本机不同且用户未裁决——停下询问，不静默覆盖任何一方。
+        var fixture = new Fixture();
+        fixture.Backend.Remote.Add(new SyncedSetting(
+            SettingsSyncKeys.Theme, "dark", new DateTimeOffset(2026, 11, 23, 12, 0, 0, TimeSpan.Zero)));
+
+        var outcome = await fixture.Runner.RunOnceAsync();
+
+        outcome.HasConflict.Should().BeTrue();
+        outcome.ConflictKeys.Should().Equal(SettingsSyncKeys.Theme);
+        fixture.Settings.Theme.Should().Be("system", "未裁决前不应用远端");
+        fixture.Backend.PutCount.Should().Be(0, "未裁决前不推送");
+        fixture.State.Rows.Should().BeEmpty("未裁决前不记账");
+    }
+
+    [Fact]
+    public async Task FirstSync_RemoteMatchesLocal_NoConflict()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Remote.Add(new SyncedSetting(
+            SettingsSyncKeys.Theme, fixture.Settings.Theme, new DateTimeOffset(2026, 11, 23, 12, 0, 0, TimeSpan.Zero)));
+
+        var outcome = await fixture.Runner.RunOnceAsync();
+
+        outcome.HasConflict.Should().BeFalse("值相同没有可问的");
+        fixture.Backend.LastPut.Should().NotBeEmpty("缺的本机 key 照常推上去");
+    }
+
+    [Fact]
+    public async Task FirstSync_UseLocalPolicy_PushesLocalWithoutApplyingRemote()
+    {
+        var fixture = new Fixture();
+        fixture.Settings.SettingsSyncFirstSyncPolicy = SettingsSyncFirstSyncPolicies.UseLocal;
+        fixture.Settings.Theme = "light";
+        fixture.Backend.Remote.Add(new SyncedSetting(
+            SettingsSyncKeys.Theme, "dark", new DateTimeOffset(2026, 11, 23, 12, 0, 0, TimeSpan.Zero)));
+
+        var outcome = await fixture.Runner.RunOnceAsync();
+
+        outcome.Applied.Should().BeEmpty("保留本机不采纳远端");
+        fixture.Settings.Theme.Should().Be("light");
+        fixture.Backend.Remote.Single(row => row.Key == SettingsSyncKeys.Theme).Value
+            .Should().Be("light", "本机值覆盖云端");
+    }
+
+    [Fact]
+    public async Task FreshBucket_RemoteEmptyWithLedger_PushesEverythingAgain()
+    {
+        // 审查 #5：中继删库重建（同凭据）——账面无变化可推时也必须全量重推，否则新桶永远空着。
+        var fixture = new Fixture();
+        await fixture.Runner.RunOnceAsync(); // 首同步推到「旧桶」
+        fixture.Backend.LastPut.Clear();
+        fixture.Backend.Remote.Clear(); // 服务端库被重建：远端全空，本机账面仍在
+
+        var outcome = await fixture.Runner.RunOnceAsync();
+
+        outcome.HasConflict.Should().BeFalse("远端为空没有冲突");
+        fixture.Backend.LastPut.Should().HaveCount(SettingsSyncKeys.All.Count, "新桶必须全量重推本机偏好");
+    }
+
+    [Fact]
     public async Task Disabled_DoesNothing()
     {
         var fixture = new Fixture(enabled: false);
 
-        var applied = await fixture.Runner.RunOnceAsync();
+        var outcome = await fixture.Runner.RunOnceAsync();
 
-        applied.Should().BeEmpty();
+        outcome.Applied.Should().BeEmpty();
         fixture.Backend.GetCount.Should().Be(0);
         fixture.Backend.PutCount.Should().Be(0);
     }
