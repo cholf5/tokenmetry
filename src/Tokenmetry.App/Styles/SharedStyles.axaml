@@ -103,6 +103,10 @@
         <!-- 标签列定宽 132：长标签（"ccusage CLI（对账 / 手动导入）"、德语长词）折行而不是被裁 -->
         <Setter Property="TextWrapping" Value="Wrap"/>
         <Setter Property="LineHeight" Value="17"/>
+        <!-- 标签列 + 控件列同行的表单里，右侧 ComboBox/TextBox 比单行标签高：默认 Stretch 把
+             TextBlock 拉满一行、文字贴行顶，与控件文字不在同一轴线上。纵向居中让标签与控件同轴；
+             标签在控件上方的堆叠用法（价格计算器）由 StackPanel 按期望高度排版，不受影响。 -->
+        <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="TextBlock.setting-hint">
         <Setter Property="FontSize" Value="11"/>

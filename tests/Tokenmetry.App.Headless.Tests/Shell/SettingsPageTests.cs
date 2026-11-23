@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -286,6 +287,55 @@ public class SettingsPageTests
         foreach (var hint in labelHints.Select(x => x.Hint).Concat(checkHints.Select(x => x.Hint)))
         {
             Assert.DoesNotContain(hint, standingTexts);
+        }
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Setting_labels_align_vertically_with_the_control_in_the_same_row()
+    {
+        // 标签列 + 控件列同行的表单（132px 标签列、右侧 ComboBox/TextBox 高约 32px）：单行标签
+        // 只有 17px 行高，默认 Stretch 让 TextBlock 拉满整行、文字贴行顶——盒子居中但字形不在
+        // 控件文字那一轴上。断言每行标签纵向居中（不拉伸），且盒子中心与同行控件中心对齐。
+        var vm = CreateViewModel();
+        var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var pairs = new List<(TextBlock Label, Control Control)>();
+        foreach (var label in window.GetVisualDescendants().OfType<TextBlock>()
+                     .Where(t => t.Classes.Contains("setting-label")))
+        {
+            if (label.GetVisualParent() is not Grid grid)
+            {
+                continue; // 标签在控件上方的堆叠用法（非同行对比，不在本断言范围）
+            }
+
+            var row = Grid.GetRow(label);
+            var control = grid.Children.OfType<Control>()
+                .FirstOrDefault(c => c != label && Grid.GetRow(c) == row && Grid.GetColumn(c) == 1);
+            if (control is not null)
+            {
+                pairs.Add((label, control));
+            }
+        }
+
+        Assert.NotEmpty(pairs);
+        foreach (var (label, control) in pairs)
+        {
+            if (label.Bounds.Height <= 0 || control.Bounds.Height <= 0)
+            {
+                continue; // 折叠区（未启用同步等）没有布局，无从比较
+            }
+
+            // Stretch 会把 TextBlock 拉满整行，字形贴顶；只有居中才与控件同轴
+            Assert.Equal(VerticalAlignment.Center, label.VerticalAlignment);
+
+            var delta = Math.Abs(label.Bounds.Center.Y - control.Bounds.Center.Y);
+            Assert.True(delta <= 2,
+                $"标签「{label.Text}」纵向中心与同行控件相差 {delta:F1}px（应 ≤2px）");
         }
 
         window.Close();
