@@ -92,6 +92,119 @@
                 </Grid>
             </Border>
 
+            <!-- ═══ 插件（Task 8）：本地数据源插件的安装 / 启用 / 卸载固定区块 ═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="10">
+                    <DockPanel LastChildFill="True">
+                        <Button DockPanel.Dock="Right"
+                                Classes="app-btn"
+                                VerticalAlignment="Center"
+                                Content="{Binding PluginInstallButton, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding Plugins.InstallCommand}"
+                                IsEnabled="{Binding Plugins.HostAvailable}"/>
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="panel-title"
+                                       Text="{Binding PluginSectionTitle, Source={x:Static loc:Translations.Instance}}"/>
+                            <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                                       Text="{Binding PluginSectionDescription, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- 宿主缺失提示（发布包未带插件宿主时） -->
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Foreground="{DynamicResource AppAccentRedBrush}"
+                               Text="{Binding PluginHostMissing, Source={x:Static loc:Translations.Instance}}"
+                               IsVisible="{Binding !Plugins.HostAvailable}"/>
+
+                    <!-- 区块级错误（安装 / 启停 / 卸载失败；成功后清空） -->
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Foreground="{DynamicResource AppAccentRedBrush}"
+                               Text="{Binding Plugins.InstallError}"
+                               IsVisible="{Binding Plugins.InstallError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+                    <!-- 插件行：图标 / 显示名+版本+作者 / 扫描状态 / 启用徽章 / 操作 -->
+                    <ItemsControl DataContext="{Binding Plugins}" ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PluginRowViewModel">
+                                <Border BorderBrush="{DynamicResource AppLineBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,9,0,7">
+                                    <Grid ColumnDefinitions="Auto,2*,1.1*,Auto,Auto" ColumnSpacing="10">
+                                        <Border Grid.Column="0" Classes="agent-chip" VerticalAlignment="Top"
+                                                c:AgentChip.Logo="generic"
+                                                c:AgentChip.CustomIcon="{Binding Icon}">
+                                            <Panel>
+                                                <TextBlock Text="{Binding Glyph}"/>
+                                                <Image Classes="agent-logo"/>
+                                            </Panel>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                                            <TextBlock Classes="table-td" FontWeight="SemiBold"
+                                                       Text="{Binding DisplayName}"
+                                                       ToolTip.Tip="{Binding DisplayName}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Classes="page-subtitle" Text="{Binding VersionDisplay}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Classes="page-subtitle" Text="{Binding AuthorDisplay}"
+                                                       IsVisible="{Binding HasAuthor}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Classes="page-subtitle" MaxLines="2" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource AppAccentRedBrush}"
+                                                       Text="{Binding ErrorText}"
+                                                       IsVisible="{Binding IsInvalid}"/>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2" Classes="table-td"
+                                                   Classes.status-error="{Binding IsInvalid}"
+                                                   Text="{Binding StatusText}"
+                                                   VerticalAlignment="Center"/>
+
+                                        <!-- 启用状态徽章（无效目录不显示） -->
+                                        <Border Grid.Column="3" Classes="chip"
+                                                Classes.ok="{Binding IsEnabled}"
+                                                Classes.muted="{Binding !IsEnabled}"
+                                                IsVisible="{Binding !IsInvalid}"
+                                                VerticalAlignment="Center">
+                                            <Panel>
+                                                <TextBlock Text="{Binding PluginEnabled, Source={x:Static loc:Translations.Instance}}"
+                                                           IsVisible="{Binding IsEnabled}"/>
+                                                <TextBlock Text="{Binding PluginDisabled, Source={x:Static loc:Translations.Instance}}"
+                                                           IsVisible="{Binding !IsEnabled}"/>
+                                            </Panel>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="10"
+                                                    VerticalAlignment="Center">
+                                            <Button Classes="link-btn"
+                                                    IsVisible="{Binding !IsInvalid}"
+                                                    Command="{Binding $parent[ItemsControl].DataContext.ToggleCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding PluginEnableAction, Source={x:Static loc:Translations.Instance}}"
+                                                               IsVisible="{Binding !IsEnabled}"/>
+                                                    <TextBlock Text="{Binding PluginDisableAction, Source={x:Static loc:Translations.Instance}}"
+                                                               IsVisible="{Binding IsEnabled}"/>
+                                                </Panel>
+                                            </Button>
+                                            <Button Classes="link-btn"
+                                                    IsEnabled="{Binding !IsInvalid}"
+                                                    Content="{Binding PluginUninstallAction, Source={x:Static loc:Translations.Instance}}"
+                                                    Command="{Binding $parent[ItemsControl].DataContext.UninstallCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                               Text="{Binding PluginEmptyState, Source={x:Static loc:Translations.Instance}}"
+                               IsVisible="{Binding !Plugins.HasRows}"/>
+                </StackPanel>
+            </Border>
+
             <!-- ═══ 统计口径：逐项定案为说明样式（S-002 Dev Log），不做假开关 ═══ -->
             <Border Classes="panel">
                 <StackPanel Spacing="10">

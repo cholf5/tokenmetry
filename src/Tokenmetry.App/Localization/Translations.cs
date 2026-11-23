@@ -405,6 +405,35 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(TotalsModelCountFormat)] = "合计（{0} 个模型）",
         [nameof(TotalsUnknownNoteFormat)] = "{0} 个模型成本未知（缺价）：其成本未计入合计，Token 已计入总量。",
 
+        // ── 插件区块（Task 8：数据与计价页的安装/管理固定区块）──
+        [nameof(PluginSectionTitle)] = "插件",
+        [nameof(PluginSectionDescription)] = "安装数据源插件，让私有 Agent 的用量出现在现有视图里。插件是本地第三方代码，只从可信来源安装。",
+        [nameof(PluginInstallButton)] = "安装插件…",
+        [nameof(PluginInstallWarningTitle)] = "安装插件",
+        [nameof(PluginInstallWarningBody)] = "这是本地第三方代码：它的运行权限与 Tokenmetry 相同，可以读取你的代码、日志、会话内容，也可能访问网络；官方无法验证其来源。只安装来自可信来源的插件。",
+        [nameof(PluginInstallConfirm)] = "确认安装",
+        [nameof(PluginInstallCancel)] = "取消",
+        [nameof(PluginAuthorUnverifiedFormat)] = "作者：{0}（未验证）",
+        [nameof(PluginEnabled)] = "已启用",
+        [nameof(PluginDisabled)] = "已停用",
+        [nameof(PluginEnableAction)] = "启用",
+        [nameof(PluginDisableAction)] = "停用",
+        [nameof(PluginUninstallAction)] = "卸载",
+        [nameof(PluginUninstallConfirm)] = "卸载后将删除插件文件与插件缓存，历史统计数据仍会保留。确定要卸载吗？",
+        [nameof(PluginVersionFormat)] = "版本 {0}",
+        [nameof(PluginStatusUnscanned)] = "尚未扫描",
+        [nameof(PluginStatusScanning)] = "正在扫描…",
+        [nameof(PluginStatusOk)] = "已连接",
+        [nameof(PluginStatusNoData)] = "未检出",
+        [nameof(PluginStatusPartial)] = "部分数据",
+        [nameof(PluginStatusError)] = "扫描失败",
+        [nameof(PluginEmptyState)] = "尚未安装插件。插件是私有 Agent 的扩展入口：安装 .tkmplugin 包后，其数据会像内置 Agent 一样出现在统计里。",
+        [nameof(PluginHostMissing)] = "插件宿主不可用（当前安装包未包含插件宿主），无法安装或运行插件。",
+        [nameof(PluginInstallFailedFormat)] = "安装失败：{0}",
+        [nameof(PluginDisplayNameChangedWarningFormat)] = "该插件的 Agent 名将从「{0}」改为「{1}」，历史数据会保留在「{0}」下。",
+        [nameof(PluginUnsupportedApiVersionFormat)] = "插件 API 版本不受支持（当前支持版本 {0}）。",
+        [nameof(PluginInvalidPackageFormat)] = "无效的插件包（校验未通过）",
+
         // ── 模型目录（I-035：价格 / 厂商 / 图标的唯一出处）──
         [nameof(CatalogPanelTitle)] = "模型目录",
         [nameof(CatalogPanelHint)] = "每个模型一个稳定 ID，价格、厂商、图标都挂在它上面；数据里出现过的模型名关联到这里（自动关联不上的在下面手动指定），统计与计价都按同一份目录走。改完即按新价格重算。",
@@ -1077,6 +1106,35 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(AttributionSessionStart)] = "grouped by session start time",
 
         [nameof(AnomalyCostSpikeFormat)] = "Today's cost is {1:0.0}× the {0}-day average",
+
+        // ── 插件区块（Task 8）──
+        [nameof(PluginSectionTitle)] = "Plugins",
+        [nameof(PluginSectionDescription)] = "Install data-source plugins so private Agents show up in the existing views. Plugins are local third-party code — install only from trusted sources.",
+        [nameof(PluginInstallButton)] = "Install plugin…",
+        [nameof(PluginInstallWarningTitle)] = "Install plugin",
+        [nameof(PluginInstallWarningBody)] = "This is local third-party code: it runs with the same permissions as Tokenmetry, can read your code, logs and session content, and may access the network; we cannot verify its origin. Install only plugins from trusted sources.",
+        [nameof(PluginInstallConfirm)] = "Install",
+        [nameof(PluginInstallCancel)] = "Cancel",
+        [nameof(PluginAuthorUnverifiedFormat)] = "Author: {0} (unverified)",
+        [nameof(PluginEnabled)] = "Enabled",
+        [nameof(PluginDisabled)] = "Disabled",
+        [nameof(PluginEnableAction)] = "Enable",
+        [nameof(PluginDisableAction)] = "Disable",
+        [nameof(PluginUninstallAction)] = "Uninstall",
+        [nameof(PluginUninstallConfirm)] = "Uninstalling deletes the plugin files and cache; historical statistics are kept. Uninstall this plugin?",
+        [nameof(PluginVersionFormat)] = "Version {0}",
+        [nameof(PluginStatusUnscanned)] = "Not scanned yet",
+        [nameof(PluginStatusScanning)] = "Scanning…",
+        [nameof(PluginStatusOk)] = "Connected",
+        [nameof(PluginStatusNoData)] = "No data found",
+        [nameof(PluginStatusPartial)] = "Partial data",
+        [nameof(PluginStatusError)] = "Scan failed",
+        [nameof(PluginEmptyState)] = "No plugins installed. Plugins extend Tokenmetry with private Agents: after installing a .tkmplugin package, its data appears in the statistics like a built-in Agent.",
+        [nameof(PluginHostMissing)] = "The plugin host is unavailable (this build does not include it), so plugins cannot be installed or run.",
+        [nameof(PluginInstallFailedFormat)] = "Installation failed: {0}",
+        [nameof(PluginDisplayNameChangedWarningFormat)] = "This plugin's Agent name changes from \"{0}\" to \"{1}\"; historical data stays under \"{0}\".",
+        [nameof(PluginUnsupportedApiVersionFormat)] = "Unsupported plugin API version (this build supports version {0}).",
+        [nameof(PluginInvalidPackageFormat)] = "Invalid plugin package (validation failed)",
 
         // ── 模型目录（I-035：价格 / 厂商 / 图标的唯一出处；Q-010 起与 Zh 全量对齐，
         //    键奇偶由 English_CoversEveryChineseSourceKey 固化）──
@@ -1840,6 +1898,35 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string ProviderMultiFormat => Get();
     public string TotalsModelCountFormat => Get();
     public string TotalsUnknownNoteFormat => Get();
+
+    // ── 插件区块（Task 8）──
+    public string PluginSectionTitle => Get();
+    public string PluginSectionDescription => Get();
+    public string PluginInstallButton => Get();
+    public string PluginInstallWarningTitle => Get();
+    public string PluginInstallWarningBody => Get();
+    public string PluginInstallConfirm => Get();
+    public string PluginInstallCancel => Get();
+    public string PluginAuthorUnverifiedFormat => Get();
+    public string PluginEnabled => Get();
+    public string PluginDisabled => Get();
+    public string PluginEnableAction => Get();
+    public string PluginDisableAction => Get();
+    public string PluginUninstallAction => Get();
+    public string PluginUninstallConfirm => Get();
+    public string PluginVersionFormat => Get();
+    public string PluginStatusUnscanned => Get();
+    public string PluginStatusScanning => Get();
+    public string PluginStatusOk => Get();
+    public string PluginStatusNoData => Get();
+    public string PluginStatusPartial => Get();
+    public string PluginStatusError => Get();
+    public string PluginEmptyState => Get();
+    public string PluginHostMissing => Get();
+    public string PluginInstallFailedFormat => Get();
+    public string PluginDisplayNameChangedWarningFormat => Get();
+    public string PluginUnsupportedApiVersionFormat => Get();
+    public string PluginInvalidPackageFormat => Get();
 
     // ── 模型目录（I-035）──
     public string CatalogPanelTitle => Get();

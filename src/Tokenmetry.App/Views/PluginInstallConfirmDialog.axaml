@@ -1,0 +1,46 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:Tokenmetry.App.Localization"
+        x:Class="Tokenmetry.App.Views.PluginInstallConfirmDialog"
+        x:DataType="loc:Translations"
+        Title="{Binding PluginInstallWarningTitle, Source={x:Static loc:Translations.Instance}}"
+        Width="540"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+
+    <!--
+        插件安装确认（Task 8，设计 §6.1）：manifest 名称/版本/作者（作者标注未验证）+
+        第三方代码警告正文 + 安装器给出的补充警告（如 Agent 改名会切断历史）。取消 = 不安装。
+        颜色一律令牌；文案走 Translations.Instance（无硬编码中文）。
+    -->
+    <StackPanel Margin="24" Spacing="14">
+        <TextBlock Classes="panel-title"
+                   Text="{Binding PluginInstallWarningTitle, Source={x:Static loc:Translations.Instance}}"/>
+
+        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                   Text="{Binding PluginInstallWarningBody, Source={x:Static loc:Translations.Instance}}"/>
+
+        <Border BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+            <StackPanel Spacing="4">
+                <TextBlock Classes="table-td" FontWeight="SemiBold" x:Name="ManifestNameText"/>
+                <TextBlock Classes="page-subtitle" x:Name="ManifestVersionText"/>
+                <TextBlock Classes="page-subtitle" x:Name="AuthorText"/>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="page-subtitle" TextWrapping="Wrap"
+                   Foreground="{DynamicResource AppAccentRedBrush}"
+                   x:Name="WarningsText" IsVisible="False"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+            <Button Classes="app-btn" IsCancel="True"
+                    Content="{Binding PluginInstallCancel, Source={x:Static loc:Translations.Instance}}"
+                    Click="OnCancelClick"/>
+            <Button Classes="app-btn primary" IsDefault="True"
+                    Content="{Binding PluginInstallConfirm, Source={x:Static loc:Translations.Instance}}"
+                    Click="OnConfirmClick"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -169,6 +169,23 @@ public static class AppServices
         {
             services.AddSingleton<IPluginSourceProvider>(_ => UnavailablePluginSourceProvider.Instance);
         }
+
+        // Task 8：插件管理 UI 服务——文件选择走主窗 StorageProvider，安装/卸载确认走模态窗；
+        // 区块 VM 与数据与计价页同为单例。重扫经 BackgroundRefreshService 的全局单飞通道
+        // （与定时器/设置页同一实例，触发合并）。宿主缺失时 hostPath = null，区块只读且安装禁用。
+        services.AddSingleton<IPluginFilePicker, AvaloniaPluginFilePicker>();
+        services.AddSingleton<IPluginInstallConfirmation, AvaloniaPluginInstallConfirmation>();
+        services.AddSingleton(sp => new PluginsSectionViewModel(
+            sp.GetRequiredService<IPluginCatalog>(),
+            sp.GetRequiredService<IPluginInstaller>(),
+            sp.GetRequiredService<IPluginSourceProvider>(),
+            sp.GetRequiredService<IPluginFilePicker>(),
+            sp.GetRequiredService<IPluginInstallConfirmation>(),
+            sp.GetRequiredService<AgentIconService>(),
+            sp.GetRequiredService<IngestionScanRegistry>(),
+            rescan: () => sp.GetRequiredService<BackgroundRefreshService>().TriggerRefreshAsync(),
+            hostPath: pluginHostPath));
+
         services.AddSingleton(sp => new ClaudeCodeJsonlAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<IClaudeCodeJsonlAdapter>(sp => sp.GetRequiredService<ClaudeCodeJsonlAdapter>());
         services.AddSingleton(sp => new CodexJsonlAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
@@ -279,7 +296,17 @@ public static class AppServices
         // 外壳 CreatePage 复用，主题选中态 / 数据源表跨导航保持）；数据与计价页的数据源表刷新经
         // INavigationAware.OnNavigatedTo（重进刷新，定案见 S-002 卡 Dev Log）。
         services.AddSingleton<SettingsViewModel>();
-        services.AddSingleton<DataPricingViewModel>();
+        services.AddSingleton<DataPricingViewModel>(sp => new DataPricingViewModel(
+            sp.GetRequiredService<AppSettings>(),
+            sp.GetRequiredService<IAppSettingsStore>(),
+            sp.GetRequiredService<IIngestionScanReader>(),
+            sp.GetRequiredService<BackgroundRefreshService>(),
+            sp.GetRequiredService<IToastService>(),
+            sp.GetRequiredService<IUsageQueryService>(),
+            sp.GetRequiredService<ModelCatalog>(),
+            sp.GetRequiredService<IAggregationInvalidator>(),
+            sp.GetRequiredService<AgentIconService>(),
+            plugins: sp.GetRequiredService<PluginsSectionViewModel>()));
         // 右栏（SessionsPanelViewModel）已随 2026-10-18 右栏撤除删除：最近会话直接删、
         // 快速筛选并入顶栏全局四维（docs/plans/2026-10-18-right-rail-removal-design.md）。
 

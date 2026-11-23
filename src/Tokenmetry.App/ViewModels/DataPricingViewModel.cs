@@ -275,6 +275,12 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
     /// <summary>数据源表行（"已识别数据源"来自采集层注册表，不手写清单）。</summary>
     public ObservableCollection<DataSourceRowViewModel> SourceRows { get; } = new();
 
+    /// <summary>
+    /// 插件区块（Task 8）：DI 注入真实区块；测试/预览未注入时落
+    /// <see cref="PluginsSectionViewModel.Empty"/>（空行、无副作用命令），既有构造无需改动。
+    /// </summary>
+    public PluginsSectionViewModel Plugins { get; }
+
     /// <summary>模型聚合规则行（AliasRules，原始名 → 规范名；增删整表重建）。</summary>
     public ObservableCollection<AliasRuleRowViewModel> AliasRules { get; } = new();
 
@@ -306,7 +312,8 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         IUsageQueryService? query = null,
         ModelCatalog? catalog = null,
         IAggregationInvalidator? aggregationInvalidator = null,
-        AgentIconService? agentIcons = null)
+        AgentIconService? agentIcons = null,
+        PluginsSectionViewModel? plugins = null)
     {
         _settings = settings;
         _store = store;
@@ -316,6 +323,7 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         _query = query;
         _aggregationInvalidator = aggregationInvalidator;
         _agentIcons = agentIcons ?? AgentIconService.BuiltInOnly;
+        Plugins = plugins ?? PluginsSectionViewModel.Empty;
         // 目录由 DI 以单例注入（与计价引擎 / 查询服务同一实例）；无注入时兜底新建（测试 / 预览）。
         // 用户层必须走共享合并口径（含旧 PricingOverrides 折算）——只传新字段会把 AppServices
         // 装配进去的旧配置从目录里冲掉，用户旧价格覆盖启动即静默失效。
@@ -398,6 +406,8 @@ public partial class DataPricingViewModel : ViewModelBase, INavigationAware
         // 目录行随 models.dev 后台刷新变化（来源徽标 / 在线价），重进页面时重读一次。
         RebuildModelRows();
         _ = LoadAliasCandidatesAsync();
+        // 插件区块重进时重读目录（安装/卸载可能来自别处），行内状态随扫描快照刷新。
+        _ = Plugins.RefreshAsync();
     }
 
     /// <summary>
