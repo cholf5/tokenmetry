@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tokenmetry.Plugin.Abstractions\Tokenmetry.Plugin.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Tokenmetry.PluginHost\Tokenmetry.PluginHost.csproj" />
+    <ProjectReference Include="..\..\src\Tokenmetry.Infrastructure\Tokenmetry.Infrastructure.csproj" />
     <ProjectReference Include="..\fixtures\Tokenmetry.TestPlugin\Tokenmetry.TestPlugin.csproj" />
   </ItemGroup>
 

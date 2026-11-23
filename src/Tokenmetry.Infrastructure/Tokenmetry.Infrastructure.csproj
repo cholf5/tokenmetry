@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Tokenmetry.Core\Tokenmetry.Core.csproj" />
+    <ProjectReference Include="..\Tokenmetry.Plugin.Abstractions\Tokenmetry.Plugin.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>
