@@ -111,6 +111,7 @@
 | `chart-tip` | ToolTip | （原型无 tooltip，B-006 补） | 图表悬浮提示统一装饰：chip 底 + 卡片描边 + AppTextBrush 文字、圆角 6 / Padding 10,7 / 字号 12；控件经 `ChartTooltips.Set` 挂类（Donut/Heatmap）。ScottPlot 图内气泡（TrendChart）不适用本类，但走同源令牌（`ApplyTooltipChrome`）与同一文案口径 |
 | `app-btn` / `app-btn.primary` | Button | （无原型对应） | 应用级按钮（数据与计价页 Rescan / Add model、设置页更新检查）：PanelAlt 底 + Line 描边 + 12px 正文；`.primary` 品牌蓝 + 恒白字。Semi 模板 hover/pressed 逐态钉住（同 filter-chip 配方） |
 | `setting-label` / `setting-hint` | TextBlock | （无原型对应） | 设置页表单标签（12px SemiBold 正文色，可折行）/ 提示（11px muted、行高 17）：标签与帮助文字分层，不再共用 `page-subtitle` |
+| `setting-info` / `setting-tip` / `setting-tip-text` | Border / ToolTip / TextBlock | （无原型对应） | 设置项悬停说明（S-004 版面收口）：逐项解释不再以常驻小字占行，改由控件旁 ⓘ（21×21 命中区 + Cursor=Help）悬停显示；ToolTip 走 chip 底 + 卡片描边令牌，宽度上限 340 且长句折行。状态、校验、隐私与法律告知仍用 `setting-hint` 常驻 |
 | `chip.ok` / `chip.muted` | Border | （无原型对应） | 口径徽章状态：ok = 绿软底（始终生效），muted = 中性退后（未提供）；复用图标芯片软底令牌 |
 | `icon-chip.neutral` / `.warn` | Border | （无原型对应） | 图标芯片状态（成本页「待确认价格」）：neutral = 无缺价，warn = 有缺价（琥珀警示）。缺价是数据质量风险，不用成功绿 |
 | `kpi-change-good` / `.bad` / `.neutral` | TextBlock | `.kpi-foot .up/.down` | 环比「语义极性」色：good = 朝好的方向（成本降/缓存升），bad = 朝差的方向，neutral = 用量类中性指标。方向由箭头表达，颜色只表达好坏 |

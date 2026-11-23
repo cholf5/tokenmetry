@@ -178,7 +178,10 @@ public class SettingsPageTests
             var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
             Assert.Contains("Appearance & general", texts);
             Assert.Contains("Local paths", texts);
-            Assert.Contains("Saved automatically; takes effect the next time the background refresh service starts.", texts);
+            Assert.Contains(Translations.Instance.SharePosterSettingsHint, texts);
+            // 逐项说明已收进 ⓘ 悬停：ToolTip 里的文案同样随语言实时重译（收益于同一条绑定链）
+            var tipTexts = window.GetVisualDescendants().OfType<InfoHint>().Select(TipText).ToList();
+            Assert.Contains("Saved automatically; takes effect the next time the background refresh service starts.", tipTexts);
             // 页头 Page.Title 实时重译（多级绑定路径 Page.Title——叶子通知由 PageDescriptor 发，
             // 真机实测缺失时标题保持旧语言、导航切换回来才更新）
             var pageTitle = window.GetVisualDescendants().OfType<TextBlock>()
@@ -239,6 +242,43 @@ public class SettingsPageTests
     }
 
     [AvaloniaFact]
+    public void Per_item_explanations_are_hover_tips_instead_of_standing_small_text()
+    {
+        // S-004 版面收口：逐项说明从小字常驻改为控件旁 ⓘ 悬停。断言两件事——8 项说明都挂在
+        // InfoHint 的 ToolTip 上（悬停可读），且页面上不再有同文案的常驻 TextBlock（确实退场）。
+        var vm = CreateViewModel();
+        var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var expected = new[]
+        {
+            Translations.Instance.ThemeHint,
+            Translations.Instance.ThemeModeHint,
+            Translations.Instance.LanguageHint,
+            Translations.Instance.RefreshHint,
+            Translations.Instance.CheckMinimizeToTrayOnCloseHint,
+            Translations.Instance.CheckAutoStartOnBootHint,
+            Translations.Instance.CheckFileLoggingHint,
+            Translations.Instance.SharePosterMaskHint,
+        };
+
+        var hints = window.GetVisualDescendants().OfType<InfoHint>().ToList();
+        Assert.Equal(expected.Length, hints.Count);
+        Assert.Equal(expected.OrderBy(t => t), hints.Select(TipText).OrderBy(t => t));
+
+        var standingTexts = window.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToHashSet();
+        foreach (var hint in expected)
+        {
+            Assert.DoesNotContain(hint, standingTexts);
+        }
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void Settings_page_renders_light_and_dark_screenshots_for_archive()
     {
         var vm = CreateViewModel();
@@ -275,6 +315,15 @@ public class SettingsPageTests
             window.Close();
             Dispatcher.UIThread.RunJobs();
         }
+    }
+
+    /// <summary>取设置项 ⓘ 悬停说明的文案（InfoHint → 命中区 Border → ToolTip 里的 TextBlock）。</summary>
+    private static string TipText(InfoHint hint)
+    {
+        var host = hint.GetVisualDescendants().OfType<Border>()
+            .First(b => b.Classes.Contains("setting-info"));
+        var tip = Assert.IsType<ToolTip>(ToolTip.GetTip(host));
+        return Assert.IsType<TextBlock>(tip.Content).Text ?? string.Empty;
     }
 
     /// <summary>OS 注册 fake（headless 宿主绝不调用真实 <see cref="AutoStartManager"/>——其 SetEnabled

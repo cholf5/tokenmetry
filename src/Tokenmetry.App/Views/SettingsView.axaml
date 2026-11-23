@@ -15,6 +15,11 @@
         2026-10-29 版式收敛：表单改成「标签列 + 控件列」两列（标签 setting-label、说明 setting-hint），
         内容最大宽度 760——此前是 220px 控件贴左、标签与说明同款 muted 12px，右侧三分之二空白，
         标签、控件与帮助文字没有层级。设置页的信息结构本身也是产品的一部分，不再沿用默认表单皮肤。
+
+        2026-11-23 说明收口：逐项的小字解释不再常驻（每行一条灰字太吵），改由控件旁的 ⓘ 悬停
+        承载（controls:InfoHint → SharedStyles 的 setting-tip 令牌底 + 折行）。状态反馈（刷新间隔
+        校验）、隐私同意（排行榜上报）、法律告知（无担保）与升级说明仍用 setting-hint 常驻——
+        那些不是装饰性说明，藏进悬停会丢掉可见性。
     -->
     <ScrollViewer Classes="page-root">
         <StackPanel Spacing="13" Margin="0,0,0,4" MaxWidth="760" HorizontalAlignment="Left">
@@ -35,7 +40,7 @@
                         <!-- 主题（画板：整套配色气质，Styles/Themes/ 的生成画板） -->
                         <TextBlock Grid.Row="0" Grid.Column="0" Classes="setting-label"
                                    Text="{Binding LabelTheme, Source={x:Static loc:Translations.Instance}}"/>
-                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6">
                             <ComboBox ItemsSource="{Binding PaletteOptions}" SelectedItem="{Binding SelectedPalette}"
                                       Width="300" HorizontalAlignment="Left"
                                       HorizontalContentAlignment="Stretch">
@@ -45,14 +50,14 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                                       Text="{Binding ThemeHint, Source={x:Static loc:Translations.Instance}}"/>
+                            <!-- 逐项说明改为 ⓘ 悬停（S-004 版面收口）：解释退场，状态/校验仍常驻 -->
+                            <controls:InfoHint Hint="{Binding ThemeHint, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
 
                         <!-- 模式（画板 × 模式两维的模式维；单档画板置灰——模式随画板固定） -->
                         <TextBlock Grid.Row="1" Grid.Column="0" Classes="setting-label"
                                    Text="{Binding ThemeModeLabel, Source={x:Static loc:Translations.Instance}}"/>
-                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="6">
                             <ComboBox ItemsSource="{Binding EffectiveThemeOptions}" SelectedItem="{Binding SelectedTheme}"
                                       IsEnabled="{Binding IsModeSelectionEnabled}"
                                       Width="300" HorizontalAlignment="Left"
@@ -63,14 +68,13 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                                       Text="{Binding ThemeModeHint, Source={x:Static loc:Translations.Instance}}"/>
+                            <controls:InfoHint Hint="{Binding ThemeModeHint, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
 
                         <!-- 界面语言（切换即时全局生效并落盘） -->
                         <TextBlock Grid.Row="2" Grid.Column="0" Classes="setting-label"
                                    Text="{Binding LabelLanguage, Source={x:Static loc:Translations.Instance}}"/>
-                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="6">
                             <ComboBox ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}"
                                       Width="300" HorizontalAlignment="Left"
                                       HorizontalContentAlignment="Stretch">
@@ -80,23 +84,24 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                                       Text="{Binding LanguageHint, Source={x:Static loc:Translations.Instance}}"/>
+                            <controls:InfoHint Hint="{Binding LanguageHint, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
 
                         <!-- 刷新间隔 -->
                         <TextBlock Grid.Row="3" Grid.Column="0" Classes="setting-label"
                                    Text="{Binding LabelRefreshInterval, Source={x:Static loc:Translations.Instance}}"/>
                         <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
-                            <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="1" Width="300"
-                                     HorizontalAlignment="Left"/>
-                            <!-- 全自动保存的行内校验：非法输入显示提示且不落盘（保留上一个合法值） -->
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBox Text="{Binding RefreshMinutesText}" PlaceholderText="1" Width="300"
+                                         HorizontalAlignment="Left"/>
+                                <controls:InfoHint Hint="{Binding RefreshHint, Source={x:Static loc:Translations.Instance}}"/>
+                            </StackPanel>
+                            <!-- 全自动保存的行内校验：非法输入显示提示且不落盘（保留上一个合法值）。
+                                 校验是状态反馈不是说明，保持常驻，不藏进悬停。 -->
                             <TextBlock Classes="setting-hint" TextWrapping="Wrap"
                                        Text="{Binding RefreshMinutesError}"
                                        Foreground="{DynamicResource AppAccentRedBrush}"
                                        IsVisible="{Binding RefreshMinutesError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                            <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                                       Text="{Binding RefreshHint, Source={x:Static loc:Translations.Instance}}"/>
                         </StackPanel>
                     </Grid>
 
@@ -104,27 +109,24 @@
                          = 整日轰炸，用户拍板删除；异常持续状态由弹层今日花费 KPI 徽标承载，Q-011）。
                          A-11 假开关红线同向适用：通道没了，开关必须一起走。 -->
                     <!-- S-005：关窗行为（消费者 = MainWindow.OnClosing 的关窗分派） -->
-                    <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
                         <CheckBox Content="{Binding CheckMinimizeToTrayOnClose, Source={x:Static loc:Translations.Instance}}"
                                   IsChecked="{Binding MinimizeToTrayOnClose}"/>
-                        <TextBlock Classes="setting-hint" TextWrapping="Wrap" Margin="24,0,0,0"
-                                   Text="{Binding CheckMinimizeToTrayOnCloseHint, Source={x:Static loc:Translations.Instance}}"/>
+                        <controls:InfoHint Hint="{Binding CheckMinimizeToTrayOnCloseHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
 
                     <!-- S-006：开机自启动（默认关；OS 注册 = IAutoStartManager，静默启动参数见 AutoStartManager.LaunchArg） -->
-                    <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
                         <CheckBox Content="{Binding CheckAutoStartOnBoot, Source={x:Static loc:Translations.Instance}}"
                                   IsChecked="{Binding AutoStartOnBoot}"/>
-                        <TextBlock Classes="setting-hint" TextWrapping="Wrap" Margin="24,0,0,0"
-                                   Text="{Binding CheckAutoStartOnBootHint, Source={x:Static loc:Translations.Instance}}"/>
+                        <controls:InfoHint Hint="{Binding CheckAutoStartOnBootHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
 
                     <!-- I-045：采集文件日志（默认开；日志目录入口在下方「本地路径」区） -->
-                    <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
                         <CheckBox Content="{Binding CheckFileLogging, Source={x:Static loc:Translations.Instance}}"
                                   IsChecked="{Binding FileLoggingEnabled}"/>
-                        <TextBlock Classes="setting-hint" TextWrapping="Wrap" Margin="24,0,0,0"
-                                   Text="{Binding CheckFileLoggingHint, Source={x:Static loc:Translations.Instance}}"/>
+                        <controls:InfoHint Hint="{Binding CheckFileLoggingHint, Source={x:Static loc:Translations.Instance}}"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -162,18 +164,19 @@
 
                         <TextBlock Grid.Row="2" Grid.Column="0" Classes="setting-label"
                                    Text="{Binding SharePosterDefaultMask, Source={x:Static loc:Translations.Instance}}"/>
-                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding SharePosterMaskOptions}"
-                                  SelectedItem="{Binding SharePosterMaskOption}"
-                                  Width="300" HorizontalAlignment="Left" HorizontalContentAlignment="Stretch">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:SharePosterOption">
-                                    <TextBlock Text="{Binding Label}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                            <ComboBox ItemsSource="{Binding SharePosterMaskOptions}"
+                                      SelectedItem="{Binding SharePosterMaskOption}"
+                                      Width="300" HorizontalAlignment="Left" HorizontalContentAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SharePosterOption">
+                                        <TextBlock Text="{Binding Label}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <controls:InfoHint Hint="{Binding SharePosterMaskHint, Source={x:Static loc:Translations.Instance}}"/>
+                        </StackPanel>
                     </Grid>
-                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                               Text="{Binding SharePosterMaskHint, Source={x:Static loc:Translations.Instance}}"/>
                 </StackPanel>
             </Border>
 
