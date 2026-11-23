@@ -344,6 +344,48 @@
                                     Command="{Binding DisableSyncCommand}"/>
                         </StackPanel>
 
+                        <!-- 已连接通道回显：启用后上方配置区整体隐藏，这里回答「连到哪个实例、
+                             自建时的地址与令牌是什么」（令牌默认掩码，显式展开）。 -->
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                                <TextBlock Grid.Column="0" Classes="setting-label"
+                                           Text="{Binding SyncConnection, Source={x:Static loc:Translations.Instance}}"/>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding SyncModeOfficial, Source={x:Static loc:Translations.Instance}}"
+                                               IsVisible="{Binding IsOfficialConnection}"/>
+                                    <TextBlock Text="{Binding SyncModeSelfHosted, Source={x:Static loc:Translations.Instance}}"
+                                               IsVisible="{Binding !IsOfficialConnection}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid ColumnDefinitions="132,*" ColumnSpacing="16"
+                                  IsVisible="{Binding !IsOfficialConnection}">
+                                <TextBlock Grid.Column="0" Classes="setting-label"
+                                           Text="{Binding SyncEndpoint, Source={x:Static loc:Translations.Instance}}"/>
+                                <SelectableTextBlock Grid.Column="1" Classes="setting-hint"
+                                                     TextWrapping="Wrap" Text="{Binding SyncEndpointDisplay}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="132,*,Auto" ColumnSpacing="16"
+                                  IsVisible="{Binding !IsOfficialConnection}">
+                                <TextBlock Grid.Column="0" Classes="setting-label"
+                                           Text="{Binding SyncToken, Source={x:Static loc:Translations.Instance}}"/>
+                                <TextBox Grid.Column="1" IsReadOnly="True" PasswordChar="•"
+                                         Text="{Binding SyncTokenDisplay}"
+                                         IsVisible="{Binding !IsSyncTokenRevealed}"/>
+                                <SelectableTextBlock Grid.Column="1" Classes="setting-hint"
+                                                     VerticalAlignment="Center" TextWrapping="Wrap"
+                                                     Text="{Binding SyncTokenDisplay}"
+                                                     IsVisible="{Binding IsSyncTokenRevealed}"/>
+                                <Button Grid.Column="2" Classes="link-btn" VerticalAlignment="Center"
+                                        Content="{Binding SyncShowToken, Source={x:Static loc:Translations.Instance}}"
+                                        Command="{Binding ShowSyncTokenCommand}"
+                                        IsVisible="{Binding !IsSyncTokenRevealed}"/>
+                                <Button Grid.Column="2" Classes="link-btn" VerticalAlignment="Center"
+                                        Content="{Binding SyncHideToken, Source={x:Static loc:Translations.Instance}}"
+                                        Command="{Binding HideSyncTokenCommand}"
+                                        IsVisible="{Binding IsSyncTokenRevealed}"/>
+                            </Grid>
+                        </StackPanel>
+
                         <!-- 排行榜子区（leaderboard 设计 §4.4）：随「已启用」分支显隐——同步未连接即不渲染。
                              拨开仅解锁名字输入与保存按钮（PUT 在保存）；拨关立即 PUT optIn=false 并清展示
                              （VM 内投影守卫防回环）。展示名预填 GET 回来的生效名。 -->

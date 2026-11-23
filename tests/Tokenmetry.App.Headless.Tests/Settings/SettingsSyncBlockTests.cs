@@ -163,6 +163,78 @@ public sealed class SettingsSyncBlockTests
     }
 
     [AvaloniaFact]
+    public async Task SelfHostFlow_AfterEnable_ShowsConnectionAddressAndMaskedToken()
+    {
+        using var fixture = new SyncFixture();
+        await fixture.SyncState.InitializeAsync();
+        var window = Show(fixture.ViewModel);
+
+        fixture.ViewModel.SyncEndpointInput = "http://127.0.0.1:8080";
+        fixture.ViewModel.SyncTokenInput = "relay-token";
+        fixture.ViewModel.IsOfficialMode = false;
+        await fixture.ViewModel.EnableSyncCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        // 投影 = 已持久化的通道类型与凭据（启用后配置区隐藏，仍能回答「连到哪」）
+        Assert.False(fixture.ViewModel.IsOfficialConnection);
+        Assert.Equal("http://127.0.0.1:8080", fixture.ViewModel.SyncEndpointDisplay);
+        Assert.Equal("relay-token", fixture.ViewModel.SyncTokenDisplay);
+
+        var visibleTexts = window.GetVisualDescendants().OfType<TextBlock>()
+            .Where(ChartTestHelpers.IsEffectivelyVisible)
+            .Select(t => t.Text)
+            .ToList();
+        Assert.Contains(Translations.Instance.SyncConnection, visibleTexts);
+        Assert.Contains(Translations.Instance.SyncModeSelfHosted, visibleTexts);
+        Assert.DoesNotContain(Translations.Instance.SyncModeOfficial, visibleTexts);
+        Assert.Contains(Translations.Instance.SyncEndpoint, visibleTexts);
+        Assert.Contains(Translations.Instance.SyncToken, visibleTexts);
+
+        // 令牌默认掩码：明文不可见，只有只读掩码框在场
+        Assert.DoesNotContain("relay-token", visibleTexts);
+        Assert.Contains(window.GetVisualDescendants().OfType<TextBox>(),
+            t => ChartTestHelpers.IsEffectivelyVisible(t) && t.Text == "relay-token" && t.PasswordChar == '•');
+    }
+
+    [AvaloniaFact]
+    public async Task SelfHostFlow_TokenRevealToggle_SwapsMaskForPlainText()
+    {
+        using var fixture = new SyncFixture();
+        await fixture.SyncState.InitializeAsync();
+        var window = Show(fixture.ViewModel);
+
+        fixture.ViewModel.SyncEndpointInput = "http://127.0.0.1:8080";
+        fixture.ViewModel.SyncTokenInput = "relay-token";
+        await fixture.ViewModel.EnableSyncCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        fixture.ViewModel.ShowSyncTokenCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.True(fixture.ViewModel.IsSyncTokenRevealed);
+        var visibleTexts = window.GetVisualDescendants()
+            .Where(ChartTestHelpers.IsEffectivelyVisible)
+            .Select(v => v switch
+            {
+                SelectableTextBlock selectable => selectable.Text,
+                TextBlock text => text.Text,
+                _ => null,
+            })
+            .Where(t => t is not null)
+            .ToList();
+        Assert.Contains("relay-token", visibleTexts);
+        Assert.Contains(Translations.Instance.SyncHideToken, visibleTexts);
+        Assert.DoesNotContain(Translations.Instance.SyncShowToken, visibleTexts);
+
+        fixture.ViewModel.HideSyncTokenCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(fixture.ViewModel.IsSyncTokenRevealed);
+    }
+
+    [AvaloniaFact]
     public async Task RemoveDevice_ShowsConfirmationDialog()
     {
         using var fixture = new SyncFixture();

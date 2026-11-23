@@ -781,6 +781,26 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private string _lastSyncText = string.Empty;
 
+    /// <summary>
+    /// 已连接通道是否官方实例（启用后配置区整体隐藏，这里回答「连到哪个实例」）：
+    /// 官方通道启用时端点写入编译期常量，自建通道写入用户输入——按端点归类，
+    /// 官方常量未配置（空串）时恒为自建。
+    /// </summary>
+    [ObservableProperty]
+    private bool _isOfficialConnection;
+
+    /// <summary>已连接的服务器地址（启用后回显持久化值；仅自建通道行展示）。</summary>
+    [ObservableProperty]
+    private string _syncEndpointDisplay = string.Empty;
+
+    /// <summary>已连接的访问令牌（启用后回显持久化值；默认掩码，点「显示令牌」展开）。</summary>
+    [ObservableProperty]
+    private string _syncTokenDisplay = string.Empty;
+
+    /// <summary>访问令牌是否明文展开（默认掩码；关闭同步时复位）。</summary>
+    [ObservableProperty]
+    private bool _isSyncTokenRevealed;
+
     [ObservableProperty]
     private bool _isRemoveConfirmVisible;
 
@@ -815,6 +835,15 @@ public partial class SettingsViewModel : ViewModelBase
         try
         {
             IsSyncEnabled = syncState.IsEnabled;
+            SyncEndpointDisplay = _settings.SyncEndpoint ?? string.Empty;
+            SyncTokenDisplay = _settings.SyncToken ?? string.Empty;
+            IsOfficialConnection = IsOfficialRelayEndpoint(SyncEndpointDisplay, TokenmetryOfficial.OfficialRelayUrl);
+            if (!syncState.IsEnabled)
+            {
+                // 关闭后凭据回显没有意义，下次启用重新从掩码开始。
+                IsSyncTokenRevealed = false;
+            }
+
             if (!string.IsNullOrEmpty(syncState.LocalDeviceName))
             {
                 DeviceNameInput = syncState.LocalDeviceName;
@@ -882,6 +911,22 @@ public partial class SettingsViewModel : ViewModelBase
 
     private void OnSyncStateChanged() =>
         Dispatcher.UIThread.Post(() => _ = RefreshSyncStateAsync());
+
+    /// <summary>「显示令牌」：把访问令牌从掩码展开为明文（显式动作，不默认泄露）。</summary>
+    [RelayCommand]
+    private void ShowSyncToken() => IsSyncTokenRevealed = true;
+
+    /// <summary>「隐藏令牌」：恢复掩码显示。</summary>
+    [RelayCommand]
+    private void HideSyncToken() => IsSyncTokenRevealed = false;
+
+    /// <summary>
+    /// 端点是否归为官方实例（relay 设计 §4.6）：官方通道启用时写编译期常量，自建通道写用户输入。
+    /// 比较忽略大小写与尾部斜杠；官方常量未配置（空串 = 官方通道未就绪）时恒为自建。
+    /// </summary>
+    internal static bool IsOfficialRelayEndpoint(string endpoint, string officialUrl) =>
+        !string.IsNullOrEmpty(officialUrl)
+        && string.Equals(endpoint.Trim().TrimEnd('/'), officialUrl.Trim().TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
 
     [RelayCommand]
     private async Task EnableSyncAsync(CancellationToken ct = default)

@@ -617,6 +617,17 @@ public class SettingsViewModelTests
         viewModel.UpdateStatusText.Should().Be(Translations.Instance.UpdateInstalling);
     }
 
+    // ---- 同步通道回显（启用后连接方式/地址/令牌的归类） ----
+
+    [Theory]
+    [InlineData("https://relay.example", "https://relay.example", true)]
+    [InlineData("https://relay.example/", "https://relay.example", true)]
+    [InlineData("HTTPS://RELAY.EXAMPLE", "https://relay.example", true)]
+    [InlineData("http://127.0.0.1:8080", "https://relay.example", false)]
+    [InlineData("https://relay.example", "", false)]
+    public void IsOfficialRelayEndpoint_ClassifiesByCompiledOfficialUrl(string endpoint, string official, bool expected) =>
+        SettingsViewModel.IsOfficialRelayEndpoint(endpoint, official).Should().Be(expected);
+
     // ---- helpers ----
     private static SettingsViewModel CreateViewModel(
         AppSettings settings,

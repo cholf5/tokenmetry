@@ -125,6 +125,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SyncModeSelfHosted)] = "自建中继",
         [nameof(SyncEndpoint)] = "服务器地址",
         [nameof(SyncToken)] = "访问令牌",
+        [nameof(SyncConnection)] = "连接方式",
+        [nameof(SyncShowToken)] = "显示令牌",
+        [nameof(SyncHideToken)] = "隐藏令牌",
         [nameof(SyncLoginGitHub)] = "使用 GitHub 登录",
         [nameof(SyncDeviceName)] = "设备名称",
         [nameof(SyncDevices)] = "设备",
@@ -725,6 +728,9 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SyncModeSelfHosted)] = "Self-hosted relay",
         [nameof(SyncEndpoint)] = "Server address",
         [nameof(SyncToken)] = "Access token",
+        [nameof(SyncConnection)] = "Connection",
+        [nameof(SyncShowToken)] = "Show token",
+        [nameof(SyncHideToken)] = "Hide token",
         [nameof(SyncLoginGitHub)] = "Sign in with GitHub",
         [nameof(SyncDeviceName)] = "Device name",
         [nameof(SyncDevices)] = "Devices",
@@ -1468,6 +1474,9 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SyncModeSelfHosted => Get();
     public string SyncEndpoint => Get();
     public string SyncToken => Get();
+    public string SyncConnection => Get();
+    public string SyncShowToken => Get();
+    public string SyncHideToken => Get();
     public string SyncLoginGitHub => Get();
     public string SyncDeviceName => Get();
     public string SyncDevices => Get();
