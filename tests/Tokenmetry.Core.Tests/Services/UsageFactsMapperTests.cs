@@ -377,6 +377,67 @@ public class UsageFactsMapperTests
         summary.Agents.Should().ContainSingle().Which.Agent.Should().Be("Claude Code");
     }
 
+    [Fact]
+    public void ToUsageFacts_prefers_record_project_display_name()
+    {
+        var record = new UsageRecord
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            Agent = "Foo",
+            Model = "m",
+            ProjectPath = "/work/foo",
+            ProjectDisplayName = "Foo Workspace",
+        };
+        var fact = Assert.Single(UsageFactsMapper.ToUsageFacts([record]));
+        Assert.Equal("Foo Workspace", fact.ProjectDisplayName);
+    }
+
+    [Fact]
+    public void ToUsageFacts_falls_back_to_path_when_project_display_name_is_blank()
+    {
+        var blank = CreateRecord(day: 19, hour: 8, project: "work/foo");
+        blank.ProjectDisplayName = "  ";
+        var missing = CreateRecord(day: 19, hour: 9, project: "work/bar");
+
+        var facts = UsageFactsMapper.ToUsageFacts(new[] { blank, missing }, Utc);
+
+        facts.Single(fact => fact.Project == "work/foo").ProjectDisplayName.Should().Be("foo");
+        facts.Single(fact => fact.Project == "work/bar").ProjectDisplayName.Should().Be("bar");
+    }
+
+    [Fact]
+    public void ToUsageFacts_uses_display_name_from_any_record_in_group()
+    {
+        var withoutName = CreateRecord(day: 19, hour: 8, project: "work/foo");
+        var withName = CreateRecord(day: 19, hour: 9, project: "work/foo");
+        withName.ProjectDisplayName = "Foo Workspace";
+
+        var fact = UsageFactsMapper.ToUsageFacts(new[] { withoutName, withName }, Utc).Single();
+
+        fact.ProjectDisplayName.Should().Be("Foo Workspace");
+    }
+
+    [Fact]
+    public void ToSessionFacts_prefers_record_project_display_name()
+    {
+        var record = CreateRecord(day: 19, hour: 8, sessionId: "s1", project: "/work/foo");
+        record.ProjectDisplayName = "Foo Workspace";
+
+        var fact = UsageFactsMapper.ToSessionFacts(new[] { record }).Single();
+
+        fact.ProjectDisplayName.Should().Be("Foo Workspace");
+    }
+
+    [Fact]
+    public void ToSessionFacts_falls_back_to_path_when_display_name_missing()
+    {
+        var record = CreateRecord(day: 19, hour: 8, sessionId: "s1", project: "/work/foo");
+
+        var fact = UsageFactsMapper.ToSessionFacts(new[] { record }).Single();
+
+        fact.ProjectDisplayName.Should().Be("foo");
+    }
+
     private static UsageRecord CreateRecord(
         int day,
         int hour,

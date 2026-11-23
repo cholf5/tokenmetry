@@ -46,7 +46,7 @@ public static class UsageFactsMapper
                 Model = group.Key.Model,
                 Provider = group.Key.Provider,
                 Project = group.Key.Project,
-                ProjectDisplayName = DeriveProjectDisplayName(group.Key.Project),
+                ProjectDisplayName = ResolveProjectDisplayName(group, group.Key.Project),
                 InputTokens = group.Sum(record => record.InputTokens),
                 OutputTokens = group.Sum(record => record.OutputTokens),
                 CacheCreationTokens = group.Sum(record => record.CacheCreationTokens),
@@ -83,7 +83,7 @@ public static class UsageFactsMapper
                     SessionId = group.Key,
                     Agent = first.Agent ?? string.Empty,
                     Project = first.ProjectPath ?? string.Empty,
-                    ProjectDisplayName = DeriveProjectDisplayName(first.ProjectPath ?? string.Empty),
+                    ProjectDisplayName = ResolveProjectDisplayName(ordered, first.ProjectPath ?? string.Empty),
                     DominantModel = SelectDominantModel(group),
                     FirstSeenAt = first.Timestamp,
                     LastSeenAt = last.Timestamp,
@@ -397,6 +397,23 @@ public static class UsageFactsMapper
             .OrderByDescending(group => group.Sum(record => record.TotalTokens))
             .ThenBy(group => group.Key, StringComparer.Ordinal)
             .First().Key;
+    }
+
+    /// <summary>
+    /// 项目展示名：记录自带的 <see cref="UsageRecord.ProjectDisplayName"/> 优先（插件可自报
+    /// workspace 名），组内任一记录提供非空值即采用；都为空则沿用 ProjectPath 末段推导。
+    /// </summary>
+    private static string ResolveProjectDisplayName(IEnumerable<UsageRecord> records, string projectPath)
+    {
+        foreach (var record in records)
+        {
+            if (!string.IsNullOrWhiteSpace(record.ProjectDisplayName))
+            {
+                return record.ProjectDisplayName;
+            }
+        }
+
+        return DeriveProjectDisplayName(projectPath);
     }
 
     /// <summary>

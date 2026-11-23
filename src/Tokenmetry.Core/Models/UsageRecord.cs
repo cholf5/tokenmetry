@@ -23,6 +23,12 @@ public class UsageRecord
 
     private string _projectPath = string.Empty;
 
+    /// <summary>
+    /// 可选的项目展示名（如插件自报的 workspace 名）。非空时 facts 映射优先采用；
+    /// 为空则沿用 <see cref="ProjectPath"/> 末段推导（内置适配器恒为空，语义不变）。
+    /// </summary>
+    public string? ProjectDisplayName { get; set; }
+
     /// <summary>会话 id（日志体缺失时回退到文件名推导值）。高基数：有意不驻留。</summary>
     public string SessionId { get; set; } = string.Empty;
 
