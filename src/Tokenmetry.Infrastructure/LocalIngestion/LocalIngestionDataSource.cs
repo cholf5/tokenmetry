@@ -20,6 +20,7 @@ using Tokenmetry.Infrastructure.ModelsDev;
 using Tokenmetry.Infrastructure.OpenClaw;
 using Tokenmetry.Infrastructure.OpenCodeSqlite;
 using Tokenmetry.Infrastructure.PiAgent;
+using Tokenmetry.Infrastructure.Plugins;
 using Tokenmetry.Infrastructure.QwenCode;
 using Tokenmetry.Infrastructure.ZCodeSqlite;
 
@@ -77,6 +78,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
     private readonly TimeZoneInfo? _timeZone;
     private readonly IngestionScanRegistry? _scanRegistry;
     private readonly IngestionFileLogger? _fileLog;
+    private readonly IPluginSourceProvider? _pluginSources;
     private SemaphoreSlim _ingestionGate = new(initialCount: 1, maxCount: 1);
 
     /// <summary>
@@ -236,37 +238,74 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         => timestamp.UtcDateTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// 管道扫描清单（S-002 数据源表的"已识别数据源"即此清单，经 <see cref="IngestionScanRegistry"/>
-    /// 注册，UI 不手写）：(源名, 扫描委托) 对，顺序即 <see cref="GetDailyUsageAsync"/> 的扫描与
-    /// 记录拼接顺序。源名 = 各适配器解析器声明的 <c>AgentName</c>（= facts agent 维度出账名）；
+    /// 内置数据源清单：源名与扫描委托的单一出处（<see cref="BuiltInAgentNames"/> 由此派生，
+    /// 安装器保留名不再手抄 20 项字面量）。委托工厂接收本实例以取适配器，管道每次构建时
+    /// 动态读取当前适配器。源名 = 各适配器解析器声明的 <c>AgentName</c>（= facts agent 维度出账名）；
     /// pi-agent 的记录按存储作用域出账（默认 "pi"，命名存储独立 agent），无单一出账名，源名取
     /// 适配器名 "pi-agent"；Antigravity 适配器无 AgentName 常量，取其出账名同值字面量。
     /// ClaudeCodeJsonlAdapter 返回 <see cref="ClaudeCodeScanResult"/>（<see cref="JsonlScanResult"/> 子类），
     /// 经 async await 归一为共享扫描模型。
     /// </summary>
-    private (string Agent, Func<CancellationToken, Task<JsonlScanResult>> Scan)[] BuildScanPipeline() =>
+    private static readonly (string Agent, Func<LocalIngestionDataSource, Func<CancellationToken, Task<JsonlScanResult>>> Scan)[] BuiltInSources =
     [
-        (ClaudeCodeJsonlLineParser.AgentName, async ct => await _claudeAdapter.ScanAsync(ct)),
-        (CodexJsonlFileParser.AgentName, async ct => await _codexAdapter.ScanAsync(ct)),
-        (ZCodeRecordMapper.AgentName, async ct => await _zcodeAdapter.ScanAsync(ct)),
-        (DshSessionLogParser.AgentName, async ct => await _dshAdapter.ScanAsync(ct)),
-        (CopilotSessionParser.AgentName, async ct => await _copilotAdapter.ScanAsync(ct)),
-        (OpenCodeMessageParser.AgentName, async ct => await _openCodeAdapter.ScanAsync(ct)),
-        (GooseSessionMapper.AgentName, async ct => await _gooseAdapter.ScanAsync(ct)),
-        (HermesSessionParser.AgentName, async ct => await _hermesAdapter.ScanAsync(ct)),
-        (KiloMessageParser.AgentName, async ct => await _kiloAdapter.ScanAsync(ct)),
-        (GeminiLogParser.AgentName, async ct => await _geminiAdapter.ScanAsync(ct)),
-        (AmpThreadParser.AgentName, async ct => await _ampAdapter.ScanAsync(ct)),
-        (DroidSettingsParser.AgentName, async ct => await _droidAdapter.ScanAsync(ct)),
-        (QwenLogParser.AgentName, async ct => await _qwenAdapter.ScanAsync(ct)),
-        (KimiLogParser.AgentName, async ct => await _kimiAdapter.ScanAsync(ct)),
-        (CodebuffChatParser.AgentName, async ct => await _codebuffAdapter.ScanAsync(ct)),
-        ("pi-agent", async ct => await _piAdapter.ScanAsync(ct)),
-        (CindyPiAdapter.AgentName, async ct => await _cindyAdapter.ScanAsync(ct)),
-        (GrokLogParser.AgentName, async ct => await _grokAdapter.ScanAsync(ct)),
-        (OpenClawLogParser.AgentName, async ct => await _openClawAdapter.ScanAsync(ct)),
-        ("Antigravity", async ct => await _antigravityAdapter.ScanAsync(ct)),
+        (ClaudeCodeJsonlLineParser.AgentName, source => async ct => await source._claudeAdapter.ScanAsync(ct)),
+        (CodexJsonlFileParser.AgentName, source => async ct => await source._codexAdapter.ScanAsync(ct)),
+        (ZCodeRecordMapper.AgentName, source => async ct => await source._zcodeAdapter.ScanAsync(ct)),
+        (DshSessionLogParser.AgentName, source => async ct => await source._dshAdapter.ScanAsync(ct)),
+        (CopilotSessionParser.AgentName, source => async ct => await source._copilotAdapter.ScanAsync(ct)),
+        (OpenCodeMessageParser.AgentName, source => async ct => await source._openCodeAdapter.ScanAsync(ct)),
+        (GooseSessionMapper.AgentName, source => async ct => await source._gooseAdapter.ScanAsync(ct)),
+        (HermesSessionParser.AgentName, source => async ct => await source._hermesAdapter.ScanAsync(ct)),
+        (KiloMessageParser.AgentName, source => async ct => await source._kiloAdapter.ScanAsync(ct)),
+        (GeminiLogParser.AgentName, source => async ct => await source._geminiAdapter.ScanAsync(ct)),
+        (AmpThreadParser.AgentName, source => async ct => await source._ampAdapter.ScanAsync(ct)),
+        (DroidSettingsParser.AgentName, source => async ct => await source._droidAdapter.ScanAsync(ct)),
+        (QwenLogParser.AgentName, source => async ct => await source._qwenAdapter.ScanAsync(ct)),
+        (KimiLogParser.AgentName, source => async ct => await source._kimiAdapter.ScanAsync(ct)),
+        (CodebuffChatParser.AgentName, source => async ct => await source._codebuffAdapter.ScanAsync(ct)),
+        ("pi-agent", source => async ct => await source._piAdapter.ScanAsync(ct)),
+        (CindyPiAdapter.AgentName, source => async ct => await source._cindyAdapter.ScanAsync(ct)),
+        (GrokLogParser.AgentName, source => async ct => await source._grokAdapter.ScanAsync(ct)),
+        (OpenClawLogParser.AgentName, source => async ct => await source._openClawAdapter.ScanAsync(ct)),
+        ("Antigravity", source => async ct => await source._antigravityAdapter.ScanAsync(ct)),
     ];
+
+    /// <summary>
+    /// 内置数据源的 Agent 名（安装器冲突保留名的单一出处；与 <see cref="BuiltInSources"/> 同源，
+    /// 不手抄清单）。插件 displayName 不得与其中任一冲突。
+    /// </summary>
+    public static IReadOnlyList<string> BuiltInAgentNames { get; } =
+        BuiltInSources.Select(static source => source.Agent).ToArray();
+
+    /// <summary>
+    /// 管道扫描清单（S-002 数据源表的"已识别数据源"即此清单，经 <see cref="IngestionScanRegistry"/>
+    /// 注册，UI 不手写）：(源名, 扫描委托) 对，顺序即 <see cref="GetDailyUsageAsync"/> 的扫描与
+    /// 记录拼接顺序。内置源之后追加当前启用插件源（每轮读取 <see cref="IPluginSourceProvider"/>
+    /// 当前快照，不做缓存，停用后自然不再扫描）。
+    /// </summary>
+    private (string Agent, Func<CancellationToken, Task<JsonlScanResult>> Scan)[] BuildScanPipeline()
+    {
+        var pluginSources = _pluginSources?.GetEnabledSources();
+        var pluginCount = pluginSources?.Count ?? 0;
+        var pipeline = new (string Agent, Func<CancellationToken, Task<JsonlScanResult>> Scan)[
+            BuiltInSources.Length + pluginCount];
+
+        var index = 0;
+        foreach (var (agent, scan) in BuiltInSources)
+        {
+            pipeline[index++] = (agent, scan(this));
+        }
+
+        if (pluginSources is not null)
+        {
+            foreach (var plugin in pluginSources)
+            {
+                pipeline[index++] = (plugin.Agent, plugin.ScanAsync);
+            }
+        }
+
+        return pipeline;
+    }
 
     /// <inheritdoc />
     public bool PersistsFacts => true;
@@ -306,7 +345,8 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         ModelsDevPricingClient? pricingClient = null,
         TimeZoneInfo? timeZone = null,
         IngestionScanRegistry? scanRegistry = null,
-        IngestionFileLogger? fileLogger = null)
+        IngestionFileLogger? fileLogger = null,
+        IPluginSourceProvider? pluginSources = null)
     {
         _claudeAdapter = claudeAdapter ?? throw new ArgumentNullException(nameof(claudeAdapter));
         _codexAdapter = codexAdapter ?? throw new ArgumentNullException(nameof(codexAdapter));
@@ -334,12 +374,22 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         _timeZone = timeZone;
         _scanRegistry = scanRegistry;
         _fileLog = fileLogger;
-        // S-002：管道组成即"已识别数据源"清单，构造时注册（含未扫描态——UI 显示"尚未扫描"）
+        _pluginSources = pluginSources;
+        // S-002：管道组成即"已识别数据源"清单，构造时注册（含未扫描态——UI 显示"尚未扫描"）。
+        // 内置源 + 当前启用的插件源（插件停用/卸载的注销由 provider.Refresh 负责）。
         if (_scanRegistry is { } registry)
         {
-            foreach (var (agent, _) in BuildScanPipeline())
+            foreach (var agent in BuiltInAgentNames)
             {
                 registry.RegisterSource(agent);
+            }
+
+            if (_pluginSources is { } pluginSourcesProvider)
+            {
+                foreach (var pluginSource in pluginSourcesProvider.GetEnabledSources())
+                {
+                    registry.RegisterSource(pluginSource.Agent);
+                }
             }
         }
     }

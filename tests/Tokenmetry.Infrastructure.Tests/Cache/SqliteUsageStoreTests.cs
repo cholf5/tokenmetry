@@ -180,6 +180,21 @@ public class SqliteUsageStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Full_facts_for_a_plugin_agent_survive_decomposition_cleanup()
+    {
+        // 插件停用/卸载不删历史 facts：facts 是 upsert-only，分解行清理（每轮管道固定执行）
+        // 只能清非 full 行，不得误伤任何 agent（含插件 Agent）的 full 行。
+        var pluginFact = CreateFullFact("2026-06-19", costUsd: 1m);
+        pluginFact.Agent = "Foo";
+        await _store.UpsertUsageFactsAsync(new List<UsageFact> { pluginFact });
+
+        await _store.DeleteDecompositionFactsAsync();
+
+        var stored = await _store.GetUsageFactsAsync();
+        stored.Should().ContainSingle().Which.Agent.Should().Be("Foo");
+    }
+
+    [Fact]
     public async Task Replace_usage_facts_by_day_cleans_stale_decomposition_rows()
     {
         var first = new List<UsageFact>

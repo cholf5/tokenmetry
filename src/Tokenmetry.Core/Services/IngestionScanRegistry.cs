@@ -122,6 +122,22 @@ public sealed class IngestionScanRegistry : IIngestionScanReader
         }
     }
 
+    /// <summary>
+    /// 注销一个数据源（插件停用/卸载）：从注册序、已知集合、结果快照与进行中快照一并移除，
+    /// 设置页不再显示该行。未知源幂等（重复注销 / 先停用后卸载不抛）。
+    /// </summary>
+    public void UnregisterSource(string agent)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agent);
+        lock (_gate)
+        {
+            _known.Remove(agent);
+            _order.Remove(agent);
+            _scans.Remove(agent);
+            _progress.Remove(agent);
+        }
+    }
+
     /// <inheritdoc />
     public IReadOnlyList<string> RegisteredSources
     {

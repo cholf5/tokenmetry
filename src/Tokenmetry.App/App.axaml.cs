@@ -180,6 +180,9 @@ public partial class App : Application
             // A-0：真正退出（托盘「退出」/ OS 会话结束）经生命周期正常收尾——Exit 在两种
             // shutdown 路径都会触发，此处停掉后台刷新定时器（替代此前 Environment.Exit 的跳过）。
             desktop.Exit += (_, _) => refreshService.Stop();
+            // 释放插件宿主进程（托盘退出 / desktop.Shutdown / 自更新重启共用此生命周期点）：
+            // 每个插件一个常驻子进程，不显式结束会残留到下次启动。
+            desktop.Exit += (_, _) => DependencyInjection.AppServices.ShutdownPluginHost();
             // 自更新交接：文件已替换（安装器拉起 / 便携形态原子替换完成）→ 本进程必须立刻走正常生命周期退出。
             // 旧实例握着 Tokenmetry.exe / tokenmetry.db，晚一步就是新实例抢不到互斥量、或安装器报
             // "文件正在使用"，要么装出半截。UIThread.Post + desktop.Shutdown：下载命令在 UI 线程的

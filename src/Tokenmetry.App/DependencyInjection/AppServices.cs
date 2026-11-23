@@ -27,6 +27,7 @@ using Tokenmetry.Infrastructure.LocalIngestion;
 using Tokenmetry.Infrastructure.OpenClaw;
 using Tokenmetry.Infrastructure.OpenCodeSqlite;
 using Tokenmetry.Infrastructure.PiAgent;
+using Tokenmetry.Infrastructure.Plugins;
 using Tokenmetry.Infrastructure.QwenCode;
 using Tokenmetry.Infrastructure.ZCodeSqlite;
 using Tokenmetry.Infrastructure.ModelsDev;
@@ -126,6 +127,43 @@ public static class AppServices
         // 源内进度经适配器透传进注册表（其余源全量查询秒级完成，不做源内进度）。
         services.AddSingleton<IngestionScanRegistry>();
         services.AddSingleton<IIngestionScanReader>(sp => sp.GetRequiredService<IngestionScanRegistry>());
+
+        // 自定义 Agent 插件：路径根 / 目录 / 安装器 / 宿主客户端 / 采集源提供者。
+        // 三条路径由 AppPaths 派生（Infrastructure 不引用 App）；启用状态唯一来源是 plugins.json。
+        var pluginPaths = new PluginPaths(
+            paths.PluginsDirectory,
+            paths.PluginDataDirectory,
+            paths.PluginRegistryFilePath);
+        services.AddSingleton(pluginPaths);
+        services.AddSingleton<IPluginCatalog>(sp => new PluginCatalog(sp.GetRequiredService<PluginPaths>()));
+        // 保留名 = 内置 Agent 名（单一出处：LocalIngestionDataSource.BuiltInAgentNames）+ 已安装插件显示名。
+        services.AddSingleton<IPluginInstaller>(sp => new PluginInstaller(
+            sp.GetRequiredService<IPluginCatalog>(),
+            sp.GetRequiredService<PluginPaths>(),
+            LocalIngestionDataSource.BuiltInAgentNames));
+
+        // 宿主可执行文件缺失（发布包未带 / 精简安装）时插件功能不可用，但应用照常启动：
+        // provider 返回空清单、不抛异常；插件服务不注册宿主客户端。
+        var pluginHostPath = PluginHostLocator.Locate();
+        if (pluginHostPath is not null)
+        {
+            // 10 分钟扫描超时：首次全量解析大日志可能很慢；与采集 gate（30 分钟）同量级但更紧，
+            // 保证挂死宿主不会永久占住该插件的扫描门闩。
+            services.AddSingleton<IPluginHostClient>(_ => new PluginHostClient(
+                new PluginHostProcessFactory(
+                    pluginHostPath,
+                    pluginPaths.PluginDataDirectory,
+                    line => ingestionLogger.WriteLine(line)),
+                TimeSpan.FromMinutes(10)));
+            services.AddSingleton<IPluginSourceProvider>(sp => new PluginSourceProvider(
+                sp.GetRequiredService<IPluginCatalog>(),
+                sp.GetRequiredService<IPluginHostClient>(),
+                sp.GetRequiredService<IngestionScanRegistry>()));
+        }
+        else
+        {
+            services.AddSingleton<IPluginSourceProvider>(_ => UnavailablePluginSourceProvider.Instance);
+        }
         services.AddSingleton(sp => new ClaudeCodeJsonlAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<IClaudeCodeJsonlAdapter>(sp => sp.GetRequiredService<ClaudeCodeJsonlAdapter>());
         services.AddSingleton(sp => new CodexJsonlAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
@@ -200,7 +238,8 @@ public static class AppServices
             pricingClient,
             timeZone: null,
             sp.GetRequiredService<IngestionScanRegistry>(),
-            sp.GetRequiredService<IngestionFileLogger>()));
+            sp.GetRequiredService<IngestionFileLogger>(),
+            pluginSources: sp.GetRequiredService<IPluginSourceProvider>()));
         services.AddSingleton<IUsageDataSource>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
         // I-042：价格/别名热更新后的强制全量通道（I-037 契约在无变化短路下的新编码）
         services.AddSingleton<IAggregationInvalidator>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
@@ -253,6 +292,15 @@ public static class AppServices
 
         _provider = services.BuildServiceProvider();
 
+        // 插件装载先于采集源物化：重扫已安装插件与启用状态，再刷新采集源提供者，
+        // 保证首轮管道与"已识别数据源"清单包含已启用插件（两方法均为同步目录扫描；
+        // 宿主可执行文件缺失时 provider 为空提供者，Refresh 空操作）。
+        _provider.GetRequiredService<IPluginCatalog>()
+            .ReloadAsync(System.Threading.CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        _provider.GetRequiredService<IPluginSourceProvider>().Refresh();
+
         // S-002：启动即物化本地采集源（构造侧向扫描注册表登记管道组合——"已识别的数据源"清单），
         // 不依赖 DashboardViewModel 的解析时机；真正的扫描仍只在刷新时发生。
         _provider.GetRequiredService<LocalIngestionDataSource>();
@@ -296,6 +344,28 @@ public static class AppServices
         catch
         {
             // 接线失败不冒泡进 Changed 触发方（采集/同步管线）；下一轮 Changed 重试。
+        }
+    }
+
+    /// <summary>
+    /// 进程退出收尾：释放在跑的插件宿主进程。挂在既有统一退出生命周期点（<c>desktop.Exit</c>，
+    /// 托盘退出 / desktop.Shutdown / 自更新重启都会触发）；宿主可执行文件缺失时客户端未注册，
+    /// 此处空操作。DisposeAsync 内部逐个同步 Kill 进程树，等待完成避免退出后残留子进程。
+    /// </summary>
+    public static void ShutdownPluginHost()
+    {
+        if (_provider?.GetService<IPluginHostClient>() is not { } client)
+        {
+            return;
+        }
+
+        try
+        {
+            client.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // 退出路径尽力而为：单个进程清理异常不阻塞进程退出。
         }
     }
 

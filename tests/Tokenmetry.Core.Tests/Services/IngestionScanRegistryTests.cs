@@ -142,4 +142,45 @@ public class IngestionScanRegistryTests
         registry.RegisterSource("Idle");
         registry.GetScanProgress("Idle").Should().BeNull();
     }
+
+    // ── 插件停用/卸载注销 ──
+
+    [Fact]
+    public void UnregisterSource_removes_row_and_snapshot()
+    {
+        // 插件停用/卸载后其数据源不再出现在"已识别数据源"清单里，快照一并清掉。
+        var registry = new IngestionScanRegistry();
+        registry.RegisterSource("Foo");
+        registry.ReportScan("Foo", JsonlScanStatus.Ok, 3, DateTimeOffset.UtcNow);
+
+        registry.UnregisterSource("Foo");
+
+        registry.RegisteredSources.Should().BeEmpty();
+        registry.GetLastScan("Foo").Should().BeNull();
+    }
+
+    [Fact]
+    public void UnregisterSource_removes_in_progress_snapshot()
+    {
+        var registry = new IngestionScanRegistry();
+        registry.BeginScan("Foo");
+
+        registry.UnregisterSource("Foo");
+
+        registry.RegisteredSources.Should().BeEmpty();
+        registry.GetScanProgress("Foo").Should().BeNull();
+    }
+
+    [Fact]
+    public void UnregisterSource_unknown_source_is_idempotent()
+    {
+        // 重复 Refresh / 未知 id 的注销不得抛异常，也不得扰动其他源的注册序。
+        var registry = new IngestionScanRegistry();
+        registry.RegisterSource("Claude Code");
+
+        var act = () => registry.UnregisterSource("Unknown");
+
+        act.Should().NotThrow();
+        registry.RegisteredSources.Should().Equal("Claude Code");
+    }
 }
