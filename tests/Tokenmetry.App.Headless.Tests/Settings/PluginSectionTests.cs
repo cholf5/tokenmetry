@@ -105,6 +105,26 @@ public sealed class PluginSectionTests
         dialog.Close();
     }
 
+    [AvaloniaFact]
+    public void Uninstall_dialog_confirm_button_uses_uninstall_verb()
+    {
+        var dialog = AvaloniaPluginInstallConfirmation.BuildUninstallDialog("Foo");
+        dialog.Show();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        // 标题、正文、肯定按钮都必须是卸载语义；肯定按钮不得复用安装动词。
+        var confirm = dialog.GetVisualDescendants().OfType<Button>().Single(button => button.IsDefault);
+        Assert.Equal(Translations.Instance.PluginUninstallAction, confirm.Content as string);
+        Assert.NotEqual(Translations.Instance.PluginInstallConfirm, confirm.Content as string);
+
+        var body = FindText(dialog, Translations.Instance.PluginUninstallConfirm);
+        Assert.True(ChartTestHelpers.IsEffectivelyVisible(body), "卸载确认正文可见");
+        Assert.Equal(Translations.Instance.PluginUninstallAction, dialog.Title);
+
+        dialog.Close();
+    }
+
     private static PluginsSectionViewModel CreateSection(IPluginCatalog catalog, string? hostPath) =>
         new(
             catalog,

@@ -41,6 +41,17 @@ public sealed class AvaloniaPluginInstallConfirmation : IPluginInstallConfirmati
             return false;
         }
 
+        var dialog = BuildUninstallDialog(displayName);
+        return await dialog.ShowDialog<bool>(owner);
+    }
+
+    /// <summary>
+    /// 卸载确认窗的构建缝（headless 测试可直接 Show 后检查按钮文案）：标题、正文与肯定按钮
+    /// 全部使用卸载语义（<see cref="Translations.PluginUninstallAction"/> /
+    /// <see cref="Translations.PluginUninstallConfirm"/>），不得复用「确认安装」动词。
+    /// </summary>
+    public static Window BuildUninstallDialog(string displayName)
+    {
         var cancel = new Button
         {
             Content = Translations.Instance.PluginInstallCancel,
@@ -50,7 +61,7 @@ public sealed class AvaloniaPluginInstallConfirmation : IPluginInstallConfirmati
         };
         var confirm = new Button
         {
-            Content = Translations.Instance.PluginInstallConfirm,
+            Content = Translations.Instance.PluginUninstallAction,
             Classes = { "app-btn", "primary" },
             IsDefault = true,
             MinWidth = 96,
@@ -101,7 +112,7 @@ public sealed class AvaloniaPluginInstallConfirmation : IPluginInstallConfirmati
         confirm.Click += (_, _) => dialog.Close(true);
         cancel.Click += (_, _) => dialog.Close(false);
 
-        return await dialog.ShowDialog<bool>(owner);
+        return dialog;
     }
 
     private static Window? MainWindow =>
