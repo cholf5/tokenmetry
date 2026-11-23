@@ -32,13 +32,32 @@ public class PluginHostIntegrationTests
     public async Task Invalid_records_are_counted_and_not_emitted()
     {
         using var workspace = new TestWorkspace();
-        // 缺 sessionId：fixture 仍产出记录，宿主校验后拒绝。
+        // 缺 sessionId：fixture 仍产出记录，宿主校验后拒绝。整份快照全部不合规 → Error。
         await workspace.WriteUsageAsync(
             """{"projectPath":"/work/foo","model":"foo-large","inputTokens":10,"outputTokens":5}""");
 
         var result = await PluginHostTestRunner.ScanAsync(workspace.PluginDirectory, workspace.DataDirectory);
 
         Assert.Empty(result.Records);
+        Assert.Equal(1, result.Diagnostics.InvalidRecords);
+        Assert.Equal(PluginScanStatus.Error, result.Diagnostics.Status);
+    }
+
+    [Fact]
+    public async Task Mixed_valid_and_invalid_records_report_partial()
+    {
+        using var workspace = new TestWorkspace();
+        // 一条合法 + 一条缺 sessionId：有效记录正常回传，存在坏行 → Partial。
+        await workspace.WriteUsageAsync(
+            """
+            {"sessionId":"s1","projectPath":"/work/foo","model":"foo-large","inputTokens":10,"outputTokens":5}
+            {"projectPath":"/work/bar","model":"foo-large","inputTokens":20,"outputTokens":7}
+            """);
+
+        var result = await PluginHostTestRunner.ScanAsync(workspace.PluginDirectory, workspace.DataDirectory);
+
+        Assert.Single(result.Records);
+        Assert.Equal("s1", result.Records[0].SessionId);
         Assert.Equal(1, result.Diagnostics.InvalidRecords);
         Assert.Equal(PluginScanStatus.Partial, result.Diagnostics.Status);
     }

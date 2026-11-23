@@ -272,15 +272,27 @@ public static class PluginHostServer
         var status = pluginDiagnostics.Status;
 
         // 插件自报 Ok/Partial 时，宿主按校验结果收口状态；NoData/Error 直接沿用。
+        // 口径（design §5.6）：有可用记录 + 有坏行 → Partial；零可用记录但有坏行 → Error
+        // （“输出全部不合规”）；完全无记录且无坏行 → NoData。
         if (status is PluginScanStatus.Ok or PluginScanStatus.Partial)
         {
-            if (invalidRecords > 0 || duplicateRecords > 0)
+            var hasRejected = invalidRecords > 0 || duplicateRecords > 0;
+
+            if (hasRejected && emittedRecords == 0)
+            {
+                status = PluginScanStatus.Error;
+            }
+            else if (hasRejected)
             {
                 status = PluginScanStatus.Partial;
             }
             else if (hasChanges && emittedRecords == 0)
             {
                 status = PluginScanStatus.NoData;
+            }
+            else
+            {
+                status = PluginScanStatus.Ok;
             }
         }
 
