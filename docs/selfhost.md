@@ -60,6 +60,8 @@ scripts/deploy-relay.sh user@your-server --mode framework   # 复用远端 ASP.N
 多台设备填同一地址 + 同一 token，即构成一个单租户账号（A15：token 即唯一账号凭据，无注册/
 登录/找回体系——自建者拥有服务器，丢了 token 就 SSH 上去重签）。
 
+> 官方实例当前未开放：设置页里该选项置灰，客户端同步一律走「自建中继」。
+
 ## 环境变量
 
 | 变量 | 作用 | 默认 |

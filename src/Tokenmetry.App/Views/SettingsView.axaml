@@ -298,13 +298,19 @@
                                    Text="{Binding SyncDisabledHint, Source={x:Static loc:Translations.Instance}}"/>
 
                         <StackPanel Orientation="Horizontal" Spacing="20">
+                            <!-- 官方实例暂未开放：置灰且不可选，用户一律走自建中继（产品短期不部署官方实例） -->
                             <RadioButton GroupName="syncMode" Content="{Binding SyncModeOfficial, Source={x:Static loc:Translations.Instance}}"
-                                         IsChecked="{Binding IsOfficialMode}"/>
+                                         IsChecked="{Binding IsOfficialMode}"
+                                         IsEnabled="{Binding IsOfficialAvailable}"/>
                             <RadioButton GroupName="syncMode" Content="{Binding SyncModeSelfHosted, Source={x:Static loc:Translations.Instance}}"
                                          IsChecked="{Binding !IsOfficialMode}"/>
                         </StackPanel>
 
-                        <!-- 官方通道：GitHub 登录（loopback 回监听；client_id 编译期常量，未配置时点击呈错误态） -->
+                        <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                   Text="{Binding SyncOfficialUnavailableHint, Source={x:Static loc:Translations.Instance}}"
+                                   IsVisible="{Binding !IsOfficialAvailable}"/>
+
+                        <!-- 官方通道：GitHub 登录（loopback 回监听；仅官方实例开放后可达） -->
                         <Button Classes="app-btn"
                                 Content="{Binding SyncLoginGitHub, Source={x:Static loc:Translations.Instance}}"
                                 Command="{Binding LoginGitHubCommand}"

@@ -123,6 +123,7 @@ public sealed partial class Translations
         [nameof(SyncHideToken)] = "토큰 숨기기",
         [nameof(SyncModeSelfHosted)] = "자체 호스팅",
         [nameof(SyncModeOfficial)] = "공식 인스턴스",
+        [nameof(SyncOfficialUnavailableHint)] = "공식 인스턴스는 아직 공개되지 않았습니다. 릴레이 서버를 직접 배포한 뒤 '자체 호스팅'으로 연결하세요.",
         [nameof(SyncDisable)] = "동기화 중지",
         [nameof(SyncEnable)] = "동기화 사용",
         [nameof(SyncTitle)] = "기기 간 동기화",

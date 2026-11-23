@@ -138,6 +138,30 @@ public sealed class SettingsSyncBlockTests
     }
 
     [AvaloniaFact]
+    public async Task OfficialInstance_IsShownAsNotOpen_SelfHostRemainsDefault()
+    {
+        using var fixture = new SyncFixture();
+        await fixture.SyncState.InitializeAsync();
+        var window = Show(fixture.ViewModel);
+
+        var official = window.GetVisualDescendants().OfType<RadioButton>()
+            .Single(r => Equals(r.Content, Translations.Instance.SyncModeOfficial));
+        var selfHosted = window.GetVisualDescendants().OfType<RadioButton>()
+            .Single(r => Equals(r.Content, Translations.Instance.SyncModeSelfHosted));
+
+        Assert.False(official.IsEnabled, "官方实例暂未开放：入口置灰");
+        Assert.False(official.IsChecked, "不能选中未开放的官方实例");
+        Assert.True(selfHosted.IsChecked, "默认选中自建中继");
+
+        var hint = window.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Text == Translations.Instance.SyncOfficialUnavailableHint);
+        Assert.True(ChartTestHelpers.IsEffectivelyVisible(hint), "显示自建中继引导");
+
+        fixture.ViewModel.IsOfficialMode = true;
+        Assert.False(fixture.ViewModel.IsOfficialMode, "代码路径也不能切到未开放的官方通道");
+    }
+
+    [AvaloniaFact]
     public async Task SelfHostFlow_PasteTokenEnable_ShowsDeviceList()
     {
         using var fixture = new SyncFixture();

@@ -20,6 +20,14 @@ public static class TokenmetryOfficial
 
     /// <summary>官方中继根地址（如 https://relay.tokenmetry.example）。</summary>
     public const string OfficialRelayUrl = "";
+
+    /// <summary>
+    /// 官方实例是否已开放：两个编译期常量都配置齐全才算开放。
+    /// 当前两项均为空串（官方实例暂不部署），设置页据此把「官方实例」入口置灰，
+    /// 并引导用户自建中继。将来部署官方实例只需填常量并出包，视图无需再改。
+    /// </summary>
+    public static bool IsAvailable =>
+        !string.IsNullOrEmpty(OfficialRelayUrl) && !string.IsNullOrEmpty(GitHubClientId);
 }
 
 /// <summary>

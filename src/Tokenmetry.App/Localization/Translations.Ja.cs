@@ -123,6 +123,7 @@ public sealed partial class Translations
         [nameof(SyncHideToken)] = "トークンを隠す",
         [nameof(SyncModeSelfHosted)] = "セルフホスト",
         [nameof(SyncModeOfficial)] = "公式インスタンス",
+        [nameof(SyncOfficialUnavailableHint)] = "公式インスタンスは現在公開されていません。リレーサーバーを自前でデプロイし、「セルフホスト」から接続してください。",
         [nameof(SyncDisable)] = "同期を無効にする",
         [nameof(SyncEnable)] = "同期を有効にする",
         [nameof(SyncTitle)] = "デバイス間同期",

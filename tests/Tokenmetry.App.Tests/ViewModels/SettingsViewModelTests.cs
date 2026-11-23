@@ -628,6 +628,20 @@ public class SettingsViewModelTests
     public void IsOfficialRelayEndpoint_ClassifiesByCompiledOfficialUrl(string endpoint, string official, bool expected) =>
         SettingsViewModel.IsOfficialRelayEndpoint(endpoint, official).Should().Be(expected);
 
+    // ---- 官方实例暂未开放（产品短期不部署官方实例，用户一律走自建中继） ----
+
+    [Fact]
+    public void OfficialMode_IsUnavailable_AndCannotBeSelected()
+    {
+        var viewModel = CreateViewModel(new AppSettings(), new AppPaths("C:\\tokenmetry"), new FakeSettingsStore());
+
+        viewModel.IsOfficialAvailable.Should().BeFalse("官方常量未配置 = 官方实例未开放");
+
+        viewModel.IsOfficialMode = true;
+
+        viewModel.IsOfficialMode.Should().BeFalse("未开放时不允许停在官方通道");
+    }
+
     // ---- helpers ----
     private static SettingsViewModel CreateViewModel(
         AppSettings settings,

@@ -123,6 +123,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SyncDisable)] = "关闭同步",
         [nameof(SyncModeOfficial)] = "官方实例",
         [nameof(SyncModeSelfHosted)] = "自建中继",
+        [nameof(SyncOfficialUnavailableHint)] = "官方实例暂未开放，请自行部署中继服务器，并使用「自建中继」接入同步。",
         [nameof(SyncEndpoint)] = "服务器地址",
         [nameof(SyncToken)] = "访问令牌",
         [nameof(SyncConnection)] = "连接方式",
@@ -726,6 +727,7 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(SyncDisable)] = "Disable sync",
         [nameof(SyncModeOfficial)] = "Official instance",
         [nameof(SyncModeSelfHosted)] = "Self-hosted relay",
+        [nameof(SyncOfficialUnavailableHint)] = "The official instance is not open yet. Deploy your own relay server and connect through “Self-hosted relay”.",
         [nameof(SyncEndpoint)] = "Server address",
         [nameof(SyncToken)] = "Access token",
         [nameof(SyncConnection)] = "Connection",
@@ -1472,6 +1474,7 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string SyncDisable => Get();
     public string SyncModeOfficial => Get();
     public string SyncModeSelfHosted => Get();
+    public string SyncOfficialUnavailableHint => Get();
     public string SyncEndpoint => Get();
     public string SyncToken => Get();
     public string SyncConnection => Get();

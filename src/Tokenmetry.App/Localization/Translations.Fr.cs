@@ -123,6 +123,7 @@ public sealed partial class Translations
         [nameof(SyncHideToken)] = "Masquer le jeton",
         [nameof(SyncModeSelfHosted)] = "Relais auto-hébergé",
         [nameof(SyncModeOfficial)] = "Instance officielle",
+        [nameof(SyncOfficialUnavailableHint)] = "L'instance officielle n'est pas encore ouverte. Déployez votre propre relais et connectez-vous via « Relais auto-hébergé ».",
         [nameof(SyncDisable)] = "Désactiver la synchronisation",
         [nameof(SyncEnable)] = "Activer la synchronisation",
         [nameof(SyncTitle)] = "Synchronisation entre appareils",

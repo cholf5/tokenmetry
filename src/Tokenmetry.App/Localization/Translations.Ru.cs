@@ -125,6 +125,7 @@ public sealed partial class Translations
         [nameof(SyncHideToken)] = "Скрыть токен",
         [nameof(SyncModeSelfHosted)] = "Собственный сервер",
         [nameof(SyncModeOfficial)] = "Официальный экземпляр",
+        [nameof(SyncOfficialUnavailableHint)] = "Официальный экземпляр пока не открыт. Разверните собственный ретранслятор и подключитесь через «Собственный сервер».",
         [nameof(SyncDisable)] = "Отключить синхронизацию",
         [nameof(SyncEnable)] = "Включить синхронизацию",
         [nameof(SyncTitle)] = "Синхронизация между устройствами",

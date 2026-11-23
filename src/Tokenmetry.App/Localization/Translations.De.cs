@@ -123,6 +123,7 @@ public sealed partial class Translations
         [nameof(SyncHideToken)] = "Token ausblenden",
         [nameof(SyncModeSelfHosted)] = "Selbst gehostet",
         [nameof(SyncModeOfficial)] = "Offizielle Instanz",
+        [nameof(SyncOfficialUnavailableHint)] = "Die offizielle Instanz ist noch nicht verfügbar. Betreibe deinen eigenen Relay-Server und verbinde dich über „Selbst gehostet“.",
         [nameof(SyncDisable)] = "Synchronisierung deaktivieren",
         [nameof(SyncEnable)] = "Synchronisierung aktivieren",
         [nameof(SyncTitle)] = "Geräteübergreifende Synchronisierung",

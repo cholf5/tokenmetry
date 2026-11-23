@@ -769,6 +769,21 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isOfficialMode;
 
+    /// <summary>
+    /// 官方实例入口是否开放（官方常量未配置 = 暂未开放）：视图据此置灰官方单选项并显示自建引导。
+    /// 当前产品决定短期内不部署官方实例，用户一律走自建中继。
+    /// </summary>
+    public bool IsOfficialAvailable => TokenmetryOfficial.IsAvailable;
+
+    partial void OnIsOfficialModeChanged(bool value)
+    {
+        // 官方实例未开放时不允许停在官方通道：置灰是视觉约束，这里兜住代码路径与旧绑定。
+        if (value && !IsOfficialAvailable)
+        {
+            IsOfficialMode = false;
+        }
+    }
+
     [ObservableProperty]
     private string _deviceNameInput = string.Empty;
 
@@ -958,7 +973,8 @@ public partial class SettingsViewModel : ViewModelBase
         var endpoint = TokenmetryOfficial.OfficialRelayUrl;
         if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(TokenmetryOfficial.GitHubClientId) || _syncState is null)
         {
-            SyncStatusText = Translations.Instance.SyncStatusError;
+            // 官方实例暂未开放：不发起任何网络动作，直接给出自建引导。
+            SyncStatusText = Translations.Instance.SyncOfficialUnavailableHint;
             LastSyncText = string.Empty;
             return;
         }

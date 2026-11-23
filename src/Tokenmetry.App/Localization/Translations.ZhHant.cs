@@ -123,6 +123,7 @@ public sealed partial class Translations
         [nameof(SyncHideToken)] = "隱藏權杖",
         [nameof(SyncModeSelfHosted)] = "自建中繼",
         [nameof(SyncModeOfficial)] = "官方實例",
+        [nameof(SyncOfficialUnavailableHint)] = "官方實例暫未開放，請自行部署中繼伺服器，並使用「自建中繼」接入同步。",
         [nameof(SyncDisable)] = "關閉同步",
         [nameof(SyncEnable)] = "啟用同步",
         [nameof(SyncTitle)] = "跨裝置同步",
