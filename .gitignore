@@ -217,6 +217,9 @@ FakesAssemblies/
 .zcode/
 docs/plans/
 
+# harness 从 .agents/skills 生成的符号链接（真实源在 .agents，生成物不入库）
+.claude/skills/
+
 # I-039 发布产物（scripts/package.sh 本地打包输出；CI 在 runner 上自产自销）
 dist/
 Tokenmetry-*.zip
