@@ -8,13 +8,16 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.DependencyInjection;
 using Tokenmetry.App.Localization;
@@ -54,6 +57,37 @@ public class DimensionPagesTests
         public List<string> Messages { get; } = new();
 
         public void Show(string message, Visual? host = null) => Messages.Add(message);
+    }
+
+    // ── stub 应用图标（默认不回图标，避免测试真跑 plutil/sips）──
+
+    private sealed class NoIconProvider : IAppIconProvider
+    {
+        public static NoIconProvider Instance { get; } = new();
+
+        public Task<IImage?> GetIconAsync(string cacheKey, string? iconSource) =>
+            Task.FromResult<IImage?>(null);
+    }
+
+    private sealed class StubIconProvider : IAppIconProvider
+    {
+        /// <summary>1×1 红色 PNG。</summary>
+        private const string TinyPng =
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==";
+
+        public int Calls { get; private set; }
+
+        public Task<IImage?> GetIconAsync(string cacheKey, string? iconSource)
+        {
+            Calls++;
+            if (string.IsNullOrWhiteSpace(iconSource))
+            {
+                return Task.FromResult<IImage?>(null);
+            }
+
+            using var stream = new MemoryStream(Convert.FromBase64String(TinyPng));
+            return Task.FromResult<IImage?>(new Bitmap(stream));
+        }
     }
 
     // ── stub 查询服务（三维度可配置 + 调用记账 + 挂起，模式同 SessionsTests）──
@@ -311,16 +345,38 @@ public class DimensionPagesTests
         ProjectsViewModel Vm,
         StubQueryService Stub,
         FilterStateService Filters,
-        List<(string Path, string? Label)> NavigatedProjects);
+        List<(string Path, string? Label)> NavigatedProjects,
+        StubToast Toast);
 
-    private static ProjectsHost CreateProjectsHost(StubQueryService? stub = null, FilterStateService? filters = null)
+    private static ProjectsHost CreateProjectsHost(
+        StubQueryService? stub = null,
+        FilterStateService? filters = null,
+        Func<string, bool>? isOpenablePath = null,
+        Func<string, bool>? directoryExists = null,
+        Func<string, bool>? openFolder = null,
+        Func<string, bool>? openTerminal = null,
+        StubToast? toast = null,
+        IReadOnlyList<ExternalApp>? externalApps = null,
+        IAppIconProvider? iconProvider = null)
     {
         stub ??= new StubQueryService { Projects = FixtureProjects() };
         filters ??= new FilterStateService();
+        toast ??= new StubToast();
         var navigated = new List<(string, string?)>();
-        var vm = new ProjectsViewModel(ShellPages.For(PageId.Projects), filters, stub, (path, label) => navigated.Add((path, label)));
+        var vm = new ProjectsViewModel(
+            ShellPages.For(PageId.Projects),
+            filters,
+            stub,
+            (path, label) => navigated.Add((path, label)),
+            toast,
+            directoryExists,
+            openFolder,
+            openTerminal,
+            isOpenablePath,
+            externalApps ?? [],
+            iconProvider ?? NoIconProvider.Instance);
         Dispatcher.UIThread.RunJobs();
-        return new ProjectsHost(vm, stub, filters, navigated);
+        return new ProjectsHost(vm, stub, filters, navigated, toast);
     }
 
     private static MainWindowViewModel CreateShell(StubQueryService stub, FilterStateService filters, StubToast toast)
@@ -867,26 +923,216 @@ public class DimensionPagesTests
     }
 
     [AvaloniaFact]
-    public void Project_row_click_invokes_callback_with_raw_path()
+    public void Project_row_open_sessions_invokes_callback_with_raw_path()
     {
         var host = CreateProjectsHost();
 
-        host.Vm.SelectedProject = host.Vm.Rows[0];
+        host.Vm.OpenSessionsFor(host.Vm.Rows[0]);
         var (path, label) = Assert.Single(host.NavigatedProjects);
         Assert.Equal("/work/alpha", path); // 查询值 = 原始路径（I-029 Project 精确匹配）
         Assert.Equal("alpha", label); // 展示值 = 归一化名
-        Assert.Null(host.Vm.SelectedProject);
     }
 
     [AvaloniaFact]
-    public void Project_row_click_noop_without_callback()
+    public void Project_row_open_sessions_noop_without_callback()
     {
         var stub = new StubQueryService { Projects = FixtureProjects() };
         var vm = new ProjectsViewModel(ShellPages.For(PageId.Projects), new FilterStateService(), stub);
         Dispatcher.UIThread.RunJobs();
 
-        vm.SelectedProject = vm.Rows[0];
-        Assert.Null(vm.SelectedProject);
+        vm.OpenSessionsFor(vm.Rows[0]); // 不抛即可（测试/预览无外壳回调）
+    }
+
+    [AvaloniaFact]
+    public void Project_row_can_open_is_gated_by_path_predicate()
+    {
+        var host = CreateProjectsHost(isOpenablePath: path => path == "/work/alpha");
+
+        Assert.True(host.Vm.Rows.Single(row => row.RawPath == "/work/alpha").CanOpen);
+        Assert.False(host.Vm.Rows.Single(row => row.RawPath == "/work/beta").CanOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task Project_context_menu_executes_open_folder_and_terminal_for_row()
+    {
+        var folders = new List<string>();
+        var terminals = new List<string>();
+        var host = CreateProjectsHost(
+            isOpenablePath: _ => true,
+            directoryExists: _ => true,
+            openFolder: path => { folders.Add(path); return true; },
+            openTerminal: path => { terminals.Add(path); return true; });
+        var row = host.Vm.Rows[0];
+
+        var menu = ProjectsView.BuildProjectRowMenu(host.Vm, row);
+        var items = menu.Items.OfType<MenuItem>().ToList();
+        Assert.Equal(2, items.Count);
+        // 文案引用 Translations 属性断言（语言无关纪律：两套测试与实现同源）
+        Assert.Equal(Translations.Instance.ProjectRowOpenFolder, items[0].Header);
+        Assert.Equal(
+            string.Format(Translations.Instance.ProjectRowOpenTerminalNamedFormat, TerminalLauncher.PreferredDisplayName()),
+            items[1].Header);
+
+        await ((IAsyncRelayCommand)items[0].Command!).ExecuteAsync(items[0].CommandParameter);
+        await ((IAsyncRelayCommand)items[1].Command!).ExecuteAsync(items[1].CommandParameter);
+        Assert.Equal(new[] { row.RawPath }, folders);
+        Assert.Equal(new[] { row.RawPath }, terminals);
+    }
+
+    [AvaloniaFact]
+    public async Task Project_context_menu_lists_detected_external_apps_and_executes_them()
+    {
+        var opened = new List<string>();
+        var externalApps = new List<ExternalApp>
+        {
+            new("vscode", "VS Code", ExternalAppKind.Editor, path => { opened.Add("vscode:" + path); return true; }),
+            new("fork", "Fork", ExternalAppKind.GitClient, path => { opened.Add("fork:" + path); return true; }),
+        };
+        var host = CreateProjectsHost(
+            isOpenablePath: _ => true,
+            directoryExists: _ => true,
+            externalApps: externalApps);
+        var row = host.Vm.Rows[0];
+
+        var menu = ProjectsView.BuildProjectRowMenu(host.Vm, row);
+        var items = menu.Items.OfType<MenuItem>().ToList();
+        Assert.Equal(4, items.Count); // 文件管理器 + 终端 + 一个编辑器 + 一个 Git 客户端
+        Assert.Equal(
+            string.Format(Translations.Instance.ProjectRowOpenInAppFormat, "VS Code"),
+            items[2].Header);
+        Assert.Equal(
+            string.Format(Translations.Instance.ProjectRowOpenInAppFormat, "Fork"),
+            items[3].Header);
+
+        await ((IAsyncRelayCommand)items[2].Command!).ExecuteAsync(null);
+        await ((IAsyncRelayCommand)items[3].Command!).ExecuteAsync(null);
+        Assert.Equal(new[] { "vscode:" + row.RawPath, "fork:" + row.RawPath }, opened);
+    }
+
+    [AvaloniaFact]
+    public void Project_context_menu_attaches_extracted_app_icons()
+    {
+        var externalApps = new List<ExternalApp>
+        {
+            new("vscode", "VS Code", ExternalAppKind.Editor, _ => true, "/Applications/Visual Studio Code.app"),
+            new("fork", "Fork", ExternalAppKind.GitClient, _ => true, "/Applications/Fork.app"),
+        };
+        var host = CreateProjectsHost(
+            isOpenablePath: _ => true,
+            externalApps: externalApps,
+            iconProvider: new StubIconProvider());
+
+        var menu = ProjectsView.BuildProjectRowMenu(host.Vm, host.Vm.Rows[0]);
+        Dispatcher.UIThread.RunJobs();
+        var items = menu.Items.OfType<MenuItem>().ToList();
+
+        Assert.Equal(4, items.Count);
+        Assert.IsType<Image>(items[2].Icon);
+        Assert.IsType<Image>(items[3].Icon);
+        Assert.NotNull(((Image)items[2].Icon!).Source);
+        Assert.NotNull(((Image)items[3].Icon!).Source);
+    }
+
+    [AvaloniaFact]
+    public async Task Project_open_commands_report_missing_directory_and_terminal_failure()
+    {
+        var folders = new List<string>();
+        var missing = CreateProjectsHost(
+            isOpenablePath: _ => true,
+            directoryExists: _ => false,
+            openFolder: path => { folders.Add(path); return true; });
+
+        await missing.Vm.OpenProjectFolderCommand.ExecuteAsync(missing.Vm.Rows[0]);
+        await missing.Vm.OpenProjectTerminalCommand.ExecuteAsync(missing.Vm.Rows[0]);
+        Assert.Empty(folders); // 目录不存在：不调用启动器
+        Assert.Equal(
+            new[] { Translations.Instance.ToastProjectPathMissing, Translations.Instance.ToastProjectPathMissing },
+            missing.Toast.Messages);
+
+        var terminalFailure = CreateProjectsHost(
+            isOpenablePath: _ => true,
+            directoryExists: _ => true,
+            openTerminal: _ => false);
+        await terminalFailure.Vm.OpenProjectTerminalCommand.ExecuteAsync(terminalFailure.Vm.Rows[0]);
+        Assert.Equal(new[] { Translations.Instance.ToastTerminalUnavailable }, terminalFailure.Toast.Messages);
+    }
+
+    [AvaloniaFact]
+    public void Project_row_right_click_opens_gated_menu_without_navigating_and_left_click_navigates()
+    {
+        var host = CreateProjectsHost(isOpenablePath: path => path == "/work/alpha");
+        var view = new ProjectsView { DataContext = host.Vm };
+        var window = new Window { Width = 1180, Height = 860, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var rows = view.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.DataContext is ProjectRankRowViewModel && b.GetVisualParent() is ContentPresenter)
+            .ToList();
+        Assert.Equal(3, rows.Count);
+        var alpha = rows.Single(b => ((ProjectRankRowViewModel)b.DataContext!).RawPath == "/work/alpha");
+        var beta = rows.Single(b => ((ProjectRankRowViewModel)b.DataContext!).RawPath == "/work/beta");
+
+        var alphaPoint = alpha.TranslatePoint(new Point(alpha.Bounds.Width / 2, 3), window)
+            ?? throw new InvalidOperationException("alpha 行不在可视树");
+        window.MouseDown(alphaPoint, MouseButton.Right);
+        window.MouseUp(alphaPoint, MouseButton.Right);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(alpha.ContextMenu is { IsOpen: true }, "可打开行整行右键给菜单");
+        Assert.Equal(2, alpha.ContextMenu!.Items.OfType<MenuItem>().Count());
+        Assert.Empty(host.NavigatedProjects); // 右键只开菜单，不跳会话页
+        alpha.ContextMenu.Close();
+        Dispatcher.UIThread.RunJobs();
+
+        var betaPoint = beta.TranslatePoint(new Point(beta.Bounds.Width / 2, 3), window)
+            ?? throw new InvalidOperationException("beta 行不在可视树");
+        window.MouseDown(betaPoint, MouseButton.Right);
+        window.MouseUp(betaPoint, MouseButton.Right);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(beta.ContextMenu is { IsOpen: true }, "不可打开行右键也要有反馈：一条置灰说明");
+        var hint = Assert.Single(beta.ContextMenu!.Items.OfType<MenuItem>());
+        Assert.False(hint.IsEnabled);
+        Assert.Equal(Translations.Instance.ProjectRowOpenUnavailable, hint.Header);
+        Assert.Empty(host.NavigatedProjects);
+        beta.ContextMenu.Close();
+        Dispatcher.UIThread.RunJobs();
+
+        window.MouseDown(alphaPoint, MouseButton.Left);
+        window.MouseUp(alphaPoint, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        var (path, _) = Assert.Single(host.NavigatedProjects);
+        Assert.Equal("/work/alpha", path);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void Project_row_enter_navigates_selected_row()
+    {
+        var host = CreateProjectsHost(isOpenablePath: _ => true);
+        var view = new ProjectsView { DataContext = host.Vm };
+        var window = new Window { Width = 1180, Height = 860, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var list = view.GetVisualDescendants().OfType<ListBox>().Single(l => l.Classes.Contains("data-table"));
+        list.SelectedItem = host.Vm.Rows[0];
+        var firstItem = Assert.IsType<ListBoxItem>(list.GetRealizedContainers().First());
+        firstItem.Focus();
+        Dispatcher.UIThread.RunJobs();
+
+        window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+        Dispatcher.UIThread.RunJobs();
+
+        var (path, _) = Assert.Single(host.NavigatedProjects);
+        Assert.Equal("/work/alpha", path);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]
@@ -942,7 +1188,7 @@ public class DimensionPagesTests
         Dispatcher.UIThread.RunJobs();
         var projects = Assert.IsType<ProjectsViewModel>(shell.CurrentPage);
 
-        projects.SelectedProject = projects.Rows[0]; // /work/alpha
+        projects.OpenSessionsFor(projects.Rows[0]); // /work/alpha
         Dispatcher.UIThread.RunJobs();
 
         // 落地会话页；全局 Project 筛选已选中该项目（顶栏可见）且首查已带上项目过滤
@@ -980,7 +1226,7 @@ public class DimensionPagesTests
         Dispatcher.UIThread.RunJobs();
         var projects = Assert.IsType<ProjectsViewModel>(shell.CurrentPage);
 
-        projects.SelectedProject = projects.Rows[0];
+        projects.OpenSessionsFor(projects.Rows[0]);
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal("/work/alpha", filters.Project.Path);

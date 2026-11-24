@@ -447,6 +447,15 @@ public sealed partial class Translations
         // ── プロジェクト統計ページ ──
         [nameof(PanelProjectRankingShort)] = "プロジェクトランキング",
         [nameof(ThAvgPerSession)] = "セッション平均",
+        [nameof(ProjectRowOpenFolder)] = "ファイルマネージャーで開く",
+        [nameof(ProjectRowOpenTerminal)] = "ターミナルで開く",
+        [nameof(ProjectRowOpenUnavailable)] = "開けません：このプロジェクトにはローカルフォルダーがありません",
+        [nameof(ProjectRowOpenInAppFormat)] = "{0} で開く",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "{0} でターミナルを開く",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "{0} でプロジェクトフォルダーを開けませんでした",
+        [nameof(ToastProjectPathMissing)] = "プロジェクトフォルダーが存在しないか、このマシン上にありません",
+        [nameof(ToastProjectOpenFailed)] = "プロジェクトフォルダーを開けませんでした",
+        [nameof(ToastTerminalUnavailable)] = "ターミナルを起動できませんでした",
 
         // ── 時間分析ページ ──
         [nameof(MetaLocalTimePrecise)] = "ローカル時間 · 分単位の精度があるセッションのみ",

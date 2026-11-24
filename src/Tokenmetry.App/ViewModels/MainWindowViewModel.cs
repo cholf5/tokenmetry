@@ -237,7 +237,8 @@ public partial class MainWindowViewModel : ViewModelBase
             ShellPages.For(id), _filters, _usageQuery, OpenSessionsForAgent, _agentIcons),
         PageId.Models => new ModelsViewModel(ShellPages.For(id), _filters, _usageQuery, _avatars,
             OpenAddModelFor, OpenAddMappingFor, _agentIcons),
-        PageId.Projects => new ProjectsViewModel(ShellPages.For(id), _filters, _usageQuery, OpenSessionsForProject),
+        PageId.Projects => new ProjectsViewModel(
+            ShellPages.For(id), _filters, _usageQuery, OpenSessionsForProject, _toastService),
         // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；筛选全部来自
         // 顶栏全局四维（FilterStateService），页内只留搜索/排序（右栏撤除定案见类型说明）。
         PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery, _agentIcons),

@@ -449,6 +449,15 @@ public sealed partial class Translations
         // ── Страница статистики проектов ──
         [nameof(PanelProjectRankingShort)] = "Рейтинг проектов",
         [nameof(ThAvgPerSession)] = "В среднем за сессию",
+        [nameof(ProjectRowOpenFolder)] = "Открыть в файловом менеджере",
+        [nameof(ProjectRowOpenTerminal)] = "Открыть в терминале",
+        [nameof(ProjectRowOpenUnavailable)] = "Нельзя открыть: у этого проекта нет локальной папки",
+        [nameof(ProjectRowOpenInAppFormat)] = "Открыть в {0}",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "Открыть терминал в {0}",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "Не удалось открыть папку проекта в {0}",
+        [nameof(ToastProjectPathMissing)] = "Папка проекта отсутствует или находится не на этом компьютере",
+        [nameof(ToastProjectOpenFailed)] = "Не удалось открыть папку проекта",
+        [nameof(ToastTerminalUnavailable)] = "Не удалось запустить терминал",
 
         // ── Страница анализа по времени ──
         [nameof(MetaLocalTimePrecise)] = "Локальное время · только сессии с точностью до минут",

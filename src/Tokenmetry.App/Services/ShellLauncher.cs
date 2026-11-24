@@ -15,12 +15,15 @@ namespace Tokenmetry.App.Services;
 public static class ShellLauncher
 {
     /// <summary>在系统文件管理器中打开目录（不存在/无文件管理器时只打诊断）。</summary>
-    public static void OpenFolder(string folderPath) => Launch(folderPath, select: false);
+    public static void OpenFolder(string folderPath) => _ = TryOpenFolder(folderPath);
+
+    /// <summary>同 <see cref="OpenFolder"/>，但把成功/失败如实返回给需要反馈的调用方（项目页打开目录）。</summary>
+    public static bool TryOpenFolder(string folderPath) => Launch(folderPath, select: false);
 
     /// <summary>在系统文件管理器中显示某个文件（落在其所在目录并选中；Linux 无跨桌面选中标准，回落为打开目录）。</summary>
-    public static void RevealFile(string filePath) => Launch(filePath, select: true);
+    public static void RevealFile(string filePath) => _ = Launch(filePath, select: true);
 
-    private static void Launch(string path, bool select)
+    private static bool Launch(string path, bool select)
     {
         try
         {
@@ -44,10 +47,13 @@ public static class ShellLauncher
                 var target = select ? Path.GetDirectoryName(path)! : path;
                 Process.Start(new ProcessStartInfo("xdg-open", $"\"{target}\"") { UseShellExecute = true });
             }
+
+            return true;
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"[Tokenmetry] 打开文件管理器失败（{path}）：{ex.Message}");
+            return false;
         }
     }
 }

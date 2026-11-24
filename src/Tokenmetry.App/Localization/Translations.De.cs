@@ -447,6 +447,15 @@ public sealed partial class Translations
         // ── Projektstatistikseite ──
         [nameof(PanelProjectRankingShort)] = "Projekt-Ranking",
         [nameof(ThAvgPerSession)] = "Ø / Sitzung",
+        [nameof(ProjectRowOpenFolder)] = "Im Dateimanager öffnen",
+        [nameof(ProjectRowOpenTerminal)] = "Im Terminal öffnen",
+        [nameof(ProjectRowOpenUnavailable)] = "Kann nicht geöffnet werden: Dieses Projekt hat keinen lokalen Ordner",
+        [nameof(ProjectRowOpenInAppFormat)] = "In {0} öffnen",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "Terminal in {0} öffnen",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "Der Projektordner konnte nicht mit {0} geöffnet werden",
+        [nameof(ToastProjectPathMissing)] = "Der Projektordner fehlt oder befindet sich nicht auf diesem Rechner",
+        [nameof(ToastProjectOpenFailed)] = "Der Projektordner konnte nicht geöffnet werden",
+        [nameof(ToastTerminalUnavailable)] = "Das Terminal konnte nicht gestartet werden",
 
         // ── Zeitanalyseseite ──
         [nameof(MetaLocalTimePrecise)] = "Lokale Zeit · nur Sitzungen mit Minuten-Genauigkeit",

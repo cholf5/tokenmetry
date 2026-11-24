@@ -447,6 +447,15 @@ public sealed partial class Translations
         // ── 프로젝트 통계 페이지 ──
         [nameof(PanelProjectRankingShort)] = "프로젝트 순위",
         [nameof(ThAvgPerSession)] = "세션당 평균",
+        [nameof(ProjectRowOpenFolder)] = "파일 관리자에서 열기",
+        [nameof(ProjectRowOpenTerminal)] = "터미널에서 열기",
+        [nameof(ProjectRowOpenUnavailable)] = "열 수 없음: 이 프로젝트에는 로컬 폴더가 없습니다",
+        [nameof(ProjectRowOpenInAppFormat)] = "{0}에서 열기",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "{0}에서 터미널 열기",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "{0}(으)로 프로젝트 폴더를 열 수 없습니다",
+        [nameof(ToastProjectPathMissing)] = "프로젝트 폴더가 없거나 이 컴퓨터에 없습니다",
+        [nameof(ToastProjectOpenFailed)] = "프로젝트 폴더를 열 수 없습니다",
+        [nameof(ToastTerminalUnavailable)] = "터미널을 시작할 수 없습니다",
 
         // ── 시간 분석 페이지 ──
         [nameof(MetaLocalTimePrecise)] = "로컬 시간 · 분 단위 정확도가 있는 세션만 포함",

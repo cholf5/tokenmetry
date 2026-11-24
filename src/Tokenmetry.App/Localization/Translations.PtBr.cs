@@ -447,6 +447,15 @@ public sealed partial class Translations
         // ── Página de estatísticas de projetos ──
         [nameof(PanelProjectRankingShort)] = "Ranking de projetos",
         [nameof(ThAvgPerSession)] = "Média / sessão",
+        [nameof(ProjectRowOpenFolder)] = "Abrir no gerenciador de arquivos",
+        [nameof(ProjectRowOpenTerminal)] = "Abrir no terminal",
+        [nameof(ProjectRowOpenUnavailable)] = "Não é possível abrir: este projeto não tem uma pasta local",
+        [nameof(ProjectRowOpenInAppFormat)] = "Abrir no {0}",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "Abrir um terminal no {0}",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "Não foi possível abrir a pasta do projeto com {0}",
+        [nameof(ToastProjectPathMissing)] = "A pasta do projeto não existe ou não está nesta máquina",
+        [nameof(ToastProjectOpenFailed)] = "Não foi possível abrir a pasta do projeto",
+        [nameof(ToastTerminalUnavailable)] = "Não foi possível iniciar o terminal",
 
         // ── Página de análise temporal ──
         [nameof(MetaLocalTimePrecise)] = "Hora local · só sessões com precisão de minuto",

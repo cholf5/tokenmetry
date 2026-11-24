@@ -447,6 +447,15 @@ public sealed partial class Translations
         // ── Página de estadísticas de proyectos ──
         [nameof(PanelProjectRankingShort)] = "Ranking de proyectos",
         [nameof(ThAvgPerSession)] = "Media / sesión",
+        [nameof(ProjectRowOpenFolder)] = "Abrir en el gestor de archivos",
+        [nameof(ProjectRowOpenTerminal)] = "Abrir en la terminal",
+        [nameof(ProjectRowOpenUnavailable)] = "No se puede abrir: este proyecto no tiene una carpeta local",
+        [nameof(ProjectRowOpenInAppFormat)] = "Abrir en {0}",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "Abrir una terminal en {0}",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "No se pudo abrir la carpeta del proyecto con {0}",
+        [nameof(ToastProjectPathMissing)] = "La carpeta del proyecto no existe o no está en este equipo",
+        [nameof(ToastProjectOpenFailed)] = "No se pudo abrir la carpeta del proyecto",
+        [nameof(ToastTerminalUnavailable)] = "No se pudo iniciar la terminal",
 
         // ── Página de análisis temporal ──
         [nameof(MetaLocalTimePrecise)] = "Hora local · solo sesiones con precisión de minuto",

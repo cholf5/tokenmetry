@@ -507,6 +507,15 @@ public sealed partial class Translations : INotifyPropertyChanged
         // ── 项目统计页（ProjectsView）──
         [nameof(PanelProjectRankingShort)] = "项目排行",
         [nameof(ThAvgPerSession)] = "平均每会话",
+        [nameof(ProjectRowOpenFolder)] = "在文件管理器中打开",
+        [nameof(ProjectRowOpenTerminal)] = "在终端中打开",
+        [nameof(ProjectRowOpenUnavailable)] = "无法打开：该项目没有可用的本地目录",
+        [nameof(ProjectRowOpenInAppFormat)] = "在 {0} 中打开",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "在 {0} 中打开终端",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "无法用 {0} 打开项目目录",
+        [nameof(ToastProjectPathMissing)] = "项目目录不存在或不在本机",
+        [nameof(ToastProjectOpenFailed)] = "无法打开项目目录",
+        [nameof(ToastTerminalUnavailable)] = "无法启动终端",
 
         // ── 时间分析页（TimeAnalysisView / TimeViewModel）──
         [nameof(MetaLocalTimePrecise)] = "本地时间 · 仅含带分钟级精度的会话",
@@ -1043,6 +1052,15 @@ public sealed partial class Translations : INotifyPropertyChanged
 
         [nameof(PanelProjectRankingShort)] = "Project ranking",
         [nameof(ThAvgPerSession)] = "Avg / session",
+        [nameof(ProjectRowOpenFolder)] = "Open in file manager",
+        [nameof(ProjectRowOpenTerminal)] = "Open in terminal",
+        [nameof(ProjectRowOpenUnavailable)] = "Can't open: this project has no local folder",
+        [nameof(ProjectRowOpenInAppFormat)] = "Open in {0}",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "Open a terminal in {0}",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "Could not open the project folder with {0}",
+        [nameof(ToastProjectPathMissing)] = "The project folder is missing or not on this machine",
+        [nameof(ToastProjectOpenFailed)] = "Could not open the project folder",
+        [nameof(ToastTerminalUnavailable)] = "Could not start a terminal",
 
         [nameof(MetaLocalTimePrecise)] = "Local time · sessions with minute-level precision only",
         [nameof(PanelHourlyDistribution)] = "Hourly distribution",
@@ -2018,6 +2036,15 @@ public sealed partial class Translations : INotifyPropertyChanged
     // ── 项目统计页 ──
     public string PanelProjectRankingShort => Get();
     public string ThAvgPerSession => Get();
+    public string ProjectRowOpenFolder => Get();
+    public string ProjectRowOpenTerminal => Get();
+    public string ProjectRowOpenUnavailable => Get();
+    public string ProjectRowOpenInAppFormat => Get();
+    public string ProjectRowOpenTerminalNamedFormat => Get();
+    public string ToastExternalAppOpenFailedFormat => Get();
+    public string ToastProjectPathMissing => Get();
+    public string ToastProjectOpenFailed => Get();
+    public string ToastTerminalUnavailable => Get();
 
     // ── 时间分析页 ──
     public string MetaLocalTimePrecise => Get();

@@ -12,7 +12,10 @@
         D-011 项目统计页（原型 #page-projects）：页头 + 项目排行面板（meta「路径归一化后的项目名」）+
         六列表（项目 / 会话数 / 总 Token / 估算成本 / 占比 / 平均每会话，均值除零保护 → "—"）。
         名称 = I-029 归一化展示名（歧义守卫下即原始路径——页面如实展示，ToolTip 恒为原始路径）。
-        行点击 → 会话页带项目筛选（决策点 2 定案：右栏页级筛选程序化应用）。
+        行跳转 = 左键点击 / Enter（视图调 VM.OpenSessionsFor → 全局 Project 筛选 + 会话页）；
+        不再绑 SelectedItem——右键菜单会顺带改选中项，选择即跳会把「看菜单」变成「被带走」。
+        行右键 = 可打开行给「文件管理器 / 终端 / 本机装了的编辑器与 Git 客户端」，不可打开行给一条置灰说明
+        （code-behind 建菜单，见 ProjectsView.axaml.cs）。
         排行表 = ListBox 虚拟化（共享 data-table 行配方，Q-002 收编）。
         Q-002：页面根补 ScrollViewer（同时间/成本/设置页模式）——最小窗口高度下排行面板不再被裁剪。
     -->
@@ -51,16 +54,21 @@
                     <TextBlock Grid.Column="5" Classes="table-th" TextWrapping="Wrap" TextAlignment="Right" Text="{Binding ThAvgPerSession, Source={x:Static loc:Translations.Instance}}"/>
                 </Grid>
 
-                <!-- 排行行（ListBox 虚拟化；SelectedProject = 行点击跳会话页带项目筛选） -->
+                <!-- 排行行（ListBox 虚拟化；左键 Tapped / Enter = 跳会话页带项目筛选，行右键 = 打开目录/终端） -->
                 <ListBox Grid.Row="2"
                          Classes="data-table"
                          ItemsSource="{Binding Rows}"
-                         SelectedItem="{Binding SelectedProject, Mode=TwoWay}">
+                         Tapped="OnProjectRowsTapped">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:ProjectRankRowViewModel">
+                            <!-- Background=Transparent 是功能件不是配色：无背景 Border 内部不参与 hit test，
+                                 右键只有落在字形上才冒泡到行；透明底让整行（含上下 padding 空白区）可命中。
+                                 同 ModelsView 明细行的右键配方。 -->
                             <Border BorderBrush="{DynamicResource AppLineBrush}"
                                     BorderThickness="0,1,0,0"
-                                    Padding="0,13,0,13">
+                                    Padding="0,13,0,13"
+                                    Background="Transparent"
+                                    ContextRequested="OnProjectRowContextRequested">
                                 <Grid ColumnDefinitions="1.5*,64,64,64,48,72" ColumnSpacing="6">
                                     <TextBlock Grid.Column="0" Classes="table-td" Text="{Binding Name}"
                                                ToolTip.Tip="{Binding RawPath}"

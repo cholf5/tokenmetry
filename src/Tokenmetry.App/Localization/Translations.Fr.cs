@@ -447,6 +447,15 @@ public sealed partial class Translations
         // ── Page des statistiques de projets ──
         [nameof(PanelProjectRankingShort)] = "Classement des projets",
         [nameof(ThAvgPerSession)] = "Moy. / session",
+        [nameof(ProjectRowOpenFolder)] = "Ouvrir dans le gestionnaire de fichiers",
+        [nameof(ProjectRowOpenTerminal)] = "Ouvrir dans le terminal",
+        [nameof(ProjectRowOpenUnavailable)] = "Impossible d’ouvrir : ce projet n’a pas de dossier local",
+        [nameof(ProjectRowOpenInAppFormat)] = "Ouvrir dans {0}",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "Ouvrir un terminal dans {0}",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "Impossible d’ouvrir le dossier du projet avec {0}",
+        [nameof(ToastProjectPathMissing)] = "Le dossier du projet est absent ou ne se trouve pas sur cette machine",
+        [nameof(ToastProjectOpenFailed)] = "Impossible d’ouvrir le dossier du projet",
+        [nameof(ToastTerminalUnavailable)] = "Impossible de démarrer le terminal",
 
         // ── Page d'analyse temporelle ──
         [nameof(MetaLocalTimePrecise)] = "Heure locale · sessions à la précision minute seulement",

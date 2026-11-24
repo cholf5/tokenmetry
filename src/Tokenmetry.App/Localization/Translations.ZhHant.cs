@@ -447,6 +447,15 @@ public sealed partial class Translations
         // ── 项目统计页 ──
         [nameof(PanelProjectRankingShort)] = "專案排行",
         [nameof(ThAvgPerSession)] = "平均每工作階段",
+        [nameof(ProjectRowOpenFolder)] = "在檔案管理員中開啟",
+        [nameof(ProjectRowOpenTerminal)] = "在終端機中開啟",
+        [nameof(ProjectRowOpenUnavailable)] = "無法開啟：此專案沒有可用的本機目錄",
+        [nameof(ProjectRowOpenInAppFormat)] = "在 {0} 中開啟",
+        [nameof(ProjectRowOpenTerminalNamedFormat)] = "在 {0} 中開啟終端機",
+        [nameof(ToastExternalAppOpenFailedFormat)] = "無法用 {0} 開啟專案目錄",
+        [nameof(ToastProjectPathMissing)] = "專案目錄不存在或不在本機",
+        [nameof(ToastProjectOpenFailed)] = "無法開啟專案目錄",
+        [nameof(ToastTerminalUnavailable)] = "無法啟動終端機",
 
         // ── 时间分析页 ──
         [nameof(MetaLocalTimePrecise)] = "本機時間 · 僅含帶分鐘級精度的工作階段",
