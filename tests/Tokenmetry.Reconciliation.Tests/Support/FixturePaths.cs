@@ -5,6 +5,8 @@ public static class FixturePaths
 {
     private const string ClaudeGoldenFileName = "claude-fixture-daily-v20.0.29.json";
 
+    private const string ClaudeProxyGoldenFileName = "claude-proxy-fixture-daily-v20.1.1.json";
+
     private const string CodexGoldenFileName = "codex-fixture-daily-v20.0.29.json";
 
     private const string CopilotGoldenFileName = "copilot-fixture-daily-v20.0.29.json";
@@ -41,6 +43,9 @@ public static class FixturePaths
 
     /// <summary>Claude fixture 配置目录（内含 projects/），供 CLAUDE_CONFIG_DIR 等价使用。</summary>
     public static string ClaudeRoot => Path.Combine(Root, "claude");
+
+    /// <summary>Claude 代理网关多 block 响应 fixture（20.1.x 响应链口径，golden 用 20.1.1 录制）。</summary>
+    public static string ClaudeProxyRoot => Path.Combine(Root, "claude-proxy");
 
     /// <summary>Codex fixture home（内含 sessions/），供 CODEX_HOME 等价使用。</summary>
     public static string CodexRoot => Path.Combine(Root, "codex");
@@ -93,6 +98,8 @@ public static class FixturePaths
     public static string GoldenDir => Path.Combine(Root, "golden");
 
     public static string ClaudeGoldenPath => Path.Combine(GoldenDir, ClaudeGoldenFileName);
+
+    public static string ClaudeProxyGoldenPath => Path.Combine(GoldenDir, ClaudeProxyGoldenFileName);
 
     public static string CodexGoldenPath => Path.Combine(GoldenDir, CodexGoldenFileName);
 

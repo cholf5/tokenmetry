@@ -13,6 +13,7 @@
 
 - **2026-10-30 → 20.0.45**（release commit `154e13bb`）：fast/flex 倍率表照抄、Claude 消息级去重键锚 20.0.45、Kimi k2.5/k2.6 候选、zstd rollout 读取（§6 第 6/7/8 条；11-01 的去重索引增量化不改语义）。
 - **2026-11-09 → 20.0.48**（本地 HEAD `0c1bdd19`）：ultrafast 档位（#1989）、OpenCode claude-agent 跨源去重（#2007）（§6 第 6/9 条）。
+- **2026-11-24 → 20.1.0 / 20.1.1**（PR #2341 / commit `45ab8193`）：Claude 代理网关「一次响应按 content block 写多行」的响应链去重（§8）。golden fixture 仍钉 20.0.29（该 fixture 全带 requestId、无此形态，两版本输出 tokens 实测一致）；Claude **真实数据**对账改用 20.1.1。
 - 结论速览：**fixture 对账 tokens 逐项精确一致、cost 全部一致；本机真实数据（Codex，19 文件 / 2931 条记录）tokens 级全等、cost 全期 $101.3856438 两侧一致**。对账暴露并修复了一处内置快照漏收（gpt-5.6-terra，详见差异归类 §5）。
 
 ## 1. 对账方法
@@ -39,7 +40,7 @@
 | cache_creation 5m/1h 细分 | 有细分时按 5m=cache_write 价、1h=input×2 计，细分和计入 cacheCreationTokens；无细分时整体按 cache_write 价 | 同规则（`PricingEngine.ComputeCost`，蓝本 aggregation.rs 移植） |
 | `-fast` 采集标记 | 展示名保留 `-fast`；计价按剥掉后缀的基价，**再乘 fast 倍率**（`fast-multiplier-overrides.json`：claude-opus-4-6/4-7 = 6×、4-8 = 2×、gpt-5.x/6.x = 2.0–2.5×） | 同（`PricingModelMatcher` 剥 `-fast` 找基价 + `SpeedMultiplierTable` 乘倍率）；flex 档 = 0.5× |
 | `<synthetic>` 记录 | 计入每日总计、无 per-model breakdown、成本 0 | Model 归一为 null，计入总计、不入 per-model 条目、Missing→$0 |
-| 重复消息 | 消息级去重（fixture 验证：同 id+requestId 重复行只计一次） | `ClaudeUsageRecordDeduper` |
+| 重复消息 | 消息级去重（fixture 验证：同 id+requestId 重复行只计一次） | `ClaudeUsageRecordDeduper`（20.1.x 起另加转录响应链，代理网关多 block 响应见 §8） |
 | Codex 累计快照 | 每 turn 连发的重复 cumulative 快照不重复记账（cumulative 守卫） | 同守卫（`CodexJsonlFileParser`） |
 | Codex inputTokens | 全量 input 减 cached（cached 计入 cacheReadTokens） | 同（统一记录口径，两侧逐日一致） |
 | 日期分桶 | `--timezone UTC`（显式指定；不指定则随本机时区） | 统一记录按 UTC 分桶 |
@@ -135,3 +136,55 @@ I-004 备忘提到的新版 ccusage compaction 去重逻辑：本机 19 个真�
 ## 7. 对产品立场的意义
 
 "任何成本数字必须能与 ccusage 核对"（pivot 文档第 3 节）在本仓库内被机制化：fixture 对账测试离线常驻测试套件，真实数据对账一条命令即可在本机复跑（`TOKENMETRY_RECONCILE_REAL=1`）。v0.3 exit criteria（roadmap）的"与 ccusage 对账一致"在 fixture 与本机真实数据两个层面均以 tokens 精确一致、cost 0.5%/1¢ 容差内一致达成，且对账差异可自动定位到解析或定价原因。
+
+## 8. 2026-11-24 增量：Claude 代理网关多 block 响应的重复记账（ccusage 20.1.0 #2341）
+
+### 8.1 现象
+
+本机 2026-11-24（UTC 日）Tokenmetry 显示 18.3 亿 tokens，其中 Claude Code 17.82 亿；同一时刻
+全局 `ccusage`（20.1.1）`--since 20261124 --offline --json` 为 8.76 亿，约 2 倍。
+
+### 8.2 根因
+
+用户经代理网关调用 `deepseek-*` 模型，日志形态与 Anthropic 直连不同：
+
+- 一次 API 响应被 Claude Code 按 **content block**（thinking / text / tool_use…）写成多行 assistant 记录，
+  共享同一 `message.id` 与同一份 `usage`，但每行 `uuid`、`parentUuid`、时间戳都不同；
+- `message.id` 是网关生成的 UUID，不带 `msg_` / `resp_` 前缀；`requestId` 为 null。
+
+旧去重口径（20.0.45，§1.2）在无 requestId 且 id 非 `msg_`/`resp_` 前缀时，把时间戳并进键：
+`(messageId, sessionId, 时间戳毫秒)`。同一响应的多个 block 时间戳不同 → 每个 block 各记一次；
+实测单会话 2398 条 usage 行只对应 1110 个 `api-request`，过账约 2.1 倍，整天约 2.3 倍。
+
+`ccusage` 20.1.0 已修（PR #2341 "Count proxied multi-block responses once regardless of message
+ID shape"）：
+
+- 无 requestId 的基础身份仍是 `(messageId, sessionId, 时间戳)`——网关复用占位 id 的两次响应仍靠时间戳区分；
+- 新增**转录响应链**证据：沿 `uuid` → `parentUuid` 回溯；user 的 tool_result 行只有在其引用的
+  全部 `tool_use` 都属于同一响应时才是链的一环（普通用户消息/混合块行不建链，链在轮次边界断开）；
+  usage 行能回溯到已有响应、且签名（`message.id` + input + cache_creation 总量 + cache_read）一致时
+  并入该响应，否则开启新响应；
+- message id 的拼写（`msg_` / `resp_`）不再参与判定。
+
+### 8.3 对齐实现
+
+- 新增 `ClaudeResponseChainTracker`（`src/Tokenmetry.Infrastructure/ClaudeCodeJsonl/`）：按转录文件
+  逐行维护链状态，给 `UsageRecord.ResponseChainIndex` 赋值（拓扑按 `sessionId × id` 记账）；
+- `ClaudeUsageRecordDeduper` 增响应链键 `(messageId, sessionId, sourceFile, chainIndex)`，
+  仅在无 requestId 时生效；有 requestId 的 `(messageId, requestId)` 与 sidechain 回放口径不变；
+- 旧 fixture golden 保持 20.0.29 录制：金标数据全带 requestId、无该形态，实测 20.0.29 与 20.1.1
+  对 golden 输出 tokens 完全一致。**Claude 真实数据对账**改用 20.1.1
+  （`RealReconciliationEnvironment.ClaudeRealDataCcusageVersion`），其余 agent 仍锚 20.0.29。
+- 新增离线 golden：`fixtures/claude-proxy`（多 block 代理响应 + 被用户消息隔开的同 id 第二轮）
+  与 `golden/claude-proxy-fixture-daily-v20.1.1.json`（20.1.1 录制），由
+  `ClaudeProxyFixtureReconciliationTests` 固化——前者折叠一次、后者各计一次，tokens/cost 双精确。
+
+### 8.4 验证
+
+- 新单测/适配器用例：多 block 代理响应折叠、普通用户消息断链保留两次真实请求、
+  tool_result 归属不符断链、链键按会话/转录文件隔离、exact 与 response 键指向不同槽位时合并；
+- 真机对账（`TOKENMETRY_RECONCILE_REAL=1 dotnet test tests/Tokenmetry.Reconciliation.Tests
+  --filter Real_claude_data_reconciles_with_cli`）：全期 tokens 逐项精确一致
+  （input 23,792,324 / output 7,667,554 / cache_read 1,922,562,944 / total 1,954,022,822）；
+  cost 差异只来自内置快照未收录 `deepseek-*`（既有定价缺口，与本次解析无关）；
+- 说明：当日数值随会话写入持续增长，跨分钟比较会出现快照差；对账须取同一时刻两侧结果。

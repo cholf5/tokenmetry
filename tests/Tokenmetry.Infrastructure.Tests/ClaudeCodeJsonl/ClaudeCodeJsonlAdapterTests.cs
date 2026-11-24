@@ -88,6 +88,61 @@ public class ClaudeCodeJsonlAdapterTests : IDisposable
         result.Diagnostics.DuplicateRecords.Should().Be(1);
     }
 
+    /// <summary>
+    /// 代理网关按 content block 逐行写同一次响应（共享 message id 与 usage，uuid/时间戳不同）：
+    /// 沿 uuid/parentUuid + tool_use↔tool_result 链折叠成一条（ccusage 20.1.x 同口径）。
+    /// </summary>
+    [Fact]
+    public async Task Collapses_proxied_multi_block_response_writes()
+    {
+        var root = CreateTempRoot();
+        WriteSessionFile(root, "projects/project-p/session-proxy.jsonl",
+            await File.ReadAllTextAsync("fixtures/claude-code/multi-block-proxy.jsonl"));
+        var adapter = new ClaudeCodeJsonlAdapter(configuredRoot: root);
+
+        var result = await adapter.ScanAsync();
+
+        result.Records.Should().HaveCount(2);
+        result.Records.Single(record => record.MessageId == "gw-msg-1").TotalTokens.Should().Be(1110);
+        result.Records.Single(record => record.MessageId == "gw-msg-2").TotalTokens.Should().Be(2220);
+        result.Diagnostics.DuplicateRecords.Should().Be(2); // 第一次响应的 3 个 content block 折叠为 1 条
+        result.Diagnostics.Status.Should().Be(ClaudeCodeScanStatus.Ok);
+    }
+
+    /// <summary>普通用户消息是轮次边界：网关复用同一占位 id 的两次响应必须各自记账。</summary>
+    [Fact]
+    public async Task Keeps_reused_gateway_message_id_for_separate_turns_apart()
+    {
+        var root = CreateTempRoot();
+        WriteSessionFile(root, "projects/project-p/session-proxy.jsonl",
+            await File.ReadAllTextAsync("fixtures/claude-code/multi-block-proxy-break.jsonl"));
+        var adapter = new ClaudeCodeJsonlAdapter(configuredRoot: root);
+
+        var result = await adapter.ScanAsync();
+
+        result.Records.Should().HaveCount(2, "链在普通用户消息处断开，不能把两轮真实请求折叠");
+        result.Records.Should().OnlyContain(record => record.MessageId == "gw-msg-reused");
+    }
+
+    /// <summary>tool_result 引用的 tool_use 不属于父响应时，该行不能成为链的一环。</summary>
+    [Fact]
+    public async Task Tool_result_owned_by_another_response_breaks_the_chain()
+    {
+        var root = CreateTempRoot();
+        var usage =
+            """{"input_tokens":100,"output_tokens":10,"cache_read_input_tokens":1000}""";
+        WriteSessionFile(root, "projects/project-p/session-proxy.jsonl",
+            """{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"go"},"uuid":"u-1","sessionId":"s-p","timestamp":"2026-06-20T13:00:00.000Z"}""" + "\n"
+            + $$"""{"parentUuid":"u-1","isSidechain":false,"type":"assistant","message":{"id":"gw-x","model":"deepseek","usage":{{usage}},"content":[{"type":"text","text":"one"}]},"uuid":"a-1","sessionId":"s-p","timestamp":"2026-06-20T13:00:01.000Z"}""" + "\n"
+            + """{"parentUuid":"a-1","isSidechain":false,"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"other-tool","content":"ok"}]},"uuid":"u-2","sessionId":"s-p","timestamp":"2026-06-20T13:00:02.000Z"}""" + "\n"
+            + $$"""{"parentUuid":"u-2","isSidechain":false,"type":"assistant","message":{"id":"gw-x","model":"deepseek","usage":{{usage}},"content":[{"type":"text","text":"two"}]},"uuid":"a-2","sessionId":"s-p","timestamp":"2026-06-20T13:00:03.000Z"}""" + "\n");
+        var adapter = new ClaudeCodeJsonlAdapter(configuredRoot: root);
+
+        var result = await adapter.ScanAsync();
+
+        result.Records.Should().HaveCount(2);
+    }
+
     [Fact]
     public async Task Empty_projects_dir_returns_nodata()
     {

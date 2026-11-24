@@ -16,6 +16,9 @@ public partial class ClaudeCodeJsonlLineParser
     /// <summary>与 claude.rs USAGE_MARKER 一致：只有包含该片段的行才进入 JSON 解析。</summary>
     public const string UsageMarker = "\"usage\":{";
 
+    /// <summary>响应链跟踪的行标记：带转录链字段的行才参与 uuid/parentUuid 归链。</summary>
+    public const string ParentUuidMarker = "\"parentUuid\":";
+
     /// <summary>与 claude.rs AGENT_NAME 一致。</summary>
     public const string AgentName = "Claude Code";
 

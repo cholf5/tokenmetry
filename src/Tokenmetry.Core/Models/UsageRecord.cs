@@ -103,6 +103,16 @@ public class UsageRecord
     /// <summary>消息级去重标识：request id（auto 模式下可能为 null）。</summary>
     public string? RequestId { get; set; }
 
+    /// <summary>
+    /// 采集端计算的"同一次响应"链索引（Claude Code 专用，ccusage 20.1.x response_chain 同语义）：
+    /// 同一次 API 响应会按 content block 写出多行 assistant 记录（thinking / text / tool_use…），
+    /// 这些行共享 message.id 与 usage，但 uuid 与时间戳各不相同。适配器沿 uuid/parentUuid 及
+    /// tool_use↔tool_result 归属链判定它们属于同一响应，并赋予同一索引；去重器只在无 requestId
+    /// 时用它跨时间戳折叠。null = 未跟踪（其它来源 / 该行无法证明链归属）。
+    /// 不落 facts。
+    /// </summary>
+    public int? ResponseChainIndex { get; set; }
+
     /// <summary>诊断字段：记录来源的会话文件完整路径（同文件全部记录共享）。写入驻留，基数
     /// O(会话文件数)：走 <see cref="UsageStringPool"/> 的独立预算槽，不吃身份类字段的额度。</summary>
     public string SourceFile

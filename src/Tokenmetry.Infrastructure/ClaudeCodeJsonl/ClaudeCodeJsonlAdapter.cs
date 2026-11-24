@@ -62,10 +62,17 @@ public class ClaudeCodeJsonlAdapter : IClaudeCodeJsonlAdapter
         var invalidRecords = 0;
 
         var (fileSessionId, projectPath) = ClaudeCodeJsonlLineParser.ExtractSessionParts(path);
+        // 响应链状态按转录文件独立（与 ccusage 20.1.x 每份转录一份状态一致）：
+        // 同一次响应的多个 content block 分散在多行，只有整份文件的行序才能还原链。
+        var responseChain = new ClaudeResponseChainTracker(fileSessionId);
 
         while (await reader.ReadLineAsync(ct) is { } line)
         {
-            if (!line.Contains(ClaudeCodeJsonlLineParser.UsageMarker, StringComparison.Ordinal))
+            var carriesUsage = line.Contains(ClaudeCodeJsonlLineParser.UsageMarker, StringComparison.Ordinal);
+            // 响应链只需要 uuid/parentUuid 存在的行；其余行（queue-operation、summary 等）照旧跳过。
+            // usage 行同样带 parentUuid，但它按 Block 处理，不当作 Link。
+            var mayLink = line.Contains(ClaudeCodeJsonlLineParser.ParentUuidMarker, StringComparison.Ordinal);
+            if (!carriesUsage && !mayLink)
             {
                 linesSkipped++;
                 continue;
@@ -78,20 +85,39 @@ public class ClaudeCodeJsonlAdapter : IClaudeCodeJsonlAdapter
             }
             catch (JsonException)
             {
-                malformedLines++;
+                if (carriesUsage)
+                {
+                    malformedLines++;
+                }
+                else
+                {
+                    // 响应链只是可选证据：非 usage 行损坏不影响记账，按跳过处理，
+                    // 不把诊断状态染成 Partial（半行写入在下次扫描会重新读到）。
+                    linesSkipped++;
+                }
+
                 continue;
             }
 
             using (document)
             {
-                var record = _lineParser.Parse(document.RootElement, fileSessionId, projectPath, path);
-                if (record is null)
+                if (carriesUsage)
                 {
-                    invalidRecords++;
-                    continue;
-                }
+                    var record = _lineParser.Parse(document.RootElement, fileSessionId, projectPath, path);
+                    if (record is null)
+                    {
+                        invalidRecords++;
+                        continue;
+                    }
 
-                records.Add(record);
+                    record.ResponseChainIndex = responseChain.TrackUsage(document.RootElement, record);
+                    records.Add(record);
+                }
+                else
+                {
+                    responseChain.TrackLink(document.RootElement);
+                    linesSkipped++;
+                }
             }
         }
 

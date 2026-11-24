@@ -41,6 +41,15 @@ public static class RealReconciliationEnvironment
     /// <summary>golden 录制与真实对账共用的 ccusage 版本（npx 标签，保证两侧行为一致）。</summary>
     public const string CcusageVersion = "20.0.29";
 
+    /// <summary>
+    /// Claude 真实数据对账的 CLI 版本：20.1.0 起 ccusage 用转录响应链把代理网关按 content block
+    /// 写出的多行折叠为一次响应（#2341 "Count proxied multi-block responses once regardless of
+    /// message ID shape"），本仓库去重器已按该口径移植；20.0.29 会把同一响应重复记账。
+    /// fixture golden 不含该形态（两种版本 tokens 一致，已实测），故 golden 版本仍钉 20.0.29，
+    /// 只有 Claude 真实数据对账改用 20.1.1。
+    /// </summary>
+    public const string ClaudeRealDataCcusageVersion = "20.1.1";
+
     public static bool IsGateEnabled()
         => Environment.GetEnvironmentVariable(GateVariable) == "1";
 

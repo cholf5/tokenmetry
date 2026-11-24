@@ -28,7 +28,7 @@ dotnet run --project tools/Tokenmetry.SmokeScan -- 3   # 采集管道真机冒�
 
 ## 与 ccusage 的对账是信任锚
 
-任何成本数字必须能与 `npx ccusage@20.0.29` 输出对账一致（tokens 精确、cost ≤0.5%）。改解析、计价、聚合口径前**必读** `docs/reconciliation/2026-10-11-reconciliation.md`（口径逐项对齐表：costUSD 优先级、UTC 分桶、`-fast` 剥价、消息去重、cumulative 守卫等）。Reconciliation.Tests 只解析提交进仓库的 golden JSON，不现场调用 CLI。
+任何成本数字必须能与 ccusage 输出对账一致（tokens 精确、cost ≤0.5%）：golden fixture 锚 `npx ccusage@20.0.29`，Claude **真实数据**对账锚 20.1.1（20.1.0 起修了代理网关多 block 响应的重复记账，见对账文档 §8）。改解析、计价、聚合口径前**必读** `docs/reconciliation/2026-10-11-reconciliation.md`（口径逐项对齐表：costUSD 优先级、UTC 分桶、`-fast` 剥价、消息去重、cumulative 守卫等）。Reconciliation.Tests 只解析提交进仓库的 golden JSON，不现场调用 CLI。
 
 ## 分享海报（SharePoster）子系统
 

@@ -13,7 +13,8 @@ namespace Tokenmetry.Reconciliation.Tests;
 /// 任何条件不满足时 Skip 而非 Fail（任务卡验收口径）。
 /// 与 fixture 测试不同，本类会真的调用 `npx ccusage@&lt;version&gt; --json --offline`（首次需要网络下载包），
 /// 对本机真实数据（默认 ~/.codex、CLAUDE_CONFIG_DIR / ~/.claude）跑全链路对账。
-/// CLI 使用与 golden 相同的版本与参数（--timezone UTC、--offline），保证与 fixture 对账口径一致。
+/// CLI 使用与 golden 相同的版本与参数（--timezone UTC、--offline），保证与 fixture 对账口径一致；
+/// 唯一例外是 Claude 真实数据（见 <see cref="RealReconciliationEnvironment.ClaudeRealDataCcusageVersion"/>）。
 /// </summary>
 public class RealDataReconciliationTests(ITestOutputHelper output)
 {
@@ -42,7 +43,7 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
             $"环境门控：设 {RealReconciliationEnvironment.GateVariable}=1 启用本机真实数据对账");
         Skip.IfNot(RealReconciliationEnvironment.HasClaudeData(), "本机没有 Claude Code 日志（~/.claude/projects 或 CLAUDE_CONFIG_DIR）");
 
-        var goldenJson = RunCli("claude");
+        var goldenJson = RunCli("claude", RealReconciliationEnvironment.ClaudeRealDataCcusageVersion);
         var golden = CcusageGoldenFiles.LoadClaudeText(goldenJson);
 
         // 适配器不带 configuredRoot：与 CLI 进程读同一套 CLAUDE_CONFIG_DIR / ~/.claude 探测逻辑。
@@ -580,9 +581,9 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     /// 运行 `npx --yes ccusage@&lt;version&gt; &lt;agent&gt; daily --json --offline --timezone UTC` 并返回 stdout。
     /// 进程失败 / npx 不存在 / 超时都视为"环境不具备"→ Skip（TC-002：无 CLI 环境跳过）。
     /// </summary>
-    private string RunCli(string agent)
+    private string RunCli(string agent, string? version = null)
     {
-        var arguments = $"--yes ccusage@{RealReconciliationEnvironment.CcusageVersion} {agent} daily --json --offline --timezone UTC";
+        var arguments = $"--yes ccusage@{version ?? RealReconciliationEnvironment.CcusageVersion} {agent} daily --json --offline --timezone UTC";
         var runner = new CCUsageCliRunner("npx", arguments);
         try
         {

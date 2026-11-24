@@ -8,6 +8,10 @@
 
 - 录制日期：2026-10-11
 - CLI 版本：ccusage 20.0.29（`npx --yes ccusage@20.0.29`）
+- 例外：`claude-proxy-fixture-daily-v20.1.1.json` 于 2026-11-24 用 **ccusage 20.1.1** 录制——
+  它覆盖 20.1.0 #2341 的「代理网关多 block 响应按转录响应链折叠」口径（同一 message.id 的多个
+  content block 行只计一次，普通用户消息隔开的同 id 第二轮仍各计一次）；20.0.29 会把前者重复记账。
+  该 fixture 只服务这个口径，其它 golden 仍锚 20.0.29。
 - fixture：本目录上一级的 `claude/`（CLAUDE_CONFIG_DIR 指向）、`codex/`（CODEX_HOME 指向）、
   `copilot/`（COPILOT_HOME 指向，I-008）与 `opencode/`（OPENCODE_DATA_DIR 指向，I-009，
   内容为合成 SQLite 库 opencode.db：v1 message 表 + v2 session_message 表 + session_v2 fork 边界），
@@ -91,6 +95,11 @@ FX=tests/Tokenmetry.Reconciliation.Tests/fixtures
 CLAUDE_CONFIG_DIR="$PWD/$FX/claude" \
   npx --yes ccusage@20.0.29 claude daily --json --offline --timezone UTC \
   > $FX/golden/claude-fixture-daily-v20.0.29.json
+
+# 代理网关多 block 响应（20.1.x 响应链口径，单独用 20.1.1 录制）
+CLAUDE_CONFIG_DIR="$PWD/$FX/claude-proxy" \
+  npx --yes ccusage@20.1.1 claude daily --json --offline --timezone UTC \
+  > $FX/golden/claude-proxy-fixture-daily-v20.1.1.json
 
 CODEX_HOME="$PWD/$FX/codex" \
   npx --yes ccusage@20.0.29 codex daily --json --offline --timezone UTC \

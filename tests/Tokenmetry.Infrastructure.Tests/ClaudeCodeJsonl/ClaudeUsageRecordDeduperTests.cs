@@ -102,28 +102,70 @@ public class ClaudeUsageRecordDeduperTests
     }
 
     [Fact]
-    public void Keeps_requestless_non_anthropic_ids_at_distinct_timestamps_separate()
+    public void Keeps_requestless_ids_at_distinct_timestamps_separate_without_chain_proof()
     {
         var deduped = new ClaudeUsageRecordDeduper().Dedupe([
             Row("gw-reused", requestId: null, session: "s-a", minute: 0),
             Row("gw-reused", requestId: null, session: "s-a", minute: 1),
         ]);
 
-        deduped.Should().HaveCount(2, "非 msg_/resp_ 前缀的 id 无法证明是同一次响应");
+        deduped.Should().HaveCount(2, "没有响应链证据时，同 message id 的不同时间戳无法证明是同一次响应");
     }
 
     [Fact]
-    public void Collapses_requestless_anthropic_and_response_ids_across_timestamps_in_one_session()
+    public void Collapses_requestless_records_sharing_a_response_chain_across_timestamps()
     {
-        foreach (var messageId in new[] { "msg_01abc", "resp_01abc" })
+        foreach (var messageId in new[] { "msg_01abc", "resp_01abc", "gw-uuid-01abc" })
         {
             var deduped = new ClaudeUsageRecordDeduper().Dedupe([
-                Row(messageId, requestId: null, session: "s-a", minute: 0),
-                Row(messageId, requestId: null, session: "s-a", minute: 1),
+                Row(messageId, requestId: null, session: "s-a", minute: 0, chainIndex: 7),
+                Row(messageId, requestId: null, session: "s-a", minute: 1, chainIndex: 7),
             ]);
 
-            deduped.Should().ContainSingle($"{messageId} 是真实响应 id，多行只是逐 content block 写入");
+            deduped.Should().ContainSingle($"{messageId} 的多个 content block 属于同一次响应，message id 拼写不参与判定");
         }
+    }
+
+    [Fact]
+    public void Response_chain_key_is_scoped_by_session_and_source_file()
+    {
+        var otherSession = new ClaudeUsageRecordDeduper().Dedupe([
+            Row("gw-id", requestId: null, session: "s-a", minute: 0, chainIndex: 7),
+            Row("gw-id", requestId: null, session: "s-b", minute: 1, chainIndex: 7),
+        ]);
+        otherSession.Should().HaveCount(2, "不同会话是网关的两次真实请求");
+
+        var otherFile = new ClaudeUsageRecordDeduper().Dedupe([
+            Row("gw-id", requestId: null, session: "s-a", minute: 0, chainIndex: 7, sourceFile: "file-a"),
+            Row("gw-id", requestId: null, session: "s-a", minute: 1, chainIndex: 7, sourceFile: "file-b"),
+        ]);
+        otherFile.Should().HaveCount(2, "链索引只在同一份转录内有效");
+    }
+
+    [Fact]
+    public void Response_chain_does_not_overrule_request_ids()
+    {
+        var deduped = new ClaudeUsageRecordDeduper().Dedupe([
+            Row("gw-id", requestId: "req-1", session: "s-a", minute: 0, chainIndex: 7),
+            Row("gw-id", requestId: "req-2", session: "s-a", minute: 1, chainIndex: 7),
+        ]);
+
+        deduped.Should().HaveCount(2, "有 requestId 时它才是响应身份的唯一依据");
+    }
+
+    [Fact]
+    public void Merges_slots_when_exact_and_response_keys_point_to_different_records()
+    {
+        var responseA = Row("gw-id", requestId: null, session: "s-a", minute: 0, chainIndex: 7, inputTokens: 100);
+        var responseB = Row("gw-id", requestId: null, session: "s-a", minute: 1, chainIndex: 8, inputTokens: 50);
+        // 时间戳与 responseB 相同（exact 键命中 B），链索引却指向 A 所属响应（response 键命中 A）：
+        // 两槽位必须并成一个，否则同一次响应会被记两次。
+        var bridge = Row("gw-id", requestId: null, session: "s-a", minute: 1, chainIndex: 7, inputTokens: 100);
+
+        var deduped = new ClaudeUsageRecordDeduper().Dedupe([responseA, responseB, bridge]);
+
+        deduped.Should().ContainSingle();
+        deduped.Single().InputTokens.Should().Be(100);
     }
 
     [Fact]
@@ -137,17 +179,26 @@ public class ClaudeUsageRecordDeduperTests
         deduped.Should().ContainSingle("有 requestId 时它足以证明是同一次响应");
     }
 
-    private static UsageRecord Row(string messageId, string? requestId, string session, int minute)
+    private static UsageRecord Row(
+        string messageId,
+        string? requestId,
+        string session,
+        int minute,
+        int? chainIndex = null,
+        string sourceFile = "",
+        long inputTokens = 100)
         => new()
         {
             MessageId = messageId,
             RequestId = requestId,
             SessionId = session,
             Timestamp = new DateTimeOffset(2026, 9, 14, 8, minute, 0, TimeSpan.Zero),
-            InputTokens = 100,
+            InputTokens = inputTokens,
             OutputTokens = 10,
             IsSidechain = false,
             Model = "claude-sonnet-4-5-20250929",
+            ResponseChainIndex = chainIndex,
+            SourceFile = sourceFile,
         };
 
     private static UsageRecord Record(string? messageId, string? requestId, bool isSidechain, long inputTokens, string? model = null)
