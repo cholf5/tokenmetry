@@ -57,6 +57,7 @@ internal sealed class RelayDatabase(string dbPath)
                 device_id TEXT NOT NULL,
                 name TEXT NOT NULL,
                 last_seen_at TEXT NOT NULL,
+                data_epoch INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (account_id, device_id)
             );
 
@@ -70,6 +71,7 @@ internal sealed class RelayDatabase(string dbPath)
                 provider TEXT NOT NULL DEFAULT '',
                 project TEXT NOT NULL DEFAULT '',
                 project_display_name TEXT NOT NULL DEFAULT '',
+                host TEXT NOT NULL DEFAULT '',
                 input_tokens INTEGER NOT NULL DEFAULT 0,
                 output_tokens INTEGER NOT NULL DEFAULT 0,
                 cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
@@ -80,7 +82,7 @@ internal sealed class RelayDatabase(string dbPath)
                 cost_usd TEXT,
                 updated_at TEXT NOT NULL,
                 seq INTEGER NOT NULL,
-                PRIMARY KEY (account_id, device_id, day, grain, agent, model, provider, project)
+                PRIMARY KEY (account_id, device_id, day, grain, agent, model, provider, project, host)
             );
             CREATE INDEX IF NOT EXISTS idx_usage_rows_seq ON usage_rows (account_id, seq);
 
@@ -89,6 +91,7 @@ internal sealed class RelayDatabase(string dbPath)
                 device_id TEXT NOT NULL,
                 session_id TEXT NOT NULL,
                 agent TEXT NOT NULL DEFAULT '',
+                host TEXT NOT NULL DEFAULT '',
                 project TEXT NOT NULL DEFAULT '',
                 project_display_name TEXT NOT NULL DEFAULT '',
                 dominant_model TEXT NOT NULL DEFAULT '',
@@ -138,6 +141,93 @@ internal sealed class RelayDatabase(string dbPath)
                 PRIMARY KEY (account_id, key)
             );
             """, ct);
+
+        await UpgradeHostDimensionAsync(connection, ct);
+    }
+
+    /// <summary>
+    /// host 维度的前向升级（relay 刻意无版本化迁移：探测列 → 缺就补）。
+    /// usage_rows 的 host 进入主键，SQLite 不能 ALTER 主键——旧库整表重建并把历史行回填 ''；
+    /// session_rows / devices 只是补属性列。旧设备的 data_epoch 从 0 开始，等客户端升级后推整份
+    /// 快照再 +1（其它设备届时清本地旧副本）。
+    /// </summary>
+    private static async Task UpgradeHostDimensionAsync(SqliteConnection connection, CancellationToken ct)
+    {
+        var usageColumns = await ReadColumnsAsync(connection, "usage_rows", ct);
+        if (!usageColumns.Contains("host"))
+        {
+            await ExecuteAsync(connection, """
+                CREATE TABLE usage_rows_new (
+                    account_id TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    day TEXT NOT NULL,
+                    grain TEXT NOT NULL,
+                    agent TEXT NOT NULL DEFAULT '',
+                    model TEXT NOT NULL DEFAULT '',
+                    provider TEXT NOT NULL DEFAULT '',
+                    project TEXT NOT NULL DEFAULT '',
+                    project_display_name TEXT NOT NULL DEFAULT '',
+                    host TEXT NOT NULL DEFAULT '',
+                    input_tokens INTEGER NOT NULL DEFAULT 0,
+                    output_tokens INTEGER NOT NULL DEFAULT 0,
+                    cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+                    cache_creation_ephemeral_5m_tokens INTEGER NOT NULL DEFAULT 0,
+                    cache_creation_ephemeral_1h_tokens INTEGER NOT NULL DEFAULT 0,
+                    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+                    total_tokens INTEGER NOT NULL DEFAULT 0,
+                    cost_usd TEXT,
+                    updated_at TEXT NOT NULL,
+                    seq INTEGER NOT NULL,
+                    PRIMARY KEY (account_id, device_id, day, grain, agent, model, provider, project, host)
+                );
+
+                INSERT INTO usage_rows_new (
+                    account_id, device_id, day, grain, agent, model, provider, project, project_display_name, host,
+                    input_tokens, output_tokens, cache_creation_tokens,
+                    cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
+                    cache_read_tokens, total_tokens, cost_usd, updated_at, seq)
+                SELECT account_id, device_id, day, grain, agent, model, provider, project, project_display_name, '',
+                    input_tokens, output_tokens, cache_creation_tokens,
+                    cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
+                    cache_read_tokens, total_tokens, cost_usd, updated_at, seq
+                FROM usage_rows;
+
+                DROP TABLE usage_rows;
+                ALTER TABLE usage_rows_new RENAME TO usage_rows;
+                CREATE INDEX IF NOT EXISTS idx_usage_rows_seq ON usage_rows (account_id, seq);
+                """, ct);
+        }
+
+        var sessionColumns = await ReadColumnsAsync(connection, "session_rows", ct);
+        if (!sessionColumns.Contains("host"))
+        {
+            await ExecuteAsync(connection, "ALTER TABLE session_rows ADD COLUMN host TEXT NOT NULL DEFAULT ''", ct);
+        }
+
+        var deviceColumns = await ReadColumnsAsync(connection, "devices", ct);
+        if (!deviceColumns.Contains("data_epoch"))
+        {
+            await ExecuteAsync(connection, "ALTER TABLE devices ADD COLUMN data_epoch INTEGER NOT NULL DEFAULT 0", ct);
+        }
+    }
+
+    private static async Task<HashSet<string>> ReadColumnsAsync(
+        SqliteConnection connection, string table, CancellationToken ct)
+    {
+        using var cmd = connection.CreateCommand();
+        // table 只来自本类常量，无注入面。
+        cmd.CommandText = $"PRAGMA table_info({table})";
+        using var reader = await cmd.ExecuteReaderAsync(ct);
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (await reader.ReadAsync(ct))
+        {
+            if (!reader.IsDBNull(1))
+            {
+                columns.Add(reader.GetString(1));
+            }
+        }
+
+        return columns;
     }
 
     /// <summary>

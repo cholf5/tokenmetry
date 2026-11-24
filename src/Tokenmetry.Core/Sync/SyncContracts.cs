@@ -7,9 +7,15 @@ namespace Tokenmetry.Core.Sync;
 /// </summary>
 
 /// <summary>push 载荷：归属设备自身的行，必带 updated_at（LWW 版本）。</summary>
+/// <param name="FullSnapshot">
+/// true = 这是一份<b>整份快照</b>：服务端先删除该设备在该账号下的全部行再摄取，并把设备的
+/// <c>data_epoch</c> + 1，让其它设备清掉旧副本。客户端在推送游标被重置（首次启用 / 版本迁移后）
+/// 时置 true。旧客户端不发该字段 → false。
+/// </param>
 public sealed record SyncPushRequest(
     IReadOnlyList<Models.UsageFact> UsageFacts,
-    IReadOnlyList<Models.SessionFact> SessionFacts);
+    IReadOnlyList<Models.SessionFact> SessionFacts,
+    bool FullSnapshot = false);
 
 /// <summary>
 /// pull 响应：账号内其他设备的行增量（seq 之后）、全设备清单与当前 seq。

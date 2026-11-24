@@ -108,6 +108,7 @@ public class FilterStateServiceTests : IDisposable
         FilterStateService.AffectsQueries(nameof(FilterStateService.Agent)).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.Model)).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.Project)).Should().BeTrue();
+        FilterStateService.AffectsQueries(nameof(FilterStateService.Host)).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.CustomFromDate)).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.CustomToDate)).Should().BeTrue();
         FilterStateService.AffectsQueries(nameof(FilterStateService.Display)).Should().BeFalse();
@@ -126,6 +127,8 @@ public class FilterStateServiceTests : IDisposable
         filters.Project.Should().BeSameAs(ProjectFilterOption.All);
         filters.ModelOptions.Should().ContainSingle().Which.Should().BeSameAs(ModelFilterOption.All);
         filters.ProjectOptions.Should().ContainSingle().Which.Should().BeSameAs(ProjectFilterOption.All);
+        filters.Host.Should().BeSameAs(HostFilterOption.All);
+        filters.HostOptions.Should().ContainSingle().Which.Should().BeSameAs(HostFilterOption.All);
     }
 }
 

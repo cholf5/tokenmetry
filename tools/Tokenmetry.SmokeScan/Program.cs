@@ -60,15 +60,19 @@ Directory.CreateDirectory(logDirectory);
 var fileLog = new IngestionFileLogger(logDirectory, enabled: true);
 
 // 共用扫描注册表的适配器（同 AppServices 接线）；Pi 系适配器 identity cost 与主管道同引擎。
+var cindyLocator = new CindyLogLocator();
+var cindyOwnership = new CindyOwnershipIndex(cindyLocator);
 var claude = new ClaudeCodeJsonlAdapter(scanRegistry: scanRegistry);
-var codex = new CodexJsonlAdapter(scanRegistry: scanRegistry);
+var codex = new CodexJsonlAdapter(
+    scanRegistry: scanRegistry,
+    additionalHomeCandidates: () => cindyLocator.ResolveCodexHomes(null));
 var dsh = new DshSessionAdapter(scanRegistry: scanRegistry);
 var qwen = new QwenCodeAdapter(scanRegistry: scanRegistry);
 var kimi = new KimiCodeAdapter(scanRegistry: scanRegistry);
 var grok = new GrokAdapter(scanRegistry: scanRegistry);
 var openClaw = new OpenClawAdapter(scanRegistry: scanRegistry);
 var pi = new PiAgentAdapter(pricingEngine: pricingEngine);
-var cindy = new CindyPiAdapter(pricingEngine: pricingEngine);
+var cindy = new CindyPiAdapter(locator: cindyLocator, pricingEngine: pricingEngine);
 
 var store = new SqliteUsageStore(Path.Combine(smokeRoot, "smoke.db"));
 await store.InitializeAsync();
@@ -99,7 +103,8 @@ var dataSource = new LocalIngestionDataSource(
     pricingClient,
     timeZone: null,
     scanRegistry,
-    fileLog);
+    fileLog,
+    cindyOwnership: cindyOwnership);
 
 Console.WriteLine($"Tokenmetry 冒烟：{rounds} 轮 × 20 源采集扫描（临时目录 {smokeRoot}）");
 Console.WriteLine("源数据只读；facts 落临时库；结束自动清理。逐源明细见末尾。");
@@ -124,6 +129,19 @@ for (var round = 1; round <= rounds; round++)
         line += " | read_bytes n/a | read_ops n/a";
     }
 
+    Console.WriteLine(line);
+}
+
+Console.WriteLine();
+// Host 维度读数：确认 Cindy 归属真的落到了 facts 上（owner DB 可读、Codex 私有 home 命中），
+// 以及未归属的 CLI 数据仍以 host='' 存在。按 agent × host 出数，只打印聚合 token 数，无任何会话内容。
+var hostTotals = (await store.GetUsageFactsAsync())
+    .GroupBy(fact => $"{fact.Agent} × {(string.IsNullOrEmpty(fact.Host) ? "(未归属)" : fact.Host)}")
+    .OrderByDescending(group => group.Sum(fact => fact.TotalTokens))
+    .Select(group => $"{group.Key}: {group.Sum(fact => fact.TotalTokens):N0} tokens / {group.Count()} rows");
+Console.WriteLine($"--- Agent × Host 维度（{hostTotals.Count()} 组）---");
+foreach (var line in hostTotals)
+{
     Console.WriteLine(line);
 }
 

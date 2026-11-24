@@ -26,14 +26,24 @@ public sealed class SyncEngine(IUsageStore store, Func<ISyncBackend?> backendPro
 
         var (lastPushedAt, lastPullSeq) = await store.GetSyncCursorAsync(ct);
 
+        // 推送游标为 null = 首次启用，或版本迁移复位（host 维度重建后必须整份快照）。
+        // 即使本机此刻没有任何行，也要推一次空快照：服务端据此清掉该设备的旧行并推进 epoch，
+        // 否则已升级的客户端会一直看到本设备迁移前的 host='' 幽灵行。
+        var fullSnapshot = lastPushedAt is null;
+
         // push：只发上次推送游标之后、归属本机的行（值变化检测保证增量天然小）。
         var since = lastPushedAt ?? DateTimeOffset.MinValue;
         var localUsage = await store.GetLocalUsageFactsSinceAsync(since, ct);
         var localSessions = await store.GetLocalSessionFactsSinceAsync(since, ct);
-        if (localUsage.Count > 0 || localSessions.Count > 0)
+        if (localUsage.Count > 0 || localSessions.Count > 0 || fullSnapshot)
         {
-            await backend.PushAsync(new SyncPushRequest(localUsage, localSessions), ct);
+            await backend.PushAsync(new SyncPushRequest(localUsage, localSessions, fullSnapshot), ct);
         }
+
+        var localDeviceId = await store.GetLocalDeviceIdAsync(ct);
+        var knownDevices = (await store.GetRemoteDevicesAsync(ct))
+            .ToDictionary(device => device.DeviceId, StringComparer.Ordinal);
+        var epochPurgedDeviceIds = new List<string>();
 
         // pull：循环续拉直至 hasMore=false（行数上限分页），逐批落地。
         long pullSeq = lastPullSeq;
@@ -44,6 +54,26 @@ public sealed class SyncEngine(IUsageStore store, Func<ISyncBackend?> backendPro
         while (hasMore)
         {
             var response = await backend.PullAsync(pullSeq, ct);
+
+            // 行身份 epoch：服务端整份快照替换过某设备的数据时，先清掉它的本地旧副本再应用本批。
+            // 必须在 upsert 之前处理：本批/后续批可能同时含该设备的新行，先清后写才不会与旧行共存。
+            foreach (var device in response.Devices)
+            {
+                if (device.DeviceId == localDeviceId)
+                {
+                    continue;
+                }
+
+                if (knownDevices.TryGetValue(device.DeviceId, out var known)
+                    && known.DataEpoch != device.DataEpoch)
+                {
+                    await store.DeleteRemoteDeviceDataAsync(device.DeviceId, ct);
+                    epochPurgedDeviceIds.Add(device.DeviceId);
+                }
+
+                knownDevices[device.DeviceId] = device;
+            }
+
             if (response.UsageFacts.Count > 0)
             {
                 await store.UpsertRemoteUsageFactsAsync(response.UsageFacts, ct);
@@ -63,21 +93,27 @@ public sealed class SyncEngine(IUsageStore store, Func<ISyncBackend?> backendPro
 
         // 服务端的设备清单包含 caller 自身；本机不是"远端设备"——剔除后才落 remote_devices
         // （终审 C2/I3：否则 UI 重复出本机，且对账清退可能把本机当清退对象）。
-        var localDeviceId = await store.GetLocalDeviceIdAsync(ct);
         devices = devices.Where(device => device.DeviceId != localDeviceId).ToList();
 
         // A13 设备清单对账：本地已知的远端设备从账号清单消失（他机解绑/删号传播）→ 清其本地副本。
         // 本机永远豁免（终审 C2）：设备被远端解绑/中继重建后响应清单缺 caller，若不清退豁免，
         // 空闲设备的本地历史会被 DeleteRemoteDeviceDataAsync(本机) 整表删除——不可恢复。
+        //
+        // 只清退本轮还没在 pull 循环里做过 epoch 清库的设备：后者已经"先清后写"，这里再删一次
+        // 会把刚落地的新快照行一起删掉（epoch 变化恰好也是本测试暴露的时序）。
         var currentDevices = devices.Select(device => device.DeviceId).ToHashSet(StringComparer.Ordinal);
-        var purgedDeviceIds = (await store.GetRemoteDevicesAsync(ct))
+        var purgedDeviceIds = new List<string>(epochPurgedDeviceIds);
+        var a13PurgedDeviceIds = (await store.GetRemoteDevicesAsync(ct))
             .Where(device => device.DeviceId != localDeviceId && !currentDevices.Contains(device.DeviceId))
             .Select(device => device.DeviceId)
+            .Where(deviceId => !epochPurgedDeviceIds.Contains(deviceId, StringComparer.Ordinal))
             .ToList();
-        foreach (var purgedDeviceId in purgedDeviceIds)
+        foreach (var purgedDeviceId in a13PurgedDeviceIds)
         {
             await store.DeleteRemoteDeviceDataAsync(purgedDeviceId, ct);
         }
+
+        purgedDeviceIds.AddRange(a13PurgedDeviceIds);
 
         if (devices.Count > 0)
         {
@@ -94,6 +130,11 @@ public sealed class SyncEngine(IUsageStore store, Func<ISyncBackend?> backendPro
                 .Concat(lastPushedAt is { } previous ? new[] { previous } : Array.Empty<DateTimeOffset>())
                 .Max();
             newPushedAt = batchMax;
+        }
+        else if (fullSnapshot)
+        {
+            // 空快照也要推进推送游标，否则下一轮会重复推空快照并反复推进 epoch。
+            newPushedAt = DateTimeOffset.UtcNow;
         }
 
         await store.SetSyncCursorAsync(newPushedAt, pullSeq, ct);

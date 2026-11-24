@@ -50,8 +50,8 @@ public class SqliteUsageStoreTests : IAsyncLifetime
         facts.Should().ContainSingle();
         facts[0].CostUsd.Should().Be(1.23m);
         // 重复 Initialize 不重跑迁移：全部已注册版本各落账一次、顺序完整（迁移 3 起含设备维度，
-        // 迁移 4 起含设置同步账面）。
-        MigrationVersions().Should().Equal(1L, 2L, 3L, 4L);
+        // 迁移 4 起含设置同步账面，迁移 5 起 host 进主键，迁移 6 起远端设备数据 epoch）。
+        MigrationVersions().Should().Equal(1L, 2L, 3L, 4L, 5L, 6L);
     }
 
     /// <summary>I-036：provider 进入维度（三元组 agent × model × provider）——同模型不同 provider 分行的往返。</summary>
@@ -306,6 +306,169 @@ public class SqliteUsageStoreTests : IAsyncLifetime
                 File.Delete(legacyDbPath);
             }
         }
+    }
+
+    [Fact]
+    public async Task Reconcile_removes_superseded_local_full_rows_for_covered_agent_days()
+    {
+        await _store.UpsertUsageFactsAsync([CreateFullFact(day: "2026-06-19", costUsd: 1m)]);
+        var replacement = CreateFullFact(day: "2026-06-19", costUsd: 2m);
+        replacement.Project = "C:/workspace/dev/project-b";
+
+        await _store.ReconcileUsageFactsAsync(
+            [replacement],
+            new Dictionary<string, IReadOnlySet<string>>
+            {
+                ["Claude Code"] = new HashSet<string> { "2026-06-19" },
+            });
+
+        var facts = await _store.GetUsageFactsAsync();
+        facts.Should().ContainSingle("旧项目键（行身份）必须被清掉，否则 upsert 会留成幽灵行")
+            .Which.Project.Should().Be("C:/workspace/dev/project-b");
+    }
+
+    [Fact]
+    public async Task Reconcile_keeps_uncovered_days_and_other_agents()
+    {
+        var coveredDay = CreateFullFact(day: "2026-06-19", costUsd: 1m);
+        var uncoveredDay = CreateFullFact(day: "2026-06-20", costUsd: 2m);
+        var otherAgent = CreateFullFact(day: "2026-06-19", costUsd: 3m);
+        otherAgent.Agent = "Codex";
+        otherAgent.Project = "C:/workspace/dev/other";
+        await _store.UpsertUsageFactsAsync([coveredDay, uncoveredDay, otherAgent]);
+
+        await _store.ReconcileUsageFactsAsync(
+            [CreateFullFact(day: "2026-06-19", costUsd: 9m)],
+            new Dictionary<string, IReadOnlySet<string>>
+            {
+                ["Claude Code"] = new HashSet<string> { "2026-06-19" },
+            });
+
+        var facts = await _store.GetUsageFactsAsync();
+        facts.Should().Contain(fact => fact.Day == "2026-06-20", "未覆盖的日期不清理（历史保留）");
+        facts.Should().Contain(fact => fact.Agent == "Codex", "别的 agent 不在清理范围");
+        facts.Where(fact => fact.Agent == "Claude Code" && fact.Day == "2026-06-19")
+            .Should().ContainSingle().Which.CostUsd.Should().Be(9m);
+    }
+
+    [Fact]
+    public async Task Reconcile_does_not_touch_remote_device_rows()
+    {
+        var remote = CreateFullFact(day: "2026-06-19", costUsd: 4m);
+        remote.Device = "remote-device";
+        remote.UpdatedAt = DateTimeOffset.UtcNow;
+        await _store.UpsertRemoteUsageFactsAsync([remote]);
+
+        await _store.ReconcileUsageFactsAsync(
+            [],
+            new Dictionary<string, IReadOnlySet<string>>
+            {
+                ["Claude Code"] = new HashSet<string> { "2026-06-19" },
+            });
+
+        var facts = await _store.GetUsageFactsAsync();
+        facts.Should().ContainSingle().Which.Device.Should().Be("remote-device",
+            "权威清理只作用于本机设备行");
+    }
+
+    [Fact]
+    public async Task Reconcile_does_not_touch_unchanged_row_versions()
+    {
+        var fact = CreateFullFact(day: "2026-06-19", costUsd: 1m);
+        await _store.UpsertUsageFactsAsync([fact]);
+        var before = (await _store.GetUsageFactsAsync()).Single().UpdatedAt;
+        await Task.Delay(20);
+
+        await _store.ReconcileUsageFactsAsync(
+            [fact],
+            new Dictionary<string, IReadOnlySet<string>>
+            {
+                ["Claude Code"] = new HashSet<string> { "2026-06-19" },
+            });
+
+        (await _store.GetUsageFactsAsync()).Single().UpdatedAt.Should().Be(before,
+            "未变化行不重写 updated_at（增量同步不被每轮刷新退化成全量）");
+    }
+
+    [Fact]
+    public async Task Upsert_usage_facts_splits_rows_by_host()
+    {
+        var viaCindy = CreateFullFact(day: "2026-06-19", costUsd: 1m);
+        viaCindy.Host = "Cindy";
+        var viaCli = CreateFullFact(day: "2026-06-19", costUsd: 2m);
+
+        await _store.UpsertUsageFactsAsync([viaCindy, viaCli]);
+
+        var stored = await _store.GetUsageFactsAsync();
+        stored.Should().HaveCount(2, "同一引擎同一天经不同宿主使用必须分行");
+        stored.Single(fact => fact.Host == "Cindy").CostUsd.Should().Be(1m);
+        stored.Single(fact => fact.Host == string.Empty).CostUsd.Should().Be(2m);
+    }
+
+    [Fact]
+    public async Task Host_is_in_the_facts_primary_key_and_a_session_attribute()
+    {
+        using var connection = new SqliteConnection($"Data Source={_tempDbPath}");
+        await connection.OpenAsync();
+
+        var factsPk = ReadPrimaryKeyColumns(connection, "usage_facts");
+        factsPk.Should().Contain("host", "host 是行身份维度：不进主键会让一个宿主覆盖另一个");
+
+        var sessionColumns = ReadColumns(connection, "session_facts");
+        sessionColumns.Should().Contain("host");
+    }
+
+    [Fact]
+    public async Task Reconcile_removes_superseded_row_when_host_changes()
+    {
+        await _store.UpsertUsageFactsAsync([CreateFullFact(day: "2026-06-19", costUsd: 1m)]);
+        var attributed = CreateFullFact(day: "2026-06-19", costUsd: 2m);
+        attributed.Host = "Cindy";
+
+        await _store.ReconcileUsageFactsAsync(
+            [attributed],
+            new Dictionary<string, IReadOnlySet<string>>
+            {
+                ["Claude Code"] = new HashSet<string> { "2026-06-19" },
+            });
+
+        var stored = await _store.GetUsageFactsAsync();
+        stored.Should().ContainSingle("归属从空串变成 Cindy 后，旧行必须被清掉")
+            .Which.Host.Should().Be("Cindy");
+    }
+
+    private static HashSet<string> ReadPrimaryKeyColumns(SqliteConnection connection, string table)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info({table})";
+        using var reader = cmd.ExecuteReader();
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (reader.Read())
+        {
+            if (!reader.IsDBNull(5) && reader.GetInt32(5) > 0)
+            {
+                columns.Add(reader.GetString(1));
+            }
+        }
+
+        return columns;
+    }
+
+    private static HashSet<string> ReadColumns(SqliteConnection connection, string table)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info({table})";
+        using var reader = cmd.ExecuteReader();
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (reader.Read())
+        {
+            if (!reader.IsDBNull(1))
+            {
+                columns.Add(reader.GetString(1));
+            }
+        }
+
+        return columns;
     }
 
     private static UsageFact CreateFullFact(string day, decimal? costUsd, long inputTokens = 100)

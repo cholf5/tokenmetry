@@ -209,6 +209,72 @@ public sealed class DeviceFilterOption : INotifyPropertyChanged, IEquatable<Devi
 }
 
 /// <summary>
+/// 宿主筛选选项（形状仿 <see cref="DeviceFilterOption"/>）。"所有宿主"是不过滤的固定 UI 语义项
+/// （Label 实时取串）；真实宿主清单由 AgentCatalogService 从 facts 的 host 维度拉取后经
+/// <see cref="FilterStateService.UpdateHostOptions"/> 注入。相等性只看 <see cref="Id"/>。
+/// 空串宿主（未识别 / 直接用 CLI）用独立哨兵 Id 表达——Id 本身不能是空串，否则与"未选"无法区分。
+/// </summary>
+public sealed class HostFilterOption : INotifyPropertyChanged, IEquatable<HostFilterOption>
+{
+    /// <summary>"所有宿主"（不过滤）的固定标识。</summary>
+    public const string AllId = "all";
+
+    /// <summary>空串宿主（未识别 / 用户直接用 CLI）的哨兵 Id。</summary>
+    public const string NoHostId = "__no_host__";
+
+    public HostFilterOption(string id, string? label = null)
+    {
+        Id = id;
+        _label = label;
+    }
+
+    public string Id { get; }
+
+    private readonly string? _label;
+
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>展示名：真实宿主为数据键（不翻译）；两个哨兵经 Translations 实时取串。</summary>
+    public string Label => Id switch
+    {
+        AllId => Translations.Instance.AllHosts,
+        NoHostId => Translations.Instance.HostLocalCli,
+        _ => _label ?? Id,
+    };
+
+    /// <summary>语言切换后刷新哨兵展示名。</summary>
+    public void RefreshLabel() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Label)));
+
+    /// <summary>"所有宿主"（不过滤）选项（运行时默认值，也是选项清单首项）。</summary>
+    public static HostFilterOption All { get; } = new(AllId);
+
+    /// <summary>空串宿主（未识别 / 直接用 CLI）选项。</summary>
+    public static HostFilterOption NoHost { get; } = new(NoHostId);
+
+    public override string ToString() => Label;
+
+    public bool Equals(HostFilterOption? other) => other is not null && Id == other.Id;
+
+    public override bool Equals(object? obj) => obj is HostFilterOption other && Equals(other);
+
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Id);
+
+    static HostFilterOption()
+    {
+        // All / NoHost 为进程级稳定实例，直订阅语言切换信号刷新哨兵 Label，无需退订（同 AgentOption）。
+        Translations.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Translations.CurrentLanguage))
+            {
+                All.RefreshLabel();
+                NoHost.RefreshLabel();
+            }
+        };
+    }
+}
+
+/// <summary>
 /// 全局筛选状态（D-003）：时间范围 + Agent。顶部栏是主要编辑入口，各页 VM 经
 /// <see cref="INotifyPropertyChanged"/>（含 <see cref="Display"/> 汇总串）订阅变更。
 /// 线程模型：属性写入若发生在非 UI 线程，整个赋值 + 通知被 marshal 到 UI 线程执行，
@@ -226,6 +292,8 @@ public sealed class FilterStateService : ObservableObject
     private IReadOnlyList<ProjectFilterOption> _projectOptions = [ProjectFilterOption.All];
     private DeviceFilterOption _device = DeviceFilterOption.All;
     private IReadOnlyList<DeviceFilterOption> _deviceOptions = [DeviceFilterOption.All];
+    private HostFilterOption _host = HostFilterOption.All;
+    private IReadOnlyList<HostFilterOption> _hostOptions = [HostFilterOption.All];
     private bool _isSyncEnabled;
     private string _localDeviceId = string.Empty;
     private DateTimeOffset? _customFromDate;
@@ -250,6 +318,7 @@ public sealed class FilterStateService : ObservableObject
         || propertyName == nameof(Model)
         || propertyName == nameof(Project)
         || propertyName == nameof(Device)
+        || propertyName == nameof(Host)
         || propertyName == nameof(IsSyncEnabled)
         || propertyName == nameof(LocalDeviceId)
         || propertyName == nameof(CustomFromDate)
@@ -382,6 +451,16 @@ public sealed class FilterStateService : ObservableObject
     /// <summary>设备选项清单（初始仅"全部设备"哨兵；真实清单由 SyncStateService 经 UpdateDeviceOptions 注入）。</summary>
     public IReadOnlyList<DeviceFilterOption> DeviceOptions => _deviceOptions;
 
+    /// <summary>宿主筛选（顶栏全局）：默认所有宿主（不过滤）。空串宿主用 NoHostId 哨兵表达。</summary>
+    public HostFilterOption Host
+    {
+        get => _host;
+        set => SetOnUi(() => SetProperty(ref _host, value));
+    }
+
+    /// <summary>宿主选项清单（初始仅"所有宿主"哨兵；真实清单由 AgentCatalogService 注入）。</summary>
+    public IReadOnlyList<HostFilterOption> HostOptions => _hostOptions;
+
     /// <summary>同步是否开启（SyncStateService 投影；关 = 设备下拉不渲染 + 查询强制本机）。</summary>
     public bool IsSyncEnabled
     {
@@ -406,9 +485,20 @@ public sealed class FilterStateService : ObservableObject
     /// 筛选汇总展示串（如「最近 7 天 · 所有 Agent · 全部模型 · 全部项目」），任一维度变化都会通知。
     /// 设备维度仅在同步开启时追加（U5：同步关闭不渲染设备维，不打扰单机用户）。
     /// </summary>
-    public string Display => IsSyncEnabled
-        ? $"{TimeRange.Label} · {Agent.Label} · {Model.Label} · {Project.Label} · {Device.Label}"
-        : $"{TimeRange.Label} · {Agent.Label} · {Model.Label} · {Project.Label}";
+    public string Display
+    {
+        get
+        {
+            var summary = IsSyncEnabled
+                ? $"{TimeRange.Label} · {Agent.Label} · {Model.Label} · {Project.Label} · {Device.Label}"
+                : $"{TimeRange.Label} · {Agent.Label} · {Model.Label} · {Project.Label}";
+
+            // 宿主维度按需出现：只有真的选了某个宿主才追加，默认不打扰（与设备维度的显隐纪律一致）。
+            return _host.Id == HostFilterOption.AllId
+                ? summary
+                : $"{summary} · {_host.Label}";
+        }
+    }
 
     private void OnTranslationsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -422,6 +512,11 @@ public sealed class FilterStateService : ObservableObject
             }
 
             foreach (var option in _deviceOptions)
+            {
+                option.RefreshLabel();
+            }
+
+            foreach (var option in _hostOptions)
             {
                 option.RefreshLabel();
             }
@@ -527,8 +622,40 @@ public sealed class FilterStateService : ObservableObject
         });
     }
 
-    private void SetOnUi(Func<bool> apply)
+    /// <summary>
+    /// 替换宿主选项清单并通知（AgentCatalogService 拉到事实中的 host 维度后注入）。
+    /// 选中项按 Id 在新清单中找回；当前宿主不在新清单（宿主暂时没有用量 / 数据被清）时回落"所有宿主"
+    /// ——与设备维度同一 A8 纪律：数据驱动的死选项会制造静默空结果。
+    /// </summary>
+    public void UpdateHostOptions(IReadOnlyList<HostFilterOption> options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        RunOnUi(() =>
+        {
+            if (ReferenceEquals(_hostOptions, options))
+            {
+                return;
+            }
+
+            _hostOptions = options;
+            OnPropertyChanged(nameof(HostOptions));
+
+            var current = options.FirstOrDefault(o => o.Equals(_host));
+            if (current is null && !ReferenceEquals(_host, HostFilterOption.All))
+            {
+                _host = HostFilterOption.All;
+                OnPropertyChanged(nameof(Host));
+                OnPropertyChanged(nameof(Display));
+            }
+            else if (current is not null && !ReferenceEquals(current, _host))
+            {
+                _host = current;
+                OnPropertyChanged(nameof(Host));
+            }
+        });
+    }
+
+    private void SetOnUi(Func<bool> apply)    {
         if (Dispatcher.UIThread.CheckAccess())
         {
             ApplyAndNotify(apply);

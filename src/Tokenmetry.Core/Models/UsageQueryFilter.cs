@@ -35,6 +35,13 @@ public sealed class UsageQueryFilter
     public string? Project { get; init; }
 
     /// <summary>
+    /// 宿主精确过滤（Cindy / 未来的 T3 Code、Orca Agent）；null = 不过滤。
+    /// <b>例外语义</b>：非 null 时按原值精确匹配，包括空串——空串是合法过滤值（"未识别 / 直接用 CLI"
+    /// 这一档），所以这里不能沿用其它维度"空白 = 不过滤"的约定。
+    /// </summary>
+    public string? Host { get; init; }
+
+    /// <summary>
     /// 设备精确过滤（跨端同步，relay 设计 §4.3）：null = 不过滤（合并视图 = 全部设备并集），
     /// 非 null = 精确设备 id（含空串匹配无主行）。GlobalFilterMapper 单点收口：
     /// 同步关闭时强制本机设备 id，同步开启时按筛选下拉（"全部设备" → null）。

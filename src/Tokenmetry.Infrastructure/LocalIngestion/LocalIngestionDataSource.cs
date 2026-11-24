@@ -79,7 +79,14 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
     private readonly IngestionScanRegistry? _scanRegistry;
     private readonly IngestionFileLogger? _fileLog;
     private readonly IPluginSourceProvider? _pluginSources;
+    private readonly CindyOwnershipIndex? _cindyOwnership;
     private SemaphoreSlim _ingestionGate = new(initialCount: 1, maxCount: 1);
+
+    /// <summary>
+    /// 上一轮成功管道应用的宿主归属索引版本。归属索引独立于源文件变化（Cindy 的 owner 库可能先于
+    /// 日志出现 / rewind 后补上历史 id），所以无变化轮短路必须同时要求它没变。
+    /// </summary>
+    private long _lastAppliedOwnershipRevision = -1;
 
     /// <summary>
     /// I-047 测试注入点（Infrastructure.Tests 经 InternalsVisibleTo）：挂死轮不可在单测里真实复现
@@ -181,6 +188,42 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         {
             return path;
         }
+    }
+
+    /// <summary>
+    /// 本轮真正覆盖到的 agent × 本地自然日（取各源<b>原始扫描记录</b>，含随后被跨源去重 / 文件归属
+    /// 仲裁丢弃的行）。落库清理只在这个范围内权威覆盖：某个 agent 本轮出现了记录，它同日的旧行才允许
+    /// 被判定为"已消失"；某个源本轮失败 / 零记录时，它的历史行一律保留。
+    /// </summary>
+    internal Dictionary<string, IReadOnlySet<string>> BuildCoveredDaysByAgent(
+        IReadOnlyList<(string Agent, JsonlScanResult Result)> scanned)
+    {
+        var timeZone = _timeZone ?? TimeZoneInfo.Local;
+        var map = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (var (_, result) in scanned)
+        {
+            foreach (var record in result.Records)
+            {
+                var agent = record.Agent ?? string.Empty;
+                if (agent.Length == 0)
+                {
+                    continue;
+                }
+
+                if (!map.TryGetValue(agent, out var days))
+                {
+                    days = new HashSet<string>(StringComparer.Ordinal);
+                    map[agent] = days;
+                }
+
+                days.Add(UsageFactsMapper.FormatDay(record.Timestamp, timeZone));
+            }
+        }
+
+        return map.ToDictionary(
+            entry => entry.Key,
+            entry => (IReadOnlySet<string>)entry.Value,
+            StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -346,7 +389,8 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         TimeZoneInfo? timeZone = null,
         IngestionScanRegistry? scanRegistry = null,
         IngestionFileLogger? fileLogger = null,
-        IPluginSourceProvider? pluginSources = null)
+        IPluginSourceProvider? pluginSources = null,
+        CindyOwnershipIndex? cindyOwnership = null)
     {
         _claudeAdapter = claudeAdapter ?? throw new ArgumentNullException(nameof(claudeAdapter));
         _codexAdapter = codexAdapter ?? throw new ArgumentNullException(nameof(codexAdapter));
@@ -375,6 +419,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
         _scanRegistry = scanRegistry;
         _fileLog = fileLogger;
         _pluginSources = pluginSources;
+        _cindyOwnership = cindyOwnership;
         // S-002：管道组成即"已识别数据源"清单，构造时注册（含未扫描态——UI 显示"尚未扫描"）。
         // 内置源 + 当前启用的插件源（插件停用/卸载的注销由 provider.Refresh 负责）。
         if (_scanRegistry is { } registry)
@@ -429,6 +474,12 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             var roundStart = DateTimeOffset.Now;
             _fileLog?.WriteLine($"round start (forceFull={_forceFullNextRound})");
 
+            // 宿主归属索引（Cindy owner 库）独立于源文件变化：每轮先刷新（文件戳未变时零 SQL），
+            // 版本号参与无变化轮判定——owner 库先于日志出现 / rewind 补历史 id 时，源文件一字未动
+            // 也必须重跑归属与落库。
+            _cindyOwnership?.Refresh();
+            var ownershipRevision = _cindyOwnership?.Revision ?? -1;
+
             // S-002：逐源扫描（顺序与拼接序 = BuildScanPipeline 清单），每源完成后向注册表登记
             // 真实快照（状态 / 累计记录数 / 完成时刻），供设置页数据源表读取。
             // A-6 逐源异常隔离：任一适配器抛出只跳过该源（登记 Error 快照供设置页如实显示），
@@ -470,6 +521,9 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             // 典型场景 = 用户把 PI_AGENT_DIR 指到 <Cindy>/pi-agent-home/sessions（pi 适配器与 Cindy 适配器
             // 会各出一通账）；按 SourceFile 归一判等，不靠路径前缀猜归属。
             var ownershipArbitrated = ApplyFileOwnership(scanResults);
+            // "本轮真正覆盖到的 agent × 自然日"（取原始扫描记录，含随后被跨源去重丢弃的行）：
+            // 落库时用它限定权威清理范围——只清本轮有记录的 agent/日，绝不误删临时的源故障或历史。
+            var coveredDaysByAgent = BuildCoveredDaysByAgent(scanResults);
             // 跨源去重（不双算）：OpenCode claude-agent 行的原生会话当天已被 Claude 计账时整行丢弃
             // （ccusage #2007 同语义），否则同一 turn 双计。
             var records = ApplyClaudeAgentDedup(ownershipArbitrated);
@@ -478,6 +532,13 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
                 _fileLog?.WriteLine(
                     $"cross-source dedup: dropped {ownershipArbitrated.Count - records.Count} OpenCode claude-agent rows already counted by Claude (session × UTC day)");
             }
+
+            if (_cindyOwnership is { } cindyOwnership)
+            {
+                // 宿主归属（Engine × Host 两级语义）+ 产品项目覆盖；未命中索引的记录 Host 为空。
+                records = CindyHostAttribution.Apply(records, cindyOwnership);
+            }
+
             if (records.Count == 0)
             {
                 // 无记录（日志目录不存在 / 全空）时不动存储：保留既有数据（含旧 CLI 行），
@@ -489,7 +550,9 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             // I-042 无变化轮短路：全部源账面未动 → 计价/聚合/落库的必然结果与现状逐位相同，
             // 直接读 facts 返回（短路轮连 ClearUnpricedModels 都不做——无新记录，未知清单不变）。
             // facts 读回为空（库被外部清空 / 迁移异常）则落穿全量管道自愈重建。
-            if (!_forceFullNextRound && scanResults.All(static entry => IsScanUnchanged(entry.Result)))
+            if (!_forceFullNextRound
+                && ownershipRevision == _lastAppliedOwnershipRevision
+                && scanResults.All(static entry => IsScanUnchanged(entry.Result)))
             {
                 var cachedFacts = await _store.GetUsageFactsAsync(ct);
                 if (cachedFacts.Count > 0)
@@ -517,7 +580,9 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             var sessionFacts = UsageFactsMapper.ToSessionFacts(records, pricedCosts);
             var upsertStart = DateTimeOffset.Now;
             _fileLog?.WriteLine($"store upsert start — facts: {usageFacts.Count}, sessions: {sessionFacts.Count}");
-            await _store.UpsertUsageFactsAsync(usageFacts, ct);
+            // 权威写入：upsert 之外清掉"本轮有记录的 agent × 日"里已经不在本批的 full 行
+            // （宿主归属 / 项目覆盖 / 文件删除会改变行身份；只 upsert 会把旧行留成幽灵、翻倍计入）。
+            await _store.ReconcileUsageFactsAsync(usageFacts, coveredDaysByAgent, ct);
             await _store.UpsertSessionFactsAsync(sessionFacts, ct);
 
             // 数据源切换清理（I-002 转记）：本地采集是唯一权威源后，旧 CLI 源的分解粒度行
@@ -529,6 +594,7 @@ public class LocalIngestionDataSource : IUsageDataSource, IAggregationInvalidato
             // 强全量旗标在全量管道成功完成后才清除：中途失败（落库抛错等）保留到下轮重试，
             // 不让失败轮吞掉价格/别名热更新的生效保证。
             _forceFullNextRound = false;
+            _lastAppliedOwnershipRevision = ownershipRevision;
             _fileLog?.WriteLine($"round done in {(DateTimeOffset.Now - roundStart).TotalMilliseconds:F0} ms — full pipeline, facts: {facts.Count} rows");
             return UsageFactsMapper.ToDailySummaries(facts);
         }

@@ -30,6 +30,16 @@ dotnet run --project tools/Tokenmetry.SmokeScan -- 3   # 采集管道真机冒�
 
 任何成本数字必须能与 ccusage 输出对账一致（tokens 精确、cost ≤0.5%）：golden fixture 锚 `npx ccusage@20.0.29`，Claude **真实数据**对账锚 20.1.1（20.1.0 起修了代理网关多 block 响应的重复记账，见对账文档 §8）。改解析、计价、聚合口径前**必读** `docs/reconciliation/2026-10-11-reconciliation.md`（口径逐项对齐表：costUSD 优先级、UTC 分桶、`-fast` 剥价、消息去重、cumulative 守卫等）。Reconciliation.Tests 只解析提交进仓库的 golden JSON，不现场调用 CLI。
 
+## Host 维度与 Cindy 归属（Agent = 执行引擎，Host = 发起宿主）
+
+Cindy / T3 Code / Orca Agent 这类"宿主套执行引擎"的产品越来越多，口径固定为两级：**Agent 永远是执行引擎**（Claude Code / Codex / Cindy 只代表 Pi runtime），**Host 才回答这次执行由谁发起**（`"Cindy"`；空串 = 命令行/未识别）。新增同类宿主时照此扩展，不要复制一套适配器。
+
+- 发现范围（`CindyLogLocator`）：userData 区域目录 `Cindy`（cn）/ `CindyGlobal` / 历史 `xdt-maker`——**`CindyDev` 有意排除**（开发者身份，测试数据）；`<appData>/CindyHost/<profile>` 独立 Host 配置；Cindy 私有 Codex home（`codex-home`、`codex-accounts/<owner>/<provider>`）作为 Codex 适配器附加发现根，跨 home 按 rollout 逻辑身份去重（同 rollout 被 Cindy 收养不双算，`rollout-cindy-*` 等伪 artifact 让位）。
+- 归属仲裁（`CindyOwnershipIndex` + `CindyHostAttribution`，只读 owner 库 `cindy-*.db` / `xdt-maker-*.db` 的会话元数据列，**绝不读 messages**）：Claude 按 `sessions.sdk_session_id` = transcript 文件名精确 join（历史 rewind/fork id 在 `skill_usage_sources`）；Codex 按 rollout 文件名里的 thread id；Pi 私有 home 天然是 Cindy。owner 库指纹未变时零 SQL，读取失败保留上一版成功索引并下轮重试。
+- 项目维度：`project_dir` > `workspace_kind=dialogue` 归 `Unknown Project` > `working_dir`（落在 Cindy 内部目录时不采用）；Cindy 内部/编码残留路径统一归 `Unknown Project`。
+- 行身份：`usage_facts` 主键含 `host`（迁移 5），`session_facts.host` 是属性。迁移把历史行保留为 `host=''`；采集管道用 `ReconcileUsageFactsAsync` 对"本轮实际扫到的 agent × day"做权威重算，清掉被改写身份的旧行（源失败的天不覆盖，绝不因临时读不到而删历史）。改归属/项目推导后无需手工清库。
+- 同步：行身份变了，relay 与客户端**必须一起升级**。首次同步推 `FullSnapshot`，relay 清该设备旧行并递增 `devices.data_epoch`；其他客户端发现 epoch 变化即清该设备本地副本，避免 host 幽灵行。
+
 ## 分享海报（SharePoster）子系统
 
 组成：Core `Models/SharePoster*.cs`（请求/快照模型，快照构建 `SharePosterSnapshot` 也在这里）+ App 侧 `Views/SharePosterDialog`（独立窗口，代码建窗）、`Views/SharePosterView`（海报本体）、`ViewModels/SharePoster*`、`Services/SharePosterExporter`；设计与取舍见 `docs/plans/2026-11-02-share-poster-design.md`。改预览/导出前需要知道的硬事实：

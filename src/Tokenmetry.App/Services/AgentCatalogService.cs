@@ -123,6 +123,7 @@ public sealed class AgentCatalogService
     private IReadOnlyList<AgentOption>? _agentOptions;
     private IReadOnlyList<ModelFilterOption>? _modelOptions;
     private IReadOnlyList<ProjectFilterOption>? _projectOptions;
+    private IReadOnlyList<HostFilterOption>? _hostOptions;
 
     public AgentCatalogService(IUsageQueryService query)
     {
@@ -224,6 +225,42 @@ public sealed class AgentCatalogService
                     .Select(r => new ProjectFilterOption(r.Key, r.DisplayName ?? r.Key)),
             ];
             return _projectOptions;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 宿主选项清单：[所有宿主, ...事实中出现过的宿主（用量权重降序）]。
+    /// 空串宿主（未识别 / 直接用 CLI）映射为固定哨兵 <see cref="HostFilterOption.NoHost"/>，
+    /// 展示文案走翻译；真实宿主名是数据，不翻译。
+    /// </summary>
+    public async Task<IReadOnlyList<HostFilterOption>> GetHostOptionsAsync(CancellationToken ct = default)
+    {
+        if (_hostOptions is { } cached)
+        {
+            return cached;
+        }
+
+        await _gate.WaitAsync(ct);
+        try
+        {
+            if (_hostOptions is { } again)
+            {
+                return again;
+            }
+
+            var hosts = await _query.GetHostsAsync(ct);
+            _hostOptions =
+            [
+                HostFilterOption.All,
+                .. hosts.Select(host => host.Length == 0
+                    ? HostFilterOption.NoHost
+                    : new HostFilterOption(host, host)),
+            ];
+            return _hostOptions;
         }
         finally
         {

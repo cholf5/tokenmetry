@@ -46,6 +46,8 @@ public sealed partial class Translations
         [nameof(TopbarModel)] = "모델",
         [nameof(TopbarProject)] = "프로젝트",
         [nameof(TopbarDevice)] = "기기",
+        [nameof(TopbarHost)] = "호스트",
+        [nameof(AllHosts)] = "모든 호스트",
         [nameof(StatusStarting)] = "시작 중…",
         [nameof(StatusScanning)] = "로컬 데이터 스캔 중…",
         [nameof(StatusNoLocalData)] = "로컬 데이터 없음",
@@ -367,6 +369,8 @@ public sealed partial class Translations
         [nameof(ThOutputTokens)] = "출력 Token",
         [nameof(ThTotalTokens)] = "총 Token",
         [nameof(AgentKpiFootFormat)] = "{0} 세션 · {1}",
+        [nameof(HostLocalCli)] = "로컬 CLI",
+        [nameof(HostSplitFormat)] = "{0} {1}%",
 
         // ── 모델 통계 페이지 ──
         [nameof(MetaMissingPriceUnknown)] = "가격이 없으면 비용은 0이 아니라 알 수 없음으로 표시",

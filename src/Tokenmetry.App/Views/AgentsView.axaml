@@ -162,9 +162,15 @@
                                                 <Image Classes="agent-logo"/>
                                             </Panel>
                                         </Border>
-                                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding Name}"
-                                                   ToolTip.Tip="{Binding Name}"
-                                                   TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Classes="table-td" Text="{Binding Name}"
+                                                       ToolTip.Tip="{Binding Name}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <!-- 宿主拆分（Cindy / CLI）：全空宿主时整行隐藏，不占位 -->
+                                            <TextBlock Classes="kpi-foot" Text="{Binding HostText}"
+                                                       IsVisible="{Binding HasHost}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
                                     </Grid>
                                     <TextBlock Grid.Column="1" Classes="table-num" Text="{Binding SessionCountText}"
                                                VerticalAlignment="Center"/>

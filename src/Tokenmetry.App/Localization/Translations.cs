@@ -66,6 +66,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(TopbarModel)] = "模型",
         [nameof(TopbarProject)] = "项目",
         [nameof(TopbarDevice)] = "设备",
+        [nameof(TopbarHost)] = "宿主",
+        [nameof(AllHosts)] = "所有宿主",
         [nameof(StatusStarting)] = "启动中…",
         [nameof(StatusScanning)] = "正在扫描本地数据…",
         [nameof(StatusNoLocalData)] = "未检出本地数据",
@@ -399,6 +401,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ThOutputTokens)] = "输出 Token",
         [nameof(ThTotalTokens)] = "总 Token",
         [nameof(AgentKpiFootFormat)] = "{0} 会话 · {1}",
+        [nameof(HostLocalCli)] = "本机 CLI",
+        [nameof(HostSplitFormat)] = "{0} {1}%",
 
         // ── 模型统计页（ModelsView / ModelsViewModel）──
         [nameof(MetaMissingPriceUnknown)] = "价格缺失时成本应标记为未知，而非 0",
@@ -723,6 +727,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(TopbarModel)] = "Model",
         [nameof(TopbarProject)] = "Project",
         [nameof(TopbarDevice)] = "Device",
+        [nameof(TopbarHost)] = "Host",
+        [nameof(AllHosts)] = "All hosts",
         [nameof(StatusStarting)] = "Starting…",
         [nameof(StatusScanning)] = "Scanning local data…",
         [nameof(StatusNoLocalData)] = "No local data found",
@@ -1037,6 +1043,8 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(ThOutputTokens)] = "Output tok.",
         [nameof(ThTotalTokens)] = "Total tok.",
         [nameof(AgentKpiFootFormat)] = "{0} sessions · {1}",
+        [nameof(HostLocalCli)] = "Standalone CLI",
+        [nameof(HostSplitFormat)] = "{0} {1}%",
 
         [nameof(MetaMissingPriceUnknown)] = "Missing prices show cost as unknown, not 0",
         [nameof(PanelModelDetails)] = "Model details",
@@ -1518,6 +1526,12 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string TopbarModel => Get();
     public string TopbarProject => Get();
     public string TopbarDevice => Get();
+    /// <summary>顶栏宿主筛选标签。</summary>
+    public string TopbarHost => Get();
+
+    /// <summary>宿主筛选"不过滤"哨兵文案。</summary>
+    public string AllHosts => Get();
+
     public string StatusStarting => Get();
     public string StatusScanning => Get();
     public string StatusNoLocalData => Get();
@@ -1927,6 +1941,12 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string ThOutputTokens => Get();
     public string ThTotalTokens => Get();
     public string AgentKpiFootFormat => Get();
+    /// <summary>宿主为空串（未识别）时展示的文案：用户直接使用 CLI。</summary>
+    public string HostLocalCli => Get();
+
+    /// <summary>Agent 行的宿主拆分项（{0}=宿主名 / 本机 CLI，{1}=百分比整数）。</summary>
+    public string HostSplitFormat => Get();
+
 
     // ── 模型统计页 ──
     public string MetaMissingPriceUnknown => Get();

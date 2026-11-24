@@ -519,6 +519,36 @@ public class CodexJsonlAdapterTests : IDisposable
         result.Diagnostics.Status.Should().Be(JsonlScanStatus.Partial);
     }
 
+    [Fact]
+    public async Task Counts_cindy_private_codex_home_once_when_the_same_rollout_was_adopted()
+    {
+        // Cindy 把 Codex 子进程的 CODEX_HOME 指向私有 home；收养外部 thread 时会原样复制 rollout。
+        // 两处同名副本只应计一次，且取最新（更全）的副本。
+        var externalHome = CreateTempHome();
+        var cindyHome = CreateTempHome();
+        const string relative =
+            "sessions/2026/05/25/rollout-2026-05-25T16-00-18-11111111-1111-4111-8111-111111111111.jsonl";
+        const string firstTurn =
+            """{"timestamp":"2026-05-25T16:00:18.744Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"output_tokens":10,"total_tokens":110},"last_token_usage":{"input_tokens":100,"output_tokens":10,"total_tokens":110}}}}""";
+        const string secondTurn =
+            """{"timestamp":"2026-05-25T16:05:18.744Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":300,"output_tokens":30,"total_tokens":330},"last_token_usage":{"input_tokens":200,"output_tokens":20,"total_tokens":220}}}}""";
+        WriteSessionFile(externalHome, relative, firstTurn + "\n");
+        var cindyFile = WriteSessionFile(cindyHome, relative, firstTurn + "\n" + secondTurn + "\n");
+        File.SetLastWriteTimeUtc(
+            Path.Combine(externalHome, relative.Replace('/', Path.DirectorySeparatorChar)),
+            new DateTime(2026, 5, 25, 16, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(cindyFile, new DateTime(2026, 5, 25, 17, 0, 0, DateTimeKind.Utc));
+        var locator = new CodexLogLocator(
+            key => key == "CODEX_HOME" ? externalHome : null,
+            () => [cindyHome]);
+        var adapter = new CodexJsonlAdapter(locator: locator);
+
+        var result = await adapter.ScanAsync();
+
+        result.Records.Should().HaveCount(2); // 副本的共享前缀不翻倍
+        result.Records.Should().OnlyContain(record => record.SourceFile == cindyFile);
+    }
+
     private static void WriteFile(string home, string relativePath, string content)
     {
         var path = Path.Combine(home, relativePath.Replace('/', Path.DirectorySeparatorChar));

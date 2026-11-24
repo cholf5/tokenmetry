@@ -14,6 +14,9 @@ public class SessionFact
 
     public string Agent { get; set; } = string.Empty;
 
+    /// <summary>宿主 / 发起方（Cindy 等）；空串 = 未识别（用户直接用 CLI）。</summary>
+    public string Host { get; set; } = string.Empty;
+
     public string Project { get; set; } = string.Empty;
 
     public string ProjectDisplayName { get; set; } = string.Empty;

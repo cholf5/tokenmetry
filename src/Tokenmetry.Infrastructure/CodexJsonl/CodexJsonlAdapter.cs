@@ -7,10 +7,12 @@ using Tokenmetry.Infrastructure.Jsonl;
 namespace Tokenmetry.Infrastructure.CodexJsonl;
 
 /// <summary>
-/// Codex JSONL 直读适配器：目录发现 → 文件枚举（sessions / archived_sessions 按 home 去重）→
-/// 逐文件解析 → 消息级去重 → 统一记录 + 诊断计数。
+/// Codex JSONL 直读适配器：目录发现 → 文件枚举（sessions / archived_sessions 按 home 去重，
+/// 跨 home 按 rollout 逻辑身份去重）→ 逐文件解析 → 消息级去重 → 统一记录 + 诊断计数。
 /// 增量扫描、记账、去重与诊断状态由各 agent 适配器共享的 <see cref="IncrementalJsonlScanner"/> 承担
 /// （与 Claude 适配器同一实现，无分叉）；本类只保留 Codex 特有的目录定位与文件级解析规则。
+/// 附加发现根（<paramref name="additionalHomeCandidates"/>）让桌面宿主把 Codex 子进程指向私有
+/// CODEX_HOME 时仍能入账（Cindy = <c>&lt;userData&gt;/codex-home</c> 等），出账归属仍是 Codex 引擎。
 /// 重复运行不产生重复记录；文件被删除后其记录随之移除。
 /// 实例持有扫描状态，非线程安全；I-005 起以单例接入 App DI（并发由 LocalIngestionDataSource 串行化）。
 /// </summary>
@@ -28,10 +30,11 @@ public class CodexJsonlAdapter : ICodexJsonlAdapter
         CodexJsonlFileParser? fileParser = null,
         ClaudeUsageRecordDeduper? deduper = null,
         Func<string, TextReader>? readerFactory = null,
-        IngestionScanRegistry? scanRegistry = null)
+        IngestionScanRegistry? scanRegistry = null,
+        Func<IReadOnlyList<string>>? additionalHomeCandidates = null)
     {
         _configuredHome = configuredHome;
-        _locator = locator ?? new CodexLogLocator();
+        _locator = locator ?? new CodexLogLocator(additionalHomeCandidates: additionalHomeCandidates);
         _fileParser = fileParser ?? new CodexJsonlFileParser();
         _scanRegistry = scanRegistry;
         _scanner = new IncrementalJsonlScanner(readerFactory ?? OpenRolloutReader, deduper);

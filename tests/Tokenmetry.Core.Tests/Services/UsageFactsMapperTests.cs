@@ -71,6 +71,26 @@ public class UsageFactsMapperTests
             "都检测不到就是空串，绝不按模型名猜厂商");
     }
 
+    /// <summary>
+    /// 宿主维度与引擎正交：同一引擎同一天经不同宿主（Cindy / 直接用 CLI）产生的用量必须分行，
+    /// 否则一个宿主的行会被 upsert 覆盖另一个。
+    /// </summary>
+    [Fact]
+    public void ToUsageFacts_SplitsRowsByHost()
+    {
+        var viaCindy = CreateRecord(day: 19, hour: 8, inputTokens: 100);
+        viaCindy.Host = "Cindy";
+        viaCindy.SessionId = "s-cindy";
+        var viaCli = CreateRecord(day: 19, hour: 9, inputTokens: 200);
+        viaCli.SessionId = "s-cli";
+
+        var facts = UsageFactsMapper.ToUsageFacts(new[] { viaCindy, viaCli }, Utc);
+
+        facts.Should().HaveCount(2, "同一引擎同一天的用量按宿主分行");
+        facts.Single(fact => fact.Host == "Cindy").InputTokens.Should().Be(100);
+        facts.Single(fact => fact.Host == string.Empty).InputTokens.Should().Be(200);
+    }
+
     [Fact]
     public void ToUsageFacts_NullModelFallsBackToEmptyAndNullCostStaysNull()
     {
@@ -141,6 +161,15 @@ public class UsageFactsMapperTests
         });
 
         facts.Single().CostUsd.Should().BeNull();
+    }
+
+    [Fact]
+    public void ToSessionFacts_CarriesHost()
+    {
+        var record = CreateRecord(day: 19, hour: 8, sessionId: "session-1");
+        record.Host = "Cindy";
+
+        UsageFactsMapper.ToSessionFacts(new[] { record }).Single().Host.Should().Be("Cindy");
     }
 
     [Fact]

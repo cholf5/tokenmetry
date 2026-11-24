@@ -46,6 +46,8 @@ public sealed partial class Translations
         [nameof(TopbarModel)] = "模型",
         [nameof(TopbarProject)] = "專案",
         [nameof(TopbarDevice)] = "裝置",
+        [nameof(TopbarHost)] = "宿主",
+        [nameof(AllHosts)] = "所有宿主",
         [nameof(StatusStarting)] = "啟動中…",
         [nameof(StatusScanning)] = "正在掃描本機資料…",
         [nameof(StatusNoLocalData)] = "未偵測到本機資料",
@@ -367,6 +369,8 @@ public sealed partial class Translations
         [nameof(ThOutputTokens)] = "輸出 Token",
         [nameof(ThTotalTokens)] = "總 Token",
         [nameof(AgentKpiFootFormat)] = "{0} 工作階段 · {1}",
+        [nameof(HostLocalCli)] = "本機 CLI",
+        [nameof(HostSplitFormat)] = "{0} {1}%",
 
         // ── 模型统计页 ──
         [nameof(MetaMissingPriceUnknown)] = "價格缺失時成本應標記為未知，而非 0",

@@ -46,6 +46,8 @@ public sealed partial class Translations
         [nameof(TopbarModel)] = "モデル",
         [nameof(TopbarProject)] = "プロジェクト",
         [nameof(TopbarDevice)] = "デバイス",
+        [nameof(TopbarHost)] = "ホスト",
+        [nameof(AllHosts)] = "すべてのホスト",
         [nameof(StatusStarting)] = "起動中…",
         [nameof(StatusScanning)] = "ローカルデータをスキャン中…",
         [nameof(StatusNoLocalData)] = "ローカルデータが見つかりません",
@@ -367,6 +369,8 @@ public sealed partial class Translations
         [nameof(ThOutputTokens)] = "出力 Token",
         [nameof(ThTotalTokens)] = "合計 Token",
         [nameof(AgentKpiFootFormat)] = "{0} セッション · {1}",
+        [nameof(HostLocalCli)] = "ローカル CLI",
+        [nameof(HostSplitFormat)] = "{0} {1}%",
 
         // ── モデル統計ページ ──
         [nameof(MetaMissingPriceUnknown)] = "価格がない場合のコストは 0 ではなく「不明」",

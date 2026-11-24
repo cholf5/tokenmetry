@@ -48,6 +48,8 @@ public sealed partial class Translations
         [nameof(TopbarModel)] = "Модель",
         [nameof(TopbarProject)] = "Проект",
         [nameof(TopbarDevice)] = "Устройство",
+        [nameof(TopbarHost)] = "Хост",
+        [nameof(AllHosts)] = "Все хосты",
         [nameof(StatusStarting)] = "Запуск…",
         [nameof(StatusScanning)] = "Сканирование локальных данных…",
         [nameof(StatusNoLocalData)] = "Локальные данные не найдены",
@@ -369,6 +371,8 @@ public sealed partial class Translations
         [nameof(ThOutputTokens)] = "Вывод, ток.",
         [nameof(ThTotalTokens)] = "Всего, ток.",
         [nameof(AgentKpiFootFormat)] = "{0} сесс. · {1}",
+        [nameof(HostLocalCli)] = "Локальный CLI",
+        [nameof(HostSplitFormat)] = "{0} {1}%",
 
         // ── Страница статистики моделей ──
         [nameof(MetaMissingPriceUnknown)] = "Без цены стоимость показывается как неизвестная, а не 0",

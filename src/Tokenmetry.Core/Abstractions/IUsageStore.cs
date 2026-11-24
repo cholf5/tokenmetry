@@ -19,6 +19,20 @@ public interface IUsageStore
     Task UpsertUsageFactsAsync(IReadOnlyList<UsageFact> facts, CancellationToken ct = default);
 
     /// <summary>
+    /// 本地采集的权威写入：upsert 本批 facts，并清理"本轮有记录的 agent × 本地自然日"里已经不在本批
+    /// 的<b>本机 full 粒度行</b>。行身份变化（宿主归属 / 项目覆盖 / 文件删除 / 跨源去重）必须靠这里
+    /// 清掉旧行，否则 upsert 会把旧键留成幽灵、在聚合里双算。
+    /// <paramref name="coveredDaysByAgent"/> 的语义是"覆盖范围"：只在这个集合内删除；源失败或零记录的
+    /// agent/日不在集合里，历史行原样保留。远端设备的行不在清理范围内。
+    /// 默认实现退化为 upsert（无状态测试替身 / 不具备清理能力的存储）；生产实现覆盖它。
+    /// </summary>
+    Task ReconcileUsageFactsAsync(
+        IReadOnlyList<UsageFact> facts,
+        IReadOnlyDictionary<string, IReadOnlySet<string>> coveredDaysByAgent,
+        CancellationToken ct = default)
+        => UpsertUsageFactsAsync(facts, ct);
+
+    /// <summary>
     /// 以"整日替换"语义写入 facts：批次涉及的每个日期，先删除该日的分解粒度行
     /// （agent / model / project 等非 full 粒度）再写入本批行，full 粒度行不受影响。
     /// 用于 CLI 数据源的分解写入，日内消失的分解条目不残留。

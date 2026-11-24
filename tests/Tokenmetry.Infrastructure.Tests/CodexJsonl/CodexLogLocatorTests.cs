@@ -144,6 +144,112 @@ public class CodexLogLocatorTests : IDisposable
         ], "明文优先于压缩、sessions/ 优先于 archived_sessions/，x.zst 不是 rollout");
     }
 
+    [Fact]
+    public void Additional_home_candidates_are_appended_after_auto_discovery()
+    {
+        var envHome = CreateTempHome();
+        var cindyHome = CreateTempHome();
+        Directory.CreateDirectory(Path.Combine(envHome, "sessions"));
+        Directory.CreateDirectory(Path.Combine(cindyHome, "sessions"));
+        var locator = new CodexLogLocator(
+            key => key == "CODEX_HOME" ? envHome : null,
+            () => [cindyHome]);
+
+        locator.ResolveHomeCandidates().Should().Equal(envHome, cindyHome);
+        locator.ResolveSources(null).Should().BeEquivalentTo(
+        [
+            new CodexSource(Path.Combine(envHome, "sessions"), envHome),
+            new CodexSource(Path.Combine(cindyHome, "sessions"), cindyHome),
+        ]);
+    }
+
+    [Fact]
+    public void Additional_home_candidates_do_not_expand_explicit_home()
+    {
+        var explicitHome = CreateTempHome();
+        var cindyHome = CreateTempHome();
+        Directory.CreateDirectory(Path.Combine(explicitHome, "sessions"));
+        Directory.CreateDirectory(Path.Combine(cindyHome, "sessions"));
+        var locator = new CodexLogLocator(
+            key => key == "CODEX_HOME" ? cindyHome : null,
+            () => [cindyHome]);
+
+        var sources = locator.ResolveSources(explicitHome);
+
+        sources.Should().BeEquivalentTo(
+            [new CodexSource(Path.Combine(explicitHome, "sessions"), explicitHome)],
+            "显式配置是调用方钉定，附加发现根不参与");
+    }
+
+    [Fact]
+    public void Collect_deduped_files_prefers_the_newest_adopted_copy_across_homes()
+    {
+        // 宿主收养外部会话时会把同一 rollout 原样复制进私有 home；两个副本不能各计一次。
+        var externalHome = CreateTempHome();
+        var cindyHome = CreateTempHome();
+        const string relative =
+            "sessions/2026/05/25/rollout-2026-05-25T16-00-18-11111111-1111-4111-8111-111111111111.jsonl";
+        WriteFile(externalHome, relative, "");
+        WriteFile(cindyHome, relative, "");
+        var externalFile = Path.Combine(externalHome, relative.Replace('/', Path.DirectorySeparatorChar));
+        var cindyFile = Path.Combine(cindyHome, relative.Replace('/', Path.DirectorySeparatorChar));
+        File.SetLastWriteTimeUtc(externalFile, new DateTime(2026, 5, 25, 16, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(cindyFile, new DateTime(2026, 5, 25, 17, 0, 0, DateTimeKind.Utc));
+        var locator = new CodexLogLocator(
+            key => key == "CODEX_HOME" ? externalHome : null,
+            () => [cindyHome]);
+
+        var files = CodexLogLocator.CollectDedupedFiles(locator.ResolveSources(null));
+
+        files.Should().Equal(
+            [(Path.Combine(cindyHome, "sessions"), cindyFile)],
+            "同名 rollout 只保留最新写入的副本");
+    }
+
+    [Fact]
+    public void Collect_deduped_files_prefers_canonical_over_cindy_recovery_artifact()
+    {
+        // Cindy 的 rollout-cindy-* 是恢复/合成产物；原文件在场时不能因为写入更晚就取代它。
+        var externalHome = CreateTempHome();
+        var cindyHome = CreateTempHome();
+        const string original = "rollout-2026-05-25T16-00-18-11111111-1111-4111-8111-111111111111.jsonl";
+        WriteFile(externalHome, $"sessions/2026/05/25/{original}", "");
+        WriteFile(cindyHome, $"sessions/2026/05/25/rollout-cindy-preserved-empty-2-{original}", "");
+        var canonicalFile = Path.Combine(externalHome, "sessions", "2026", "05", "25", original);
+        var artifactFile = Path.Combine(cindyHome, "sessions", "2026", "05", "25",
+            $"rollout-cindy-preserved-empty-2-{original}");
+        File.SetLastWriteTimeUtc(canonicalFile, new DateTime(2026, 5, 25, 16, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(artifactFile, new DateTime(2026, 5, 25, 18, 0, 0, DateTimeKind.Utc));
+        var locator = new CodexLogLocator(
+            key => key == "CODEX_HOME" ? externalHome : null,
+            () => [cindyHome]);
+
+        var files = CodexLogLocator.CollectDedupedFiles(locator.ResolveSources(null));
+
+        files.Should().Equal((Path.Combine(externalHome, "sessions"), canonicalFile));
+    }
+
+    [Fact]
+    public void Collect_deduped_files_keeps_distinct_native_rollouts_for_the_same_thread()
+    {
+        // 原生 revert 会产生 <threadId>_<rolloutId> 的独立历史：不能按 threadId 合并掉。
+        var externalHome = CreateTempHome();
+        var cindyHome = CreateTempHome();
+        const string first =
+            "sessions/2026/05/25/rollout-2026-05-25T16-00-18-11111111-1111-4111-8111-111111111111_22222222-2222-4222-8222-222222222222.jsonl";
+        const string second =
+            "sessions/2026/05/25/rollout-2026-05-25T16-00-18-11111111-1111-4111-8111-111111111111_33333333-3333-4333-8333-333333333333.jsonl";
+        WriteFile(externalHome, first, "");
+        WriteFile(cindyHome, second, "");
+        var locator = new CodexLogLocator(
+            key => key == "CODEX_HOME" ? externalHome : null,
+            () => [cindyHome]);
+
+        var files = CodexLogLocator.CollectDedupedFiles(locator.ResolveSources(null));
+
+        files.Should().HaveCount(2);
+    }
+
     private static void WriteFile(string home, string relativePath, string contents)
     {
         var path = Path.Combine(home, relativePath.Replace('/', Path.DirectorySeparatorChar));

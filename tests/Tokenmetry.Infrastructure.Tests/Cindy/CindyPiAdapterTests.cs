@@ -227,6 +227,28 @@ public class CindyPiAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task Scans_pi_sessions_across_region_directories()
+    {
+        // cn / global 双装可同机并存：两个 userData 目录的 Pi 会话都要入账，不能只认 cn 的 "Cindy"。
+        var (appData, environment) = CreatePlatformAppData();
+        var cnRoot = CreateUserDataRootAt(appData, "Cindy");
+        var globalRoot = CreateUserDataRootAt(appData, "CindyGlobal");
+        WriteSession(cnRoot, "2026-01-02T10-00-00-000Z_session-cn.jsonl",
+            SessionLine("session-cn", "2026-01-02T10:00:00.000Z", parent: null, cwd: "E:/dev/cn"),
+            UsageLine("2026-01-02T10:00:05.000Z", 100, 10, 20, 3));
+        WriteSession(globalRoot, "2026-01-02T11-00-00-000Z_session-global.jsonl",
+            SessionLine("session-global", "2026-01-02T11:00:00.000Z", parent: null, cwd: "E:/dev/global"),
+            UsageLine("2026-01-02T11:00:05.000Z", 30, 3, 4, 1));
+
+        var result = await new CindyPiAdapter(locator: new CindyLogLocator(environment)).ScanAsync();
+
+        result.Records.Should().HaveCount(2);
+        result.Records.Select(record => record.SessionId)
+            .Should().BeEquivalentTo(["session-cn", "session-global"]);
+        result.Roots.Should().HaveCount(2);
+    }
+
+    [Fact]
     public void UserDataRoot_resolution_prefers_configured_root()
     {
         var locator = new CindyLogLocator(name => null);
@@ -236,6 +258,37 @@ public class CindyPiAdapterTests : IDisposable
     }
 
     // ---- helpers ----
+
+    private static string CreateUserDataRootAt(string appData, string folderName)
+    {
+        var root = Path.Combine(appData, folderName);
+        Directory.CreateDirectory(Path.Combine(root, "pi-agent-home", "sessions"));
+        return root;
+    }
+
+    /// <summary>按当前平台生成 appData 根与环境访问器（Windows=APPDATA、macOS=HOME、Linux=XDG_CONFIG_HOME）。</summary>
+    private (string AppData, Func<string, string?> Environment) CreatePlatformAppData()
+    {
+        var temp = CreateTempDir();
+        if (OperatingSystem.IsWindows())
+        {
+            var appData = Path.Combine(temp, "Roaming");
+            Directory.CreateDirectory(appData);
+            return (appData, key => key == "APPDATA" ? appData : null);
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            var home = Path.Combine(temp, "home");
+            var appData = Path.Combine(home, "Library", "Application Support");
+            Directory.CreateDirectory(appData);
+            return (appData, key => key == "HOME" ? home : null);
+        }
+
+        var xdgConfigHome = Path.Combine(temp, "xdg");
+        Directory.CreateDirectory(xdgConfigHome);
+        return (xdgConfigHome, key => key == "XDG_CONFIG_HOME" ? xdgConfigHome : null);
+    }
 
     private string CreateUserDataRoot()
     {

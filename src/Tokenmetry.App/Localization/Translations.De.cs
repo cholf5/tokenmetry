@@ -46,6 +46,8 @@ public sealed partial class Translations
         [nameof(TopbarModel)] = "Modell",
         [nameof(TopbarProject)] = "Projekt",
         [nameof(TopbarDevice)] = "Gerät",
+        [nameof(TopbarHost)] = "Host",
+        [nameof(AllHosts)] = "Alle Hosts",
         [nameof(StatusStarting)] = "Wird gestartet…",
         [nameof(StatusScanning)] = "Lokale Daten werden gescannt…",
         [nameof(StatusNoLocalData)] = "Keine lokalen Daten gefunden",
@@ -367,6 +369,8 @@ public sealed partial class Translations
         [nameof(ThOutputTokens)] = "Ausg.-Tok.",
         [nameof(ThTotalTokens)] = "Ges.-Tok.",
         [nameof(AgentKpiFootFormat)] = "{0} Sitzungen · {1}",
+        [nameof(HostLocalCli)] = "Lokale CLI",
+        [nameof(HostSplitFormat)] = "{0} {1}%",
 
         // ── Modellstatistikseite ──
         [nameof(MetaMissingPriceUnknown)] = "Ohne Preise erscheinen Kosten als unbekannt, nicht 0",

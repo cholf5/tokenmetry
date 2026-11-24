@@ -208,6 +208,16 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Console.Error.WriteLine($"[Tokenmetry] 全局项目选项加载失败（保持\"全部项目\"单选项）：{ex.Message}");
         }
+
+        try
+        {
+            var hosts = await _agentCatalog.GetHostOptionsAsync();
+            _filters.UpdateHostOptions(hosts);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Tokenmetry] 全局宿主选项加载失败（保持\"所有宿主\"单选项）：{ex.Message}");
+        }
     }
 
     partial void OnSelectedNavigationChanged(NavigationItemViewModel? value)

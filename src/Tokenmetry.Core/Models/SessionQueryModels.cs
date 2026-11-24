@@ -56,6 +56,9 @@ public sealed class SessionListRow
 
     public string Agent { get; init; } = string.Empty;
 
+    /// <summary>宿主 / 发起方（Cindy 等）；空串 = 未识别（用户直接用 CLI）。</summary>
+    public string Host { get; init; } = string.Empty;
+
     /// <summary>项目原始路径。</summary>
     public string Project { get; init; } = string.Empty;
 

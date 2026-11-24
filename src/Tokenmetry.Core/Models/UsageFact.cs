@@ -52,6 +52,13 @@ public class UsageFact
     /// </summary>
     public string Provider { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 宿主 / 发起方（Cindy、T3 Code、Orca Agent 这类把引擎当 runtime 的产品）；空串 = 未识别
+    /// （用户直接用 CLI）。与 <see cref="Agent"/> 正交并进入主键：同一引擎同一天经不同宿主产生的
+    /// 用量必须分行。只有 full 粒度行可能带值；CLI 分解行恒为空串。
+    /// </summary>
+    public string Host { get; set; } = string.Empty;
+
     /// <summary>项目路径；该行不含 project 维度时为空串。</summary>
     public string Project { get; set; } = string.Empty;
 

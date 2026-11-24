@@ -92,7 +92,7 @@
                                          2026-10-29 界面修正：原横向 StackPanel 以无限宽测量子级，60px 列里名字直接溢出
                                          压到模型列（"Claude Codeclaude-sonnet-4-5"）；改 Grid(Auto,*)
                                          让名字列拿到剩余宽度并由 TextTrimming 收缩。 -->
-                                    <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="6"
+                                    <Grid Grid.Column="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6"
                                           VerticalAlignment="Center">
                                         <Border Grid.Column="0" Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
                                                 c:AgentChip.CustomIcon="{Binding CustomIcon}">
@@ -104,6 +104,10 @@
                                         <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding Agent}"
                                                    VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"/>
+                                        <!-- 宿主标识（Cindy 等）：空宿主（直接用 CLI）整块隐藏，不给每条会话贴标签 -->
+                                        <TextBlock Grid.Column="2" Classes="kpi-foot" Text="{Binding HostText}"
+                                                   IsVisible="{Binding HasHost}"
+                                                   VerticalAlignment="Center"/>
                                     </Grid>
                                     <TextBlock Grid.Column="2" Classes="table-td" Text="{Binding ModelText}"
                                                VerticalAlignment="Center"
@@ -179,7 +183,7 @@
                                       RowDefinitions="Auto,Auto,Auto,Auto,Auto">
                                     <TextBlock Grid.Row="0" Grid.Column="0" Classes="page-subtitle" VerticalAlignment="Center"
                                                Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
-                                    <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                    <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
                                         <Border Grid.Column="0" Classes="agent-chip" c:AgentChip.Logo="{Binding LogoVendor}"
                                                 c:AgentChip.CustomIcon="{Binding CustomIcon}">
                                             <Panel>
@@ -189,6 +193,8 @@
                                         </Border>
                                         <TextBlock Grid.Column="1" Text="{Binding Agent}" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="2" Classes="kpi-foot" Text="{Binding HostText}"
+                                                   IsVisible="{Binding HasHost}" VerticalAlignment="Center"/>
                                     </Grid>
                                     <TextBlock Grid.Row="1" Grid.Column="0" Classes="page-subtitle" VerticalAlignment="Center"
                                                Text="{Binding LabelModels, Source={x:Static loc:Translations.Instance}}"/>

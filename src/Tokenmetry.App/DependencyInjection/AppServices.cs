@@ -191,7 +191,15 @@ public static class AppServices
 
         services.AddSingleton(sp => new ClaudeCodeJsonlAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
         services.AddSingleton<IClaudeCodeJsonlAdapter>(sp => sp.GetRequiredService<ClaudeCodeJsonlAdapter>());
-        services.AddSingleton(sp => new CodexJsonlAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
+        // Cindy（桌面 Agent 宿主）目录发现：区域 userData 目录可同机并存（Cindy / CindyGlobal / 历史
+        // xdt-maker / CindyHost profile；dev 的 CindyDev 有意不统计），Codex runtime 的私有 home 也由它
+        // 提供给 Codex 适配器。
+        services.AddSingleton(_ => new CindyLogLocator());
+        // 宿主归属索引：只读 Cindy owner 库，把共享目录里的 Claude/Codex 会话对回 Cindy。
+        services.AddSingleton(sp => new CindyOwnershipIndex(sp.GetRequiredService<CindyLogLocator>()));
+        services.AddSingleton(sp => new CodexJsonlAdapter(
+            scanRegistry: sp.GetRequiredService<IngestionScanRegistry>(),
+            additionalHomeCandidates: () => sp.GetRequiredService<CindyLogLocator>().ResolveCodexHomes(null)));
         services.AddSingleton<ICodexJsonlAdapter>(sp => sp.GetRequiredService<CodexJsonlAdapter>());
         services.AddSingleton<ZCodeSqliteAdapter>();
         services.AddSingleton<IZCodeSqliteAdapter>(sp => sp.GetRequiredService<ZCodeSqliteAdapter>());
@@ -222,9 +230,11 @@ public static class AppServices
         services.AddSingleton<PiAgentAdapter>(sp => new PiAgentAdapter(
             pricingEngine: sp.GetRequiredService<PricingEngine>())); // PI-3（I-024）：identity cost 与主管道同一引擎（用户覆盖 / 远程数据同源）。
         services.AddSingleton<IPiAgentAdapter>(sp => sp.GetRequiredService<PiAgentAdapter>());
-        // Cindy（桌面 Agent 宿主）只接 Pi runtime，Agent 恒为 "Cindy"（不区分 runtime，避免共享
-        // ~/.claude 下的归属猜测与双算）；identity cost 同 Pi 接共享计价引擎。
+        // Cindy（桌面 Agent 宿主）Pi runtime：Agent 恒为 "Cindy"。Codex runtime 的私有 home 由上面的
+        // Codex 适配器附加发现根入账（归属 = Codex 引擎）；Claude runtime 的 transcript 在共享
+        // ~/.claude 下由 Claude 适配器入账。identity cost 同 Pi 接共享计价引擎。
         services.AddSingleton<CindyPiAdapter>(sp => new CindyPiAdapter(
+            locator: sp.GetRequiredService<CindyLogLocator>(),
             pricingEngine: sp.GetRequiredService<PricingEngine>()));
         services.AddSingleton<ICindyAdapter>(sp => sp.GetRequiredService<CindyPiAdapter>());
         services.AddSingleton(sp => new GrokAdapter(scanRegistry: sp.GetRequiredService<IngestionScanRegistry>()));
@@ -264,7 +274,8 @@ public static class AppServices
             timeZone: null,
             sp.GetRequiredService<IngestionScanRegistry>(),
             sp.GetRequiredService<IngestionFileLogger>(),
-            pluginSources: sp.GetRequiredService<IPluginSourceProvider>()));
+            pluginSources: sp.GetRequiredService<IPluginSourceProvider>(),
+            cindyOwnership: sp.GetRequiredService<CindyOwnershipIndex>()));
         services.AddSingleton<IUsageDataSource>(sp => sp.GetRequiredService<LocalIngestionDataSource>());
         // I-042：价格/别名热更新后的强制全量通道（I-037 契约在无变化短路下的新编码）
         services.AddSingleton<IAggregationInvalidator>(sp => sp.GetRequiredService<LocalIngestionDataSource>());

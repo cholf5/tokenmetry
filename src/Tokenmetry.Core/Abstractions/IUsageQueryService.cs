@@ -70,6 +70,15 @@ public interface IUsageQueryService
     /// 都判为无精度，与查询时区无关地覆盖日期级来源）。</summary>
     Task<HourlyDistributionResult> GetHourlyDistributionAsync(UsageQueryFilter filter, CancellationToken ct = default);
 
+    /// <summary>
+    /// 宿主候选清单（顶部栏宿主过滤下拉）：本地 facts / 会话中出现过的 host 去重，按用量权重降序、
+    /// 同权重按键序数。空串（未识别 / 直接用 CLI）也是合法项。缺省实现返回空清单（测试桩兜底）。
+    /// </summary>
+    Task<IReadOnlyList<string>> GetHostsAsync(CancellationToken ct = default)
+    {
+        return Task.FromResult<IReadOnlyList<string>>([]);
+    }
+
     /// <summary>星期 × 小时节律矩阵（I-029 同源）：归桶与 unknown 口径同 <see cref="GetHourlyDistributionAsync"/>，
     /// 把本地小时换成 (本地星期, 本地小时) 二维桶；168 格全量返回（含空格）。分享海报时段节律样式用。
     /// 缺省实现返回空矩阵（仅供测试桩兜底，语义与无数据一致）；真实存储实现应覆写。</summary>

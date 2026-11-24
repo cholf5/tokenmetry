@@ -43,6 +43,12 @@ public sealed class SessionDetailViewModel
 
     public string Agent => Source.Agent;
 
+    /// <summary>宿主 / 发起方（Cindy 等）；空串 = 未识别（用户直接用 CLI）。</summary>
+    public string HostText => Source.Host;
+
+    /// <summary>是否显示宿主标识。</summary>
+    public bool HasHost => Source.Host.Length > 0;
+
     public string IconGlyph => Row.IconGlyph;
 
     public string LogoVendor => Row.LogoVendor;

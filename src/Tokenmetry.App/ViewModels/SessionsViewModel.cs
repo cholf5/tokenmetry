@@ -94,6 +94,8 @@ public sealed class SessionRowViewModel
         Row = row;
         SessionId = row.SessionId;
         Agent = row.Agent;
+        HostText = row.Host;
+        HasHost = row.Host.Length > 0;
         // 插件会话 id 落库前编码为 plugin:<pluginId>:<raw>（跨源防撞）；展示时剥回原文，
         // 存储/身份仍用完整串（SessionId 不改）。
         SessionIdText = PluginSessionId.TryStrip(row.SessionId, out var rawSessionId)
@@ -120,6 +122,12 @@ public sealed class SessionRowViewModel
     internal SessionListRow Row { get; }
 
     public string Agent { get; }
+
+    /// <summary>宿主 / 发起方（Cindy 等）；空串 = 未识别（用户直接用 CLI），列表不占位。</summary>
+    public string HostText { get; }
+
+    /// <summary>是否显示宿主标识（仅非空宿主；不把"本机 CLI"当成每条会话的标签）。</summary>
+    public bool HasHost { get; }
 
     /// <summary>主文本 = 项目展示名（空则原始路径，再空则会话标识），见构造。</summary>
     public string TitleText { get; }

@@ -99,7 +99,7 @@ public class UsageQueryService : IUsageQueryService
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetAgentBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
-        Task.Run(() => GetDimensionBreakdownAsync(filter, UsageFactGrain.Agent, fact => fact.Agent, session => session.Agent, withProjectDisplayName: false, withDominantAgent: false, ct));
+        Task.Run(() => GetDimensionBreakdownAsync(filter, UsageFactGrain.Agent, fact => fact.Agent, session => session.Agent, withProjectDisplayName: false, withDominantAgent: false, ct, withHosts: true));
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
@@ -116,6 +116,39 @@ public class UsageQueryService : IUsageQueryService
     /// <inheritdoc />
     public Task<IReadOnlyList<string>> GetRawModelNamesAsync(CancellationToken ct = default) =>
         Task.Run(() => GetRawModelNamesCoreAsync(ct));
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<string>> GetHostsAsync(CancellationToken ct = default) =>
+        Task.Run(async () =>
+        {
+            var weights = new Dictionary<string, long>(StringComparer.Ordinal);
+            foreach (var fact in await _store.GetUsageFactsAsync(ct))
+            {
+                AccumulateHost(weights, fact.Host, fact.TotalTokens);
+            }
+
+            foreach (var session in await _store.GetSessionFactsAsync(ct))
+            {
+                AccumulateHost(weights, session.Host, session.TotalTokens);
+            }
+
+            return (IReadOnlyList<string>)weights
+                .OrderByDescending(pair => pair.Value)
+                .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+                .Select(pair => pair.Key)
+                .ToList();
+        });
+
+    private static void AccumulateHost(Dictionary<string, long> weights, string? host, long tokens)
+    {
+        if (tokens <= 0)
+        {
+            return;
+        }
+
+        var key = host ?? string.Empty;
+        weights[key] = weights.GetValueOrDefault(key) + tokens;
+    }
 
     /// <inheritdoc />
     public Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
@@ -247,7 +280,7 @@ public class UsageQueryService : IUsageQueryService
             Agents = BuildDimensionBreakdown(
                 scopedFacts, scopedSessions, UsageFactGrain.Agent,
                 fact => fact.Agent, session => session.Agent,
-                withProjectDisplayName: false, withDominantAgent: false, withProvider: false),
+                withProjectDisplayName: false, withDominantAgent: false, withProvider: false, withHosts: true),
             Models = BuildDimensionBreakdown(
                 scopedFacts, scopedSessions, UsageFactGrain.Model,
                 fact => ResolveModel(fact.Model), session => ResolveModel(session.DominantModel),
@@ -361,6 +394,13 @@ public class UsageQueryService : IUsageQueryService
                 continue;
             }
 
+            // host 是唯一允许空串作为过滤值的维度：null = 不过滤，"" = 只看"未识别 / 直接用 CLI"。
+            if (filter.Host is { } host
+                && !string.Equals(fact.Host, host, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             if (!string.IsNullOrWhiteSpace(filter.Project)
                 && !string.Equals(fact.Project, filter.Project, StringComparison.Ordinal))
             {
@@ -395,6 +435,12 @@ public class UsageQueryService : IUsageQueryService
 
             if (!string.IsNullOrWhiteSpace(filter.Agent)
                 && !string.Equals(session.Agent, filter.Agent, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (filter.Host is { } host
+                && !string.Equals(session.Host, host, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -615,13 +661,14 @@ public class UsageQueryService : IUsageQueryService
         bool withProjectDisplayName,
         bool withDominantAgent,
         CancellationToken ct,
-        bool withProvider = false)
+        bool withProvider = false,
+        bool withHosts = false)
     {
         var scopedFacts = await GetScopedUsageFactsAsync(filter, ct);
         var sessions = await GetScopedSessionsAsync(filter, ct);
         return BuildDimensionBreakdown(
             scopedFacts, sessions, decompositionGrain, factKey, sessionKey,
-            withProjectDisplayName, withDominantAgent, withProvider);
+            withProjectDisplayName, withDominantAgent, withProvider, withHosts);
     }
 
     /// <summary>
@@ -637,7 +684,8 @@ public class UsageQueryService : IUsageQueryService
         Func<SessionFact, string> sessionKey,
         bool withProjectDisplayName,
         bool withDominantAgent,
-        bool withProvider)
+        bool withProvider,
+        bool withHosts = false)
     {
         var factRowsByKey = new Dictionary<string, List<UsageFact>>(StringComparer.Ordinal);
         // 兜底按 (device, day) 收口（relay 设计 §4.3 地雷 1）：单设备单日内 full 优先，跨设备互不吞并。
@@ -746,6 +794,18 @@ public class UsageQueryService : IUsageQueryService
                 provider = providers.Count == 1 ? providers.First() : string.Empty;
             }
 
+            // 宿主拆分（仅 Agent 维度）：把本 Agent 的 token 按 host 汇总，给界面出"Cindy x% · 本机 y%"。
+            var hosts = Array.Empty<HostUsageSplit>();
+            if (withHosts && list is not null)
+            {
+                hosts = list
+                    .GroupBy(fact => fact.Host ?? string.Empty, StringComparer.Ordinal)
+                    .Select(group => new HostUsageSplit(group.Key, group.Sum(fact => fact.TotalTokens)))
+                    .OrderByDescending(split => split.TotalTokens)
+                    .ThenBy(split => split.Host, StringComparer.Ordinal)
+                    .ToArray();
+            }
+
             rows.Add(new DimensionUsageRow
             {
                 Key = key,
@@ -762,6 +822,7 @@ public class UsageQueryService : IUsageQueryService
                 AgentCount = agentCount,
                 Provider = provider,
                 ProviderCount = providerCount,
+                Hosts = hosts,
             });
         }
 
@@ -792,6 +853,7 @@ public class UsageQueryService : IUsageQueryService
                 AgentCount = row.AgentCount,
                 Provider = row.Provider,
                 ProviderCount = row.ProviderCount,
+                Hosts = row.Hosts,
                 TokenShare = scopeTotalTokens > 0 ? (decimal?)Math.Round(row.TotalTokens / scopeTotalTokens, 4) : null,
                 CostShare = scopeKnownCost is { } denominator and > 0
                              && !row.Cost.HasUnknownCost
@@ -852,6 +914,7 @@ public class UsageQueryService : IUsageQueryService
     {
         SessionId = session.SessionId,
         Agent = session.Agent,
+        Host = session.Host,
         Project = session.Project,
         ProjectDisplayName = session.ProjectDisplayName,
         DominantModel = session.DominantModel,
@@ -872,6 +935,7 @@ public class UsageQueryService : IUsageQueryService
     private bool MatchesSearch(SessionListRow row, string term) =>
         row.SessionId.Contains(term, StringComparison.OrdinalIgnoreCase)
         || row.Agent.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || row.Host.Contains(term, StringComparison.OrdinalIgnoreCase)
         || row.Project.Contains(term, StringComparison.OrdinalIgnoreCase)
         || row.ProjectDisplayName.Contains(term, StringComparison.OrdinalIgnoreCase)
         || row.DominantModel.Contains(term, StringComparison.OrdinalIgnoreCase)

@@ -15,6 +15,61 @@ public sealed class SyncEndpointsTests
     private static readonly DateTimeOffset T2 = new(2026, 6, 19, 11, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task Push_keeps_host_split_rows_and_round_trips_host()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var devA = RelayTestSync.Client(factory);
+        using var devB = RelayTestSync.Client(factory);
+        await RelayTestSync.RegisterAsync(devA, "devA", "Desktop A");
+        await RelayTestSync.RegisterAsync(devB, "devB", "Laptop B");
+
+        var viaCindy = RelayTestSync.UsageRow("devA", "2026-06-19", 100, 1.00m, T1);
+        viaCindy.Host = "Cindy";
+        var viaCli = RelayTestSync.UsageRow("devA", "2026-06-19", 300, 3.00m, T1);
+
+        (await RelayTestSync.PushAsync(devA, "devA", new SyncPushRequest(
+            new List<UsageFact> { viaCindy, viaCli },
+            new List<SessionFact>()))).EnsureSuccessStatusCode();
+
+        var pulled = await RelayTestSync.PullAsync(devB, "devB", since: 0);
+        pulled.UsageFacts.Should().HaveCount(2, "host 是行身份维度，两个宿主不得在 relay 主键上互撞");
+        pulled.UsageFacts.Single(row => row.Host == "Cindy").TotalTokens.Should().Be(100);
+        pulled.UsageFacts.Single(row => row.Host == string.Empty).TotalTokens.Should().Be(300);
+    }
+
+    [Fact]
+    public async Task Full_snapshot_replaces_device_rows_and_bumps_epoch()
+    {
+        await using var factory = new RelayFactory(token: "abc");
+        using var devA = RelayTestSync.Client(factory);
+        using var devB = RelayTestSync.Client(factory);
+        await RelayTestSync.RegisterAsync(devA, "devA", "Desktop A");
+        await RelayTestSync.RegisterAsync(devB, "devB", "Laptop B");
+
+        (await RelayTestSync.PushAsync(devA, "devA", new SyncPushRequest(
+            new List<UsageFact> { RelayTestSync.UsageRow("devA", "2026-06-19", 100, 1.00m, T1) },
+            new List<SessionFact>
+            {
+                new() { Device = "devA", SessionId = "s-old", TotalTokens = 100, FirstSeenAt = T1, LastSeenAt = T1, CostUsd = 1m, UpdatedAt = T1 },
+            }))).EnsureSuccessStatusCode();
+
+        var replacement = RelayTestSync.UsageRow("devA", "2026-06-19", 200, 2.00m, T2);
+        replacement.Host = "Cindy";
+        (await RelayTestSync.PushAsync(devA, "devA", new SyncPushRequest(
+            new List<UsageFact> { replacement },
+            new List<SessionFact>(),
+            FullSnapshot: true))).EnsureSuccessStatusCode();
+
+        var pulled = await RelayTestSync.PullAsync(devB, "devB", since: 0);
+        pulled.UsageFacts.Should().ContainSingle("整份快照先删旧行再摄取")
+            .Which.Host.Should().Be("Cindy");
+        pulled.UsageFacts.Single().TotalTokens.Should().Be(200);
+        pulled.SessionFacts.Should().BeEmpty("快照也清掉了旧会话行");
+        pulled.Devices.Single(device => device.DeviceId == "devA").DataEpoch.Should().Be(1,
+            "epoch 递增让其它设备知道要清本地旧副本");
+    }
+
+    [Fact]
     public async Task PushThenPull_RoundTripsRowsBetweenDevices()
     {
         await using var factory = new RelayFactory(token: "abc");

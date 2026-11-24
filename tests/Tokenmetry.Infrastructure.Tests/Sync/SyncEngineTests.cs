@@ -99,8 +99,69 @@ public sealed class SyncEngineTests : IAsyncLifetime
             Task.FromResult<IReadOnlyList<SyncedSetting>>(Array.Empty<SyncedSetting>());
     }
 
-    private static SyncDeviceInfo Device(string id, string name = "Device") =>
-        new(id, name, new DateTimeOffset(2026, 6, 19, 12, 0, 0, TimeSpan.Zero));
+    private static SyncDeviceInfo Device(string id, string name = "Device", int dataEpoch = 0) =>
+        new(id, name, new DateTimeOffset(2026, 6, 19, 12, 0, 0, TimeSpan.Zero), dataEpoch);
+
+    [Fact]
+    public async Task RunOnce_first_run_pushes_a_full_snapshot_even_when_empty()
+    {
+        var backend = new FakeBackend();
+        var engine = new SyncEngine(_store, () => backend);
+
+        await engine.RunOnceAsync();
+
+        backend.LastPush.Should().NotBeNull("游标为 null = 首轮 / 迁移复位，必须推快照");
+        backend.LastPush!.FullSnapshot.Should().BeTrue();
+
+        // 空快照也要推进推送游标：否则每轮都会重复推快照、反复推进服务端 epoch。
+        await engine.RunOnceAsync();
+        backend.PushCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RunOnce_purges_remote_device_copies_when_its_epoch_changes()
+    {
+        var backend = new FakeBackend();
+        var engine = new SyncEngine(_store, () => backend);
+        var t1 = new DateTimeOffset(2026, 6, 19, 10, 0, 0, TimeSpan.Zero);
+        var t2 = new DateTimeOffset(2026, 6, 19, 11, 0, 0, TimeSpan.Zero);
+
+        backend.PullResponder = _ => new SyncPullResponse(
+            1, [], [], [Device("remote-1", dataEpoch: 0)], false);
+        await engine.RunOnceAsync();
+
+        await _store.UpsertRemoteUsageFactsAsync(
+        [
+            new UsageFact
+            {
+                Device = "remote-1", Day = "2026-06-19", Grain = UsageFactGrain.Full,
+                Agent = "Claude Code", Project = "p", Host = string.Empty,
+                TotalTokens = 111, UpdatedAt = t1,
+            },
+        ]);
+
+        backend.PullResponder = _ => new SyncPullResponse(
+            2,
+            [
+                new UsageFact
+                {
+                    Device = "remote-1", Day = "2026-06-19", Grain = UsageFactGrain.Full,
+                    Agent = "Claude Code", Project = "p", Host = "Cindy",
+                    TotalTokens = 222, UpdatedAt = t2,
+                },
+            ],
+            [],
+            [Device("remote-1", dataEpoch: 1)],
+            false);
+
+        var result = await engine.RunOnceAsync();
+
+        result!.PurgedDeviceIds.Should().Contain("remote-1");
+        var remoteFacts = (await _store.GetUsageFactsAsync()).Where(fact => fact.Device == "remote-1").ToList();
+        remoteFacts.Should().ContainSingle("epoch 变化先把该设备旧副本清掉，再应用新快照")
+            .Which.Host.Should().Be("Cindy");
+        remoteFacts.Single().TotalTokens.Should().Be(222);
+    }
 
     [Fact]
     public async Task RunOnce_PushesLocalSinceCursor_PullsRemote_LandsRows()

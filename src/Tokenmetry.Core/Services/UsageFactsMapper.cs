@@ -36,7 +36,9 @@ public static class UsageFactsMapper
                 // I-036 三元组的第三元：适配器读到的 provider，缺省由模型名的 provider 前缀推导
                 //（两者都没有则空串 = 未检测，界面显示"未指定"，不猜厂商）。
                 Provider = ResolveProvider(record),
-                Project = record.ProjectPath ?? string.Empty,
+                // 宿主与引擎正交：同一引擎经不同宿主（Cindy / CLI）产生的用量必须分行。
+                Host = record.Host ?? string.Empty,
+                Project = record.EffectiveProjectPath ?? string.Empty,
             })
             .Select(group => new UsageFact
             {
@@ -45,6 +47,7 @@ public static class UsageFactsMapper
                 Agent = group.Key.Agent,
                 Model = group.Key.Model,
                 Provider = group.Key.Provider,
+                Host = group.Key.Host,
                 Project = group.Key.Project,
                 ProjectDisplayName = ResolveProjectDisplayName(group, group.Key.Project),
                 InputTokens = group.Sum(record => record.InputTokens),
@@ -59,6 +62,7 @@ public static class UsageFactsMapper
             .OrderBy(fact => fact.Day, StringComparer.Ordinal)
             .ThenBy(fact => fact.Agent, StringComparer.Ordinal)
             .ThenBy(fact => fact.Model, StringComparer.Ordinal)
+            .ThenBy(fact => fact.Host, StringComparer.Ordinal)
             .ThenBy(fact => fact.Project, StringComparer.Ordinal)
             .ToList();
     }
@@ -78,12 +82,14 @@ public static class UsageFactsMapper
                     .ToList();
                 var first = ordered[0];
                 var last = ordered[^1];
+                var projectPath = first.EffectiveProjectPath ?? string.Empty;
                 return new SessionFact
                 {
                     SessionId = group.Key,
                     Agent = first.Agent ?? string.Empty,
-                    Project = first.ProjectPath ?? string.Empty,
-                    ProjectDisplayName = ResolveProjectDisplayName(ordered, first.ProjectPath ?? string.Empty),
+                    Host = first.Host ?? string.Empty,
+                    Project = projectPath,
+                    ProjectDisplayName = ResolveProjectDisplayName(ordered, projectPath),
                     DominantModel = SelectDominantModel(group),
                     FirstSeenAt = first.Timestamp,
                     LastSeenAt = last.Timestamp,
@@ -454,7 +460,8 @@ public static class UsageFactsMapper
         return total;
     }
 
-    private static string FormatDay(DateTimeOffset timestamp, TimeZoneInfo timeZone)
+    /// <summary>按宿主时区把 usage 时间戳分桶为 facts 的 <c>day</c> 文本（yyyy-MM-dd）。</summary>
+    public static string FormatDay(DateTimeOffset timestamp, TimeZoneInfo timeZone)
     {
         return TimeZoneInfo.ConvertTime(timestamp, timeZone).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }

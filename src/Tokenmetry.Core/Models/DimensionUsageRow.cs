@@ -63,8 +63,18 @@ public sealed class DimensionUsageRow
     public int ProviderCount { get; init; }
 
     /// <summary>
+    /// 宿主拆分（仅 Agent 维度填充）：把本 Agent 的 token 按 host 汇总，token 降序、同值按键序数。
+    /// 空 Host = 未识别（用户直接用 CLI）；多于一个宿主时展示层出"Cindy 62% · 本机 38%"。
+    /// 其它维度恒为空。
+    /// </summary>
+    public IReadOnlyList<HostUsageSplit> Hosts { get; init; } = [];
+
+    /// <summary>
     /// 成本占比 = 本行已知成本 / 范围已知成本合计（0..1）。本行含未知成本（<see cref="AggregatedCost.HasUnknownCost"/>）
     /// 或范围已知成本合计为 0 / 无已知成本时为 null——未知部分不可比，不伪造占比。
     /// </summary>
     public decimal? CostShare { get; init; }
 }
+
+/// <summary>宿主拆分项：<see cref="Host"/> 为空串 = 未识别（直接用 CLI）。</summary>
+public sealed record HostUsageSplit(string Host, long TotalTokens);

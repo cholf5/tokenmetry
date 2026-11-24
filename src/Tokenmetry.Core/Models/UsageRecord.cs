@@ -3,9 +3,9 @@ namespace Tokenmetry.Core.Models;
 /// <summary>
 /// 统一 usage 记录：各 agent 数据源适配器（如 Claude Code JSONL 直读）的标准产出，
 /// 供 facts 存储（I-002）与定价引擎（I-003）消费。
-/// 低基数串字段（Agent / ProjectPath / Model / Provider / SourceFile）的写入口经
+/// 低基数串字段（Agent / Host / ProjectPath / Model / Provider / SourceFile）的写入口经
 /// <see cref="UsageStringPool"/> 驻留：解析层逐条 new 的重复串跨记录共享单一实例，值语义不变；
-/// 高基数字段（SessionId / MessageId / RequestId）有意不驻留。身份类四列与 SourceFile 各用独立预算
+/// 高基数字段（SessionId / MessageId / RequestId）有意不驻留。身份类五列与 SourceFile 各用独立预算
 /// （见 <see cref="UsageStringPool"/>）。
 /// </summary>
 public class UsageRecord
@@ -13,15 +13,41 @@ public class UsageRecord
     /// <summary>usage 事件时间戳（Claude 日志为 RFC3339，统一解析归一化，未知时区按 UTC 处理）。</summary>
     public DateTimeOffset Timestamp { get; set; }
 
-    /// <summary>采集来源 agent 名称（如 "Claude Code"）。低基数：写入驻留。</summary>
+    /// <summary>采集来源 agent 名称（执行引擎，如 "Claude Code"）。低基数：写入驻留。</summary>
     public string Agent { get => _agent; set => _agent = UsageStringPool.Intern(value ?? string.Empty); }
 
     private string _agent = string.Empty;
+
+    /// <summary>
+    /// 宿主 / 发起方（Cindy、T3 Code、Orca Agent 这类把引擎当 runtime 的产品）；空串 = 未识别
+    /// （用户直接用 CLI）。与 <see cref="Agent"/> 正交：Agent 回答"谁执行"，Host 回答"用量从哪来"。
+    /// 低基数：写入驻留。
+    /// </summary>
+    public string Host { get => _host; set => _host = UsageStringPool.Intern(value ?? string.Empty); }
+
+    private string _host = string.Empty;
 
     /// <summary>项目路径（按日志目录推导，无法推导时为 "Unknown Project"）。低基数：写入驻留。</summary>
     public string ProjectPath { get => _projectPath; set => _projectPath = UsageStringPool.Intern(value ?? string.Empty); }
 
     private string _projectPath = string.Empty;
+
+    /// <summary>
+    /// 宿主归属索引给出的项目路径覆盖（产品项目归属，比日志目录推导更准；dialogue 会话会显式覆盖成
+    /// "Unknown Project"，不再让 Cindy 自己的任务目录冒充项目）。null = 使用 <see cref="ProjectPath"/>。
+    /// 只由宿主归属后处理按轮设置，不改写适配器推导出的原值（增量扫描跨轮复用记录实例）。
+    /// 低基数：写入驻留。
+    /// </summary>
+    public string? ProjectPathOverride
+    {
+        get => _projectPathOverride;
+        set => _projectPathOverride = value is null ? null : UsageStringPool.Intern(value);
+    }
+
+    private string? _projectPathOverride;
+
+    /// <summary>落 facts 的项目键：宿主覆盖优先，否则用适配器推导值。</summary>
+    public string EffectiveProjectPath => ProjectPathOverride ?? ProjectPath;
 
     /// <summary>
     /// 可选的项目展示名（如插件自报的 workspace 名）。非空时 facts 映射优先采用；

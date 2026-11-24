@@ -19,6 +19,34 @@ public class GlobalFilterMapperTests
 
     private static TimeRangeOption Range(string id) => TimeRangeOption.FindBuiltIn(id)!;
 
+    [Fact]
+    public void Host_mapping_distinguishes_all_no_host_and_named_host()
+    {
+        GlobalFilterMapper.ResolveHost(HostFilterOption.All).Should().BeNull("所有宿主 = 不过滤");
+        GlobalFilterMapper.ResolveHost(HostFilterOption.NoHost).Should().BeEmpty(
+            "空串宿主是合法过滤值（未识别 / 直接用 CLI），不能折成 null");
+        GlobalFilterMapper.ResolveHost(new HostFilterOption("Cindy")).Should().Be("Cindy");
+    }
+
+    [Fact]
+    public void Build_passes_host_through_including_empty_string()
+    {
+        var all = GlobalFilterMapper.Build(
+            Range("All"), AgentOption.All, customFrom: null, customTo: null,
+            model: null, project: null, today: Today, host: null);
+        all.Host.Should().BeNull();
+
+        var noHost = GlobalFilterMapper.Build(
+            Range("All"), AgentOption.All, customFrom: null, customTo: null,
+            model: null, project: null, today: Today, host: string.Empty);
+        noHost.Host.Should().BeEmpty();
+
+        var cindy = GlobalFilterMapper.Build(
+            Range("All"), AgentOption.All, customFrom: null, customTo: null,
+            model: null, project: null, today: Today, host: "Cindy");
+        cindy.Host.Should().Be("Cindy");
+    }
+
     private static UsageQueryFilter Build(TimeRangeOption range, DateTimeOffset? customFrom = null, DateTimeOffset? customTo = null) =>
         GlobalFilterMapper.Build(range, AgentOption.All, customFrom, customTo, model: null, project: null, Today);
 

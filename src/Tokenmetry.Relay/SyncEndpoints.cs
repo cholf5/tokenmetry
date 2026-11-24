@@ -91,6 +91,15 @@ internal static class SyncEndpoints
             return Results.BadRequest(new { error = "Device is not registered. Register via POST /api/devices first." });
         }
 
+        // 整份快照：行身份代切换（host 维度迁移 / 客户端重建）+ 设备行被本机重新权威覆盖。
+        // 先删该设备在该账号下的全部行，再走正常 LWW 摄取；其它设备靠 data_epoch 变化清本地副本
+        // （同步协议没有行级 tombstone）。必须在取 seq 之前删：新行 seq 仍要大于账号水位。
+        var fullSnapshot = payload.FullSnapshot;
+        if (fullSnapshot)
+        {
+            await DeleteDeviceRowsAsync(connection, transaction, account.Id, deviceId, ct);
+        }
+
         // 账号级单调 seq：usage + session 两表合并取 MAX，与 accounts.seq 计数器互相兜底。
         var seq = await MaxAccountSeqAsync(connection, transaction, account.Id, ct);
 
@@ -117,17 +126,39 @@ internal static class SyncEndpoints
 
         await TouchDeviceAsync(connection, transaction, account.Id, deviceId, ct);
 
+        if (fullSnapshot)
+        {
+            // 设备行身份代 +1：其它设备下一次 pull 看到更大的 epoch 时先清该设备的本地副本。
+            using var epoch = connection.CreateCommand();
+            epoch.Transaction = transaction;
+            epoch.CommandText = """
+                UPDATE devices SET data_epoch = data_epoch + 1
+                WHERE account_id = $accountId AND device_id = $deviceId
+                """;
+            epoch.Parameters.AddWithValue("$accountId", account.Id);
+            epoch.Parameters.AddWithValue("$deviceId", deviceId);
+            await epoch.ExecuteNonQueryAsync(ct);
+        }
+
         // 排行榜触发点（leaderboard 设计 §4.2）：batch 含 usage 行且账号 opt-in → 按 batch 涉及的
         // 去重 day 集合在既有写事务内增量重算 rollup；未 opt-in 直接跳过。session 行不进总量，不触发。
-        if (usageFacts.Count > 0
+        // 整份快照必须全量重建：被删掉的旧行可能覆盖本次批次之外的日期。
+        if ((fullSnapshot || usageFacts.Count > 0)
             && await LeaderboardStore.IsOptedInAsync(connection, transaction, account.Id, ct))
         {
-            await LeaderboardStore.RecomputeDaysAsync(
-                connection,
-                transaction,
-                account.Id,
-                usageFacts.Select(fact => fact.Day).Distinct().ToList(),
-                ct);
+            if (fullSnapshot)
+            {
+                await LeaderboardStore.RebuildAllDaysAsync(connection, transaction, account.Id, ct);
+            }
+            else
+            {
+                await LeaderboardStore.RecomputeDaysAsync(
+                    connection,
+                    transaction,
+                    account.Id,
+                    usageFacts.Select(fact => fact.Day).Distinct().ToList(),
+                    ct);
+            }
         }
 
         await transaction.CommitAsync(ct);
@@ -240,6 +271,26 @@ internal static class SyncEndpoints
         return result is long value ? value : 0;
     }
 
+    private static async Task DeleteDeviceRowsAsync(
+        SqliteConnection connection, SqliteTransaction transaction, string accountId, string deviceId, CancellationToken ct)
+    {
+        using (var usage = connection.CreateCommand())
+        {
+            usage.Transaction = transaction;
+            usage.CommandText = "DELETE FROM usage_rows WHERE account_id = $accountId AND device_id = $deviceId";
+            usage.Parameters.AddWithValue("$accountId", accountId);
+            usage.Parameters.AddWithValue("$deviceId", deviceId);
+            await usage.ExecuteNonQueryAsync(ct);
+        }
+
+        using var sessions = connection.CreateCommand();
+        sessions.Transaction = transaction;
+        sessions.CommandText = "DELETE FROM session_rows WHERE account_id = $accountId AND device_id = $deviceId";
+        sessions.Parameters.AddWithValue("$accountId", accountId);
+        sessions.Parameters.AddWithValue("$deviceId", deviceId);
+        await sessions.ExecuteNonQueryAsync(ct);
+    }
+
     private static async Task UpsertUsageRowAsync(
         SqliteConnection connection, SqliteTransaction transaction, string accountId, UsageFact fact, long seq, CancellationToken ct)
     {
@@ -247,16 +298,16 @@ internal static class SyncEndpoints
         cmd.Transaction = transaction;
         cmd.CommandText = """
             INSERT INTO usage_rows (
-                account_id, device_id, day, grain, agent, model, provider, project, project_display_name,
+                account_id, device_id, day, grain, agent, model, provider, project, project_display_name, host,
                 input_tokens, output_tokens, cache_creation_tokens,
                 cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
                 cache_read_tokens, total_tokens, cost_usd, updated_at, seq)
             VALUES (
-                $accountId, $deviceId, $day, $grain, $agent, $model, $provider, $project, $projectDisplayName,
+                $accountId, $deviceId, $day, $grain, $agent, $model, $provider, $project, $projectDisplayName, $host,
                 $inputTokens, $outputTokens, $cacheCreationTokens,
                 $cacheCreationEphemeral5mTokens, $cacheCreationEphemeral1hTokens,
                 $cacheReadTokens, $totalTokens, $costUsd, $updatedAt, $seq)
-            ON CONFLICT(account_id, device_id, day, grain, agent, model, provider, project) DO UPDATE SET
+            ON CONFLICT(account_id, device_id, day, grain, agent, model, provider, project, host) DO UPDATE SET
                 project_display_name = excluded.project_display_name,
                 input_tokens = excluded.input_tokens,
                 output_tokens = excluded.output_tokens,
@@ -282,13 +333,13 @@ internal static class SyncEndpoints
         cmd.Transaction = transaction;
         cmd.CommandText = """
             INSERT INTO session_rows (
-                account_id, device_id, session_id, agent, project, project_display_name, dominant_model,
+                account_id, device_id, session_id, agent, host, project, project_display_name, dominant_model,
                 first_seen_at, last_seen_at,
                 input_tokens, output_tokens, cache_creation_tokens,
                 cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
                 cache_read_tokens, total_tokens, cost_usd, updated_at, seq)
             VALUES (
-                $accountId, $deviceId, $sessionId, $agent, $project, $projectDisplayName, $dominantModel,
+                $accountId, $deviceId, $sessionId, $agent, $host, $project, $projectDisplayName, $dominantModel,
                 $firstSeenAt, $lastSeenAt,
                 $inputTokens, $outputTokens, $cacheCreationTokens,
                 $cacheCreationEphemeral5mTokens, $cacheCreationEphemeral1hTokens,
@@ -296,6 +347,7 @@ internal static class SyncEndpoints
             ON CONFLICT(account_id, session_id) DO UPDATE SET
                 device_id = excluded.device_id,
                 agent = excluded.agent,
+                host = excluded.host,
                 project = excluded.project,
                 project_display_name = excluded.project_display_name,
                 dominant_model = excluded.dominant_model,
@@ -328,6 +380,7 @@ internal static class SyncEndpoints
         cmd.Parameters.AddWithValue("$provider", fact.Provider);
         cmd.Parameters.AddWithValue("$project", fact.Project);
         cmd.Parameters.AddWithValue("$projectDisplayName", fact.ProjectDisplayName);
+        cmd.Parameters.AddWithValue("$host", fact.Host);
         cmd.Parameters.AddWithValue("$inputTokens", fact.InputTokens);
         cmd.Parameters.AddWithValue("$outputTokens", fact.OutputTokens);
         cmd.Parameters.AddWithValue("$cacheCreationTokens", fact.CacheCreationTokens);
@@ -345,6 +398,7 @@ internal static class SyncEndpoints
         cmd.Parameters.AddWithValue("$deviceId", fact.Device);
         cmd.Parameters.AddWithValue("$sessionId", fact.SessionId);
         cmd.Parameters.AddWithValue("$agent", fact.Agent);
+        cmd.Parameters.AddWithValue("$host", fact.Host);
         cmd.Parameters.AddWithValue("$project", fact.Project);
         cmd.Parameters.AddWithValue("$projectDisplayName", fact.ProjectDisplayName);
         cmd.Parameters.AddWithValue("$dominantModel", fact.DominantModel);
@@ -393,7 +447,7 @@ internal static class SyncEndpoints
         var rows = new List<(long, UsageFact)>();
         using var cmd = connection.CreateCommand();
         cmd.CommandText = """
-            SELECT seq, device_id, day, grain, agent, model, provider, project, project_display_name,
+            SELECT seq, device_id, day, grain, agent, model, provider, project, project_display_name, host,
                 input_tokens, output_tokens, cache_creation_tokens,
                 cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
                 cache_read_tokens, total_tokens, cost_usd, updated_at
@@ -421,6 +475,7 @@ internal static class SyncEndpoints
                 Provider = reader.GetString(ordinal++),
                 Project = reader.GetString(ordinal++),
                 ProjectDisplayName = reader.GetString(ordinal++),
+                Host = reader.GetString(ordinal++),
                 InputTokens = reader.GetInt64(ordinal++),
                 OutputTokens = reader.GetInt64(ordinal++),
                 CacheCreationTokens = reader.GetInt64(ordinal++),
@@ -444,7 +499,7 @@ internal static class SyncEndpoints
         var rows = new List<(long, SessionFact)>();
         using var cmd = connection.CreateCommand();
         cmd.CommandText = """
-            SELECT seq, device_id, session_id, agent, project, project_display_name, dominant_model,
+            SELECT seq, device_id, session_id, agent, host, project, project_display_name, dominant_model,
                 first_seen_at, last_seen_at,
                 input_tokens, output_tokens, cache_creation_tokens,
                 cache_creation_ephemeral_5m_tokens, cache_creation_ephemeral_1h_tokens,
@@ -468,6 +523,7 @@ internal static class SyncEndpoints
                 Device = reader.GetString(ordinal++),
                 SessionId = reader.GetString(ordinal++),
                 Agent = reader.GetString(ordinal++),
+                Host = reader.GetString(ordinal++),
                 Project = reader.GetString(ordinal++),
                 ProjectDisplayName = reader.GetString(ordinal++),
                 DominantModel = reader.GetString(ordinal++),
@@ -494,7 +550,7 @@ internal static class SyncEndpoints
     {
         var devices = new List<SyncDeviceInfo>();
         using var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT device_id, name, last_seen_at FROM devices WHERE account_id = $accountId ORDER BY device_id";
+        cmd.CommandText = "SELECT device_id, name, last_seen_at, data_epoch FROM devices WHERE account_id = $accountId ORDER BY device_id";
         cmd.Parameters.AddWithValue("$accountId", accountId);
         using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
@@ -502,7 +558,8 @@ internal static class SyncEndpoints
             devices.Add(new SyncDeviceInfo(
                 reader.GetString(0),
                 reader.GetString(1),
-                DateTimeOffset.Parse(reader.GetString(2), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind)));
+                DateTimeOffset.Parse(reader.GetString(2), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind),
+                reader.GetInt32(3)));
         }
 
         return devices;

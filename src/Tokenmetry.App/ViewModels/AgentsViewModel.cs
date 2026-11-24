@@ -78,6 +78,8 @@ public sealed class AgentRankRowViewModel
         TotalTokensText = TrendChart.FormatCompactTokens(row.TotalTokens);
         CostText = OverviewViewModel.FormatCost(row.Cost);
         ShareText = OverviewViewModel.FormatShare(row.TokenShare);
+        HostText = BuildHostText(row);
+        HasHost = HostText.Length > 0;
     }
 
     public string Name { get; }
@@ -104,6 +106,40 @@ public sealed class AgentRankRowViewModel
 
     /// <summary>占比文案（0..1 → "36.8%"；无基数 → "—"）。</summary>
     public string ShareText { get; }
+
+    /// <summary>
+    /// 宿主拆分文案（如 "Cindy 62% · 本机 38%"）：仅当该 Agent 有用量且至少一个非空宿主时显示；
+    /// 全是空串宿主（用户直接用 CLI）→ 空串，不占位也不说谎。
+    /// </summary>
+    public string HostText { get; }
+
+    /// <summary>是否显示宿主拆分副标题（见 <see cref="HostText"/>）。</summary>
+    public bool HasHost { get; }
+
+    private static string BuildHostText(DimensionUsageRow row)
+    {
+        if (row.TotalTokens <= 0 || row.Hosts.Count == 0
+            || !row.Hosts.Any(split => split.Host.Length > 0))
+        {
+            return string.Empty;
+        }
+
+        var parts = new List<string>(row.Hosts.Count);
+        foreach (var split in row.Hosts)
+        {
+            var label = split.Host.Length == 0
+                ? Translations.Instance.HostLocalCli
+                : split.Host;
+            var percent = Math.Round((double)split.TotalTokens / row.TotalTokens * 100, MidpointRounding.AwayFromZero);
+            parts.Add(string.Format(
+                CultureInfo.CurrentCulture,
+                Translations.Instance.HostSplitFormat,
+                label,
+                percent.ToString("0", CultureInfo.CurrentCulture)));
+        }
+
+        return string.Join(" · ", parts);
+    }
 }
 
 /// <summary>

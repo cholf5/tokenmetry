@@ -10,12 +10,18 @@ namespace Tokenmetry.Infrastructure.Cindy;
 /// Cindy（桌面 Agent 宿主）Pi runtime 会话适配器：直读
 /// <c>&lt;Cindy userData&gt;/pi-agent-home/sessions/*.jsonl</c>（pi 会话格式，usage / 内置 cost 逐条
 /// assistant message 落盘），以 <b>Agent = "Cindy"</b> 出账，不区分 runtime。
+/// userData 区域目录可同机并存（cn / global / dev / 历史），由 <see cref="CindyLogLocator"/> 统一发现。
 /// <para>
-/// 范围（有意为之）：只接 Pi runtime。Cindy 借用 Claude Code / Codex 当 runtime 时，transcript 落在
-/// 与用户自己 CLI <b>共享</b>的 <c>~/.claude/projects</c>（本机实测：entrypoint=claude-desktop、
-/// cwd=Cindy owners 目录）或 Cindy 私有的 <c>codex-home</c>；要把它们归给 Cindy 必须按
-/// <c>sdk_session_id</c> 做归属仲裁才不会与 ClaudeCode / Codex 适配器双算——本轮不做，那些会话
-/// 继续由原适配器出账（口径诚实：它们确实是 Claude Code / Codex 的执行）。
+/// 范围（有意为之）：本适配器只接 Pi runtime。Cindy 的另外两个 runtime 走执行引擎自己的适配器，
+/// 不在这里重复出账：
+/// <list type="bullet">
+/// <item>Codex：子进程的 CODEX_HOME 指向 Cindy 私有 home（<c>codex-home</c> /
+/// <c>codex-accounts/&lt;owner&gt;/&lt;provider&gt;</c>），这些 home 由 <see cref="CindyLogLocator.ResolveCodexHomes"/>
+/// 提供给 Codex 适配器作为附加发现根，出账归属 = Codex；</item>
+/// <item>Claude Code：transcript 落在与用户自己 CLI <b>共享</b>的 <c>~/.claude/projects</c>
+/// （本机实测：entrypoint=sdk-ts、cwd=Cindy owners 目录），出账归属 = Claude Code；宿主归属由
+/// <see cref="CindyHostAttribution"/> 按 owner 库 <c>sdk_session_id</c> 精确标注，不在这里重复出账。</item>
+/// </list>
 /// </para>
 /// <para>
 /// 解析复用 pi 蓝本管线（<see cref="PiSessionParser"/> + <see cref="PiReplayPlan"/>：父子重放抑制、

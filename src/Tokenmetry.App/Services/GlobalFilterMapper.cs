@@ -23,8 +23,21 @@ internal static class GlobalFilterMapper
     {
         ArgumentNullException.ThrowIfNull(filters);
         return Build(filters.TimeRange, filters.Agent, filters.CustomFromDate, filters.CustomToDate,
-            filters.Model.Model, filters.Project.Path, device: ResolveDevice(filters.IsSyncEnabled, filters.LocalDeviceId, filters.Device));
+            filters.Model.Model, filters.Project.Path,
+            device: ResolveDevice(filters.IsSyncEnabled, filters.LocalDeviceId, filters.Device),
+            host: ResolveHost(filters.Host));
     }
+
+    /// <summary>
+    /// 宿主维度查询值：null = 不过滤；空串哨兵 → 空串（"未识别 / 直接用 CLI"这一档，查询层按原值
+    /// 精确匹配，包括空串）；具体宿主 → Id 直传。
+    /// </summary>
+    internal static string? ResolveHost(HostFilterOption host) =>
+        host.Id == HostFilterOption.AllId
+            ? null
+            : host.Id == HostFilterOption.NoHostId
+                ? string.Empty
+                : host.Id;
 
     /// <summary>
     /// 设备维度查询值收口（A12，纯函数）：同步关闭 = 强制本机 id（不依赖 UI 状态，页面与海报随之只看本机）；
@@ -47,9 +60,10 @@ internal static class GlobalFilterMapper
         DateTimeOffset? customTo = null,
         string? model = null,
         string? project = null,
-        string? device = null)
+        string? device = null,
+        string? host = null)
     {
-        return Build(range, agent, customFrom, customTo, model, project, DateOnly.FromDateTime(DateTime.Today), device);
+        return Build(range, agent, customFrom, customTo, model, project, DateOnly.FromDateTime(DateTime.Today), device, host);
     }
 
     /// <summary>带 today 注入的映射内核（internal：日历档「本月/上月/本周/上周」的跨月/跨年/周锚点
@@ -62,7 +76,8 @@ internal static class GlobalFilterMapper
         string? model,
         string? project,
         DateOnly today,
-        string? device = null)
+        string? device = null,
+        string? host = null)
     {
         DateOnly? fromDay;
         DateOnly? toDay;
@@ -94,6 +109,8 @@ internal static class GlobalFilterMapper
             Model = string.IsNullOrWhiteSpace(model) ? null : model,
             Project = string.IsNullOrWhiteSpace(project) ? null : project,
             Device = string.IsNullOrWhiteSpace(device) ? null : device,
+            // host 与其它维度不同：空串是合法查询值（未识别 / 直接用 CLI），原样透传。
+            Host = host,
         };
     }
 

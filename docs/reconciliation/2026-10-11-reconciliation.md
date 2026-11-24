@@ -188,3 +188,15 @@ ID shape"）：
   （input 23,792,324 / output 7,667,554 / cache_read 1,922,562,944 / total 1,954,022,822）；
   cost 差异只来自内置快照未收录 `deepseek-*`（既有定价缺口，与本次解析无关）；
 - 说明：当日数值随会话写入持续增长，跨分钟比较会出现快照差；对账须取同一时刻两侧结果。
+
+## 9. 2026-11-25 增量：Host 维度（宿主归属）不改变 tokens/cost 口径
+
+- `usage_facts` 主键新增 `host`（迁移 5）：`host` 只回答"这次执行由谁发起"（Cindy / 空 = 命令行），
+  **Agent 仍是执行引擎**（Claude Code / Codex / Cindy-Pi）。tokens / cost 的解析、计价、UTC 分桶、
+  去重口径全部不变，ccusage 对账结论继续有效——host 只是分组键，同一天同一 agent 的多条 host
+  行合计等于迁移前的单行。
+- 迁移把历史行原样保留为 `host=''`（语义诚实：旧行没有归属证据）；采集管道对"本轮实际扫到的
+  agent × 天"做权威重算（`ReconcileUsageFactsAsync`），把覆盖到的旧行替换成带 host 的新行。
+  因此升级后短期内可能同时看到 `host=''` 与 `host='Cindy'` 的同日行——合计不变，属预期中间态。
+- 同步面：relay 与本机客户端需一起升级（行身份新增维度）。首次同步推整份快照，relay 清该设备旧行
+  并递增 `devices.data_epoch`，其他客户端看到 epoch 变化后清掉该设备的旧副本，避免 host 幽灵行。
