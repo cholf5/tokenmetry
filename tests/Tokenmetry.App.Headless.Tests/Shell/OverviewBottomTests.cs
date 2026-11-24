@@ -6,13 +6,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.DependencyInjection;
+using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
@@ -42,6 +47,23 @@ public class OverviewBottomTests
 
     /// <summary>fixture 占比基数（stub 手记 TokenShare 的分母，仅测试内部对账用）。</summary>
     private const long ScopeTotal = 10_000_000;
+
+    // ── 项目行右键测试替身（避免真实 toast / plutil / sips）──
+
+    private sealed class StubToast : IToastService
+    {
+        public List<string> Messages { get; } = new();
+
+        public void Show(string message, Visual? host = null) => Messages.Add(message);
+    }
+
+    private sealed class NoIconProvider : IAppIconProvider
+    {
+        public static NoIconProvider Instance { get; } = new();
+
+        public Task<IImage?> GetIconAsync(string cacheKey, string? iconSource) =>
+            Task.FromResult<IImage?>(null);
+    }
 
     // ── stub 查询服务（可配置模型/项目维度 + 模型响应挂起 + 调用记账）──
 
@@ -246,8 +268,12 @@ public class OverviewBottomTests
     }
 
     private static OverviewViewModel CreateVm(
-        StubQueryService stub, FilterStateService? filters = null, Action<PageId>? navigateTo = null) =>
-        new(ShellPages.For(PageId.Overview), filters ?? new FilterStateService(), stub, navigateToPage: navigateTo);
+        StubQueryService stub,
+        FilterStateService? filters = null,
+        Action<PageId>? navigateTo = null,
+        ProjectRowActions? projectActions = null) =>
+        new(ShellPages.For(PageId.Overview), filters ?? new FilterStateService(), stub,
+            navigateToPage: navigateTo, projectActions: projectActions);
 
     // ── 模型分布表（TC-001 页面层：stub 值 → 行显示值）──
 
@@ -320,6 +346,126 @@ public class OverviewBottomTests
         Assert.Equal("234.2万", rows[0].TokensText);
         Assert.Equal("23.4%", rows[0].ShareText);
         Assert.Equal(23.41628, rows[0].BarValue, 5);
+    }
+
+    [AvaloniaFact]
+    public void Project_rows_carry_raw_path_and_open_gate_while_model_rows_do_not()
+    {
+        var vm = CreateVm(
+            new StubQueryService
+            {
+                Kpi = FixtureKpi,
+                Daily = ChartTestHelpers.DailyPoints30(),
+                Projects = FixtureProjects,
+                Models = FixtureModels,
+            },
+            projectActions: new ProjectRowActions(isOpenablePath: path => path == "/data/work/project-a"));
+
+        var expected = FixtureProjects
+            .Where(r => r.TotalTokens > 0)
+            .OrderByDescending(r => r.TotalTokens)
+            .Take(OverviewViewModel.TopN)
+            .ToList();
+
+        // 行带原始键（右键打开的目标）；展示名仍按 I-029 归一化 / 歧义守卫回退
+        Assert.Equal(expected.Select(r => r.Key), vm.ProjectRows!.Select(r => r.RawPath));
+        // 门禁逐行来自注入谓词，平台无关（不依赖测试机 OS 的路径形态）
+        Assert.Equal(
+            expected.Select(r => r.Key == "/data/work/project-a"),
+            vm.ProjectRows!.Select(r => r.CanOpen));
+
+        // 模型分布行不参与项目动作：无原始路径、门禁恒 false
+        Assert.NotEmpty(vm.ModelRows!);
+        Assert.All(vm.ModelRows!, row =>
+        {
+            Assert.Null(row.RawPath);
+            Assert.False(row.CanOpen);
+        });
+    }
+
+    [AvaloniaFact]
+    public async Task Project_row_right_click_on_overview_opens_shared_menu_and_opens_paths()
+    {
+        var folders = new List<string>();
+        var terminals = new List<string>();
+        var toast = new StubToast();
+        var actions = new ProjectRowActions(
+            toast,
+            directoryExists: _ => true,
+            openFolder: path => { folders.Add(path); return true; },
+            openTerminal: path => { terminals.Add(path); return true; },
+            isOpenablePath: path => path == "/data/work/project-a",
+            externalAppsLoader: () => Array.Empty<ExternalApp>(),
+            iconProvider: NoIconProvider.Instance);
+        var vm = CreateVm(
+            new StubQueryService
+            {
+                Kpi = FixtureKpi,
+                Daily = ChartTestHelpers.DailyPoints30(),
+                Projects = FixtureProjects,
+            },
+            projectActions: actions);
+
+        var view = new OverviewView { DataContext = vm };
+        var window = new Window { Width = 1020, Height = 1160, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var rows = view.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.DataContext is DimensionRowViewModel { RawPath: not null }
+                        && b.GetVisualParent() is ContentPresenter)
+            .ToList();
+        Assert.Equal(3, rows.Count);
+        var blocked = rows.Single(b => ((DimensionRowViewModel)b.DataContext!).Name == "Project-A");
+        var openable = rows.Single(b =>
+            ((DimensionRowViewModel)b.DataContext!).RawPath == "/data/work/project-a");
+
+        // 不可打开行：右键也给反馈（一条置灰说明），不动作
+        blocked.BringIntoView();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        var blockedPoint = blocked.TranslatePoint(new Point(blocked.Bounds.Width / 2, 3), window)
+            ?? throw new InvalidOperationException("项目行不在可视树");
+        window.MouseDown(blockedPoint, MouseButton.Right);
+        window.MouseUp(blockedPoint, MouseButton.Right);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(blocked.ContextMenu is { IsOpen: true }, "不可打开行右键也要有反馈");
+        var hint = Assert.Single(blocked.ContextMenu!.Items.OfType<MenuItem>());
+        Assert.False(hint.IsEnabled);
+        Assert.Equal(Translations.Instance.ProjectRowOpenUnavailable, hint.Header);
+        blocked.ContextMenu.Close();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Empty(folders);
+        Assert.Empty(terminals);
+
+        // 可打开行：与项目统计页共用菜单；命令打到注入的启动器
+        openable.BringIntoView();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        var openPoint = openable.TranslatePoint(new Point(openable.Bounds.Width / 2, 3), window)
+            ?? throw new InvalidOperationException("项目行不在可视树");
+        window.MouseDown(openPoint, MouseButton.Right);
+        window.MouseUp(openPoint, MouseButton.Right);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(openable.ContextMenu is { IsOpen: true }, "可打开行右键给共享菜单");
+        var items = openable.ContextMenu!.Items.OfType<MenuItem>().ToList();
+        Assert.Equal(2, items.Count);
+        Assert.Equal(Translations.Instance.ProjectRowOpenFolder, items[0].Header);
+        Assert.Equal(
+            string.Format(Translations.Instance.ProjectRowOpenTerminalNamedFormat, TerminalLauncher.PreferredDisplayName()),
+            items[1].Header);
+
+        await ((IAsyncRelayCommand)items[0].Command!).ExecuteAsync(items[0].CommandParameter);
+        await ((IAsyncRelayCommand)items[1].Command!).ExecuteAsync(items[1].CommandParameter);
+        Assert.Equal(new[] { "/data/work/project-a" }, folders);
+        Assert.Equal(new[] { "/data/work/project-a" }, terminals);
+        Assert.Empty(toast.Messages);
+
+        openable.ContextMenu.Close();
+        Dispatcher.UIThread.RunJobs();
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 
     // ── Token 类型构成环形（三段映射定案）──

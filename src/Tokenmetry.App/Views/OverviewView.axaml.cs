@@ -1,8 +1,10 @@
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Tokenmetry.App.Styles;
+using Tokenmetry.App.ViewModels;
 
 namespace Tokenmetry.App.Views;
 
@@ -15,6 +17,26 @@ public partial class OverviewView : UserControl
     public OverviewView()
     {
         InitializeComponent();
+    }
+
+    /// <summary>
+    /// 项目排行行右键：与项目统计页共用同一个菜单构建器（<see cref="ProjectRowContextMenu"/>）和
+    /// 动作源（<see cref="OverviewViewModel.ProjectActions"/>）——门禁、置灰说明、外部应用列表全在
+    /// 共享层，本页只把行递过去。其他表格不接此事件。
+    /// </summary>
+    private void OnProjectRowContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not Border rowBorder
+            || rowBorder.DataContext is not DimensionRowViewModel { RawPath: not null } row
+            || DataContext is not OverviewViewModel viewModel)
+        {
+            return;
+        }
+
+        var menu = ProjectRowContextMenu.Build(viewModel.ProjectActions, row);
+        rowBorder.ContextMenu = menu;
+        menu.Open(rowBorder);
+        e.Handled = true;
     }
 
     /// <summary>

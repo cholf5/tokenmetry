@@ -2,11 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using Tokenmetry.App.Controls;
 using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
@@ -23,7 +21,7 @@ namespace Tokenmetry.App.ViewModels;
 /// token 列与均值列用紧凑格式（FormatCompactTokens，同 Agent/模型页与 KPI 卡口径）——token 量级
 /// 无上界，定宽七/六列布局下千分位全数字会被裁切成错值，宁紧凑不裁切（精确值可下钻会话页）。
 /// </summary>
-public sealed class ProjectRankRowViewModel
+public sealed class ProjectRankRowViewModel : IProjectPathRow
 {
     public ProjectRankRowViewModel(DimensionUsageRow row, bool canOpen)
     {
@@ -75,10 +73,11 @@ public sealed class ProjectRankRowViewModel
 /// 选择即跳会把「想看菜单」变成「已被带去会话页」）；点击经构造注入回调把 (原始路径, 展示名)
 /// 写入全局 Project 筛选后导航会话页（顶栏可见、「全部项目」可复位）。
 /// <b>行右键</b>：菜单恒有反馈——<see cref="ProjectRankRowViewModel.CanOpen"/> 的行给
-/// 「文件管理器 / 终端 / 本机探测到的编辑器与 Git 客户端」（<see cref="ExternalApps"/>，
-/// 只列真的装了的应用），否则给一条置灰说明（编码目录名 / 占位串不猜路径）；
-/// 点击时再确认目录存在并尽力启动，失败经 toast 如实反馈。生命周期 / 线程 / 序号防护纪律同
-/// <see cref="OverviewViewModel"/>。
+/// 「文件管理器 / 终端 / 本机探测到的编辑器与 Git 客户端」
+/// （<see cref="ProjectRowActions.ExternalApps"/>，只列真的装了的应用），否则给一条置灰说明
+/// （编码目录名 / 占位串不猜路径）；点击时再确认目录存在并尽力启动，失败经 toast 如实反馈。
+/// 动作与菜单构建器与总览项目排行共用（<see cref="Actions"/>），本页只做行数据。
+/// 生命周期 / 线程 / 序号防护纪律同 <see cref="OverviewViewModel"/>。
 /// </summary>
 public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefreshAware
 {
@@ -88,17 +87,8 @@ public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefres
     /// <summary>行点击跳转会话页的外壳回调（原始路径 + 展示名）；null（测试/预览）时 no-op。</summary>
     private readonly Action<string, string?>? _openSessionsForProject;
 
-    private readonly IToastService? _toastService;
-    private readonly Func<string, bool> _directoryExists;
-    private readonly Func<string, bool> _openFolder;
-    private readonly Func<string, bool> _openTerminal;
-    private readonly Func<string, bool> _isOpenablePath;
-
-    /// <summary>本机探测到的编辑器 / Git 客户端（菜单按 Editor → GitClient 分组；测试注入固定列表）。</summary>
-    public IReadOnlyList<ExternalApp> ExternalApps { get; }
-
-    /// <summary>外部应用图标（macOS 从已安装 .app 提取；测试注入假提供者）。</summary>
-    public IAppIconProvider IconProvider { get; }
+    /// <summary>行打开动作（canOpen 门禁 / 外部应用 / 图标 / toast；总览项目排行共用同一实现）。</summary>
+    public ProjectRowActions Actions { get; }
 
     /// <summary>加载序号：重置型加载自增；跨 await 序号不一致的响应/异常直接丢弃（同 OverviewViewModel）。</summary>
     private int _loadSequence;
@@ -125,25 +115,13 @@ public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefres
         FilterStateService filters,
         IUsageQueryService query,
         Action<string, string?>? openSessionsForProject = null,
-        IToastService? toastService = null,
-        Func<string, bool>? directoryExists = null,
-        Func<string, bool>? openFolder = null,
-        Func<string, bool>? openTerminal = null,
-        Func<string, bool>? isOpenablePath = null,
-        IReadOnlyList<ExternalApp>? externalApps = null,
-        IAppIconProvider? iconProvider = null)
+        ProjectRowActions? actions = null)
     {
         Page = page;
         _filters = filters;
         _query = query;
         _openSessionsForProject = openSessionsForProject;
-        _toastService = toastService;
-        _directoryExists = directoryExists ?? (path => Directory.Exists(path));
-        _openFolder = openFolder ?? ShellLauncher.TryOpenFolder;
-        _openTerminal = openTerminal ?? TerminalLauncher.TryOpen;
-        _isOpenablePath = isOpenablePath ?? ProjectPathRules.IsLocalAbsolutePath;
-        ExternalApps = externalApps ?? ExternalAppCatalog.Detect();
-        IconProvider = iconProvider ?? AppIconProvider.Shared;
+        Actions = actions ?? new ProjectRowActions();
         filters.PropertyChanged += OnFilterPropertyChanged;
         _ = LoadAsync();
     }
@@ -176,7 +154,7 @@ public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefres
             Rows = projects
                 .OrderByDescending(row => row.TotalTokens)
                 .ThenBy(row => row.Key, StringComparer.Ordinal)
-                .Select(row => new ProjectRankRowViewModel(row, _isOpenablePath(row.Key)))
+                .Select(row => new ProjectRankRowViewModel(row, Actions.CanOpen(row.Key)))
                 .ToList();
             LoadError = null;
         }
@@ -200,63 +178,6 @@ public partial class ProjectsViewModel : ViewModelBase, IDisposable, IDataRefres
         ArgumentNullException.ThrowIfNull(row);
         _openSessionsForProject?.Invoke(row.RawPath, row.Name);
     }
-
-    /// <summary>右键菜单「在文件管理器中打开」：绝对路径行才执行，点击时确认目录存在。</summary>
-    [RelayCommand]
-    private Task OpenProjectFolderAsync(ProjectRankRowViewModel? row) =>
-        OpenProjectPathAsync(row, _openFolder, Translations.Instance.ToastProjectOpenFailed);
-
-    /// <summary>右键菜单「在终端中打开」：同上，终端启动失败单独提示。</summary>
-    [RelayCommand]
-    private Task OpenProjectTerminalAsync(ProjectRankRowViewModel? row) =>
-        OpenProjectPathAsync(row, _openTerminal, Translations.Instance.ToastTerminalUnavailable);
-
-    /// <summary>右键菜单「在 {app} 中打开」：目录存在才启动，失败 toast（带应用名）。</summary>
-    public async Task OpenInAppAsync(ExternalApp app, ProjectRankRowViewModel? row)
-    {
-        ArgumentNullException.ThrowIfNull(app);
-        if (row is not { CanOpen: true })
-        {
-            return;
-        }
-
-        if (!await DirectoryExistsAsync(row.RawPath))
-        {
-            _toastService?.Show(Translations.Instance.ToastProjectPathMissing);
-            return;
-        }
-
-        if (!app.TryOpen(row.RawPath))
-        {
-            _toastService?.Show(string.Format(
-                Translations.Instance.ToastExternalAppOpenFailedFormat, app.DisplayName));
-        }
-    }
-
-    private async Task OpenProjectPathAsync(
-        ProjectRankRowViewModel? row,
-        Func<string, bool> open,
-        string failureMessage)
-    {
-        if (row is not { CanOpen: true })
-        {
-            return;
-        }
-
-        if (!await DirectoryExistsAsync(row.RawPath))
-        {
-            _toastService?.Show(Translations.Instance.ToastProjectPathMissing);
-            return;
-        }
-
-        if (!open(row.RawPath))
-        {
-            _toastService?.Show(failureMessage);
-        }
-    }
-
-    // 存在性检查放线程池：网络盘/失效挂载的 stat 可能阻塞，不能卡 UI 线程。
-    private Task<bool> DirectoryExistsAsync(string path) => Task.Run(() => _directoryExists(path));
 
     public void Dispose() => _filters.PropertyChanged -= OnFilterPropertyChanged;
 }

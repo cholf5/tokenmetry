@@ -363,18 +363,21 @@ public class DimensionPagesTests
         filters ??= new FilterStateService();
         toast ??= new StubToast();
         var navigated = new List<(string, string?)>();
-        var vm = new ProjectsViewModel(
-            ShellPages.For(PageId.Projects),
-            filters,
-            stub,
-            (path, label) => navigated.Add((path, label)),
+        // 行打开动作已抽成共享组件：测试全部经 ProjectRowActions 注入，页面 VM 不再自己收这些参数。
+        var actions = new ProjectRowActions(
             toast,
             directoryExists,
             openFolder,
             openTerminal,
             isOpenablePath,
-            externalApps ?? [],
+            externalApps is null ? () => Array.Empty<ExternalApp>() : () => externalApps,
             iconProvider ?? NoIconProvider.Instance);
+        var vm = new ProjectsViewModel(
+            ShellPages.For(PageId.Projects),
+            filters,
+            stub,
+            (path, label) => navigated.Add((path, label)),
+            actions);
         Dispatcher.UIThread.RunJobs();
         return new ProjectsHost(vm, stub, filters, navigated, toast);
     }
@@ -964,7 +967,7 @@ public class DimensionPagesTests
             openTerminal: path => { terminals.Add(path); return true; });
         var row = host.Vm.Rows[0];
 
-        var menu = ProjectsView.BuildProjectRowMenu(host.Vm, row);
+        var menu = ProjectRowContextMenu.Build(host.Vm.Actions, row);
         var items = menu.Items.OfType<MenuItem>().ToList();
         Assert.Equal(2, items.Count);
         // 文案引用 Translations 属性断言（语言无关纪律：两套测试与实现同源）
@@ -994,7 +997,7 @@ public class DimensionPagesTests
             externalApps: externalApps);
         var row = host.Vm.Rows[0];
 
-        var menu = ProjectsView.BuildProjectRowMenu(host.Vm, row);
+        var menu = ProjectRowContextMenu.Build(host.Vm.Actions, row);
         var items = menu.Items.OfType<MenuItem>().ToList();
         Assert.Equal(4, items.Count); // 文件管理器 + 终端 + 一个编辑器 + 一个 Git 客户端
         Assert.Equal(
@@ -1022,7 +1025,7 @@ public class DimensionPagesTests
             externalApps: externalApps,
             iconProvider: new StubIconProvider());
 
-        var menu = ProjectsView.BuildProjectRowMenu(host.Vm, host.Vm.Rows[0]);
+        var menu = ProjectRowContextMenu.Build(host.Vm.Actions, host.Vm.Rows[0]);
         Dispatcher.UIThread.RunJobs();
         var items = menu.Items.OfType<MenuItem>().ToList();
 
@@ -1042,8 +1045,8 @@ public class DimensionPagesTests
             directoryExists: _ => false,
             openFolder: path => { folders.Add(path); return true; });
 
-        await missing.Vm.OpenProjectFolderCommand.ExecuteAsync(missing.Vm.Rows[0]);
-        await missing.Vm.OpenProjectTerminalCommand.ExecuteAsync(missing.Vm.Rows[0]);
+        await missing.Vm.Actions.OpenFolderCommand.ExecuteAsync(missing.Vm.Rows[0]);
+        await missing.Vm.Actions.OpenTerminalCommand.ExecuteAsync(missing.Vm.Rows[0]);
         Assert.Empty(folders); // 目录不存在：不调用启动器
         Assert.Equal(
             new[] { Translations.Instance.ToastProjectPathMissing, Translations.Instance.ToastProjectPathMissing },
@@ -1053,7 +1056,7 @@ public class DimensionPagesTests
             isOpenablePath: _ => true,
             directoryExists: _ => true,
             openTerminal: _ => false);
-        await terminalFailure.Vm.OpenProjectTerminalCommand.ExecuteAsync(terminalFailure.Vm.Rows[0]);
+        await terminalFailure.Vm.Actions.OpenTerminalCommand.ExecuteAsync(terminalFailure.Vm.Rows[0]);
         Assert.Equal(new[] { Translations.Instance.ToastTerminalUnavailable }, terminalFailure.Toast.Messages);
     }
 

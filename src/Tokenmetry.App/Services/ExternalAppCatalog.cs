@@ -34,6 +34,9 @@ public sealed record ExternalApp(
 /// </summary>
 public static class ExternalAppCatalog
 {
+    /// <summary>进程级懒探测结果：首次访问才扫本机，之后全进程复用（菜单入口不随页面重建重复探测）。</summary>
+    private static readonly Lazy<IReadOnlyList<ExternalApp>> CachedDetection = new(Detect);
+
     /// <summary>探测当前平台已安装的外部应用（菜单按 Editor → GitClient 分组）。</summary>
     public static IReadOnlyList<ExternalApp> Detect()
     {
@@ -53,6 +56,12 @@ public static class ExternalAppCatalog
                 entry.IconSource))
             .ToList();
     }
+
+    /// <summary>
+    /// 进程级懒探测：首次调用才扫描本机，之后复用同一结果。项目行右键菜单默认走这里——
+    /// 总览是首屏，不能因为页面 VM 每次导航重建就在热路径上反复做文件系统探测。
+    /// </summary>
+    public static IReadOnlyList<ExternalApp> DetectOnce() => CachedDetection.Value;
 
     internal sealed record ExternalAppEntry(
         string Id,

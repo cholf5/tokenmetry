@@ -33,6 +33,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly PricingEngine _pricingEngine;
     private readonly BackgroundRefreshService? _refreshService;
 
+    /// <summary>
+    /// 项目行打开动作（canOpen 门禁 / 外部应用目录 / 图标 / toast）：总览项目排行与项目统计页共用
+    /// 同一实例，菜单构建器也只此一套（外部应用默认进程级懒探测，不随页面重建重复扫描）。
+    /// </summary>
+    private readonly ProjectRowActions _projectActions;
+
     /// <summary>窗口标题只留品牌名（D-026）：副标题在 caption / 任务栏里重复侧栏品牌，且无人阅读。</summary>
     [ObservableProperty]
     private string _title = "Tokenmetry";
@@ -138,6 +144,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _agentCatalog = agentCatalog;
         _toastService = toastService;
         _pricingEngine = pricingEngine;
+        _projectActions = new ProjectRowActions(toastService);
         // 可选依赖（既有测试按 7 参构造）：App DI 注入容器内同一 BackgroundRefreshService 单例，
         // 顶栏手动刷新与定时器/托盘/设置页重扫共用同一单飞槽；未注入（测试）时刷新命令如实 no-op。
         _refreshService = refreshService;
@@ -227,7 +234,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // 随全局筛选刷新；GoToPage 经构造回调注入（「查看详情 ↗」跳模型/项目页），
         // 页面 VM 不反向引用本类型（Action<PageId> 单向注入，见 D-007 Dev Log 选型）。
         PageId.Overview => new OverviewViewModel(
-            ShellPages.For(id), _filters, _usageQuery, _avatars, GoToPage, RequestSharePoster),
+            ShellPages.For(id), _filters, _usageQuery, _avatars, GoToPage, RequestSharePoster, _projectActions),
         // D-009/D-010/D-011：Agent / 模型 / 项目统计为真实页（随全局筛选刷新）。D-009 行点击经
         // OpenSessionsForAgent 跳会话页（全局单选 Agent 途径，见 AgentsViewModel 定案）；D-011 行点击
         // 经 OpenSessionsForProject 跳会话页（全局 Project 筛选途径——右栏撤除定案，见 ProjectsViewModel 定案）；
@@ -238,7 +245,7 @@ public partial class MainWindowViewModel : ViewModelBase
         PageId.Models => new ModelsViewModel(ShellPages.For(id), _filters, _usageQuery, _avatars,
             OpenAddModelFor, OpenAddMappingFor, _agentIcons),
         PageId.Projects => new ProjectsViewModel(
-            ShellPages.For(id), _filters, _usageQuery, OpenSessionsForProject, _toastService),
+            ShellPages.For(id), _filters, _usageQuery, OpenSessionsForProject, _projectActions),
         // D-008：会话明细为真实页（搜索防抖 + 排序 + 明细表 + 加载更多）；筛选全部来自
         // 顶栏全局四维（FilterStateService），页内只留搜索/排序（右栏撤除定案见类型说明）。
         PageId.Sessions => new SessionsViewModel(ShellPages.For(id), _filters, _usageQuery, _agentIcons),

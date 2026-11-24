@@ -94,13 +94,25 @@ public sealed class KpiCardViewModel
 /// 宽度即占比——原型用相对最大行的宽度，此处按任务卡改为绝对占比，与「占比」列同值同源）。
 /// 圆点色 = 行序映射 AppSeries{N}Brush（普通资源不随明暗翻转，VM 侧解析同 DonutChart 段色取法；
 /// 无 Application 环境时为 null，视图侧圆点透明，不影响数据可读性）。
+/// 项目维度行额外带原始路径与可打开门禁（<see cref="IProjectPathRow"/>，右键菜单共享实现）；
+/// 模型维度行两者皆空 / false。
 /// </summary>
-public sealed class DimensionRowViewModel
+public sealed class DimensionRowViewModel : IProjectPathRow
 {
-    public DimensionRowViewModel(int rank, string name, long tokens, decimal? tokenShare, IBrush? dotBrush, ModelAvatarVisual? avatar = null)
+    public DimensionRowViewModel(
+        int rank,
+        string name,
+        long tokens,
+        decimal? tokenShare,
+        IBrush? dotBrush,
+        ModelAvatarVisual? avatar = null,
+        string? rawPath = null,
+        bool canOpen = false)
     {
         Rank = rank;
         Name = name;
+        RawPath = rawPath;
+        CanOpen = canOpen;
         // 预览表是汇总视图（不是逐条对账表）：紧凑格式与模型/项目页同源，10 位全量数字
         // 在 76px 列里会被裁断（真实数据的十亿级 token 已经踩到）。
         TokensText = TrendChart.FormatCompactTokens(tokens);
@@ -115,6 +127,12 @@ public sealed class DimensionRowViewModel
 
     /// <summary>展示名（项目维度为归一化名——歧义守卫下可能是原始路径；模型/Agent 为 Key）。</summary>
     public string Name { get; }
+
+    /// <summary>项目原始路径（I-029 稳定键；项目维度行才有，模型维度行为 null）。</summary>
+    public string? RawPath { get; }
+
+    /// <summary>本行是否可交给系统打开（右键门禁；模型维度行恒 false）。</summary>
+    public bool CanOpen { get; }
 
     /// <summary>token 紧凑文案（万/亿或 K/M；与模型/项目统计页同口径，窄列不裁断）。</summary>
     public string TokensText { get; }
@@ -174,6 +192,12 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
 
     /// <summary>加载序号：每次触发自增；跨 await 回来时序号不一致的响应直接丢弃。</summary>
     private int _loadSequence;
+
+    /// <summary>
+    /// 项目排行行的打开动作（canOpen 门禁 / 外部应用 / 图标 / toast）：与项目统计页共用同一实现与
+    /// 菜单构建器；本页只负责把快照里的原始键带进行数据。外壳传入带 toast 的实例。
+    /// </summary>
+    public ProjectRowActions ProjectActions { get; }
 
     public PageDescriptor Page { get; }
 
@@ -283,7 +307,8 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
         IUsageQueryService query,
         ModelAvatarResolver? avatars = null,
         Action<PageId>? navigateToPage = null,
-        Action? openSharePoster = null)
+        Action? openSharePoster = null,
+        ProjectRowActions? projectActions = null)
     {
         Page = page;
         _filters = filters;
@@ -291,6 +316,7 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
         _avatars = avatars;
         _navigateToPage = navigateToPage;
         _openSharePoster = openSharePoster;
+        ProjectActions = projectActions ?? new ProjectRowActions();
         // FilterStateService 保证通知在 UI 线程发出，这里直接触发重查即可。
         filters.PropertyChanged += OnFilterPropertyChanged;
         _ = LoadAsync();
@@ -385,7 +411,8 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
             AgentSegments = CreateAgentSegments(snapshot.Agents);
             AgentDonutCenterTitle = TrendChart.FormatCompactTokens(snapshot.Kpi.TotalTokens);
             ModelRows = CreateDimensionRows(snapshot.Models, modelIconResolver: _avatars is { } avatars ? avatars.Resolve : null);
-            ProjectRows = CreateDimensionRows(snapshot.Projects);
+            // 项目排行行同样带原始键与可打开门禁：右键菜单与项目统计页共用同一套动作。
+            ProjectRows = CreateDimensionRows(snapshot.Projects, projectCanOpen: ProjectActions.CanOpen);
             TypeSegments = CreateTokenTypeSegments(snapshot.Daily);
             // 环心与上半区 KPI 卡同源（同一份快照 KPI），避免环心/段各算各的口径漂移
             TypeDonutCenterTitle = TrendChart.FormatCompactTokens(snapshot.Kpi.TotalTokens);
@@ -503,10 +530,14 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     /// （服务契约已排序，不依赖之）；Name 用归一化展示名（项目维度歧义守卫下可能是原始路径）。
     /// 不加「其他」聚合行（原型同款，见 ModelRows 注释）；bar 值 = TokenShare × 100（见 DimensionRowViewModel）。
     /// <paramref name="modelIconResolver"/> 非空时行首给内置厂商图标（模型维度；null = 项目维度，
-    /// 保留系列色圆点）。
+    /// 保留系列色圆点）。<paramref name="projectCanOpen"/> 非空时该表按项目维度处理：行带原始键
+    /// 并逐行套可打开门禁（总览项目排行右键菜单，与项目统计页同一套动作）；模型维度传 null。
     /// </summary>
     internal static IReadOnlyList<DimensionRowViewModel> CreateDimensionRows(
-        IReadOnlyList<DimensionUsageRow> rows, int topN = TopN, Func<string, ModelAvatarVisual?>? modelIconResolver = null)
+        IReadOnlyList<DimensionUsageRow> rows,
+        int topN = TopN,
+        Func<string, ModelAvatarVisual?>? modelIconResolver = null,
+        Func<string, bool>? projectCanOpen = null)
     {
         return rows
             .Where(r => r.TotalTokens > 0)
@@ -518,7 +549,9 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
                 row.TotalTokens,
                 row.TokenShare,
                 ResolveSeriesBrush(index),
-                modelIconResolver?.Invoke(row.DisplayName ?? row.Key)))
+                modelIconResolver?.Invoke(row.DisplayName ?? row.Key),
+                projectCanOpen is null ? null : row.Key,
+                projectCanOpen?.Invoke(row.Key) ?? false))
             .ToList();
     }
 
