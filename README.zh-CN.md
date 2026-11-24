@@ -112,13 +112,11 @@ Cindy 只接 Pi runtime：用它启动的 Claude Code / Codex 会话仍计入各
 从 [Releases](https://github.com/cholf5/tokenmetry/releases/latest) 下载。每次打 tag，CI 都会
 产出三平台安装包：
 
-| 平台 | 安装包 | 体积（v0.3.2） | 说明 |
-|---|---|---|---|
-| Windows x64 | `Tokenmetry-0.3.2-win-x64-setup.exe` | 17.3 MB | 推荐——按用户安装，带快捷方式与卸载器；应用内静默升级 |
-| Windows x64 | `Tokenmetry-0.3.2-win-x64.zip` | 70.8 MB | 便携版：单文件 exe + `plugin-host/` |
-| macOS Apple Silicon | `Tokenmetry-0.3.2-osx-arm64.zip` | 23.1 MB | `.app`，Native AOT（含插件宿主） |
-| macOS Intel | `Tokenmetry-0.3.2-osx-x64.zip` | 24.6 MB | `.app`，Native AOT（含插件宿主） |
-| Linux x64 | `Tokenmetry-0.3.2-linux-x64.zip` | 66.4 MB | 单文件 + `plugin-host/` |
+- **Windows x64** —— 安装器（推荐：按用户安装，带快捷方式与卸载器，应用内静默升级）或便携 zip
+- **macOS** —— Apple Silicon / Intel 各一个 `.app`（Native AOT，含插件宿主）
+- **Linux x64** —— 单文件二进制 zip（含 `plugin-host/`）
+
+具体版本号、文件名与体积以 Releases 页为准。
 
 所有形态都支持应用内一键更新：发现新版本后主窗顶部出横幅，点「立即更新」走下载进度条并按
 SHA-256 校验，再点「重启并更新」——安装版走静默安装；便携版与 Linux 就地把主程序与

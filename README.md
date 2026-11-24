@@ -123,13 +123,12 @@ trust. See [the user guide](docs/plugins.md).
 Grab a package from [Releases](https://github.com/cholf5/tokenmetry/releases/latest). CI builds
 all three platforms on every tag:
 
-| Platform | Package | Size (v0.3.2) | Notes |
-|---|---|---|---|
-| Windows x64 | `Tokenmetry-0.3.2-win-x64-setup.exe` | 17.3 MB | Recommended — per-user install with shortcuts and an uninstaller; in-app updates are silent |
-| Windows x64 | `Tokenmetry-0.3.2-win-x64.zip` | 70.8 MB | Portable: single-file exe + `plugin-host/` |
-| macOS Apple Silicon | `Tokenmetry-0.3.2-osx-arm64.zip` | 23.1 MB | `.app`, Native AOT (plugin host included) |
-| macOS Intel | `Tokenmetry-0.3.2-osx-x64.zip` | 24.6 MB | `.app`, Native AOT (plugin host included) |
-| Linux x64 | `Tokenmetry-0.3.2-linux-x64.zip` | 66.4 MB | Single-file binary + `plugin-host/` |
+- **Windows x64** — installer (recommended: per-user install with shortcuts and uninstaller,
+  silent in-app updates) or portable zip
+- **macOS** — Apple Silicon and Intel `.app` builds (Native AOT, plugin host included)
+- **Linux x64** — single-file binary zip with `plugin-host/`
+
+Version numbers, exact filenames and download sizes live on the Releases page.
 
 Every form updates in place: a new version shows a banner in the main window, "Update now" downloads
 with a progress bar and a SHA-256 check, and "Restart and update" swaps the files and reopens the app
