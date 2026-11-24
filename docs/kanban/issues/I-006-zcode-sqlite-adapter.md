@@ -99,6 +99,12 @@ Result: 通过——本机 22,315 条记录，自研 input=76,028,203 / output=1
 - **登记不修 [P2] 定位器细节差异**：蓝本对根做 `canonicalize`（符号链接归一），C# GetFullPath 不解析 symlink——经链接指向同一物理库的两根不合并（id 去重兜底，仅重复读 + DuplicateRecords 虚高）；`~` 展开为蓝本没有的增强；默认 home USERPROFILE 优先与 Claude/Codex 定位器一致（蓝本 HOME 优先，macOS 实际只设 HOME，零影响）。
 - 复核：`dotnet build` 0/0；全仓 `dotnet test` 260 通过 / 6 跳过（255 基线 + 5 项审查新增）；门控真实对账复跑通过（22,471 条，tokens 两侧仍逐位一致）。
 
+### 2026-11-25（真实数据成本期望对齐 §6-4 定价口径）
+
+- TC-002 的"成本两侧同为 0"写于 2026-10-18 三级计价定案之前：现适配器所有行 `CostUsd=null` 交引擎，CLI 对自定义 provider / 第三方渠道行仍记 0（§6-4/§6-5 有意分歧）。
+- 真实数据用例改为 tokens 全量精确对账（日期×模型 + 每日/全期总计）+ 成本只比较 CLI 有价行（cost>0）；CLI 记 0 的行只汇总不判失败。
+- 本机复跑（2026-11-25）：50 组日期×模型 tokens 精确一致；CLI 有价行 0 组，CLI 记 0 的 50 行由自研计价（合计 $241.85），用例通过。
+
 ## Bugs
 
 | ID | Severity | Description | Status | Resolution |

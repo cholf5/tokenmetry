@@ -121,6 +121,7 @@ I-004 备忘提到的新版 ccusage compaction 去重逻辑：本机 19 个真�
 7. **Kimi `kimi-for-coding` 定价**（2026-10-30 起）：按时间戳切成 `moonshot/kimi-k2.5`（< 1776698890072 ms）或 `moonshot/kimi-k2.6`，与蓝本 `model_candidates` 一致。对账 fixture 不含该模型名，差异只会出现在真实数据上。
 8. **Codex 压缩 rollout**（2026-10-30 起）：`.jsonl.zst` 与明文同存时明文优先、跨目录按解压后路径去重；**fork/子代理回放抑制与 compaction 去重仍未移植**（独立计划），因此子代理会话继承的父历史当前会被重复计。
 9. **OpenCode claude-agent 跨源去重**（2026-11-09 起，随 ccusage 20.0.48 #2007）：OpenCode 的 claude-agent provider 内跑 Claude Code，Claude 会另写转录，统一入账双计。本仓库在采集管道仲裁丢弃 OpenCode claude-agent 行，当且仅当其原生会话（`content[].native.sessionID`）在**同一 UTC 日**被 Claude 源的主线程记录计了账；Claude 源缺席 / 零记录 / 只有 sidechain 用量 / 日期不同 → 保留。与蓝本的口径差异：蓝本按 Claude 源时区逐日匹配（daily 族），本仓固定 UTC；午夜跨界 turn 双计属两边共有的文档化限制。已知残留：升级前已双计入库的 OpenCode facts 行不会自动清退（facts 是 upsert、无"消失桶"清理语义，与日志删除后的残留同性质）。
+10. **DSH 蓝本目录外样本的成本**（A-0b，2026-11-23 起；DSH 于 2026-10-11 接入）：dsh-usage-stats 蓝本的 `estimateTokenCost` 只认其内置 DeepSeek 目录（`deepseek-v4-flash/pro` 的 flat + 时段规则），目录外路由（本机 `ark/glm-5.3-flash` 等）fail-closed 记 0；自研按 A-0b「未知成本纪律」把非 deepseek 路由记 `CostUsd = null`，交给采集侧定价引擎（快照 + models.dev + 用户覆盖）计价，仍缺价才进 `UnpricedModels` fail-loud。对账口径因此是 **tokens 精确一致 + 自研成本 ≥ 蓝本可计价合计**：蓝本全部样本可计价时仍要求两侧成本一致；存在目录外样本时，自研超出部分只允许来自这些样本。真实数据用例按此断言，不再要求"两侧同为 0"。
 
 ## 7. 对产品立场的意义
 
@@ -189,3 +190,25 @@ ID shape"）：
   因此升级后短期内可能同时看到 `host=''` 与 `host='Cindy'` 的同日行——合计不变，属预期中间态。
 - 同步面：relay 与本机客户端需一起升级（行身份新增维度）。首次同步推整份快照，relay 清该设备旧行
   并递增 `devices.data_epoch`，其他客户端看到 epoch 变化后清掉该设备的旧副本，避免 host 幽灵行。
+
+## 10. 2026-11-25 增量：真实数据对账用例对齐 A-0b 与 §6 分歧
+
+本机（`TOKENMETRY_RECONCILE_REAL=1`）复跑：fixture 回归 50 通过 / 19 跳过 / 0 失败；
+真实数据 19 个用例 4 通过 / 14 跳过（无数据）/ 1 失败（OpenCode，设计内 fail-loud）。
+失败曾出现在 ZCode 与 DSH，逐项判定均为**已文档化的有意分歧，不是解析/聚合回归**：
+
+| 源 | tokens | cost 差异 | 判定 |
+|---|---|---|---|
+| ZCode | 50 组 日期×模型 + 40 组每日/全期总计精确一致 | 50 行 CLI=0、自研计价（GLM-5.3 / GLM-5.3-Flash，合计 $241.85） | §6-4 / §6-5 有意分歧 |
+| DSH | 11/10/3 组全部精确一致；全期 input 22,012,649 / output 4,008,299 / cacheRead 843,451,328 / total 869,472,276 | 蓝本可计价 $0（pricedSamples=0，incompleteSamples=5,811），自研 $26.94 | §6-10 有意分歧（A-0b 引擎计价） |
+| OpenCode | output 871,432 vs 273,355（+598,077 = reasoning） | $3.13 vs $0 | 用例注明的 fail-loud（reasoning 并入 output） |
+
+两处用例的期望值写于新口径落地之前，已改为能表达分歧的形态：
+
+- `Real_zcode_data_reconciles_with_cli`：tokens 全量精确（含每日/全期总计）；成本只对 CLI 有价行
+  （cost&gt;0）做容差比较，CLI 记 0 的行只汇总不判失败（§6-4/§6-5）。
+- `Real_dsh_data_reconciles_with_blueprint`：tokens 四粒度仍精确一致；成本改为——蓝本全部样本可计价
+  时两侧必须一致，存在目录外样本时只要求自研合计 ≥ 蓝本可计价合计，且自研 0 成本记录 ≤ 蓝本
+  incompleteSamples。同时修正原断言用 `Sum(TotalEntries)`（日总计 + 全期总计重复累加，显示 2×）
+  取成本的问题，改用全期总计行。
+- OpenCode 维持 fail-loud 不变（reasoning 并入 output 是记录级口径差异，需人工判读）。

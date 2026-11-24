@@ -53,8 +53,10 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// I-006：本机 ZCode SQLite 账本对账。CLI 侧对自定义 provider 的模型（本机 GLM/Ark 行）
-    /// 报 missingPricing / cost 0；自研侧同口径（CostUsd=0），成本两侧同为 0，token 精确一致。
+    /// I-006：本机 ZCode SQLite 账本对账。tokens 全量精确一致（日期×模型 + 每日/全期总计）；
+    /// 成本只对 CLI 有价行（cost&gt;0）做容差比较：自定义 provider / 第三方渠道行 CLI 报
+    /// missingPricing / cost 0，自研按 2026-10-18 定案走三级计价（CostUsd=null → 引擎），
+    /// 属 §6-4/§6-5 有意分歧，CLI 记 0 的行不参与成本断言。
     /// </summary>
     [SkippableFact]
     public async Task Real_zcode_data_reconciles_with_cli()
@@ -69,7 +71,11 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
         // 适配器不带 configuredHome：与 CLI 进程读同一套 ZCODE_HOME / ~/.zcode 探测逻辑。
         var ours = await UsageChainAggregator.AggregateZcodeAsync();
 
-        ReconcileAndAssert(golden, ours, agent: "ZCode");
+        ReconcileTokensExactAndCliPricedCost(
+            golden,
+            ours,
+            agent: "ZCode",
+            divergenceNote: "§6-4/§6-5 有意分歧：CLI 对自定义 provider / 第三方渠道行计 0，自研按官方价三级计价");
     }
 
     /// <summary>
@@ -444,9 +450,10 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
     /// I-007：本机 DSH 会话日志对账。golden 由 dsh-usage-stats 蓝本库直读原始 zstd 字节计算
     /// （Support/DshBlueprintGolden.mjs，foldUsage / estimateTokenCost 均为蓝本库代码），
     /// 自研侧走 DshSessionAdapter 全链路。两侧按 本地日历日（蓝本 dayKey 口径）分桶：
-    /// 日期 × 模型、每日总计、全期总计、全局 per-model 四个粒度 tokens 精确一致；
-    /// 成本按 fail-closed 口径比对：蓝本可计价样本成本合计 ≈ 自研 CostUsd 合计（deepseek 目录价，
-    /// 不可计价样本两侧都不贡献），且自研 0 成本记录数 = 蓝本 incompleteSamples 数。
+    /// 日期 × 模型、每日总计、全期总计、全局 per-model 四个粒度 tokens 精确一致。
+    /// 成本口径（A-0b + 蓝本 fail-closed）：蓝本只能给其内置 DeepSeek 目录覆盖的样本定价；
+    /// 目录外样本自研记 CostUsd=null 交定价引擎计价（§6-10 有意分歧）。故蓝本全部样本可计价时
+    /// 两侧成本必须一致，存在目录外样本时只要求自研合计 ≥ 蓝本可计价合计。
     /// </summary>
     [SkippableFact]
     public async Task Real_dsh_data_reconciles_with_blueprint()
@@ -507,16 +514,35 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
         oursGrand.CacheReadTokens.Should().Be(golden.GrandTotal.CacheReadTokens);
         oursGrand.TotalTokens.Should().Be(golden.GrandTotal.TotalTokens);
 
-        // 成本口径（fail-closed）：蓝本可计价样本合计 ≈ 自研合计；自研 0 成本记录数 = 蓝本不可计价样本数。
-        var oursCost = ours.TotalEntries.Sum(entry => entry.CostUsd ?? 0m);
-        var costAbsolute = Math.Abs(oursCost - golden.PricedCost);
-        var costWithin = costAbsolute < ReconciliationTolerance.Default.CostAbsoluteToleranceUsd
-                         || (golden.PricedCost != 0m && costAbsolute / Math.Abs(golden.PricedCost) <= ReconciliationTolerance.Default.CostRelativeTolerance);
-        costWithin.Should().BeTrue($"自研成本 {oursCost} vs 蓝本可计价合计 {golden.PricedCost}");
-        ours.ZeroCostRecordCount.Should().Be(golden.IncompleteSamples,
-            "自研记 0 的记录（目录外路由 / 目录未覆盖模型）应与蓝本 fail-closed 样本一一对应");
+        // 成本口径（A-0b + 蓝本 fail-closed）：蓝本只给它内置 DeepSeek 目录覆盖的样本定价，
+        // 目录外样本（ark 路由等）按 fail-closed 记 0；自研把目录外样本记 CostUsd=null，由定价引擎
+        // 按快照/models.dev/用户覆盖计价（§6-10 有意分歧）。因此：
+        // - 蓝本全部样本可计价 → 两侧成本必须一致（没有可解释超出的样本）；
+        // - 蓝本存在未计价样本 → 自研合计只要求 ≥ 蓝本可计价合计，超出部分只能来自这些样本。
+        var oursCost = oursGrand.CostUsd ?? 0m; // 不可 Sum(TotalEntries)：日总计与全期总计会重复累加
+        var tolerance = ReconciliationTolerance.Default;
+        if (golden.IncompleteSamples == 0)
+        {
+            var costAbsolute = Math.Abs(oursCost - golden.PricedCost);
+            var costWithin = costAbsolute < tolerance.CostAbsoluteToleranceUsd
+                             || (golden.PricedCost != 0m
+                                 && costAbsolute / Math.Abs(golden.PricedCost) <= tolerance.CostRelativeTolerance);
+            costWithin.Should().BeTrue(
+                $"蓝本全部样本可计价（incompleteSamples=0）：自研成本 {oursCost} 必须与蓝本合计 {golden.PricedCost} 一致");
+        }
+        else
+        {
+            (oursCost + tolerance.CostAbsoluteToleranceUsd).Should().BeGreaterThanOrEqualTo(
+                golden.PricedCost,
+                $"自研成本 {oursCost} 应至少覆盖蓝本可计价合计 {golden.PricedCost}；"
+                + $"超出部分只允许来自蓝本未计价的 {golden.IncompleteSamples} 个样本（A-0b 引擎计价）");
+        }
+
+        ours.ZeroCostRecordCount.Should().BeLessThanOrEqualTo(golden.IncompleteSamples,
+            "自研 0 成本记录只能是蓝本未计价样本的子集：目录外样本自研会尝试引擎计价（A-0b）");
         output.WriteLine($"[DSH] 成本口径：自研合计={oursCost} 蓝本可计价合计={golden.PricedCost} "
-            + $"（自研 0 成本记录 {ours.ZeroCostRecordCount} = 蓝本 incompleteSamples {golden.IncompleteSamples}）");
+            + $"（蓝本未计价样本 {golden.IncompleteSamples} 由自研引擎计价，A-0b 有意分歧；"
+            + $"自研 0 成本记录 {ours.ZeroCostRecordCount}）");
     }
 
     /// <summary>运行 Node 蓝本 golden 脚本（直读原始 zstd 字节），返回其 stdout JSON。</summary>
@@ -547,6 +573,21 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
 
     private void ReconcileAndAssert(GoldenReport golden, ChainAggregation ours, string agent)
     {
+        WriteChainDiagnostics(golden, ours, agent);
+
+        var modelReport = ReconciliationComparator.Compare(golden.ModelEntries, ours.ModelEntries);
+        var totalReport = ReconciliationComparator.Compare(golden.TotalEntries, ours.TotalEntries);
+        output.WriteLine($"[{agent}] per-model 对账：{modelReport.Render()}");
+        output.WriteLine($"[{agent}] 每日/全期总计对账：{totalReport.Render()}");
+
+        // 差异按 日期 × 模型 定位：token 差异 → 解析原因；cost 差异 → 定价原因（差异报告已标注）。
+        modelReport.HasDifferences.Should().BeFalse(modelReport.Render());
+        totalReport.HasDifferences.Should().BeFalse(totalReport.Render());
+    }
+
+    /// <summary>诊断与两侧汇总（与成本口径无关的公共输出）。</summary>
+    private void WriteChainDiagnostics(GoldenReport golden, ChainAggregation ours, string agent)
+    {
         output.WriteLine($"[{agent}] 自研链路诊断：status={ours.Diagnostics.Status} "
             + $"files={ours.Diagnostics.FilesDiscovered} records={ours.RecordCount} "
             + $"malformed={ours.Diagnostics.MalformedLines} invalid={ours.Diagnostics.InvalidRecords} "
@@ -558,15 +599,67 @@ public class RealDataReconciliationTests(ITestOutputHelper output)
             output.WriteLine($"[{agent}] 自研定价未命中模型："
                 + string.Join(", ", ours.UnpricedModels.Select(info => $"{info.Model}({info.RecordCount} 条 / {info.TotalTokens} tokens)")));
         }
+    }
 
-        var modelReport = ReconciliationComparator.Compare(golden.ModelEntries, ours.ModelEntries);
-        var totalReport = ReconciliationComparator.Compare(golden.TotalEntries, ours.TotalEntries);
-        output.WriteLine($"[{agent}] per-model 对账：{modelReport.Render()}");
-        output.WriteLine($"[{agent}] 每日/全期总计对账：{totalReport.Render()}");
+    /// <summary>
+    /// tokens 全量精确对账，成本只比较 CLI 有价行（cost &gt; 0）：CLI 记 0 的行按已文档化
+    /// 有意分歧（§6-4/§6-5：自定义 provider / 第三方渠道）不参与成本断言，只在报告里汇总。
+    /// </summary>
+    private void ReconcileTokensExactAndCliPricedCost(
+        GoldenReport golden,
+        ChainAggregation ours,
+        string agent,
+        string divergenceNote)
+    {
+        WriteChainDiagnostics(golden, ours, agent);
 
-        // 差异按 日期 × 模型 定位：token 差异 → 解析原因；cost 差异 → 定价原因（差异报告已标注）。
-        modelReport.HasDifferences.Should().BeFalse(modelReport.Render());
-        totalReport.HasDifferences.Should().BeFalse(totalReport.Render());
+        // 成本置 null 后比较器只比 tokens：五分量精确一致仍走同一套差异报告/定位。
+        var modelTokenReport = ReconciliationComparator.Compare(
+            golden.ModelEntries.Select(entry => entry with { CostUsd = null }).ToList(),
+            ours.ModelEntries.Select(entry => entry with { CostUsd = null }).ToList());
+        var totalTokenReport = ReconciliationComparator.Compare(
+            golden.TotalEntries.Select(entry => entry with { CostUsd = null }).ToList(),
+            ours.TotalEntries.Select(entry => entry with { CostUsd = null }).ToList());
+        output.WriteLine($"[{agent}] per-model tokens 对账：{modelTokenReport.Render()}");
+        output.WriteLine($"[{agent}] 每日/全期 tokens 对账：{totalTokenReport.Render()}");
+        modelTokenReport.HasDifferences.Should().BeFalse(modelTokenReport.Render());
+        totalTokenReport.HasDifferences.Should().BeFalse(totalTokenReport.Render());
+
+        var tolerance = ReconciliationTolerance.Default;
+        var oursByKey = ours.ModelEntries.ToDictionary(entry => (entry.Date, entry.ModelKey));
+        var pricedRows = 0;
+        var zeroCostRows = 0;
+        var zeroCostOursTotal = 0m;
+        var costFailures = new List<string>();
+        foreach (var goldenEntry in golden.ModelEntries)
+        {
+            // 缺失条目已由 tokens 比较报告；这里只对双方都存在的行做成本判定。
+            if (!oursByKey.TryGetValue((goldenEntry.Date, goldenEntry.ModelKey), out var oursEntry))
+            {
+                continue;
+            }
+
+            if (goldenEntry.CostUsd is not { } goldenCost || goldenCost == 0m)
+            {
+                zeroCostRows++;
+                zeroCostOursTotal += oursEntry.CostUsd ?? 0m;
+                continue;
+            }
+
+            pricedRows++;
+            var oursCost = oursEntry.CostUsd ?? 0m;
+            var absolute = Math.Abs(oursCost - goldenCost);
+            var relative = absolute / Math.Abs(goldenCost);
+            if (absolute >= tolerance.CostAbsoluteToleranceUsd && relative > tolerance.CostRelativeTolerance)
+            {
+                costFailures.Add($"{goldenEntry.DisplayName}：CLI={goldenCost} 自研={oursCost}");
+            }
+        }
+
+        costFailures.Should().BeEmpty(
+            $"[{agent}] CLI 有价行的成本必须在容差内：\n" + string.Join("\n", costFailures));
+        output.WriteLine($"[{agent}] 成本口径：CLI 有价行 {pricedRows} 组全部在容差内；"
+            + $"CLI 记 0 行 {zeroCostRows} 组由自研计价（合计 ${zeroCostOursTotal}）——{divergenceNote}");
     }
 
     private static string SummarizeGolden(GoldenReport golden)

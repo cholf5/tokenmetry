@@ -44,7 +44,8 @@ public sealed class ChainAggregation
 
     public required IReadOnlyList<UnpricedModelInfo> UnpricedModels { get; init; }
 
-    /// <summary>CostUsd 显式为 0 的记录数（I-007 DSH：目录外路由 fail-closed 记 0；I-006 ZCode：自定义 provider 行）。</summary>
+    /// <summary>CostUsd 显式为 0 的记录数（适配器侧已知零成本）。A-0b 起 DSH 目录外路由与
+    /// ZCode 自定义 provider 行记 null 交引擎计价，不再计入。</summary>
     public int ZeroCostRecordCount { get; init; }
 
     public string Summarize()

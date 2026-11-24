@@ -133,6 +133,13 @@ Result: 通过——本机 69 个最高版本工件（91 份代文件中）/ 129
 - **卡片勘误**：偏差清单补 ⑦（usage 样本缺 turn/step 按无样本计 LinesSkipped，蓝本以 "undefined:…" 键照常 fold）；CS8604 叙事修正（干净 HEAD 全量构建可复现的存量警告，与本次加包无关）；Bugs 表登记两项审查遗留（deferred）：跨目录重复 session id 不检测、符号链接跟随递归。
 - 验证：`dotnet build Tokenmetry.sln` 0 警告 0 错误；`dotnet test Tokenmetry.sln` 295 通过 / 7 跳过（新增 1 项内容损坏测试）；`TOKENMETRY_RECONCILE_REAL=1` 门控对账 dsh 通过、codex/zcode 无回归。
 
+### 2026-11-25（真实数据成本口径对齐 A-0b）
+
+- A-0b「未知成本纪律」落地后，适配器对非 deepseek 路由返回 `CostUsd=null`、交给采集侧定价引擎计价；TC-003 原期望"自研 0 成本记录数 = 蓝本 incompleteSamples、两侧成本同为 0"随之过期（有 DSH 数据的机器上真实数据用例持续飘红）。
+- 真实数据用例改为：tokens 四粒度仍精确一致；成本——蓝本全部样本可计价（incompleteSamples=0）时两侧必须一致，存在目录外样本时只要求自研合计 ≥ 蓝本可计价合计（超出部分只允许来自这些样本），自研 0 成本记录 ≤ 蓝本 incompleteSamples。
+- 同时修正用例取数错误：原 `ours.TotalEntries.Sum(CostUsd)` 把日总计与全期总计重复累加（自研成本显示为 2×），改用全期总计行。
+- 本机复跑（2026-11-25）：DSH 通过——69 工件 / 5,811 样本 / tokens 与蓝本逐位一致（input=22,012,649 / output=4,008,299 / cacheRead=843,451,328 / total=869,472,276），蓝本可计价 $0（5,811 样本全部目录外），自研引擎计价 $26.94，自研 0 成本记录 0。口径见对账文档 §6-10 / §10。
+
 ## Bugs
 
 | ID | Severity | Description | Status | Resolution |
