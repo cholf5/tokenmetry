@@ -911,6 +911,46 @@ public class SharePosterViewTests
     }
 
     /// <summary>
+    /// 海报配色跟随应用画板：钉住日间/夜间只决定取画板的哪一档（不是退回默认蓝）。
+    /// 单档画板（Nord 只有夜间）没有日间档时，按画板字典既有约定回落默认画板的同名档。
+    /// </summary>
+    [AvaloniaFact]
+    public void Poster_theme_modes_pick_the_app_palette_variant()
+    {
+        var service = new ThemeService();
+        try
+        {
+            // 应用正在 Solarized 夜间；海报钉日间 → 取 Solarized 的日间档
+            service.Apply("solarized", "dark");
+            var light = new SharePosterView { DataContext = ViewModel(theme: SharePosterTheme.Light) };
+            var lightWindow = Host(light);
+            lightWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(
+                Color.Parse("#fdf6e3"),
+                Assert.IsAssignableFrom<ISolidColorBrush>(((Border)light.PosterRootControl).Background).Color);
+            lightWindow.Close();
+
+            // 单档画板（Nord）没有日间档：钉日间如实回落默认画板的日间值
+            service.Apply("nord", "dark");
+            var fallback = new SharePosterView { DataContext = ViewModel(theme: SharePosterTheme.Light) };
+            var fallbackWindow = Host(fallback);
+            fallbackWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(
+                Color.Parse("#f4f6fa"),
+                Assert.IsAssignableFrom<ISolidColorBrush>(((Border)fallback.PosterRootControl).Background).Color);
+            fallbackWindow.Close();
+        }
+        finally
+        {
+            service.Apply(ThemePaletteCatalog.DefaultPaletteId, "dark");
+        }
+    }
+
+    /// <summary>
     /// 页边距是画布到内容区的距离：margin=0 时页头 logo 必须贴住顶边（与左边同规）。
     /// 此前页头两子级垂直居中，文字栈比 logo 高，居中把 logo 顶下来一截，五种基底字号组
     /// 不同、这一截各不一样（量得 2/7/8px）——「顶边距与左右不一致且五样式互不相同」。

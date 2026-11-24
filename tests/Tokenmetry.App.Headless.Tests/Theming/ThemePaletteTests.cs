@@ -19,7 +19,7 @@ namespace Tokenmetry.App.Headless.Tests.Theming;
 /// 1. 画板 × 模式两维应用：换字典后 App* 令牌解析到画板值，单档画板强制唯一变体；
 /// 2. 默认画板退挂字典恢复 Tokens.axaml 常驻值；反复切换不累积字典；
 /// 3. Applied 事件触发（图表重绘信号）；
-/// 4. 海报隔离：SharePosterView 的 ThemeScope 本地合入默认 Tokens，画板压不进海报子树。
+/// 4. 海报跟随：SharePosterView 不在本地合入 Tokens，海报子树的 App* 令牌解析到应用画板。
 /// 每个用例 finally 还原默认画板——本程序集禁并行但用例间共享 Application 状态。
 /// </summary>
 public class ThemePaletteTests
@@ -124,7 +124,7 @@ public class ThemePaletteTests
     }
 
     [AvaloniaFact]
-    public void Poster_theme_scope_shields_poster_subtree_from_app_palette()
+    public void Poster_subtree_follows_the_app_palette_and_updates_live()
     {
         var app = Application.Current!;
         var service = new ThemeService();
@@ -134,15 +134,37 @@ public class ThemePaletteTests
 
             // 应用层：App* 令牌已是 Dracula
             Assert.True(app.TryGetResource("AppBackgroundBrush", ThemeVariant.Dark, out var appBg));
-            Assert.Equal(Color.Parse("#282a36"), Assert.IsAssignableFrom<ISolidColorBrush>(appBg).Color);
+            var draculaBg = Assert.IsAssignableFrom<ISolidColorBrush>(appBg).Color;
+            Assert.Equal(Color.Parse("#282a36"), draculaBg);
 
-            // 海报子树：ThemeScope 本地合入默认 Tokens，元素层查找先命中默认画板——
-            // 拿真实 SharePosterView（ThemeScope.Resources 含 Tokens.axaml）断言隔离
+            // 海报子树：ThemeScope 不再本地合入 Tokens，App* 查找落到 Application 的画板字典
             var view = new SharePosterView();
-            var scope = view.FindControl<ThemeVariantScope>("ThemeScope");
-            Assert.NotNull(scope);
-            Assert.True(scope!.TryGetResource("AppBackgroundBrush", ThemeVariant.Dark, out var posterBg));
-            Assert.Equal(Color.Parse("#0f1118"), Assert.IsAssignableFrom<ISolidColorBrush>(posterBg).Color);
+            var window = new Window
+            {
+                Width = 400,
+                Height = 400,
+                Content = view,
+                RequestedThemeVariant = ThemeVariant.Dark,
+            };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var root = view.FindControl<Border>("PosterRoot");
+            Assert.NotNull(root);
+            Assert.Equal(draculaBg, Assert.IsAssignableFrom<ISolidColorBrush>(root!.Background).Color);
+
+            // 同一变体下换画板：海报表面（DynamicResource）跟着换，不需要重建视图
+            service.Apply("gruvbox", "dark");
+            Dispatcher.UIThread.RunJobs();
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+            Assert.True(app.TryGetResource("AppBackgroundBrush", ThemeVariant.Dark, out var gruvboxBg));
+            Assert.Equal(
+                Assert.IsAssignableFrom<ISolidColorBrush>(gruvboxBg).Color,
+                Assert.IsAssignableFrom<ISolidColorBrush>(root.Background).Color);
+
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
         }
         finally
         {

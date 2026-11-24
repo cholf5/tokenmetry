@@ -6,7 +6,8 @@
 # 每个文件 = ResourceDictionary.ThemeDictionaries（Light/Dark 各一份，仅该画板支持的模式），
 # 内含两类资源：
 #   1. App* 设计令牌（46 个随模式翻转的键，与 Styles/Tokens.axaml 默认画板同键位；
-#      刻意不含 AppPoster* 与图表系列色——海报内容与数据语义色不吃应用画板，见设计文档）；
+#      刻意不含 AppPoster* 与图表系列色——海报表面跟随画板，但海报专用可视化令牌
+#      与数据语义色全画板恒定，见设计文档）；
 #   2. Semi* 控件别名键覆盖（白名单见 SEMI_ALIASES）：Semi v12 的控件 ControlTheme 只消费
 #      控件别名键（Themes/{Light,Dark}/{Control}.axaml 内 StaticResource 烤死的语义值），
 #      覆盖别名键是唯一能让 Semi 原生控件跟随画板换肤的通道。
@@ -927,7 +928,7 @@ def emit_palette(palette_name):
         lines.append(f'            <!-- {meta["file"]} {variant}：{meta["source"]}。')
         lines.append('                 由 scripts/generate-theme-palettes.py 生成（对比度纪律已逐项断言），勿手改；')
         lines.append('                 重跑脚本再生。海报令牌（AppPoster*）与图表系列色刻意不在本画板——')
-        lines.append('                 海报内容与数据语义色不吃应用画板，见 docs/design/design-tokens.md。 -->')
+        lines.append('                 海报表面吃画板，但专用可视化令牌与数据语义色全画板恒定，见 docs/design/design-tokens.md。 -->')
         for key in APP_KEY_ORDER:
             cmt = KEY_COMMENTS.get(key, "")
             if cmt:

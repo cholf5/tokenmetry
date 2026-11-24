@@ -15,7 +15,7 @@
             <!-- One Light：Atom One 官方主题（github.com/atom/one-dark-syntax、one-light-syntax）：One Dark bg #282c34 / One Light bg #fafafa + 六强调色（blue/cyan/purple/green/orange/red）。
                  由 scripts/generate-theme-palettes.py 生成（对比度纪律已逐项断言），勿手改；
                  重跑脚本再生。海报令牌（AppPoster*）与图表系列色刻意不在本画板——
-                 海报内容与数据语义色不吃应用画板，见 docs/design/design-tokens.md。 -->
+                 海报表面吃画板，但专用可视化令牌与数据语义色全画板恒定，见 docs/design/design-tokens.md。 -->
             <!-- 页面底 -->
             <SolidColorBrush x:Key="AppBackgroundBrush" Color="#fafafa"/>
             <!-- 面板 -->
@@ -271,7 +271,7 @@
             <!-- One Dark：Atom One 官方主题（github.com/atom/one-dark-syntax、one-light-syntax）：One Dark bg #282c34 / One Light bg #fafafa + 六强调色（blue/cyan/purple/green/orange/red）。
                  由 scripts/generate-theme-palettes.py 生成（对比度纪律已逐项断言），勿手改；
                  重跑脚本再生。海报令牌（AppPoster*）与图表系列色刻意不在本画板——
-                 海报内容与数据语义色不吃应用画板，见 docs/design/design-tokens.md。 -->
+                 海报表面吃画板，但专用可视化令牌与数据语义色全画板恒定，见 docs/design/design-tokens.md。 -->
             <!-- 页面底 -->
             <SolidColorBrush x:Key="AppBackgroundBrush" Color="#282c34"/>
             <!-- 面板 -->

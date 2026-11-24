@@ -17,9 +17,11 @@ namespace Tokenmetry.App.Views;
 
 /// <summary>
 /// 分享海报视图：纯展示，数据来自 <see cref="SharePosterViewModel"/> 的不可变快照。
-/// 主题由请求决定而不是跟随应用——海报可能在应用处于夜间时按日间导出，所以整棵子树挂在一个
-/// <see cref="ThemeVariantScope"/> 下，否则取到的会是应用当前主题的令牌（品牌标识尤其明显：
-/// Light 档是黑标，Dark 档是白标，反色就会看不见）。
+/// 配色跟随应用主题（画板 × 模式）：海报子树不再本地合入 Tokens.axaml，App* 令牌自然解析到
+/// Application.Resources 当前挂载的画板字典——应用选 Nord / Dracula，海报就是同一套气质。
+/// 但明暗由请求决定而不是无条件跟随应用——海报可能在应用处于夜间时按日间导出，所以整棵子树仍挂在
+/// 一个 <see cref="ThemeVariantScope"/> 下（app 档继承应用变体，dark/light 钉住画板对应档），
+/// 否则品牌标识会取到应用当前变体的反色标（Light 档是黑标，Dark 档是白标，反色就会看不见）。
 /// <para>
 /// 版式（竖版 / 横版）决定画布宽度与六个面板的栅格落位：面板本体在 XAML 里只声明一次
 /// （声明的是竖版落位），横版由这里改栅格定义 + 重排 Grid.Row/Column，不复制第二套标记。

@@ -533,18 +533,13 @@
     </UserControl.Styles>
 
     <ThemeVariantScope x:Name="ThemeScope">
-      <ThemeVariantScope.Resources>
-        <ResourceDictionary>
-          <ResourceDictionary.MergedDictionaries>
-            <!-- 海报内容不吃应用画板：本地合入默认令牌 Tokens.axaml，海报子树的 App* 查找在
-                 元素层先命中这份字典（元素资源先于 Application 资源），应用画板（Nord 等）在
-                 Application 层的接管压不进这一层。海报自身的 app/dark/light 三态仍由
-                 code-behind 经 ThemeScope.RequestedThemeVariant 分档（app 档继承窗口亮暗，
-                 落到本字典的同名档 = 默认画板的日/夜值）。 -->
-            <ResourceInclude Source="avares://Tokenmetry.App/Styles/Tokens.axaml" />
-          </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-      </ThemeVariantScope.Resources>
+      <!-- 海报配色跟随应用主题（画板 × 模式，见 ThemePaletteCatalog）：这里刻意不再本地合入
+           Tokens.axaml——那会让元素资源先于 Application 命中，应用画板（Nord / Dracula 等）
+           永远压不进海报子树。现在 App* 查找自然落到 Application.Resources 的画板字典。
+           海报自己的 app/dark/light 三态仍由 code-behind 经 ThemeScope.RequestedThemeVariant
+           分档：app 档继承应用亮暗，dark/light 钉住变体后同样取当前画板的对应档。
+           画板字典不含 AppPoster*（热力色阶/辉光）与图表系列色——海报专用的可视化令牌与
+           数据语义色全画板恒定，查找自然回落 Tokens.axaml 的默认值。 -->
       <Panel>
         <!-- 宽度由 code-behind 按样式/版式给（托盘 900 / 竖版 1080 / 横版 1800），导出按它 2× 光栅化 -->
         <Border x:Name="PosterRoot"

@@ -15,7 +15,7 @@
             <!-- Kanagawa Dark：Kanagawa 官方色板（github.com/rebelot/kanagawa.nvim）Wave：sumiInk3 #1f1f28、sumiInk4 #2a2a37、sumiInk5 #363646、sumiInk6 #54546d、fujiWhite #dcd7ba、oldWhite #c8c093 + 六强调色。
                  由 scripts/generate-theme-palettes.py 生成（对比度纪律已逐项断言），勿手改；
                  重跑脚本再生。海报令牌（AppPoster*）与图表系列色刻意不在本画板——
-                 海报内容与数据语义色不吃应用画板，见 docs/design/design-tokens.md。 -->
+                 海报表面吃画板，但专用可视化令牌与数据语义色全画板恒定，见 docs/design/design-tokens.md。 -->
             <!-- 页面底 -->
             <SolidColorBrush x:Key="AppBackgroundBrush" Color="#1f1f28"/>
             <!-- 面板 -->
