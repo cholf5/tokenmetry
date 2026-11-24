@@ -24,7 +24,7 @@ public class DshSessionAdapterTests : IDisposable
     {
         var home = CreateTempHome();
         WriteSessionLog(home, "--Users-dev-dsh--", "session-aaa", zstd: false, version: null,
-            Header("session-aaa", "/Users/dev/dsh"),
+            Header("session-aaa", "C:/fixtures/dev/dsh"),
             Message(FlatEraTime, 1, turn: 1, step: 1, input: 1372, output: 339, cacheRead: 7488, cacheWrite: 0,
                 provider: "ark", model: "glm-5.3-flash"),
             Message(FlatEraTime + 60_000, 2, turn: 2, step: 1, input: 100, output: 10, cacheRead: 0, cacheWrite: 20,
@@ -35,7 +35,7 @@ public class DshSessionAdapterTests : IDisposable
         result.Records.Should().HaveCount(2);
         var first = result.Records[0];
         first.Agent.Should().Be("DSH");
-        first.ProjectPath.Should().Be("/Users/dev/dsh");
+        first.ProjectPath.Should().Be("C:/fixtures/dev/dsh");
         first.SessionId.Should().Be("session-aaa");
         first.Model.Should().Be("ark/glm-5.3-flash");
         first.Timestamp.Should().Be(DateTimeOffset.FromUnixTimeMilliseconds(FlatEraTime));

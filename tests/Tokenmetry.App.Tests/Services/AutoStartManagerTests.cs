@@ -37,7 +37,7 @@ public class AutoStartManagerTests
     [Fact]
     public void BuildLaunchAgentPlist_XmlEscapesExecutablePath()
     {
-        var plist = AutoStartManager.BuildLaunchAgentPlist("/Users/tom & jerry/Tokenmetry.App");
+        var plist = AutoStartManager.BuildLaunchAgentPlist("C:/fixtures/tom & jerry/Tokenmetry.App");
 
         plist.Should().Contain("tom &amp; jerry");
         plist.Should().NotContain("tom & jerry");

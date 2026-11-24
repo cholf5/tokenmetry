@@ -188,11 +188,14 @@ public class OverviewBottomTests
         TokenShare = tokenShare,
     };
 
-    /// <summary>项目维度 fixture：第三行模拟归一化歧义守卫（DisplayName 退回原始路径）。</summary>
+    /// <summary>
+    /// 项目维度 fixture（中性占位路径，不指向任何真实目录）：第一/三行归一化名相同，
+    /// 第三行模拟归一化歧义守卫（DisplayName 退回原始路径）。
+    /// </summary>
     private static IReadOnlyList<DimensionUsageRow> FixtureProjects { get; } = new[]
     {
-        ProjectRow("/Users/dev/project-a", "Project-A", 2_341_628, 0.2341628m),
-        ProjectRow("/Users/dev/ai-project", "AI-Project", 1_682_317, 0.1682317m),
+        ProjectRow("C:/work/project-a", "Project-A", 2_341_628, 0.2341628m),
+        ProjectRow("C:/work/ai-project", "AI-Project", 1_682_317, 0.1682317m),
         ProjectRow("/data/work/project-a", "/data/work/project-a", 987_421, 0.0987421m),
     };
 

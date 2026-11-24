@@ -46,7 +46,7 @@ public class LocalIngestionDataSourceTests : IDisposable
             ClaudeLine("msg-1", "claude-test", costUsd: "0.05", inputTokens: 10, outputTokens: 20),
             ClaudeLine("msg-2", "claude-test", costUsd: "null", inputTokens: 10, outputTokens: 20));
         WriteCodexSession(codexHome, "sessions/rollout-x.jsonl",
-            CodexMetaLine("/Users/dev/codex-proj"),
+            CodexMetaLine("C:/fixtures/dev/codex-proj"),
             CodexTokenCountLine("2026-05-25T16:00:18.744Z", inputTokens: 100, cached: 0, outputTokens: 50));
 
         var source = CreateSource(store, claudeRoot, codexHome);

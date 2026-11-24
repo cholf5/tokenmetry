@@ -247,11 +247,11 @@ public class SiteShotsTests
 
         public static IReadOnlyList<DimensionUsageRow> Projects() => new[]
         {
-            Project("/Users/dev/tokenmetry", "tokenmetry", 52, 9_640_000, 22.18m),
-            Project("/Users/dev/checkout-api", "checkout-api", 38, 11_820_000, 27.41m),
-            Project("/Users/work/billing-etl", "billing-etl", 41, 6_350_000, 14.52m),
-            Project("/Users/dev/rag-playground", "rag-playground", 47, 5_230_000, 11.84m),
-            Project("/Users/dev/cholf-site", "cholf-site", 36, 3_400_000, 5.27m),
+            Project("C:/fixtures/dev/tokenmetry", "tokenmetry", 52, 9_640_000, 22.18m),
+            Project("C:/fixtures/dev/checkout-api", "checkout-api", 38, 11_820_000, 27.41m),
+            Project("C:/fixtures/work/billing-etl", "billing-etl", 41, 6_350_000, 14.52m),
+            Project("C:/fixtures/dev/rag-playground", "rag-playground", 47, 5_230_000, 11.84m),
+            Project("C:/fixtures/dev/cholf-site", "cholf-site", 36, 3_400_000, 5.27m),
         };
 
         /// <summary>会话明细：近两天的真实感混用（kimi 两行成本未知；TotalCount=214 供分页条）。</summary>
@@ -280,20 +280,20 @@ public class SiteShotsTests
                 });
             }
 
-            Add("Claude Code", "claude-sonnet-4-5", "/Users/dev/checkout-api", 0, 9, 41, 11, 58, 2.41, 5.87m);
-            Add("Codex", "gpt-5.1", "/Users/dev/checkout-api", 0, 10, 12, 10, 47, 0.86, 2.03m);
-            Add("ZCode", "glm-5.3", "/Users/dev/tokenmetry", 0, 11, 5, 13, 22, 1.73, 4.01m);
-            Add("Claude Code", "claude-sonnet-4-5", "/Users/dev/tokenmetry", 0, 13, 44, 15, 2, 1.18, 2.88m);
-            Add("Gemini CLI", "gemini-2.5-pro", "/Users/dev/rag-playground", 0, 14, 20, 14, 51, 0.64, 1.42m);
-            Add("Kimi Code", "kimi-k2.5", "/Users/work/billing-etl", 0, 15, 10, 16, 3, 0.72, null);
-            Add("Codex", "gpt-5.1", "/Users/work/billing-etl", 0, 16, 22, 17, 40, 1.05, 2.47m);
-            Add("Claude Code", "claude-haiku-4.5", "/Users/dev/cholf-site", 0, 17, 55, 18, 12, 0.31, 0.28m);
-            Add("ZCode", "glm-5.3", "/Users/dev/cholf-site", 0, 19, 4, 19, 38, 0.54, 1.25m);
-            Add("Claude Code", "claude-sonnet-4-5", "/Users/dev/rag-playground", 0, 20, 15, 21, 26, 0.94, 2.29m);
-            Add("Codex", "gpt-5.1", "/Users/dev/tokenmetry", 1, 16, 48, 18, 30, 1.32, 3.11m);
-            Add("Claude Code", "claude-sonnet-4-5", "/Users/dev/checkout-api", 1, 10, 22, 12, 5, 2.07, 5.04m);
-            Add("Gemini CLI", "gemini-2.5-pro", "/Users/dev/rag-playground", 1, 15, 33, 16, 19, 0.58, 1.29m);
-            Add("Kimi Code", "kimi-k2.5", "/Users/work/billing-etl", 1, 11, 47, 12, 26, 0.61, null);
+            Add("Claude Code", "claude-sonnet-4-5", "C:/fixtures/dev/checkout-api", 0, 9, 41, 11, 58, 2.41, 5.87m);
+            Add("Codex", "gpt-5.1", "C:/fixtures/dev/checkout-api", 0, 10, 12, 10, 47, 0.86, 2.03m);
+            Add("ZCode", "glm-5.3", "C:/fixtures/dev/tokenmetry", 0, 11, 5, 13, 22, 1.73, 4.01m);
+            Add("Claude Code", "claude-sonnet-4-5", "C:/fixtures/dev/tokenmetry", 0, 13, 44, 15, 2, 1.18, 2.88m);
+            Add("Gemini CLI", "gemini-2.5-pro", "C:/fixtures/dev/rag-playground", 0, 14, 20, 14, 51, 0.64, 1.42m);
+            Add("Kimi Code", "kimi-k2.5", "C:/fixtures/work/billing-etl", 0, 15, 10, 16, 3, 0.72, null);
+            Add("Codex", "gpt-5.1", "C:/fixtures/work/billing-etl", 0, 16, 22, 17, 40, 1.05, 2.47m);
+            Add("Claude Code", "claude-haiku-4.5", "C:/fixtures/dev/cholf-site", 0, 17, 55, 18, 12, 0.31, 0.28m);
+            Add("ZCode", "glm-5.3", "C:/fixtures/dev/cholf-site", 0, 19, 4, 19, 38, 0.54, 1.25m);
+            Add("Claude Code", "claude-sonnet-4-5", "C:/fixtures/dev/rag-playground", 0, 20, 15, 21, 26, 0.94, 2.29m);
+            Add("Codex", "gpt-5.1", "C:/fixtures/dev/tokenmetry", 1, 16, 48, 18, 30, 1.32, 3.11m);
+            Add("Claude Code", "claude-sonnet-4-5", "C:/fixtures/dev/checkout-api", 1, 10, 22, 12, 5, 2.07, 5.04m);
+            Add("Gemini CLI", "gemini-2.5-pro", "C:/fixtures/dev/rag-playground", 1, 15, 33, 16, 19, 0.58, 1.29m);
+            Add("Kimi Code", "kimi-k2.5", "C:/fixtures/work/billing-etl", 1, 11, 47, 12, 26, 0.61, null);
 
             return new SessionListResult { Rows = rows, TotalCount = WeekSessions, Page = 1, PageSize = 50 };
         }

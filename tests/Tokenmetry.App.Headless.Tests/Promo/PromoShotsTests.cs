@@ -124,11 +124,11 @@ public class PromoShotsTests
 
         public static IReadOnlyList<DimensionUsageRow> Projects() => new[]
         {
-            Dim("/Users/dev/tokenmetry", 58.4, 127.4m),
-            Dim("/Users/dev/checkout-api", 47.2, 102.9m),
-            Dim("/Users/work/billing-etl", 38.6, 84.1m),
-            Dim("/Users/dev/rag-playground", 36.9, 80.4m),
-            Dim("/Users/dev/cholf-site", 28.8, 62.9m),
+            Dim("C:/fixtures/dev/tokenmetry", 58.4, 127.4m),
+            Dim("C:/fixtures/dev/checkout-api", 47.2, 102.9m),
+            Dim("C:/fixtures/work/billing-etl", 38.6, 84.1m),
+            Dim("C:/fixtures/dev/rag-playground", 36.9, 80.4m),
+            Dim("C:/fixtures/dev/cholf-site", 28.8, 62.9m),
         };
 
         private static DimensionUsageRow Dim(string key, double m, decimal? cost) => new()

@@ -37,31 +37,31 @@ public class CodexLogLocatorTests : IDisposable
     [Fact]
     public void Defaults_to_codex_dir_under_userprofile()
     {
-        var locator = NewLocator(("USERPROFILE", "/Users/fixture"), ("HOME", "/home/fixture-lowprio"));
+        var locator = NewLocator(("USERPROFILE", "C:/fixtures/fixture"), ("HOME", "/home/fixture-lowprio"));
 
         locator.ResolveHomeCandidates().Should().BeEquivalentTo(
-            [Path.Combine("/Users/fixture", ".codex")]);
+            [Path.Combine("C:/fixtures/fixture", ".codex")]);
     }
 
     [Fact]
     public void Comma_separated_codex_home_supports_tilde_expansion()
     {
-        var locator = NewLocator(("CODEX_HOME", "/data/codex, ~/codex-profile"), ("HOME", "/Users/fixture"));
+        var locator = NewLocator(("CODEX_HOME", "/data/codex, ~/codex-profile"), ("HOME", "C:/fixtures/fixture"));
 
         locator.ResolveHomeCandidates().Should().BeEquivalentTo(
         [
             Path.Combine("/data/codex"),
-            Path.Combine("/Users/fixture", "codex-profile"),
+            Path.Combine("C:/fixtures/fixture", "codex-profile"),
         ]);
     }
 
     [Fact]
     public void Blank_codex_home_falls_back_to_default()
     {
-        var locator = NewLocator(("CODEX_HOME", "  , "), ("USERPROFILE", "/Users/fixture"));
+        var locator = NewLocator(("CODEX_HOME", "  , "), ("USERPROFILE", "C:/fixtures/fixture"));
 
         locator.ResolveHomeCandidates().Should().BeEquivalentTo(
-            [Path.Combine("/Users/fixture", ".codex")]);
+            [Path.Combine("C:/fixtures/fixture", ".codex")]);
     }
 
     [Fact]

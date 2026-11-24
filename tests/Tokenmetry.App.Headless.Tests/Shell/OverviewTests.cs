@@ -178,8 +178,8 @@ public class OverviewTests
     /// <summary>项目维度 fixture（D-007 预览表；DisplayName 为归一化项目名）。</summary>
     private static IReadOnlyList<DimensionUsageRow> FixtureProjects { get; } = new[]
     {
-        ProjectRow("/Users/dev/project-a", "Project-A", 2_341_628),
-        ProjectRow("/Users/dev/ai-project", "AI-Project", 1_682_317),
+        ProjectRow("C:/fixtures/dev/project-a", "Project-A", 2_341_628),
+        ProjectRow("C:/fixtures/dev/ai-project", "AI-Project", 1_682_317),
     };
 
     private static DimensionUsageRow Row(string key, long tokens) => new()

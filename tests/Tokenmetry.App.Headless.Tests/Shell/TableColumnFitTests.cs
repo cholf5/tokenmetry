@@ -132,7 +132,7 @@ public class TableColumnFitTests
             {
                 SessionId = "0123456789abcdef0123456789abcdef",
                 Agent = "Claude Code",
-                Project = "/Users/someone/code/very-long-project-name",
+                Project = "C:/fixtures/someone/code/very-long-project-name",
                 ProjectDisplayName = "very-long-project-name",
                 DominantModel = "claude-sonnet-4-5-20250929",
                 FirstSeenAt = DateTimeOffset.Now.AddHours(-3),

@@ -22,7 +22,7 @@ public class UsageFactsMapperTests
         fact.Grain.Should().Be(UsageFactGrain.Full);
         fact.Agent.Should().Be("Claude Code");
         fact.Model.Should().Be("claude-sonnet-4");
-        fact.Project.Should().Be("/Users/dev/project-a");
+        fact.Project.Should().Be("C:/fixtures/dev/project-a");
         fact.InputTokens.Should().Be(300);
         fact.OutputTokens.Should().Be(120);
         fact.CacheCreationTokens.Should().Be(25);
@@ -41,7 +41,7 @@ public class UsageFactsMapperTests
             CreateRecord(day: 19, hour: 8, model: "claude-sonnet-4"),
             CreateRecord(day: 19, hour: 9, model: "claude-opus-4"),
             CreateRecord(day: 20, hour: 8, model: "claude-sonnet-4"),
-            CreateRecord(day: 19, hour: 8, model: "claude-sonnet-4", project: "/Users/dev/project-b")
+            CreateRecord(day: 19, hour: 8, model: "claude-sonnet-4", project: "C:/fixtures/dev/project-b")
         }, Utc);
 
         facts.Should().HaveCount(4);
@@ -120,7 +120,7 @@ public class UsageFactsMapperTests
 
         var session1 = facts.Single(fact => fact.SessionId == "session-1");
         session1.Agent.Should().Be("Claude Code");
-        session1.Project.Should().Be("/Users/dev/project-a");
+        session1.Project.Should().Be("C:/fixtures/dev/project-a");
         session1.DominantModel.Should().Be("claude-opus-4");
         session1.FirstSeenAt.Should().Be(new DateTimeOffset(2026, 6, 19, 8, 0, 0, TimeSpan.Zero));
         session1.LastSeenAt.Should().Be(new DateTimeOffset(2026, 6, 19, 9, 0, 0, TimeSpan.Zero));
@@ -148,12 +148,12 @@ public class UsageFactsMapperTests
     {
         var facts = UsageFactsMapper.ToUsageFacts(new[]
         {
-            CreateRecord(day: 19, hour: 8, project: "/Users/dev/project-a"),
+            CreateRecord(day: 19, hour: 8, project: "C:/fixtures/dev/project-a"),
             CreateRecord(day: 19, hour: 9, project: "project-b\\sub"),
             CreateRecord(day: 19, hour: 10, project: "encoded-project")
         }, Utc);
 
-        facts.Single(fact => fact.Project == "/Users/dev/project-a").ProjectDisplayName.Should().Be("project-a");
+        facts.Single(fact => fact.Project == "C:/fixtures/dev/project-a").ProjectDisplayName.Should().Be("project-a");
         facts.Single(fact => fact.Project == "project-b\\sub").ProjectDisplayName.Should().Be("sub");
         facts.Single(fact => fact.Project == "encoded-project").ProjectDisplayName.Should().Be("encoded-project");
     }
@@ -174,7 +174,7 @@ public class UsageFactsMapperTests
     {
         var facts = UsageFactsMapper.ToSessionFacts(new[]
         {
-            CreateRecord(day: 19, hour: 8, sessionId: "session-1", project: "/Users/dev/project-a")
+            CreateRecord(day: 19, hour: 8, sessionId: "session-1", project: "C:/fixtures/dev/project-a")
         });
 
         facts.Single().ProjectDisplayName.Should().Be("project-a");
@@ -202,7 +202,7 @@ public class UsageFactsMapperTests
                 },
                 Projects = new List<ProjectBreakdown>
                 {
-                    new() { Project = "/Users/dev/project-a", DisplayName = "project-a", CostUsd = 3m, TotalTokens = 3000 }
+                    new() { Project = "C:/fixtures/dev/project-a", DisplayName = "project-a", CostUsd = 3m, TotalTokens = 3000 }
                 }
             }
         });
@@ -228,7 +228,7 @@ public class UsageFactsMapperTests
         modelFacts.Single(fact => fact.Model == "claude-opus-4").TotalTokens.Should().Be(2000);
 
         var projectFact = facts.Single(fact => fact.Grain == UsageFactGrain.Project);
-        projectFact.Project.Should().Be("/Users/dev/project-a");
+        projectFact.Project.Should().Be("C:/fixtures/dev/project-a");
         projectFact.ProjectDisplayName.Should().Be("project-a");
         projectFact.CostUsd.Should().Be(3m);
     }
@@ -274,7 +274,7 @@ public class UsageFactsMapperTests
                 },
                 Projects = new List<ProjectBreakdown>
                 {
-                    new() { Project = "/Users/dev/project-a", DisplayName = "project-a", CostUsd = 3m, TotalTokens = 3000 }
+                    new() { Project = "C:/fixtures/dev/project-a", DisplayName = "project-a", CostUsd = 3m, TotalTokens = 3000 }
                 }
             }
         };
@@ -302,7 +302,7 @@ public class UsageFactsMapperTests
         {
             CreateRecord(day: 19, hour: 8, model: "claude-sonnet-4", costUsd: 0.5m, inputTokens: 100),
             CreateRecord(day: 19, hour: 9, model: "claude-sonnet-4", costUsd: 0.25m, inputTokens: 100),
-            CreateRecord(day: 19, hour: 9, model: "claude-opus-4", costUsd: 1m, inputTokens: 400, project: "/Users/dev/project-b")
+            CreateRecord(day: 19, hour: 9, model: "claude-opus-4", costUsd: 1m, inputTokens: 400, project: "C:/fixtures/dev/project-b")
         }, Utc);
 
         var summaries = UsageFactsMapper.ToDailySummaries(facts);
@@ -319,7 +319,7 @@ public class UsageFactsMapperTests
         summary.Models.Select(model => (model.Model, model.CostUsd)).Should().Equal(
             ("claude-opus-4", 1m),
             ("claude-sonnet-4", 0.75m));
-        summary.Projects.Select(project => project.Project).Should().Equal("/Users/dev/project-a", "/Users/dev/project-b");
+        summary.Projects.Select(project => project.Project).Should().Equal("C:/fixtures/dev/project-a", "C:/fixtures/dev/project-b");
     }
 
     [Fact]
@@ -361,7 +361,7 @@ public class UsageFactsMapperTests
                 Grain = UsageFactGrain.Full,
                 Agent = "Claude Code",
                 Model = "claude-opus-4",
-                Project = "/Users/dev/project-a",
+                Project = "C:/fixtures/dev/project-a",
                 TotalTokens = 700,
                 CostUsd = 0.7m,
             },
@@ -447,7 +447,7 @@ public class UsageFactsMapperTests
         long inputTokens = 100,
         long outputTokens = 15,
         long cacheCreation5m = 10,
-        string project = "/Users/dev/project-a",
+        string project = "C:/fixtures/dev/project-a",
         string sessionId = "session-1")
     {
         return new UsageRecord
