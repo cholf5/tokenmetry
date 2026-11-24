@@ -14,6 +14,14 @@ SDK 随 Tokenmetry 仓库一起分发，位于 `plugin-sdk/`，不需要单独�
 配合本目录的 `NuGet.config` 可完全离线 restore。校验器在仓库的
 `tools/Tokenmetry.PluginValidator/`。
 
+## 维护契约包（仓库维护者）
+
+`contract/` 里的 nupkg 不是手搓的：契约源码在 `src/Tokenmetry.Plugin.Abstractions`，改完后运行
+`scripts/pack-plugin-contract.sh` 重新生成，并与源码放进同一个提交。
+
+CI 会跑 `verify-contract`，比对包内 DLL 与当前源码的公开 API；忘了重新打包时这条会红。它只比
+公开 API，不比字节——不同 SDK / 不同提交编出的 PE 字节本来就会不同。
+
 ## 目录
 
 | 路径 | 内容 |
@@ -23,7 +31,7 @@ SDK 随 Tokenmetry 仓库一起分发，位于 `plugin-sdk/`，不需要单独�
 | `NuGet.config` | 把包源指向 `contract/`，构建时不需要网络 |
 | `templates/PluginTemplate/` | 最小可编译插件骨架（入口类、`plugin.json`、图标） |
 | `samples/FakePrivateAgent/` | 假想的私有 Agent：入口类 + `fixtures/usage.jsonl`，端到端示例 |
-| `../tools/Tokenmetry.PluginValidator/` | 本地校验器（`validate` / `scan`） |
+| `../tools/Tokenmetry.PluginValidator/` | 本地校验器（`validate` / `scan` / `verify-contract`） |
 
 ## 平台要求
 

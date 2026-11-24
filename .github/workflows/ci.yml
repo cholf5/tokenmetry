@@ -125,6 +125,13 @@ jobs:
             test -f "$HOST_DIR/$f" || {
               echo "::error::validator plugin-host missing $f"; ls -la "$HOST_DIR" || true; exit 1; }
           done
+      # The contract package in plugin-sdk/contract is the only offline restore
+      # source for plugin authors; the host actually runs the src/ project. If
+      # the two drift, a plugin compiles against one API and runs against
+      # another. The check compares public APIs, not bytes (SDK/commit shifts
+      # change PE bytes). On failure: scripts/pack-plugin-contract.sh, commit.
+      - name: Verify plugin contract package is in sync
+        run: dotnet tools/Tokenmetry.PluginValidator/bin/Release/net10.0/Tokenmetry.PluginValidator.dll verify-contract
 
   # Packaging jobs run only on tag / manual triggers. The version comes from
   # the csproj <Version> as the single source, read once in the test job.

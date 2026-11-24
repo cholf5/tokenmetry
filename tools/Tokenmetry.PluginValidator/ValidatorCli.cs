@@ -53,6 +53,9 @@ public static class ValidatorCli
             case "scan":
                 return await RunScanAsync(args, output, error).ConfigureAwait(false);
 
+            case "verify-contract":
+                return RunVerifyContract(args, output, error);
+
             default:
                 error.WriteLine($"unknown command '{args[0]}'");
                 PrintUsage(error);
@@ -77,6 +80,128 @@ public static class ValidatorCli
 
         var validation = PluginPackageValidator.Validate(packagePath);
         return ReportValidation(validation, output);
+    }
+
+    /// <summary>
+    /// 维护者自检：<c>plugin-sdk/contract</c> 里的契约包必须与当前源码的公开 API 一致。
+    /// 插件作者离线 restore 用的就是包内 DLL；改完契约忘了重新打包时这条会红。
+    /// </summary>
+    private static int RunVerifyContract(string[] args, TextWriter output, TextWriter error)
+    {
+        string? packagePath = null;
+        for (var i = 1; i < args.Length; i++)
+        {
+            if (string.Equals(args[i], "--package", StringComparison.Ordinal))
+            {
+                if (i + 1 >= args.Length)
+                {
+                    error.WriteLine("--package requires a path");
+                    PrintUsage(error);
+                    return ExitRuntimeFailure;
+                }
+
+                packagePath = args[++i];
+                continue;
+            }
+
+            error.WriteLine($"unknown argument '{args[i]}'");
+            PrintUsage(error);
+            return ExitRuntimeFailure;
+        }
+
+        packagePath ??= ResolveDefaultContractPackage(error);
+        if (packagePath is null)
+        {
+            return ExitRuntimeFailure;
+        }
+
+        if (!File.Exists(packagePath))
+        {
+            error.WriteLine($"package file was not found: {packagePath}");
+            return ExitRuntimeFailure;
+        }
+
+        output.WriteLine($"contract package: {packagePath}");
+        ContractSyncReport report;
+        try
+        {
+            report = ContractSyncVerifier.Verify(packagePath, typeof(IUsageSourcePlugin).Assembly);
+        }
+        catch (Exception exception) when (
+            exception is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            error.WriteLine($"package could not be read: {exception.Message}");
+            return ExitRuntimeFailure;
+        }
+
+        if (report.InSync)
+        {
+            output.WriteLine("contract: PASS (public API matches the current source)");
+            return ExitPass;
+        }
+
+        output.WriteLine($"contract: FAIL ({report.Differences.Count} difference(s))");
+        foreach (var difference in report.Differences)
+        {
+            output.WriteLine($"  {difference}");
+        }
+
+        output.WriteLine("run scripts/pack-plugin-contract.sh and commit the regenerated package");
+        return ExitInvalidOutput;
+    }
+
+    /// <summary>
+    /// 没传 <c>--package</c> 时，从当前目录或校验器所在目录向上找
+    /// <c>plugin-sdk/contract</c>；目录里必须恰好一个 nupkg。
+    /// </summary>
+    private static string? ResolveDefaultContractPackage(TextWriter error)
+    {
+        foreach (var root in CandidateRoots())
+        {
+            var directory = Path.Combine(root, "plugin-sdk", "contract");
+            if (!Directory.Exists(directory))
+            {
+                continue;
+            }
+
+            var packages = Directory.GetFiles(directory, "*.nupkg");
+            if (packages.Length == 1)
+            {
+                return packages[0];
+            }
+
+            if (packages.Length > 1)
+            {
+                error.WriteLine("multiple contract packages found; pass --package <path>:");
+                foreach (var package in packages.OrderBy(p => p, StringComparer.Ordinal))
+                {
+                    error.WriteLine($"  {package}");
+                }
+
+                return null;
+            }
+        }
+
+        error.WriteLine("plugin-sdk/contract/*.nupkg was not found; pass --package <path>");
+        return null;
+    }
+
+    private static IEnumerable<string> CandidateRoots()
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+        {
+            var current = new DirectoryInfo(start);
+            while (current is not null)
+            {
+                if (seen.Add(current.FullName))
+                {
+                    yield return current.FullName;
+                }
+
+                current = current.Parent;
+            }
+        }
     }
 
     private static async Task<int> RunScanAsync(string[] args, TextWriter output, TextWriter error)
@@ -553,6 +678,7 @@ public static class ValidatorCli
         error.WriteLine("usage:");
         error.WriteLine("  Tokenmetry.PluginValidator validate <package.tkmplugin>");
         error.WriteLine("  Tokenmetry.PluginValidator scan <package.tkmplugin> --data <directory>");
+        error.WriteLine("  Tokenmetry.PluginValidator verify-contract [--package <contract.nupkg>]");
         error.WriteLine("exit codes: 0 pass, 2 data missing, 3 invalid output, 4 runtime failure");
     }
 
