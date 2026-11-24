@@ -6,6 +6,7 @@
   - **自研链路**：JSONL 直读适配器（`ClaudeCodeJsonlAdapter` / `CodexJsonlAdapter`）→ 统一 `UsageRecord` → 自有 `PricingEngine`（内置 models.dev 快照）→ 按 UTC 自然日聚合；
   - **CLI 链**：`npx --yes ccusage@20.0.29 <agent> daily --json --offline --timezone UTC`。
 - 测试实现：`tests/Tokenmetry.Reconciliation.Tests/`（新项目，已并入 `Tokenmetry.sln`）。
+- 操作入口：分流、命令、差异判读与验收清单见 `.agents/skills/ccusage-reconciliation/SKILL.md`；本文保留口径、证据与分歧细节。
 
 ## 0. 蓝本同步账（adapter 算法对齐的版本锚，下次同步先看这里）
 
@@ -47,25 +48,13 @@
 
 探针同时验证了计价公式：对 claude-sonnet-4-5（$3/$15/$0.3 write $3.75）、claude-haiku-4-5（$1/$5）、gpt-5.3-codex（$1.75/$14/$0.175）、gpt-5.1-codex-max、gpt-5-codex，CLI `--offline`（LiteLLM 表）与我们的 models.dev 快照**逐分钱一致**。
 
-### 1.3 golden 录制命令
+### 1.3 golden 录制
 
-版本 ccusage **20.0.29**，录制于 2026-10-11（详见 `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/README.md`）：
+版本 ccusage **20.0.29**（2026-10-11 录制）；Claude **真实数据**对账例外用 **20.1.1**（20.1.0 #2341 的代理网关多 block 口径，见 §8）。逐 agent 录制命令、环境变量与 fixture 覆盖说明的唯一出处在 `tests/Tokenmetry.Reconciliation.Tests/fixtures/golden/README.md`，此处不再重复。
 
-```bash
-FX=tests/Tokenmetry.Reconciliation.Tests/fixtures
+固定口径：per-agent 子命令 + 环境变量钉住 fixture 目录 + `--timezone UTC` + `--offline`；fixture 为合成脱敏数据。测试运行时**不调用 CLI**，只解析提交进仓库的 golden JSON（门控的真实数据测试除外）。
 
-CLAUDE_CONFIG_DIR="$PWD/$FX/claude" \
-  npx --yes ccusage@20.0.29 claude daily --json --offline --timezone UTC \
-  > $FX/golden/claude-fixture-daily-v20.0.29.json
-
-CODEX_HOME="$PWD/$FX/codex" \
-  npx --yes ccusage@20.0.29 codex daily --json --offline --timezone UTC \
-  > $FX/golden/codex-fixture-daily-v20.0.29.json
-```
-
-说明：使用 per-agent 子命令（`claude daily` / `codex daily`）而非统一 `daily`——统一命令会扫描本机其他 agent 的默认目录，golden 无法跨机器复现；环境变量（`CLAUDE_CONFIG_DIR` / `CODEX_HOME`，实测均支持）把数据钉在仓库 fixture 上；`--timezone UTC` 与自研链路 UTC 分桶一致；`--offline` 与自研"内置快照计价"口径一致。测试运行时**不调用 CLI**，只解析提交进仓库的 golden JSON——离线、可重复。fixture 为合成脱敏数据（无真实 token、路径、用户名）。
-
-fixture 覆盖面：多日 × 多模型（sonnet-4-5 / opus-4 / haiku-4-5 / `-fast` 标记 / gpt-5.3-codex / gpt-5.1-codex-max / gpt-5-codex）、cache_creation 带 5m+1h 细分与无细分两条计价路径、costUSD 内建与缺失两条成本路径、重复消息去重、重复 cumulative 快照守卫、agent progress 包装行、`<synthetic>` 记录、多项目多会话。
+Claude/Codex fixture 覆盖面：多日 × 多模型（sonnet-4-5 / opus-4 / haiku-4-5 / `-fast` 标记 / gpt-5.3-codex / gpt-5.1-codex-max / gpt-5-codex）、cache_creation 带 5m+1h 细分与无细分两条计价路径、costUSD 内建与缺失两条成本路径、重复消息去重、重复 cumulative 快照守卫、agent progress 包装行、`<synthetic>` 记录、多项目多会话。
 
 ## 2. fixture 对账结果（TC-001）
 
