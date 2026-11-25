@@ -312,10 +312,13 @@
                     <TextBlock Classes="topbar-label" Text="{Binding TopbarTimeRange, Source={x:Static loc:Translations.Instance}}"/>
                     <c:TimeRangePicker DataContext="{Binding TimePicker}"/>
                 </StackPanel>
-                <!-- 全局 Agent 筛选（选项清单 = AgentCatalogService 真实数据，D-008 接线；初始仅"所有 Agent"） -->
+                <!-- 全局 Agent 筛选（选项清单 = AgentCatalogService 真实数据，D-008 接线；初始仅"所有 Agent"）
+                     五个筛选 ComboBox 统一 MinWidth=100：正好是「全部模型」这类四字标签的自然内容宽
+                     （12 左边距 + 4 字 + 下拉箭头），比早先 120~140 窄一档，六个筛选组才不至于把
+                     顶栏右侧的数据状态挤出去；更长文案（如「所有 Agent」116、其他语种译名）按内容自适应。 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">
                     <TextBlock Classes="topbar-label" Text="{Binding TopbarAgent, Source={x:Static loc:Translations.Instance}}"/>
-                    <ComboBox MinWidth="140"
+                    <ComboBox MinWidth="100"
                               ItemsSource="{Binding Filters.AgentOptions}"
                               SelectedItem="{Binding Filters.Agent, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
@@ -328,7 +331,7 @@
                 <!-- 全局模型筛选（选项 = AgentCatalogService 模型维度缓存，查询值 = 规范名） -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">
                     <TextBlock Classes="topbar-label" Text="{Binding TopbarModel, Source={x:Static loc:Translations.Instance}}"/>
-                    <ComboBox MinWidth="124"
+                    <ComboBox MinWidth="100"
                               ItemsSource="{Binding Filters.ModelOptions}"
                               SelectedItem="{Binding Filters.Model, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
@@ -341,7 +344,7 @@
                 <!-- 全局项目筛选（选项 = 项目维度缓存，查询值 = 原始路径） -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">
                     <TextBlock Classes="topbar-label" Text="{Binding TopbarProject, Source={x:Static loc:Translations.Instance}}"/>
-                    <ComboBox MinWidth="130"
+                    <ComboBox MinWidth="100"
                               ItemsSource="{Binding Filters.ProjectOptions}"
                               SelectedItem="{Binding Filters.Project, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
@@ -356,7 +359,7 @@
                 <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
                             IsVisible="{Binding Filters.IsSyncEnabled}">
                     <TextBlock Classes="topbar-label" Text="{Binding TopbarDevice, Source={x:Static loc:Translations.Instance}}"/>
-                    <ComboBox MinWidth="130"
+                    <ComboBox MinWidth="100"
                               ItemsSource="{Binding Filters.DeviceOptions}"
                               SelectedItem="{Binding Filters.Device, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
@@ -370,7 +373,7 @@
                      host 维度；空串宿主的哨兵 Id 由 GlobalFilterMapper 映射回 ""（精确匹配）。 -->
                 <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">
                     <TextBlock Classes="topbar-label" Text="{Binding TopbarHost, Source={x:Static loc:Translations.Instance}}"/>
-                    <ComboBox MinWidth="120"
+                    <ComboBox MinWidth="100"
                               ItemsSource="{Binding Filters.HostOptions}"
                               SelectedItem="{Binding Filters.Host, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>

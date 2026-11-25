@@ -287,6 +287,41 @@ public class AppShellTests
     }
 
     [AvaloniaFact]
+    public void Topbar_all_six_filter_groups_keep_data_status_inside_window()
+    {
+        // 2026-11-25 回归锁：六个筛选组同时在场（时间范围 + 五个下拉；设备下拉随同步开启出现）时，
+        // 下拉宽度收在「四个字」这一档（MinWidth=100，内容驱动约 100~116），右侧数据状态块与
+        // 刷新/设置按钮必须留在窗口内——此前 120~140 的 MinWidth 让顶栏 Auto 列总宽超出 1280，
+        // 状态块被挤出窗口右缘。
+        var vm = CreateIsolatedShellViewModel();
+        vm.Filters.IsSyncEnabled = true;
+        var window = new MainWindow { DataContext = vm };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+
+        var topBar = window.GetVisualDescendants().OfType<Border>().First(b => b.Name == "TopBar");
+        var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
+        Assert.Equal(5, combos.Count);
+        Assert.All(combos, c => Assert.True(c.IsEffectivelyVisible, "同步开启后设备下拉应可见"));
+        Assert.All(combos, c => Assert.True(
+            c.Bounds.Width <= 124,
+            $"筛选下拉宽 {c.Bounds.Width:0.#} 应为四字档（≤124），否则顶栏又被撑满"));
+
+        foreach (var child in ((Grid)topBar.Child!).Children.Where(c => c.IsVisible))
+        {
+            var right = child.TranslatePoint(default, topBar)!.Value.X + child.Bounds.Width;
+            Assert.True(
+                right <= topBar.Bounds.Width,
+                $"{child.GetType().Name} 右缘 {right:0.#} 超出顶栏宽度 {topBar.Bounds.Width:0.#}");
+        }
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void Sidebar_brand_has_no_orphan_eyebrow()
     {
         // P1-10：「ANALYTICS」是 9px 全大写英文眉标（原型遗留），中文界面里突兀、且不承载信息。
