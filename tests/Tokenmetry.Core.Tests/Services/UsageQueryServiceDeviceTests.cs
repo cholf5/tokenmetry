@@ -115,6 +115,177 @@ public sealed class UsageQueryServiceDeviceTests
         union.Cost.KnownCostUsd.Should().Be(4.5122m);
     }
 
+    [Fact]
+    public async Task DeviceBreakdown_SumsPerDeviceAndMatchesKpi()
+    {
+        var store = new FakeStore();
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devA", Day = "2026-06-19", Grain = UsageFactGrain.Full,
+            Agent = "cc", Model = "m", Project = "/p",
+            TotalTokens = 100, CostUsd = 1.00m,
+        });
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devB", Day = "2026-06-19", Grain = UsageFactGrain.Day,
+            TotalTokens = 50, CostUsd = 0.50m,
+        });
+        var seen = new DateTimeOffset(2026, 6, 19, 10, 0, 0, TimeSpan.Zero);
+        store.Sessions.Add(new SessionFact
+        {
+            Device = "devA", SessionId = "s-a", Agent = "cc",
+            FirstSeenAt = seen, LastSeenAt = seen, TotalTokens = 100,
+        });
+        store.Sessions.Add(new SessionFact
+        {
+            Device = "devB", SessionId = "s-b", Agent = "cc",
+            FirstSeenAt = seen, LastSeenAt = seen, TotalTokens = 50,
+        });
+        var query = new UsageQueryService(store);
+
+        var rows = await query.GetDeviceBreakdownAsync(new UsageQueryFilter());
+        var byDevice = rows.ToDictionary(row => row.Key);
+        byDevice["devA"].TotalTokens.Should().Be(100);
+        byDevice["devB"].TotalTokens.Should().Be(50);
+        byDevice["devA"].SessionCount.Should().Be(1);
+        byDevice["devB"].SessionCount.Should().Be(1);
+
+        var kpi = await query.GetKpiAsync(new UsageQueryFilter());
+        rows.Sum(row => row.TotalTokens).Should().Be(kpi.TotalTokens, "Σ设备 = KPI 合计（设备环与上方数字同源）");
+        rows.Sum(row => row.Cost.KnownCostUsd).Should().Be(kpi.Cost.KnownCostUsd);
+        rows.Sum(row => row.SessionCount).Should().Be(kpi.SessionCount);
+    }
+
+    [Fact]
+    public async Task DeviceBreakdown_UsesPerDeviceDayGrainFallback()
+    {
+        var store = new FakeStore();
+        // devA 同日 full + 分解行：设备口径只取 full（100），不重复加 70。
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devA", Day = "2026-06-19", Grain = UsageFactGrain.Full,
+            Agent = "cc", Model = "m", Project = "/p",
+            TotalTokens = 100, CostUsd = 1.00m,
+        });
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devA", Day = "2026-06-19", Grain = UsageFactGrain.Agent,
+            Agent = "cc", TotalTokens = 70, CostUsd = 0.70m,
+        });
+        // devB 同日只有分解行 + Day 行：取 Day 行（20），不取 Agent 行（30）。
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devB", Day = "2026-06-19", Grain = UsageFactGrain.Agent,
+            Agent = "cc", TotalTokens = 30, CostUsd = 0.30m,
+        });
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devB", Day = "2026-06-19", Grain = UsageFactGrain.Day,
+            TotalTokens = 20, CostUsd = 0.20m,
+        });
+        var query = new UsageQueryService(store);
+
+        var rows = await query.GetDeviceBreakdownAsync(new UsageQueryFilter());
+
+        rows.Select(row => (row.Key, row.TotalTokens))
+            .Should().BeEquivalentTo(new[] { ("devA", 100L), ("devB", 20L) });
+        (await query.GetKpiAsync(new UsageQueryFilter())).TotalTokens.Should().Be(120);
+    }
+
+    [Fact]
+    public async Task DeviceBreakdown_HonorsDeviceFilter()
+    {
+        var store = new FakeStore();
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devA", Day = "2026-06-19", Grain = UsageFactGrain.Day,
+            TotalTokens = 100, CostUsd = 1.00m,
+        });
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devB", Day = "2026-06-19", Grain = UsageFactGrain.Day,
+            TotalTokens = 200, CostUsd = 2.00m,
+        });
+        var query = new UsageQueryService(store);
+
+        var rows = await query.GetDeviceBreakdownAsync(new UsageQueryFilter { Device = "devB" });
+
+        rows.Should().ContainSingle().Which.Key.Should().Be("devB");
+        rows[0].TotalTokens.Should().Be(200);
+    }
+
+    [Fact]
+    public async Task OverviewSnapshot_IncludesDeviceBreakdown()
+    {
+        var store = new FakeStore();
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devA", Day = "2026-06-19", Grain = UsageFactGrain.Day,
+            TotalTokens = 100, CostUsd = 1.00m,
+        });
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devB", Day = "2026-06-19", Grain = UsageFactGrain.Day,
+            TotalTokens = 200, CostUsd = 2.00m,
+        });
+        var query = new UsageQueryService(store);
+        var filter = new UsageQueryFilter();
+
+        var snapshot = await query.GetOverviewSnapshotAsync(filter);
+        var direct = await query.GetDeviceBreakdownAsync(filter);
+
+        snapshot.Devices.Select(row => (row.Key, row.TotalTokens))
+            .Should().Equal(direct.Select(row => (row.Key, row.TotalTokens)));
+    }
+
+    [Fact]
+    public async Task DeviceBreakdown_IncludesSessionOnlyDeviceWithZeroTokens()
+    {
+        var store = new FakeStore();
+        store.Facts.Add(new UsageFact
+        {
+            Device = "devA", Day = "2026-06-19", Grain = UsageFactGrain.Day,
+            TotalTokens = 100, CostUsd = 1.00m,
+        });
+        var seen = new DateTimeOffset(2026, 6, 19, 10, 0, 0, TimeSpan.Zero);
+        store.Sessions.Add(new SessionFact
+        {
+            Device = "devB", SessionId = "s-b", Agent = "cc",
+            FirstSeenAt = seen, LastSeenAt = seen, TotalTokens = 0,
+        });
+        var query = new UsageQueryService(store);
+
+        var rows = await query.GetDeviceBreakdownAsync(new UsageQueryFilter());
+
+        rows.Should().Contain(row => row.Key == "devA" && row.TotalTokens == 100 && row.SessionCount == 0);
+        rows.Should().Contain(row => row.Key == "devB" && row.TotalTokens == 0 && row.SessionCount == 1,
+            "只有会话没有 facts 的设备也要成行（0 token，设备镜头诚实显示 0.0%）");
+    }
+
+    [Fact]
+    public async Task DeviceBreakdown_SkipsEmptyDeviceKeys()
+    {
+        // 存储不变量：迁移 3 / 写入路径 / relay 都保证 device 非空。这里固化「空键不进设备环」
+        // 的防御语义（否则图例会出现一个无名的 100% 段）；若未来改为 Unknown 桶，需同步改本用例。
+        var store = new FakeStore();
+        store.Facts.Add(new UsageFact
+        {
+            Device = "", Day = "2026-06-19", Grain = UsageFactGrain.Day,
+            TotalTokens = 100, CostUsd = 1.00m,
+        });
+        var seen = new DateTimeOffset(2026, 6, 19, 10, 0, 0, TimeSpan.Zero);
+        store.Sessions.Add(new SessionFact
+        {
+            Device = "", SessionId = "s-empty", Agent = "cc",
+            FirstSeenAt = seen, LastSeenAt = seen, TotalTokens = 100,
+        });
+        var query = new UsageQueryService(store);
+
+        var rows = await query.GetDeviceBreakdownAsync(new UsageQueryFilter());
+
+        rows.Should().BeEmpty();
+    }
+
     /// <summary>查询面内存桩：只实现 GetUsageFactsAsync / GetSessionFactsAsync（查询服务只读两表）。</summary>
     private sealed class FakeStore : IUsageStore
     {

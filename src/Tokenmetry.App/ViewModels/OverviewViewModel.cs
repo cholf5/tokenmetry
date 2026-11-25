@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
@@ -14,8 +15,19 @@ using Tokenmetry.App.Localization;
 using Tokenmetry.App.Services;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Sync;
 
 namespace Tokenmetry.App.ViewModels;
+
+/// <summary>
+/// 「使用占比」卡的构成维度（Agent / 设备镜头）：设备维仅在同步开启、≥2 台设备且顶栏未选中
+/// 单台设备时可用；其余状态固定 Agent，卡片与改造前逐像素一致。
+/// </summary>
+public enum CompositionDimension
+{
+    Agent,
+    Device,
+}
 
 /// <summary>
 /// 环比指标的价值极性（颜色语义）：涨跌方向与「好/坏」分开表达。
@@ -158,7 +170,8 @@ public sealed class DimensionRowViewModel : IProjectPathRow
 
 /// <summary>
 /// D-006/D-007 总览页 VM：上半 KPI 四卡（总 Token / 估算成本 / 会话数 / 缓存读取占比，含环比）+
-/// Token 使用趋势（D-004 TrendChart DailyTokens）+ Agent 使用占比环形（D-005 DonutChart）；
+/// Token 使用趋势（D-004 TrendChart DailyTokens）+ 使用占比环形（D-005 DonutChart；同步开启且
+/// ≥2 台设备时可切换 Agent / 设备镜头，不新增面板）；
 /// 下半（D-007）模型分布表 / Token 类型构成环形 / 项目排行表 / 成本趋势折线。
 /// 数据来自 <see cref="IUsageQueryService"/>（I-028 KPI/日序列 + I-029 Agent/模型/项目维度），
 /// 参数由全局筛选（<see cref="FilterStateService"/>）映射——TimeRange → 本地自然日窗口
@@ -192,6 +205,14 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
 
     /// <summary>加载序号：每次触发自增；跨 await 回来时序号不一致的响应直接丢弃。</summary>
     private int _loadSequence;
+
+    /// <summary>
+    /// 上一次生效的设备筛选 id。设备清单每轮同步都会被重建（同 Id/同名的全新实例，
+    /// FilterStateService 会重发 Device 通知以保住下拉选中项）——这条通知不改查询语义，
+    /// 用它去重，避免每轮同步多一次总览全表重查；DeviceOptions 的变更仍会触发重查
+    /// （远端拉取的新行需要刷新）。
+    /// </summary>
+    private string? _lastDeviceFilterId;
 
     /// <summary>
     /// 项目排行行的打开动作（canOpen 门禁 / 外部应用 / 图标 / toast）：与项目统计页共用同一实现与
@@ -256,11 +277,74 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
 
     /// <summary>Agent 环形段（token 量 Top6 + 「其他」聚合，段序映射 AppSeries0..6）。</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CompositionSegments))]
     private IReadOnlyList<DonutSegment>? _agentSegments;
+
+    /// <summary>
+    /// 设备环形段（同环共用 AppSeries 段序；段名在加载时按设备清单解析成友好名）。
+    /// 只在设备镜头激活时被消费，未激活时照常构建（切换零等待）。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CompositionSegments))]
+    private IReadOnlyList<DonutSegment>? _deviceSegments;
+
+    /// <summary>
+    /// 「使用占比」当前构成镜头（默认 Agent）。设备镜头仅在同步开启、≥2 台真实设备且顶栏未选中
+    /// 单台设备时可用；不可用时强制回落 Agent，卡片与改造前逐像素一致。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDeviceComposition))]
+    [NotifyPropertyChangedFor(nameof(IsAgentComposition))]
+    [NotifyPropertyChangedFor(nameof(ShowViewByDeviceLink))]
+    [NotifyPropertyChangedFor(nameof(ShowViewByAgentLink))]
+    [NotifyPropertyChangedFor(nameof(ShowDeviceStaleNote))]
+    [NotifyPropertyChangedFor(nameof(CompositionSegments))]
+    private CompositionDimension _composition = CompositionDimension.Agent;
+
+    /// <summary>设备镜头入口是否可用（条件见 <see cref="CompositionDimension"/> 类型说明）。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDeviceComposition))]
+    [NotifyPropertyChangedFor(nameof(IsAgentComposition))]
+    [NotifyPropertyChangedFor(nameof(ShowViewByDeviceLink))]
+    [NotifyPropertyChangedFor(nameof(ShowViewByAgentLink))]
+    [NotifyPropertyChangedFor(nameof(ShowDeviceStaleNote))]
+    [NotifyPropertyChangedFor(nameof(CompositionSegments))]
+    private bool _showDeviceLens;
+
+    /// <summary>是否存在超过 24h 未同步的远端设备（设备镜头底部警示行的显隐）。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDeviceStaleNote))]
+    private bool _hasStaleDevice;
+
+    /// <summary>设备镜头底部警示文案（单台点名 / 多台计数；无过期为空串）。</summary>
+    [ObservableProperty]
+    private string _deviceStaleNote = string.Empty;
+
+    /// <summary>设备清单读取（本机 + 远端；名字与 last seen），null 时回落 FilterStateService 的选项名。</summary>
+    private readonly Func<CancellationToken, Task<IReadOnlyList<SyncDeviceInfo>>>? _deviceInfoLoader;
 
     /// <summary>环中心主文字（= KPI 总 Token 的紧凑格式，对齐原型 donut 中心 "8.74M"）。</summary>
     [ObservableProperty]
     private string _agentDonutCenterTitle = string.Empty;
+
+    /// <summary>设备镜头激活（入口可用且已切到设备）。</summary>
+    public bool IsDeviceComposition => ShowDeviceLens && Composition == CompositionDimension.Device;
+
+    /// <summary>Agent 镜头激活（含入口不可用时的固定态）。</summary>
+    public bool IsAgentComposition => !IsDeviceComposition;
+
+    /// <summary>「按设备看」入口（Agent 镜头 + 入口可用）。</summary>
+    public bool ShowViewByDeviceLink => ShowDeviceLens && !IsDeviceComposition;
+
+    /// <summary>「按 Agent 看」入口（设备镜头 + 入口可用）。</summary>
+    public bool ShowViewByAgentLink => ShowDeviceLens && IsDeviceComposition;
+
+    /// <summary>设备镜头底部过期警示行显隐。</summary>
+    public bool ShowDeviceStaleNote => IsDeviceComposition && HasStaleDevice;
+
+    /// <summary>当前镜头对应的环形段（设备镜头不可用时恒为 Agent 段）。</summary>
+    public IReadOnlyList<DonutSegment>? CompositionSegments =>
+        IsDeviceComposition ? DeviceSegments : AgentSegments;
 
     // ── D-007 下半区（模型分布 / Token 类型构成 / 项目排行 / 成本趋势）──
 
@@ -308,14 +392,17 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
         ModelAvatarResolver? avatars = null,
         Action<PageId>? navigateToPage = null,
         Action? openSharePoster = null,
-        ProjectRowActions? projectActions = null)
+        ProjectRowActions? projectActions = null,
+        Func<CancellationToken, Task<IReadOnlyList<SyncDeviceInfo>>>? deviceInfoLoader = null)
     {
         Page = page;
         _filters = filters;
+        _lastDeviceFilterId = filters.Device.Id;
         _query = query;
         _avatars = avatars;
         _navigateToPage = navigateToPage;
         _openSharePoster = openSharePoster;
+        _deviceInfoLoader = deviceInfoLoader;
         ProjectActions = projectActions ?? new ProjectRowActions();
         // FilterStateService 保证通知在 UI 线程发出，这里直接触发重查即可。
         filters.PropertyChanged += OnFilterPropertyChanged;
@@ -334,12 +421,76 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     [RelayCommand]
     private void OpenProjects() => _navigateToPage?.Invoke(PageId.Projects);
 
+    /// <summary>
+    /// 「使用占比」卡右侧的镜头切换（Agent ↔ 设备）。入口不可用时 no-op——
+    /// 视图也不会渲染按钮，命令层再守一道防止外部误触发。
+    /// </summary>
+    [RelayCommand]
+    private void ToggleComposition()
+    {
+        if (!ShowDeviceLens)
+        {
+            return;
+        }
+
+        Composition = Composition == CompositionDimension.Device
+            ? CompositionDimension.Agent
+            : CompositionDimension.Device;
+    }
+
     private void OnFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // 设备清单变化（同步管线经 UpdateDeviceOptions 注入）也会改设备镜头可用性与选项名，
+        // 但不属于 AffectsQueries 的可变筛选维度：单独刷新并重查一轮（设备行/名称可能已变）。
+        if (e.PropertyName == nameof(FilterStateService.DeviceOptions))
+        {
+            UpdateDeviceLensAvailability();
+            _ = LoadAsync();
+            return;
+        }
+
+        // 设备清单重建会以同 Id 重发 Device（保下拉选中项）：查询语义未变，跳过重复全表重查。
+        if (e.PropertyName == nameof(FilterStateService.Device))
+        {
+            var deviceId = _filters.Device.Id;
+            if (deviceId == _lastDeviceFilterId)
+            {
+                UpdateDeviceLensAvailability();
+                return;
+            }
+
+            _lastDeviceFilterId = deviceId;
+        }
+
         // 只关心会改查询结果的筛选维度（时间档/Agent/自定义起止）；Display 是派生串，忽略避免一次变更触发两次重查
         if (FilterStateService.AffectsQueries(e.PropertyName))
         {
             _ = LoadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 设备镜头可用性收口：同步开启 + 顶栏选「全部设备」+ 至少两台真实设备（选项含 All 哨兵，
+    /// 所以 ≥3）。不可用时把当前镜头强制回落 Agent——避免出现「设备镜头入口消失、环还停在设备」。
+    /// </summary>
+    private void UpdateDeviceLensAvailability()
+    {
+        var deviceCount = 0;
+        foreach (var option in _filters.DeviceOptions)
+        {
+            if (option.Id != DeviceFilterOption.AllId)
+            {
+                deviceCount++;
+            }
+        }
+
+        ShowDeviceLens = _filters.IsSyncEnabled
+            && _filters.Device.Id == DeviceFilterOption.AllId
+            && deviceCount >= 2;
+
+        if (!ShowDeviceLens && Composition == CompositionDimension.Device)
+        {
+            Composition = CompositionDimension.Agent;
         }
     }
 
@@ -391,14 +542,22 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
     {
         var sequence = ++_loadSequence;
         var filter = BuildQueryFilter();
+        // 设备镜头可用性随筛选/同步态变化：数据回来前先收口，避免入口与环状态短暂打架。
+        UpdateDeviceLensAvailability();
 
         try
         {
             var singleDay = IsSingleDayFilter(filter);
             var snapshotTask = _query.GetOverviewSnapshotAsync(filter);
             var hourlyTask = singleDay ? _query.GetHourlyDistributionAsync(filter) : null;
+            var deviceInfoTask = _filters.IsSyncEnabled
+                ? LoadDeviceInfosAsync(CancellationToken.None)
+                : null;
 
             var snapshot = await snapshotTask;
+            var deviceInfos = deviceInfoTask is null
+                ? (IReadOnlyList<SyncDeviceInfo>)[]
+                : await deviceInfoTask;
             if (sequence != _loadSequence)
             {
                 return;
@@ -409,6 +568,7 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
             // 不为成本趋势另发一次查询（同窗口同筛选必然同结果）。
             DailyPoints = snapshot.Daily;
             AgentSegments = CreateAgentSegments(snapshot.Agents);
+            ApplyDeviceComposition(snapshot.Devices, deviceInfos);
             AgentDonutCenterTitle = TrendChart.FormatCompactTokens(snapshot.Kpi.TotalTokens);
             ModelRows = CreateDimensionRows(snapshot.Models, modelIconResolver: _avatars is { } avatars ? avatars.Resolve : null);
             // 项目排行行同样带原始键与可打开门禁：右键菜单与项目统计页共用同一套动作。
@@ -455,6 +615,157 @@ public partial class OverviewViewModel : ViewModelBase, IDisposable, IDataRefres
             HasLoadError = true;
             LoadError = string.Format(Translations.Instance.LoadErrorFormat, ex.Message);
         }
+    }
+
+    /// <summary>
+    /// 设备元数据（名字 / last seen）读取：仅同步开启时调用；失败诚实降级为空清单——
+    /// 名字回落 FilterStateService 选项、过期警示暂缺，绝不因为增强信息拖垮总览页。
+    /// </summary>
+    private async Task<IReadOnlyList<SyncDeviceInfo>> LoadDeviceInfosAsync(CancellationToken ct)
+    {
+        if (!_filters.IsSyncEnabled || _deviceInfoLoader is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            return await _deviceInfoLoader(ct);
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// 设备镜头数据落位：合并「事实行 + 设备清单」（清单里没有用量的设备也以 0 token 进图例，
+    /// 诚实显示 0.0%）、解析友好名，再按 last seen 生成过期警示。
+    /// </summary>
+    private void ApplyDeviceComposition(
+        IReadOnlyList<DimensionUsageRow> devices,
+        IReadOnlyList<SyncDeviceInfo> infos)
+    {
+        var merged = MergeKnownDevices(devices);
+        var names = BuildDeviceDisplayNames(merged, infos);
+        DeviceSegments = CreateDeviceSegments(merged, names);
+
+        // 本机不参与「未同步」判定（LastSeenAt default）；>24h 才提示——单机休眠一天不算异常。
+        var now = DateTimeOffset.Now;
+        var stale = infos
+            .Where(info => info.DeviceId != _filters.LocalDeviceId
+                && info.LastSeenAt != default
+                && now - info.LastSeenAt > TimeSpan.FromHours(24))
+            .OrderBy(info => info.LastSeenAt)
+            .ToList();
+
+        HasStaleDevice = stale.Count > 0;
+        var staleName = stale.Count == 0
+            ? string.Empty
+            : names.TryGetValue(stale[0].DeviceId, out var resolved) && !string.IsNullOrWhiteSpace(resolved)
+                ? resolved
+                : string.IsNullOrWhiteSpace(stale[0].Name) ? stale[0].DeviceId : stale[0].Name;
+        DeviceStaleNote = stale.Count switch
+        {
+            0 => string.Empty,
+            1 => string.Format(Translations.Instance.DeviceStaleOneFormat, staleName),
+            _ => string.Format(Translations.Instance.DeviceStaleManyFormat, stale.Count),
+        };
+    }
+
+    /// <summary>事实行 + 设备清单并集：清单里有、当前窗口无数据的设备补 0 token 行（图例可见）。</summary>
+    private IReadOnlyList<DimensionUsageRow> MergeKnownDevices(IReadOnlyList<DimensionUsageRow> devices)
+    {
+        var byKey = new Dictionary<string, DimensionUsageRow>(StringComparer.Ordinal);
+        foreach (var device in devices)
+        {
+            byKey[device.Key] = device;
+        }
+
+        foreach (var option in _filters.DeviceOptions)
+        {
+            if (option.Id != DeviceFilterOption.AllId && !byKey.ContainsKey(option.Id))
+            {
+                byKey[option.Id] = new DimensionUsageRow { Key = option.Id };
+            }
+        }
+
+        return byKey.Values
+            .OrderByDescending(device => device.TotalTokens)
+            .ThenBy(device => device.Key, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 设备 id → 图例展示名：设备清单（远端名）优先，其次筛选选项标签，最后回落 id；
+    /// 本机追加「 · 本机」；同名设备追加 id 短后缀（用户可把两台都命名成 MacBook）。
+    /// </summary>
+    private Dictionary<string, string> BuildDeviceDisplayNames(
+        IReadOnlyList<DimensionUsageRow> devices,
+        IReadOnlyList<SyncDeviceInfo> infos)
+    {
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var option in _filters.DeviceOptions)
+        {
+            if (option.Id != DeviceFilterOption.AllId && !string.IsNullOrWhiteSpace(option.Label))
+            {
+                names[option.Id] = option.Label;
+            }
+        }
+
+        foreach (var info in infos)
+        {
+            if (!string.IsNullOrWhiteSpace(info.Name))
+            {
+                names[info.DeviceId] = info.Name;
+            }
+        }
+
+        foreach (var device in devices)
+        {
+            if (!names.ContainsKey(device.Key))
+            {
+                names[device.Key] = string.IsNullOrWhiteSpace(device.DisplayName) ? device.Key : device.DisplayName;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(_filters.LocalDeviceId)
+            && names.TryGetValue(_filters.LocalDeviceId, out var localName))
+        {
+            names[_filters.LocalDeviceId] = $"{localName} · {Translations.Instance.ThisDevice}";
+        }
+
+        var duplicates = names
+            .GroupBy(pair => pair.Value, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .SelectMany(group => group)
+            .ToList();
+        foreach (var (id, name) in duplicates)
+        {
+            names[id] = $"{name} · {ShortDeviceId(id)}";
+        }
+
+        return names;
+    }
+
+    private static string ShortDeviceId(string id) => id.Length <= 6 ? id : id[..6];
+
+    /// <summary>
+    /// 设备维度 → 环形段：全部设备按 token 降序（设备基数 2–4，不做 TopN/「其他」聚合——
+    /// 「其他」会把一台真实机器藏起来，与设备镜头的用途相反）。零 token 设备保留（图例 0.0%，
+    /// 回答「这台最近没在用」）；全零时 DonutChart 自己呈空态。
+    /// </summary>
+    internal static IReadOnlyList<DonutSegment> CreateDeviceSegments(
+        IReadOnlyList<DimensionUsageRow> devices,
+        IReadOnlyDictionary<string, string> displayNames)
+    {
+        return devices
+            .OrderByDescending(device => device.TotalTokens)
+            .ThenBy(device => device.Key, StringComparer.Ordinal)
+            .Select(device => new DonutSegment(
+                displayNames.GetValueOrDefault(device.Key, device.Key),
+                device.TotalTokens))
+            .ToList();
     }
 
     // ── 展示映射（internal 供测试对账：stub KPI 值 → 卡片显示值，TC-001 页面层分工）──

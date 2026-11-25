@@ -44,6 +44,11 @@
         <Style Selector="Button.share-poster-btn:pointerover PathIcon.app-icon">
             <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}"/>
         </Style>
+        <!-- 设备镜头底部同步过期提示：琥珀（警示非错误）+ 小字；颜色走令牌，明暗自适应 -->
+        <Style Selector="TextBlock.device-stale">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppIconChipAmberForegroundBrush}"/>
+        </Style>
     </UserControl.Styles>
 
     <ScrollViewer Classes="page-root">
@@ -241,18 +246,47 @@
                 </StackPanel>
             </Border>
 
-            <!-- Agent 使用占比（环中心 = KPI 总 Token 紧凑格式，副文字对齐原型 "Total Tokens"） -->
+            <!-- 使用占比（环中心 = KPI 总 Token 紧凑格式，副文字对齐原型 "Total Tokens"）。
+                 跨设备同步开启且 ≥2 台设备时，右上出现「按设备看 / 按 Agent 看」文字入口——
+                 设备镜头复用同一张环与图例，不新增面板、不改页面节奏（设计定案）。
+                 单设备 / 同步关闭 / 顶栏已选单台设备时，入口隐藏，卡片与改造前逐像素一致。 -->
             <Border Grid.Column="1" Classes="panel">
                 <StackPanel Spacing="13">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot" Text="{Binding MetaByTotalTokens, Source={x:Static loc:Translations.Instance}}"
+                        <Button DockPanel.Dock="Right" x:Name="ViewByAgentButton" Classes="link-btn"
+                                Content="{Binding ViewByAgent, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding ToggleCompositionCommand}"
+                                IsVisible="{Binding ShowViewByAgentLink}"
+                                VerticalAlignment="Center"/>
+                        <Button DockPanel.Dock="Right" x:Name="ViewByDeviceButton" Classes="link-btn"
+                                Content="{Binding ViewByDevice, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding ToggleCompositionCommand}"
+                                IsVisible="{Binding ShowViewByDeviceLink}"
+                                VerticalAlignment="Center"/>
+                        <TextBlock DockPanel.Dock="Right" Classes="kpi-foot"
+                                   Text="{Binding MetaByTotalTokens, Source={x:Static loc:Translations.Instance}}"
+                                   IsVisible="{Binding !ShowDeviceLens}"
                                    VerticalAlignment="Center"/>
-                        <TextBlock Classes="panel-title" Text="{Binding PanelAgentDonut, Source={x:Static loc:Translations.Instance}}" VerticalAlignment="Center"/>
+                        <Panel>
+                            <TextBlock x:Name="AgentShareTitle" Classes="panel-title"
+                                       Text="{Binding PanelAgentDonut, Source={x:Static loc:Translations.Instance}}"
+                                       IsVisible="{Binding IsAgentComposition}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="DeviceShareTitle" Classes="panel-title"
+                                       Text="{Binding PanelDeviceShare, Source={x:Static loc:Translations.Instance}}"
+                                       IsVisible="{Binding IsDeviceComposition}"
+                                       VerticalAlignment="Center"/>
+                        </Panel>
                     </DockPanel>
-                    <c:DonutChart Segments="{Binding AgentSegments}"
+                    <c:DonutChart Segments="{Binding CompositionSegments}"
                                   CenterTitle="{Binding AgentDonutCenterTitle}"
                                   CenterSubtitle="{Binding DonutCenterSubtitle, Source={x:Static loc:Translations.Instance}}"
                                   HorizontalAlignment="Left"/>
+                    <!-- 设备镜头专属：>24h 未同步的远端设备（数据仍按最后已知值画，警示只提示新鲜度） -->
+                    <TextBlock x:Name="DeviceStaleNoteText" Classes="device-stale"
+                               Text="{Binding DeviceStaleNote}"
+                               IsVisible="{Binding ShowDeviceStaleNote}"
+                               TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
         </Grid>

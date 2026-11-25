@@ -155,6 +155,17 @@ public class UsageQueryService : IUsageQueryService
         Task.Run(() => GetDimensionBreakdownAsync(filter, UsageFactGrain.Project, fact => fact.Project, session => session.Project, withProjectDisplayName: true, withDominantAgent: false, ct));
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<DimensionUsageRow>> GetDeviceBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+        Task.Run(() => GetDeviceBreakdownCoreAsync(filter, ct));
+
+    private async Task<IReadOnlyList<DimensionUsageRow>> GetDeviceBreakdownCoreAsync(UsageQueryFilter filter, CancellationToken ct)
+    {
+        var scopedFacts = await GetScopedUsageFactsAsync(filter, ct);
+        var sessions = await GetScopedSessionsAsync(filter, ct);
+        return BuildDeviceBreakdown(scopedFacts, sessions);
+    }
+
+    /// <inheritdoc />
     public Task<SessionListResult> GetSessionsAsync(SessionListQuery query, CancellationToken ct = default) =>
         Task.Run(() => GetSessionsCoreAsync(query, ct));
 
@@ -233,7 +244,7 @@ public class UsageQueryService : IUsageQueryService
 
     /// <summary>
     /// 复合快照核心（P0-2）：单次 facts 全表读 + 单次 sessions 全表读，KPI 当前/上一周期与
-    /// Agent/模型/项目三维聚合在同一份内存数据上换窗重筛、一次算完——替代页面加载的十余次全表重读。
+    /// Agent/设备/模型/项目聚合在同一份内存数据上换窗重筛、一次算完——替代页面加载的十余次全表重读。
     /// 线程模型同其余公共入口（Task.Run 边界）；校验与日序列上限一致（超限抛 ArgumentOutOfRange）。
     /// </summary>
     private async Task<OverviewPageSnapshot> GetOverviewSnapshotCoreAsync(UsageQueryFilter filter, CancellationToken ct)
@@ -281,6 +292,7 @@ public class UsageQueryService : IUsageQueryService
                 scopedFacts, scopedSessions, UsageFactGrain.Agent,
                 fact => fact.Agent, session => session.Agent,
                 withProjectDisplayName: false, withDominantAgent: false, withProvider: false, withHosts: true),
+            Devices = BuildDeviceBreakdown(scopedFacts, scopedSessions),
             Models = BuildDimensionBreakdown(
                 scopedFacts, scopedSessions, UsageFactGrain.Model,
                 fact => ResolveModel(fact.Model), session => ResolveModel(session.DominantModel),
@@ -854,6 +866,104 @@ public class UsageQueryService : IUsageQueryService
                 Provider = row.Provider,
                 ProviderCount = row.ProviderCount,
                 Hosts = row.Hosts,
+                TokenShare = scopeTotalTokens > 0 ? (decimal?)Math.Round(row.TotalTokens / scopeTotalTokens, 4) : null,
+                CostShare = scopeKnownCost is { } denominator and > 0
+                             && !row.Cost.HasUnknownCost
+                             && row.Cost.KnownCostUsd is { } known
+                    ? (decimal?)Math.Round(known / denominator, 4)
+                    : null,
+            })
+            .OrderByDescending(row => row.TotalTokens)
+            .ThenBy(row => row.Key, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 设备维度聚合（纯计算，不发存储读）：按既有 (device, day) 粒度兜底解析行求和——
+    /// 每设备单日 full 优先、缺 full 的 CLI 日只取 Day 行（与 KPI / <see cref="DailyFactsByDay"/>
+    /// 同一批行），因此 Σ设备 = KPI 合计，不是重新分摊。会话数按 <see cref="SessionFact.Device"/>
+    /// 归组；键取 facts/会话并集（只有会话的设备以 0 token 成行）。
+    /// 空设备键（历史无主行）跳过：设备视图只在同步开启且 ≥2 台真实设备时出现。
+    /// </summary>
+    private static IReadOnlyList<DimensionUsageRow> BuildDeviceBreakdown(
+        IEnumerable<UsageFact> scopedFacts,
+        IReadOnlyList<SessionFact> sessions)
+    {
+        var factRowsByDevice = new Dictionary<string, List<UsageFact>>(StringComparer.Ordinal);
+        foreach (var group in scopedFacts.GroupBy(fact => (fact.Device, fact.Day)))
+        {
+            if (string.IsNullOrWhiteSpace(group.Key.Device))
+            {
+                continue;
+            }
+
+            var usable = ResolveDailyRows(group.ToList());
+            if (usable.Count == 0)
+            {
+                continue;
+            }
+
+            if (!factRowsByDevice.TryGetValue(group.Key.Device, out var list))
+            {
+                list = new List<UsageFact>();
+                factRowsByDevice[group.Key.Device] = list;
+            }
+
+            list.AddRange(usable);
+        }
+
+        var sessionCountByDevice = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var session in sessions)
+        {
+            if (string.IsNullOrWhiteSpace(session.Device))
+            {
+                continue;
+            }
+
+            sessionCountByDevice[session.Device] = sessionCountByDevice.GetValueOrDefault(session.Device) + 1;
+        }
+
+        var keys = factRowsByDevice.Keys.Union(sessionCountByDevice.Keys, StringComparer.Ordinal);
+        var rows = new List<DimensionUsageRow>();
+        foreach (var key in keys)
+        {
+            factRowsByDevice.TryGetValue(key, out var list);
+            rows.Add(new DimensionUsageRow
+            {
+                Key = key,
+                SessionCount = sessionCountByDevice.GetValueOrDefault(key),
+                InputTokens = list?.Sum(fact => fact.InputTokens) ?? 0,
+                OutputTokens = list?.Sum(fact => fact.OutputTokens) ?? 0,
+                CacheCreationTokens = list?.Sum(fact => fact.CacheCreationTokens) ?? 0,
+                CacheReadTokens = list?.Sum(fact => fact.CacheReadTokens) ?? 0,
+                TotalTokens = list?.Sum(fact => fact.TotalTokens) ?? 0,
+                Cost = list is null
+                    ? AggregatedCost.Empty
+                    : AggregatedCost.FromRowCosts(list.Select(fact => fact.CostUsd)),
+            });
+        }
+
+        var scopeTotalTokens = rows.Sum(row => (decimal)row.TotalTokens);
+        decimal? scopeKnownCost = null;
+        foreach (var row in rows)
+        {
+            if (row.Cost.KnownCostUsd is { } known)
+            {
+                scopeKnownCost = (scopeKnownCost ?? 0m) + known;
+            }
+        }
+
+        return rows
+            .Select(row => new DimensionUsageRow
+            {
+                Key = row.Key,
+                SessionCount = row.SessionCount,
+                InputTokens = row.InputTokens,
+                OutputTokens = row.OutputTokens,
+                CacheCreationTokens = row.CacheCreationTokens,
+                CacheReadTokens = row.CacheReadTokens,
+                TotalTokens = row.TotalTokens,
+                Cost = row.Cost,
                 TokenShare = scopeTotalTokens > 0 ? (decimal?)Math.Round(row.TotalTokens / scopeTotalTokens, 4) : null,
                 CostShare = scopeKnownCost is { } denominator and > 0
                              && !row.Cost.HasUnknownCost

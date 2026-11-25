@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -19,6 +20,7 @@ using Tokenmetry.App.ViewModels;
 using Tokenmetry.App.Views;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
+using Tokenmetry.Core.Sync;
 using Tokenmetry.App.Headless.Tests.Controls;
 using Xunit;
 
@@ -50,6 +52,9 @@ public class OverviewTests
         public IReadOnlyList<DailyUsagePoint> Daily { get; set; } = Array.Empty<DailyUsagePoint>();
 
         public IReadOnlyList<DimensionUsageRow> Agents { get; set; } = Array.Empty<DimensionUsageRow>();
+
+        /// <summary>设备维度 fixture（跨端同步；默认空 = 单机语义）。</summary>
+        public IReadOnlyList<DimensionUsageRow> Devices { get; set; } = Array.Empty<DimensionUsageRow>();
 
         public IReadOnlyList<DimensionUsageRow> Models { get; set; } = Array.Empty<DimensionUsageRow>();
 
@@ -108,6 +113,9 @@ public class OverviewTests
             AgentCalls++;
             return Task.FromResult(Agents);
         }
+
+        public Task<IReadOnlyList<DimensionUsageRow>> GetDeviceBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default) =>
+            Task.FromResult(Devices);
 
         public Task<IReadOnlyList<DimensionUsageRow>> GetModelBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default)
         {
@@ -252,6 +260,188 @@ public class OverviewTests
         Assert.NotEmpty(vm.ProjectRows!);
         // 页面数据面收敛到复合快照后，分量方法零调用。
         Assert.Equal(0, stub.IndividualMethodCalls);
+    }
+
+    // ── 跨设备同步：使用占比卡的设备镜头（设计定案：不新增面板，只换环的维度）──
+
+    private static IReadOnlyList<DimensionUsageRow> FixtureDevices { get; } = new[]
+    {
+        Row("devA", 6_000_000),
+        Row("devB", 2_740_000),
+    };
+
+    private static FilterStateService CreateTwoDeviceFilters()
+    {
+        var filters = new FilterStateService
+        {
+            IsSyncEnabled = true,
+            LocalDeviceId = "devA",
+        };
+        filters.UpdateDeviceOptions(
+        [
+            DeviceFilterOption.All,
+            new DeviceFilterOption("devA", "Workstation-A"),
+            new DeviceFilterOption("devB", "Workstation-B"),
+        ]);
+        return filters;
+    }
+
+    private static OverviewViewModel CreateDeviceVm(
+        FilterStateService filters,
+        StubQueryService stub,
+        IReadOnlyList<SyncDeviceInfo> infos) =>
+        new(
+            ShellPages.For(PageId.Overview),
+            filters,
+            stub,
+            deviceInfoLoader: _ => Task.FromResult(infos));
+
+    [AvaloniaFact]
+    public void Device_lens_appears_for_multi_device_sync_and_toggles()
+    {
+        var filters = CreateTwoDeviceFilters();
+        var stub = new StubQueryService { Agents = FixtureAgents, Devices = FixtureDevices };
+        var vm = CreateDeviceVm(filters, stub,
+        [
+            new SyncDeviceInfo("devA", "Workstation-A", default),
+            new SyncDeviceInfo("devB", "Workstation-B", DateTimeOffset.Now.AddHours(-2)),
+        ]);
+        Dispatcher.UIThread.RunJobs();
+
+        // 多设备 + 全部设备 + 同步开启 → 入口出现，默认仍是 Agent 镜头。
+        Assert.True(vm.ShowDeviceLens);
+        Assert.True(vm.IsAgentComposition);
+        Assert.True(vm.ShowViewByDeviceLink);
+        Assert.False(vm.ShowViewByAgentLink);
+        Assert.NotEmpty(vm.AgentSegments!);
+
+        vm.ToggleCompositionCommand.Execute(null);
+
+        // 设备镜头：段 = 设备名（本机带标记），环与图例共用同一批段。
+        Assert.True(vm.IsDeviceComposition);
+        Assert.True(vm.ShowViewByAgentLink);
+        Assert.Same(vm.DeviceSegments, vm.CompositionSegments);
+        Assert.Equal(
+            new[] { "Workstation-A · " + Translations.Instance.ThisDevice, "Workstation-B" },
+            vm.DeviceSegments!.Select(segment => segment.Name));
+        Assert.False(vm.HasStaleDevice);
+        vm.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void Device_lens_flags_stale_remote_device_and_keeps_zero_usage_devices()
+    {
+        var filters = CreateTwoDeviceFilters();
+        // 只有 devA 有用量：devB 仍应出现在图例里（0.0%），回答「这台最近没用」。
+        var stub = new StubQueryService { Devices = [Row("devA", 6_000_000)] };
+        var vm = CreateDeviceVm(filters, stub,
+        [
+            new SyncDeviceInfo("devA", "Workstation-A", default),
+            new SyncDeviceInfo("devB", "Workstation-B", DateTimeOffset.Now.AddHours(-30)),
+        ]);
+        Dispatcher.UIThread.RunJobs();
+
+        vm.ToggleCompositionCommand.Execute(null);
+
+        Assert.True(vm.HasStaleDevice);
+        Assert.True(vm.ShowDeviceStaleNote);
+        Assert.Equal(
+            string.Format(Translations.Instance.DeviceStaleOneFormat, "Workstation-B"),
+            vm.DeviceStaleNote);
+        Assert.Equal(2, vm.DeviceSegments!.Count);
+        Assert.Equal(0d, vm.DeviceSegments!.Last().Value);
+        vm.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void Device_lens_hidden_when_sync_off_single_device_or_device_filtered()
+    {
+        var stub = new StubQueryService { Agents = FixtureAgents, Devices = FixtureDevices };
+
+        var syncOff = new OverviewViewModel(ShellPages.For(PageId.Overview), new FilterStateService(), stub);
+        Assert.False(syncOff.ShowDeviceLens);
+        syncOff.ToggleCompositionCommand.Execute(null);
+        Assert.True(syncOff.IsAgentComposition, "入口不可用时切换命令 no-op");
+        syncOff.Dispose();
+
+        var single = new FilterStateService { IsSyncEnabled = true, LocalDeviceId = "devA" };
+        single.UpdateDeviceOptions([DeviceFilterOption.All, new DeviceFilterOption("devA", "Workstation-A")]);
+        var singleVm = new OverviewViewModel(ShellPages.For(PageId.Overview), single, stub);
+        Assert.False(singleVm.ShowDeviceLens);
+        singleVm.Dispose();
+
+        var filtered = CreateTwoDeviceFilters();
+        filtered.Device = new DeviceFilterOption("devA", "Workstation-A");
+        var filteredVm = new OverviewViewModel(ShellPages.For(PageId.Overview), filtered, stub);
+        Assert.False(filteredVm.ShowDeviceLens, "顶栏已选单台设备时设备镜头没有信息量");
+        Assert.True(filteredVm.IsAgentComposition);
+        filteredVm.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void Device_lens_resets_to_agent_when_a_single_device_is_selected()
+    {
+        var filters = CreateTwoDeviceFilters();
+        var stub = new StubQueryService { Devices = FixtureDevices };
+        var vm = CreateDeviceVm(filters, stub,
+        [
+            new SyncDeviceInfo("devA", "Workstation-A", default),
+            new SyncDeviceInfo("devB", "Workstation-B", DateTimeOffset.Now.AddHours(-2)),
+        ]);
+        Dispatcher.UIThread.RunJobs();
+        vm.ToggleCompositionCommand.Execute(null);
+        Assert.True(vm.IsDeviceComposition);
+
+        filters.Device = new DeviceFilterOption("devA", "Workstation-A");
+        DispatcherPump.PumpUntil(() => !vm.ShowDeviceLens);
+
+        Assert.True(vm.IsAgentComposition, "入口消失时镜头必须回落 Agent，不能停在设备环");
+        vm.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void Device_lens_view_entry_switches_titles_and_links()
+    {
+        var filters = CreateTwoDeviceFilters();
+        var stub = new StubQueryService { Agents = FixtureAgents, Devices = FixtureDevices };
+        var vm = CreateDeviceVm(filters, stub,
+        [
+            new SyncDeviceInfo("devA", "Workstation-A", default),
+            new SyncDeviceInfo("devB", "Workstation-B", DateTimeOffset.Now.AddHours(-2)),
+        ]);
+        var view = new OverviewView { DataContext = vm };
+        var window = new Window
+        {
+            Width = 1200,
+            Height = 900,
+            Content = view,
+            RequestedThemeVariant = ThemeVariant.Dark,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var deviceButton = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "ViewByDeviceButton");
+        var agentButton = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "ViewByAgentButton");
+        var agentTitle = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AgentShareTitle");
+        var deviceTitle = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "DeviceShareTitle");
+
+        Assert.True(deviceButton.IsVisible);
+        Assert.False(agentButton.IsVisible);
+        Assert.True(agentTitle.IsVisible);
+        Assert.False(deviceTitle.IsVisible);
+
+        deviceButton.Command!.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.False(deviceButton.IsVisible);
+        Assert.True(agentButton.IsVisible);
+        Assert.False(agentTitle.IsVisible);
+        Assert.True(deviceTitle.IsVisible);
+
+        window.Close();
+        vm.Dispose();
     }
 
     /// <summary>只有复合快照产数据的查询桩：五个分量方法返回空值并记账（P0-2c 回归锁）。</summary>
@@ -716,6 +906,164 @@ public class OverviewTests
         Background = Application.Current!.TryGetResource("AppBackgroundBrush", variant, out var bg)
             && bg is IBrush brush ? brush : new SolidColorBrush(Color.Parse("#0f1118")),
     };
+
+    [AvaloniaFact]
+    public void Device_lens_appears_when_device_list_gains_a_second_device()
+    {
+        var filters = new FilterStateService { IsSyncEnabled = true, LocalDeviceId = "devA" };
+        filters.UpdateDeviceOptions([DeviceFilterOption.All, new DeviceFilterOption("devA", "Workstation-A")]);
+        var vm = CreateDeviceVm(
+            filters,
+            new StubQueryService { Devices = [Row("devA", 100)] },
+            [new SyncDeviceInfo("devA", "Workstation-A", default)]);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(vm.ShowDeviceLens);
+
+        filters.UpdateDeviceOptions(
+        [
+            DeviceFilterOption.All,
+            new DeviceFilterOption("devA", "Workstation-A"),
+            new DeviceFilterOption("devB", "Workstation-B"),
+        ]);
+        DispatcherPump.PumpUntil(() => vm.ShowDeviceLens);
+
+        Assert.True(vm.ShowDeviceLens, "同步清单从 1 台变 2 台时入口应即时出现");
+        vm.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void Device_options_rebuild_with_same_selection_does_not_double_query()
+    {
+        var filters = CreateTwoDeviceFilters();
+        filters.Device = new DeviceFilterOption("devB", "Workstation-B");
+        var stub = new StubQueryService { Agents = FixtureAgents, Devices = FixtureDevices };
+        var vm = CreateDeviceVm(filters, stub, [
+            new SyncDeviceInfo("devA", "Workstation-A", default),
+            new SyncDeviceInfo("devB", "Workstation-B", DateTimeOffset.Now),
+        ]);
+        Dispatcher.UIThread.RunJobs();
+        var before = stub.AgentCalls;
+
+        // 同步轮次每轮都会重建设备清单（同 Id/同名的全新实例）：DeviceOptions 一次重查，
+        // 同 Id 的 Device 重发不得再触发第二次全表重查。
+        filters.UpdateDeviceOptions(
+        [
+            DeviceFilterOption.All,
+            new DeviceFilterOption("devA", "Workstation-A"),
+            new DeviceFilterOption("devB", "Workstation-B"),
+        ]);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(before + 1, stub.AgentCalls);
+        vm.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void Device_lens_disambiguates_duplicate_remote_names()    {
+        var filters = new FilterStateService { IsSyncEnabled = true, LocalDeviceId = "devA" };
+        filters.UpdateDeviceOptions(
+        [
+            DeviceFilterOption.All,
+            new DeviceFilterOption("devA", "Workstation-A"),
+            new DeviceFilterOption("devB", "MacBook"),
+            new DeviceFilterOption("devC", "MacBook"),
+        ]);
+        var vm = CreateDeviceVm(
+            filters,
+            new StubQueryService
+            {
+                Devices = [Row("devA", 300_000), Row("devB", 100_000), Row("devC", 50_000)],
+            },
+            [
+                new SyncDeviceInfo("devA", "Workstation-A", default),
+                new SyncDeviceInfo("devB", "MacBook", DateTimeOffset.Now),
+                new SyncDeviceInfo("devC", "MacBook", DateTimeOffset.Now),
+            ]);
+        Dispatcher.UIThread.RunJobs();
+
+        vm.ToggleCompositionCommand.Execute(null);
+
+        var names = vm.DeviceSegments!.Select(segment => segment.Name).ToList();
+        Assert.Contains("Workstation-A · " + Translations.Instance.ThisDevice, names);
+        Assert.Contains("MacBook · devB", names);
+        Assert.Contains("MacBook · devC", names);
+        vm.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void Device_lens_reports_multiple_stale_devices()
+    {
+        var filters = new FilterStateService { IsSyncEnabled = true, LocalDeviceId = "devA" };
+        filters.UpdateDeviceOptions(
+        [
+            DeviceFilterOption.All,
+            new DeviceFilterOption("devA", "Workstation-A"),
+            new DeviceFilterOption("devB", "Workstation-B"),
+            new DeviceFilterOption("devC", "Workstation-C"),
+        ]);
+        var vm = CreateDeviceVm(
+            filters,
+            new StubQueryService { Devices = FixtureDevices },
+            [
+                new SyncDeviceInfo("devA", "Workstation-A", default),
+                new SyncDeviceInfo("devB", "Workstation-B", DateTimeOffset.Now.AddHours(-30)),
+                new SyncDeviceInfo("devC", "Workstation-C", DateTimeOffset.Now.AddHours(-40)),
+            ]);
+        Dispatcher.UIThread.RunJobs();
+
+        vm.ToggleCompositionCommand.Execute(null);
+
+        Assert.True(vm.HasStaleDevice);
+        Assert.Equal(
+            string.Format(Translations.Instance.DeviceStaleManyFormat, 2),
+            vm.DeviceStaleNote);
+        vm.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void Overview_device_lens_renders_in_dark()
+    {
+        var filters = CreateTwoDeviceFilters();
+        var vm = CreateDeviceVm(
+            filters,
+            new StubQueryService
+            {
+                Kpi = FixtureKpi,
+                Daily = ChartTestHelpers.DailyPoints30(),
+                Agents = FixtureAgents,
+                Devices = FixtureDevices,
+                Models = FixtureModels,
+                Projects = FixtureProjects,
+            },
+            [
+                new SyncDeviceInfo("devA", "Workstation-A", default),
+                new SyncDeviceInfo("devB", "Workstation-B", DateTimeOffset.Now.AddHours(-30)),
+            ]);
+        Dispatcher.UIThread.RunJobs();
+        vm.ToggleCompositionCommand.Execute(null);
+
+        var window = CreateOverviewWindow(vm, ThemeVariant.Dark);
+        var frame = ChartTestHelpers.RenderFrame(window);
+        ChartTestHelpers.SaveArchive(frame, ArchiveDir, "overview-device-dark.png");
+
+        Assert.NotNull(ChartTestHelpers.FindTextBlock(window, Translations.Instance.PanelDeviceShare));
+        Assert.NotNull(ChartTestHelpers.FindTextBlock(window, "Workstation-A · " + Translations.Instance.ThisDevice));
+        var stale = ChartTestHelpers.FindTextBlock(window, vm.DeviceStaleNote);
+        Assert.NotNull(stale);
+        Assert.True(ChartTestHelpers.IsEffectivelyVisible(stale!));
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+
+        var lightWindow = CreateOverviewWindow(vm, ThemeVariant.Light);
+        var lightFrame = ChartTestHelpers.RenderFrame(lightWindow);
+        ChartTestHelpers.SaveArchive(lightFrame, ArchiveDir, "overview-device-light.png");
+        Assert.NotNull(ChartTestHelpers.FindTextBlock(lightWindow, Translations.Instance.PanelDeviceShare));
+        lightWindow.Close();
+        Dispatcher.UIThread.RunJobs();
+        vm.Dispose();
+    }
 
     [AvaloniaFact]
     public void Overview_view_renders_stub_data_in_light_and_dark()

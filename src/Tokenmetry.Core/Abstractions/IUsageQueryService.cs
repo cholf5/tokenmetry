@@ -58,6 +58,18 @@ public interface IUsageQueryService
     Task<IReadOnlyList<DimensionUsageRow>> GetProjectBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default);
 
     /// <summary>
+    /// 设备维度聚合（跨端同步合并视图）：Key = 设备 id（稳定 GUID），DisplayName 留空——
+    /// 设备友好名归 App 层设备清单解析，Core 不依赖同步元数据。口径与 KPI 的 (device, day)
+    /// 粒度兜底一致（每设备 full 优先/分解兜底）；在存储保证 device 非空的前提下
+    /// Σ设备 = KPI 合计（该不变量由迁移 3、本地写入路径与 relay 校验共同保证）。
+    /// 空设备键跳过（不制造无名图例段）。缺省实现返回空清单（测试桩兜底）。
+    /// </summary>
+    Task<IReadOnlyList<DimensionUsageRow>> GetDeviceBreakdownAsync(UsageQueryFilter filter, CancellationToken ct = default)
+    {
+        return Task.FromResult<IReadOnlyList<DimensionUsageRow>>([]);
+    }
+
+    /// <summary>
     /// 会话明细列表（I-029）：搜索 + 组合筛选 + 排序 + 分页（契约见 <see cref="SessionListQuery"/>；
     /// <see cref="SessionListQuery.PageSize"/>&lt;= 0 抛 <see cref="ArgumentException"/>，null 才是不分页）。
     /// <see cref="SessionListQuery.Model"/> 按模型聚合口径过滤：与会话 dominant_model 的<b>别名归一名</b>
@@ -88,8 +100,8 @@ public interface IUsageQueryService
     }
 
     /// <summary>
-    /// 总览页复合快照（P0-2 性能收敛）：一次调用返回 KPI（含上一周期环比）+ 日序列 + Agent / 模型 /
-    /// 项目三维聚合。各分量语义与逐方法调用逐位一致；范围校验一致（非法范围抛
+    /// 总览页复合快照（P0-2 性能收敛）：一次调用返回 KPI（含上一周期环比）+ 日序列 + Agent / 设备 /
+    /// 模型 / 项目聚合。各分量语义与逐方法调用逐位一致；范围校验一致（非法范围抛
     /// <see cref="ArgumentException"/>，双端有界日序列超上限抛 <see cref="ArgumentOutOfRangeException"/>）。
     /// 缺省实现为逐方法组合（仅供测试桩兜底，仍是一页多次全表读）；真实存储实现应覆写为
     /// 单次 facts + 单次 sessions 全表读、内存内一次算完全部分量。
@@ -103,6 +115,7 @@ public interface IUsageQueryService
             var kpi = await GetKpiAsync(filter, ct);
             var daily = await GetDailySeriesAsync(filter, ct);
             var agents = await GetAgentBreakdownAsync(filter, ct);
+            var devices = await GetDeviceBreakdownAsync(filter, ct);
             var models = await GetModelBreakdownAsync(filter, ct);
             var projects = await GetProjectBreakdownAsync(filter, ct);
             return new OverviewPageSnapshot
@@ -110,6 +123,7 @@ public interface IUsageQueryService
                 Kpi = kpi,
                 Daily = daily,
                 Agents = agents,
+                Devices = devices,
                 Models = models,
                 Projects = projects,
             };

@@ -417,6 +417,16 @@ public static class AppServices
     {
         try
         {
+            // 轮次开始的 Changed（IsSyncing=true）只服务同步状态 UI；若开关/本机 id 未变，设备清单
+            // 与筛选投影留到轮次结束的 Changed——否则每轮同步前会多一次总览全表重查，结束的
+            // Changed 仍会投影（拉取到的新远端行不丢）。关闭/切换账号等状态变化不会被跳过。
+            if (syncState.IsSyncing
+                && filters.IsSyncEnabled == syncState.IsEnabled
+                && filters.LocalDeviceId == syncState.LocalDeviceId)
+            {
+                return;
+            }
+
             filters.IsSyncEnabled = syncState.IsEnabled;
             filters.LocalDeviceId = syncState.LocalDeviceId;
             if (!syncState.IsEnabled)

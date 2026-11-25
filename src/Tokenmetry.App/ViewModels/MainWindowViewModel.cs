@@ -13,6 +13,7 @@ using Tokenmetry.App.Update;
 using Tokenmetry.Core.Abstractions;
 using Tokenmetry.Core.Models;
 using Tokenmetry.Core.Services;
+using Tokenmetry.Core.Sync;
 
 namespace Tokenmetry.App.ViewModels;
 
@@ -25,6 +26,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly FilterStateService _filters;
     private readonly IUsageQueryService _usageQuery;
     private readonly ModelAvatarResolver? _avatars;
+
+    /// <summary>同步状态（可选；测试隔离构造为 null）：总览设备镜头取设备清单/名字/last seen。</summary>
+    private readonly SyncStateService? _syncState;
 
     /// <summary>Agent 图标解析（插件自定义图标，Task 7）：页面 VM 与分享海报共用；默认纯内置映射。</summary>
     private readonly AgentIconService _agentIcons;
@@ -133,13 +137,15 @@ public partial class MainWindowViewModel : ViewModelBase
         BackgroundRefreshService? refreshService = null,
         TimeRangePresetService? timePresets = null,
         UpdateService? updateService = null,
-        AgentIconService? agentIcons = null)
+        AgentIconService? agentIcons = null,
+        SyncStateService? syncState = null)
     {
         _filters = filters;
         Settings = settings;
         DataPricing = dataPricing;
         _usageQuery = usageQuery;
         _avatars = avatars;
+        _syncState = syncState;
         _agentIcons = agentIcons ?? AgentIconService.BuiltInOnly;
         _agentCatalog = agentCatalog;
         _toastService = toastService;
@@ -236,15 +242,21 @@ public partial class MainWindowViewModel : ViewModelBase
         (CurrentPage as INavigationAware)?.OnNavigatedTo();
     }
 
+    /// <summary>设备清单读取委托（同步服务缺席时 null；总览设备镜头用）。</summary>
+    private Func<CancellationToken, Task<IReadOnlyList<SyncDeviceInfo>>>? DeviceInfoLoader =>
+        _syncState is null ? null : _syncState.ListDevicesAsync;
+
     private ViewModelBase CreatePage(PageId id) => id switch
     {
         PageId.Settings => Settings,
         PageId.DataPricing => DataPricing,
-        // D-006/D-007：总览为真实页（KPI + 趋势 + Agent 环形 + 模型/项目/构成/成本趋势），
+        // D-006/D-007：总览为真实页（KPI + 趋势 + 使用占比环 + 模型/项目/构成/成本趋势），
         // 随全局筛选刷新；GoToPage 经构造回调注入（「查看详情 ↗」跳模型/项目页），
         // 页面 VM 不反向引用本类型（Action<PageId> 单向注入，见 D-007 Dev Log 选型）。
+        // 设备镜头（跨端同步）：设备清单/last seen 经 SyncStateService 单向注入，测试可缺席。
         PageId.Overview => new OverviewViewModel(
-            ShellPages.For(id), _filters, _usageQuery, _avatars, GoToPage, RequestSharePoster, _projectActions),
+            ShellPages.For(id), _filters, _usageQuery, _avatars, GoToPage, RequestSharePoster, _projectActions,
+            DeviceInfoLoader),
         // D-009/D-010/D-011：Agent / 模型 / 项目统计为真实页（随全局筛选刷新）。D-009 行点击经
         // OpenSessionsForAgent 跳会话页（全局单选 Agent 途径，见 AgentsViewModel 定案）；D-011 行点击
         // 经 OpenSessionsForProject 跳会话页（全局 Project 筛选途径——右栏撤除定案，见 ProjectsViewModel 定案）；

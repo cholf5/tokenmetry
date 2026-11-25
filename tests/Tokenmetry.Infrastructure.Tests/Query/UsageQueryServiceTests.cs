@@ -1063,6 +1063,7 @@ public class UsageQueryServiceTests : IAsyncLifetime
         var kpi = await _service.GetKpiAsync(filter);
         var daily = await _service.GetDailySeriesAsync(filter);
         var agents = await _service.GetAgentBreakdownAsync(filter);
+        var devices = await _service.GetDeviceBreakdownAsync(filter);
         var models = await _service.GetModelBreakdownAsync(filter);
         var projects = await _service.GetProjectBreakdownAsync(filter);
 
@@ -1077,6 +1078,8 @@ public class UsageQueryServiceTests : IAsyncLifetime
             .Should().Equal(daily.Select(point => (point.Day, point.TotalTokens, point.HasData)));
         snapshot.Agents.Select(row => (row.Key, row.TotalTokens, row.SessionCount))
             .Should().Equal(agents.Select(row => (row.Key, row.TotalTokens, row.SessionCount)));
+        snapshot.Devices.Select(row => (row.Key, row.TotalTokens, row.SessionCount))
+            .Should().Equal(devices.Select(row => (row.Key, row.TotalTokens, row.SessionCount)));
         snapshot.Models.Select(row => (row.Key, row.TotalTokens, row.SessionCount, row.DominantAgent))
             .Should().Equal(models.Select(row => (row.Key, row.TotalTokens, row.SessionCount, row.DominantAgent)));
         snapshot.Projects.Select(row => (row.Key, row.DisplayName, row.TotalTokens))

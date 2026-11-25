@@ -359,6 +359,11 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(PanelTrend)] = "Token 使用趋势",
         [nameof(MetaByTotalTokens)] = "按 Token 总量",
         [nameof(PanelAgentDonut)] = "Agent 使用占比",
+        [nameof(PanelDeviceShare)] = "设备使用占比",
+        [nameof(ViewByDevice)] = "按设备看",
+        [nameof(ViewByAgent)] = "按 Agent 看",
+        [nameof(DeviceStaleOneFormat)] = "{0} 超过 24 小时未同步",
+        [nameof(DeviceStaleManyFormat)] = "{0} 台设备超过 24 小时未同步",
         [nameof(ViewDetails)] = "查看详情 ↗",
         [nameof(PanelModelDistribution)] = "模型使用分布",
         [nameof(ThModel)] = "模型",
@@ -1003,6 +1008,11 @@ public sealed partial class Translations : INotifyPropertyChanged
         [nameof(PanelTrend)] = "Token usage trend",
         [nameof(MetaByTotalTokens)] = "By total tokens",
         [nameof(PanelAgentDonut)] = "Agent share",
+        [nameof(PanelDeviceShare)] = "Device share",
+        [nameof(ViewByDevice)] = "By device",
+        [nameof(ViewByAgent)] = "By agent",
+        [nameof(DeviceStaleOneFormat)] = "{0} hasn't synced in over 24 hours",
+        [nameof(DeviceStaleManyFormat)] = "{0} devices haven't synced in over 24 hours",
         [nameof(ViewDetails)] = "View details ↗",
         [nameof(PanelModelDistribution)] = "Model distribution",
         [nameof(ThModel)] = "Model",
@@ -1899,6 +1909,11 @@ public sealed partial class Translations : INotifyPropertyChanged
     public string PanelTrend => Get();
     public string MetaByTotalTokens => Get();
     public string PanelAgentDonut => Get();
+    public string PanelDeviceShare => Get();
+    public string ViewByDevice => Get();
+    public string ViewByAgent => Get();
+    public string DeviceStaleOneFormat => Get();
+    public string DeviceStaleManyFormat => Get();
     public string ViewDetails => Get();
     public string PanelModelDistribution => Get();
     public string ThModel => Get();
