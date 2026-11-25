@@ -300,6 +300,34 @@ public class SettingsPageTests
     }
 
     [AvaloniaFact]
+    public void About_panel_sits_last_and_version_value_is_selectable()
+    {
+        // 版面收口：「关于」按直觉落到设置页最下面（此前夹在本地路径与跨设备同步之间）；
+        // 版本行改 SelectableTextBlock——报障时能直接选中复制版本号，不再靠手抄。
+        var vm = CreateViewModel();
+        var window = new Window { Width = 960, Height = 720, Content = new SettingsView { DataContext = vm } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var scroll = window.GetVisualDescendants().OfType<ScrollViewer>()
+            .Single(s => s.Classes.Contains("page-root"));
+        var root = Assert.IsType<StackPanel>(scroll.Content);
+
+        static string? PanelTitle(Border panel) => panel.GetVisualDescendants().OfType<TextBlock>()
+            .FirstOrDefault(t => t.Classes.Contains("panel-title"))?.Text;
+
+        var panels = root.Children.OfType<Border>().ToList();
+        Assert.Equal(Translations.Instance.AboutTitle, PanelTitle(panels[^1]));
+
+        var version = window.GetVisualDescendants().OfType<SelectableTextBlock>()
+            .SingleOrDefault(t => t.Text == vm.UpdateAppVersion);
+        Assert.NotNull(version);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void Per_item_explanations_hover_on_the_option_name_instead_of_standing_small_text()
     {
         // S-004 版面收口：逐项说明从小字常驻改为悬停选项名本身（无图标）。断言——每项说明都挂在

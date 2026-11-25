@@ -426,77 +426,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- ═══ 关于（版本/版权/许可/仓库 + 更新检查，I-039/I-041）═══ -->
-            <Border Classes="panel">
-                <StackPanel Spacing="8">
-                    <TextBlock Classes="panel-title" Text="{Binding AboutTitle, Source={x:Static loc:Translations.Instance}}"/>
-                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
-                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelCurrentVersion, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding UpdateAppVersion}"/>
-                    </Grid>
-                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
-                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelCopyright, Source={x:Static loc:Translations.Instance}}"/>
-                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding AboutCopyright}"/>
-                    </Grid>
-                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
-                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelLicense, Source={x:Static loc:Translations.Instance}}"/>
-                        <!-- 许可名是专有名词不进 i18n（同 stupid-dict 的 "MIT"）；点击直达仓库 LICENSE 文件 -->
-                        <HyperlinkButton Grid.Column="1" Padding="0" VerticalAlignment="Center"
-                                         Content="GNU AGPL-3.0" NavigateUri="{Binding AboutLicenseUrl}"/>
-                    </Grid>
-                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
-                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelRepository, Source={x:Static loc:Translations.Instance}}"/>
-                        <HyperlinkButton Grid.Column="1" Padding="0" VerticalAlignment="Center"
-                                         Content="{Binding AboutRepositoryUrl}" NavigateUri="{Binding AboutRepositoryUrl}"/>
-                    </Grid>
-                    <!-- AGPL-3.0 §7(d)：交互界面显示 Appropriate Legal Notices 的「无担保」半句 -->
-                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                               Text="{Binding AboutWarrantyHint, Source={x:Static loc:Translations.Instance}}"/>
-                    <!-- 求 Star 行：句中「Star」嵌成真链接（Avalonia 无内联 Hyperlink，LinkTextBlock
-                         按链接词拆句渲染 + 命中测试开仓库；链词是 GitHub 专名，同「GNU AGPL-3.0」不进
-                         i18n，全语种恒为拉丁「Star」，TranslationsTests 有不变式）。 -->
-                    <controls:LinkTextBlock Classes="setting-hint" TextWrapping="Wrap"
-                                            SourceText="{Binding AboutStarHint, Source={x:Static loc:Translations.Instance}}"
-                                            LinkText="Star"
-                                            LinkUrl="{Binding AboutRepositoryUrl}"/>
-                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                        <Button Classes="app-btn"
-                                Content="{Binding SettingsCheckUpdate, Source={x:Static loc:Translations.Instance}}"
-                                Command="{Binding CheckUpdateCommand}"/>
-                        <!-- 发现新版本才亮出的一对出口：应用内直下（已安装副本下载后直接静默升级；
-                             其余落「下载」文件夹 + 文件管理器显示）与浏览器开 Release 页（逃生口）。 -->
-                        <Button Classes="app-btn primary"
-                                Content="{Binding SettingsDownloadUpdate, Source={x:Static loc:Translations.Instance}}"
-                                Command="{Binding DownloadUpdateCommand}"
-                                IsVisible="{Binding IsUpdateAvailable}"/>
-                        <!-- 下载校验完成后的最后一步：重启即生效（与主窗横幅同一个状态、同一个命令出口） -->
-                        <Button Classes="app-btn primary"
-                                Content="{Binding ActionRestartNow, Source={x:Static loc:Translations.Instance}}"
-                                Command="{Binding RestartUpdateCommand}"
-                                IsVisible="{Binding IsUpdateReadyToRestart}"/>
-                        <Button Classes="app-btn"
-                                Content="{Binding SettingsOpenReleasePage, Source={x:Static loc:Translations.Instance}}"
-                                Command="{Binding OpenReleasePageCommand}"
-                                IsVisible="{Binding IsUpdateAvailable}"/>
-                    </StackPanel>
-                    <!-- 下载进度：设置页自己发起的下载也要看得见百分比（横幅可能已被「稍后」收起） -->
-                    <ProgressBar Minimum="0" Maximum="100" Height="4"
-                                 Value="{Binding UpdateDownloadPercent}"
-                                 IsVisible="{Binding IsUpdateProgressVisible}"/>
-                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                               Text="{Binding UpdateStatusText}"
-                               IsVisible="{Binding UpdateStatusText, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                    <!-- 升级方式不同，提示也不同：Windows 安装副本点「下载更新」= 下载后自动安装并重启；
-                         便携版 / macOS / Linux 仍是「下载 → 解压覆盖」。 -->
-                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                               IsVisible="{Binding IsInstalledCopy}"
-                               Text="{Binding AboutHintInstaller, Source={x:Static loc:Translations.Instance}}"/>
-                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
-                               IsVisible="{Binding !IsInstalledCopy}"
-                               Text="{Binding AboutHint, Source={x:Static loc:Translations.Instance}}"/>
-                </StackPanel>
-            </Border>
-
             <!-- ═══ 跨设备同步（relay 设计 §4.6：显式 opt-in 例外，默认零网络；账号与网络偏好归应用偏好页）═══ -->
             <Border Classes="panel" IsVisible="{Binding HasSyncState}">
                 <StackPanel Spacing="16">
@@ -730,6 +659,78 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ 关于（版本/版权/许可/仓库 + 更新检查，I-039/I-041）═══ -->
+            <Border Classes="panel">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="panel-title" Text="{Binding AboutTitle, Source={x:Static loc:Translations.Instance}}"/>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelCurrentVersion, Source={x:Static loc:Translations.Instance}}"/>
+                        <!-- I-039：版本行可选中复制（报障时直接贴版本号；与本地路径面板同款） -->
+                        <SelectableTextBlock Grid.Column="1" Classes="table-td" Text="{Binding UpdateAppVersion}"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelCopyright, Source={x:Static loc:Translations.Instance}}"/>
+                        <TextBlock Grid.Column="1" Classes="table-td" Text="{Binding AboutCopyright}"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelLicense, Source={x:Static loc:Translations.Instance}}"/>
+                        <!-- 许可名是专有名词不进 i18n（同 stupid-dict 的 "MIT"）；点击直达仓库 LICENSE 文件 -->
+                        <HyperlinkButton Grid.Column="1" Padding="0" VerticalAlignment="Center"
+                                         Content="GNU AGPL-3.0" NavigateUri="{Binding AboutLicenseUrl}"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="132,*" ColumnSpacing="16">
+                        <TextBlock Grid.Column="0" Classes="setting-label" Text="{Binding LabelRepository, Source={x:Static loc:Translations.Instance}}"/>
+                        <HyperlinkButton Grid.Column="1" Padding="0" VerticalAlignment="Center"
+                                         Content="{Binding AboutRepositoryUrl}" NavigateUri="{Binding AboutRepositoryUrl}"/>
+                    </Grid>
+                    <!-- AGPL-3.0 §7(d)：交互界面显示 Appropriate Legal Notices 的「无担保」半句 -->
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                               Text="{Binding AboutWarrantyHint, Source={x:Static loc:Translations.Instance}}"/>
+                    <!-- 求 Star 行：句中「Star」嵌成真链接（Avalonia 无内联 Hyperlink，LinkTextBlock
+                         按链接词拆句渲染 + 命中测试开仓库；链词是 GitHub 专名，同「GNU AGPL-3.0」不进
+                         i18n，全语种恒为拉丁「Star」，TranslationsTests 有不变式）。 -->
+                    <controls:LinkTextBlock Classes="setting-hint" TextWrapping="Wrap"
+                                            SourceText="{Binding AboutStarHint, Source={x:Static loc:Translations.Instance}}"
+                                            LinkText="Star"
+                                            LinkUrl="{Binding AboutRepositoryUrl}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                        <Button Classes="app-btn"
+                                Content="{Binding SettingsCheckUpdate, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding CheckUpdateCommand}"/>
+                        <!-- 发现新版本才亮出的一对出口：应用内直下（已安装副本下载后直接静默升级；
+                             其余落「下载」文件夹 + 文件管理器显示）与浏览器开 Release 页（逃生口）。 -->
+                        <Button Classes="app-btn primary"
+                                Content="{Binding SettingsDownloadUpdate, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding DownloadUpdateCommand}"
+                                IsVisible="{Binding IsUpdateAvailable}"/>
+                        <!-- 下载校验完成后的最后一步：重启即生效（与主窗横幅同一个状态、同一个命令出口） -->
+                        <Button Classes="app-btn primary"
+                                Content="{Binding ActionRestartNow, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding RestartUpdateCommand}"
+                                IsVisible="{Binding IsUpdateReadyToRestart}"/>
+                        <Button Classes="app-btn"
+                                Content="{Binding SettingsOpenReleasePage, Source={x:Static loc:Translations.Instance}}"
+                                Command="{Binding OpenReleasePageCommand}"
+                                IsVisible="{Binding IsUpdateAvailable}"/>
+                    </StackPanel>
+                    <!-- 下载进度：设置页自己发起的下载也要看得见百分比（横幅可能已被「稍后」收起） -->
+                    <ProgressBar Minimum="0" Maximum="100" Height="4"
+                                 Value="{Binding UpdateDownloadPercent}"
+                                 IsVisible="{Binding IsUpdateProgressVisible}"/>
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                               Text="{Binding UpdateStatusText}"
+                               IsVisible="{Binding UpdateStatusText, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <!-- 升级方式不同，提示也不同：Windows 安装副本点「下载更新」= 下载后自动安装并重启；
+                         便携版 / macOS / Linux 仍是「下载 → 解压覆盖」。 -->
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                               IsVisible="{Binding IsInstalledCopy}"
+                               Text="{Binding AboutHintInstaller, Source={x:Static loc:Translations.Instance}}"/>
+                    <TextBlock Classes="setting-hint" TextWrapping="Wrap"
+                               IsVisible="{Binding !IsInstalledCopy}"
+                               Text="{Binding AboutHint, Source={x:Static loc:Translations.Instance}}"/>
                 </StackPanel>
             </Border>
         </StackPanel>
