@@ -90,7 +90,7 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,22,4">
                         <TextBlock Classes="setting-label" VerticalAlignment="Center"
                                    Text="{Binding TopbarProject, Source={x:Static loc:Translations.Instance}}"/>
                         <ComboBox MinWidth="130"
@@ -98,6 +98,22 @@
                                   SelectedItem="{Binding Filters.Project, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="svc:ProjectFilterOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <!-- 设备筛选（与主窗口顶栏同一条规则：仅同步开启时渲染；查询收口在
+                         GlobalFilterMapper，同步关闭时强制本机，不依赖本控件状态） -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4"
+                                IsVisible="{Binding Filters.IsSyncEnabled}">
+                        <TextBlock Classes="setting-label" VerticalAlignment="Center"
+                                   Text="{Binding TopbarDevice, Source={x:Static loc:Translations.Instance}}"/>
+                        <ComboBox MinWidth="130"
+                                  ItemsSource="{Binding Filters.DeviceOptions}"
+                                  SelectedItem="{Binding Filters.Device, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="svc:DeviceFilterOption">
                                     <TextBlock Text="{Binding Label}"/>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>

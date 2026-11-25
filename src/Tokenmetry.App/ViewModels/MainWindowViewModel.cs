@@ -413,14 +413,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            return await _usageQuery.GetWeeklyRhythmAsync(new UsageQueryFilter
-            {
-                FromDay = filter.FromDay,
-                ToDay = filter.ToDay,
-                Agent = filter.Agent,
-                Model = filter.Model,
-                Project = filter.Project,
-            }, ct);
+            return await _usageQuery.GetWeeklyRhythmAsync(NarrowPosterFilter(filter, filter.FromDay, filter.ToDay), ct);
         }
         catch (Exception)
         {
@@ -434,20 +427,31 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            return await _usageQuery.GetHourlyDistributionAsync(new UsageQueryFilter
-            {
-                FromDay = UsageQueryFilter.FormatDay(day),
-                ToDay = UsageQueryFilter.FormatDay(day),
-                Agent = filter.Agent,
-                Model = filter.Model,
-                Project = filter.Project,
-            }, ct);
+            return await _usageQuery.GetHourlyDistributionAsync(
+                NarrowPosterFilter(filter, UsageQueryFilter.FormatDay(day), UsageQueryFilter.FormatDay(day)), ct);
         }
         catch (Exception)
         {
             return null;
         }
     }
+
+    /// <summary>
+    /// 海报补查（小时分布 / 节律矩阵）的筛选（纯函数）：时间窗口换成 caller 给的端点，
+    /// 其余维度（Agent/Model/Project/设备/宿主）原样照搬——补查必须与主快照同口径，
+    /// 否则选了设备/宿主后，这两张图仍会把别的设备/宿主算进来。
+    /// </summary>
+    internal static UsageQueryFilter NarrowPosterFilter(UsageQueryFilter filter, string? fromDay, string? toDay) =>
+        new()
+        {
+            FromDay = fromDay,
+            ToDay = toDay,
+            Agent = filter.Agent,
+            Model = filter.Model,
+            Project = filter.Project,
+            Device = filter.Device,
+            Host = filter.Host,
+        };
 
     /// <summary>
     /// 对话框样式的起值（纯函数）：上次在对话框里选过的样式直接接着用（选项即存）；null =

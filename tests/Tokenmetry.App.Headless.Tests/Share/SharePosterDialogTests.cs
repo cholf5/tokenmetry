@@ -804,7 +804,9 @@ public class SharePosterDialogTests
         Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
 
         var combos = dialog.GetVisualDescendants().OfType<ComboBox>().ToList();
-        Assert.Equal(3, combos.Count); // Agent / 模型 / 项目（时间范围是 DropDownButton，不在其列）
+        // 设备下拉（同步关闭时隐藏）也在可视树里；可见筛选行是 Agent / 模型 / 项目
+        Assert.Equal(3, combos.Count(c => c.IsEffectivelyVisible));
+        Assert.Equal(4, combos.Count); // 时间范围是 DropDownButton，不在其列
         var agentCombo = combos.Single(c => ReferenceEquals(c.ItemsSource, filters.AgentOptions));
         Assert.Same(filters.Agent, agentCombo.SelectedItem);
         Assert.Same(
@@ -818,6 +820,41 @@ public class SharePosterDialogTests
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
         Assert.Equal("claude-code", filters.Agent.Id);
+
+        dialog.Close();
+    }
+
+    [AvaloniaFact]
+    public void Device_filter_follows_sync_state_and_writes_back()
+    {
+        // 海报筛选行与主窗口顶栏同一条设备规则：同步关闭不渲染，开启才出现；
+        // 选中即写回共享的全局筛选（海报查看的设备就是全局筛选的设备）
+        var filters = new FilterStateService();
+        var deviceB = new DeviceFilterOption("devB", "Dev B");
+        filters.UpdateDeviceOptions([DeviceFilterOption.All, deviceB]);
+        var vm = NewVm(Request(singleDay: false), filters: filters);
+        var dialog = new SharePosterDialog { DataContext = vm };
+        dialog.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        var combo = dialog.GetVisualDescendants().OfType<ComboBox>()
+            .Single(c => ReferenceEquals(c.ItemsSource, filters.DeviceOptions));
+        var panel = combo.GetVisualParent() as StackPanel;
+        Assert.NotNull(panel);
+        Assert.False(panel!.IsVisible, "同步关闭时海报不渲染设备筛选");
+
+        filters.IsSyncEnabled = true;
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+        Assert.True(panel.IsVisible, "同步开启时海报出现设备筛选");
+        Assert.Same(filters.Device, combo.SelectedItem);
+
+        combo.SelectedItem = deviceB;
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("devB", filters.Device.Id);
 
         dialog.Close();
     }

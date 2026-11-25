@@ -144,6 +144,33 @@ public class SharePosterOptionsTests
         e2.Should().Be(new DateOnly(2026, 10, 2));
     }
 
+    [Fact]
+    public void Poster_supplement_queries_keep_every_dimension_including_device_and_host()
+    {
+        // 小时分布 / 节律矩阵是海报的两张补查图：窗口换成单日后，Agent/模型/项目/设备/宿主
+        // 必须原样照搬——否则选了某台设备，补查图仍会把别的设备算进来（与主快照不同口径）。
+        var filter = new UsageQueryFilter
+        {
+            FromDay = "2026-10-01",
+            ToDay = "2026-10-17",
+            Agent = "Claude Code",
+            Model = "claude-sonnet-5-5",
+            Project = "/repo",
+            Device = "devB",
+            Host = "Cindy",
+        };
+
+        var narrowed = MainWindowViewModel.NarrowPosterFilter(filter, "2026-10-03", "2026-10-03");
+
+        narrowed.FromDay.Should().Be("2026-10-03");
+        narrowed.ToDay.Should().Be("2026-10-03");
+        narrowed.Agent.Should().Be(filter.Agent);
+        narrowed.Model.Should().Be(filter.Model);
+        narrowed.Project.Should().Be(filter.Project);
+        narrowed.Device.Should().Be("devB");
+        narrowed.Host.Should().Be("Cindy");
+    }
+
     /// <summary>三天：首尾有数据、中间补零（补零日不能当范围端点）。</summary>
     private static IReadOnlyList<DailyUsagePoint> Daily() =>
     [
