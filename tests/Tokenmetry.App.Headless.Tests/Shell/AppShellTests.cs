@@ -287,16 +287,24 @@ public class AppShellTests
     }
 
     [AvaloniaFact]
-    public void Topbar_all_six_filter_groups_keep_data_status_inside_window()
+    public async Task Topbar_all_six_filter_groups_keep_data_status_inside_window()
     {
         // 2026-11-25 回归锁：六个筛选组同时在场（时间范围 + 五个下拉；设备下拉随同步开启出现）时，
-        // 下拉宽度收在「四个字」这一档（MinWidth=100，内容驱动约 100~116），右侧数据状态块与
-        // 刷新/设置按钮必须留在窗口内——此前 120~140 的 MinWidth 让顶栏 Auto 列总宽超出 1280，
-        // 状态块被挤出窗口右缘。
+        // 下拉宽度固定（Agent 120 / 其余 108），右侧数据状态块与刷新/设置按钮必须留在窗口内——
+        // 早先只设 MinWidth 时，宽档（120~140）叠加长选项会把顶栏 Auto 列总宽撑过 1280，状态块被挤出。
+        // 同时锁住「宽度不随选中项文本自适应」：选中超长模型名后下拉宽度不变，文本以省略号截断、
+        // 完整值挂在 ToolTip 上。
         var vm = CreateIsolatedShellViewModel();
-        vm.Filters.IsSyncEnabled = true;
+        var filters = vm.Filters;
+        filters.IsSyncEnabled = true;
         var window = new MainWindow { DataContext = vm };
         window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        // 外壳首轮装载会异步回写 Filters.*Options 并重置不在清单中的选中项：等模型清单装载完再注入，
+        // 否则注入的超长模型项会被目录装载冲掉（同 DeviceFilterBarTests 的异步等待套路）。
+        await AppServices.Get<AgentCatalogService>().GetModelOptionsAsync();
+        Dispatcher.UIThread.RunJobs();
         Dispatcher.UIThread.RunJobs();
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
@@ -305,9 +313,28 @@ public class AppShellTests
         var combos = topBar.GetVisualDescendants().OfType<ComboBox>().ToList();
         Assert.Equal(5, combos.Count);
         Assert.All(combos, c => Assert.True(c.IsEffectivelyVisible, "同步开启后设备下拉应可见"));
-        Assert.All(combos, c => Assert.True(
-            c.Bounds.Width <= 124,
-            $"筛选下拉宽 {c.Bounds.Width:0.#} 应为四字档（≤124），否则顶栏又被撑满"));
+        Assert.Equal(120, combos[0].Bounds.Width); // Agent：容得下「所有 Agent」
+        Assert.All(combos.Skip(1), c => Assert.Equal(108, c.Bounds.Width)); // 四字标签
+
+        // 选中超长模型名：宽度不变（不再自适应撑开），文本字符省略，ToolTip 给完整值
+        var longModel = new ModelFilterOption(
+            "joy-maas/deepseek-flash-latest", "joy-maas/deepseek-flash-latest");
+        filters.UpdateModelOptions(new[] { ModelFilterOption.All, longModel });
+        filters.Model = longModel;
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+
+        var modelCombo = combos[1];
+        Assert.Same(longModel, modelCombo.SelectedItem);
+        Assert.Equal(108, modelCombo.Bounds.Width);
+        var modelLabel = modelCombo.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.Text == longModel.Label);
+        Assert.Equal(TextTrimming.CharacterEllipsis, modelLabel.TextTrimming);
+        Assert.Equal(longModel.Label, ToolTip.GetTip(modelLabel));
+        Assert.True(
+            modelLabel.Bounds.Width <= modelCombo.Bounds.Width,
+            $"截断后的标签宽 {modelLabel.Bounds.Width:0.#} 不应超出下拉宽度 {modelCombo.Bounds.Width:0.#}");
 
         foreach (var child in ((Grid)topBar.Child!).Children.Where(c => c.IsVisible))
         {
